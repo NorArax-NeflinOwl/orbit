@@ -1,11 +1,13 @@
 @using Orbit.Core.Advertising
 @using Orbit.Web.Services
 @inject Translations T
+@inject AdAudience Audience
 
-@* The one advert that interrupts. Shown once a visit and only to accounts without the Debugger
-   permission - see MainLayout, which decides that; this only draws it. Everything about it is Orbit's
-   own, like the slots beside the page. *@
-@if (Advert is { } advert)
+@* The one advert that interrupts. When, and how often, is MainLayout's business (see AdInterruption);
+   whether this reader may be shown adverts at all is AdAudience's, asked here too so a dialog opened for
+   somebody who may not see it draws nothing rather than trusting its caller. Everything about it is
+   Orbit's own, like the slots beside the page. *@
+@if (Audience.MayShowAds && Advert is { } advert)
 {
     <Dialog Title="@(T[advert.Title])" OnClosed="OnClosed" AdditionalClass="ad-dialog">
         <ChildContent>

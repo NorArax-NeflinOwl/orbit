@@ -563,6 +563,24 @@
                         }
                     </select>
                 </div>
+                @* Here rather than beside the other switches because only this tab's readers are asked:
+                   an account without Debugger sees adverts whatever this says - see AdAudience. *@
+                <div class="options-row">
+                    <div>
+                        <div class="options-row-title">
+                            @T["Allow ads"]
+                            <FieldHint>
+                                @T["Off by default for an account with Debugger, so the adverts stay out of the way while you work on Orbit. Turn it on to see them the way everybody else does."]
+                                @T["Kept on this device."]
+                            </FieldHint>
+                        </div>
+                    </div>
+                    <button type="button" id="allowAdsSwitch" class="switch @(DevicePreferences.AllowAdsForDebugger ? "on" : "")" role="switch"
+                            aria-checked="@DevicePreferences.AllowAdsForDebugger" aria-label="@(T["Allow ads"])"
+                            @onclick="ToggleAllowAdsAsync">
+                        <span class="switch-knob"></span>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -726,6 +744,8 @@
         => Enum.TryParse<LogLevel>(args.Value?.ToString(), out var level)
             ? DevicePreferences.SetMinimumLogLevelAsync(level)
             : Task.CompletedTask;
+
+    private Task ToggleAllowAdsAsync() => DevicePreferences.SetAllowAdsForDebuggerAsync(!DevicePreferences.AllowAdsForDebugger);
 
     /// <summary>An export of a whole account is not large by file standards, but a hand-made file could be - this is where a nonsense one stops.</summary>
     private const long MaximumImportSizeBytes = 32 * 1024 * 1024;

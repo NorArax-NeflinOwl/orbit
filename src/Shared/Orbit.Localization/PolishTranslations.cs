@@ -916,6 +916,9 @@ public static class PolishTranslations
         ["Release"] = "Release",
         ["Debug"] = "Debug",
         ["Frontend log level"] = "Poziom logowania frontendu",
+        ["Allow ads"] = "Pozwól na reklamy",
+        ["Off by default for an account with Debugger, so the adverts stay out of the way while you work on Orbit. Turn it on to see them the way everybody else does."] =
+            "Domyślnie wyłączone dla konta z debuggerem, żeby reklamy nie przeszkadzały w pracy nad Orbitem. Włącz, aby widzieć je tak jak wszyscy.",
         ["Your data"] = "Twoje dane",
         ["Export everything"] = "Wyeksportuj wszystko",
         ["Task lists"] = "Listy zadań",

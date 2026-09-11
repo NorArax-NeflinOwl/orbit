@@ -153,6 +153,14 @@ of it:
 One smaller thing is owed even without a network: there is **no interrupting advert on the phone** at
 all, only the bar.
 
+**The phone's bar is shown to an account holding Debugger** (noticed 2026-09-11). The browser keeps every
+advert away from such an account until "Allow ads" is switched on under Options → Debug
+(`AdAudience`, `DevicePreferences.AllowAdsForDebugger`); the phone's `AdBanner` draws for everybody, and
+its own Debug tab (`AccountViewModel.IsShowingDebug`) has no such switch. It needs the same rule: a
+Preferences key the Debug tab flips, off by default, and the bar asking one place - the phone's
+permission state and that key together - rather than each screen's banner deciding for itself. Not
+built with the web's, because the phone's switch is a screen of its own and the bar is on every screen.
+
 ~~The Android bar is **not tappable**.~~ Done 2026-09-10, and the reason it was not had stopped being
 true: the app is told the API's address and never the web client's (`OrbitApiSettings`), but the
 *server* tells it the web client's, and has since public share links needed exactly that

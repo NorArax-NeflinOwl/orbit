@@ -48,6 +48,33 @@ public sealed class DevicePreferencesTests
         Assert.False(preferences.AllowGoogleExtras);
     }
 
+    /// <summary>
+    /// The way round the location is: an account holding Debugger is working on Orbit, and the adverts
+    /// stay out of its way until somebody asks for them. See AdAudience.
+    /// </summary>
+    [Fact]
+    public async Task Ads_for_a_Debugger_account_are_off_until_someone_asks_for_them()
+    {
+        var preferences = new DevicePreferences(new RecordingJSRuntime());
+
+        await preferences.InitializeAsync();
+
+        Assert.False(preferences.AllowAdsForDebugger);
+    }
+
+    [Fact]
+    public async Task Ads_for_a_Debugger_account_stay_on_once_they_have_been_allowed()
+    {
+        var jsRuntime = new RecordingJSRuntime();
+        await new DevicePreferences(jsRuntime).SetAllowAdsForDebuggerAsync(true);
+        var preferences = new DevicePreferences(jsRuntime);
+
+        await preferences.InitializeAsync();
+
+        Assert.True(preferences.AllowAdsForDebugger);
+        Assert.Equal("true", jsRuntime.Stored["orbit-allow-ads-for-debugger"]);
+    }
+
     [Fact]
     public async Task The_log_keeps_warnings_and_worse_by_default()
     {

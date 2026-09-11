@@ -23,6 +23,7 @@
 @inject AccentColorService AccentColorService
 @inject DevicePreferences DevicePreferences
 @inject LastAdInterruption LastAdInterruption
+@inject AdAudience AdAudience
 @inject PresenceService Presence
 @inject LiveUpdatesConnection LiveUpdates
 @inject UserPermissionState Permissions
@@ -324,10 +325,9 @@
     }
     </div>
 
-    @* Once a visit, and never for an account holding the Debugger permission: whoever is looking at
-       Orbit's own internals is working on it rather than reading it, and an advert over the top of that
-       is an interruption with nothing to offer. Everybody else sees it once and then not again until
-       they come back - see _hasShownTheInterruption. *@
+    @* At most once every AdInterruption.MinimumGap, and only for a reader AdAudience says may be shown
+       adverts at all - which leaves out an account holding the Debugger permission until it switches
+       "Allow ads" on under Options. See _isAdDialogOpen. *@
     @if (_isAdDialogOpen)
     {
         <AdDialog Slot="_adSlot" OnClosed="CloseTheAdDialog" />
@@ -365,8 +365,8 @@
 
     /// <summary>
     /// The interrupting advert, and when this browser last had it. Paced rather than counted: at most
-    /// once every AdInterruption.MinimumGap, and never at all for an account holding the Debugger
-    /// permission, which is the one that says somebody is working on Orbit rather than using it.
+    /// once every AdInterruption.MinimumGap, and only for a reader who may be shown adverts at all -
+    /// see AdAudience, which leaves an account holding the Debugger permission alone until it asks.
     ///
     /// It used to be a flag saying "this visit has had it", which sounds like the same thing and is
     /// not: a visit ends at the next refresh, so reloading a page was a way of asking for the advert
@@ -394,7 +394,7 @@
         _lastAdInterruptionAtUtc ??= await LastAdInterruption.ReadAsync();
 
         var nowUtc = DateTimeOffset.UtcNow;
-        if (_isAdDialogOpen || !AdInterruption.ShouldShow(Permissions, _lastAdInterruptionAtUtc, nowUtc))
+        if (_isAdDialogOpen || !AdInterruption.ShouldShow(AdAudience, _lastAdInterruptionAtUtc, nowUtc))
         {
             return;
         }

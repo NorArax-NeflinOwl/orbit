@@ -45,7 +45,10 @@ window.OrbitStorageConsent = (function () {
         // Not something anybody arranged, but the same kind of thing: when this browser last had the
         // advert that covers the page, so it can be left alone for a while afterwards. Declining it
         // costs nothing but seeing that advert more often - see AdInterruption.
-        'orbit-last-advert'
+        'orbit-last-advert',
+        // Whether an account holding Debugger is shown adverts on this browser. Declining it leaves the
+        // default, which is none - see AdAudience.
+        'orbit-allow-ads-for-debugger'
     ];
     const preferencePrefixes = ['orbit-panel-', 'orbit-task-list-', 'orbit-map-panel-pin-'];
 

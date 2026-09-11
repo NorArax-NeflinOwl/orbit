@@ -63,6 +63,17 @@ public sealed class DevicePreferences
     /// </summary>
     public LogLevel MinimumLogLevel { get; private set; } = LogLevel.Warning;
 
+    /// <summary>
+    /// Whether an account holding the Debugger permission sees Orbit's adverts on this browser. Off until
+    /// somebody turns it on: whoever holds that permission is working on Orbit rather than reading it, and
+    /// the adverts were getting in the way of exactly that. It is a switch rather than a rule so the
+    /// adverts can still be looked at by the people who make them.
+    ///
+    /// Asked about nobody else - an account without the permission sees adverts whatever this says. See
+    /// AdAudience, which is the one place that combines the two.
+    /// </summary>
+    public bool AllowAdsForDebugger { get; private set; }
+
     public async Task InitializeAsync()
     {
         AllowLocation = await ReadAsync(StorageKeys.AllowLocation) == "true";
@@ -75,6 +86,9 @@ public sealed class DevicePreferences
         MinimumLogLevel = Enum.TryParse<LogLevel>(await ReadAsync(StorageKeys.MinimumLogLevel), out var level)
             ? level
             : LogLevel.Warning;
+        // Only an explicit "true" turns them on, the same way round as the location: a browser that has
+        // never been asked, and one whose storage cannot be read, both mean "nobody asked for them".
+        AllowAdsForDebugger = await ReadAsync(StorageKeys.AllowAdsForDebugger) == "true";
     }
 
     public Task SetAllowLocationAsync(bool allowLocation)
@@ -99,6 +113,12 @@ public sealed class DevicePreferences
     {
         MinimumLogLevel = level;
         return WriteAsync(StorageKeys.MinimumLogLevel, level.ToString());
+    }
+
+    public Task SetAllowAdsForDebuggerAsync(bool allowAds)
+    {
+        AllowAdsForDebugger = allowAds;
+        return WriteAsync(StorageKeys.AllowAdsForDebugger, allowAds ? "true" : "false");
     }
 
     /// <summary>
@@ -140,6 +160,7 @@ public sealed class DevicePreferences
         public const string AllowGoogleExtras = "orbit-allow-google-extras";
         public const string DiagnosticsMode = "orbit-diagnostics-mode";
         public const string MinimumLogLevel = "orbit-minimum-log-level";
+        public const string AllowAdsForDebugger = "orbit-allow-ads-for-debugger";
     }
 }
 

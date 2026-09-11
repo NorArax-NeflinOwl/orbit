@@ -284,10 +284,24 @@ its own consent question, an account somebody has to open and keys to keep; see
 **Every slot says "Ad".** A house advert that read as Orbit talking would be the one kind worth
 objecting to.
 
-**The dialog is the only one that interrupts, and it is not shown to an account holding the Debugger
-permission** (`AdInterruption`). Whoever holds that is looking at Orbit's own internals, which means
-they are working on Orbit rather than reading it. The rail and the bar are shown to everybody and simply
-sit there.
+**The dialog is the only one that interrupts** (`AdInterruption`). The rail and the bar simply sit
+there.
+
+**An account holding the Debugger permission sees no adverts at all until it asks for them** (2026-09-11)
+- not the dialog, and not the rail or the bar either. Whoever holds that permission is looking at
+Orbit's own internals, which means they are working on Orbit rather than reading it, and the slots were
+as much in the way of that as the interruption. Options → Debug carries an **Allow ads** switch, off by
+default and kept on the device (`DevicePreferences.AllowAdsForDebugger`, `orbit-allow-ads-for-debugger`),
+so the people who make the adverts can still see them the way everybody else does. It is per browser
+rather than per account for the same reason the rest of that tab is: it is about what one screen shows
+whoever is at it, and nothing on the server stores a debugging preference to put it beside. An account
+without the permission sees adverts whatever the switch says - it is not a way of opting out of them.
+
+Every surface asks one place whether this reader may be shown adverts - `AdAudience.MayShowAds`, which
+combines the permission and the switch - rather than each working it out: `AdSlot` and `AdDialog` draw
+nothing when it says no, and `AdInterruption` asks it before its own pacing. It announces a change
+(`AdAudience.Changed`), so the slot beside the page takes itself away, or comes back, the moment the switch
+is flipped rather than at the next reload.
 
 **It is paced rather than counted: at most once every `AdInterruption.MinimumGap`, five minutes**
 (2026-09-10). It used to be "once a visit", held in a field on the layout - which sounds like the same
@@ -2963,8 +2977,10 @@ Orbit uses **local storage, never cookies**, so "Manage cookies" manages that. T
 - **Preferences** - theme, accent hue, dashboard pins/hidden cards/filters, checklist views, the
   calendar and task-list and inventory orderings, conversation pins, panel states, and
   `orbit-last-advert` (when the interrupting advert last went up - not something anybody arranged, but
-  the same kind of thing, and declining it costs nothing but seeing that advert more often), and
-  `orbit-map-panel-pin-*` (which of the map panel's lists is kept at the top of it).
+  the same kind of thing, and declining it costs nothing but seeing that advert more often),
+  `orbit-allow-ads-for-debugger` (whether an account holding Debugger is shown adverts here - declining
+  it leaves the default, which is none), and `orbit-map-panel-pin-*` (which of the map panel's lists is
+  kept at the top of it).
 - **Diagnostics** - `orbit.clientLogs` and `orbit-diagnostics-mode`.
 
 The gate is `wwwroot/js/storageConsent.js`, and **where** it sits is the point: it wraps
