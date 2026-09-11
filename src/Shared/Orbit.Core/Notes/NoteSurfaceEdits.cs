@@ -405,23 +405,38 @@ public static partial class NoteSurfaceEdits
     public static SurfaceState? Cycle(SurfaceState state, int pressedLine)
     {
         state = state.Normalized();
-        if (pressedLine < 0 || pressedLine >= state.Lines.Count || !state.Lines[pressedLine].IsChecklistItem)
+        return Cycle(state.Lines, pressedLine, SelectedChecklistLines(state)) is { } lines
+            ? state with { Lines = lines }
+            : null;
+    }
+
+    /// <summary>
+    /// The same press, for boxes chosen some other way than by a selection of text - the phone marks
+    /// them one at a time, and they need not stand next to each other. <paramref name="together"/> are
+    /// the chosen lines: when the pressed line is one of two or more chosen boxes, every chosen box takes
+    /// the pressed box's next answer, and otherwise the pressed box answers alone. Null when the pressed
+    /// line has no box.
+    /// </summary>
+    public static IReadOnlyList<NoteContentLine>? Cycle(
+        IReadOnlyList<NoteContentLine> lines, int pressedLine, IReadOnlyCollection<int> together)
+    {
+        if (pressedLine < 0 || pressedLine >= lines.Count || !lines[pressedLine].IsChecklistItem)
         {
             return null;
         }
 
-        var pressed = state.Lines[pressedLine];
+        var pressed = lines[pressedLine];
         var next = Ticks.Read(pressed.IsChecked, pressed.IsFailed).Next();
-        var selected = SelectedChecklistLines(state);
-        IEnumerable<int> answering = selected.Contains(pressedLine) ? selected : [pressedLine];
+        var chosen = together.Where(index => index >= 0 && index < lines.Count && lines[index].IsChecklistItem).ToList();
+        IEnumerable<int> answering = chosen.Count >= 2 && chosen.Contains(pressedLine) ? chosen : [pressedLine];
 
-        var lines = state.Lines.ToList();
+        var result = lines.ToList();
         foreach (var index in answering)
         {
-            lines[index] = lines[index] with { IsChecked = next.IsCompleted(), IsFailed = next.IsFailed() };
+            result[index] = result[index] with { IsChecked = next.IsCompleted(), IsFailed = next.IsFailed() };
         }
 
-        return state with { Lines = lines };
+        return result;
     }
 
     /// <summary>

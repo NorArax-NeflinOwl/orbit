@@ -25,6 +25,16 @@
             <!-- Why this note cannot be changed, which is the answer to every press that does nothing. -->
             <Label Text="{Binding ReadOnlyReason}" IsVisible="{Binding IsReadOnly}"
                    LineBreakMode="WordWrap" Style="{StaticResource ItemCardFooter}" />
+
+            <!-- While boxes are being chosen to change together: how many are, what a press on one of
+                 them will do, and the way out - see NoteDetailViewModel.IsPickingLines. Over the note
+                 rather than beside the boxes, where it would push the writing about. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding IsPickingLines}">
+                <Label Grid.Column="0" Text="{Binding PickingHint}" LineBreakMode="WordWrap"
+                       Style="{StaticResource ItemCardFooter}" VerticalOptions="Center" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Finish selecting'}"
+                        Command="{Binding StopPickingLinesCommand}" VerticalOptions="Center" />
+            </Grid>
         </VerticalStackLayout>
 
         <!-- Opened from the note's own menu rather than standing at the foot of every note: sharing is
@@ -58,7 +68,7 @@
                 <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Lines}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="screens:NoteLineRow">
-                            <Grid ColumnDefinitions="Auto,*">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
                                 <controls:CheckCircle Grid.Column="0" Diameter="19" Margin="0,9,8,0"
                                                       VerticalOptions="Start" IsVisible="{Binding IsChecklistItem}"
                                                       IsChecked="{Binding IsChecked}"
@@ -96,6 +106,14 @@
                                             CommandParameter="{Binding .}" />
                                     </Label.GestureRecognizers>
                                 </Label>
+
+                                <!-- The mark that chooses a box to change together with the others,
+                                     beside every box while boxes are being chosen and nowhere else. At
+                                     the line's end, away from the box it is about, so choosing a line
+                                     is never mistaken for ticking it. -->
+                                <CheckBox Grid.Column="2" IsChecked="{Binding IsPicked}"
+                                          IsVisible="{Binding ShowsPickMark}" VerticalOptions="Start"
+                                          SemanticProperties.Description="{controls:Translate 'Select this line'}" />
                             </Grid>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>

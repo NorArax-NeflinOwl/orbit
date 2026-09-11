@@ -440,6 +440,16 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 				() => Sharing.IsVisible = !Sharing.IsVisible,
 				Sharing.IsVisible,
 				canBeChosen: !_viewModel.IsPrivate));
+
+			// Several boxes changed with one press - the browser selects them with Shift+click, which a
+			// phone has no way to do. Offered only where there are two boxes to choose from.
+			if (_viewModel.CanPickLines || _viewModel.IsPickingLines)
+			{
+				entries.Add(new ScreenMenuEntry(
+					_translations["Select boxes"],
+					ToggleChoosingBoxes,
+					_viewModel.IsPickingLines));
+			}
 		}
 
 		// Somebody else's note is not this reader's to delete: the same press takes it off their own
@@ -481,6 +491,19 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		// over each half is what tells the reader the two are different questions.
 		groups.Add(new ScreenMenuGroup(_translations["Note"], entries));
 		Menu.ShowGroups(groups);
+	}
+
+	/// <summary>The menu's "Select boxes": starts choosing boxes to change together, or stops.</summary>
+	private void ToggleChoosingBoxes()
+	{
+		if (_viewModel.IsPickingLines)
+		{
+			_viewModel.StopPickingLinesCommand.Execute(null);
+		}
+		else
+		{
+			_viewModel.StartPickingLinesCommand.Execute(null);
+		}
 	}
 
 	/// <summary>Asked first, as every delete in Orbit is - and named, so the question says which note.</summary>

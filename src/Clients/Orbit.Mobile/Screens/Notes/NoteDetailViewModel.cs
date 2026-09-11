@@ -141,6 +141,8 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         Share = share;
         _navigator = navigator;
         _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
+        // A chosen line that goes - joined, undone - is no longer chosen, and the count has to say so.
+        Lines.CollectionChanged += (_, _) => SayWhatIsPicked();
 
         Priorities = Tasks.PriorityChoice.All(translations);
         _chosenPriority = Tasks.PriorityChoice.For(nameof(Orbit.Core.Abstractions.ItemPriority.Normal), translations);
@@ -377,7 +379,8 @@ public sealed partial class NoteDetailViewModel : ObservableObject
 
     /// <summary>
     /// Moves a line to the next of the three answers - nothing, done, given up on - which is the same
-    /// cycle the browser's own box follows. See <see cref="NoteLineRow.Press"/> and TickState.
+    /// cycle the browser's own box follows - Orbit.Core's NoteSurfaceEdits.Cycle, which both clients
+    /// press a box with. See TickState.
     ///
     /// Ticked in place and **not** written down: a tick is a change to the note like any other on this
     /// screen, and the note is written by Save and by nothing else - see <see cref="CloseAsync"/>. It
@@ -392,12 +395,26 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             return;
         }
 
+        // While boxes are being chosen, a press on one of two or more chosen boxes answers for all of
+        // them, each taking the pressed box's next answer - Orbit.Core's rule, the browser's too. Any
+        // other press answers only for its own box.
+        var pressed = Lines.IndexOf(row);
+        IReadOnlyList<int> together = IsPickingLines ? PickedLines() : [];
+
         // A step of its own in the history, and one that does not move the caret: pressing a box is not
         // writing, so undoing it leaves the caret where the reader has it.
         var caret = _history.Current.Caret;
         Edit(SurfaceEditKind.Ticking, caret, () =>
         {
-            row.Press();
+            if (NoteSurfaceEdits.Cycle([.. Lines.Select(line => line.ToLine())], pressed, together) is { } ticked)
+            {
+                for (var index = 0; index < ticked.Count; index++)
+                {
+                    Lines[index].IsChecked = ticked[index].IsChecked;
+                    Lines[index].IsFailed = ticked[index].IsFailed;
+                }
+            }
+
             return caret;
         });
     }
@@ -636,10 +653,20 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     /// is now carried by the line itself - see NoteContentLineDto, which is the same shape Orbit.Web's
     /// editor writes and reads.
     /// </summary>
-    private void Watch(NoteLineRow row) => row.PropertyChanged += WhenALineChanges;
+    private void Watch(NoteLineRow row)
+    {
+        // A line that arrives while boxes are being chosen can be chosen too, once it has a box.
+        row.OffersPicking = IsPickingLines;
+        row.PropertyChanged += WhenALineChanges;
+    }
 
     private void WhenALineChanges(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
+        if (args.PropertyName is nameof(NoteLineRow.IsPicked) or nameof(NoteLineRow.IsChecklistItem))
+        {
+            SayWhatIsPicked();
+        }
+
         if (_applying > 0
             || args.PropertyName != nameof(NoteLineRow.Text)
             || sender is not NoteLineRow row
@@ -1126,12 +1153,76 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         RedoCommand.NotifyCanExecuteChanged();
     }
 
+    /// <summary>
+    /// Whether boxes are being chosen to change together with one press. The browser chooses them with
+    /// Shift+click, which a phone has no way to do, so here "Select boxes" in the note's menu turns this
+    /// on: a mark stands beside every box (NoteLineRow.ShowsPickMark), and a press on one of two or more
+    /// chosen boxes gives every chosen box that box's next answer - see ToggleChecked. The chosen boxes
+    /// stay chosen after a press, as the browser's selection does, so a second press carries on with them.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isPickingLines;
+
+    /// <summary>Whether there is anything to choose: two boxes, on a note that can be changed.</summary>
+    public bool CanPickLines => CanEdit && Lines.Count(line => line.IsChecklistItem) >= 2;
+
+    /// <summary>
+    /// The line over the note while boxes are being chosen: how many are, and what a press on one of them
+    /// does - the phone's counterpart of the bubble over the browser's tools.
+    /// </summary>
+    public string PickingHint
+        => PickedLines() is { Count: >= 2 } picked
+            ? _translations.Format("{0} selected - pressing one of their boxes sets them all.", picked.Count)
+            : _translations["Select the boxes to change together, then press one of them."];
+
+    [RelayCommand(CanExecute = nameof(CanPickLines))]
+    private void StartPickingLines() => IsPickingLines = true;
+
+    /// <summary>Stops choosing and lets every chosen box go.</summary>
+    [RelayCommand]
+    private void StopPickingLines() => IsPickingLines = false;
+
+    /// <summary>The chosen boxes, as their places among the lines.</summary>
+    private IReadOnlyList<int> PickedLines()
+        => [.. Lines.Select((line, index) => (line, index))
+            .Where(candidate => candidate.line is { IsPicked: true, IsChecklistItem: true })
+            .Select(candidate => candidate.index)];
+
+    partial void OnIsPickingLinesChanged(bool value)
+    {
+        foreach (var line in Lines)
+        {
+            line.OffersPicking = value;
+            if (!value)
+            {
+                line.IsPicked = false;
+            }
+        }
+
+        SayWhatIsPicked();
+    }
+
+    private void SayWhatIsPicked()
+    {
+        OnPropertyChanged(nameof(PickingHint));
+        OnPropertyChanged(nameof(CanPickLines));
+        StartPickingLinesCommand.NotifyCanExecuteChanged();
+    }
+
     partial void OnIsReadOnlyChanged(bool value)
     {
         OnPropertyChanged(nameof(CanEdit));
         // The tags box answers to the same rule as every other field here.
         Tags.IsReadOnly = value;
         SayWhatCanBeUndone();
+
+        // Nothing to change together on a note that cannot be changed.
+        if (value)
+        {
+            IsPickingLines = false;
+        }
+
+        SayWhatIsPicked();
     }
 
     /// <summary>

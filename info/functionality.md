@@ -956,6 +956,15 @@ from `Orbit.Core/Notes` - the note is handed to them as a `SurfaceState` whose l
   character arriving at once is what marks a single-line paste - a keyboard types one at a time - so
   `- ` typed key by key stays words, as in the browser; typing `[]`/`[ ]` after a line's indentation
   still makes a box (`TypedMarkerLength`, the browser's rule). A paste is one undo step.
+- **Several boxes answer one press** (`IsPickingLines`, and Orbit.Core's list-based
+  `NoteSurfaceEdits.Cycle`, which the browser's selection-based one now goes through). A phone has no
+  Shift+click, so "Select boxes" in the note's menu - offered where there are two boxes - puts a mark
+  beside every box (`NoteLineRow.ShowsPickMark`, a `CheckBox` at the line's end, away from the box it is
+  about) and a line over the note saying how many are chosen and what a press does (`PickingHint`), with
+  "Finish selecting" beside it. A press on one of two or more chosen boxes gives every chosen box the
+  pressed box's next answer, as in the browser; they need not be next to each other. A press on a box
+  that is not chosen, or with one chosen, is a single press. The chosen boxes stay chosen after a press;
+  finishing lets them go. One undo step; the choosing itself is not in the history or the note.
 
 ### Sharing notes and task lists
 

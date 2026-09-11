@@ -1071,6 +1071,13 @@ public static class PolishTranslations
         // The phone's note screen has no Ctrl+Z, so undo and redo are two buttons beside its tick box.
         ["Undo"] = "Cofnij",
         ["Redo"] = "Ponów",
+        // Several boxes chosen on the phone's note screen, where there is no Shift+click: an entry in the
+        // note's menu, a mark beside each box, and a line over the note saying what a press will do.
+        ["Select boxes"] = "Zaznacz pola",
+        ["Select this line"] = "Zaznacz tę linię",
+        ["Select the boxes to change together, then press one of them."] = "Zaznacz pola, które mają zmienić się razem, a potem naciśnij jedno z nich.",
+        ["{0} selected - pressing one of their boxes sets them all."] = "Zaznaczone: {0} - naciśnięcie jednego z tych pól ustawia wszystkie.",
+        ["Finish selecting"] = "Zakończ zaznaczanie",
         ["This note was shared by"] = "Tę notatkę udostępnił",
         ["Add item"] = "Dodaj pozycję",
         ["Item description"] = "Opis pozycji",

@@ -77,14 +77,6 @@ public sealed partial class NoteLineRow : ObservableObject
     /// <summary>What the box says, as the three answers there are - see TickState.</summary>
     public TickState Tick => Ticks.Read(IsChecked, IsFailed);
 
-    /// <summary>What one press makes of it: nothing, done, given up on, nothing again.</summary>
-    public void Press()
-    {
-        var next = Tick.Next();
-        IsChecked = next.IsCompleted();
-        IsFailed = next.IsFailed();
-    }
-
     /// <summary>What the tick box shows: empty, ticked, or nothing at all for prose.</summary>
     public string CompletionMark => !IsChecklistItem ? string.Empty : IsChecked ? "☑" : "☐";
 
@@ -124,6 +116,26 @@ public sealed partial class NoteLineRow : ObservableObject
 
     partial void OnIsBeingWrittenInChanged(bool value) => SayHowItIsDrawn();
 
+    /// <summary>
+    /// Chosen to change together with the other chosen boxes - see NoteDetailViewModel.IsPickingLines.
+    /// A fact about the screen, not the note: it is never saved, and an undo does not bring it back.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isPicked;
+
+    /// <summary>
+    /// Whether the note is choosing boxes to change together, which puts a mark to choose one with beside
+    /// every box. Set on every line by the view model, so a line that gains a box while it is choosing
+    /// shows the mark at once.
+    /// </summary>
+    [ObservableProperty]
+    private bool _offersPicking;
+
+    /// <summary>The mark that chooses this line, shown only on a line with a box while boxes are being chosen.</summary>
+    public bool ShowsPickMark => OffersPicking && IsChecklistItem;
+
+    partial void OnOffersPickingChanged(bool value) => OnPropertyChanged(nameof(ShowsPickMark));
+
     private void SayHowItIsDrawn()
     {
         OnPropertyChanged(nameof(CompletionMark));
@@ -131,5 +143,6 @@ public sealed partial class NoteLineRow : ObservableObject
         OnPropertyChanged(nameof(IsOpenForWriting));
         OnPropertyChanged(nameof(IsStruckThrough));
         OnPropertyChanged(nameof(Tick));
+        OnPropertyChanged(nameof(ShowsPickMark));
     }
 }
