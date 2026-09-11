@@ -32,6 +32,7 @@
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
+@inject NavigationTrail NavigationTrail
 @inject ILogger<TaskEditor> Logger
 @inject Translations T
 @inject ChosenPlace ChosenPlace
@@ -2382,7 +2383,9 @@ else
             _isSaving = false;
         }
 
-        NavigationManager.NavigateTo(WhenFinished);
+        // Without this form left behind it: Back after saving a new list would open the form again, one
+        // press from saving it twice. See NavigationTrail.
+        await NavigationTrail.FinishAsync(WhenFinished);
     }
 
     private async Task CancelAsync()
@@ -2393,7 +2396,7 @@ else
             await ReleaseLockAsync(taskListId);
         }
 
-        NavigationManager.NavigateTo(WhenFinished);
+        await NavigationTrail.FinishAsync(WhenFinished);
     }
 
     /// <summary>Whether the delete is in flight, so the menu entry cannot be pressed a second time.</summary>
@@ -2434,7 +2437,9 @@ else
         }
 
         await ReleaseLockAsync(taskListId);
-        NavigationManager.NavigateTo(WhenFinished);
+        // Where the form was opened from - unless that was one of this list's own pages, which have
+        // nothing left to show: then the page of lists, with them taken out of the history too.
+        await NavigationTrail.FinishAfterDeletingAsync($"/tasks/{taskListId}", WhenFinished, "/tasks");
     }
 
     /// <summary>Mirrors NoteEditor's method of the same name - see its comment.</summary>

@@ -105,27 +105,29 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
         cut.Find(".editor-rail .overflow-menu-trigger").Click();
         cut.FindAll(".editor-rail button").First(button => button.GetAttribute("aria-label") == "Edit").Click();
 
-        Assert.EndsWith($"/tasks/{TaskListId}/items/{ItemId}/edit", navigationManager.Uri);
+        Assert.EndsWith($"/tasks/{TaskListId}/items/{ItemId}/edit", new Uri(navigationManager.Uri).AbsolutePath);
     }
 
     /// <summary>
-    /// And it carries where the reader came from with it, so the edit ends back there. This page is the
-    /// middle hop of the case that was reported: an appointment pressed on the calendar opens as its
-    /// entry here, and saving from the form beyond used to land on /tasks. See ReturnTo.
+    /// And it tells the form to come back to this entry - its own address, returnTo and all - so the edit
+    /// ends on the entry it changed, and this page's Back still reaches the calendar it was opened from.
+    /// It used to hand the form the calendar directly, which skipped the entry altogether. See ReturnTo.
     /// </summary>
     [Fact]
-    public void Edit_carries_the_page_the_reader_came_from()
+    public void Edit_is_told_to_come_back_to_this_entry()
     {
         RegisterClients(Item("Dentist", DateTimeOffset.UtcNow.AddDays(1), location: "Przychodnia"));
         var navigationManager = Services.GetRequiredService<NavigationManager>();
-        navigationManager.NavigateTo(navigationManager.GetUriWithQueryParameter(ReturnTo.QueryName, "/calendar"));
+        var here = $"/tasks/{TaskListId}/items/{ItemId}?{ReturnTo.QueryName}=%2Fcalendar";
+        navigationManager.NavigateTo(here);
         var cut = Render();
 
         cut.Find(".editor-rail .overflow-menu-trigger").Click();
         cut.FindAll(".editor-rail button").First(button => button.GetAttribute("aria-label") == "Edit").Click();
 
-        Assert.EndsWith(
-            $"/tasks/{TaskListId}/items/{ItemId}/edit?{ReturnTo.QueryName}=%2Fcalendar", navigationManager.Uri);
+        Assert.Equal(
+            ReturnTo.Link($"/tasks/{TaskListId}/items/{ItemId}/edit", here),
+            "/" + navigationManager.ToBaseRelativePath(navigationManager.Uri));
     }
 
     /// <summary>The one press that leaves without opening a menu goes back to the list it is on.</summary>

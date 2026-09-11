@@ -128,12 +128,13 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         var taskList = TaskList("Errands", Item("Buy milk"));
         RegisterTasksApiClient([taskList]);
         var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo($"/tasks/{taskList.Id}");
         var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
 
         cut.Find(".check-row-text").Click();
 
-        // With where to come back to: it travels through that page onto the form beyond it, so an edit
-        // begun here still ends here - see ReturnTo.
+        // Told to come back to this list - its own address - so the entry's Back returns here, and an
+        // edit begun on the entry ends on the entry. See ReturnTo.
         Assert.EndsWith(
             $"/tasks/{taskList.Id}/items/{taskList.Items[0].Id}"
                 + $"?{ReturnTo.QueryName}={Uri.EscapeDataString($"/tasks/{taskList.Id}")}",

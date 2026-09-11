@@ -14,6 +14,7 @@
 @inject UsersApiClient UsersApiClient
 @inject GeocodingApiClient GeocodingApiClient
 @inject NavigationManager NavigationManager
+@inject NavigationTrail NavigationTrail
 @inject IJSRuntime JSRuntime
 @inject ILogger<TaskItemSummary> Logger
 @inject Translations T
@@ -132,7 +133,7 @@ else
    the list's, opened on this one entry. *@
 @* Edit is a button of its own on the panel - see EditorRail.OnEdit - and only once there is an entry
    for it to open. The menu keeps the two places this screen leads to. *@
-<EditorRail OnCancel="GoToTaskList" OnEdit="@(_item is null ? default : EventCallback.Factory.Create(this, GoToEditor))">
+<EditorRail OnCancel="LeaveAsync" OnEdit="@(_item is null ? default : EventCallback.Factory.Create(this, GoToEditor))">
     <OverflowMenu>
         <button type="button" class="avatar-dropdown-item" @onclick="GoToTaskList">@T["Show Tasks"]</button>
         <button type="button" class="avatar-dropdown-item" @onclick="GoToCalendar">@T["Back to Calendar"]</button>
@@ -145,8 +146,9 @@ else
 
     /// <summary>
     /// The page that sent the reader here - the calendar, usually, since an appointment a task list
-    /// made opens as its entry rather than as the event. Carried on to the editor so finishing the edit
-    /// returns them to it and not to /tasks, two sections from where they started. See ReturnTo.
+    /// made opens as its entry rather than as the event - which is where this page's Back returns, and
+    /// not /tasks, two sections from where they started. The form is not handed it: the form ends back
+    /// on this page, whose own address carries this. See ReturnTo, and NoteSummary.
     /// </summary>
     [Parameter, SupplyParameterFromQuery(Name = ReturnTo.QueryName)]
     public string? ComeBackTo { get; set; }
@@ -467,12 +469,19 @@ else
     private void GoToTaskList() => NavigationManager.NavigateTo($"/tasks/{TaskListId}");
 
     /// <summary>
+    /// Back: where this page was opened from, or the list the entry is on when nobody said - without
+    /// leaving this page behind in the history. See NavigationTrail.
+    /// </summary>
+    private Task LeaveAsync() => NavigationTrail.FinishAsync(ReturnTo.Or(ComeBackTo, $"/tasks/{TaskListId}"));
+
+    /// <summary>
     /// The form for this one entry, which is the list's form opened on it - see TaskEditor's item
-    /// parameter. An entry has no editor of its own yet.
+    /// parameter. An entry has no editor of its own yet. Told to come back to this page, so the edit
+    /// ends on the entry it changed - see NoteSummary.GoToEditor.
     /// </summary>
     private void GoToEditor()
         => NavigationManager.NavigateTo(
-            ReturnTo.Link($"/tasks/{TaskListId}/items/{ItemId}/edit", ComeBackTo));
+            ReturnTo.Link($"/tasks/{TaskListId}/items/{ItemId}/edit", NavigationTrail.Here));
 
     private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
 

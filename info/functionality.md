@@ -2326,11 +2326,28 @@ without knowing it was there.
 land on the section the thing belongs to - `/tasks`, `/notes`, `/calendar`, `/inventory` - whatever route
 reached the form, so an appointment opened from the calendar ended its edit two sections from where it
 started. The page that sends somebody in now says where it is, as a `returnTo` on the address
-(`ReturnTo`), and it is carried the whole way: the calendar and the dashboard name themselves, and the
-pages between - a task entry's own page, a checklist, a note's or a storage's summary - pass on what they
-were given rather than replacing it with themselves, because they are stops on the way. **All four forms
-read it**: task list, note, calendar event and storage. A form reached without one - somebody typing the
-address - still ends on its own section, which is what every route did before.
+(`ReturnTo`): the calendar and the dashboard name themselves, and so does every page that reads one
+thing - a note's, an appointment's, a storage's, a checklist, a task entry's own page. A form opened from
+one of those ends back on it, showing what was saved, and that page's own Back still returns wherever
+*it* was opened from, because its address carries its own `returnTo` (`NavigationTrail.Here`). They used
+to pass on what they had been given instead, so saving a note opened from the dashboard skipped the note
+and landed on the dashboard. **All four forms read it**: task list, note, calendar event and storage. A
+form reached without one - somebody typing the address - still ends on its own section, which is what
+every route did before.
+
+**Finishing does not leave the screen in the history.** Save, Back and Delete - on a form and on a page
+that reads one thing - go through `NavigationTrail`: when where they end is the entry right before this
+one in the browser's history, they step back onto it (`history.go`), and otherwise they replace the page.
+The browser's Back afterwards therefore never reopens a form that was just finished - which, for a new
+note, used to be one press from saving it twice. The same page with more on its address counts as the
+entry behind, so leaving an appointment for "/calendar" steps back onto the day the calendar was showing.
+The trail is only what the app has seen itself (`InAppHistory`), and the browser does not say whether a
+move was Back, so arriving at the previous entry is *read* as Back. That guess can only make the trail
+believe there is less history than there is, which turns a step back into a replacement and never into
+leaving Orbit; a page reached by its address or a reload has nothing of Orbit's behind it and is replaced.
+**Deleting takes the deleted thing's pages with it**: a summary under the form opened from it would now
+say "no longer exists", so every such entry on top of the history is left too, and the delete ends on the
+thing's section (`/notes`, `/calendar`, `/inventory`, `/tasks`) rather than on a page of what is gone.
 
 **Only a path on this site is ever followed.** The value comes off the address bar, so it is whatever
 anybody put there: an absolute URL, a protocol-relative `//host`, or anything holding a backslash (which

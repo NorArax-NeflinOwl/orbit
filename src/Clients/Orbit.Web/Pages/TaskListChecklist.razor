@@ -16,6 +16,7 @@
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
 @inject NavigationManager NavigationManager
+@inject NavigationTrail NavigationTrail
 @inject GoogleIntegrationAccess GoogleIntegrationAccess
 @inject ChecklistViewPreference ChecklistViewPreference
 @inject InventoryApiClient InventoryApiClient
@@ -321,7 +322,7 @@ else
 @* Everything this screen offers that is not "tick something off" - one menu rather than a row of
    buttons, because none of it is what somebody came here to do. It stays open while they set how the
    page reads, and the entries that act close it. *@
-<EditorRail OnCancel="GoToTaskLists" OnEdit="GoToDeepEditor">
+<EditorRail OnCancel="LeaveAsync" OnEdit="GoToDeepEditor">
     <OverflowMenu @ref="_menu" StaysOpen="true">
         <span class="overflow-menu-heading">@T["Sort"]</span>
         @* What order to read the items in. Offered whatever the list looks like: a single long
@@ -405,20 +406,13 @@ else
     public Guid? Highlight { get; set; }
 
     /// <summary>
-    /// The page that sent the reader here, passed on to the form beyond rather than replaced with this
-    /// one: somebody who reached a list from the calendar means the calendar when they say "back", and
-    /// this page is a stop on the way. A list opened from anywhere that said nothing names itself, so
-    /// the form still ends on the list it was opened from. See ReturnTo.
+    /// The page that sent the reader here, which is where this page's Back returns: somebody who reached
+    /// a list from the calendar means the calendar when they say "back". What this page opens - an
+    /// entry, the form - is told to come back here instead, and this page still knows the way on because
+    /// its own address carries this. See ReturnTo, and NoteSummary, which does the same.
     /// </summary>
     [Parameter, SupplyParameterFromQuery(Name = ReturnTo.QueryName)]
     public string? ComeBackTo { get; set; }
-
-    /// <summary>
-    /// Where the form opened from here should end - what this page was given, or this page. An entry's
-    /// form is reached through the entry's own page now (see GoToEntry), so this is handed to that page
-    /// and passed on from there rather than going straight onto the form's address.
-    /// </summary>
-    private string WhereTheFormShouldEnd => ReturnTo.Or(ComeBackTo, $"/tasks/{Id}");
 
     private bool _isLoading = true;
     private string? _errorMessage;
@@ -749,12 +743,13 @@ else
     /// which leads to exactly the address this used to jump to. Nothing is lost by the extra rung:
     /// the box that ticks the entry off is on this row, beside the words.
     ///
-    /// Where the form opened beyond it should end travels along, so a checklist reached from the
-    /// calendar still sends an edit back to the calendar rather than to /tasks.
+    /// The entry's page is told to come back here - this list, returnTo and all - so its Back returns
+    /// to the list it was opened from, and the list still knows the way on to the calendar or wherever
+    /// it was reached from.
     /// </summary>
     private void GoToEntry(Guid taskListId, Guid itemId)
         => NavigationManager.NavigateTo(
-            ReturnTo.Link($"/tasks/{taskListId}/items/{itemId}", WhereTheFormShouldEnd));
+            ReturnTo.Link($"/tasks/{taskListId}/items/{itemId}", NavigationTrail.Here));
 
     /// <summary>Whether this entry is ordinary work rather than an appointment or a restock errand.</summary>
     private static bool IsAChecklistEntry(TaskItemDto item)
@@ -893,10 +888,16 @@ else
     private void GoToDeepEditor()
     {
         _menu?.Close();
-        NavigationManager.NavigateTo(ReturnTo.Link($"/tasks/{Id}/edit", WhereTheFormShouldEnd));
+        NavigationManager.NavigateTo(ReturnTo.Link($"/tasks/{Id}/edit", NavigationTrail.Here));
     }
 
     private void GoToTaskLists() => NavigationManager.NavigateTo("/tasks");
+
+    /// <summary>
+    /// Back: where this list was opened from, or the page of lists when nobody said - without leaving
+    /// this page behind in the history. See NavigationTrail.
+    /// </summary>
+    private Task LeaveAsync() => NavigationTrail.FinishAsync(ReturnTo.Or(ComeBackTo, "/tasks"));
 
     /// <summary>
     /// Asks, deletes, and leaves - there is nothing left on this page to look at afterwards. The
@@ -921,7 +922,8 @@ else
             _isDeleting = false;
         }
 
-        GoToTaskLists();
+        // To the page of lists, with nothing of this one left behind to open on "no longer exists".
+        await NavigationTrail.FinishAfterDeletingAsync($"/tasks/{Id}", "/tasks", "/tasks");
     }
 
     /// <summary>One list rendered in this view - the list being viewed, or one of a group list's members.</summary>
