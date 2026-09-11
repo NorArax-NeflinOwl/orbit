@@ -625,7 +625,8 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   second step after "Leave group" when `GroupMemberRow.IsSelf` is the only admin - then a rebuilt APK,
   since the phone updates on its own schedule.
 
-- **The phone's group detail screen leaves through the wrong route.** `GroupDetailViewModel.RemoveAsync`
+- ~~**The phone's group detail screen leaves through the wrong route.**~~ Fixed 2026-09-11: the self row
+  now calls `ChatClient.LeaveGroupAsync` (needs the rebuilt APK). As noticed: `GroupDetailViewModel.RemoveAsync`
   leaves by removing itself (`DELETE .../members/{ownId}`, `RemoveChatGroupMemberCommandHandler`), which
   takes the account out but leaves its copies of the group's messages in `OP_CHATS` for nobody
   to read - the leave route (`LeaveChatGroupCommandHandler`, which the phone's group list and both web
@@ -686,7 +687,9 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   2026-09-11 - it deletes on the platform prompt alone. Also the phone's own to build: a field bound in
   `AccountViewModel` beside `RequiresPasswordToDelete`, checked against the account it loaded.
 
-- **Account deletion leaves the account's own rows keyed on anything but `UserId`.** The sweep test
+- ~~**Account deletion leaves the account's own rows keyed on anything but `UserId`.**~~ Fixed 2026-09-11:
+  `AccountDeletionRepository.DeleteWhatTheAccountHandedOutAsync`, and the sweep test now finds entities by
+  `OwnerUserId` and `SharerUserId` as well. As noticed: the sweep test
   finds entities by a property called `UserId` (`AccountDeletionSweepTests.Every_entity_owning_a_user_is_covered_by_this_test`),
   and `AccountDeletionRepository` deletes by it. Rows the account owns under another name stay: the
   shares it granted (`OP_*_SHARED.*_OWNERUSERID`), its contact list (`OL_CONTACTS` owner), its public
@@ -696,7 +699,8 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   deletion - nothing in the schema has a foreign key to `OS_USERS` - so this is tidiness and privacy, not
   a failure.
 
-- **A heartbeat that races an account deletion answers 500.** `PresenceHeartbeatCommandHandler` reads
+- ~~**A heartbeat that races an account deletion answers 500.**~~ Fixed 2026-09-11 with
+  `IUserRepository.TryUpdateAsync`. As noticed: `PresenceHeartbeatCommandHandler` reads
   the user, then saves it with `UserRepository.UpdateAsync`; if the deletion commits between the two,
   the update affects no row and EF throws. The account is gone either way and the browser signs out
   right after, so all it costs is an error in the log - but an update of a row that may have gone should
@@ -710,13 +714,15 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   answer to whether a guest added from the panel is saved on the spot or waits for Save; neither was
   obviously right, so the guests stayed where they are.
 
-- **Moving between notes in the editor's column carries the first note's way back.** Opening another note
+- ~~**Moving between notes in the editor's column carries the first note's way back.**~~ Fixed 2026-09-11
+  with `ReturnTo.PastThePageOf`. As noticed: opening another note
   from the column replaces the form (`NavigationTrail`) and keeps the returnTo the first one was opened
   with. When that was the first note's own page, finishing the second note ends on the first note's
   page. What it would take: when `ComeBackTo` names the page of the note being left, hand the next form
   that page's own returnTo instead - it is on the address being replaced, so nothing has to be remembered.
 
-- **A task entry opened from the page of lists names no way back.** `Tasks.razor` opens an entry's page
+- ~~**A task entry opened from the page of lists names no way back.**~~ Fixed 2026-09-11: the entry and
+  the checklist are both opened naming `/tasks`. As noticed: `Tasks.razor` opened an entry's page
   as `/tasks/{list}/items/{item}` with no returnTo, so the entry's Back falls back to its list and
   replaces the entry's page with the checklist, rather than stepping back to `/tasks`. Naming itself -
   `ReturnTo.Link(..., "/tasks")`, as every other page that opens something now does - would make it step
@@ -756,7 +762,7 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   linked. What it would take: calling the placement from the link handler, and settling the restock list
   after it, the way the list's save does.
 
-- **Orbit.Web still writes a new product onto the shelf itself** (`TaskEditor.SaveTheShelfAsync`, the
+- ~~**Orbit.Web still writes a new product onto the shelf itself**~~ Removed 2026-09-11. As noticed: (`TaskEditor.SaveTheShelfAsync`, the
   `ShelfPicker.NewProductsIn` branch). Since 2026-09-11 the server has placed it before this runs, so the
   fresh shelf read finds it and the branch does nothing; a save the server declines is one the
   inventory request is refused for too. The branch can go.
