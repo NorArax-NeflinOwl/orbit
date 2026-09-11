@@ -664,6 +664,15 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **Opening a conversation on the web still clears its bell entries before anything is seen.** Since
+  2026-09-11 the conversation page itself clears them only once the other person's newest message is in
+  view, in a focused window (`ChatReadState.HasSeenTheirNewest`). `MainLayout` also settles every
+  notification pointing at the page it navigates to, whatever that page is (`NewsSettler.SettleAsync(path)`
+  on each location change). So arriving at `/chat/{userId}` clears the entries at once - behind a
+  window without focus, or with the newest message below the list. What it would take: letting a page
+  opt out of the layout's settle for its own address (the chat pages settle on their own terms), and
+  checking the other callers of `NewsSettler` still clear what they should.
+
 - **The phone's note screen has no way to indent.** The browser's Tab and Shift+Tab (2026-09-11) have no
   phone counterpart: a soft keyboard has no Tab key, and a hardware keyboard's Tab moves the focus on.
   Indentation typed as spaces, or written by the browser as tabs, is shown and carried on by Enter, but
