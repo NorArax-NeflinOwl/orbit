@@ -283,7 +283,11 @@ rather than a bubble over the page — a phone has no room for a layer, and text
 belongs needs no arrow pointing at what it is about. Tapping again folds it back. The control carries the
 field's name as well as the sentence, which is what lets the two lay out as one thing; `IsHeading` picks
 between a section's heading and a field's label, `LabelStyle` covers a heading a screen draws for itself,
-and `Warns` draws the same "!" the browser does.
+and `Warns` draws the same "!" the browser does. Two lines under a place field became that "!" on
+2026-09-11, shown when they were before: "Location" on a place carries it while the place has no point
+(`PlaceDetailPage`, `NeedsAPoint`), and on an appointment while it can be edited
+(`CalendarEventDetailPage`, `CanEdit`) - the plain name stands in otherwise. The appointment's sentence
+is the browser's own key now ("the pin keeps its exact position"), where the phone had worded it apart.
 
 **The phone folds its page descriptions too** (since 2026-09-11). Most screens have no heading of their
 own - the name is in the top bar - so a screen hands its sentence to the bar (`NavigationBar.Description`),

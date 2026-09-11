@@ -663,8 +663,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   what was left in view is in `info/functionality.md`, "What a field is for"; `FoldedDescriptionTests`
   pins where each sentence lives now. The account screen was a separate pass.
 
-- **Two sentences under a place field are a "!" on the web and still a line on the phone.** Noticed
-  while folding the page descriptions: "Pick it on the map - a place with no point cannot be drawn on
+- ~~**Two sentences under a place field are a "!" on the web and still a line on the phone.**~~ Fixed
+  2026-09-11: each is a `FieldHint Warns="True"` labelled "Location", shown under the same condition, with
+  the plain label standing in otherwise; the calendar one uses the web's key, and the phone's own wording
+  left the Polish dictionary with it (needs the rebuilt APK). As noticed while folding the page descriptions: "Pick it on the map - a place with no point cannot be drawn on
   one." (`PlaceDetailPage.xaml`, shown while `NeedsAPoint`) and "The name is yours to write - the point
   is kept either way." (`CalendarEventDetailPage.xaml`) are `FieldHint Warns="true"` on the browser
   (`PlaceForm.razor`, `EventFields.razor`). They are under a field rather than under a title, which is why
