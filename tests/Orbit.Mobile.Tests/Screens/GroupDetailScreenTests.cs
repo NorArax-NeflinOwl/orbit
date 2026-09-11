@@ -116,9 +116,27 @@ public sealed class GroupDetailScreenTests
         await screen.PromoteCommand.ExecuteAsync(screen.Members.Single(member => member.DisplayName == "Celina"));
         Assert.True(screen.Members.Single(member => member.DisplayName == "Celina").IsAdmin);
 
-        // Leaving is removing yourself, which only works once somebody else can run the group.
+        // Leaving is removing yourself - here with somebody already promoted to run the group after.
         await screen.RemoveCommand.ExecuteAsync(screen.Members.Single(member => member.IsSelf));
         Assert.Equal("ShowGroups", context.Navigator.LastDestination);
+    }
+
+    /// <summary>
+    /// The only admin can leave straight away, without promoting anybody first - installed phones have
+    /// no "who takes over" step, so the server hands the group to its longest-standing member. This
+    /// used to come back as a refusal, which left the one person with the most say unable to get out.
+    /// </summary>
+    [Fact]
+    public async Task The_only_admin_can_leave_without_promoting_anybody_first()
+    {
+        using var context = new GroupContext();
+        var celina = context.AddContact("Celina");
+        var screen = await context.OpenGroupAsync("Trip", withMembers: [celina]);
+
+        await screen.RemoveCommand.ExecuteAsync(screen.Members.Single(member => member.IsSelf));
+
+        Assert.Equal("ShowGroups", context.Navigator.LastDestination);
+        Assert.Equal("Admin", context.Server.Groups.Single().Members.Single().Role);
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Chat;
 using Orbit.Core.Chat.ClearConversationHistory;
 using Orbit.Core.Chat.GetConversation;
@@ -137,13 +138,112 @@ public sealed class ClearingAndLeavingTests
         Assert.False(left);
     }
 
+    /// <summary>
+    /// The case that used to be refused outright: the only admin, with other people still in the group.
+    /// They get out, and the group is not left with nobody able to manage it.
+    /// </summary>
+    [Fact]
+    public async Task The_only_admin_can_leave_and_somebody_takes_over()
+    {
+        var groups = new InMemoryChatGroupRepository();
+        var group = ChatGroup.Create(_reader, "Weekend trip");
+        group.AddMember(_reader, _otherParty);
+        await groups.AddAsync(group, CancellationToken.None);
+
+        var left = await Leave(groups, new InMemoryChatMessageRepository()).HandleAsync(
+            new LeaveChatGroupCommand(_reader, group.Id), CancellationToken.None);
+
+        Assert.True(left);
+        var stored = await groups.GetByIdAsync(group.Id, CancellationToken.None);
+        Assert.False(stored!.IsMember(_reader));
+        Assert.True(stored.IsAdmin(_otherParty));
+    }
+
+    /// <summary>
+    /// Whoever took over has to hear about it straight away - their screen is the one that now offers
+    /// an admin's controls, and it only redraws when told.
+    /// </summary>
+    [Fact]
+    public async Task The_new_admin_is_told_along_with_the_leaver()
+    {
+        var groups = new InMemoryChatGroupRepository();
+        var group = ChatGroup.Create(_reader, "Weekend trip");
+        group.AddMember(_reader, _otherParty);
+        await groups.AddAsync(group, CancellationToken.None);
+        var liveUpdates = new RecordingLiveUpdatePublisher();
+
+        await Leave(groups, new InMemoryChatMessageRepository(), liveUpdates).HandleAsync(
+            new LeaveChatGroupCommand(_reader, group.Id), CancellationToken.None);
+
+        Assert.Contains(_otherParty, liveUpdates.ChatToldAbout);
+        Assert.Contains(_reader, liveUpdates.ChatToldAbout);
+    }
+
+    [Fact]
+    public async Task The_leaving_admin_can_name_who_takes_over()
+    {
+        var groups = new InMemoryChatGroupRepository();
+        var chosen = Guid.NewGuid();
+        var group = ChatGroup.Create(_reader, "Weekend trip");
+        group.AddMember(_reader, _otherParty);
+        group.AddMember(_reader, chosen);
+        await groups.AddAsync(group, CancellationToken.None);
+
+        await Leave(groups, new InMemoryChatMessageRepository()).HandleAsync(
+            new LeaveChatGroupCommand(_reader, group.Id, chosen), CancellationToken.None);
+
+        var stored = await groups.GetByIdAsync(group.Id, CancellationToken.None);
+        Assert.True(stored!.IsAdmin(chosen));
+        Assert.False(stored.IsAdmin(_otherParty));
+    }
+
+    /// <summary>
+    /// A choice that cannot be honoured is refused before anything happens - the leaver is still in the
+    /// group and still holds their copies, rather than half gone.
+    /// </summary>
+    [Fact]
+    public async Task A_successor_who_is_not_in_the_group_is_refused_before_anything_is_deleted()
+    {
+        var groups = new InMemoryChatGroupRepository();
+        var messages = new InMemoryChatMessageRepository();
+        var group = ChatGroup.Create(_reader, "Weekend trip");
+        group.AddMember(_reader, _otherParty);
+        await groups.AddAsync(group, CancellationToken.None);
+        await messages.AddAsync(
+            ChatMessage.CreateForGroup(
+                group.Id, Guid.NewGuid(), _otherParty, _reader, "for the reader", "nonce", DateTimeOffset.UtcNow),
+            CancellationToken.None);
+
+        await Assert.ThrowsAsync<InvalidRequestException>(() => Leave(groups, messages).HandleAsync(
+            new LeaveChatGroupCommand(_reader, group.Id, Guid.NewGuid()), CancellationToken.None));
+
+        var stored = await groups.GetByIdAsync(group.Id, CancellationToken.None);
+        Assert.True(stored!.IsAdmin(_reader));
+        Assert.Single(await messages.GetGroupConversationAsync(group.Id, _reader, null, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task The_last_person_out_deletes_the_group()
+    {
+        var groups = new InMemoryChatGroupRepository();
+        var group = ChatGroup.Create(_reader, "Weekend trip");
+        await groups.AddAsync(group, CancellationToken.None);
+
+        var left = await Leave(groups, new InMemoryChatMessageRepository()).HandleAsync(
+            new LeaveChatGroupCommand(_reader, group.Id), CancellationToken.None);
+
+        Assert.True(left);
+        Assert.Null(await groups.GetByIdAsync(group.Id, CancellationToken.None));
+    }
+
     private ClearConversationHistoryCommandHandler ClearFor(
         InMemoryChatMessageRepository messages, InMemoryContactRepository contacts)
         => new(contacts, messages, new SilentLiveUpdatePublisher());
 
     private static LeaveChatGroupCommandHandler Leave(
-        InMemoryChatGroupRepository groups, InMemoryChatMessageRepository messages)
-        => new(groups, messages, new SilentLiveUpdatePublisher());
+        InMemoryChatGroupRepository groups, InMemoryChatMessageRepository messages,
+        ILiveUpdatePublisher? liveUpdates = null)
+        => new(groups, messages, liveUpdates ?? new SilentLiveUpdatePublisher());
 
     private async Task GiveThemAConversationAsync(
         InMemoryChatMessageRepository messages, InMemoryContactRepository contacts)

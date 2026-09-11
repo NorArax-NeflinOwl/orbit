@@ -13,5 +13,10 @@ namespace Orbit.Core.Chat.Groups.LeaveChatGroup;
 ///
 /// Answers false when the caller is not in the group, which is what an id nobody recognises looks like.
 /// </summary>
+/// <param name="SuccessorUserId">
+/// Who takes over as admin, when the caller is the one going and might be the last admin. Optional, and
+/// null for every phone build installed before it existed: the group then promotes somebody itself -
+/// see ChatGroup.Leave, which also says why a choice it cannot honour is refused rather than replaced.
+/// </param>
 [ClientAction(ClientActionCategory.Edit)]
-public sealed record LeaveChatGroupCommand(Guid UserId, Guid GroupId) : IRequest<bool>;
+public sealed record LeaveChatGroupCommand(Guid UserId, Guid GroupId, Guid? SuccessorUserId = null) : IRequest<bool>;

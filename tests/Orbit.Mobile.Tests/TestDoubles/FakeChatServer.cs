@@ -320,11 +320,7 @@ internal sealed class FakeChatServer : HttpMessageHandler
         // api/chat/groups/{id}/membership - leaving, which the rest of the group sees.
         if (segments.Length == 5 && segments[4] == "membership" && request.Method == HttpMethod.Delete)
         {
-            Groups[Groups.IndexOf(group)] = group with
-            {
-                Members = [.. group.Members.Where(member => member.UserId != CallerUserId)]
-            };
-
+            Groups[Groups.IndexOf(group)] = Without(group, CallerUserId);
             return new HttpResponseMessage(HttpStatusCode.NoContent);
         }
 
@@ -415,14 +411,10 @@ internal sealed class FakeChatServer : HttpMessageHandler
 
         if (request.Method == HttpMethod.Delete)
         {
-            // While anyone remains. The last person out is let go rather than stranded in a group they
-            // cannot leave - the same line ChatGroup.RemoveMember draws.
-            if (subject.Role == "Admin" && adminCount == 1 && group.Members.Count > 1)
-            {
-                return Refused("A group needs at least one admin - promote someone else first.");
-            }
-
-            Groups[index] = group with { Members = [.. group.Members.Where(member => member.UserId != subjectUserId)] };
+            // No "last admin" refusal any more, for leaving or for removing: ChatGroup hands the group
+            // to somebody when its last admin goes, and an admin removing somebody else is still there
+            // themselves. A fake that kept refusing would make a phone that simply leaves look broken.
+            Groups[index] = Without(group, subjectUserId);
             return new HttpResponseMessage(HttpStatusCode.NoContent);
         }
 
@@ -441,6 +433,24 @@ internal sealed class FakeChatServer : HttpMessageHandler
         };
 
         return new HttpResponseMessage(HttpStatusCode.NoContent);
+    }
+
+    /// <summary>
+    /// The group once somebody has gone, the way ChatGroup.Leave leaves it: when they were the last admin
+    /// and anyone remains, the longest-standing member takes over - chosen by ChatGroup.ChooseSuccessor
+    /// itself, so this fake cannot promote somebody the server would not.
+    /// </summary>
+    private static ChatGroupDto Without(ChatGroupDto group, Guid leavingUserId)
+    {
+        var remaining = group.Members.Where(member => member.UserId != leavingUserId).ToList();
+        if (remaining.Count > 0 && remaining.All(member => member.Role != "Admin"))
+        {
+            var successor = Orbit.Core.Chat.Groups.ChatGroup.ChooseSuccessor(
+                remaining, member => member.JoinedAtUtc, member => member.UserId);
+            remaining = [.. remaining.Select(member => member.UserId == successor.UserId ? member with { Role = "Admin" } : member)];
+        }
+
+        return group with { Members = remaining };
     }
 
     /// <summary>A refusal the caller is entitled to hear about - see InvalidRequestExceptionHandler.</summary>

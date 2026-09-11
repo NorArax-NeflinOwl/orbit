@@ -34,8 +34,8 @@ public sealed record GroupMemberRow(
     /// "left an ordinary member with no way out of a group at all", which is exactly what this screen
     /// did: it asked for admin whoever the subject was, so a member who wanted out had no button.
     ///
-    /// The last admin is still refused while anyone remains, by the server. That is its call rather than
-    /// this row's: the answer depends on who else is in the group and what they are.
+    /// That includes the group's last admin: the server hands the group to its longest-standing member
+    /// when they go (see ChatGroup.Leave), so there is nothing for this row to hold back.
     /// </summary>
     public bool CanBeRemoved => ViewerIsAdmin || IsSelf;
 
