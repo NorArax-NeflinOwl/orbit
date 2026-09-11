@@ -3600,7 +3600,9 @@ differently.
 server and raises a notification; what the recipient presses **Accept** on in the conversation is a
 separate encrypted chat message carrying the share's id, posted by the sharer's own browser because the
 server has no key to seal one with (`EncryptedChatMessageSender`, read back by `Chat.razor`'s
-`TryParseShare`).
+`TryParseShare`). Once it is accepted there, the line says so with an **"Open it"** beside it. The link
+goes to the thing itself, found through the offer (`SharesApiClient.WhereItLandsAsync`), or to its
+section when the offer cannot be read or was accepted in an earlier visit.
 
 **The notification leads to what was shared** (`/invitation/{kind}/{shareId}/{sharerUserId}`,
 `ShareInvitation.razor`) rather than to the conversation, which is where it used to lead because Accept

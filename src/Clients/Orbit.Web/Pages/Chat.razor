@@ -21,6 +21,7 @@
 @inject TasksApiClient TasksApiClient
 @inject InventoryApiClient InventoryApiClient
 @inject PlacesApiClient PlacesApiClient
+@inject SharesApiClient SharesApiClient
 @inject NotificationFeedState NotificationFeedState
 @inject NewsSettler NewsSettler
 @inject PageVisibility PageVisibility
@@ -350,7 +351,9 @@ else
                             {
                                 @if (_acceptedShareIds.Contains(shareNotice.ShareId))
                                 {
-                                    <p class="event-share-status">@T["Accepted - added to your account."]</p>
+                                    @* The thing itself when it was taken up here; its section when that happened
+                                       in an earlier visit, which only the status - not the item - was read for. *@
+                                    <p class="event-share-status">@($"{T["Accepted - added to your account."]} ")<a href="@(_acceptedShareAddresses.GetValueOrDefault(shareNotice.ShareId) ?? SharedItemInvitation.SectionFor(shareNotice.Kind))">@T["Open it"]</a></p>
                                 }
                                 else
                                 {
@@ -563,6 +566,8 @@ else
     /// </summary>
     private readonly HashSet<Guid> _acceptedShareIds = [];
     private readonly HashSet<Guid> _acceptingShareIds = [];
+    /// <summary>Where each offer taken up in this visit can be opened - see SharesApiClient.WhereItLandsAsync.</summary>
+    private readonly Dictionary<Guid, string> _acceptedShareAddresses = [];
     private DateTimeOffset? _otherPartyReadUpToUtc;
     private ChatConversationAccessDto? _conversationAccess;
     private string _draftMessage = string.Empty;
@@ -730,6 +735,7 @@ else
         _editAccessRequestByMessageId.Clear();
         _acceptedShareIds.Clear();
         _acceptingShareIds.Clear();
+        _acceptedShareAddresses.Clear();
         _forwardedFromByMessageId.Clear();
         _forwardingMessageId = null;
         _forwardErrorMessage = null;
@@ -1602,6 +1608,8 @@ else
                 // already answered. See NewsSettler and SharedItemNotifier's own path.
                 await NewsSettler.SettleAsync(
                     $"/invitation/{SharedItemPath.For(shareNotice.Kind)}/{shareNotice.ShareId}/{UserId}");
+                _acceptedShareAddresses[shareNotice.ShareId] =
+                    await SharesApiClient.WhereItLandsAsync(shareNotice.Kind, shareNotice.ShareId);
             }
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)

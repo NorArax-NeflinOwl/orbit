@@ -1279,7 +1279,12 @@ its shared controls. What that pass left, all of it now overtaken:
   had no query, and a notification about a shared place carries `/map?place={id}`, so the place id would
   have arrived as `{id}?returnTo=…` and opened the map on no pin.
 
-  **Chat opening a shared thing is the one left, and it is not a call site.** A share notice in a
+  ~~**Chat opening a shared thing is the one left, and it is not a call site.**~~ Done 2026-09-11, with no
+  contract change. After "Accepted - added to your account." the chat offers "Open it". It asks the
+  offer endpoint the invitation page already uses (`GET /api/shares/{kind}/{shareId}`, which answers
+  with the item's id) for where the thing is, through `SharesApiClient.WhereItLandsAsync`. An offer
+  accepted in an earlier visit links to its section, because only its status was read then. The phone is
+  unchanged: what it accepts lands under its own ids at the next sync. As noticed: A share notice in a
   conversation carries the *share's* id and nothing else (`NoteShareMessagePayload` and its four
   siblings), and accepting answers `bool` - so after "Accepted - added to your account." the chat has no
   address to offer. Giving it one means the five accept endpoints answering with the item's id, which is
