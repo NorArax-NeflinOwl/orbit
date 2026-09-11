@@ -683,7 +683,12 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   "?" too (`NavigationBar.Description`). The property and the `PageSubtitle` style draw nothing now and
   can go; `PageHeader` itself stays, for the Groups page's leading "+".
 
-- **A few sentences under a control, rather than under a title, were left in view on the web.** The
+- ~~**A few sentences under a control, rather than under a title, were left in view on the web.**~~ Folded
+  2026-09-11 at the user's request. Each is now a `FieldHint` beside the control it follows: a "?" on
+  the restock switches (a "!" on the first one while it is off, since that sentence says what turning it
+  off costs), the claim buttons and the Android download. A "!" on the share link's note, on
+  `FeatureLocked`, and on the chat password gate's two warnings. `ForgotPassword.razor` still carries
+  its own copy of the reset warning in view, because it was not on this list. As noticed: The
   restock switches' three `<p class="field-hint">` lines in `InventoryEditor.razor` and the one in
   `GenerateInventoryOverlay.razor` change with the switch they follow. They had no CSS rule at all and
   rendered as body-size paragraphs until 2026-09-11, when `p.field-hint` was given the small print's style. Also kept: the two lines under the

@@ -5116,13 +5116,6 @@ input.note-editor-title {
     flex: 0 0 auto;
 }
 
-.share-link-note {
-    margin: 0;
-    font-size: 12.5px;
-    color: var(--text-secondary);
-    max-width: 62ch;
-}
-
 .share-link-url {
     width: 100%;
     max-width: 62ch;

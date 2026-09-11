@@ -255,6 +255,16 @@ quiet because most readers already know what a field is for, and a "!" is not, b
 noticing even folded away. The reason for folding it is the same either way — a form carried three of
 these permanently, and the reader who needed one could not find it among the ones they did not.
 
+**Sentences under a control fold too, since 2026-09-11.** A mark sits beside the control each sentence
+follows:
+- the restock switches on a storage's form and in "Generate inventory" have a "?", except the first one
+  while it is off, which has a "!" because its sentence says what turning it off costs;
+- the two claim buttons on a shared link's page and the Android download button have a "?";
+- a live share link's note, a locked feature's explanation and the chat password gate's two warnings
+  have a "!".
+
+The forgotten-password page still shows its warning about chat starting over in full.
+
 **The Options page folds them too.** Every setting there was a title with a sentence under it, which is a
 page of prose with switches in it; now each row is its name and a "?". Two things stay in the flow because
 they are not descriptions: **where the verification code will be sent** (the address is the decision being

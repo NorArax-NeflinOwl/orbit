@@ -34,13 +34,10 @@
            than hidden while it is off, so what would be turned back on stays readable. *@
         <label class="field-checkbox" for="generatedRestockEnabled">
             <input id="generatedRestockEnabled" type="checkbox" @bind="_isEnabled" />
-            <span>@T["Keep a restock list for this inventory"]</span>
-        </label>
-        <p class="field-hint">
-            @(_isEnabled
+            <span>@T["Keep a restock list for this inventory"]<FieldHint>@(_isEnabled
                 ? T["Orbit keeps a \"Restock supplies\" list for this shelf and puts what is running low on it."]
-                : T["No list is created. Nothing on the shelf raises an errand."])
-        </p>
+                : T["No list is created. Nothing on the shelf raises an errand."])</FieldHint></span>
+        </label>
 
         <fieldset class="restock-settings-fields" disabled="@(!_isEnabled)">
             <label class="field-checkbox" for="generatedRestockRemindDaily">
