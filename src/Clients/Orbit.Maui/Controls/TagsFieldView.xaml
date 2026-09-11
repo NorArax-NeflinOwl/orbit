@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.TagsFieldView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:tags="clr-namespace:Orbit.Mobile.Screens.Tags;assembly=Orbit.Mobile"
+    x:DataType="tags:TagsForm">
+
+    <ContentView.Resources>
+        <controls:TagColourConverter x:Key="TagColour" />
+    </ContentView.Resources>
+
+    <!-- A note's or a list's tags - see TagsForm. The same kind of box this phone gives an entry's
+         categories, one line and commas between the words, with the tags already in use to tap instead of
+         typing; and under it a palette per tag, because a colour belongs to the tag for the whole account
+         and is set there and then rather than saved with the item. -->
+    <VerticalStackLayout Spacing="8">
+        <Label Text="{controls:Translate 'Tags'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+        <Entry Placeholder="{controls:Translate 'Tags, separated by commas'}" Text="{Binding Text}"
+               IsReadOnly="{Binding IsReadOnly}" ReturnCommand="{Binding Save}"
+               SemanticProperties.Description="{controls:Translate 'Tags'}" />
+
+        <FlexLayout Wrap="Wrap" Direction="Row" IsVisible="{Binding HasOffered}"
+                    BindableLayout.ItemsSource="{Binding Offered}">
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="x:String">
+                    <Button Text="{Binding .}" FontSize="12" Padding="12,4" Margin="0,0,8,4"
+                            Style="{StaticResource SecondaryButton}"
+                            SemanticProperties.Description="{controls:Translate 'Add a tag'}"
+                            Command="{Binding Source={RelativeSource AncestorType={x:Type controls:TagsFieldView}}, Path=BindingContext.AddCommand, x:DataType=controls:TagsFieldView}"
+                            CommandParameter="{Binding .}" />
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </FlexLayout>
+
+        <VerticalStackLayout Spacing="8" IsVisible="{Binding HasRows}">
+            <VerticalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Rows}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="tags:TagColourRow">
+                        <VerticalStackLayout Spacing="4">
+                            <Border Padding="8,2" StrokeShape="RoundRectangle 999" HorizontalOptions="Start"
+                                    Stroke="{Binding Colour, Converter={StaticResource TagColour}, ConverterParameter=edge}"
+                                    Background="{Binding Colour, Converter={StaticResource TagColour}}">
+                                <Label Text="{Binding Tag}" FontSize="12" />
+                            </Border>
+                            <FlexLayout Wrap="Wrap" Direction="Row" BindableLayout.ItemsSource="{Binding Swatches}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="tags:TagSwatch">
+                                        <Border WidthRequest="28" HeightRequest="28" Margin="0,0,8,4"
+                                                StrokeShape="RoundRectangle 14" StrokeThickness="{Binding EdgeThickness}"
+                                                Stroke="{Binding Colour, Converter={StaticResource TagColour}, ConverterParameter=edge}"
+                                                Background="{Binding Colour, Converter={StaticResource TagColour}, ConverterParameter=solid}"
+                                                SemanticProperties.Description="{Binding Description}">
+                                            <Border.GestureRecognizers>
+                                                <TapGestureRecognizer
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type controls:TagsFieldView}}, Path=BindingContext.ColourCommand, x:DataType=controls:TagsFieldView}"
+                                                    CommandParameter="{Binding .}" />
+                                            </Border.GestureRecognizers>
+                                        </Border>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </FlexLayout>
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+            <!-- Said where the colour is chosen - see TagsForm.ColourHint. -->
+            <Label Text="{Binding ColourHint}" FontSize="12" LineBreakMode="WordWrap"
+                   Style="{StaticResource SubtleLabel}" />
+        </VerticalStackLayout>
+    </VerticalStackLayout>
+</ContentView>

@@ -145,6 +145,12 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     [ObservableProperty]
     private string _listsBehindTheEntryQuestion = string.Empty;
 
+    /// <summary>
+    /// What the list is tagged with, and the colours of those tags - see TagsForm. Beside the name and the
+    /// description, behind the same "Edit"; a colour is saved there and then, for the whole account.
+    /// </summary>
+    public Orbit.Mobile.Screens.Tags.TagsForm Tags { get; }
+
     public TaskListDetailViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, Translations translations,
         TimeProvider timeProvider, SharePanel share, IScreenNavigator navigator,
@@ -152,8 +158,14 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         INetworkStatus networkStatus, StockCheckPanel stockCheck,
         EntryAppointment appointments, ShelfCorrection shelfCorrection, IPlacePicker placePicker,
         PrivateContentSealer privateContent, NameSuggestions nameSuggestions,
-        NameSuggestions titleSuggestions, IChecklistReadingStore reading, LocalFolderRepository folders)
+        NameSuggestions titleSuggestions, IChecklistReadingStore reading, LocalFolderRepository folders,
+        LocalTagColourRepository? tagColours = null, TagColourSynchronizer? tagColourSynchronizer = null)
     {
+        // Saved as the name is: when the reader is done with the box, or taps a tag already in use.
+        Tags = new Orbit.Mobile.Screens.Tags.TagsForm(translations, tagColours, tagColourSynchronizer)
+        {
+            Save = SaveListCommand
+        };
         _folders = folders;
         _reading = reading;
         _taskLists = taskLists;
@@ -1081,7 +1093,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         try
         {
             outcome = await _taskLists.UpdateAsync(
-                _localId, new TaskListContent(Title, items, IsGroup, _priority, IsPrivate, Description, _completion),
+                _localId, new TaskListContent(Title, items, IsGroup, _priority, IsPrivate, Description, _completion, Tags.ToSave),
                 cancellationToken);
         }
         catch (EncryptionKeyLockedException)
@@ -1170,6 +1182,12 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         // and the server on every pull, so the box and the row agree by construction.
         IsFinished = taskList.IsCompleted;
         _isShowingWhatIsStored = false;
+        // Its tags, with the ones this account's lists already carry on offer - private ones included,
+        // since the store opens them here. Null tags are "not known", and stay unsaid until touched.
+        await Tags.ShowAsync(
+            taskList.Tags,
+            (await _taskLists.GetAllAsync(cancellationToken)).SelectMany(stored => stored.AllTags),
+            cancellationToken);
         await ShowWhereItCanGoAsync(cancellationToken);
         await ShowWhatItCanBeTiedToAsync(cancellationToken);
         // Both before the rows are built below: a row asks these two what it points at - see ReferencesFor.
@@ -1447,7 +1465,12 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
 
-    partial void OnIsReadOnlyChanged(bool value) => OnPropertyChanged(nameof(CanEdit));
+    partial void OnIsReadOnlyChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanEdit));
+        // The tags box answers to the same rule as the name beside it.
+        Tags.IsReadOnly = value;
+    }
 
     partial void OnNewItemDescriptionChanged(string value)
     {

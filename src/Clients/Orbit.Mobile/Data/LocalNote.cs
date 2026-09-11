@@ -100,6 +100,18 @@ public sealed class LocalNote : Orbit.Mobile.Sync.ISharedState, ICopyableForEdit
     public string Priority { get; set; } = "Normal";
 
     /// <summary>
+    /// The words it is tagged with - see NoteDto.Tags. <b>Null means "not known"</b>: a note this phone
+    /// held before tags existed, which is pushed without them (null is "not provided" on the wire too) so a
+    /// queued edit from then cannot empty tags written in a browser since. Empty for a private note, whose
+    /// tags are sealed with the rest of it and put back here only while it is open.
+    /// </summary>
+    public IReadOnlyList<string>? Tags { get; set; }
+
+    /// <summary>The tags as something to read without a null check - see <see cref="Tags"/>.</summary>
+    [NotMapped]
+    public IReadOnlyList<string> AllTags => Tags ?? [];
+
+    /// <summary>
     /// When the server last confirmed this row. Null for a note created offline that has never been
     /// accepted - which is also what <see cref="ServerId"/> being null means, kept separately because a
     /// synced note that is later edited offline has one and not the other.

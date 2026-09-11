@@ -88,11 +88,19 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     [ObservableProperty]
     private bool _isSharedWithMe;
 
+    /// <summary>
+    /// What the note is tagged with, and the colours of those tags - see TagsForm. Saved with the note; a
+    /// colour is saved there and then, for the whole account.
+    /// </summary>
+    public Orbit.Mobile.Screens.Tags.TagsForm Tags { get; }
+
     public NoteDetailViewModel(
         LocalNoteRepository notes, NoteSynchronizer synchronizer, NotesClient notesClient, EditLock editLock,
         Translations translations, PrivateContentSealer privateContent, SharePanel share, IScreenNavigator navigator,
-        LocalFolderRepository folders, TimeProvider timeProvider)
+        LocalFolderRepository folders, TimeProvider timeProvider,
+        LocalTagColourRepository? tagColours = null, TagColourSynchronizer? tagColourSynchronizer = null)
     {
+        Tags = new Orbit.Mobile.Screens.Tags.TagsForm(translations, tagColours, tagColourSynchronizer);
         _timeProvider = timeProvider;
         _folders = folders;
         _notes = notes;
@@ -386,7 +394,7 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         {
             var outcome = await _notes.UpdateAsync(
                 _localId,
-                new NoteContent(Title.Trim(), [.. Lines.Select(line => line.ToDto())], _priority, IsPrivate),
+                new NoteContent(Title.Trim(), [.. Lines.Select(line => line.ToDto())], _priority, IsPrivate, Tags.ToSave),
                 cancellationToken);
             if (outcome.WasRefused())
             {
@@ -442,6 +450,12 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         ChosenPriority = Tasks.PriorityChoice.For(note.Priority, _translations);
         IsPrivate = note.IsPrivate;
         _isShowingWhatIsStored = false;
+        // Its tags, with the ones this account's notes already carry on offer - private ones included,
+        // since the store opens them here. Null tags are "not known", and stay unsaid until touched.
+        await Tags.ShowAsync(
+            note.Tags,
+            (await _notes.GetAllAsync(cancellationToken)).SelectMany(stored => stored.AllTags),
+            cancellationToken);
 
         // Only a note the server knows about can be offered: a share names it by its server id, and one
         // still waiting in the outbox has none. A private note is offered to nobody - the server holds
@@ -686,7 +700,12 @@ public sealed partial class NoteDetailViewModel : ObservableObject
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
 
-    partial void OnIsReadOnlyChanged(bool value) => OnPropertyChanged(nameof(CanEdit));
+    partial void OnIsReadOnlyChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanEdit));
+        // The tags box answers to the same rule as every other field here.
+        Tags.IsReadOnly = value;
+    }
 
     /// <summary>
     /// Whether anything was ever copied from this - what puts its history within reach. Hidden until

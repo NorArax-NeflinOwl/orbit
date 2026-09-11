@@ -105,6 +105,8 @@
                                             VerticalOptions="Center" IsVisible="{Binding HasPriority}">
                                         <Label Text="{Binding Priority}" Style="{StaticResource FilterChipLabel}" />
                                     </Border>
+                                    <!-- The reader's own words for it, in the colours they gave them. -->
+                                    <controls:TagChipsView BindingContext="{Binding Tags}" VerticalOptions="Center" />
 
                                     <!-- Two cards with the same title are otherwise indistinguishable,
                                          and the reader has no way of telling which one they wrote in. -->

@@ -423,6 +423,27 @@ writes one by itself, and an uncoloured tag on a private item is never named any
 are deleted with the account, and the colour form says so beside the colour well. Somebody who wants a
 private tag kept unreadable leaves it uncoloured.
 
+**In the browser** the field is `TagsField` - the categories' own word-at-a-time box (`TagField`) under the
+list's title and description (`TaskEditor`) and under a note's writing (`NoteEditor`, which has no separate
+title box), offering the tags this account's notes or lists already carry plus every coloured one, with a
+colour well per tag underneath that saves at once (`TagColourBook`, `PUT /api/tags/colours`). The cards on
+`/notes`, `/tasks` and the dashboard's rows draw them with `TagChips`, beside "Pinned" and "Shared": a wash
+of the tag's colour behind the word and the colour as the outline, the word itself in the page's own text
+colour, so any colour reads in either theme; a colour that is not "#rrggbb" is never written into a style.
+
+**On the phone** the same field is `TagsForm` behind `TagsFieldView` - one line, commas between the words,
+like the phone's categories box - with the tags already in use as chips to tap and a palette of eight
+colours (plus "no colour") per tag; the note screen has it under the writing, a list's screen behind the
+same "Edit" as its name and description. The notes and task lists screens draw a row's tags with
+`TagChipsView`. Tags travel on the note or list (`LocalNote.Tags`, `LocalTaskList.Tags` - JSON columns,
+**nullable**: a row held since before tags reads NULL, "not known", and is pushed as null so a queued edit
+cannot empty tags written in a browser since), sealed with a private one. Colours live in `LocalTagColour`
+(local migration `NotesAndListsCarryTagsOnThePhone`): one set here is written here first and marked
+pending, sent straight away when there is a connection and otherwise by the next full sync
+(`TagColourSynchronizer`, part of `EverythingSynchronizer`), which then takes the server's colours for
+everything no longer waiting; one the server refuses is dropped rather than sent for ever. A colour chosen
+in a browser that is not among the phone's eight is still drawn as chosen.
+
 The export archive carries both, defaulted and last as every late field is: `ArchivedNote.Tags`,
 `ArchivedTaskList.Tags`, and `OrbitArchive.TagColours`. An import adds colours only for tags the account
 has not coloured since - an import never overwrites.

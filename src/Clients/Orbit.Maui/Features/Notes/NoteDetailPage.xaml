@@ -111,6 +111,11 @@
 
                      The hairline runs between the two so the line reads as a foot rather than as another
                      line of the note. -->
+                <!-- What the note is about in a word or two, under the writing rather than in it - see
+                     TagsForm. Saved with the note, by the button in the corner; a colour is saved there
+                     and then, for the whole account. -->
+                <controls:TagsFieldView BindingContext="{Binding Tags}" Margin="0,20,0,0" />
+
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="0,24,0,0">
                     <Label Grid.Column="0" Text="{Binding Footnote}"
                            Style="{StaticResource ItemCardFooter}" VerticalOptions="Center" />

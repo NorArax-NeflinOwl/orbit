@@ -101,6 +101,13 @@ public sealed class LocalTaskList : Orbit.Mobile.Sync.ISharedState, ICopyableFor
 
     public string Priority { get; set; } = "Normal";
 
+    /// <summary>The words it is tagged with - see LocalNote.Tags, which says the same, null included.</summary>
+    public IReadOnlyList<string>? Tags { get; set; }
+
+    /// <summary>The tags as something to read without a null check - see <see cref="Tags"/>.</summary>
+    [NotMapped]
+    public IReadOnlyList<string> AllTags => Tags ?? [];
+
     public string Status { get; set; } = "New";
 
     public bool IsPinned { get; set; }

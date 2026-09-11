@@ -179,7 +179,9 @@ public sealed class NoteSynchronizer
             // would otherwise be lost.
             new CreateNoteRequest(
                 note.Title, note.Content, note.IsPrivate, note.EncryptedContent, note.Priority,
-                await ServerFolderIdAsync(dbContext, note.FolderId, cancellationToken)),
+                await ServerFolderIdAsync(dbContext, note.FolderId, cancellationToken),
+                // Null for a note held since before tags - "not provided", which keeps what the server has.
+                note.Tags),
             cancellationToken);
         note.LastSyncedAtUtc = _timeProvider.GetUtcNow();
         return SendResult.Sent;
@@ -197,7 +199,9 @@ public sealed class NoteSynchronizer
             serverId,
             // The priority travels with every save, because a save writes the whole note: left out, it
             // answered "Normal" and took the reader's own answer with it - see LocalNote.Priority.
-            new UpdateNoteRequest(note.Title, note.Content, note.IsPrivate, note.EncryptedContent, note.Priority),
+            // The tags as this phone holds them - null, "not known", for a note held since before tags,
+            // which keeps whatever the server has rather than emptying it. See LocalNote.Tags.
+            new UpdateNoteRequest(note.Title, note.Content, note.IsPrivate, note.EncryptedContent, note.Priority, note.Tags),
             cancellationToken);
 
         if (outcome is not WriteOutcome.Applied)
@@ -295,6 +299,9 @@ public sealed class NoteSynchronizer
         note.OwnerUserId = incoming.OriginalOwnerUserId;
         note.IsPinned = incoming.IsPinned;
         note.Priority = incoming.Priority;
+        // As the server said it, null included: a server written before tags says nothing, and that is
+        // "not known" here too rather than "none". Empty for a private note, whose tags come out of its seal.
+        note.Tags = incoming.Tags;
         note.LastSyncedAtUtc = _timeProvider.GetUtcNow();
     }
 }

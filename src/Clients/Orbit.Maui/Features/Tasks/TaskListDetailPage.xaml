@@ -21,7 +21,9 @@
              screen is the entries and nothing else at rest - this was three fields and a switch above
              them, which is a form for the reader who is changing the list and clutter for the ninety-
              nine who are ticking something off it. -->
-        <controls:TitledDescription Grid.Row="0" x:Name="ListFields" IsVisible="False"
+        <!-- The tags ride with the name and the description, behind the same "Edit" - see TagsForm. -->
+        <VerticalStackLayout Grid.Row="0" x:Name="ListFields" IsVisible="False" Spacing="10">
+        <controls:TitledDescription
                                     Title="{Binding Title, Mode=TwoWay}" TitleLabel="{controls:Translate 'Title'}"
                                     TitlePlaceholder="{controls:Translate 'Untitled'}"
                                     SaveTitleCommand="{Binding SaveListCommand}"
@@ -34,6 +36,8 @@
             </controls:TitledDescription.Suggestions>
 
         </controls:TitledDescription>
+        <controls:TagsFieldView BindingContext="{Binding Tags}" />
+        </VerticalStackLayout>
 
         <VerticalStackLayout Grid.Row="1" Spacing="4">
             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"

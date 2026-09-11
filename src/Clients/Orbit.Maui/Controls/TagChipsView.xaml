@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.TagChipsView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:tags="clr-namespace:Orbit.Mobile.Screens.Tags;assembly=Orbit.Mobile"
+    x:DataType="tags:TagChips"
+    IsVisible="{Binding HasAny}">
+
+    <ContentView.Resources>
+        <controls:TagColourConverter x:Key="TagColour" />
+    </ContentView.Resources>
+
+    <!-- A card's tags, in the row with its other marks, each in the colour the account gave it - the phone's
+         half of Orbit.Web's TagChips. A tag nobody coloured is drawn plain. The word keeps the page's own
+         text colour whatever the tag's is, so it reads in either theme - see TagColourConverter. -->
+    <HorizontalStackLayout Spacing="4" BindableLayout.ItemsSource="{Binding Chips}">
+        <BindableLayout.ItemTemplate>
+            <DataTemplate x:DataType="tags:TagChip">
+                <Border Padding="7,2" StrokeShape="RoundRectangle 999" VerticalOptions="Center"
+                        Stroke="{Binding Colour, Converter={StaticResource TagColour}, ConverterParameter=edge}"
+                        Background="{Binding Colour, Converter={StaticResource TagColour}}">
+                    <Label Text="{Binding Name}" FontSize="11" />
+                </Border>
+            </DataTemplate>
+        </BindableLayout.ItemTemplate>
+    </HorizontalStackLayout>
+</ContentView>

@@ -28,7 +28,9 @@ namespace Orbit.Mobile.Data;
 /// </param>
 public sealed record TaskListContent(
     string Title, IReadOnlyList<TaskItemDto> Items, bool IsGroup, string Priority, bool IsPrivate = false,
-    string Description = "", string Completion = nameof(TaskListCompletion.FromTheEntries));
+    string Description = "", string Completion = nameof(TaskListCompletion.FromTheEntries),
+    /// <summary>The words it is tagged with - see NoteContent.Tags: null keeps the ones it has, sealed ones included.</summary>
+    IReadOnlyList<string>? Tags = null);
 
 /// <summary>
 /// Every read and write a screen performs on task lists. The same shape as
@@ -114,6 +116,26 @@ public sealed class LocalTaskListRepository : ICopyReviewStore
         }
     }
 
+    /// <inheritdoc cref="LocalNoteRepository"/>
+    /// <summary>The tags a list has now, for a save that said nothing about them - see LocalNoteRepository.TagsOfAsync.</summary>
+    private async Task<IReadOnlyList<string>?> TagsOfAsync(LocalTaskList taskList, CancellationToken cancellationToken)
+    {
+        if (taskList.EncryptedContent is not { } encryptedContent)
+        {
+            return taskList.Tags;
+        }
+
+        try
+        {
+            using var key = await _privateContent.UnlockAsync(cancellationToken);
+            return key.Open(encryptedContent, SealedContentSerializerContext.Default.SealedTaskList)?.Tags;
+        }
+        catch (EncryptionKeyLockedException)
+        {
+            return null;
+        }
+    }
+
     private static void Open(PrivateContentKey key, LocalTaskList taskList)
     {
         if (taskList.EncryptedContent is not { } encryptedContent
@@ -125,6 +147,8 @@ public sealed class LocalTaskListRepository : ICopyReviewStore
 
         taskList.Title = opened.Title;
         taskList.Items = opened.Items;
+        // A private list's tags are nowhere but in here - see SealedTaskList.Tags.
+        taskList.Tags = opened.Tags;
         // Worked out here for the same reason the domain works it out: the server saw no items to
         // derive it from, so what it sent back for a private list means nothing.
         taskList.IsCompleted = opened.Items.Count > 0 && opened.Items.All(item => item.IsCompleted);
@@ -253,19 +277,30 @@ public sealed class LocalTaskListRepository : ICopyReviewStore
 
         if (!content.IsPrivate)
         {
+            // Opened first if it was private until now - see LocalNoteRepository.WriteContentAsync.
+            var readableTags = content.Tags ?? await TagsOfAsync(taskList, cancellationToken);
             taskList.Title = content.Title;
             taskList.Description = content.Description;
             taskList.Items = items;
+            taskList.Tags = readableTags;
             taskList.EncryptedCiphertext = null;
             taskList.EncryptedNonce = null;
             return;
         }
 
         using var key = await _privateContent.UnlockAsync(cancellationToken);
+        // Sealed with the rest, and not said means the ones already inside the seal - see
+        // LocalNoteRepository.WriteContentAsync, which does the same for a note.
+        var tags = content.Tags
+            ?? (taskList.EncryptedContent is { } alreadySealed
+                && key.Open(alreadySealed, SealedContentSerializerContext.Default.SealedTaskList) is { } before
+                    ? before.Tags
+                    : taskList.Tags);
         var sealedContent = key.Seal(
-            new SealedTaskList(content.Title, items),
+            new SealedTaskList(content.Title, items, tags),
             SealedContentSerializerContext.Default.SealedTaskList);
 
+        taskList.Tags = [];
         taskList.Title = string.Empty;
         // Blanked rather than sealed: there is nowhere sealed to put it (see SealedTaskList), and the
         // server blanks it for a private list too - a description stored in the clear beside a sealed

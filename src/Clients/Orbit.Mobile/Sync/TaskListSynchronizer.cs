@@ -147,7 +147,9 @@ public sealed class TaskListSynchronizer
             // it would otherwise be lost.
             new CreateTaskRequest(taskList.Title, ToRequests(taskList.Items), taskList.IsGroup, taskList.IsPrivate,
                 taskList.EncryptedContent, taskList.Priority, taskList.Description,
-                await ServerFolderIdAsync(dbContext, taskList.FolderId, cancellationToken)),
+                await ServerFolderIdAsync(dbContext, taskList.FolderId, cancellationToken),
+                // Null for a list held since before tags - see LocalTaskList.Tags.
+                Tags: taskList.Tags),
             cancellationToken);
         taskList.LastSyncedAtUtc = _timeProvider.GetUtcNow();
         return SendResult.Sent;
@@ -169,7 +171,9 @@ public sealed class TaskListSynchronizer
                 taskList.EncryptedContent, taskList.Priority, taskList.Description,
                 // Said for the same reason: null keeps what is stored, which was right while this phone
                 // had no box for it and would now keep an answer the reader has changed here.
-                taskList.Completion),
+                taskList.Completion,
+                // The tags as this phone holds them, null ("not known") included - see LocalTaskList.Tags.
+                taskList.Tags),
             cancellationToken);
 
         if (outcome is not WriteOutcome.Applied)
@@ -254,6 +258,8 @@ public sealed class TaskListSynchronizer
                 : null;
         taskList.Title = incoming.Title;
         taskList.Description = incoming.Description;
+        // As the server said it, null included - see NoteSynchronizer, which does the same for a note.
+        taskList.Tags = incoming.Tags;
         taskList.Items = incoming.Items;
         taskList.IsCompleted = incoming.IsCompleted;
         taskList.Completion = incoming.Completion;

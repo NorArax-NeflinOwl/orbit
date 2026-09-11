@@ -266,7 +266,9 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             Priority = body.Priority,
             // As the real endpoint stores it: null means "not provided", and a private list keeps none
             // at all - see Orbit.Core.Tasks.TaskList.
-            Description = body.IsPrivate ? string.Empty : body.Description ?? string.Empty
+            Description = body.IsPrivate ? string.Empty : body.Description ?? string.Empty,
+            // As TaskList.Create keeps them: tidied, and none for a private list, whose tags are sealed.
+            Tags = body.IsPrivate ? [] : Orbit.Core.Tags.TagNames.Tidy(body.Tags)
         };
         return Json(created.Id, HttpStatusCode.Created);
     }
@@ -317,6 +319,10 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             // "FromTheEntries" to a client that said nothing would quietly reopen every list the
             // browser had closed. What the answer *means* is worked out below, the way TaskList does.
             Completion = body.Completion ?? existing.Completion,
+            // As TaskList.Update keeps them - see FakeNotesServer.UpdateAsync, which says why null keeps.
+            Tags = body.IsPrivate
+                ? []
+                : body.Tags is null ? existing.Tags : Orbit.Core.Tags.TagNames.Tidy(body.Tags),
             UpdatedAtUtc = _timeProvider.GetUtcNow()
         };
         _taskLists[id] = _taskLists[id] with { IsCompleted = IsFinished(_taskLists[id]) };

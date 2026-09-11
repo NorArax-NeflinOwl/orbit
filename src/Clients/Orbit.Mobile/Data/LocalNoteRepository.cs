@@ -20,8 +20,13 @@ namespace Orbit.Mobile.Data;
 /// setting beside it, because turning it on is what decides where they are written - see
 /// LocalNoteRepository.WriteContentAsync.
 /// </param>
+/// <param name="Tags">
+/// The words it is tagged with. Null means "not said" and keeps the ones the note has - a private one's
+/// included, which are inside its seal - so a caller with no box for tags cannot empty them.
+/// </param>
 public sealed record NoteContent(
-    string Title, IReadOnlyList<NoteContentLineDto> Content, string Priority, bool IsPrivate = false);
+    string Title, IReadOnlyList<NoteContentLineDto> Content, string Priority, bool IsPrivate = false,
+    IReadOnlyList<string>? Tags = null);
 
 /// <summary>
 /// Every read and write a screen performs on notes. Reads come from SQLite and never from the API, and
@@ -145,7 +150,32 @@ public sealed class LocalNoteRepository : ICopyReviewStore
 
         note.Title = opened.Title;
         note.Content = opened.Content;
+        // A private note's tags are nowhere but in here - see SealedNote.Tags.
+        note.Tags = opened.Tags;
         note.IsSealed = false;
+    }
+
+    /// <summary>
+    /// The tags a note has now, for a save that said nothing about them: the readable ones, or - for a note
+    /// sealed until this save - the ones inside the seal, opened with the key this device holds. Null, "not
+    /// known", when there is nothing to open them with.
+    /// </summary>
+    private async Task<IReadOnlyList<string>?> TagsOfAsync(LocalNote note, CancellationToken cancellationToken)
+    {
+        if (note.EncryptedContent is not { } encryptedContent)
+        {
+            return note.Tags;
+        }
+
+        try
+        {
+            using var key = await _privateContent.UnlockAsync(cancellationToken);
+            return key.Open(encryptedContent, SealedContentSerializerContext.Default.SealedNote)?.Tags;
+        }
+        catch (EncryptionKeyLockedException)
+        {
+            return null;
+        }
     }
 
     private static void MarkSealed(IReadOnlyList<LocalNote> notes)
@@ -445,19 +475,31 @@ public sealed class LocalNoteRepository : ICopyReviewStore
 
         if (!content.IsPrivate)
         {
+            // Opened first if it was private until now, so its tags come out of the seal rather than being
+            // lost with it.
+            var readableTags = content.Tags ?? await TagsOfAsync(note, cancellationToken);
             note.Title = content.Title;
             note.Content = content.Content;
+            note.Tags = readableTags;
             note.EncryptedCiphertext = null;
             note.EncryptedNonce = null;
             return;
         }
 
         using var key = await _privateContent.UnlockAsync(cancellationToken);
+        // Sealed with the rest: a private note's tags are nowhere else. Not said means the ones it has -
+        // for a note already sealed, the ones inside the seal.
+        var tags = content.Tags
+            ?? (note.EncryptedContent is { } alreadySealed
+                && key.Open(alreadySealed, SealedContentSerializerContext.Default.SealedNote) is { } before
+                    ? before.Tags
+                    : note.Tags);
         var sealedContent = key.Seal(
-            new SealedNote(content.Title, content.Content), SealedContentSerializerContext.Default.SealedNote);
+            new SealedNote(content.Title, content.Content, tags), SealedContentSerializerContext.Default.SealedNote);
 
         note.Title = string.Empty;
         note.Content = [];
+        note.Tags = [];
         note.EncryptedCiphertext = sealedContent.Ciphertext;
         note.EncryptedNonce = sealedContent.Nonce;
     }
