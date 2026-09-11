@@ -9,6 +9,7 @@
 @inject UsersApiClient UsersApiClient
 @inject GoogleIntegrationAccess GoogleIntegrationAccess
 @inject NavigationManager NavigationManager
+@inject NavigationTrail NavigationTrail
 @inject IJSRuntime JSRuntime
 @inject ILogger<CalendarEventSummary> Logger
 @inject Translations T
@@ -98,7 +99,7 @@ else
 </div>
 @if (_event is not null)
 {
-    <EditorRail OnCancel="GoToCalendar"
+    <EditorRail OnCancel="LeaveAsync"
                 OnEdit="GoToEditor" EditLabel="@(_event.IsShared ? T["View"] : T["Edit"])">
         @* No Edit in here: it is a button of its own on the panel now - see EditorRail.OnEdit. *@
         <ObjectMenu AllLabel="@T["Calendar"]" OnAll="GoToCalendar"
@@ -111,9 +112,9 @@ else
     [Parameter] public Guid Id { get; set; }
 
     /// <summary>
-    /// The page that sent the reader here, passed on to the form rather than replaced with this one:
-    /// this page is a stop on the way, and somebody who arrived from elsewhere means elsewhere when they
-    /// say "back". See ReturnTo.
+    /// The page that sent the reader here, which is where this page's Back returns. The form is not
+    /// handed it: the form ends back on this page, and this page still knows the way on from here because
+    /// its own address carries this. See ReturnTo, and NoteSummary, which does the same.
     /// </summary>
     [Parameter, SupplyParameterFromQuery(Name = ReturnTo.QueryName)]
     public string? ComeBackTo { get; set; }
@@ -245,12 +246,12 @@ else
 
     private void GoToCalendar() => NavigationManager.NavigateTo("/calendar");
 
-    /// <summary>
-    /// The form, told where the reader came from so the edit ends there - what this page was given, or
-    /// this page's own section when it was opened directly. See ReturnTo.
-    /// </summary>
+    /// <summary>Back: where this page was opened from, without leaving it behind - see NavigationTrail.</summary>
+    private Task LeaveAsync() => NavigationTrail.FinishAsync(ReturnTo.Or(ComeBackTo, "/calendar"));
+
+    /// <summary>The form, told to come back to this page so the saved appointment is what it ends on - see NoteSummary.GoToEditor.</summary>
     private void GoToEditor()
-        => NavigationManager.NavigateTo(ReturnTo.Link($"/calendar/{Id}/edit", ReturnTo.Or(ComeBackTo, "/calendar")));
+        => NavigationManager.NavigateTo(ReturnTo.Link($"/calendar/{Id}/edit", NavigationTrail.Here));
 
     /// <summary>Asked first, and asked with the name: an appointment deleted by accident is gone.</summary>
     private async Task DeleteAsync()
@@ -264,7 +265,8 @@ else
         try
         {
             await CalendarApiClient.DeleteCalendarEventAsync(Id);
-            NavigationManager.NavigateTo("/calendar");
+            // To the calendar, without this page left behind to open on nothing - see NavigationTrail.
+            await NavigationTrail.FinishAfterDeletingAsync($"/calendar/{Id}", "/calendar", "/calendar");
         }
         catch (HttpRequestException exception)
         {

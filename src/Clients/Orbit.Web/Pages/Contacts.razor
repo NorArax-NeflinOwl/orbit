@@ -17,7 +17,7 @@
 
 <PageHeader>
     <Title>@T["Contacts"]</Title>
-    <Subtitle>@T["Search for someone and start a conversation."]</Subtitle>
+    <Description>@T["Search for someone and start a conversation."]</Description>
 </PageHeader>
 
 @if (!Permissions.Has(ApplicationPermission.Contacts))
@@ -165,10 +165,18 @@ else
                                    the two are one action, because leaving and still holding every
                                    message is a state nobody asks for. *@
                                 <button type="button" class="avatar-dropdown-item"
-                                        @onclick="() => LeaveTheGroupAsync(group.Id)">@T["Leave and delete chat history"]</button>
+                                        @onclick="() => StartLeaving(group.Id)">@T["Leave and delete chat history"]</button>
                             </OverflowMenu>
                         </Menu>
                     </PersonRow>
+                    @* Under the row it is about, and the same question the roster asks - including who
+                       takes over when this reader is the group's only admin. *@
+                    @if (_leavingGroupId == group.Id)
+                    {
+                        <GroupLeaveConfirmation Group="group" Contacts="@(_contacts ?? [])"
+                                                OnLeft="FinishLeavingAsync" OnCancel="CancelLeaving"
+                                                OnRefused="LoadContactsAsync" />
+                    }
                 }
                 @if (ArchivedCount == 0)
                 {
@@ -344,19 +352,24 @@ else
         await LoadContactsAsync();
     }
 
-    private async Task LeaveTheGroupAsync(Guid groupId)
-    {
-        try
-        {
-            await ChatApiClient.LeaveGroupAsync(groupId);
-        }
-        catch (HttpRequestException exception)
-        {
-            Logger.LogWarning(exception, "Failed to leave a group");
-            _loadError = T["Could not leave that group. Check your connection and try again."];
-            return;
-        }
+    /// <summary>
+    /// Which archived group the leave question is open under, if any. Leaving is asked about here exactly
+    /// as it is on the roster - see GroupLeaveConfirmation - because leaving without asking handed the
+    /// group to whoever the server chose when this reader was its only admin.
+    /// </summary>
+    private Guid? _leavingGroupId;
 
+    private void StartLeaving(Guid groupId)
+    {
+        _loadError = null;
+        _leavingGroupId = groupId;
+    }
+
+    private void CancelLeaving() => _leavingGroupId = null;
+
+    private async Task FinishLeavingAsync()
+    {
+        _leavingGroupId = null;
         await LoadContactsAsync();
     }
 

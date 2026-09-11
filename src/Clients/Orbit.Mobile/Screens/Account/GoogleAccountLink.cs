@@ -109,6 +109,19 @@ public sealed partial class GoogleAccountLink : ObservableObject
     }
 
     /// <summary>
+    /// A Google sign-in made now, for the server to check that the one asking is this account's owner -
+    /// deleting an account without a password asks for one (see DeleteAccountCommandHandler). The same
+    /// journey as connecting, handed back rather than sent: what it proves is the caller's to use. Null
+    /// when the reader backed out of Google's screen, which is theirs to do; throws when Orbit could not
+    /// be reached to ask which client to sign in with.
+    /// </summary>
+    public async Task<string?> SignInAgainAsync(CancellationToken cancellationToken = default)
+    {
+        var clientId = await _authenticationClient.GoogleClientIdAsync(_googleSignIn.Platform, cancellationToken);
+        return await _googleSignIn.GetIdTokenAsync(clientId, cancellationToken);
+    }
+
+    /// <summary>
     /// Refused by the server while Google is the only way in, which is the case worth getting right:
     /// disconnecting then would leave an account nobody could sign in to.
     /// </summary>

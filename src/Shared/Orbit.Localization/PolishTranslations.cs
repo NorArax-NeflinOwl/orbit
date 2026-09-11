@@ -112,14 +112,17 @@ public static class PolishTranslations
         ["This list already has an inventory."] = "Ta lista ma już magazyn.",
         ["Goes on the shelf in {0} when this list is saved, named after this entry."] =
             "Trafi na półkę w: {0} przy zapisie tej listy, pod nazwą tej pozycji.",
+        // A product entry whose name a row on the shelf already has - see TaskEditor.WhereANewProductGoes.
+        ["Already on the shelf in {0}. Saving this list points this entry at that row and leaves the row as it is, so what is typed here is not kept."] =
+            "Już jest na półce w: {0}. Zapis tej listy powiąże tę pozycję z tamtym wierszem i zostawi go bez zmian, więc to, co tu wpiszesz, nie zostanie zachowane.",
+        ["More than one row in {0} has this name, so saving leaves this entry unmatched until one of them is renamed."] =
+            "Więcej niż jeden wiersz w: {0} ma tę nazwę, więc zapis zostawi tę pozycję bez powiązania, dopóki jednemu z nich nie zmienisz nazwy.",
         // The phone saves one entry at a time, so its moment is the entry's save rather than the list's.
         ["Goes on the shelf in {0} when this entry is saved, named after this entry."] =
             "Trafi na półkę w: {0} przy zapisie tej pozycji, pod nazwą tej pozycji.",
         ["This errand's product needs an amount."] = "Produkt tego sprawunku potrzebuje ilości.",
         ["What Orbit reports about itself. Kept on this device."] =
             "Co Orbit mówi sam o sobie. Trzymane na tym urządzeniu.",
-        ["Downloads what you choose below as one file. Things shared with you are left out, and a private item travels sealed."] =
-            "Pobiera to, co wybierzesz poniżej, jako jeden plik. Rzeczy udostępnione tobie są pomijane, a element prywatny podróżuje zapieczętowany.",
         ["{0}, what you were sent here for"] = "{0} - to, po co tu przyszedłeś",
         ["Can this be done?"] = "Czy da się to wykonać?",
         ["Nothing due in this period."] = "Nic z terminem w tym okresie.",
@@ -227,6 +230,15 @@ public static class PolishTranslations
         ["When the standing \"Update stock levels\" reminder arrives."] = "Kiedy przychodzi stałe przypomnienie „Zaktualizuj stany magazynowe”.",
         ["Save settings"] = "Zapisz ustawienia",
         ["Refresh"] = "Odśwież",
+        ["Refresh the map"] = "Odśwież mapę",
+        // A route between two pins on the map, chosen from their popups - see MapPage.OnPinRoute.
+        ["Start a route here"] = "Zacznij trasę tutaj",
+        ["Route to here"] = "Trasa do tego miejsca",
+        ["Route from {0}. Open another pin and choose where it goes."] =
+            "Trasa od: {0}. Otwórz inną pinezkę i wybierz, dokąd prowadzi.",
+        ["Clear the route"] = "Wyczyść trasę",
+        ["in a straight line"] = "w linii prostej",
+        ["about {0} min"] = "ok. {0} min",
         ["The restock list already asks for exactly what it should."] = "Lista uzupełnień prosi dokładnie o to, o co powinna.",
         ["Restock list updated: {0} added, {1} removed."] = "Lista uzupełnień zaktualizowana: dodano {0}, usunięto {1}.",
         ["That didn't work. Try again."] = "Nie udało się. Spróbuj ponownie.",
@@ -378,7 +390,7 @@ public static class PolishTranslations
         ["Groups"] = "Grupy",
         ["Upcoming"] = "Nadchodzące",
         ["Nothing to show."] = "Nie ma nic do pokazania.",
-        ["Done"] = "Gotowe",
+        ["Done"] = "Ukończone",
         ["Admin"] = "Administrator",
 
         // ---- Notes ----
@@ -438,8 +450,6 @@ public static class PolishTranslations
         ["Orbit has no such group any more."] = "Orbit nie ma już takiej grupy.",
         ["Everything in this conversation goes, on your side only. This cannot be undone."] =
             "Cała ta rozmowa zniknie, tylko po Twojej stronie. Tego nie da się cofnąć.",
-        ["You stop receiving what is posted, and the group sees you go."] =
-            "Przestaniesz dostawać to, co tam trafia, a grupa zobaczy, że wychodzisz.",
         // ---- Shared without permission to edit - see SharedItemAccess. ----
         ["Shared with you to read. Ask whoever shared it if you need to change it."] =
             "Udostępnione Ci do odczytu. Poproś osobę, która udostępniła, jeśli musisz to zmienić.",
@@ -482,6 +492,8 @@ public static class PolishTranslations
         ["Nothing left today"] = "Nic już na dziś",
         ["Open Orbit to see your day"] = "Otwórz Orbita, żeby zobaczyć swój dzień",
         ["{0} more"] = "jeszcze {0}",
+        // Where an entry stands on its list, in the foot of its own screen - see TaskItemSummaryViewModel.
+        ["{0} of {1}"] = "{0} z {1}",
         ["Saved, but that place could not be found - use your location to keep a point for it."] =
             "Zapisano, ale nie udało się znaleźć tego miejsca - użyj swojej lokalizacji, żeby zapisać punkt.",
         ["Saved, but that place could not be found - open the map and point at it to keep it."] =
@@ -505,6 +517,22 @@ public static class PolishTranslations
             "Orbitowi nie udało się zapisać zmiany w magazynie, więc nie czeka już na wysłanie.",
         ["Orbit couldn't save a change, so it is no longer waiting to be sent."] =
             "Orbitowi nie udało się zapisać zmiany, więc nie czeka już na wysłanie.",
+        // A create given up on keeps its row, and the next edit tries again - see LostCreates.
+        ["Kept on this phone only"] = "Zapisano tylko na tym telefonie",
+        ["Orbit couldn't send a new note to the server. It is kept on this phone, and editing it will try again."] =
+            "Orbitowi nie udało się wysłać nowej notatki na serwer. Została na tym telefonie, a jej edycja spróbuje ponownie.",
+        ["Orbit couldn't send a new task list to the server. It is kept on this phone, and editing it will try again."] =
+            "Orbitowi nie udało się wysłać nowej listy zadań na serwer. Została na tym telefonie, a jej edycja spróbuje ponownie.",
+        ["Orbit couldn't send a new appointment to the server. It is kept on this phone, and editing it will try again."] =
+            "Orbitowi nie udało się wysłać nowego spotkania na serwer. Zostało na tym telefonie, a jego edycja spróbuje ponownie.",
+        ["Orbit couldn't send a new inventory to the server. It is kept on this phone, and editing it will try again."] =
+            "Orbitowi nie udało się wysłać nowego magazynu na serwer. Został na tym telefonie, a jego edycja spróbuje ponownie.",
+        ["Orbit couldn't send a new place to the server. It is kept on this phone, and editing it will try again."] =
+            "Orbitowi nie udało się wysłać nowego miejsca na serwer. Zostało na tym telefonie, a jego edycja spróbuje ponownie.",
+        ["Orbit couldn't send a new folder to the server. It is kept on this phone, and renaming it will try again."] =
+            "Orbitowi nie udało się wysłać nowego folderu na serwer. Został na tym telefonie, a zmiana jego nazwy spróbuje ponownie.",
+        ["Orbit couldn't send something new to the server. It is kept on this phone, and editing it will try again."] =
+            "Orbitowi nie udało się wysłać nowej rzeczy na serwer. Została na tym telefonie, a jej edycja spróbuje ponownie.",
         ["A copy is waiting to be reviewed"] = "Kopia czeka na przejrzenie",
         ["You wrote in a copy of the note “{0}” while you were offline."] =
             "Bez połączenia pisałeś w kopii notatki „{0}”.",
@@ -729,6 +757,8 @@ public static class PolishTranslations
         ["Nothing found for that. Try fewer words."] = "Nic nie znaleziono. Spróbuj krótszej frazy.",
         ["What happens here?"] = "Co się tu dzieje?",
         ["An event in the calendar"] = "Wydarzenie w kalendarzu",
+        ["An event here"] = "Wydarzenie tutaj",
+        ["A task list here"] = "Lista zadań tutaj",
         ["A task list starting here"] = "Lista zadań zaczynająca się tutaj",
         ["Orbit isn't allowed to use your location. Turn it on in Options first."] =
             "Orbit nie ma zgody na korzystanie z Twojego położenia. Włącz ją najpierw w Opcjach.",
@@ -781,7 +811,8 @@ public static class PolishTranslations
 
         // ---- Folders ----
         // The tabs every page made of cards is read under - see Orbit.Core.Folders.BuiltInFolder. The
-        // finished one is keyed "Finished" rather than "Done", which already means "Gotowe" elsewhere.
+        // finished one is keyed "Finished" rather than "Done", which is a list's status elsewhere - both
+        // read "Ukończone", so a tab and the status it gathers say the same word.
         ["Folders"] = "Foldery",
         // When filing is refused because the thing is somebody else's and there is no connection to ask.
         ["This one can't be moved while you're offline."] = "Tego nie da się przenieść bez połączenia.",
@@ -904,11 +935,15 @@ public static class PolishTranslations
         ["Release"] = "Release",
         ["Debug"] = "Debug",
         ["Frontend log level"] = "Poziom logowania frontendu",
+        ["Allow ads"] = "Pozwól na reklamy",
+        ["Off by default for an account with Debugger, so the adverts stay out of the way while you work on Orbit. Turn it on to see them the way everybody else does."] =
+            "Domyślnie wyłączone dla konta z debuggerem, żeby reklamy nie przeszkadzały w pracy nad Orbitem. Włącz, aby widzieć je tak jak wszyscy.",
         ["Your data"] = "Twoje dane",
         ["Export everything"] = "Wyeksportuj wszystko",
         ["Task lists"] = "Listy zadań",
         ["Calendar events"] = "Wydarzenia w kalendarzu",
         ["Inventories"] = "Magazyny",
+        ["Places"] = "Miejsca",
         ["Export"] = "Eksport",
         ["Import"] = "Import",
         ["Danger zone"] = "Strefa niebezpieczna",
@@ -1095,7 +1130,6 @@ public static class PolishTranslations
         ["Change password"] = "Zmień hasło",
         ["Email verification"] = "Potwierdzenie adresu e-mail",
         ["Delete account"] = "Usuń konto",
-        ["Your account has been deleted."] = "Twoje konto zostało usunięte.",
         ["Disconnect"] = "Odłącz",
         ["Push notifications"] = "Powiadomienia push",
         ["Allow mobile notification"] = "Zezwalaj na dymek powiadomienia",
@@ -1112,8 +1146,8 @@ public static class PolishTranslations
         ["What this browser reports about Orbit itself. Kept on this device."] =
             "Co ta przeglądarka raportuje o samym Orbicie. Zapamiętywane na tym urządzeniu.",
         ["Kept on this device, because a browser grants location per device."] = "Zapamiętywane na tym urządzeniu, bo przeglądarka przyznaje dostęp do położenia osobno na każdym.",
-        ["Everything you own — notes, task lists, events and inventories — as one JSON file, and back again."] =
-            "Wszystko, co masz — notatki, listy zadań, wydarzenia i magazyny — w jednym pliku JSON i z powrotem.",
+        ["Everything you own — notes, task lists, events, inventories and places — as one JSON file, and back again."] =
+            "Wszystko, co masz — notatki, listy zadań, wydarzenia, magazyny i miejsca — w jednym pliku JSON i z powrotem.",
         ["Master switch for everything below, and for the notifications panel itself."] = "Główny przełącznik dla wszystkiego poniżej i dla samego panelu powiadomień.",
         ["Instant alerts for new messages, event reminders and overdue tasks, even while Orbit isn't open."] =
             "Natychmiastowe alerty o nowych wiadomościach, przypomnieniach i zaległych zadaniach, nawet gdy Orbit jest zamknięty.",
@@ -1217,6 +1251,23 @@ public static class PolishTranslations
             "To konto ma już hasło — wpisz je zamiast ustawiać nowe.",
         ["Password changed."] = "Hasło zmienione.",
         ["Enter your password to confirm."] = "Wpisz hasło, aby potwierdzić.",
+        ["The password this account has besides Google - the one you set to use chat, or the one it had before Google was connected."] =
+            "Hasło, które to konto ma oprócz Google — ustawione, żeby korzystać z czatu, albo to, które miało, zanim połączono Google.",
+        ["Type your email address or login to confirm"] = "Wpisz swój adres e-mail albo login, aby potwierdzić",
+        ["An account without a password has nothing else to confirm it with, so typing this is what makes deleting it deliberate."] =
+            "Konto bez hasła nie ma czym innym tego potwierdzić, więc to wpisanie sprawia, że usunięcie jest zamierzone.",
+        ["That isn't this account's email address or login."] = "To nie jest adres e-mail ani login tego konta.",
+        ["Confirm with Google to delete this account"] = "Potwierdź przez Google, aby usunąć to konto",
+        ["An account without a password proves it is yours by signing in with Google again - just now, not the sign-in that opened this page."] =
+            "Konto bez hasła potwierdza, że jest Twoje, logując się ponownie przez Google - teraz, a nie logowaniem, którym otwarto tę stronę.",
+        ["Google didn't confirm this account. Try again."] = "Google nie potwierdził tego konta. Spróbuj ponownie.",
+        ["Your account hasn't loaded yet. Reload the page and try again."] =
+            "Twoje konto jeszcze się nie wczytało. Odśwież stronę i spróbuj ponownie.",
+        ["This account has a password now - reload the page and enter it."] =
+            "To konto ma teraz hasło — odśwież stronę i je wpisz.",
+        ["Your account hasn't loaded yet. Open this screen again and try again."] =
+            "Twoje konto jeszcze się nie wczytało. Otwórz ten ekran ponownie i spróbuj jeszcze raz.",
+        ["This account has a password now - enter it."] = "To konto ma teraz hasło — wpisz je.",
         ["Couldn't change your password. Try again."] = "Nie udało się zmienić hasła. Spróbuj ponownie.",
         ["That code isn't valid any more. Request a new one."] = "Ten kod stracił ważność. Poproś o nowy.",
         ["Couldn't send the code. Try again."] = "Nie udało się wysłać kodu. Spróbuj ponownie.",
@@ -1251,10 +1302,14 @@ public static class PolishTranslations
         ["That file didn't contain an Orbit export."] = "Ten plik nie zawiera eksportu z Orbita.",
         ["Orbit couldn't read that file. It may have been written by a different version."] =
             "Orbit nie potrafi odczytać tego pliku. Mógł go zapisać inna wersja aplikacji.",
-        ["Exported {0} notes, {1} task lists, {2} events and {3} inventories."] =
-            "Wyeksportowano: notatki ({0}), listy zadań ({1}), wydarzenia ({2}), magazyny ({3}).",
-        ["Imported {0} notes, {1} task lists, {2} events and {3} inventories."] =
-            "Zaimportowano: notatki ({0}), listy zadań ({1}), wydarzenia ({2}), magazyny ({3}).",
+        ["Exported {0} notes, {1} task lists, {2} events, {3} inventories and {4} places."] =
+            "Wyeksportowano: notatki ({0}), listy zadań ({1}), wydarzenia ({2}), magazyny ({3}), miejsca ({4}).",
+        ["Imported {0} notes, {1} task lists, {2} events, {3} inventories and {4} places."] =
+            "Zaimportowano: notatki ({0}), listy zadań ({1}), wydarzenia ({2}), magazyny ({3}), miejsca ({4}).",
+        ["{0} private places couldn't be opened in this browser and were written without their content."] =
+            "Nie udało się odszyfrować w tej przeglądarce prywatnych miejsc ({0}) — trafiły do pliku bez swojej treści.",
+        ["{0} private places couldn't be opened on this phone and were written without their content."] =
+            "Nie udało się odszyfrować na tym telefonie prywatnych miejsc ({0}) — trafiły do pliku bez swojej treści.",
         ["That didn't work. Reload the group and try again."] = "Nie udało się. Odśwież grupę i spróbuj ponownie.",
         ["That message is no longer yours to delete."] = "Tej wiadomości nie możesz już usunąć.",
         ["Something went wrong. Try again."] = "Coś poszło nie tak. Spróbuj ponownie.",
@@ -1330,7 +1385,9 @@ public static class PolishTranslations
             "Osoba, która go udostępniła, mogła go wyłączyć, albo rzecz, na którą wskazywał, już nie istnieje. Poproś o nowy.",
         ["The invitation always reaches your notifications. This adds a push or email on top, so you hear about it straight away."] = "Zaproszenie i tak zawsze trafia do powiadomień. To dokłada push lub e-mail, żebyś dowiedział się od razu.",
         ["Downloads everything in your account as one file. Things shared with you are left out, and a private item travels sealed."] = "Pobiera wszystko z Twojego konta jako jeden plik. Rzeczy udostępnione Tobie zostają pominięte, a element prywatny podróżuje zaszyfrowany.",
-        ["Downloads what you tick below as one file. Things shared with you are left out, and a private item travels sealed."] = "Pobiera jako jeden plik to, co zaznaczysz poniżej. Rzeczy udostępnione Tobie zostają pominięte, a element prywatny podróżuje zaszyfrowany.",
+        ["Downloads what you tick below as one file. Things shared with you are left out, and a private item travels sealed - except a place, which is opened first."] = "Pobiera jako jeden plik to, co zaznaczysz poniżej. Rzeczy udostępnione Tobie zostają pominięte, a element prywatny podróżuje zaszyfrowany — poza miejscem, które jest najpierw odszyfrowywane.",
+        ["Places are written to the file decrypted. The file itself is not encrypted, so anyone who gets it can read every place in it - names, addresses, coordinates and descriptions - private ones included."] =
+            "Miejsca trafiają do pliku odszyfrowane. Sam plik nie jest zaszyfrowany, więc każdy, kto go zdobędzie, odczyta wszystkie zapisane w nim miejsca — nazwy, adresy, współrzędne i opisy — także te prywatne.",
         ["Adds everything in a file to this account. Nothing is replaced, so importing the same file twice leaves two copies."] = "Dodaje do tego konta wszystko z pliku. Nic nie jest zastępowane, więc dwukrotny import zostawia dwie kopie.",
         ["Lets the Notifications panel list this browser's own recent errors, each with a \"Copy\" button for reporting a bug."] =
             "Pozwala panelowi powiadomień wypisać ostatnie błędy tej przeglądarki, każdy z przyciskiem „Kopiuj” do zgłoszenia usterki.",
@@ -1514,7 +1571,16 @@ public static class PolishTranslations
         ["That message is no longer yours to edit."] = "Tej wiadomości nie możesz już edytować.",
         ["Nothing matches that."] = "Nic nie pasuje.",
         ["Leave group"] = "Opuść grupę",
+        ["Leave this group? Your copies of its messages go with you, and only an admin can add you back."] =
+            "Opuścić tę grupę? Twoje kopie jej wiadomości zostaną usunięte, a wrócić możesz tylko wtedy, gdy doda Cię administrator.",
+        ["You're the last one here, so the group is deleted when you go."] =
+            "Jesteś tu ostatnią osobą, więc po Twoim wyjściu grupa zostanie usunięta.",
+        ["You're the only admin here. Who takes over?"] = "Jesteś jedynym administratorem. Kto przejmie grupę?",
         ["You aren't in this group."] = "Nie należysz do tej grupy.",
+        ["Only a group admin can choose who takes over."] = "Tylko administrator grupy może wskazać następcę.",
+        ["Choose somebody other than yourself to take over."] = "Wskaż na następcę kogoś innego niż siebie.",
+        ["The person you chose to take over isn't in this group any more."] =
+            "Osoba wskazana na następcę nie należy już do tej grupy.",
         ["Remove from my list"] = "Usuń z mojej listy",
         ["Remove \"{0}\" from your list? The owner keeps it."] = "Usunąć „{0}” z Twojej listy? Właściciel ją zachowa.",
         ["Delete note \"{0}\"?"] = "Usunąć notatkę „{0}”?",
@@ -1846,8 +1912,6 @@ public static class PolishTranslations
         ["A daily reminder needs a time to arrive at."] =
             "Codzienne przypomnienie potrzebuje godziny, o której ma przyjść.",
         ["Choose a time"] = "Wybierz godzinę",
-        ["The name is yours to write - the point is kept either way."] =
-            "Nazwa należy do Ciebie — punkt i tak zostaje zapisany.",
         ["Refresh the restock list"] = "Odśwież listę uzupełnień",
         ["Share the conversation so far"] = "Udostępnij dotychczasową rozmowę",
         ["They will be able to read what was said before they joined."] = "Będą mogli przeczytać to, co napisano przed ich dołączeniem.",

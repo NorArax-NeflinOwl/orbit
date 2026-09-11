@@ -76,15 +76,22 @@ public sealed class PendingCalendarLinkResolver
             taskList.Items = items;
             taskList.UpdatedAtUtc = _timeProvider.GetUtcNow();
             // Queued, not just stored: the entry now carries an id the server has never seen on it, and
-            // without a push the appointment would be linked here and nowhere else.
-            dbContext.Outbox.Add(new OutboxEntry
+            // without a push the appointment would be linked here and nowhere else. A list whose create
+            // the outbox gave up on is created again instead, carrying the link - see LostCreates.
+            if (CopiesForEditing.IsAwaitingReview(taskList)
+                || !await LostCreates.QueueAgainAsync(
+                    dbContext, SyncEntityType.TaskList, taskList.LocalId, taskList.ServerId,
+                    _timeProvider.GetUtcNow(), cancellationToken))
             {
-                EntityType = SyncEntityType.TaskList,
-                LocalId = taskList.LocalId,
-                ServerId = taskList.ServerId,
-                Operation = OutboxOperation.Update,
-                QueuedAtUtc = _timeProvider.GetUtcNow()
-            });
+                dbContext.Outbox.Add(new OutboxEntry
+                {
+                    EntityType = SyncEntityType.TaskList,
+                    LocalId = taskList.LocalId,
+                    ServerId = taskList.ServerId,
+                    Operation = OutboxOperation.Update,
+                    QueuedAtUtc = _timeProvider.GetUtcNow()
+                });
+            }
 
             dbContext.PendingCalendarLinks.Remove(link);
             resolved++;

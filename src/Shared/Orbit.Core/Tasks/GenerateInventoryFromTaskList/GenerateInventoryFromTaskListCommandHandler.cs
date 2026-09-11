@@ -11,17 +11,20 @@ namespace Orbit.Core.Tasks.GenerateInventoryFromTaskList;
 /// carrying how many the job needs as its minimum, and the list pointed at the result so the stock check
 /// can be run straight away.
 ///
-/// The minimum is counted the same way the check counts - repetition is quantity, so pasta named in
-/// three recipes has a minimum of three - which is what makes a generated shelf a shopping list rather
-/// than a list of headings. What starts on the shelf is what the work has already ticked off: a line
-/// somebody has crossed out is a thing they have, so three recipes with one done reads as one of three
-/// rather than none.
+/// The minimum is counted the same way the check counts, by <see cref="StockRequirementCounter"/> -
+/// repetition is quantity, so pasta named in three recipes has a minimum of three, and an entry that
+/// says its own minimum adds that instead of one, so two recipes wanting two and three kilos of flour
+/// ask the shelf to keep five. That is what makes a generated shelf a shopping list rather than a list
+/// of headings, and asking the counter rather than adding up here is what keeps the shelf and the check
+/// reading one number. What starts on the shelf is the smallest amount any of those entries wrote, and
+/// where none wrote one, what the work has already ticked off: a line somebody has crossed out is a
+/// thing they have, so three recipes with one done reads as one of three rather than none.
 ///
 /// An entry that describes the thing it names (see <see cref="TaskItemProduct"/>) is taken at its word
-/// instead: the amounts, the unit, how long it keeps and whether it is one to look at every round are
-/// what somebody wrote on the entry, and counting lines is only what answers for the entries nobody
-/// filled in. That is the point of letting an entry describe a product before any shelf exists - the
-/// answer is given once, on the list, rather than typed again on the storage afterwards.
+/// for the rest: the unit, what it is filed under, how long it keeps and whether it is one to look at
+/// every round are what somebody wrote on the entry. That is the point of letting an entry describe a
+/// product before any shelf exists - the answer is given once, on the list, rather than typed again on
+/// the storage afterwards.
 ///
 /// Everything the tree names is included, including lines dated in the future - the shelf holds what the
 /// whole job will need, while the check counts only what is due.
@@ -99,11 +102,10 @@ public sealed class GenerateInventoryFromTaskListCommandHandler : IRequestHandle
                 // As many words as apply, like every other shelf item - see InventoryItem.Categories.
                 // An entry that named none is filed where a generated row has always been filed.
                 product?.Categories is { Count: > 0 } categories ? categories : [GeneratedCategory],
-                // A blank box is not an answer here either: an amount somebody typed wins, and zero -
-                // which is what an untouched box holds - leaves the crossed-off lines to say how much
-                // is already there. The same rule for the minimum, where blank means "count the lines".
-                product?.Quantity is > 0 ? product.Quantity : requirement.Done,
-                product?.MinimumQuantity ?? requirement.Required,
+                // Both amounts are heard from every entry naming the thing rather than the first one to
+                // describe it - see StockRequirement.StartingStock and StockRequirementCounter.RequiredBy.
+                requirement.StartingStock,
+                requirement.Required,
                 product?.Unit ?? GeneratedUnit,
                 product?.ExpiryDate,
                 product?.ExpiryNotificationChannel ?? NotificationChannel.None,
@@ -162,9 +164,11 @@ public sealed class GenerateInventoryFromTaskListCommandHandler : IRequestHandle
     }
 
     /// <summary>
-    /// What each named thing was described as, by the first entry that described it. First rather than
-    /// merged: two entries naming the same thing are two of it (that is the counting rule), not two
-    /// halves of one answer, and merging them would quietly make up a product neither entry describes.
+    /// What each named thing was described as - its type, unit, categories, expiry and whether it is
+    /// looked at every round - by the first entry that described it. First rather than merged: those
+    /// answers do not add up the way amounts do, and merging them would quietly make up a product neither
+    /// entry describes. The amounts are not read from here at all; the counter hears every entry for
+    /// those.
     /// </summary>
     private static Dictionary<string, TaskItemProduct> ProductsDescribedIn(IReadOnlyList<TaskItem> work)
     {

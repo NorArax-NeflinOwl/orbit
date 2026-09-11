@@ -39,6 +39,21 @@ public sealed class TaskItemSummaryScreenTests
         Assert.False(screen.IsCompleted);
     }
 
+    /// <summary>
+    /// How far down its list the entry stands, as the design's foot line says it - an entry read away
+    /// from its list still says where on it it is.
+    /// </summary>
+    [Fact]
+    public async Task It_says_where_on_its_list_the_entry_stands()
+    {
+        using var context = new ScreenContext();
+        var opened = await context.AddEntryAsync("Collect the parcel", entriesBefore: 1, entriesAfter: 3);
+
+        var screen = await context.OpenAsync(opened);
+
+        Assert.Equal("2 of 5", screen.Position);
+    }
+
     /// <summary>An entry can lose its date and still be looked at, which is not the same as having none said.</summary>
     [Fact]
     public async Task An_entry_with_no_date_says_so()
@@ -218,6 +233,84 @@ public sealed class TaskItemSummaryScreenTests
         Assert.Empty(screen.Status);
     }
 
+    /// <summary>
+    /// A tick made here writes the whole list back, and it used to write it back without the reader's
+    /// own answer about whether the list is finished - so that answer went back to "from the entries" on
+    /// every tick made from this screen, while the list screen kept it. See TaskListContent.Completion.
+    /// </summary>
+    [Fact]
+    public async Task A_tick_here_keeps_the_readers_answer_about_whether_the_list_is_finished()
+    {
+        using var context = new ScreenContext();
+        var opened = await context.AddEntryAsync("Collect the parcel");
+        await context.AnswerWhetherTheListIsFinishedAsync(opened.TaskListLocalId, "Unfinished");
+        var screen = await context.OpenAsync(opened);
+
+        await screen.TickCommand.ExecuteAsync(null);
+
+        Assert.Equal("Unfinished", (await context.StoredListAsync(opened.TaskListLocalId)).Completion);
+    }
+
+    /// <summary>
+    /// "Duplicate", as the design draws the entry's menu: a second entry straight under this one, under
+    /// an id of its own, and then its screen. The appointment is not copied - one entry raises it, and
+    /// a second pointing at the same event would fight over it (see DuplicateTaskListCommandHandler).
+    /// </summary>
+    [Fact]
+    public async Task Duplicate_puts_a_copy_under_the_entry_without_its_appointment_and_opens_it()
+    {
+        using var context = new ScreenContext();
+        var eventId = Guid.NewGuid();
+        var opened = await context.AddEntryAsync("Dentist", tiedTo: eventId, entriesAfter: 1);
+        var screen = await context.OpenAsync(opened);
+
+        await screen.DuplicateCommand.ExecuteAsync(null);
+
+        var items = (await context.StoredListAsync(opened.TaskListLocalId)).Items;
+        Assert.Equal(3, items.Count);
+        Assert.Equal(opened.ItemId, items[0].Id);
+        Assert.Equal(eventId, items[0].LinkedCalendarEventId);
+        Assert.Equal("Dentist", items[1].Description);
+        Assert.NotEqual(opened.ItemId, items[1].Id);
+        Assert.Null(items[1].LinkedCalendarEventId);
+        Assert.Equal((opened.TaskListLocalId, items[1].Id), context.Navigator.LastTaskItem);
+    }
+
+    /// <summary>"Delete item": the entry goes from its list, and the reader lands on that list.</summary>
+    [Fact]
+    public async Task Delete_item_takes_the_entry_off_its_list_and_opens_the_list()
+    {
+        using var context = new ScreenContext();
+        var opened = await context.AddEntryAsync("Collect the parcel", entriesBefore: 1);
+        var screen = await context.OpenAsync(opened);
+
+        await screen.DeleteCommand.ExecuteAsync(null);
+
+        var items = (await context.StoredListAsync(opened.TaskListLocalId)).Items;
+        Assert.DoesNotContain(items, item => item.Id == opened.ItemId);
+        Assert.Single(items);
+        Assert.Equal(opened.TaskListLocalId, context.Navigator.LastTaskListId);
+    }
+
+    /// <summary>
+    /// A list shared to be read is refused by the store, wherever the write is made from - so the press
+    /// is answered with why, and the entry is still there.
+    /// </summary>
+    [Fact]
+    public async Task Delete_item_on_a_list_shared_to_read_is_refused_and_said()
+    {
+        using var context = new ScreenContext();
+        var opened = await context.AddEntryAsync("Collect the parcel");
+        await context.ShareToReadAsync(opened.TaskListLocalId);
+        var screen = await context.OpenAsync(opened);
+
+        await screen.DeleteCommand.ExecuteAsync(null);
+
+        Assert.NotEmpty(screen.Status);
+        Assert.Contains((await context.StoredListAsync(opened.TaskListLocalId)).Items, item => item.Id == opened.ItemId);
+        Assert.DoesNotContain("ShowTaskList", context.Navigator.Destinations);
+    }
+
     /// <summary>A tick is a tick either way round - a box that only fills in is a trap for a misread row.</summary>
     [Fact]
     public async Task A_tick_can_be_taken_back_here_too()
@@ -344,9 +437,11 @@ public sealed class TaskItemSummaryScreenTests
         /// The list this entry stands for, by the server id such a tie is stored as - an entry with one
         /// is done when that list is, and is not ticked here at all.
         /// </param>
+        /// <param name="entriesBefore">Other entries on the same list above this one.</param>
+        /// <param name="entriesAfter">Other entries on the same list below this one.</param>
         public async Task<(Guid TaskListLocalId, Guid ItemId)> AddEntryAsync(
             string description, DateTime? due = null, string at = "", Guid? tiedTo = null,
-            bool isCompleted = false, Guid? standingFor = null)
+            bool isCompleted = false, Guid? standingFor = null, int entriesBefore = 0, int entriesAfter = 0)
         {
             var itemId = Guid.NewGuid();
             var dueUtc = due is { } localDue
@@ -355,13 +450,18 @@ public sealed class TaskItemSummaryScreenTests
 
             var created = await _taskLists.CreateAsync("Errands",
             [
+                .. Enumerable.Range(0, entriesBefore).Select(index => AnotherEntry($"Above {index}")),
                 new TaskItemDto(
                     itemId, description, dueUtc, isCompleted, standingFor, "None", false, "None", new TimeOnly(9, 0),
-                    "Checklist", at, tiedTo)
+                    "Checklist", at, tiedTo),
+                .. Enumerable.Range(0, entriesAfter).Select(index => AnotherEntry($"Below {index}"))
             ]);
 
             return (created.LocalId, itemId);
         }
+
+        private static TaskItemDto AnotherEntry(string description)
+            => new(Guid.NewGuid(), description, null, false, null, "None", false, "None", new TimeOnly(9, 0));
 
         /// <summary>Another list of this account's, already known to the server - what an entry can stand for.</summary>
         public async Task<Guid> AddTaskListAsync(string title)
@@ -386,6 +486,18 @@ public sealed class TaskItemSummaryScreenTests
             stored.AccessLevel = "ReadOnly";
             await dbContext.SaveChangesAsync();
         }
+
+        /// <summary>The reader's own answer about whether the list is finished - see LocalTaskList.Completion.</summary>
+        public async Task AnswerWhetherTheListIsFinishedAsync(Guid taskListLocalId, string completion)
+        {
+            await using var dbContext = _localStore.CreateDbContext();
+            dbContext.TaskLists.Single(candidate => candidate.LocalId == taskListLocalId).Completion = completion;
+            await dbContext.SaveChangesAsync();
+        }
+
+        /// <summary>The list as this phone now holds it.</summary>
+        public async Task<LocalTaskList> StoredListAsync(Guid taskListLocalId)
+            => (await _taskLists.FindAsync(taskListLocalId))!;
 
         /// <summary>The entry as this phone now holds it - what a tick has to have changed.</summary>
         public async Task<TaskItemDto> StoredEntryAsync((Guid TaskListLocalId, Guid ItemId) opened)

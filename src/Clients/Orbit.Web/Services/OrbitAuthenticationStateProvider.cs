@@ -16,11 +16,18 @@ public sealed class OrbitAuthenticationStateProvider : AuthenticationStateProvid
 
     private readonly TokenStore _tokenStore;
     private readonly TokenRefreshService _tokenRefreshService;
+    private readonly TimeProvider _timeProvider;
 
-    public OrbitAuthenticationStateProvider(TokenStore tokenStore, TokenRefreshService tokenRefreshService)
+    /// <param name="timeProvider">
+    /// What "now" is when a token's expiry is read. Optional so the many tests that build this by hand
+    /// need not say; the app hands over the one it registered.
+    /// </param>
+    public OrbitAuthenticationStateProvider(
+        TokenStore tokenStore, TokenRefreshService tokenRefreshService, TimeProvider? timeProvider = null)
     {
         _tokenStore = tokenStore;
         _tokenRefreshService = tokenRefreshService;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary>
@@ -119,7 +126,7 @@ public sealed class OrbitAuthenticationStateProvider : AuthenticationStateProvid
     /// looks unexpired and well-formed, and was otherwise indistinguishable from a genuine session until
     /// something finally tried to use it.
     /// </summary>
-    private static bool IsExpired(IEnumerable<Claim> claims)
+    private bool IsExpired(IEnumerable<Claim> claims)
     {
         var expiresAtClaim = claims.FirstOrDefault(claim => claim.Type == "exp");
         if (expiresAtClaim is null || !long.TryParse(expiresAtClaim.Value, out var expiresAtUnixSeconds))
@@ -127,7 +134,7 @@ public sealed class OrbitAuthenticationStateProvider : AuthenticationStateProvid
             return false;
         }
 
-        return DateTimeOffset.FromUnixTimeSeconds(expiresAtUnixSeconds) <= DateTimeOffset.UtcNow;
+        return DateTimeOffset.FromUnixTimeSeconds(expiresAtUnixSeconds) <= _timeProvider.GetUtcNow();
     }
 
     private static byte[] Base64UrlDecode(string base64Url)

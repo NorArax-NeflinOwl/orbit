@@ -66,6 +66,30 @@ public sealed class PageHeaderTests : OrbitTestContext
         Assert.Equal("Shared by Anna", cut.Find(".page-subtitle").TextContent);
     }
 
+    /// <summary>What a page is for sits behind a "?" inside the heading, not under it - the words are
+    /// kept in the bubble, where a screen reader still reads them, and nothing takes the subtitle's line.</summary>
+    [Fact]
+    public void A_description_is_folded_behind_a_mark_beside_the_title()
+    {
+        var cut = RenderComponent<PageHeader>(parameters => parameters
+            .Add(header => header.Title, (RenderFragment)(builder => builder.AddContent(0, "Dashboard")))
+            .Add(header => header.Description, Optional("Everything on your plate, in one place.")));
+
+        Assert.Equal("Everything on your plate, in one place.", cut.Find("h1 .field-hint-bubble").TextContent);
+        Assert.Equal("?", cut.Find("h1 .field-hint-mark").TextContent);
+        Assert.Empty(cut.FindAll(".page-subtitle"));
+    }
+
+    [Fact]
+    public void With_no_description_the_title_carries_no_mark()
+    {
+        var cut = RenderComponent<PageHeader>(parameters => parameters
+            .Add(header => header.Title, (RenderFragment)(builder => builder.AddContent(0, "Note"))));
+
+        Assert.Empty(cut.FindAll(".field-hint-mark"));
+        Assert.Equal("Note", cut.Find("h1").TextContent);
+    }
+
     [Fact]
     public void A_hint_reads_beside_the_title_rather_than_as_a_subtitle()
     {

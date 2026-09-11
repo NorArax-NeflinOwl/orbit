@@ -82,7 +82,7 @@ public partial class App : Application
 
 	/// <summary>
 	/// Startup always begins at the version gate - nothing else may run before the app knows it is still
-	/// allowed to. See <see cref="Features.Startup.StartupViewModel"/>.
+	/// allowed to. See <see cref="Orbit.Mobile.Screens.Startup.StartupViewModel"/>.
 	/// </summary>
 	protected override Window CreateWindow(IActivationState? activationState)
 	{

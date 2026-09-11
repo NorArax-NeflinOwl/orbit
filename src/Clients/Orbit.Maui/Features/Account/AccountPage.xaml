@@ -20,12 +20,6 @@
     <ScrollView Grid.Row="1">
         <VerticalStackLayout Padding="16,16,16,28" Spacing="18">
 
-            <controls:PageHeader>
-                <controls:PageHeader.Subtitle>
-                    <controls:Translate Text="Who you are to Orbit, and what this device is allowed to do." />
-                </controls:PageHeader.Subtitle>
-            </controls:PageHeader>
-
             <!-- Tabs rather than one long scroll, as Orbit.Web's Options page has: changing a password
                  and unlocking a feature are different errands. -->
             <Grid RowDefinitions="Auto,Auto">
@@ -65,9 +59,11 @@
                  the web keeps it in the browser: a phone in a pocket and a browser at a desk want
                  different answers. The language stays in the avatar's menu, where it was asked for. -->
             <VerticalStackLayout Spacing="10" IsVisible="{Binding IsShowingAppearance}">
-                <Label Text="{controls:Translate 'Appearance'}" Style="{StaticResource SectionHeading}" />
-                <Label Text="{controls:Translate 'Choose how Orbit looks on this device.'}" FontSize="12"
-                       LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                <!-- The section's sentence behind its heading's mark, as each row's is beside its name -
+                     the way Orbit.Web's Options folded its own. -->
+                <controls:FieldHint IsHeading="True"
+                                    Label="{controls:Translate 'Appearance'}"
+                                    Text="{controls:Translate 'Choose how Orbit looks on this device.'}" />
                 <!-- One strip of three rather than a list to open, which is what the design draws and
                      what Orbit.Web's own theme picker is: there are three answers, they all fit, and
                      choosing is one press instead of two. A Picker also showed only the answer already
@@ -119,8 +115,7 @@
                                  to a colour string hands the string straight over - the shape is then
                                  left unpainted and says nothing about it. That is exactly how the
                                  first draft of this swatch came out as an empty gap on the screen. -->
-                            <Grid Margin="0,0,10,10" WidthRequest="40" HeightRequest="40"
-                                  AutomationProperties.Name="{Binding Name}">
+                            <Grid Margin="0,0,10,10" WidthRequest="40" HeightRequest="40">
                                 <Ellipse StrokeThickness="1.5" Fill="Transparent"
                                          Stroke="{Binding Swatch, Converter={StaticResource EventColour}}" />
                                 <Ellipse WidthRequest="24" HeightRequest="24" IsVisible="{Binding IsChosen}"
@@ -256,14 +251,23 @@
                    TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
                    LineBreakMode="WordWrap" />
 
-            <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" LineBreakMode="WordWrap" />
-
+            <!-- Each form below says what became of it under its own button, as the danger card does -
+                 see AccountViewModel.UserNameMessage. They shared one line here, out of sight of a
+                 reader who had scrolled down to the form they pressed. -->
             <VerticalStackLayout Spacing="8" IsEnabled="{Binding Connection.IsMet}" IsVisible="{Binding IsShowingAccount}">
                 <Label Text="{controls:Translate 'Login'}" Style="{StaticResource SectionHeading}" />
                 <!-- See RegisterPage for why this is not the default text keyboard. -->
                 <Entry Placeholder="{controls:Translate 'New username'}" Text="{Binding UserName}" Keyboard="Plain" />
                 <Entry Placeholder="{controls:Translate 'Display name'}" Text="{Binding DisplayName}" />
                 <Button Text="{controls:Translate 'Change username'}" Command="{Binding ChangeUserNameCommand}" />
+                <Label Text="{Binding UserNameMessage.Text}" IsVisible="{Binding UserNameMessage.IsShown}"
+                       FontSize="12" LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}">
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding UserNameMessage.IsFailure}" Value="True">
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
             </VerticalStackLayout>
 
             <VerticalStackLayout Spacing="8" IsEnabled="{Binding Connection.IsMet}" IsVisible="{Binding IsShowingAccount}">
@@ -277,6 +281,15 @@
                 <Button Text="{controls:Translate 'Send confirmation code'}" Command="{Binding RequestEmailChangeCommand}" />
                 <Entry Placeholder="{controls:Translate 'Confirmation code'}" Text="{Binding EmailConfirmationCode}" Keyboard="Numeric" />
                 <Button Text="{controls:Translate 'Confirm new address'}" Command="{Binding ConfirmEmailChangeCommand}" />
+                <!-- One line for both buttons: they are two steps of the same change. -->
+                <Label Text="{Binding EmailMessage.Text}" IsVisible="{Binding EmailMessage.IsShown}"
+                       FontSize="12" LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}">
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding EmailMessage.IsFailure}" Value="True">
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
             </VerticalStackLayout>
 
             <!-- What this phone hands to Google, which is a different question from what the account is
@@ -323,6 +336,14 @@
                 <Entry Placeholder="{controls:Translate 'Repeat new password'}" Text="{Binding RepeatedNewPassword}"
                        IsPassword="True" />
                 <Button Text="{controls:Translate 'Change password'}" Command="{Binding ChangePasswordCommand}" />
+                <Label Text="{Binding PasswordMessage.Text}" IsVisible="{Binding PasswordMessage.IsShown}"
+                       FontSize="12" LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}">
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding PasswordMessage.IsFailure}" Value="True">
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
                 <Button Text="{controls:Translate 'Chat key'}" Command="{Binding GoToChatKeyCommand}"
                         HorizontalOptions="Start" Style="{StaticResource LinkButton}" />
             </VerticalStackLayout>
@@ -332,10 +353,10 @@
             <VerticalStackLayout Spacing="8" IsVisible="{Binding IsShowingAccount}">
                 <controls:FieldHint IsHeading="True"
                                     Label="{controls:Translate 'Export'}"
-                                    Text="{controls:Translate 'Downloads what you choose below as one file. Things shared with you are left out, and a private item travels sealed.'}" />
+                                    Text="{controls:Translate 'Downloads what you tick below as one file. Things shared with you are left out, and a private item travels sealed - except a place, which is opened first.'}" />
 
-                <!-- All four to begin with, which is what an export meant before there was anything to
-                     choose - see ExportChoice. -->
+                <!-- The first four to begin with, which is what an export meant before there was anything
+                     to choose. Places wait to be asked for - see ExportChoice. -->
                 <Border Style="{StaticResource SettingsCard}" BindingContext="{Binding Export}">
                     <VerticalStackLayout Spacing="0">
                         <controls:SettingRow Title="{controls:Translate 'Notes'}">
@@ -356,14 +377,26 @@
                                         SemanticProperties.Description="{controls:Translate 'Calendar events'}" />
                             </controls:SettingRow.Trailing>
                         </controls:SettingRow>
-                        <controls:SettingRow Title="{controls:Translate 'Inventories'}" HasDivider="False">
+                        <controls:SettingRow Title="{controls:Translate 'Inventories'}">
                             <controls:SettingRow.Trailing>
                                 <Switch IsToggled="{Binding IncludesInventories}"
                                         SemanticProperties.Description="{controls:Translate 'Inventories'}" />
                             </controls:SettingRow.Trailing>
                         </controls:SettingRow>
+                        <controls:SettingRow Title="{controls:Translate 'Places'}" HasDivider="False">
+                            <controls:SettingRow.Trailing>
+                                <Switch IsToggled="{Binding IncludesPlaces}"
+                                        SemanticProperties.Description="{controls:Translate 'Places'}" />
+                            </controls:SettingRow.Trailing>
+                        </controls:SettingRow>
                     </VerticalStackLayout>
                 </Border>
+
+                <!-- Before the button rather than after the file, and only while places are on: they are
+                     the one part of the file that is not sealed. See AccountViewModel.PlacesWarning. -->
+                <Label Text="{Binding PlacesWarning}" IsVisible="{Binding HasPlacesWarning}"
+                       FontSize="12" LineBreakMode="WordWrap"
+                       TextColor="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
 
                 <Button Text="{controls:Translate 'Export'}" HorizontalOptions="Start"
                         Style="{StaticResource PrimaryButton}"
@@ -378,22 +411,57 @@
                 <Label Text="{Binding TransferMessage}" IsVisible="{Binding HasTransferMessage}"
                        FontSize="12" LineBreakMode="WordWrap"
                        TextColor="{DynamicResource Accent}" />
+                <Label Text="{Binding TransferWarning}" IsVisible="{Binding HasTransferWarning}"
+                       FontSize="12" LineBreakMode="WordWrap"
+                       TextColor="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
             </VerticalStackLayout>
 
             <!-- The one irreversible thing this screen can do, so it is last, filled red rather than the
                  quiet DestructiveButton the per-item deletes use, and asks for the password again on its
-                 own line - see AccountViewModel.DeleteAccountPassword. The confirmation itself is the
-                 page's job: it is a platform prompt. -->
+                 own line - see AccountViewModel.DeleteAccountPassword. An account with no password types
+                 its address or login instead. The confirmation itself is the page's job: it is a platform
+                 prompt, shown only once AccountViewModel.IsReadyToDelete agrees. -->
             <Border Style="{StaticResource DangerCard}" Padding="18,16" Margin="0,8,0,0"
                     IsEnabled="{Binding Connection.IsMet}" IsVisible="{Binding IsShowingAccount}">
                 <VerticalStackLayout Spacing="8">
                     <controls:FieldHint IsHeading="True"
                                         Label="{controls:Translate 'Delete account'}"
                                         Text="{controls:Translate 'Permanently deletes your account and everything in it - notes, tasks, calendar events, inventory, and chat history. This cannot be undone.'}" />
+
+                    <!-- Which password is meant, for an account that signs in with Google and may not
+                         think of itself as having one - see AccountViewModel.ExplainsWhichPassword. -->
+                    <controls:FieldHint Label="{controls:Translate 'Password'}"
+                                        Text="{controls:Translate 'The password this account has besides Google - the one you set to use chat, or the one it had before Google was connected.'}"
+                                        IsVisible="{Binding ExplainsWhichPassword}" />
                     <Entry Placeholder="{controls:Translate 'Password'}" Text="{Binding DeleteAccountPassword}" IsPassword="True"
                            IsVisible="{Binding RequiresPasswordToDelete}" />
+                    <!-- A reset is the way to delete an account whose password is gone; without this the
+                         field was a dead end, since the reset screen was offered only from sign-in. -->
+                    <Button Text="{controls:Translate 'Forgot your password?'}" Command="{Binding GoToPasswordResetCommand}"
+                            HorizontalOptions="Start" Style="{StaticResource LinkButton}"
+                            IsVisible="{Binding RequiresPasswordToDelete}" />
+
+                    <VerticalStackLayout Spacing="4" IsVisible="{Binding RequiresTypedAccountToDelete}">
+                        <controls:FieldHint Label="{controls:Translate 'Type your email address or login to confirm'}"
+                                            Text="{controls:Translate 'An account without a password has nothing else to confirm it with, so typing this is what makes deleting it deliberate.'}" />
+                        <!-- See RegisterPage for why this is not the default text keyboard. -->
+                        <Entry Text="{Binding DeleteAccountConfirmation}" Keyboard="Plain"
+                               IsSpellCheckEnabled="False" IsTextPredictionEnabled="False"
+                               SemanticProperties.Description="{controls:Translate 'Type your email address or login to confirm'}" />
+                    </VerticalStackLayout>
+
+                    <!-- Where Google is offered, an account with no password confirms with it instead:
+                         pressing Delete asks Google again after the prompt - see
+                         AccountViewModel.ConfirmsWithGoogle and the page's OnDeleteAccountClicked. -->
+                    <controls:FieldHint Label="{controls:Translate 'Confirm with Google to delete this account'}"
+                                        Text="{controls:Translate 'An account without a password proves it is yours by signing in with Google again - just now, not the sign-in that opened this page.'}"
+                                        IsVisible="{Binding ConfirmsWithGoogle}" />
+
                     <Button x:Name="DeleteAccountButton" Text="{controls:Translate 'Delete account'}" HorizontalOptions="Start"
                             Style="{StaticResource DangerButton}" Clicked="OnDeleteAccountClicked" />
+                    <Label Text="{Binding DeletionMessage}" IsVisible="{Binding HasDeletionMessage}"
+                           FontSize="12" LineBreakMode="WordWrap"
+                           TextColor="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
                 </VerticalStackLayout>
             </Border>
 
@@ -436,8 +504,9 @@
                  AccountViewModel.Tabs. The chat key is not here: unlocking what this account sealed is
                  an ordinary thing to want, not a look inside Orbit, so it stays on the Account tab. -->
             <VerticalStackLayout Spacing="10" IsVisible="{Binding IsShowingDebug}">
-                <Label Text="{controls:Translate 'What Orbit reports about itself. Kept on this device.'}"
-                       LineBreakMode="WordWrap" Style="{StaticResource SectionSubtext}" />
+                <controls:FieldHint IsHeading="True"
+                                    Label="{controls:Translate 'Debugger'}"
+                                    Text="{controls:Translate 'What Orbit reports about itself. Kept on this device.'}" />
                 <Button Text="{controls:Translate 'Diagnostics'}" Command="{Binding GoToDiagnosticsCommand}"
                         HorizontalOptions="Start" Style="{StaticResource LinkButton}" />
             </VerticalStackLayout>
@@ -445,7 +514,10 @@
 
         </VerticalStackLayout>
     </ScrollView>
-        <controls:NavigationBar Grid.Row="0" />
+        <!-- What the screen is for, behind the "?" beside its name - see NavigationBar.Description. It
+             was the one screen still saying it as a subtitle under the bar. -->
+        <controls:NavigationBar Grid.Row="0"
+                                Description="{controls:Translate 'Who you are to Orbit, and what this device is allowed to do.'}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
         <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>

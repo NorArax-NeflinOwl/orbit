@@ -16,7 +16,7 @@
 
 <PageHeader>
     <Title>@(_group?.Name ?? T["Group chat"])</Title>
-    <Subtitle>@T["Chats with more than one other person, encrypted the same way one-to-one chats are."]</Subtitle>
+    <Description>@T["Chats with more than one other person, encrypted the same way one-to-one chats are."]</Description>
 </PageHeader>
 
 @if (!Permissions.Has(ApplicationPermission.Chat))

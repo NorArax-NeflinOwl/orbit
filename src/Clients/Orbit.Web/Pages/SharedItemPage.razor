@@ -75,12 +75,16 @@
                 {
                     <AuthorizeView>
                         <Authorized>
-                            <button type="button" class="btn-primary" disabled="@_isClaiming" @onclick="ClaimAsync">@T["Save to my account"]</button>
-                            <p class="page-subtitle">@T["You'll get your own read-only copy. Nothing you do changes theirs."]</p>
+                            <span class="field-with-note">
+                                <button type="button" class="btn-primary" disabled="@_isClaiming" @onclick="ClaimAsync">@T["Save to my account"]</button>
+                                <FieldHint>@T["You'll get your own read-only copy. Nothing you do changes theirs."]</FieldHint>
+                            </span>
                         </Authorized>
                         <NotAuthorized>
-                            <button type="button" class="btn-primary" @onclick="SignInToClaim">@T["Sign in to save this"]</button>
-                            <p class="page-subtitle">@T["Reading needs no account. Saving it to your own does."]</p>
+                            <span class="field-with-note">
+                                <button type="button" class="btn-primary" @onclick="SignInToClaim">@T["Sign in to save this"]</button>
+                                <FieldHint>@T["Reading needs no account. Saving it to your own does."]</FieldHint>
+                            </span>
                         </NotAuthorized>
                     </AuthorizeView>
                 }

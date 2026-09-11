@@ -85,6 +85,72 @@ public sealed class AuthorizationMessageHandlerTests
         Assert.Null(await tokenStore.GetTokenAsync());
     }
 
+    /// <summary>
+    /// A wrong password on deleting the account is the endpoint's answer about what was typed, not a
+    /// sign the session ended: sending it again spent a second of the five tries a minute and ended in
+    /// the rate limit's refusal instead of "that password isn't right".
+    /// </summary>
+    [Theory]
+    [InlineData("DELETE", "api/users/me")]
+    [InlineData("PUT", "api/users/me/password")]
+    public async Task SendAsync_does_not_retry_a_refused_password(string method, string path)
+    {
+        var tokenStore = new TokenStore(new StubJSRuntime());
+        await tokenStore.SetTokensAsync("a-token", "a-refresh-token");
+        var attemptCount = 0;
+        var refreshCount = 0;
+        var httpClient = CreateHttpClient(
+            tokenStore,
+            _ =>
+            {
+                attemptCount++;
+                return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+            },
+            _ =>
+            {
+                refreshCount++;
+                return JsonResponse(new AuthResponse("new-token", "new-refresh-token", Guid.NewGuid(), "user@example.com", "User"));
+            });
+
+        var response = await httpClient.SendAsync(new HttpRequestMessage(new HttpMethod(method), path));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(1, attemptCount);
+        Assert.Equal(0, refreshCount);
+        Assert.Equal("a-token", await tokenStore.GetTokenAsync());
+    }
+
+    /// <summary>
+    /// The same request turned away because the access token really expired still refreshes and is
+    /// sent again: that refusal carries the bearer challenge, which a refused password does not.
+    /// </summary>
+    [Fact]
+    public async Task SendAsync_still_refreshes_an_expired_session_on_a_password_request()
+    {
+        var tokenStore = new TokenStore(new StubJSRuntime());
+        await tokenStore.SetTokensAsync("expired-token", "a-refresh-token");
+        var attemptCount = 0;
+        var httpClient = CreateHttpClient(
+            tokenStore,
+            _ =>
+            {
+                if (++attemptCount > 1)
+                {
+                    return new HttpResponseMessage(HttpStatusCode.NoContent);
+                }
+
+                var expired = new HttpResponseMessage(HttpStatusCode.Unauthorized);
+                expired.Headers.WwwAuthenticate.Add(new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "error=\"invalid_token\""));
+                return expired;
+            },
+            _ => JsonResponse(new AuthResponse("new-token", "new-refresh-token", Guid.NewGuid(), "user@example.com", "User")));
+
+        var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Delete, "api/users/me"));
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal(2, attemptCount);
+    }
+
     private static HttpClient CreateHttpClient(
         TokenStore tokenStore,
         Func<HttpRequestMessage, HttpResponseMessage> respondToInnerRequest,

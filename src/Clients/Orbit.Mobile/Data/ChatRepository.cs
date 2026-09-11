@@ -52,10 +52,24 @@ public sealed class ChatRepository
             RequiresApprovalFromCurrentUser = contact.RequiresApprovalFromCurrentUser,
             IsPendingApprovalFromOtherParty = contact.IsPendingApprovalFromOtherParty,
             PresenceStatus = contact.PresenceStatus,
-            IsArchived = contact.IsArchived
+            IsArchived = contact.IsArchived,
+            UnreadCount = contact.UnreadCount
         }));
 
         await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Nothing from this person is waiting any more - said the moment the server has been told the
+    /// conversation was read, rather than left for the next refresh of the list, so a count does not
+    /// stand on somebody whose messages are open on the screen. See LocalContact.UnreadCount.
+    /// </summary>
+    public async Task MarkReadAsync(Guid otherUserId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await dbContext.Contacts
+            .Where(contact => contact.UserId == otherUserId)
+            .ExecuteUpdateAsync(contact => contact.SetProperty(row => row.UnreadCount, 0), cancellationToken);
     }
 
     /// <summary>The groups this phone knows about, newest first.</summary>

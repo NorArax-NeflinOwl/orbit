@@ -19,6 +19,13 @@ public interface IUserRepository
 
     Task UpdateAsync(User user, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// UpdateAsync for an account that may have gone since it was read - one deleted between a presence
+    /// heartbeat's read and its write, say. False when there was no longer a row to update, rather than the
+    /// concurrency failure a blind write ends in, which reached the caller as a 500.
+    /// </summary>
+    Task<bool> TryUpdateAsync(User user, CancellationToken cancellationToken);
+
     /// <summary>Looks an account up by the Google identity it's linked to - see User.GoogleSubjectId for why the subject, not the address.</summary>
     Task<User?> GetByGoogleSubjectIdAsync(string googleSubjectId, CancellationToken cancellationToken);
 }

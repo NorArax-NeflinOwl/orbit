@@ -39,7 +39,13 @@ public sealed class PresenceHeartbeatCommandHandler : IRequestHandler<PresenceHe
         // clients keep one.
         var statusBefore = user.Presence.StatusAt(nowUtc);
         user.RecordSeen(nowUtc);
-        await _userRepository.UpdateAsync(user, cancellationToken);
+        // Conditional rather than a read and a blind write: a heartbeat can arrive while the account is
+        // being deleted, and the row read above is then gone by the time this writes. Nobody is left to
+        // be present, which is the same answer as an account that was never found.
+        if (!await _userRepository.TryUpdateAsync(user, cancellationToken))
+        {
+            return false;
+        }
 
         if (user.Presence.StatusAt(nowUtc) != statusBefore)
         {

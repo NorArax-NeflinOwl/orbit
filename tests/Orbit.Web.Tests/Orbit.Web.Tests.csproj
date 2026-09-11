@@ -21,6 +21,9 @@
          resolved version clears the NuGet audit check, even though this project only ever parses
          markup the app itself rendered, never attacker-controlled input. -->
     <PackageReference Include="AngleSharp" Version="1.5.0" />
+    <!-- A clock a test can set, for the pages whose answer changes at midnight - the same version the
+         phone's tests use. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.10.0" />
   </ItemGroup>
 
   <ItemGroup>

@@ -143,9 +143,10 @@ picture. There was no picture: the prototype never drew them. What that meant in
 
 - **No page heading where the bar already carries the name.** Diagnostics was the last screen still
   writing its own name at 26pt under a bar that had just said it.
-- **One quiet line of context** (12px, secondary) where a screen needs one, which is what the design
-  gives the settings screen. Everything else was a `PageHeader`, and that control no longer draws a
-  title.
+- **One quiet line of context** where a screen needs one, which is what the design gives the settings
+  screen - and since 2026-09-11 it is folded behind a "?" beside the screen's name in the bar
+  (`NavigationBar.Description`), as the browser folds its page descriptions. Everything else was a
+  `PageHeader`, and that control no longer draws a title.
 - **Hairlines above a row, and one more under the last** — the shape `ItemCard` draws for every list.
   The copy-history rows drew theirs underneath, which leaves a rule hanging under a list that has
   ended.
@@ -182,8 +183,9 @@ Deliberately not copied from the design:
 - **The month grid carries a dot per day, not a chip per event** — see `orbit-maui-plan.md` §14.1.
 - **The phone keeps a map** where Orbit.Web hides one below 680px: on Android it is the platform's own
   control, pinchable, on the one device that actually has a location.
-- **A conversation shows no count of what is waiting.** `LocalContact` has no unread count and nothing
-  on the device derives one.
+- ~~**A conversation shows no count of what is waiting.**~~ It does since 2026-09-11: the server had
+  counted all along (`ContactDto.UnreadCount`), and the phone now keeps the count on `LocalContact` and
+  draws it on the avatar where Orbit.Web's `UnreadBadge` sits. A group carries no count, on either client.
 
 ## The screens the written spec does not describe yet
 

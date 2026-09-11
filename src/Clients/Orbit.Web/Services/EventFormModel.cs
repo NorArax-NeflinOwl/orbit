@@ -59,9 +59,14 @@ public sealed class EventFormModel
     /// otherwise the end date could default to the still-current day while the end time wraps to just
     /// after midnight, putting the end before the start.
     /// </summary>
-    public EventFormModel()
+    /// <param name="clock">
+    /// What "now" is, for those defaults and for a date left empty (see ToDateTimeOffset). Optional so a
+    /// form model made where no clock is at hand still works; the editors hand over the one they inject.
+    /// </param>
+    public EventFormModel(TimeProvider? clock = null)
     {
-        var start = DateTime.Now;
+        _clock = clock ?? TimeProvider.System;
+        var start = _clock.GetLocalNow().DateTime;
         var end = start.AddHours(1);
         StartDate = DateOnly.FromDateTime(start);
         StartTime = TimeOnly.FromDateTime(start);
@@ -75,6 +80,8 @@ public sealed class EventFormModel
     /// left with its end before its beginning.
     /// </summary>
     private TimeSpan _lastKnownDuration = TimeSpan.FromHours(1);
+
+    private readonly TimeProvider _clock;
 
     /// <summary>
     /// Drags the end along when the start moves past it, and otherwise remembers how long this event
@@ -129,8 +136,9 @@ public sealed class EventFormModel
     private DateTime? EndInstant
         => EndDate is { } date ? date.ToDateTime(IsAllDay ? TimeOnly.MinValue : EndTime ?? TimeOnly.MinValue) : null;
 
-    public static EventFormModel FromDto(CalendarEventDetailsDto details)
-        => new()
+    /// <param name="clock"><inheritdoc cref="EventFormModel(TimeProvider)" path="/param[@name='clock']"/></param>
+    public static EventFormModel FromDto(CalendarEventDetailsDto details, TimeProvider? clock = null)
+        => new(clock)
         {
             Description = details.Description ?? string.Empty,
             LocationAddress = details.Location?.Address ?? string.Empty,
@@ -185,9 +193,9 @@ public sealed class EventFormModel
     /// Combines the separately-edited date and time-of-day into the single timestamp the API expects.
     /// All-day events are anchored to local midnight regardless of the time field.
     /// </summary>
-    private static DateTimeOffset ToDateTimeOffset(DateOnly? date, TimeOnly? time, bool isAllDay)
+    private DateTimeOffset ToDateTimeOffset(DateOnly? date, TimeOnly? time, bool isAllDay)
     {
-        var effectiveDate = date ?? DateOnly.FromDateTime(DateTime.Today);
+        var effectiveDate = date ?? DateOnly.FromDateTime(_clock.GetLocalNow().Date);
         var effectiveTime = isAllDay ? TimeOnly.MinValue : time ?? TimeOnly.MinValue;
         return new DateTimeOffset(effectiveDate.ToDateTime(effectiveTime, DateTimeKind.Local)).ToUniversalTime();
     }

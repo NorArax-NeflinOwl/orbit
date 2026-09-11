@@ -31,6 +31,7 @@
 @inject ILogger<MapPage> Logger
 @inject UserPermissionState Permissions
 @inject NotificationFeedState NotificationFeed
+@inject TimeProvider TimeProvider
 @inject Translations T
 
 <PageTitle>@T["Orbit — Map"]</PageTitle>
@@ -48,7 +49,10 @@ else
     <div class="map-panel">
         <div class="map-panel-head">
             <div class="map-panel-head-row">
-                <h1>@T["Map"]</h1>
+                @* What the page is for, behind the same mark every other page's title carries - see
+                   PageHeader.Description. This page draws its own heading because the name shares a row
+                   with the menu, but the sentence under it was the same kind of sentence. *@
+                <h1>@T["Map"]<FieldHint>@T["Where you are, who you are sharing it with, and who is sharing theirs."]</FieldHint></h1>
                 @* Everything that can only be done to a recording that already exists, at the far edge
                    of the name's own row - the same place every other page keeps its menu. Offered
                    rather than hidden while there is nothing to update or stop: what the page can do is
@@ -66,7 +70,6 @@ else
                     </button>
                 </OverflowMenu>
             </div>
-            <p class="page-subtitle">@T["Where you are, who you are sharing it with, and who is sharing theirs."]</p>
         </div>
 
         @* The one thing this page is opened to do, as a button rather than an entry in a menu, and
@@ -137,15 +140,22 @@ else
             }
         </section>
 
+        @* The lists below are left out while they have nothing in them, the way an empty card is left
+           off the dashboard: four headings each saying "nobody yet" was most of the panel spent on what
+           is not there. The box above them stays - it is how any of them comes to have something in it. *@
+        @if (_ownShares.Count > 0)
+        {
         <section class="map-panel-section @PinnedClass(MapPanelPins.PanelList.YouAreSharingWith)">
             <div class="map-panel-heading-row">
                 @RenderPanelPin(MapPanelPins.PanelList.YouAreSharingWith)
-                <h2 class="map-panel-heading">@T["You are sharing with"]</h2>
+                @* What a live share does, behind a "!" rather than as a line under the rows: it is true
+                   only while one of them is live, which makes it news about this screen rather than a
+                   description of it - see FieldHint's Warns. *@
+                <h2 class="map-panel-heading">@T["You are sharing with"]@if (_isLiveSharing)
+                    {
+                        <FieldHint Warns="true">@T["Your position goes out every minute while this page is open. Ending a share deletes it from Orbit."]</FieldHint>
+                    }</h2>
             </div>
-            @if (_ownShares.Count == 0)
-            {
-                <p class="empty-hint">@T["Nobody yet."]</p>
-            }
             @foreach (var share in _ownShares)
             {
                 var recipientUserId = share.SharerUserId == _ownUserId ? share.RecipientUserId : share.SharerUserId;
@@ -174,14 +184,11 @@ else
                             @onclick="() => StopSharingAsync(recipientUserId)">✕</button>
                 </div>
             }
-            @if (_isLiveSharing)
-            {
-                <p class="empty-hint">
-                    @T["Your position goes out every minute while this page is open. Ending a share deletes it from Orbit."]
-                </p>
-            }
         </section>
+        }
 
+        @if (_receivedPositions.Count > 0)
+        {
         <section class="map-panel-section @PinnedClass(MapPanelPins.PanelList.SharingWithYou)">
             @* The pin, the name, and the eye - in the order every card in Orbit puts them: what keeps
                this list in front of the reader on the left (see MapPanelPins), what it is called in the
@@ -192,10 +199,6 @@ else
                 <h2 class="map-panel-heading">@T["Sharing with you"]</h2>
                 @RenderPinToggle(MapPinVisibility.PinGroup.SharedWithYou, T["Show these on the map"], T["Hide these from the map"])
             </div>
-            @if (_receivedPositions.Count == 0)
-            {
-                <p class="empty-hint">@T["Nobody yet."]</p>
-            }
             @foreach (var received in _receivedPositions)
             {
                 @* Pressing a name is how to look at where they are - the same reason a card opens the
@@ -229,21 +232,20 @@ else
                 </div>
             }
         </section>
+        }
 
         @* The places kept for their own sake - see Orbit.Core.Places.Place. Their own list rather than
            part of the plans below: a plan is something happening at a time, and these have no time at
            all, which is the whole point of them. Same row, same two presses: the name centres the map,
            the arrow hands the point to a map app. *@
+        @if (_places.Count > 0)
+        {
         <section class="map-panel-section @PinnedClass(MapPanelPins.PanelList.YourPlaces)">
             <div class="map-panel-heading-row">
                 @RenderPanelPin(MapPanelPins.PanelList.YourPlaces)
                 <h2 class="map-panel-heading">@T["Places you keep"]</h2>
                 @RenderPinToggle(MapPinVisibility.PinGroup.YourPlaces, T["Show these on the map"], T["Hide these from the map"])
             </div>
-            @if (_places.Count == 0)
-            {
-                <p class="empty-hint">@T["Nothing kept yet. The + on the map is where one starts."]</p>
-            }
             @foreach (var place in _places)
             {
                 <div class="map-share-row map-share-row-opens" role="button" tabindex="0"
@@ -312,10 +314,16 @@ else
                 </div>
             }
         </section>
+        }
 
         @* Everything with an address on it, which until now the map knew nothing about: a page showing
            where people are and nothing about where the reader is going. Pressing a row centres the map
-           on its pin, the same press a name in the list above answers to. *@
+           on its pin, the same press a name in the list above answers to.
+
+           Kept while the past is being shown even with nothing in it, because then the box holds the one
+           field that can change that answer - how far back to look. *@
+        @if (_placed.Count > 0 || _showsPastPlaces)
+        {
         <section class="map-panel-section @PinnedClass(MapPanelPins.PanelList.YourPlans)">
             <div class="map-panel-heading-row">
                 @RenderPanelPin(MapPanelPins.PanelList.YourPlans)
@@ -335,11 +343,7 @@ else
             }
             @if (_placed.Count == 0)
             {
-                <p class="empty-hint">
-                    @(_showsPastPlaces
-                        ? T["Nothing in your calendar or your lists says where it happens."]
-                        : T["Nothing coming up says where it happens. Past ones are in the menu above."])
-                </p>
+                <p class="empty-hint">@T["Nothing in your calendar or your lists says where it happens."]</p>
             }
             @foreach (var placed in _placed)
             {
@@ -374,6 +378,7 @@ else
                 </div>
             }
         </section>
+        }
         </div>
         }
     </div>
@@ -428,6 +433,16 @@ else
                 <span class="map-fullscreen-enter" title="@(T["Full screen"])" aria-label="@(T["Full screen"])">⤢</span>
                 <span class="map-fullscreen-exit" title="@(T["Leave full screen"])" aria-label="@(T["Leave full screen"])">✕</span>
             </button>
+            @* Beside it, and for when the reader wants it now: what others share is read again once a
+               minute, and everything else only when the page opens. Moves the pins in place rather than
+               redrawing the map, so the pan and the zoom somebody pressed it from are kept. *@
+            <button type="button" class="map-refresh-button" title="@(T["Refresh the map"])"
+                    aria-label="@(T["Refresh the map"])" disabled="@_isRefreshing" @onclick="RefreshTheMapAsync">
+                <svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor"
+                     stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M16 10a6 6 0 1 1-1.8-4.3" /><path d="M16 3.5v3.2h-3.2" />
+                </svg>
+            </button>
             @* The other corner, and the other way to keep a place: an empty form, for somewhere whose
                address is known and whose spot on the map is not obvious - a shop by name rather than a
                pin somebody has to find first. Pressing the map is still the quicker way when the place
@@ -462,6 +477,27 @@ else
                 <button type="button" class="btn-secondary" @onclick="ForgetTheFoundPlace">@T["Cancel"]</button>
             </div>
         }
+
+        @* A route between two pins, chosen from their popups - see OnPinRoute. Along the foot of the map
+           with the other questions about pins, because it is about two of them. *@
+        @if (_routeStart is { } routeStart)
+        {
+            <div class="map-create-event map-route">
+                @if (_routeEnd is { } routeEnd)
+                {
+                    <span class="map-create-event-place">@($"{routeStart.Address} → {routeEnd.Address}")</span>
+                    @if (_route is { } route)
+                    {
+                        <span class="map-create-event-question">@DescribeRoute(route)</span>
+                    }
+                }
+                else
+                {
+                    <span class="map-create-event-question">@T.Format("Route from {0}. Open another pin and choose where it goes.", routeStart.Address)</span>
+                }
+                <button type="button" class="btn-secondary" @onclick="ClearTheRouteAsync">@T["Clear the route"]</button>
+            </div>
+        }
     </div>
 </div>
 }
@@ -473,8 +509,14 @@ else
 {
     <div class="map-overlay" @onclick="ForgetTheNavigation">
         <div class="map-overlay-panel" @onclick:stopPropagation="true">
+            @* Said beside the heading, on the screen that is most careful about it: the map withholds its
+               own background rather than fetch it from somebody else without being asked (see
+               mapTiles.js), so a row of buttons that quietly hand an address to four companies would be
+               the one place on the page that did not say so. Behind the mark rather than under the
+               buttons, like every other section's own sentence; each button already names whose
+               service it opens. *@
             <div class="map-overlay-header">
-                <h2>@T["Take me there"]</h2>
+                <h2>@T["Take me there"]<FieldHint>@T["Only the first stays on this device. The rest open somebody else's service."]</FieldHint></h2>
             </div>
             <p class="map-overlay-hint">@destination.Label</p>
             <div class="map-overlay-confirm map-overlay-apps">
@@ -484,11 +526,6 @@ else
                             @onclick="() => TakeMeThereWithAsync(app)">@T[NavigationApps.NameOf(app)]</button>
                 }
             </div>
-            @* Said out loud, on the screen that is most careful about it: the map withholds its own
-               background rather than fetch it from somebody else without being asked (see mapTiles.js),
-               so a row of buttons that quietly hand an address to four companies would be the one place
-               on the page that did not ask. *@
-            <p class="map-overlay-hint">@T["Only the first stays on this device. The rest open somebody else's service."]</p>
             <div class="map-overlay-confirm">
                 <button type="button" class="btn-secondary" @onclick="ForgetTheNavigation">@T["Cancel"]</button>
             </div>
@@ -824,6 +861,12 @@ else
     {
         ForgetTheNewPlace();
         _placeBeingChanged = null;
+        // The question pin has been answered: the place is on the map now under its own pin, and the red
+        // one left beside it read as a second place still waiting to be kept.
+        _foundPlace = null;
+        _pressedPlace = null;
+        _matches = [];
+        _hasSearched = false;
         _places = await PlacesApiClient.GetPlacesAsync();
         await RefreshMapMarkersAsync();
     }
@@ -1076,6 +1119,8 @@ else
             _mapModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/locationMap.js");
             _pageReference ??= DotNetObjectReference.Create(this);
             await _mapModule.InvokeVoidAsync("showLocations", MapElementId, MapPoints(), _pageReference);
+            // A map drawn again from scratch takes everything on it with it, a route included.
+            await DrawTheRouteAsync();
             await GoToThePlaceAskedForAsync();
         }
         catch (JSException exception)
@@ -1128,7 +1173,11 @@ else
                 latitude = own.Latitude,
                 longitude = own.Longitude,
                 label = own.Address ?? T["You"],
-                color = "var(--accent)"
+                color = "var(--accent)",
+                canPlan = true,
+                planEventLabel = T["An event here"],
+                planTaskListLabel = T["A task list here"],
+                routeLabel = RouteLabel
             });
         }
 
@@ -1146,7 +1195,11 @@ else
                 label = $"{DisplayNameFor(received.SharerUserId)} · {received.Position.Address ?? T["shared a position"]}",
                 color = AvatarHelper.AvatarColor(received.SharerUserId),
                 canNavigate = true,
-                navigateLabel = T["Take me there"]
+                navigateLabel = T["Take me there"],
+                canPlan = true,
+                planEventLabel = T["An event here"],
+                planTaskListLabel = T["A task list here"],
+                routeLabel = RouteLabel
             }));
         }
 
@@ -1163,7 +1216,11 @@ else
                 label = $"{plan.Title} · {plan.When} · {plan.Address}",
                 color = plan.Color,
                 canNavigate = true,
-                navigateLabel = T["Take me there"]
+                navigateLabel = T["Take me there"],
+                canPlan = true,
+                planEventLabel = T["An event here"],
+                planTaskListLabel = T["A task list here"],
+                routeLabel = RouteLabel
             }));
         }
 
@@ -1179,7 +1236,11 @@ else
                 label = place.Where.Address is { Length: > 0 } address ? $"{place.Name} · {address}" : place.Name,
                 color = ColourOf(place),
                 canNavigate = true,
-                navigateLabel = T["Take me there"]
+                navigateLabel = T["Take me there"],
+                canPlan = true,
+                planEventLabel = T["An event here"],
+                planTaskListLabel = T["A task list here"],
+                routeLabel = RouteLabel
             }));
         }
 
@@ -1194,7 +1255,11 @@ else
                 label = found.Name,
                 color = "var(--danger)",
                 canNavigate = true,
-                navigateLabel = T["Take me there"]
+                navigateLabel = T["Take me there"],
+                canPlan = true,
+                planEventLabel = T["An event here"],
+                planTaskListLabel = T["A task list here"],
+                routeLabel = RouteLabel
             });
         }
 
@@ -1210,7 +1275,9 @@ else
                 label = pressed.Name,
                 color = "var(--danger)",
                 canNavigate = true,
-                navigateLabel = T["Take me there"]
+                navigateLabel = T["Take me there"],
+                // Any spot on the map can be one end of a route: press it, and this pin is how.
+                routeLabel = RouteLabel
             });
         }
 
@@ -1501,6 +1568,28 @@ else
         finally
         {
             _isBusy = false;
+        }
+    }
+
+    /// <summary>Whether the refresh button's read is still running, so a second press waits for it.</summary>
+    private bool _isRefreshing;
+
+    /// <summary>
+    /// The refresh button beside full screen: everything the page reads, read again, and the pins moved
+    /// to match - see RefreshMapMarkersAsync for why the map itself is not rebuilt.
+    /// </summary>
+    private async Task RefreshTheMapAsync()
+    {
+        Logger.LogInformation("User refreshed the map");
+        _isRefreshing = true;
+        try
+        {
+            await LoadAsync();
+            await RefreshMapMarkersAsync();
+        }
+        finally
+        {
+            _isRefreshing = false;
         }
     }
 
@@ -1921,6 +2010,196 @@ else
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// The popup's other two buttons: an appointment or a list of work at that pin, started straight
+    /// from it rather than by pinning the same spot a second time and answering "what happens here?".
+    /// The place travels the way the question's own answer sends it - see HandOverThePlaceTo.
+    ///
+    /// Looked up by key for the reason OnPinNavigate gives. What travels is the pin's address where it
+    /// has one, because that is what an event's location field and a list's first entry are written in.
+    /// </summary>
+    [JSInvokable]
+    public Task OnPinPlan(string key, string plan)
+    {
+        if (PlaceForKey(key) is not { } place)
+        {
+            return Task.CompletedTask;
+        }
+
+        Logger.LogInformation("User started {Plan} from a pin on the map", plan);
+        _placeToPlanFor = place;
+        HandOverThePlaceTo(plan == nameof(PlanForAPlace.Event) ? "/calendar/new" : "/tasks/new");
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Where the route being drawn starts, once a pin's popup has said so - see OnPinRoute.</summary>
+    private PickedPlace? _routeStart;
+
+    /// <summary>Where it ends, once a second pin has said so. Never set without a start.</summary>
+    private PickedPlace? _routeEnd;
+
+    /// <summary>What drawing it came back with - how far, how long, and whether it follows the roads.</summary>
+    private RouteSummary? _route;
+
+    /// <summary>
+    /// What locationMap.js's showRoute answers: the distance always, the time only when the route came
+    /// from the routing service, and whether it follows the roads or is a straight line between the two.
+    /// </summary>
+    private sealed record RouteSummary(double DistanceMetres, double? DurationSeconds, bool FollowsRoads);
+
+    /// <summary>
+    /// What the route button in a popup says: where a route starts until one has, and where it goes after.
+    /// One button that changes rather than two side by side - a popup is two lines wide, and "from here"
+    /// and "to here" together would be a question the reader has to answer before they have one.
+    /// </summary>
+    private string RouteLabel => _routeStart is null || _routeEnd is not null
+        ? T["Start a route here"]
+        : T["Route to here"];
+
+    /// <summary>
+    /// The route button in a pin's popup. The first press says where a route starts; the second, on
+    /// another pin, where it goes, and the route is drawn. A press once both are chosen starts over from
+    /// that pin, which is what somebody pressing "start a route here" on a map already showing one means.
+    ///
+    /// Looked up by key for the reason OnPinNavigate gives.
+    /// </summary>
+    [JSInvokable]
+    public async Task OnPinRoute(string key)
+    {
+        if (PlaceForKey(key) is not { } place)
+        {
+            return;
+        }
+
+        if (_routeStart is null || _routeEnd is not null)
+        {
+            Logger.LogInformation("User started a route on the map");
+            await ClearTheRouteLineAsync();
+            _routeStart = place;
+            _routeEnd = null;
+            _route = null;
+        }
+        else
+        {
+            Logger.LogInformation("User finished a route on the map");
+            _routeEnd = place;
+            await DrawTheRouteAsync();
+        }
+
+        // The popups' own button says the other thing now.
+        await RefreshMapMarkersAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Draws the chosen route on the map. The road route comes from a service somebody else runs, so it is
+    /// asked for only where the reader lets Orbit reach other sites at all - the same answer that decides
+    /// whether the map has a background (see mapTiles.js). Otherwise, and when the service does not
+    /// answer, the two ends are joined in a straight line and the distance is that line's.
+    /// </summary>
+    private async Task DrawTheRouteAsync()
+    {
+        if (_mapModule is null || _routeStart is not { } start || _routeEnd is not { } end)
+        {
+            return;
+        }
+
+        try
+        {
+            _route = await _mapModule.InvokeAsync<RouteSummary?>(
+                "showRoute", MapElementId,
+                new { latitude = start.Latitude, longitude = start.Longitude },
+                new { latitude = end.Latitude, longitude = end.Longitude },
+                _mapTilesAllowed);
+        }
+        catch (JSException exception)
+        {
+            Logger.LogWarning(exception, "Could not draw a route on the map");
+            _route = null;
+        }
+    }
+
+    private async Task ClearTheRouteAsync()
+    {
+        await ClearTheRouteLineAsync();
+        _routeStart = null;
+        _routeEnd = null;
+        _route = null;
+        await RefreshMapMarkersAsync();
+    }
+
+    private async Task ClearTheRouteLineAsync()
+    {
+        if (_mapModule is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _mapModule.InvokeVoidAsync("clearRoute", MapElementId);
+        }
+        catch (JSException exception)
+        {
+            Logger.LogWarning(exception, "Could not take a route off the map");
+        }
+    }
+
+    /// <summary>
+    /// How far and how long, in the reader's own number format. A straight line says so: its distance is
+    /// as the crow flies, and a reader who took it for the road would set out underestimating the trip.
+    /// </summary>
+    private string DescribeRoute(RouteSummary route)
+    {
+        var kilometres = (route.DistanceMetres / 1000).ToString("0.0", T.DisplayCulture);
+        if (!route.FollowsRoads)
+        {
+            return $"{kilometres} km · {T["in a straight line"]}";
+        }
+
+        return route.DurationSeconds is { } seconds
+            ? $"{kilometres} km · {T.Format("about {0} min", Math.Max(1, (int)Math.Round(seconds / 60)))}"
+            : $"{kilometres} km";
+    }
+
+    private PickedPlace? PlaceForKey(string key)
+    {
+        if (key == "own" && _location is { } own)
+        {
+            return new PickedPlace(own.Address ?? DescribeCoordinates(own.Latitude, own.Longitude), own.Latitude, own.Longitude);
+        }
+
+        foreach (var received in _receivedPositions)
+        {
+            if (SharerMapKey(received.SharerUserId) == key)
+            {
+                return new PickedPlace(
+                    received.Position.Address ?? DescribeCoordinates(received.Position.Latitude, received.Position.Longitude),
+                    received.Position.Latitude, received.Position.Longitude);
+            }
+        }
+
+        foreach (var plan in _placed)
+        {
+            if (plan.Key == key)
+            {
+                return new PickedPlace(plan.Address, plan.Latitude, plan.Longitude);
+            }
+        }
+
+        foreach (var place in _places)
+        {
+            if (PlaceMapKey(place.Id) == key)
+            {
+                return new PickedPlace(
+                    place.Where.Address is { Length: > 0 } address ? address : place.Name,
+                    place.Where.Latitude, place.Where.Longitude);
+            }
+        }
+
+        return TargetForKey(key) is { } target ? new PickedPlace(target.Label, target.Latitude, target.Longitude) : null;
+    }
+
     private NavigationTarget? TargetForKey(string key)
     {
         foreach (var received in _receivedPositions)
@@ -2051,7 +2330,7 @@ else
     /// </summary>
     private async Task ReadWhatHasAPlaceAsync()
     {
-        var nowUtc = DateTimeOffset.UtcNow;
+        var nowUtc = TimeProvider.GetUtcNow();
         var taskLists = await TasksApiClient.GetTaskListsAsync();
         // Kept, because the place form asks which lists a place belongs to and this is the one read that
         // already fetches them - see PlaceForm.TaskLists.
@@ -2119,7 +2398,7 @@ else
     private string WhenItHappens(CalendarEventDetailsDto details)
     {
         var start = details.StartUtc.ToLocalTime();
-        var today = DateTime.Today;
+        var today = TimeProvider.GetLocalNow().Date;
         var day = start.Date == today ? T["Today"]
             : start.Date == today.AddDays(1) ? T["Tomorrow"]
             : start.ToString("ddd d MMM", T.DisplayCulture);

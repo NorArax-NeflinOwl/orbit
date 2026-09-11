@@ -2,9 +2,11 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Web;
+using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Sync;
 using Orbit.Contracts.Folders;
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Inventories;
 using Orbit.Core.Tasks;
 
 namespace Orbit.Mobile.Tests.TestDoubles;
@@ -19,7 +21,18 @@ internal sealed class FakeTasksServer : HttpMessageHandler
     private readonly Dictionary<Guid, TaskDto> _taskLists = [];
     private readonly List<(Guid Id, DateTimeOffset DeletedAtUtc)> _tombstones = [];
 
-    public FakeTasksServer(TimeProvider timeProvider) => _timeProvider = timeProvider;
+    /// <summary>
+    /// The shelves a list's product entries are placed on - see <see cref="PlaceProductEntries"/>. Null
+    /// for a test with no inventory server, whose lists then place nothing: the real server declines the
+    /// same way for a shelf it cannot put anything on, and the entries go on describing what they want.
+    /// </summary>
+    private readonly FakeInventoryServer? _inventories;
+
+    public FakeTasksServer(TimeProvider timeProvider, FakeInventoryServer? inventories = null)
+    {
+        _timeProvider = timeProvider;
+        _inventories = inventories;
+    }
 
     public List<string> ReceivedRequests { get; } = [];
 
@@ -165,7 +178,13 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             var taskListId = Guid.Parse(path.Split('/')[^2]);
             if (_taskLists.TryGetValue(taskListId, out var taskList))
             {
-                _taskLists[taskListId] = taskList with { LinkedInventoryId = body?.InventoryId };
+                // And the list's own entries are placed as the link is made, as
+                // LinkTaskListToInventoryCommandHandler places them.
+                var linked = taskList with { LinkedInventoryId = body?.InventoryId };
+                _taskLists[taskListId] = linked with
+                {
+                    Items = PlaceProductEntries(linked, linked.Items, linked.IsPrivate)
+                };
             }
 
             return new HttpResponseMessage(HttpStatusCode.NoContent);
@@ -279,7 +298,8 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         _taskLists[id] = existing with
         {
             Title = body!.Title,
-            Items = ToDtos(body.Items, existing.Items),
+            // Placed before the list is written, as UpdateTaskListCommandHandler places them.
+            Items = PlaceProductEntries(existing, ToDtos(body.Items, existing.Items), body.IsPrivate),
             // Sent on every update and stored by the real endpoint - a fake that dropped it made
             // "this list is now a group list" look like a client that had not sent it. The priority
             // went the same way afterwards: the push carried it, the pull brought back the fake's own
@@ -312,6 +332,110 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             nameof(TaskListCompletion.Unfinished) => false,
             _ => taskList.Items.Count > 0 && taskList.Items.All(item => item.IsCompleted || item.IsFailed)
         };
+
+    /// <summary>
+    /// What Orbit.Core.Inventories.ProductEntryPlacement does to a list measured against a shelf, kept
+    /// here so a pull brings back what the server would: every product entry standing for nothing yet is
+    /// matched to the one row of its name, or becomes a new row, and from then on stands for that row with
+    /// its own description dropped. A fake that kept the entry as sent let a screen test assert only what
+    /// was sent, never what the phone makes of the placed entry coming back.
+    ///
+    /// Declined where the server declines - a private list, a shelf this account may not change or that
+    /// keeps no readable rows (<see cref="FakeInventoryServer.MayPutThingsOn"/>), or no inventory server
+    /// to put anything on - and the entries then go on describing what they want.
+    /// </summary>
+    private IReadOnlyList<TaskItemDto> PlaceProductEntries(
+        TaskDto stored, IReadOnlyList<TaskItemDto> incoming, bool isPrivate)
+    {
+        if (_inventories is null || stored.LinkedInventoryId is not { } inventoryId || isPrivate
+            || !_inventories.MayPutThingsOn(inventoryId))
+        {
+            return incoming;
+        }
+
+        // An entry whose stored copy already stands for a row is pointed back at it rather than placed
+        // again: that is a client sending the entry as it was before its last save was placed.
+        var standingFor = stored.Items
+            .Where(item => item.LinkedInventoryItemId is not null)
+            .ToDictionary(item => item.Id, item => item.LinkedInventoryItemId!.Value);
+        var pointedAt = new Dictionary<Guid, Guid>();
+        var waiting = new List<TaskItemDto>();
+        foreach (var entry in incoming.Where(IsWaitingForAShelf))
+        {
+            if (standingFor.TryGetValue(entry.Id, out var storedRowId))
+            {
+                pointedAt[entry.Id] = storedRowId;
+                continue;
+            }
+
+            waiting.Add(entry);
+        }
+
+        // Grouped by the counter's own key, so each group is one row.
+        foreach (var sameThing in waiting.GroupBy(entry => entry.Description.Trim().ToLowerInvariant()))
+        {
+            var entries = sameThing.ToList();
+            var named = _inventories.ItemsIn(inventoryId)
+                .Where(row => string.Equals(
+                    row.Name.Trim(), entries[0].Description.Trim(), StringComparison.CurrentCultureIgnoreCase))
+                .ToList();
+
+            // Two rows sharing a name give no answer to "which one", so the entries are left as they are.
+            if (named.Count > 1)
+            {
+                continue;
+            }
+
+            var rowId = named.Count == 1 ? named[0].Id : _inventories.Place(inventoryId, RowFor(entries)).Id;
+            foreach (var entry in entries)
+            {
+                pointedAt[entry.Id] = rowId;
+            }
+        }
+
+        return
+        [
+            .. incoming.Select(entry => pointedAt.TryGetValue(entry.Id, out var rowId)
+                ? entry with { LinkedInventoryItemId = rowId, Product = null }
+                : entry)
+        ];
+    }
+
+    private static bool IsWaitingForAShelf(TaskItemDto entry)
+        => entry.Kind == nameof(TaskItemKind.Inventory)
+            && entry.LinkedInventoryItemId is null
+            && entry.AllLinkedTaskListIds.Count == 0
+            && entry.Description.Trim().Length > 0;
+
+    /// <summary>
+    /// A new row for what <paramref name="entries"/> ask for, counted as StockRequirementCounter counts
+    /// it: each entry adds its minimum, or one where it names none, and the least amount written above
+    /// nothing is what is there - failing that, how many are already ticked or crossed off
+    /// (StockRequirement.StartingStock). The rest is the first description's, and a blank stays blank.
+    /// </summary>
+    private InventoryItemDto RowFor(IReadOnlyList<TaskItemDto> entries)
+    {
+        var described = entries.FirstOrDefault(entry => entry.Product is not null) ?? entries[0];
+        var product = described.Product;
+        var written = entries
+            .Select(entry => entry.Product?.Quantity ?? 0)
+            .Where(quantity => quantity > 0)
+            .ToList();
+        var categories = product?.AllCategories is { Count: > 0 } filed ? filed : described.AllCategories;
+        var now = _timeProvider.GetUtcNow();
+
+        return new InventoryItemDto(
+            Guid.NewGuid(), entries[0].Description.Trim(), product?.ProductType.Trim() ?? string.Empty,
+            categories.Count > 0 ? categories[0] : string.Empty,
+            written.Count > 0 ? written.Min() : entries.Count(entry => entry.IsCompleted || entry.IsFailed),
+            entries.Sum(entry => entry.Product?.MinimumQuantity ?? 1),
+            product?.Unit ?? nameof(InventoryUnit.Piece),
+            product?.ExpiryDate,
+            product?.ExpiryNotificationChannel ?? "None",
+            false, false, now, now,
+            product?.IsCheckedRegularly ?? false,
+            categories);
+    }
 
     private HttpResponseMessage Delete(string path)
     {

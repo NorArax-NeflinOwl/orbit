@@ -332,7 +332,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
                 ShelfProductFor(row.Item),
                 // For an entry that becomes an errand while the form is open: the fields for a product
                 // this shelf has not got appear with the choice rather than after a save.
-                ShelfForSomethingNew,
+                () => ShelfForSomethingNew(row.Item.Product),
                 // What this entry can be made to wait for: everything else on the list it is on. See
                 // TaskItemEditor.WaitableEntries, and TaskListSteps for what waiting then means.
                 _items);
@@ -557,16 +557,17 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         // Nothing on the shelf answers to this entry yet, and the list says which shelf it is measured
         // against - so the entry describes something to put there rather than showing an empty form.
         // Orbit.Web's editor offers the same two cases through the same fields.
-        return item.Kind == nameof(TaskItemKind.Inventory) ? ShelfForSomethingNew() : null;
+        return item.Kind == nameof(TaskItemKind.Inventory) ? ShelfForSomethingNew(item.Product) : null;
     }
 
     /// <summary>
     /// A form for a product the list's own shelf has not got yet, or null when it is measured against
-    /// no shelf - see TaskItemEditor.ShelfForSomethingNew.
+    /// no shelf - see TaskItemEditor.ShelfForSomethingNew. Filled from what the entry already describes,
+    /// which it carries until the server has placed it - see TaskItemShelfProduct.ForSomethingNotOnTheShelfYet.
     /// </summary>
-    private TaskItemShelfProduct? ShelfForSomethingNew()
+    private TaskItemShelfProduct? ShelfForSomethingNew(TaskItemProductDto? described)
         => _theListsOwnShelf is { } shelf
-            ? TaskItemShelfProduct.ForSomethingNotOnTheShelfYet(shelf.LocalId, shelf.Name, _translations)
+            ? TaskItemShelfProduct.ForSomethingNotOnTheShelfYet(shelf.LocalId, shelf.Name, _translations, described)
             : null;
 
     /// <summary>
@@ -779,18 +780,10 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             };
         }
 
+        // A product the shelf has not got yet travels on the entry itself, filed under the entry's own
+        // categories (see TaskItemEditor.ToDto), and the server puts it on the shelf, named after the
+        // entry, as the list is saved. What is left for the shelf afterwards is ShelfCorrection's.
         var shelf = editor.IsShelfEntry ? editor.Shelf : null;
-        if (shelf is { Product.IsSomethingNew: true })
-        {
-            // The entry's own words are the product's name - the form asks everything except that, and
-            // this is where the two are put together. Taken from what is being saved rather than from
-            // what was opened, so renaming the entry in the same sitting names the product.
-            shelf.Product.Name = edited.Description;
-            // And the entry's categories are the product's, because there is only one box for them
-            // now - see InventoryItemEditor.ShowsCategories. A product already on the shelf keeps its
-            // own, as it does on Orbit.Web (ProductAsked answers null for a linked entry).
-            shelf.Product.Categories = editor.Categories;
-        }
 
         BeingEdited = null;
         await SaveAsync([.. _items.Select(item => item.Id == edited.Id ? edited : item)], cancellationToken);

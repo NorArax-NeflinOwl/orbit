@@ -122,8 +122,8 @@ public partial class ItemCard : ContentView
 	{
 		TopRule.IsVisible = !IsBordered;
 		FooterRule.IsVisible = IsBordered;
-		Frame.StrokeThickness = IsBordered ? 1 : 0;
-		Frame.Margin = IsBordered ? new Thickness(0, 5) : new Thickness(0);
+		CardFrame.StrokeThickness = IsBordered ? 1 : 0;
+		CardFrame.Margin = IsBordered ? new Thickness(0, 5) : new Thickness(0);
 		Inside.Padding = IsBordered ? new Thickness(14, 12) : new Thickness(0, 14);
 		// A card's parts are separated; a row's are one paragraph, so they sit closer together.
 		Inside.Spacing = IsBordered ? 8 : 5;
@@ -281,25 +281,25 @@ public partial class ItemCard : ContentView
 		// resource stays registered against the property until it is removed and paints itself back on
 		// every time the dictionary is read again - so a card that was pinned first and got its news
 		// afterwards kept the accent edge, and the danger one set below never showed.
-		Frame.RemoveDynamicResource(Border.StrokeProperty);
+		CardFrame.RemoveDynamicResource(Border.StrokeProperty);
 
 		if (HasUnseenAction)
 		{
-			Frame.SetAppTheme(Border.StrokeProperty, Look("DangerLight"), Look("DangerDark"));
+			CardFrame.SetAppTheme(Border.StrokeProperty, Look("DangerLight"), Look("DangerDark"));
 			Pulse();
 			return;
 		}
 
 		this.AbortAnimation(NewsPulse);
-		Frame.Shadow = null;
+		CardFrame.Shadow = null!;
 
 		if (IsPinned)
 		{
-			Frame.SetDynamicResource(Border.StrokeProperty, "Accent");
+			CardFrame.SetDynamicResource(Border.StrokeProperty, "Accent");
 			return;
 		}
 
-		Frame.SetAppTheme(Border.StrokeProperty, Look("CardStrokeLight"), Look("CardStrokeDark"));
+		CardFrame.SetAppTheme(Border.StrokeProperty, Look("CardStrokeLight"), Look("CardStrokeDark"));
 	}
 
 	private void PaintTheEdge(string? colour)
@@ -328,7 +328,7 @@ public partial class ItemCard : ContentView
 
 		if (!MotionIsWanted)
 		{
-			Frame.Shadow = null;
+			CardFrame.Shadow = null!;
 			return;
 		}
 
@@ -340,7 +340,7 @@ public partial class ItemCard : ContentView
 			Opacity = 0
 		};
 
-		Frame.Shadow = halo;
+		CardFrame.Shadow = halo;
 
 		// Out and back rather than out and jump: a halo that snaps to nothing every 2.4 seconds reads
 		// as a glitch rather than as breathing.

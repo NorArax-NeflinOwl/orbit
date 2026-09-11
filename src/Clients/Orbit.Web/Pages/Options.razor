@@ -11,6 +11,7 @@
 @using Orbit.Web.Services
 @inject ThemeService ThemeService
 @inject AccentColorService AccentColorService
+@inject TimeProvider TimeProvider
 @inject Translations T
 @inject PushNotificationManager PushNotificationManager
 @inject NotificationsApiClient NotificationsApiClient
@@ -31,7 +32,7 @@
 
 <PageHeader>
     <Title>@T["Options"]</Title>
-    <Subtitle>@T["Your account, appearance, and notification preferences."]</Subtitle>
+    <Description>@T["Your account, appearance, and notification preferences."]</Description>
 </PageHeader>
 
 <div class="options-page">
@@ -51,8 +52,10 @@
     @if (_activeTab == OptionsTab.Account)
     {
         <div class="options-section">
-            <h2 class="options-heading">@T["Account"]</h2>
-            <p class="options-subtext">@T["Your profile, sign-in address, and password."]</p>
+            @* Each section's own sentence sits behind its heading's mark, as each row's does beside its
+               name - see FieldHint.razor. A page of titles each with a sentence under it read as prose
+               with switches in it. *@
+            <h2 class="options-heading">@T["Account"]<FieldHint>@T["Your profile, sign-in address, and password."]</FieldHint></h2>
             <div class="options-card">
                 <div class="options-row options-row-stacked">
                     <div class="field">
@@ -221,16 +224,16 @@
         </div>
 
         <div class="options-section">
-            <h2 class="options-heading">@T["Your data"]</h2>
-            <p class="options-subtext">@T["Everything you own — notes, task lists, events and inventories — as one JSON file, and back again."]</p>
+            <h2 class="options-heading">@T["Your data"]<FieldHint>@T["Everything you own — notes, task lists, events, inventories and places — as one JSON file, and back again."]</FieldHint></h2>
             <div class="options-card">
                 <div class="options-row options-row-stacked">
                     <div>
-                        <div class="options-row-title">@T["Export"]<FieldHint>@T["Downloads what you tick below as one file. Things shared with you are left out, and a private item travels sealed."]</FieldHint></div>
+                        <div class="options-row-title">@T["Export"]<FieldHint>@T["Downloads what you tick below as one file. Things shared with you are left out, and a private item travels sealed - except a place, which is opened first."]</FieldHint></div>
                     </div>
-                    @* What goes in the file. All four to begin with, which is what this used to do
+                    @* What goes in the file. The first four to begin with, which is what this used to do
                        without asking - somebody exporting their notes to read elsewhere had no way of
-                       leaving three years of stock counts out of it. *@
+                       leaving three years of stock counts out of it. Places wait to be asked for: see
+                       ExportChoice. *@
                     <div class="export-choices">
                         @foreach (var part in Enum.GetValues<ExportPart>())
                         {
@@ -240,6 +243,13 @@
                             </label>
                         }
                     </div>
+                    @* Said before the button rather than after the file, and only while places are ticked:
+                       it is the one part of the file that is not sealed, and a warning printed under
+                       every export would be read as boilerplate by the time it mattered. *@
+                    @if (_exportChoice.Includes(ExportPart.Places))
+                    {
+                        <p class="export-warning">@T["Places are written to the file decrypted. The file itself is not encrypted, so anyone who gets it can read every place in it - names, addresses, coordinates and descriptions - private ones included."]</p>
+                    }
                     <button type="button" class="btn-secondary" disabled="@(_isExporting || _exportChoice.IsEmpty)"
                             @onclick="ExportAsync">
                         @(_isExporting ? T["Preparing…"] : T["Export"])
@@ -263,8 +273,7 @@
         </div>
 
         <div class="options-section">
-            <h2 class="options-heading">@T["Danger zone"]</h2>
-            <p class="options-subtext">@T["Deleting your account is permanent and cannot be undone."]</p>
+            <h2 class="options-heading">@T["Danger zone"]<FieldHint>@T["Deleting your account is permanent and cannot be undone."]</FieldHint></h2>
             <div class="options-card options-card-danger">
                 <div class="options-row options-row-stacked">
                     <div>
@@ -272,14 +281,57 @@
                     </div>
                     @if (_account?.HasPassword == true)
                     {
+                        @* Said out loud for an account that signs in with Google: it can hold a password
+                           without thinking of itself as having one - chat made it set one, or the account
+                           had one before Google was connected - and "Password" alone left it asking for
+                           something it did not recognise, with no way forward from here. *@
                         <div class="field">
-                            <label for="deleteAccountPasswordInput">@T["Password"]</label>
+                            <label for="deleteAccountPasswordInput">
+                                @T["Password"]
+                                @if (_account.IsGoogleLinked)
+                                {
+                                    <FieldHint>@T["The password this account has besides Google - the one you set to use chat, or the one it had before Google was connected."]</FieldHint>
+                                }
+                            </label>
                             <input type="password" id="deleteAccountPasswordInput" @bind="_deleteAccountForm.Password" />
+                            <a class="options-row-desc" id="deleteAccountForgotPassword" href="/forgot-password">@T["Forgot your password?"]</a>
                         </div>
                     }
-                    <div class="form-actions">
-                        <button type="button" class="btn-danger" disabled="@_isDeletingAccount" @onclick="DeleteAccountAsync">@T["Delete account"]</button>
-                    </div>
+                    else if (ConfirmsWithGoogle)
+                    {
+                        @* An account without a password proves it is its owner the way it signs in: with
+                           Google, again, now - the server checks that the sign-in is this account's and a
+                           fresh one (DeleteAccountCommandHandler). Pressing Google's button is what deletes,
+                           after the confirm(), so there is no second button to press. *@
+                        <div class="field" id="deleteAccountWithGoogle">
+                            <span class="options-row-desc">
+                                @T["Confirm with Google to delete this account"]
+                                <FieldHint>@T["An account without a password proves it is yours by signing in with Google again - just now, not the sign-in that opened this page."]</FieldHint>
+                            </span>
+                            <GoogleSignInButton OnCredential="DeleteWithGoogleAsync" />
+                        </div>
+                    }
+                    else if (_account is not null)
+                    {
+                        @* An account without a password, on a deployment with no Google sign-in to confirm
+                           with: typing the address or the login is what stands between one stray press on a
+                           confirm() and everything it holds. Checked here, against the account already
+                           loaded - see DeleteAccountFormModel.ConfirmsAccount. *@
+                        <div class="field">
+                            <label for="deleteAccountConfirmationInput">
+                                @T["Type your email address or login to confirm"]
+                                <FieldHint>@T["An account without a password has nothing else to confirm it with, so typing this is what makes deleting it deliberate."]</FieldHint>
+                            </label>
+                            <input id="deleteAccountConfirmationInput" autocomplete="off" spellcheck="false"
+                                   @bind="_deleteAccountForm.Confirmation" @bind:event="oninput" />
+                        </div>
+                    }
+                    @if (!ConfirmsWithGoogle)
+                    {
+                        <div class="form-actions">
+                            <button type="button" class="btn-danger" disabled="@_isDeletingAccount" @onclick="DeleteAccountAsync">@T["Delete account"]</button>
+                        </div>
+                    }
                     @if (_deleteAccountMessage is not null)
                     {
                         <p class="@(_deleteAccountFailed ? "error" : "info")">@_deleteAccountMessage</p>
@@ -292,8 +344,7 @@
     @if (_activeTab == OptionsTab.Appearance)
     {
         <div class="options-section">
-            <h2 class="options-heading">@T["Appearance"]</h2>
-            <p class="options-subtext">@T["Choose how Orbit looks on this device."]</p>
+            <h2 class="options-heading">@T["Appearance"]<FieldHint>@T["Choose how Orbit looks on this device."]</FieldHint></h2>
             <div class="theme-picker">
                 <button type="button" class="theme-option @(ThemeService.Current == ThemePreference.Light ? "active" : "")"
                         @onclick="() => SetThemeAsync(ThemePreference.Light)">
@@ -314,8 +365,7 @@
         </div>
 
         <div class="options-section">
-            <h2 class="options-heading">@T["Accent colour"]</h2>
-            <p class="options-subtext">@T["The colour Orbit highlights things in. Kept on this device, like the theme."]</p>
+            <h2 class="options-heading">@T["Accent colour"]<FieldHint>@T["The colour Orbit highlights things in. Kept on this device, like the theme."]</FieldHint></h2>
             <div class="accent-picker">
                 @foreach (var accentColor in AccentColor.All)
                 {
@@ -444,8 +494,7 @@
     @if (_activeTab == OptionsTab.Permissions)
     {
         <div class="options-section">
-            <h2 class="options-heading">@T["In Orbit"]</h2>
-            <p class="options-subtext">@T["Parts of Orbit this account can use. Each is unlocked separately, with its own code."]</p>
+            <h2 class="options-heading">@T["In Orbit"]<FieldHint>@T["Parts of Orbit this account can use. Each is unlocked separately, with its own code."]</FieldHint></h2>
             <div class="options-card">
                 <table class="permissions-table">
                     <thead>
@@ -487,8 +536,7 @@
         @if (!HasEverythingUnlocked)
         {
         <div class="options-section">
-            <h2 class="options-heading">@T["Unlock code"]</h2>
-            <p class="options-subtext">@T["One code per part of Orbit. Whoever deployed this Orbit has them - they are generated when it is built, and change every time it is."]</p>
+            <h2 class="options-heading">@T["Unlock code"]<FieldHint>@T["One code per part of Orbit. Whoever deployed this Orbit has them - they are generated when it is built, and change every time it is."]</FieldHint></h2>
             <div class="options-card">
                 <div class="options-row options-row-stacked">
                     <div class="field">
@@ -514,8 +562,7 @@
         }
 
         <div class="options-section">
-            <h2 class="options-heading">@T["Location"]</h2>
-            <p class="options-subtext">@T["Kept on this device, because a browser grants location per device."]</p>
+            <h2 class="options-heading">@T["Location"]<FieldHint>@T["Kept on this device, because a browser grants location per device."]</FieldHint></h2>
             <div class="options-card">
                 <div class="options-row options-row-stacked">
                     <div>
@@ -534,8 +581,7 @@
     @if (_activeTab == OptionsTab.Debug)
     {
         <div class="options-section">
-            <h2 class="options-heading">@T["Debugger"]</h2>
-            <p class="options-subtext">@T["What this browser reports about Orbit itself. Kept on this device."]</p>
+            <h2 class="options-heading">@T["Debugger"]<FieldHint>@T["What this browser reports about Orbit itself. Kept on this device."]</FieldHint></h2>
             <div class="options-card">
                 <div class="options-row options-row-stacked">
                     <div>
@@ -561,14 +607,31 @@
                         }
                     </select>
                 </div>
+                @* Here rather than beside the other switches because only this tab's readers are asked:
+                   an account without Debugger sees adverts whatever this says - see AdAudience. *@
+                <div class="options-row">
+                    <div>
+                        <div class="options-row-title">
+                            @T["Allow ads"]
+                            <FieldHint>
+                                @T["Off by default for an account with Debugger, so the adverts stay out of the way while you work on Orbit. Turn it on to see them the way everybody else does."]
+                                @T["Kept on this device."]
+                            </FieldHint>
+                        </div>
+                    </div>
+                    <button type="button" id="allowAdsSwitch" class="switch @(DevicePreferences.AllowAdsForDebugger ? "on" : "")" role="switch"
+                            aria-checked="@DevicePreferences.AllowAdsForDebugger" aria-label="@(T["Allow ads"])"
+                            @onclick="ToggleAllowAdsAsync">
+                        <span class="switch-knob"></span>
+                    </button>
+                </div>
             </div>
         </div>
 
         @if (_exceptionDetailsAllowedByServer)
         {
             <div class="options-section">
-                <h2 class="options-heading">@T["Diagnostics"]</h2>
-                <p class="options-subtext">@T["Only shown in non-production environments."]</p>
+                <h2 class="options-heading">@T["Diagnostics"]<FieldHint>@T["Only shown in non-production environments."]</FieldHint></h2>
                 <div class="options-card">
                     <div class="options-row">
                         <div>
@@ -726,6 +789,8 @@
             ? DevicePreferences.SetMinimumLogLevelAsync(level)
             : Task.CompletedTask;
 
+    private Task ToggleAllowAdsAsync() => DevicePreferences.SetAllowAdsForDebuggerAsync(!DevicePreferences.AllowAdsForDebugger);
+
     /// <summary>An export of a whole account is not large by file standards, but a hand-made file could be - this is where a nonsense one stops.</summary>
     private const long MaximumImportSizeBytes = 32 * 1024 * 1024;
 
@@ -759,16 +824,27 @@
             // Narrowed here rather than by the server: the export is one query over an account, and
             // asking it four different ways would be four endpoints answering the same question. What
             // the file contains is what somebody ticked; the archive's shape is unchanged, so a file
-            // holding only notes still imports like any other.
-            var archive = _exportChoice.Narrow(everything);
+            // holding only notes still imports like any other. Places are opened after narrowing, so
+            // an export that left them out never reaches for the key.
+            var opened = await TransferApiClient.OpenPlacesAsync(_exportChoice.Narrow(everything));
+            var archive = opened.Archive;
             var json = JsonSerializer.Serialize(archive, new JsonSerializerOptions { WriteIndented = true });
             await using var downloadModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/fileDownload.js");
             await downloadModule.InvokeVoidAsync(
-                "downloadText", $"orbit-export-{DateTimeOffset.Now:yyyy-MM-dd}.json", "application/json", json);
+                "downloadText", $"orbit-export-{TimeProvider.GetLocalNow():yyyy-MM-dd}.json", "application/json", json);
 
             _transferMessage = T.Format(
-                "Exported {0} notes, {1} task lists, {2} events and {3} inventories.",
-                archive.Notes.Count, archive.TaskLists.Count, archive.CalendarEvents.Count, archive.Inventories.Count);
+                "Exported {0} notes, {1} task lists, {2} events, {3} inventories and {4} places.",
+                archive.Notes.Count, archive.TaskLists.Count, archive.CalendarEvents.Count, archive.Inventories.Count,
+                archive.AllPlaces.Count);
+            if (opened.UnopenedPlaces > 0)
+            {
+                // Written anyway rather than refused: the rest of the file is still worth having, and
+                // what is missing from it is said here rather than found when the file is opened.
+                _transferErrorMessage = T.Format(
+                    "{0} private places couldn't be opened in this browser and were written without their content.",
+                    opened.UnopenedPlaces);
+            }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -805,8 +881,8 @@
             }
 
             _transferMessage = T.Format(
-                "Imported {0} notes, {1} task lists, {2} events and {3} inventories.",
-                result.Notes, result.TaskLists, result.CalendarEvents, result.Inventories);
+                "Imported {0} notes, {1} task lists, {2} events, {3} inventories and {4} places.",
+                result.Notes, result.TaskLists, result.CalendarEvents, result.Inventories, result.Places);
         }
         catch (JsonException)
         {
@@ -1046,6 +1122,7 @@
         try
         {
             _account = await UsersApiClient.GetAccountAsync();
+            await ReadWhetherGoogleCanConfirmAsync();
             if (_account is not null)
             {
                 _profileForm.DisplayName = _account.DisplayName;
@@ -1218,39 +1295,116 @@
     }
 
     /// <summary>
-    /// Asks for an explicit confirm() on top of the password already required for an account that has one
-    /// (see DeleteAccountRequest) - the one truly irreversible action on this page gets a stronger guard
-    /// than the rest. A Google-only account (see SetPasswordCommand) has no password to ask for at all -
-    /// being signed in is the proof, same as everywhere else that rule applies. On success the account and
-    /// everything it owns is already gone server-side; this only drops the local session and sends the
-    /// browser to /login, mirroring MainLayout.LogoutAsync.
+    /// Whether this deployment can show Google's sign-in at all - without a client id the button renders
+    /// nothing, and an account with no password would be left with nothing to delete itself with. Read
+    /// with the account rather than assumed: see ConfirmsWithGoogle.
+    /// </summary>
+    private bool _canConfirmWithGoogle;
+
+    /// <summary>
+    /// Whether this account proves it is the owner with Google rather than with a password or by typing
+    /// its address: it has no password, it is linked to Google, and Google can be asked here.
+    /// </summary>
+    private bool ConfirmsWithGoogle
+        => _account is { HasPassword: false, IsGoogleLinked: true } && _canConfirmWithGoogle;
+
+    private async Task ReadWhetherGoogleCanConfirmAsync()
+    {
+        try
+        {
+            _canConfirmWithGoogle = (await ClientFlagsApiClient.GetGoogleClientIdAsync()).Length > 0;
+        }
+        catch (HttpRequestException exception)
+        {
+            // The typed confirmation is still there to fall back on, so this is not worth a message.
+            Logger.LogWarning(exception, "Couldn't read whether Google sign-in is configured");
+            _canConfirmWithGoogle = false;
+        }
+    }
+
+    /// <summary>
+    /// The Google button in the danger zone: a sign-in made just now, sent with the deletion for the
+    /// server to check (DeleteAccountCommandHandler) - which is what proves the owner is the one asking,
+    /// where a session left open somewhere could type the address as easily as the owner could.
+    /// </summary>
+    private async Task DeleteWithGoogleAsync(string idToken)
+    {
+        if (!await AskToDeleteAsync())
+        {
+            return;
+        }
+
+        await SendDeletionAsync(string.Empty, idToken, T["Google didn't confirm this account. Try again."]);
+    }
+
+    private async Task<bool> AskToDeleteAsync()
+        => await JSRuntime.InvokeAsync<bool>(
+            "confirm",
+            T["Delete your account? This permanently deletes everything - notes, tasks, calendar events, inventory, and chat history. This cannot be undone."]);
+
+    /// <summary>
+    /// Asks for an explicit confirm() on top of what the account confirms itself with first - the one truly
+    /// irreversible action on this page gets a stronger guard than the rest. An account with a password
+    /// gives it (see DeleteAccountRequest). One without confirms with Google (see DeleteWithGoogleAsync),
+    /// or - where this deployment has no Google sign-in - types its email address or login, checked here
+    /// against the account already loaded, which makes the press deliberate rather than proving anything
+    /// to the server. On success the account and everything it owns is already gone server-side; this
+    /// only drops the local session and sends the browser to /login, mirroring MainLayout.LogoutAsync.
     /// </summary>
     private async Task DeleteAccountAsync()
     {
-        if (_account?.HasPassword == true && string.IsNullOrEmpty(_deleteAccountForm.Password))
+        // Without the account there is no telling what to ask for, and guessing "nothing" is the one
+        // wrong guess that deletes something.
+        if (_account is null)
+        {
+            _deleteAccountFailed = true;
+            _deleteAccountMessage = T["Your account hasn't loaded yet. Reload the page and try again."];
+            return;
+        }
+
+        if (_account.HasPassword && string.IsNullOrEmpty(_deleteAccountForm.Password))
         {
             _deleteAccountFailed = true;
             _deleteAccountMessage = T["Enter your password to confirm."];
             return;
         }
 
-        var confirmed = await JSRuntime.InvokeAsync<bool>(
-            "confirm",
-            T["Delete your account? This permanently deletes everything - notes, tasks, calendar events, inventory, and chat history. This cannot be undone."]);
-        if (!confirmed)
+        if (!_account.HasPassword && !_deleteAccountForm.ConfirmsAccount(_account))
+        {
+            _deleteAccountFailed = true;
+            _deleteAccountMessage = T["That isn't this account's email address or login."];
+            return;
+        }
+
+        if (!await AskToDeleteAsync())
         {
             return;
         }
 
+        // Refused although no password was asked for means one was set since this page loaded - on
+        // another device, or at the chat gate in another tab.
+        await SendDeletionAsync(
+            _deleteAccountForm.Password, googleIdToken: null,
+            _account.HasPassword
+                ? T["That password isn't right."]
+                : T["This account has a password now - reload the page and enter it."]);
+    }
+
+    /// <summary>
+    /// Sends the deletion with whatever the account confirmed itself with, and says <paramref name="refused"/>
+    /// when the server turns it down - which differs by what was offered, so the caller names it.
+    /// </summary>
+    private async Task SendDeletionAsync(string password, string? googleIdToken, string refused)
+    {
         _isDeletingAccount = true;
         _deleteAccountMessage = null;
         try
         {
-            var deleted = await UsersApiClient.DeleteAccountAsync(_deleteAccountForm.Password);
+            var deleted = await UsersApiClient.DeleteAccountAsync(password, googleIdToken);
             if (!deleted)
             {
                 _deleteAccountFailed = true;
-                _deleteAccountMessage = T["That password isn't right."];
+                _deleteAccountMessage = refused;
                 return;
             }
 
@@ -1330,15 +1484,32 @@
     private sealed class DeleteAccountFormModel
     {
         public string Password { get; set; } = string.Empty;
+
+        /// <summary>What an account without a password types before it is deleted - see <see cref="ConfirmsAccount"/>.</summary>
+        public string Confirmation { get; set; } = string.Empty;
+
+        /// <summary>
+        /// The address or the login, in any case and with stray spaces ignored: both are what the reader
+        /// signs in with, so either is something they know without looking it up. Not a secret - the
+        /// address is on this page - because what this checks is that the deletion was meant.
+        /// </summary>
+        public bool ConfirmsAccount(AccountDto account)
+        {
+            var typed = Confirmation.Trim();
+            return typed.Length > 0
+                && (string.Equals(typed, account.Email, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(typed, account.UserName, StringComparison.OrdinalIgnoreCase));
+        }
     }
 
-    /// <summary>The four things an account holds, as the export offers them - see OrbitArchive.</summary>
+    /// <summary>The five things an account holds, as the export offers them - see OrbitArchive.</summary>
     private enum ExportPart
     {
         Notes,
         TaskLists,
         CalendarEvents,
-        Inventories
+        Inventories,
+        Places
     }
 
     private string DescribeExportPart(ExportPart part) => part switch
@@ -1346,17 +1517,24 @@
         ExportPart.Notes => T["Notes"],
         ExportPart.TaskLists => T["Task lists"],
         ExportPart.CalendarEvents => T["Calendar events"],
-        _ => T["Inventories"]
+        ExportPart.Inventories => T["Inventories"],
+        _ => T["Places"]
     };
 
     /// <summary>
-    /// Which parts of the account the next export will carry. Everything to begin with, because that is
-    /// what an export meant before there was anything to choose, and it is what somebody who does not
-    /// read this row expects to get.
+    /// Which parts of the account the next export will carry. Everything but places to begin with,
+    /// because that is what an export meant before there was anything to choose, and it is what somebody
+    /// who does not read this row expects to get.
+    ///
+    /// Places are the exception because they are the one part written out opened (see ArchivedPlace):
+    /// somebody pressing Export the way they always have should not come away with a readable file of
+    /// where they keep the spare key. Ticking the box is the asking, and the warning beside it says what
+    /// the answer costs.
     /// </summary>
     private sealed class ExportChoice
     {
-        private readonly HashSet<ExportPart> _chosen = [.. Enum.GetValues<ExportPart>()];
+        private readonly HashSet<ExportPart> _chosen =
+            [.. Enum.GetValues<ExportPart>().Where(part => part != ExportPart.Places)];
 
         public bool Includes(ExportPart part) => _chosen.Contains(part);
 
@@ -1385,7 +1563,8 @@
                 Notes = Includes(ExportPart.Notes) ? archive.Notes : [],
                 TaskLists = Includes(ExportPart.TaskLists) ? archive.TaskLists : [],
                 CalendarEvents = Includes(ExportPart.CalendarEvents) ? archive.CalendarEvents : [],
-                Inventories = Includes(ExportPart.Inventories) ? archive.Inventories : []
+                Inventories = Includes(ExportPart.Inventories) ? archive.Inventories : [],
+                Places = Includes(ExportPart.Places) ? archive.AllPlaces : []
             };
     }
 

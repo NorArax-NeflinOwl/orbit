@@ -49,8 +49,9 @@
         }
         else
         {
-            <p>@Offered(kind)</p>
-            <p class="page-subtitle">@T["Until you take it up it stays theirs - accepting is what puts it on your own pages."]</p>
+            @* What accepting means, behind a mark beside the offer rather than a line under it - the
+               offer is the heading of this card, and this is what it is for. *@
+            <p>@Offered(kind)<FieldHint>@T["Until you take it up it stays theirs - accepting is what puts it on your own pages."]</FieldHint></p>
             @if (_errorMessage is not null)
             {
                 <p class="error">@_errorMessage</p>

@@ -198,7 +198,15 @@ public sealed class LocalPlaceRepository
         var now = _timeProvider.GetUtcNow();
         await WriteAsync(place, content, cancellationToken);
         place.UpdatedAtUtc = now;
-        Enqueue(dbContext, localId, OutboxOperation.Update, now);
+
+        // A place whose create the outbox gave up on is created again rather than updated - see
+        // LostCreates.
+        if (!await LostCreates.QueueAgainAsync(
+                dbContext, SyncEntityType.Place, localId, place.ServerId, now, cancellationToken))
+        {
+            Enqueue(dbContext, localId, OutboxOperation.Update, now);
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
         return LocalWriteOutcome.Applied;
     }

@@ -17,24 +17,17 @@
          room for a layer, and text that appears where it belongs needs no arrow pointing at what it is
          about. Tapping again folds it back.
 
-         The sentence is in the tree whether or not it is showing, so a screen reader announces it. -->
+         The sentence is in the tree whether or not it is showing, and the mark hands it to a screen
+         reader as its hint - see HintMark. -->
     <VerticalStackLayout Spacing="4">
-        <HorizontalStackLayout Spacing="6">
+        <HorizontalStackLayout x:Name="NameRow" Spacing="6">
             <Label x:Name="NameLabel" VerticalOptions="Center"
                    Text="{Binding Label, Source={x:Reference Root}}" />
 
-            <!-- A drawn ring rather than a character in a circle, for the reason CheckCircle gives: the
-                 text faces this app uses carry almost none of the glyphs that would do it, so Android
-                 substitutes a system face and the same mark comes out differently on two screens. -->
-            <Grid WidthRequest="18" HeightRequest="18" VerticalOptions="Center">
-                <Ellipse x:Name="Ring" StrokeThickness="1.2" />
-                <Label x:Name="Mark" Text="?" FontSize="11" FontAttributes="Bold"
-                       HorizontalOptions="Center" VerticalOptions="Center" />
-                <Button x:Name="Press" BackgroundColor="Transparent" BorderWidth="0" Padding="0"
-                        MinimumHeightRequest="0" MinimumWidthRequest="0"
-                        SemanticProperties.Description="{Binding AskedAs, Source={x:Reference Root}}"
-                        Clicked="OnPressed" />
-            </Grid>
+            <controls:HintMark VerticalOptions="Center"
+                               Warns="{Binding Warns, Source={x:Reference Root}}"
+                               Text="{Binding Text, Source={x:Reference Root}}"
+                               Pressed="OnPressed" />
         </HorizontalStackLayout>
 
         <Label x:Name="Sentence" IsVisible="False" LineBreakMode="WordWrap"

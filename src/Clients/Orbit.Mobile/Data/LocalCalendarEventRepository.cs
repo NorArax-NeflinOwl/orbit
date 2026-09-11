@@ -164,7 +164,11 @@ public sealed class LocalCalendarEventRepository : ICopyReviewStore
 
         // A copy still awaiting review is written to this phone and queued for nobody: what it is has
         // not been decided yet, and the review is what sends it - see LocalNoteRepository.UpdateAsync.
-        if (!CopiesForEditing.IsAwaitingReview(calendarEvent))
+        // An event whose create the outbox gave up on is created again rather than updated - see
+        // LostCreates.
+        if (!CopiesForEditing.IsAwaitingReview(calendarEvent)
+            && !await LostCreates.QueueAgainAsync(
+                dbContext, SyncEntityType.CalendarEvent, localId, calendarEvent.ServerId, now, cancellationToken))
         {
             Enqueue(dbContext, localId, OutboxOperation.Update, now);
         }
@@ -298,7 +302,11 @@ public sealed class LocalCalendarEventRepository : ICopyReviewStore
         var now = _timeProvider.GetUtcNow();
         original.Details = copy.Details;
         original.UpdatedAtUtc = now;
-        Enqueue(dbContext, original.LocalId, OutboxOperation.Update, now, original.ServerId);
+        if (!await LostCreates.QueueAgainAsync(
+                dbContext, SyncEntityType.CalendarEvent, original.LocalId, original.ServerId, now, cancellationToken))
+        {
+            Enqueue(dbContext, original.LocalId, OutboxOperation.Update, now, original.ServerId);
+        }
 
         CopiesForEditing.Remove(dbContext, copy, SyncEntityType.CalendarEvent);
         await dbContext.SaveChangesAsync(cancellationToken);

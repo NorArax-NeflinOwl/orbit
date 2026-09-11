@@ -218,7 +218,8 @@ public static class UserEndpoints
         users.MapDelete("/me", async (
             [FromBody] DeleteAccountRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var deleted = await dispatcher.SendAsync(new DeleteAccountCommand(GetUserId(user), request.Password), cancellationToken);
+            var deleted = await dispatcher.SendAsync(
+                new DeleteAccountCommand(GetUserId(user), request.Password, request.GoogleIdToken), cancellationToken);
             // Unauthorized rather than NotFound: the only realistic failure here is a wrong password,
             // and the caller is already authenticated - mirrors /me/password just above.
             return deleted ? Results.NoContent() : Results.Unauthorized();

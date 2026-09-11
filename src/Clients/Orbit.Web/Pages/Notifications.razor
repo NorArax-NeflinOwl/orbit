@@ -18,11 +18,14 @@
    would be unreadably cramped (see MainLayout.ToggleNotificationsMenuAsync). *@
 <PageHeader>
     <Title>@T["Notifications"]</Title>
-    <Subtitle>
+    @* How long the list reaches back is a setting rather than a fact about any one entry, so it goes
+       behind the mark with the rest of the sentence. The link still works from inside the bubble - see
+       .field-hint-bubble, which takes presses while it is open. *@
+    <Description>
         @T.Format(
             "Everything from the last {0}, newest first — cleared ones included. Older than that and they are deleted; change how long in",
             $"{_retentionDays} {(_retentionDays == 1 ? T["day"] : T["days"])}")@Space<a href="/options">@T["Options"]</a>.
-    </Subtitle>
+    </Description>
     <Actions>
         <button class="btn-secondary" disabled="@_isClearing" @onclick="ClearAsync">@T["Clear"]</button>
     </Actions>

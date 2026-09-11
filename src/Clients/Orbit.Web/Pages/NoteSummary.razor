@@ -6,6 +6,7 @@
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient
 @inject NavigationManager NavigationManager
+@inject NavigationTrail NavigationTrail
 @inject IJSRuntime JSRuntime
 @inject ILogger<NoteSummary> Logger
 @inject Translations T
@@ -77,7 +78,7 @@ else
 </div>
 @if (_note is not null)
 {
-    <EditorRail OnSave="SaveAsync" OnCancel="GoToNotes" SaveDisabled="@(!_hasChanges || _isSaving)"
+    <EditorRail OnSave="SaveAsync" OnCancel="LeaveAsync" SaveDisabled="@(!_hasChanges || _isSaving)"
                 ErrorMessage="@_message"
                 OnEdit="GoToEditor" EditLabel="@(_isReadOnly ? T["View"] : T["Edit"])">
         @* Beside the button that failed: a save that did not happen and a note somebody else is holding
@@ -96,9 +97,9 @@ else
     [Parameter] public Guid Id { get; set; }
 
     /// <summary>
-    /// The page that sent the reader here, passed on to the form rather than replaced with this one:
-    /// this page is a stop on the way, and somebody who arrived from elsewhere means elsewhere when they
-    /// say "back". See ReturnTo.
+    /// The page that sent the reader here, which is where this page's Back returns. The form is not
+    /// handed it: the form ends back on this page, to show what was saved, and this page still knows the
+    /// way on from here because its own address carries this. See ReturnTo and GoToEditor.
     /// </summary>
     [Parameter, SupplyParameterFromQuery(Name = ReturnTo.QueryName)]
     public string? ComeBackTo { get; set; }
@@ -231,7 +232,9 @@ else
         try
         {
             await NotesApiClient.DeleteNoteAsync(Id);
-            NavigationManager.NavigateTo("/notes");
+            // To the notes rather than back where it was opened from, and without this page left behind
+            // it - Back would open it on "That note no longer exists". See NavigationTrail.
+            await NavigationTrail.FinishAfterDeletingAsync($"/notes/{Id}", "/notes", "/notes");
         }
         catch (HttpRequestException exception)
         {
@@ -243,9 +246,16 @@ else
     private void GoToNotes() => NavigationManager.NavigateTo("/notes");
 
     /// <summary>
-    /// The form, told where the reader came from so the edit ends there - what this page was given, or
-    /// this page's own section when it was opened directly. See ReturnTo.
+    /// Back: where this page was opened from, or the notes when it was opened directly - and without
+    /// leaving this page behind in the history. See NavigationTrail.
+    /// </summary>
+    private Task LeaveAsync() => NavigationTrail.FinishAsync(ReturnTo.Or(ComeBackTo, "/notes"));
+
+    /// <summary>
+    /// The form, told to come back to this page - its own address, returnTo and all. It used to be handed
+    /// this page's returnTo instead, so saving a note opened from the dashboard skipped the note and landed
+    /// on the dashboard: the one page that shows what was just saved was the one passed over.
     /// </summary>
     private void GoToEditor()
-        => NavigationManager.NavigateTo(ReturnTo.Link($"/notes/{Id}/edit", ReturnTo.Or(ComeBackTo, "/notes")));
+        => NavigationManager.NavigateTo(ReturnTo.Link($"/notes/{Id}/edit", NavigationTrail.Here));
 }

@@ -389,6 +389,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<RestockCompletion>();
         services.AddScoped<StockedEntryCompletion>();
         services.AddScoped<RestockListRefresh>();
+        services.AddScoped<ProductEntryPlacement>();
 
         // How an inventory's restock list is built and when it comes round, plus the manual rebuild.
         services.AddScoped<IRequestHandler<GetRestockListSettingsQuery, RestockListSettings?>, GetRestockListSettingsQueryHandler>();

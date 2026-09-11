@@ -1,7 +1,10 @@
+using System.Net;
+using System.Text;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Orbit.Core.Advertising;
 using Orbit.Web.Components;
+using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
 using Xunit;
 
@@ -14,6 +17,23 @@ namespace Orbit.Web.Tests.Components;
 /// </summary>
 public sealed class AdSlotTests : OrbitTestContext
 {
+    private string _grantedJson = "[]";
+    private readonly DevicePreferences _devicePreferences = new(new StubJSRuntime());
+
+    public AdSlotTests()
+    {
+        var httpClient = new HttpClient(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("{\"granted\":" + _grantedJson + "}", Encoding.UTF8, "application/json")
+        }))
+        {
+            BaseAddress = new Uri("https://example.test/")
+        };
+        var permissions = new UserPermissionState(new UsersApiClient(httpClient));
+        Services.AddSingleton(permissions);
+        Services.AddSingleton(new AdAudience(permissions, _devicePreferences));
+    }
+
     [Fact]
     public void A_slot_draws_the_rail_and_the_bar_from_one_advert()
     {
@@ -67,5 +87,41 @@ public sealed class AdSlotTests : OrbitTestContext
         Assert.Equal(
             first.Find(".ad-rail .ad-title").TextContent,
             again.Find(".ad-rail .ad-title").TextContent);
+    }
+
+    /// <summary>
+    /// The quiet slots too, not only the interruption: an account holding Debugger is working on Orbit,
+    /// and "Allow ads" is off for it until it is switched on. See AdAudience.
+    /// </summary>
+    [Fact]
+    public async Task An_account_holding_Debugger_sees_no_slot_until_it_allows_ads()
+    {
+        await GrantAsync("[\"Debug\"]");
+
+        var cut = RenderComponent<AdSlot>(parameters => parameters.Add(slot => slot.Slot, 0));
+
+        Assert.Empty(cut.FindAll(".ad-rail"));
+        Assert.Empty(cut.FindAll(".ad-banner"));
+    }
+
+    /// <summary>
+    /// Flipping the switch under Options re-renders Options and nothing else, so the slot beside it has
+    /// to hear about it itself - otherwise it would keep its old answer until the next reload.
+    /// </summary>
+    [Fact]
+    public async Task Allowing_ads_brings_the_slot_back_without_a_reload()
+    {
+        await GrantAsync("[\"Debug\"]");
+        var cut = RenderComponent<AdSlot>(parameters => parameters.Add(slot => slot.Slot, 0));
+
+        await cut.InvokeAsync(() => _devicePreferences.SetAllowAdsForDebuggerAsync(true));
+
+        cut.WaitForAssertion(() => Assert.Single(cut.FindAll(".ad-rail")));
+    }
+
+    private async Task GrantAsync(string grantedJson)
+    {
+        _grantedJson = grantedJson;
+        await Services.GetRequiredService<UserPermissionState>().RefreshAsync();
     }
 }

@@ -13,7 +13,7 @@
          the chat list, the contact list and the dashboard, and an avatar that is one colour on one
          screen and another elsewhere is not an avatar. What the initials and the hue are is settled
          further in still - see Orbit.Mobile's Avatar, which Orbit.Web's AvatarHelper agrees with. -->
-    <Grid x:Name="Frame">
+    <Grid x:Name="AvatarFrame">
         <!-- Outlined in this person's hue with the initials written in it, rather than filled with it
              and the initials in white. Colour is stroke everywhere else in this design, and an avatar
              is the one place it was still a solid disc - a list of six conversations was six coloured
@@ -40,6 +40,22 @@
             <Border.StrokeShape>
                 <shapes:RoundRectangle CornerRadius="7" />
             </Border.StrokeShape>
+        </Border>
+
+        <!-- How many messages are waiting from this person - Orbit.Web's UnreadBadge, on the bottom-left
+             edge where app.css puts .notif-badge, so it never sits on the presence dot at the top right.
+             The same danger ground with the accent's light letters, hanging over the edge by the same
+             2. Nothing at all at nought: an empty badge is a mark, and a mark means something. -->
+        <Border x:Name="UnreadBadge" IsVisible="False" HeightRequest="16" MinimumWidthRequest="16"
+                Padding="3,0" StrokeThickness="0" Margin="-2,0,0,-2"
+                HorizontalOptions="Start" VerticalOptions="End"
+                BackgroundColor="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}">
+            <Border.StrokeShape>
+                <shapes:RoundRectangle CornerRadius="8" />
+            </Border.StrokeShape>
+            <Label x:Name="UnreadLabel" FontSize="10" FontAttributes="Bold"
+                   TextColor="{StaticResource AccentOn}"
+                   HorizontalOptions="Center" VerticalOptions="Center" />
         </Border>
     </Grid>
 

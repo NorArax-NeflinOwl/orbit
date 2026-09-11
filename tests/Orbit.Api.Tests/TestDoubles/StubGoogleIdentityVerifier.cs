@@ -14,9 +14,12 @@ internal sealed class StubGoogleIdentityVerifier : IGoogleIdentityVerifier
 
     private readonly GoogleIdentity _identity;
 
-    public StubGoogleIdentityVerifier(string subjectId = "google-subject-1", string email = "alice@example.com", string displayName = "Alice")
+    /// <param name="issuedAtUtc">When the token was issued - now, unless a test is about a token kept since.</param>
+    public StubGoogleIdentityVerifier(
+        string subjectId = "google-subject-1", string email = "alice@example.com", string displayName = "Alice",
+        DateTimeOffset? issuedAtUtc = null)
     {
-        _identity = new GoogleIdentity(subjectId, email, displayName);
+        _identity = new GoogleIdentity(subjectId, email, displayName, issuedAtUtc ?? DateTimeOffset.UtcNow);
     }
 
     public bool IsConfigured => true;

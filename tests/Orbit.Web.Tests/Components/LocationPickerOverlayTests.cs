@@ -54,7 +54,8 @@ public sealed class LocationPickerOverlayTests : OrbitTestContext
 
         var cut = Render();
 
-        Assert.Contains("Click the map to pick a place", cut.Markup);
+        // What a press does is behind the heading's mark rather than a line over the map - see FieldHint.
+        Assert.Contains("Click the map to pick a place", cut.Find(".map-overlay-header .field-hint-bubble").TextContent);
         Assert.Empty(cut.FindAll(".map-overlay-confirm"));
     }
 

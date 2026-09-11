@@ -114,7 +114,7 @@ public sealed class ExpiredSessionTests
             => new(
                 _repository, _chatClient, _synchronizer, _encryptionKeyProvider,
                 new Translations(new InMemoryLanguageStore()), UnlockedPermissions.For(_localStore), Navigator,
-                new ConversationPins(new InMemoryConversationPinStore()));
+                new ConversationPins(new InMemoryConversationPinStore()), _sessionStore);
 
         public GroupDetailViewModel GroupDetail(LocalChatGroup group)
         {

@@ -1,5 +1,8 @@
 @using Orbit.Web.Services
 @inject Translations T
+@* Asked for here and never used here: the trail has to be made before the first navigation to see it,
+   and the root component is the one thing made before any page is. See NavigationTrail. *@
+@inject NavigationTrail NavigationTrail
 
 <Router AppAssembly="@typeof(Program).Assembly">
     <Found Context="routeData">

@@ -21,4 +21,10 @@ public sealed record CreateTaskRequest(
     /// The folder to file it under, or null to leave it in the built-in one - see
     /// Orbit.Contracts.Notes.CreateNoteRequest.FolderId, which says the same.
     /// </summary>
-    Guid? FolderId = null);
+    Guid? FolderId = null,
+    /// <summary>
+    /// Whether the list starts out marked finished - "FromTheEntries", "Finished" or "Unfinished", as on
+    /// UpdateTaskRequest.Completion. Null is "FromTheEntries", which is where every list started before
+    /// a list could be made on the Finished tab and begin there.
+    /// </summary>
+    string? Completion = null);

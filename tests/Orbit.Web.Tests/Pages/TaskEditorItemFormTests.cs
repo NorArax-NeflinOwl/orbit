@@ -755,6 +755,7 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         TheBrowserCanSeal();
         RegisterApiClients(AnItem());
         var cut = Render();
+        OpenSharingFromThePanelsMenu(cut);
 
         cut.Find("#shareContactSelect").Change(GuestUserId.ToString());
         cut.Find("#shareTaskListButton").Click();
@@ -770,10 +771,35 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         TheBrowserCanSeal();
         RegisterApiClients(AnItem());
         var cut = Render();
+        OpenSharingFromThePanelsMenu(cut);
 
         cut.Find("#shareTaskListButton").Click();
 
         Assert.Null(_lastChatMessageJson);
+    }
+
+    /// <summary>
+    /// The list's sharing is reached from the panel's menu and opens over the page - it used to be a
+    /// section under the entries. Nothing of it is on the page until then.
+    /// </summary>
+    [Fact]
+    public void Sharing_the_list_is_in_the_panels_menu_and_opens_over_the_page()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        Assert.Empty(cut.FindAll("#shareContactSelect"));
+        Assert.Empty(cut.FindAll(".editor-page-body .share-link"));
+
+        OpenSharingFromThePanelsMenu(cut);
+
+        Assert.NotEmpty(cut.FindAll(".dialog-panel #shareContactSelect"));
+    }
+
+    private static void OpenSharingFromThePanelsMenu(IRenderedFragment cut)
+    {
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        cut.FindAll(".editor-rail .avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Share").Click();
     }
 
     private void TheBrowserCanSeal()
@@ -787,6 +813,54 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>A storage for the two tests that watch what a save writes back to a shelf.</summary>
+    /// <summary>
+    /// A product this entry describes goes onto the list's shelf when the list is saved - unless a row
+    /// there already has the entry's name. Then the entry is matched to it and the row is left alone, so
+    /// what is typed in the form never reaches it; that used to happen with nothing said at all.
+    /// </summary>
+    [Fact]
+    public void A_product_already_on_the_shelf_is_said_to_be_matched_rather_than_added()
+    {
+        MeasuredAgainstAStorage();
+        _shelf = [AShelfRow("Buy milk", "Dairy")];
+        RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)));
+        var cut = Render();
+
+        ExpandTheOnlyItem(cut);
+
+        var details = cut.Find(".editor-item-details").TextContent;
+        Assert.Contains("Already on the shelf in Pantry", details);
+        Assert.DoesNotContain("Goes on the shelf in Pantry", details);
+    }
+
+    /// <summary>With two rows of the name, the server matches neither - and the form says so.</summary>
+    [Fact]
+    public void Two_rows_of_the_same_name_are_said_to_leave_the_entry_unmatched()
+    {
+        MeasuredAgainstAStorage();
+        _shelf = [AShelfRow("Buy milk", "Dairy"), AShelfRow(" buy MILK ", "Dairy")];
+        RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)));
+        var cut = Render();
+
+        ExpandTheOnlyItem(cut);
+
+        Assert.Contains("More than one row in Pantry has this name", cut.Find(".editor-item-details").TextContent);
+    }
+
+    /// <summary>A name the shelf does not hold is still a new row, as it always was.</summary>
+    [Fact]
+    public void A_product_the_shelf_does_not_hold_is_said_to_go_onto_it()
+    {
+        MeasuredAgainstAStorage();
+        _shelf = [AShelfRow("Flour", "Baking")];
+        RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)));
+        var cut = Render();
+
+        ExpandTheOnlyItem(cut);
+
+        Assert.Contains("Goes on the shelf in Pantry when this list is saved", cut.Find(".editor-item-details").TextContent);
+    }
+
     private void MeasuredAgainstAStorage()
         => _linkedInventory = new InventoryDto(
             Guid.NewGuid(), "Pantry", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
@@ -802,11 +876,13 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
 
     /// <summary>
     /// The one box, all the way to the shelf: what the entry is filed under is what the row it puts on
-    /// that shelf is filed under. Before this the product form asked again, in a box that looked exactly
-    /// like the entry's, and the answer typed in the visible one never reached the storage.
+    /// that shelf is filed under. The row is put there by the server when the list is saved
+    /// (ProductEntryPlacement, which files it under the entry's categories when its product names none),
+    /// so what this page has to get right is that the entry travels with them - and that it no longer
+    /// writes the row a second time itself.
     /// </summary>
     [Fact]
-    public void An_entrys_categories_are_what_its_new_shelf_row_is_filed_under()
+    public void An_entrys_categories_travel_with_it_to_the_server_that_shelves_it()
     {
         MeasuredAgainstAStorage();
         RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)));
@@ -817,8 +893,11 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         cut.Find(".tag-field-add").Click();
         ClickButtonSaying(cut, "Save");
 
-        Assert.Contains("\"name\":\"Buy milk\"", _lastShelfJson);
-        Assert.Contains("\"categories\":[\"Dry goods\"]", _lastShelfJson);
+        Assert.Contains("\"description\":\"Buy milk\"", _lastSavedJson);
+        Assert.Contains("\"categories\":[\"Dry goods\"]", _lastSavedJson);
+        Assert.True(
+            _lastShelfJson is null || !_lastShelfJson.Contains("\"name\":\"Buy milk\"", StringComparison.Ordinal),
+            "The page wrote the new product onto the shelf itself, which the server already does.");
     }
 
     /// <summary>

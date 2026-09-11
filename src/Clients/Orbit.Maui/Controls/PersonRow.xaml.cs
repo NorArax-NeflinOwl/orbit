@@ -14,8 +14,8 @@ public partial class PersonRow : ContentView
 	/// Whose row this is - the person or the group. Decides the avatar's colour, which is theirs and
 	/// stays theirs however the list is sorted or filtered.
 	/// </summary>
-	public static readonly BindableProperty IdProperty = BindableProperty.Create(
-		nameof(Id), typeof(Guid), typeof(PersonRow), Guid.Empty, propertyChanged: OnWhoChanged);
+	public static readonly BindableProperty SubjectIdProperty = BindableProperty.Create(
+		nameof(SubjectId), typeof(Guid), typeof(PersonRow), Guid.Empty, propertyChanged: OnWhoChanged);
 
 	public static readonly BindableProperty NameProperty = BindableProperty.Create(
 		nameof(Name), typeof(string), typeof(PersonRow), string.Empty, propertyChanged: OnWhoChanged);
@@ -36,6 +36,14 @@ public partial class PersonRow : ContentView
 		nameof(HasUnseenAction), typeof(bool), typeof(PersonRow), false,
 		propertyChanged: (row, _, value) => ((PersonRow)row).ActionMark.IsVisible = value is true);
 
+	/// <summary>
+	/// How many messages are waiting from this person, drawn on their avatar - see
+	/// AvatarCircle.UnreadCount. Nought for a group, which has no count on either client.
+	/// </summary>
+	public static readonly BindableProperty UnreadCountProperty = BindableProperty.Create(
+		nameof(UnreadCount), typeof(int), typeof(PersonRow), 0,
+		propertyChanged: (row, _, value) => ((PersonRow)row).Face.UnreadCount = value is int count ? count : 0);
+
 	/// <summary>Keeping this row at the top of its list, where that is the reader's to decide.</summary>
 	public static readonly BindableProperty PinProperty = BindableProperty.Create(
 		nameof(Pin), typeof(View), typeof(PersonRow),
@@ -48,10 +56,10 @@ public partial class PersonRow : ContentView
 
 	public PersonRow() => InitializeComponent();
 
-	public Guid Id
+	public Guid SubjectId
 	{
-		get => (Guid)GetValue(IdProperty);
-		set => SetValue(IdProperty, value);
+		get => (Guid)GetValue(SubjectIdProperty);
+		set => SetValue(SubjectIdProperty, value);
 	}
 
 	public string Name
@@ -78,6 +86,12 @@ public partial class PersonRow : ContentView
 		set => SetValue(HasUnseenActionProperty, value);
 	}
 
+	public int UnreadCount
+	{
+		get => (int)GetValue(UnreadCountProperty);
+		set => SetValue(UnreadCountProperty, value);
+	}
+
 	public View? Pin
 	{
 		get => (View?)GetValue(PinProperty);
@@ -96,7 +110,7 @@ public partial class PersonRow : ContentView
 		var row = (PersonRow)bindable;
 
 		row.NameLabel.Text = row.Name;
-		row.Face.Id = row.Id;
+		row.Face.SubjectId = row.SubjectId;
 		row.Face.Name = row.Name;
 	}
 

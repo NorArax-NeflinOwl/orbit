@@ -24,8 +24,8 @@
                  done and offer nothing, so the one screen about this entry was the one place it could
                  not be finished - a reader who opened it to see when something was due had to go back
                  to the list to cross it off. Orbit.Web's own entry page ticks it the same way now.
-                 The menu under the name still offers one way out rather than the "edit · delete" every
-                 other object carries: an entry belongs to a list rather than standing on its own. -->
+                 The menu under the name leads to the list, and makes a copy of the entry or takes it off
+                 the list - see TaskItemSummaryPage.ShowEntryMenu. -->
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
                 <controls:CheckCircle Grid.Column="0" Diameter="26" Margin="0,6,0,0"
                                       VerticalOptions="Start" IsChecked="{Binding IsCompleted}"
@@ -112,13 +112,14 @@
                  the entry is what the reader came for and its own name is in the bar, so the list it
                  came from is a footnote about where it lives.
 
-                 The design puts its position in the list on the right of the same line ("2 of 5"). This
-                 screen does not know it - it is opened from the calendar, one entry at a time, and
-                 nothing hands it the list to count within. -->
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,6,0,0">
+                 Its position in the list goes on the right of the same line ("2 of 5"), as the design
+                 draws it - counted from the list the screen reads to find the entry in. -->
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="0,6,0,0">
                 <Label Grid.Column="0" Text="{Binding TaskListTitle}"
                        Style="{StaticResource ItemCardFooter}" VerticalOptions="Center" />
                 <BoxView Grid.Column="1" Style="{StaticResource Hairline}" VerticalOptions="Center" />
+                <Label Grid.Column="2" Text="{Binding Position}"
+                       Style="{StaticResource ItemCardFooter}" VerticalOptions="Center" />
             </Grid>
 
         </VerticalStackLayout>

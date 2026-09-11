@@ -566,16 +566,11 @@
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
     </Style>
 
-    <!-- .page-header h1 and .page-subtitle: what every screen opens with. -->
+    <!-- .page-header h1: what every screen opens with. -->
     <Style x:Key="PageTitle" TargetType="Label">
         <Setter Property="FontFamily" Value="OrbitDisplay" />
         <Setter Property="FontSize" Value="22" />
         <Setter Property="FontAttributes" Value="Bold" />
-    </Style>
-
-    <Style x:Key="PageSubtitle" TargetType="Label">
-        <Setter Property="FontSize" Value="13" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
     </Style>
 
     <!-- The one thing a screen is for - Save, Send, Sign in. Outlined in the accent and written in it,

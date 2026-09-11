@@ -24,6 +24,43 @@ public sealed class CreateTaskListCommandHandlerTests
         Assert.Equal("Buy milk", Assert.Single(stored.Items).Description);
     }
 
+    /// <summary>
+    /// A list made on the Finished tab begins marked finished - the tab is what gathers finished lists,
+    /// and a list made there that landed somewhere else would vanish from under the reader who made it.
+    /// </summary>
+    [Fact]
+    public async Task HandleAsync_starts_a_list_marked_finished_when_asked()
+    {
+        var repository = new InMemoryTaskRepository();
+        var handler = new CreateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
+        var userId = Guid.NewGuid();
+
+        var taskListId = await handler.HandleAsync(
+            new CreateTaskListCommand(userId, "Already done", [], IsGroup: false, IsPrivate: false, EncryptedContent: null,
+                Completion: TaskListCompletion.Finished),
+            CancellationToken.None);
+
+        var stored = await repository.GetByIdAsync(userId, taskListId, CancellationToken.None);
+        Assert.Equal(TaskListCompletion.Finished, stored!.Completion);
+        Assert.True(stored.IsCompleted);
+    }
+
+    /// <summary>Saying nothing leaves it to the entries, which is where every list started before.</summary>
+    [Fact]
+    public async Task HandleAsync_leaves_completion_to_the_entries_by_default()
+    {
+        var repository = new InMemoryTaskRepository();
+        var handler = new CreateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
+        var userId = Guid.NewGuid();
+
+        var taskListId = await handler.HandleAsync(
+            new CreateTaskListCommand(userId, "Errands", [], IsGroup: false, IsPrivate: false, EncryptedContent: null),
+            CancellationToken.None);
+
+        var stored = await repository.GetByIdAsync(userId, taskListId, CancellationToken.None);
+        Assert.Equal(TaskListCompletion.FromTheEntries, stored!.Completion);
+    }
+
     [Fact]
     public async Task HandleAsync_marks_the_task_list_completed_only_when_every_item_is_checked_off()
     {

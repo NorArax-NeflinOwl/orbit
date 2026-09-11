@@ -143,11 +143,15 @@ public sealed class AccountClient
     /// the only thing between a phone somebody else is holding and that - which is why it is asked for
     /// even though the caller is already signed in, exactly as Orbit.Web asks.
     /// </summary>
+    ///
+    /// An account without a password proves itself with a Google sign-in made just now instead
+    /// (<paramref name="googleIdToken"/>) - the server checks it is this account's and fresh.
     public Task<AccountOperationResult> DeleteAccountAsync(
-        string password, CancellationToken cancellationToken = default)
+        string password, string? googleIdToken = null, CancellationToken cancellationToken = default)
         => SendAsync(
-            HttpMethod.Delete, "api/users/me", new DeleteAccountRequest(password),
-            "That password isn't right.", cancellationToken);
+            HttpMethod.Delete, "api/users/me", new DeleteAccountRequest(password, googleIdToken),
+            googleIdToken is null ? "That password isn't right." : "Google didn't confirm this account. Try again.",
+            cancellationToken);
 
 
     /// <summary>

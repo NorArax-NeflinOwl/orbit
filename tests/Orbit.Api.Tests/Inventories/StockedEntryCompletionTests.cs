@@ -152,7 +152,8 @@ public sealed class StockedEntryCompletionTests
                 _context.TaskRepository,
                 new TaskListLinkValidator(_context.TaskRepository),
                 _context.RestockCompletion,
-                _context.StockedEntryCompletion)
+                _context.StockedEntryCompletion,
+                _context.ProductEntryPlacement)
             .HandleAsync(
                 new UpdateTaskListCommand(
                     _userId, taskList.Id, taskList.Title, [.. taskList.Items], IsGroup: false, IsPrivate: false,

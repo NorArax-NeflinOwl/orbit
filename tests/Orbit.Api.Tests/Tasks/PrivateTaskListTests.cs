@@ -150,7 +150,8 @@ public sealed class PrivateTaskListTests
                 new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryItemRepository(),
                 new InMemoryInventoryRepository(), new InMemoryTaskRepository()),
                     new StockedEntryCompletion(
-                new InMemoryInventoryRepository(), new InMemoryInventoryItemRepository()))
+                new InMemoryInventoryRepository(), new InMemoryInventoryItemRepository()),
+                    new InventoryTestContext().ProductEntryPlacement)
                 .HandleAsync(
                     new UpdateTaskListCommand(OwnerId, taskListId, title, items, IsGroup: false, isPrivate, encryptedContent),
                     CancellationToken.None);

@@ -10,17 +10,19 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
     private readonly TaskListLinkValidator _taskListLinkValidator;
     private readonly RestockCompletion _restockCompletion;
     private readonly StockedEntryCompletion _stockedEntryCompletion;
+    private readonly ProductEntryPlacement _productEntryPlacement;
 
     public UpdateTaskListCommandHandler(
         TaskListAccessResolver taskListAccessResolver, ITaskRepository taskRepository,
         TaskListLinkValidator taskListLinkValidator, RestockCompletion restockCompletion,
-        StockedEntryCompletion stockedEntryCompletion)
+        StockedEntryCompletion stockedEntryCompletion, ProductEntryPlacement productEntryPlacement)
     {
         _taskListAccessResolver = taskListAccessResolver;
         _taskRepository = taskRepository;
         _taskListLinkValidator = taskListLinkValidator;
         _restockCompletion = restockCompletion;
         _stockedEntryCompletion = stockedEntryCompletion;
+        _productEntryPlacement = productEntryPlacement;
     }
 
     /// <summary>Mirrors Orbit.Core.Notes.UpdateNote.UpdateNoteCommandHandler - see its class comment for what NotFound/Locked mean here.</summary>
@@ -62,6 +64,14 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
         KeepTheStepsOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirSteps);
         KeepTheLookOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirLook);
 
+        // A product entry on a list measured against a shelf goes onto that shelf and stands for its row
+        // from this save on - see ProductEntryPlacement. After the product has been kept for entries
+        // that said nothing about it, so a client with no product form still has it placed as described,
+        // and before the crossing-off below, so a row that already holds what its entry asked for
+        // crosses the entry off in this same save, the way a generated one does.
+        var placedOnInventoryId = await _productEntryPlacement.PlaceAsync(
+            request.UserId, taskList, identity.Items, request.IsPrivate, cancellationToken);
+
         // An entry the shelf already answers is crossed off before the list is written, so it takes one
         // save rather than two - see StockedEntryCompletion, which reads nothing for the ordinary lists
         // this handler mostly saves. The owner's shelves, not the caller's: somebody editing through a
@@ -100,6 +110,11 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
         // checklist asks for a refresh a few minutes later and that is what clears it. Does nothing at
         // all for the ordinary lists this handler mostly saves.
         await _restockCompletion.TopUpFinishedAsync(request.Id, cancellationToken);
+
+        if (placedOnInventoryId is { } inventoryId)
+        {
+            await _productEntryPlacement.SettleTheRestockListAsync(inventoryId, cancellationToken);
+        }
 
         return EditOutcome.Success;
     }

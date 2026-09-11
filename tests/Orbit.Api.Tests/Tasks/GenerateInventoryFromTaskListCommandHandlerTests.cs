@@ -39,9 +39,9 @@ public sealed class GenerateInventoryFromTaskListCommandHandlerTests
             _context.RestockListRefresh);
 
     /// <summary>An entry that describes the thing it names - what the web's inventory fields write onto it.</summary>
-    private static TaskItem Asking(string description, TaskItemProduct product)
+    private static TaskItem Asking(string description, TaskItemProduct product, bool isCompleted = false)
         => TaskItem.Create(
-            description, dueDateUtc: null, isCompleted: false,
+            description, dueDateUtc: null, isCompleted,
             subject: new TaskItemSubject(TaskItemKind.Inventory), product: product);
 
     /// <summary>The shelf itself, for what the rows carry beyond a name and two numbers.</summary>
@@ -208,6 +208,90 @@ public sealed class GenerateInventoryFromTaskListCommandHandlerTests
         Assert.Equal(0, flour.Quantity);
         Assert.Equal("Part", flour.ProductType);
         Assert.Equal(["From a task list"], flour.Categories);
+    }
+
+    /// <summary>
+    /// Every occurrence still adds up, but by the minimum it asks for rather than by one - so the shelf
+    /// keeps enough for both recipes, not two of something each wanting several.
+    /// </summary>
+    [Fact]
+    public async Task Duplicated_entries_add_up_their_minimums()
+    {
+        var shopping = Store(
+            "Zakupy", isGroup: false,
+            Asking("Mąka", TaskItemProduct.Default with { MinimumQuantity = 2 }),
+            Asking("mąka", TaskItemProduct.Default with { MinimumQuantity = 3 }));
+
+        var inventoryId = await AHandler().HandleAsync(
+            new GenerateInventoryFromTaskListCommand(_userId, shopping.Id), CancellationToken.None);
+
+        Assert.Equal(5, Assert.Single(await ProductsIn(inventoryId!.Value)).MinimumQuantity);
+    }
+
+    /// <summary>One that says nothing about a minimum is the counting rule's one, beside the one that did.</summary>
+    [Fact]
+    public async Task A_duplicate_with_no_minimum_adds_one()
+    {
+        var shopping = Store(
+            "Zakupy", isGroup: false,
+            Asking("Mąka", TaskItemProduct.Default with { MinimumQuantity = 2 }),
+            Asking("Mąka", TaskItemProduct.Default));
+
+        var inventoryId = await AHandler().HandleAsync(
+            new GenerateInventoryFromTaskListCommand(_userId, shopping.Id), CancellationToken.None);
+
+        Assert.Equal(3, Assert.Single(await ProductsIn(inventoryId!.Value)).MinimumQuantity);
+    }
+
+    /// <summary>What is already there is the smallest amount any of the duplicates wrote.</summary>
+    [Fact]
+    public async Task The_shelf_starts_with_the_least_amount_written()
+    {
+        var shopping = Store(
+            "Zakupy", isGroup: false,
+            Asking("Mąka", TaskItemProduct.Default with { Quantity = 4 }),
+            Asking("Mąka", TaskItemProduct.Default with { Quantity = 1 }));
+
+        var inventoryId = await AHandler().HandleAsync(
+            new GenerateInventoryFromTaskListCommand(_userId, shopping.Id), CancellationToken.None);
+
+        Assert.Equal(1, Assert.Single(await ProductsIn(inventoryId!.Value)).Quantity);
+    }
+
+    /// <summary>And where nobody wrote one, the crossed-off lines still answer, as they always did.</summary>
+    [Fact]
+    public async Task With_no_amount_written_the_shelf_starts_with_what_was_crossed_off()
+    {
+        var shopping = Store(
+            "Zakupy", isGroup: false,
+            Asking("Mąka", TaskItemProduct.Default, isCompleted: true),
+            Asking("Mąka", TaskItemProduct.Default));
+
+        var inventoryId = await AHandler().HandleAsync(
+            new GenerateInventoryFromTaskListCommand(_userId, shopping.Id), CancellationToken.None);
+
+        Assert.Equal(1, Assert.Single(await ProductsIn(inventoryId!.Value)).Quantity);
+    }
+
+    /// <summary>
+    /// The shelf and the check read one number: once the entries stand for the row they built, the check
+    /// asks for that row's minimum rather than counting the lines again.
+    /// </summary>
+    [Fact]
+    public async Task The_stock_check_asks_for_what_the_generated_shelf_keeps()
+    {
+        var shopping = Store(
+            "Zakupy", isGroup: false,
+            Asking("Mąka", TaskItemProduct.Default with { MinimumQuantity = 2 }),
+            Asking("Mąka", TaskItemProduct.Default with { MinimumQuantity = 3 }));
+
+        var inventoryId = await AHandler().HandleAsync(
+            new GenerateInventoryFromTaskListCommand(_userId, shopping.Id), CancellationToken.None);
+
+        var stored = await _context.TaskRepository.GetByIdAsync(_userId, shopping.Id, CancellationToken.None);
+        var check = Orbit.Core.Tasks.StockCheck.StockRequirementCounter.Count(
+            stored!.Items, await ProductsIn(inventoryId!.Value), DateTimeOffset.UtcNow);
+        Assert.Equal(5, Assert.Single(check.Requirements).Required);
     }
 
     /// <summary>

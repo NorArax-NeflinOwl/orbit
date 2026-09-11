@@ -40,11 +40,14 @@ internal sealed class FakeTransferServer : HttpMessageHandler
 
         Imported = await request.Content!.ReadFromJsonAsync<OrbitArchive>(cancellationToken);
 
+        // Places counted the way ImportArchiveCommandHandler counts them: a private one with nothing
+        // sealed is left out there, so it is not counted here either.
         return new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = JsonContent.Create(new ImportArchiveResult(
                 Imported!.Notes.Count, Imported.TaskLists.Count, Imported.CalendarEvents.Count,
-                Imported.Inventories.Count))
+                Imported.Inventories.Count,
+                Imported.AllPlaces.Count(place => !place.IsPrivate || place.EncryptedContent is not null)))
         };
     }
 

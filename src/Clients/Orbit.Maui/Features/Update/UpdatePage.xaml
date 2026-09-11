@@ -13,10 +13,6 @@
     <ScrollView Grid.Row="1">
         <VerticalStackLayout Padding="20,18,20,28" Spacing="12">
 
-            <!-- One line saying what the screen is for; its name is in the bar. -->
-            <Label Text="{controls:Translate 'Where a newer Orbit comes from, and how to install it.'}"
-                   FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
-
             <Label Text="{Binding Summary}" LineBreakMode="WordWrap" />
 
             <!-- One platform, its own. Orbit.Web offers both because it does not know what the reader
@@ -57,7 +53,9 @@
         </VerticalStackLayout>
     </ScrollView>
 
-        <controls:NavigationBar Grid.Row="0" />
+        <!-- What the screen is for, behind the "?" beside its name - see NavigationBar.Description. -->
+        <controls:NavigationBar Grid.Row="0"
+                                Description="{controls:Translate 'Where a newer Orbit comes from, and how to install it.'}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
         <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>

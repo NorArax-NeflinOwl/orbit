@@ -153,6 +153,14 @@ of it:
 One smaller thing is owed even without a network: there is **no interrupting advert on the phone** at
 all, only the bar.
 
+**The phone's bar is shown to an account holding Debugger** (noticed 2026-09-11). The browser keeps every
+advert away from such an account until "Allow ads" is switched on under Options → Debug
+(`AdAudience`, `DevicePreferences.AllowAdsForDebugger`); the phone's `AdBanner` draws for everybody, and
+its own Debug tab (`AccountViewModel.IsShowingDebug`) has no such switch. It needs the same rule: a
+Preferences key the Debug tab flips, off by default, and the bar asking one place - the phone's
+permission state and that key together - rather than each screen's banner deciding for itself. Not
+built with the web's, because the phone's switch is a screen of its own and the bar is on every screen.
+
 ~~The Android bar is **not tappable**.~~ Done 2026-09-10, and the reason it was not had stopped being
 true: the app is told the API's address and never the web client's (`OrbitApiSettings`), but the
 *server* tells it the web client's, and has since public share links needed exactly that
@@ -221,6 +229,51 @@ None of this is required for what Orbit does today, which is why it is here rath
 The task-by-task version of it - what maps onto what, which of Orbit's expectations the API narrows
 rather than meets, and what has to be decided before any of it starts - is in
 [google-calendar-api-plan.md](google-calendar-api-plan.md).
+
+## Proving it is you before an account without a password is deleted
+
+**Decided by the user on 2026-09-11: ask Google again. Steps one and two are built; step three waits.**
+The server accepts `DeleteAccountRequest(Password, GoogleIdToken)` and, when a token is sent, deletes
+only if it is a genuine sign-in for this account's `GoogleSubjectId` issued within ten minutes
+(`GoogleIdentity.IssuedAtUtc`, `DeleteAccountCommandHandler.FreshGoogleSignIn`) - a token that proves
+nothing is a refusal, and a Google-linked account whose password is forgotten may confirm with Google
+instead. The web's Options shows Google's button to a passwordless linked account where Google is
+configured, and keeps the typed address only where it is not. The phone does the same since the same
+day (`AccountViewModel.ConfirmsWithGoogle`, `GoogleAccountLink.SignInAgainAsync`) - but only once the
+rebuilt APK is installed. **Still to do:** once those builds are the ones in use, step three - refusing a
+passwordless account that sends no token, with the emailed-code fallback below for a deployment without
+Google. Until then the empty password is still accepted from
+such an account, exactly as installed phones send it. What was written before building it:
+
+Since 2026-09-11 an account with no password - made with Google and never given one - types its email
+address or login before Options deletes it. That makes the press deliberate and proves nothing: the
+server still accepts `DeleteAccountRequest("")` from it (`DeleteAccountCommandHandler`), and whoever holds
+the session can read the address off the same page. The stronger answer is to ask Google again.
+
+- **What it would be.** The client runs Google sign-in once more (the web's `GoogleSignInButton`, the
+  phone's `GoogleSignIn`) and sends the fresh ID token with the request -
+  `DeleteAccountRequest(string Password, string? GoogleIdToken = null)`. The server checks it with the
+  `IGoogleIdentityVerifier` sign-in already uses, and deletes only when its subject is this account's
+  `GoogleSubjectId` and it was issued moments ago, so a token kept from an earlier sign-in is no use -
+  which means the verified identity has to carry the token's issue time, and today it does not.
+- **What it buys.** A stolen session - a browser left signed in, a leaked refresh token - can no longer
+  end the account, which today it can for exactly the accounts that have nothing else to prove
+  themselves with. If the rule becomes "the password, or Google", it also lets a Google-linked account
+  whose password is forgotten delete itself without a reset first.
+- **The contract, and the order it has to change in.** Installed phone builds send `{ "password": "" }`
+  and nothing else. The new field has to be optional with a default so their request still binds (see
+  `RequestBindingTests`), and the server has to keep accepting the empty password until those builds are
+  gone - requiring the token at once would make deletion fail on every phone already installed, and store
+  review expects deletion to work inside the app (see [the mobile plan](orbit-maui-plan.md)). So: accept
+  the token when it is sent; ship both clients sending it; only then require it. Every deployment in
+  between is no weaker than today.
+- **The cost.** Google's prompt can be declined, blocked by the browser, or missing - a deployment whose
+  `GoogleClientId` is unset cannot show it at all, and an account made with Google there would have no way
+  left to delete itself. That needs an answer before the token is required; an emailed code to the
+  verified address, which password reset already knows how to send (`VerificationCodePurpose`), is the
+  obvious fallback. It is also one more round trip to Google in the middle of the one flow nobody wants to
+  fail.
+- **What it does not change.** An account with a password keeps proving itself with the password.
 
 ## Known scope cuts and rough edges
 
@@ -576,7 +629,189 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
-- **Orbit.Web's pages read the machine's clock directly** - `DateTime.Today` and `DateTime.Now`, in
+- ~~**Only the web's members page asks who takes over a group.**~~ Fixed 2026-09-11: the roster's
+  question is `GroupLeaveConfirmation`, which the archive's "Leave and delete chat history" opens too, and
+  the phone asks the same question (`GroupLeaveQuestion`, `GroupLeaveDialog`) from the group's own screen
+  and from the group list, sending the choice as `successorUserId` (needs the rebuilt APK). As noticed:
+  since 2026-09-11 a group's last admin may leave, naming a successor (`successorUserId` on
+  `DELETE /api/chat/groups/{id}/membership`) or letting the server promote the longest-standing member
+  (`ChatGroup.Leave`). The roster offered the picker; the archive (`Contacts.razor`) and the phone (group
+  detail and group list) left without asking, so they always got the automatic choice.
+
+- ~~**The phone's old leave sentence is a dead translation, and four pages still call the obsolete action
+  sheet.**~~ Fixed 2026-09-11: the dictionary entry is gone and the seven calls are
+  `DisplayActionSheetAsync`, with the same arguments; the Android head's CS0618s went with them. As
+  noticed: since the phone asks the web's leave question (2026-09-11), "You stop receiving what is posted,
+  and the group sees you go." in `PolishTranslations.cs` is no longer asked for anywhere; nothing fails
+  on an unused key, so it will sit there until somebody removes it. And the Android head builds with
+  CS0618 on `Page.DisplayActionSheet` in `TaskListDetailPage` (four calls), `CalendarEventDetailPage`
+  (two) and `InventoryDetailPage` (one) - MAUI 10 wants `DisplayActionSheetAsync`, which
+  `GroupLeaveDialog` already uses. Only warnings, and the head is not in `Orbit.CI.slnf`, so no gate
+  catches them. What it would take: deleting the one dictionary entry, and renaming the seven calls.
+
+- ~~**The phone's group detail screen leaves through the wrong route.**~~ Fixed 2026-09-11: the self row
+  now calls `ChatClient.LeaveGroupAsync` (needs the rebuilt APK). As noticed: `GroupDetailViewModel.RemoveAsync`
+  leaves by removing itself (`DELETE .../members/{ownId}`, `RemoveChatGroupMemberCommandHandler`), which
+  takes the account out but leaves its copies of the group's messages in `OP_CHATS` for nobody
+  to read - the leave route (`LeaveChatGroupCommandHandler`, which the phone's group list and both web
+  pages use) deletes them. Harmless to anyone but untidy, and it grows with every leave. What it would
+  take: calling `ChatClient.LeaveGroupAsync` for the self row, and a rebuilt APK; the server keeps
+  accepting the old route for installed builds either way.
+
+- ~~**Page and section descriptions are folded on the web, not yet on the phone.**~~ Fixed 2026-09-11:
+  a screen whose name is in the bar hands its sentence to `NavigationBar.Description`, which draws the
+  same "?" (`Controls/HintMark.xaml`, now shared with `FieldHint`) beside the name; the two sign-in
+  neighbours fold theirs into a `FieldHint` beside their own heading (`LabelStyle`). What was folded and
+  what was left in view is in `info/functionality.md`, "What a field is for"; `FoldedDescriptionTests`
+  pins where each sentence lives now. The account screen was a separate pass.
+
+- ~~**Two sentences under a place field are a "!" on the web and still a line on the phone.**~~ Fixed
+  2026-09-11: each is a `FieldHint Warns="True"` labelled "Location", shown under the same condition, with
+  the plain label standing in otherwise; the calendar one uses the web's key, and the phone's own wording
+  left the Polish dictionary with it (needs the rebuilt APK). As noticed while folding the page descriptions: "Pick it on the map - a place with no point cannot be drawn on
+  one." (`PlaceDetailPage.xaml`, shown while `NeedsAPoint`) and "The name is yours to write - the point
+  is kept either way." (`CalendarEventDetailPage.xaml`) are `FieldHint Warns="true"` on the browser
+  (`PlaceForm.razor`, `EventFields.razor`). They are under a field rather than under a title, which is why
+  that pass left them. What it would take: a `FieldHint Warns="True"` whose `Label` is the field's own
+  ("Location"), with the same `IsVisible` - and the calendar sentence is worded differently on the two
+  clients ("the pin keeps its exact position"), so one of them moves to the other's key.
+
+- ~~**`PageHeader.Subtitle` on the phone has no user left.**~~ Removed 2026-09-11, with the
+  `PageSubtitle` style; `PageHeader` keeps its leading action and its far end. As noticed: after the page
+  descriptions moved into the
+  bar, `AccountPage.xaml` was the last to set it, and since 2026-09-11 its sentence is behind the bar's
+  "?" too (`NavigationBar.Description`). The property and the `PageSubtitle` style draw nothing now and
+  can go; `PageHeader` itself stays, for the Groups page's leading "+".
+
+- ~~**A few sentences under a control, rather than under a title, were left in view on the web.**~~ Folded
+  2026-09-11 at the user's request. Each is now a `FieldHint` beside the control it follows: a "?" on
+  the restock switches (a "!" on the first one while it is off, since that sentence says what turning it
+  off costs), the claim buttons and the Android download. A "!" on the share link's note, on
+  `FeatureLocked`, and on the chat password gate's two warnings. `ForgotPassword.razor` still carries
+  its own copy of the reset warning in view, because it was not on this list. As noticed: The
+  restock switches' three `<p class="field-hint">` lines in `InventoryEditor.razor` and the one in
+  `GenerateInventoryOverlay.razor` change with the switch they follow. They had no CSS rule at all and
+  rendered as body-size paragraphs until 2026-09-11, when `p.field-hint` was given the small print's style. Also kept: the two lines under the
+  claim buttons on `SharedItemPage.razor`, `ShareLinkButton`'s note once a link exists, the unknown-sources
+  note on `Download.razor`, `FeatureLocked`'s explanation and `ChatPasswordGate`'s. Each either describes
+  a live state or is the only thing on its screen; folding them is a judgement a later pass may still
+  want to make, with a `Warns` "!" for the ones about a state.
+
+- ~~**The phone's export does not offer places.**~~ Fixed 2026-09-11: a Places switch that starts off,
+  the browser's warning beside it while it is on, and `TransferClient.OpenPlacesAsync` opening each sealed
+  place before the file is written; one it cannot open goes out empty and is counted on screen, and the
+  import message names five counts (needs the rebuilt APK). As noticed: The browser gained a Places box on 2026-09-11 that writes
+  every place out opened, behind a warning (see [functionality](functionality.md#taking-places-out-in-a-file)).
+  The phone's `ExportChoice.Narrow` empties places instead, because passing the server's rows through
+  would write sealed places nobody could read, and its import message still names four counts, not five.
+  What it would take: an `IncludesPlaces` switch that starts off, the same warning beside it in
+  `AccountPage.xaml`, and opening each sealed place with the key `LocalPlaceRepository` already uses
+  (`SealedContentSerializerContext.Default.SealedPlace`) before `TransferClient.Write`. Import already
+  sends places closed, so that half is done.
+
+- ~~**An exported place loses its link to a private list.**~~ Fixed 2026-09-11, on the server alone: a
+  link to a private list travels as the nonce of that list's sealed half (`ArchivedPlace.SealedTaskLists`,
+  `ArchivedTaskItem.LinkedSealedTaskLists`), which the list carries in the same file, and import finds
+  it by that. Doing it this way also fixed a defect nobody had noticed. An entry linking to a private
+  list used to be written with the empty title, and import sent that link to whichever private list it
+  made first. A private list is no longer found by title at all. As noticed: A private task list's title is empty on the
+  server, and the archive carries links by title, so `ExportArchiveQueryHandler` drops such a link rather
+  than writing a title that would match whichever untitled list came first. A task entry linking to a
+  private list has always had the same gap. What it would take: the browser opening the private lists'
+  titles while it opens the places, and writing those in - which only helps when lists are exported too.
+
+- ~~**A wrong password on a signed-in endpoint is retried as if the session had expired**~~ Fixed the
+  same day (2026-09-11): both clients' `AuthorizationMessageHandler` return a 401 from these two requests
+  untouched unless it carries a bearer challenge, which only an expired token's refusal does. As first
+  noticed, while looking at account deletion: `DELETE /api/users/me` and `PUT /api/users/me/password`
+  answer 401 for a wrong password, and `AuthorizationMessageHandler` reads every 401 outside the sign-in
+  paths as an expired access token: it spends the refresh token, rotates the pair and sends the request
+  again. The answer is still right, but each wrong try costs two of the five a minute the `Auth` rate
+  limit allows, so the third wrong try in a minute comes back 429 - which Options reports as the generic
+  "Couldn't delete your account. Try again." (or "Couldn't change your password") rather than as a wrong
+  password, and trying again is what keeps the window shut. What it would take: those endpoints
+  answering a wrong password with something other than 401 (403, or 400 with a reason, as login's
+  `LoginRejectionDto` does), and every client that branches on the 401 changed in the same breath -
+  both web pages, `AccountClient` on the phone and `FakeUsersServer` in its tests.
+
+- ~~**The phone's delete-account form has the dead end the web's had**~~ Fixed 2026-09-11: a
+  Google-linked account is told which password is meant, every account asked for one gets "Forgot your
+  password?" to the reset screen, a passwordless one types its address or login before the platform
+  prompt appears (`AccountViewModel.IsReadyToDelete`), nothing is sent before the account has loaded, and
+  the refusals are said inside the danger card rather than at the top of the screen (needs the rebuilt
+  APK). As noticed (2026-09-11): For an
+  account with a password it shows an Entry whose placeholder is "Password" and nothing else: no word
+  about which password a Google account holds, and no way to the forgotten-password screen, which the
+  phone only offers from sign-in. The fix is the phone's own (`AccountPage.xaml`, `AccountViewModel`),
+  not shared with the web's; the same hint and a way to the reset screen would do it. Nor does it ask an
+  account **without** a password to type its address or login before deleting, as the web has since
+  2026-09-11 - it deletes on the platform prompt alone. Also the phone's own to build: a field bound in
+  `AccountViewModel` beside `RequiresPasswordToDelete`, checked against the account it loaded.
+
+- ~~**The phone account screen's other forms answer at the top**~~ Fixed 2026-09-11: each form says what
+  became of it under its own button (`AccountViewModel.UserNameMessage`, `EmailMessage`,
+  `PasswordMessage`, each a `FormMessage`), in the accent colour or the danger colour on a refusal, and the
+  shared `Message` line is gone (needs the rebuilt APK). As noticed (2026-09-11, while folding that
+  screen's section sentences). Its own subtitle, the other leftover noticed then, is behind the bar's "?"
+  since the same day (`NavigationBar.Description` in `AccountPage.xaml`). The
+  username, email and password forms still report into the one `Message` line at the top of the screen,
+  which the deletion no longer uses for the reason it stopped: the reader is further down when they
+  press. What it would take: a message line per form, as `DeletionMessage` is.
+
+- ~~**Account deletion leaves the account's own rows keyed on anything but `UserId`.**~~ Fixed 2026-09-11:
+  `AccountDeletionRepository.DeleteWhatTheAccountHandedOutAsync`, and the sweep test now finds entities by
+  `OwnerUserId` and `SharerUserId` as well. As noticed: the sweep test
+  finds entities by a property called `UserId` (`AccountDeletionSweepTests.Every_entity_owning_a_user_is_covered_by_this_test`),
+  and `AccountDeletionRepository` deletes by it. Rows the account owns under another name stay: the
+  shares it granted (`OP_*_SHARED.*_OWNERUSERID`), its contact list (`OL_CONTACTS` owner), its public
+  links (`OL_PUBLIC_SHARES` owner) and the positions it shared (`OP_LOCATIONS` sharer).
+  `IAccountDeletionRepository` says leaving references in *other* people's data is deliberate; these are
+  the deleted account's own, and a deletion somebody asked for should take them. None of them blocks a
+  deletion - nothing in the schema has a foreign key to `OS_USERS` - so this is tidiness and privacy, not
+  a failure.
+
+- ~~**A heartbeat that races an account deletion answers 500.**~~ Fixed 2026-09-11 with
+  `IUserRepository.TryUpdateAsync`. As noticed: `PresenceHeartbeatCommandHandler` reads
+  the user, then saves it with `UserRepository.UpdateAsync`; if the deletion commits between the two,
+  the update affects no row and EF throws. The account is gone either way and the browser signs out
+  right after, so all it costs is an error in the log - but an update of a row that may have gone should
+  be a conditional update, not a read and a blind write.
+
+- **Handing an appointment to a contact still happens in its form - decided to stay so** (the user,
+  2026-09-11: guests stay in the form, and only the share link is in the panel's menu). The note, task list and inventory
+  forms moved Share and Share link into the panel's menu on 2026-09-11; the calendar event's form moved
+  only its link, because giving an appointment to somebody is adding them as a guest (`EventFields`), and
+  that is part of what Save writes - the invitation goes out once the event is saved
+  (`CalendarEventEditor.ShareWithNewlyAddedContactsAsync`). A Share entry for an event needs its own
+  answer to whether a guest added from the panel is saved on the spot or waits for Save; neither was
+  obviously right, so the guests stayed where they are.
+
+- ~~**Moving between notes in the editor's column carries the first note's way back.**~~ Fixed 2026-09-11
+  with `ReturnTo.PastThePageOf`. As noticed: opening another note
+  from the column replaces the form (`NavigationTrail`) and keeps the returnTo the first one was opened
+  with. When that was the first note's own page, finishing the second note ends on the first note's
+  page. What it would take: when `ComeBackTo` names the page of the note being left, hand the next form
+  that page's own returnTo instead - it is on the address being replaced, so nothing has to be remembered.
+
+- ~~**A task entry opened from the page of lists names no way back.**~~ Fixed 2026-09-11: the entry and
+  the checklist are both opened naming `/tasks`. As noticed: `Tasks.razor` opened an entry's page
+  as `/tasks/{list}/items/{item}` with no returnTo, so the entry's Back falls back to its list and
+  replaces the entry's page with the checklist, rather than stepping back to `/tasks`. Naming itself -
+  `ReturnTo.Link(..., "/tasks")`, as every other page that opens something now does - would make it step
+  back.
+
+- ~~**Orbit.Web's pages read the machine's clock directly**~~ Done on 2026-09-11, after PR #279 merged:
+  `Program.cs` registers `TimeProvider.System`, and every page and component that asked the machine what
+  day or time it is asks that instead - the calendar and its two grids, the date box, the expiry box,
+  chat's day dividers, the dashboard, the map, the notes list, the export's file name, the layout's
+  banner and advert pacing. `EventFormModel` and `OrbitAuthenticationStateProvider` take one as an
+  optional parameter (the editors and DI hand theirs over; the many tests that build the latter by hand
+  need not), and `Calendar.razor` sets its opening day from it in `OnInitialized`. `OrbitTestContext`
+  registers the system clock, so existing tests are unchanged, and a test that needs the hour registers
+  a `FakeTimeProvider` over it - `DashboardTests.Late_in_the_evening_an_appointment_still_to_come_counts_as_today`
+  is the evening the old test used to fail in, pinned. What follows is the entry as it stood.
+
+  `DateTime.Today` and `DateTime.Now`, in
   eighteen places across the pages and components, with no `TimeProvider` injected anywhere in that
   client. It is why `DashboardTests.An_appointment_that_has_ended_counts_as_one_that_is_behind_the_reader`
   failed for the last three hours of every day until 2026-09-10 (an event "three hours from now" is
@@ -586,6 +821,15 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   (`FakeTimeProvider` in every screen test), and it is the only way a page whose answer changes at
   midnight can be tested at all.
 
+  **Measured on 2026-09-11, and held back on purpose.** It is 28 reads across 13 files, wider than the
+  pages: `EventFormModel` reads the clock in its constructor and is made with `new()` from `TaskEditor`
+  and `CalendarEventEditor`, `Calendar.razor`'s `ReferenceDate` lives on a nested state class, and
+  `OrbitAuthenticationStateProvider` is constructed by hand in `Program.cs` and in `OrbitTestContext`
+  (which is also where bUnit tests would get the `TimeProvider`). Seven of those files - `Program.cs`,
+  `MainLayout`, `Dashboard`, `MapPage`, `Notes`, `Options`, and the two editors through the form model -
+  are also changed by PR #279, so it waits for that to merge and is then done whole on a fresh branch,
+  rather than half now and half after with a conflict in the middle. The session behind #279 was told.
+
 - ~~**A response the phone cannot parse escapes the sync's own catch.**~~ Fixed the same day it was
   found (2026-09-10): `EverythingSynchronizer.TryAsync` catches `JsonException` too, and answers it the
   way it answers a server it could not reach - "couldn't sync", with everything still queued - rather
@@ -593,16 +837,81 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   rather than refused: nothing about a body this build cannot parse says the reader may not have what
   they asked for.
 
-- **A create the outbox has given up on leaves a row that never syncs.** When a queued create is
-  dropped - after five answered refusals, which since 2026-09-10 includes a 4xx and not only a
-  persistent 500 (`SyncFailure.StaysInTheOutbox`) - the phone says so in its feed and deletes the queue
-  entry, but the local row stays with no `ServerId`. It reads like any other note; every later edit
-  queues an update, and an update on a row the server has never seen is `Abandoned` quietly
-  (`NoteSynchronizer.SendUpdateAsync`), so it is local-only for good with nothing on it saying so. The
-  same is true of every entity type, and was true before the 4xx change - it is only more reachable now.
-  What it would take: a repository that queues a *create* rather than an update when the row has no
-  server id, so the next edit is a second try; or a mark on the row the list can draw, with "send again"
-  under its menu. Neither is small enough to fold into the fix that made this visible.
+- ~~**A create the outbox has given up on leaves a row that never syncs.**~~ Done on 2026-09-11, with
+  the first of the two designs this entry named. When a queued create is dropped - after five answered
+  refusals (`SyncFailure.StaysInTheOutbox`) - the local row stays with no `ServerId`, and every later
+  edit used to queue an update that is `Abandoned` quietly on a row the server has never seen. Now the
+  next edit of such a row - a save, a filing, a folder rename, a review's "keep mine", a calendar link
+  resolved onto a list - queues the *create* again instead, and the create carries what the edit
+  changed (`LostCreates`, used by all six repositories and `PendingCalendarLinkResolver`). A copy
+  awaiting review is left alone: it has no create on purpose.
+  - **Not done, and chosen not to be:** the other design, a mark on the row the list can draw with
+    "send again" under its menu. The retry is silent, so a row nobody edits again stays on the phone
+    alone, and a server that keeps refusing it says so in the feed once per five tries - worded as
+    "Kept on this phone only", and naming editing (renaming, for a folder) as the way to try again.
+
+- ~~**Linking a list to a storage places nothing by itself**~~ Fixed 2026-09-11: the link handler places
+  the list's product entries and settles the restock list, as a save does. As noticed (2026-09-11, with
+  `ProductEntryPlacement`). `LinkTaskListToInventoryCommandHandler` only sets the link, so product
+  entries already on the list reach the shelf on the list's next save rather than at the moment it is
+  linked. What it would take: calling the placement from the link handler, and settling the restock list
+  after it, the way the list's save does.
+
+- ~~**Orbit.Web still writes a new product onto the shelf itself**~~ Removed 2026-09-11. As noticed: (`TaskEditor.SaveTheShelfAsync`, the
+  `ShelfPicker.NewProductsIn` branch). Since 2026-09-11 the server has placed it before this runs, so the
+  fresh shelf read finds it and the branch does nothing; a save the server declines is one the
+  inventory request is refused for too. The branch can go.
+
+- ~~**An entry matched to an existing row keeps nothing of what it described.**~~ Said before it happens
+  since 2026-09-11: the web's entry form tells an entry whose name a row on the list's shelf already has
+  that it will be matched and the row left as it is - and one whose name two rows share that it will be
+  matched to neither (`TaskEditor.WhereANewProductGoes`). As noticed: matching leaves the row as
+  it is on purpose (see `ProductEntryPlacement`), so a minimum typed on the entry is dropped with its
+  description. A line on the entry's form saying "already on the shelf in X" before it is saved would
+  keep that from being a surprise.
+
+- ~~**Two lists pointing entries at one shelf row each ask for its whole minimum**~~ Fixed 2026-09-11: one
+  set of counted shelf rows is shared across every list in the split
+  (`StockRequirementCounter.DemandOf`'s `shelfItemsAlreadyCounted`). As noticed: in the shared-shelf
+  split (`GetTaskListStockCheckQueryHandler.AskedForByTheOtherLists`), because a row's minimum is counted
+  once per list (`StockRequirementCounter.RequiredBy`). Rare - generation points only its own list's
+  entries at the rows it builds - but a hand-made errand on a second list makes both look short.
+
+- ~~**The phone reopens an entry saved offline on a blank product form**~~ Fixed 2026-09-11:
+  `ShelfForSomethingNew` hands the entry's own product to `TaskItemShelfProduct.ForSomethingNotOnTheShelfYet`,
+  which fills the form from it (needs the rebuilt APK). As noticed: until the server has placed it,
+  `TaskListDetailViewModel.ShelfForSomethingNew` does not fill the form from `TaskItemDto.Product`, which
+  such an entry now carries. Not new - the form was blank before too - but the answer is on the entry now.
+
+- ~~**The phone's `FakeTasksServer` does not place product entries**~~ Fixed 2026-09-11: given the
+  screen tests' `FakeInventoryServer`, it places them on a list's save and on its link
+  (`PlaceProductEntries`, mirroring `ProductEntryPlacement` - matched by name, a new row counted as
+  `StockRequirementCounter` counts, the entry's own product dropped, declined for a private list or a
+  shelf that may not be changed), and
+  `An_errand_for_something_not_on_the_shelf_yet_comes_back_standing_for_its_row` is the screen test it
+  allowed. A fake built without an inventory server still places nothing. As noticed: it did not, the way the real server does since
+  2026-09-11, so a screen test can only assert what was sent. A fake that placed them would need to know
+  the fake inventory server; until then the placement itself is covered by `ProductEntryPlacementTests`.
+  Left unmodelled on purpose (decided 2026-09-11): the restock list the server settles after a placement
+  (`SettleTheRestockListAsync`). No phone screen or test leans on that errand appearing - the restock
+  list reaches the phone as an ordinary task list on its next pull - and the fakes rebuild no restock
+  list even for the explicit `restock-list/refresh`, which answers a canned count; modelling the settle
+  alone would mean a managed list per inventory, its settings and its errand naming in the fakes, for no
+  screen test that needs them.
+
+- ~~**The Android head still builds with twelve warnings**~~ Fixed 2026-09-11: it builds with none. The
+  swatch's `AutomationProperties.Name` went, `AvatarCircle`/`PersonRow.Id` became `SubjectId`, the four
+  `Frame` elements became `AvatarFrame`, `ButtonFrame`, `CardFrame` and `RowFrame`, `ItemCard`'s cleared
+  shadows are `null!`, `MainActivity` checks the insets controller for null, and the two crefs name
+  `Orbit.Mobile.Screens.Startup.StartupViewModel` and `Platform.WebSignInBrowser`. As noticed: (noticed 2026-09-11, after the seven
+  `DisplayActionSheet` CS0618s went). None fails anything, and the head is not in `Orbit.CI.slnf`, so
+  nothing gates them: one more CS0618, `AutomationProperties.Name` on the accent swatches in
+  `AccountPage.xaml` (MAUI wants `SemanticProperties.Description`, which the swatch's button already
+  carries); five CS0108 where `AvatarCircle`/`PersonRow` declare `Id` and four controls name an element
+  `Frame`, hiding the base members; two CS8625 in `ItemCard.xaml.cs`, a CS8602 in `MainActivity.cs`, and
+  two CS1574 crefs (`StartupViewModel` in `App.xaml.cs`, `WebSignInBrowser` in
+  `WebAuthenticationCallbackActivity.cs`) that no longer resolve. What it would take: the swatch attribute
+  dropped, the two `Id`s and four `Frame`s renamed, and the rest a line each.
 
 - ~~**Options still calls an inventory a "storage".**~~ Done on 2026-09-10, and it was wider than the
   export section: eleven English strings across both clients still said storage - the task editor's
@@ -902,13 +1211,15 @@ its shared controls. What that pass left, all of it now overtaken:
   card carries the news because a shelf about to go off names no shelf. Two smaller things came with
   it: putting every part away now says so instead of telling a full account to add a note, and pressing
   a shelf opens that shelf.
-- **A conversation still shows no count of what is waiting.** The one part of Orbit.Web's avatar the
-  phone does not draw, and it is missing for want of a number rather than a control: `UnreadBadge`
-  reads a per-conversation unread count, `LocalContact` has none, and nothing on the device derives one
-  - `LocalChatMessage.IsReadByEveryone` is about messages this reader *sent*. What it would take is a
-  read mark per conversation that survives a restart, which is a chat feature rather than a look, and
-  the phone already says the smaller thing in the row's own mark: something unread points at that
-  person.
+- ~~**A conversation still shows no count of what is waiting.**~~ Done on 2026-09-11, and it needed no
+  read mark of the phone's own after all: the server keeps one per conversation and already sends the
+  count on every contact (`ContactDto.UnreadCount`) - the phone simply dropped it on the way into its
+  store. `LocalContact.UnreadCount` keeps it (local migration `KeepHowManyMessagesAreWaiting`), so it
+  survives a restart and reads offline; `ChatRepository.MarkReadAsync` takes it to nought the moment the
+  server has been told a conversation was read; and `AvatarCircle` draws it where `UnreadBadge` sits on
+  the web - bottom left, "9+" above nine, nothing at nought. The row's own mark now lights for unread
+  messages as well as for a request to answer, as Orbit.Web's does. A group has no count on either
+  client, and the dashboard's rows still draw no face to put one on (see android-design-deltas.md).
 - ~~**`ContactsPage.xaml` declares a `PresenceColor` converter it never uses.**~~ Gone: the row that
   needed it became `AvatarCircle`, which holds the converter itself, and the declaration went with the
   markup it belonged to.
@@ -979,7 +1290,12 @@ its shared controls. What that pass left, all of it now overtaken:
   had no query, and a notification about a shared place carries `/map?place={id}`, so the place id would
   have arrived as `{id}?returnTo=…` and opened the map on no pin.
 
-  **Chat opening a shared thing is the one left, and it is not a call site.** A share notice in a
+  ~~**Chat opening a shared thing is the one left, and it is not a call site.**~~ Done 2026-09-11, with no
+  contract change. After "Accepted - added to your account." the chat offers "Open it". It asks the
+  offer endpoint the invitation page already uses (`GET /api/shares/{kind}/{shareId}`, which answers
+  with the item's id) for where the thing is, through `SharesApiClient.WhereItLandsAsync`. An offer
+  accepted in an earlier visit links to its section, because only its status was read then. The phone is
+  unchanged: what it accepts lands under its own ids at the next sync. As noticed: A share notice in a
   conversation carries the *share's* id and nothing else (`NoteShareMessagePayload` and its four
   siblings), and accepting answers `bool` - so after "Accepted - added to your account." the chat has no
   address to offer. Giving it one means the five accept endpoints answering with the item's id, which is

@@ -105,27 +105,29 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
         cut.Find(".editor-rail .overflow-menu-trigger").Click();
         cut.FindAll(".editor-rail button").First(button => button.GetAttribute("aria-label") == "Edit").Click();
 
-        Assert.EndsWith($"/tasks/{TaskListId}/items/{ItemId}/edit", navigationManager.Uri);
+        Assert.EndsWith($"/tasks/{TaskListId}/items/{ItemId}/edit", new Uri(navigationManager.Uri).AbsolutePath);
     }
 
     /// <summary>
-    /// And it carries where the reader came from with it, so the edit ends back there. This page is the
-    /// middle hop of the case that was reported: an appointment pressed on the calendar opens as its
-    /// entry here, and saving from the form beyond used to land on /tasks. See ReturnTo.
+    /// And it tells the form to come back to this entry - its own address, returnTo and all - so the edit
+    /// ends on the entry it changed, and this page's Back still reaches the calendar it was opened from.
+    /// It used to hand the form the calendar directly, which skipped the entry altogether. See ReturnTo.
     /// </summary>
     [Fact]
-    public void Edit_carries_the_page_the_reader_came_from()
+    public void Edit_is_told_to_come_back_to_this_entry()
     {
         RegisterClients(Item("Dentist", DateTimeOffset.UtcNow.AddDays(1), location: "Przychodnia"));
         var navigationManager = Services.GetRequiredService<NavigationManager>();
-        navigationManager.NavigateTo(navigationManager.GetUriWithQueryParameter(ReturnTo.QueryName, "/calendar"));
+        var here = $"/tasks/{TaskListId}/items/{ItemId}?{ReturnTo.QueryName}=%2Fcalendar";
+        navigationManager.NavigateTo(here);
         var cut = Render();
 
         cut.Find(".editor-rail .overflow-menu-trigger").Click();
         cut.FindAll(".editor-rail button").First(button => button.GetAttribute("aria-label") == "Edit").Click();
 
-        Assert.EndsWith(
-            $"/tasks/{TaskListId}/items/{ItemId}/edit?{ReturnTo.QueryName}=%2Fcalendar", navigationManager.Uri);
+        Assert.Equal(
+            ReturnTo.Link($"/tasks/{TaskListId}/items/{ItemId}/edit", here),
+            "/" + navigationManager.ToBaseRelativePath(navigationManager.Uri));
     }
 
     /// <summary>The one press that leaves without opening a menu goes back to the list it is on.</summary>
@@ -394,6 +396,83 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
         Assert.DoesNotContain("tick-box-done", cut.Find(".check-row .tick-box").ClassList);
     }
 
+    /// <summary>
+    /// "Delete item", as the phone's design draws the entry's menu: asked first, then the whole list
+    /// goes back without the entry, and the reader lands on the list it was on - nothing is left here.
+    /// </summary>
+    [Fact]
+    public void Delete_item_takes_the_entry_off_its_list_once_the_reader_says_yes()
+    {
+        RegisterClients(Item("Pay the rent", DateTimeOffset.UtcNow, ""));
+        JSInterop.Setup<bool>("confirm", _ => true).SetResult(true);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = Render();
+
+        ChooseFromTheMenu(cut, "Delete item");
+
+        var saved = JsonDocument.Parse(Assert.Single(_savedLists)).RootElement;
+        Assert.Equal(0, saved.GetProperty("items").GetArrayLength());
+        Assert.EndsWith($"/tasks/{TaskListId}", navigationManager.Uri);
+    }
+
+    [Fact]
+    public void Delete_item_answered_no_changes_nothing()
+    {
+        RegisterClients(Item("Pay the rent", DateTimeOffset.UtcNow, ""));
+        JSInterop.Setup<bool>("confirm", _ => true).SetResult(false);
+        var cut = Render();
+
+        ChooseFromTheMenu(cut, "Delete item");
+
+        Assert.Empty(_savedLists);
+    }
+
+    /// <summary>
+    /// "Duplicate": a second entry straight under this one, under an id of its own, and then its page.
+    /// The appointment is not copied - one entry raises it, and a second pointing at the same event
+    /// would fight over it (see DuplicateTaskListCommandHandler, which copies a list the same way).
+    /// </summary>
+    [Fact]
+    public void Duplicate_puts_a_copy_under_the_entry_without_its_appointment_and_opens_it()
+    {
+        var eventId = Guid.NewGuid();
+        RegisterClients(Item("Dentist", DateTimeOffset.UtcNow, "", eventId), CalendarEvent(eventId, "Rynek Główny 1"));
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = Render();
+
+        ChooseFromTheMenu(cut, "Duplicate");
+
+        var items = JsonDocument.Parse(Assert.Single(_savedLists)).RootElement.GetProperty("items");
+        Assert.Equal(2, items.GetArrayLength());
+        Assert.Equal(ItemId, items[0].GetProperty("id").GetGuid());
+        Assert.Equal(eventId, items[0].GetProperty("linkedCalendarEventId").GetGuid());
+        var copyId = items[1].GetProperty("id").GetGuid();
+        Assert.NotEqual(ItemId, copyId);
+        Assert.Equal("Dentist", items[1].GetProperty("description").GetString());
+        Assert.Equal(JsonValueKind.Null, items[1].GetProperty("linkedCalendarEventId").ValueKind);
+        Assert.EndsWith($"/tasks/{TaskListId}/items/{copyId}", navigationManager.Uri);
+    }
+
+    /// <summary>A list handed over to be read offers neither: the server would refuse both.</summary>
+    [Fact]
+    public void A_list_shared_to_read_offers_neither_duplicate_nor_delete()
+    {
+        RegisterClients(Item("Pay the rent", DateTimeOffset.UtcNow, ""), accessLevel: "ReadOnly");
+        var cut = Render();
+
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+
+        var offered = cut.FindAll(".editor-rail .avatar-dropdown-item").Select(entry => entry.TextContent.Trim()).ToList();
+        Assert.DoesNotContain("Duplicate", offered);
+        Assert.DoesNotContain("Delete item", offered);
+    }
+
+    private static void ChooseFromTheMenu(IRenderedComponent<TaskItemSummary> cut, string entry)
+    {
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        cut.FindAll(".editor-rail .avatar-dropdown-item").First(button => button.TextContent.Trim() == entry).Click();
+    }
+
     /// <summary>Every address this page asked the server to mark read.</summary>
     private readonly List<string> _markedReadAt = [];
 
@@ -515,6 +594,13 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
     private static TaskDto Ticked(TaskDto taskList, string saved)
     {
         var items = JsonDocument.Parse(saved).RootElement.GetProperty("items");
+        // A removal or a copy changes how many entries there are, and the page leaves as soon as either
+        // is saved, so nothing reads the list back - the tests about those assert on what was sent.
+        if (items.GetArrayLength() != taskList.Items.Count)
+        {
+            return taskList;
+        }
+
         return taskList with
         {
             Items =

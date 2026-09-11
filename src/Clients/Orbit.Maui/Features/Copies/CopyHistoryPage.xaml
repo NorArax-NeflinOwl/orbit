@@ -14,11 +14,6 @@
         <Grid Grid.Row="1" RowDefinitions="Auto,*" Padding="20,14,20,0" RowSpacing="12">
 
             <VerticalStackLayout Grid.Row="0" Spacing="10">
-                <!-- The thing's own name is in the bar; this says what the screen is about it. The way
-                     out is the bar's back arrow, which is why the Back button here is gone. -->
-                <Label Text="{controls:Translate 'Copies of this, and what each came from.'}"
-                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
-
                 <Label Text="{controls:Translate 'Nothing has been copied from this.'}" IsVisible="{Binding HasNothing}"
                        Style="{StaticResource EmptyHint}" HorizontalOptions="Center" Margin="0,20,0,0" />
             </VerticalStackLayout>
@@ -66,7 +61,10 @@
             </CollectionView>
         </Grid>
 
-        <controls:NavigationBar Grid.Row="0" />
+        <!-- The thing's own name is in the bar, and what the screen is about it is behind the "?"
+             beside that name - see NavigationBar.Description. -->
+        <controls:NavigationBar Grid.Row="0"
+                                Description="{controls:Translate 'Copies of this, and what each came from.'}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
         <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>

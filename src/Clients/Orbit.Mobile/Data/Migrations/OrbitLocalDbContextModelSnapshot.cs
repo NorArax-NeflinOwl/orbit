@@ -193,6 +193,9 @@ namespace Orbit.Mobile.Data.Migrations
                     b.Property<bool>("RequiresApprovalFromCurrentUser")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("UnreadCount")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("UserName")
                         .IsRequired()
                         .HasColumnType("TEXT");

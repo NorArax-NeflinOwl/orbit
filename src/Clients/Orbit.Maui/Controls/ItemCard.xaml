@@ -20,7 +20,7 @@
 
          Everything except the name is optional and is left out rather than drawn empty. The same
          anatomy Orbit.Web settled on - see its Components/ItemCard.razor. -->
-    <Border x:Name="Frame" StrokeThickness="1" Padding="0" Margin="0,5"
+    <Border x:Name="CardFrame" StrokeThickness="1" Padding="0" Margin="0,5"
             Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}"
             BackgroundColor="Transparent">
         <Border.StrokeShape>

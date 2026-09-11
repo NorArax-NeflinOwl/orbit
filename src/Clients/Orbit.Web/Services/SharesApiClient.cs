@@ -37,6 +37,30 @@ public sealed class SharesApiClient
     }
 
     /// <summary>
+    /// Where an offer this reader has just taken up can be opened: the thing itself, found through the
+    /// offer, or the section it went into when the offer cannot be read. The accept endpoints answer
+    /// only whether it worked, and both clients read that answer, so the offer is asked for again rather
+    /// than the answer changed. A server that cannot be reached is not a failure here: the acceptance
+    /// has already happened, and the section is still somewhere true to go.
+    /// </summary>
+    public async Task<string> WhereItLandsAsync(
+        SharedItemKind kind, Guid shareId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (await GetOfferAsync(kind, shareId, cancellationToken) is { } offer)
+            {
+                return SharedItemInvitation.AddressOf(kind, offer.ItemId);
+            }
+        }
+        catch (HttpRequestException)
+        {
+        }
+
+        return SharedItemInvitation.SectionFor(kind);
+    }
+
+    /// <summary>
     /// Everything this reader has handed one person, of every kind, newest first - what the contact's
     /// own page lists. Empty for somebody they have given nothing.
     /// </summary>

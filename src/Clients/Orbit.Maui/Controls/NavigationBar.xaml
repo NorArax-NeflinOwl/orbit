@@ -16,12 +16,12 @@
          The six section icons that used to sit between them are in the drawer now, where their names
          fit beside them - eight targets in a 412px row is a row nobody can hit, and it left the screen
          with no name on it at all. -->
-    <Grid RowDefinitions="Auto,Auto">
+    <Grid RowDefinitions="Auto,Auto,Auto">
 
     <!-- A push that arrived while somebody was looking at the app. Under the bar rather than over it,
          so it pushes the page down for the few seconds it is up instead of covering what somebody is
          reading - see ForegroundNotices for why a banner and not a second tray notification. -->
-    <Border Grid.Row="1" IsVisible="{Binding HasBanner}" Margin="8,0,8,6" Padding="12,8" StrokeThickness="1"
+    <Border Grid.Row="2" IsVisible="{Binding HasBanner}" Margin="8,0,8,6" Padding="12,8" StrokeThickness="1"
             Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}"
             BackgroundColor="{AppThemeBinding Light={StaticResource PageBackgroundLight}, Dark={StaticResource PageBackgroundDark}}">
         <Border.StrokeShape>
@@ -44,6 +44,13 @@
         </Grid>
     </Border>
 
+    <!-- What the screen is for, opened from the mark beside its name - see Description. Under the bar
+         rather than inside it, for the reason FieldHint opens its sentence under its name: text that
+         appears where it belongs needs no bubble pointing at what it is about. Centred, because the name
+         it belongs to is. -->
+    <Label x:Name="DescriptionSentence" Grid.Row="1" IsVisible="False" LineBreakMode="WordWrap"
+           HorizontalTextAlignment="Center" Margin="24,10,24,2" Style="{StaticResource SectionSubtext}" />
+
     <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Padding="6" ColumnSpacing="4">
         <!-- A hairline under the bar, and no fill: the bar is on the page rather than above it. -->
         <BoxView Grid.Column="0" Grid.ColumnSpan="3" Style="{StaticResource Hairline}"
@@ -62,11 +69,12 @@
                     SemanticProperties.Description="{controls:Translate 'Menu'}" />
         </Grid>
 
-        <!-- [previous] [the screen's name and its menu] [next]. The name is bound in the code-behind to
+        <!-- [previous] [the screen's name and its menu] [?] [next]. The name is bound in the code-behind to
              the page's Title, so a screen named after what it is showing - a conversation, a chosen day
              - says that rather than a fixed word; the two arrows are the page's own, and are there only
-             where the screen is one of a series. See ITitleSteps and ITitleMenu. -->
-        <Grid Grid.Column="1" ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="2"
+             where the screen is one of a series. See ITitleSteps and ITitleMenu. The "?" is there only
+             where the page has said what it is for - see Description. -->
+        <Grid Grid.Column="1" ColumnDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="2"
               HorizontalOptions="Center" VerticalOptions="Center">
             <Grid x:Name="PreviousStep" Grid.Column="0" WidthRequest="32" HeightRequest="40"
                   IsVisible="False" VerticalOptions="Center">
@@ -98,7 +106,12 @@
                         MinimumHeightRequest="44" />
             </Grid>
 
-            <Grid x:Name="NextStep" Grid.Column="2" WidthRequest="32" HeightRequest="40"
+            <!-- Its own column rather than a place in the name's row: that row is transparent to presses,
+                 so that the whole name opens the screen's menu, and the mark has to take its own. -->
+            <controls:HintMark x:Name="DescriptionMark" Grid.Column="2" IsVisible="False" Margin="4,0,0,0"
+                               VerticalOptions="Center" Pressed="OnDescriptionPressed" />
+
+            <Grid x:Name="NextStep" Grid.Column="3" WidthRequest="32" HeightRequest="40"
                   IsVisible="False" VerticalOptions="Center">
                 <Path Data="M9,6 L15,12 L9,18" Style="{StaticResource NavigationBarIconPath}"
                       WidthRequest="16" HeightRequest="16" InputTransparent="True" />

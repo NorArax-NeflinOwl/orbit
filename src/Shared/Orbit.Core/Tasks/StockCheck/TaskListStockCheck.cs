@@ -14,12 +14,24 @@ namespace Orbit.Core.Tasks.StockCheck;
 /// is Required against Available - but it is what a shelf built from this list starts with, since a
 /// ticked line is something somebody has already fetched.
 /// </param>
-public sealed record StockRequirement(string Name, decimal Required, decimal Available, decimal Done = 0)
+/// <param name="SmallestAmountWritten">
+/// The least any entry naming this says there already is (TaskItemProduct.Quantity), or null when none
+/// of them said. The least rather than the sum or the first: entries naming one thing are several
+/// claims about one shelf, and the smallest is the one that cannot be overstating it.
+/// </param>
+public sealed record StockRequirement(
+    string Name, decimal Required, decimal Available, decimal Done = 0, decimal? SmallestAmountWritten = null)
 {
     /// <summary>How many more are needed. Zero when the shelf covers the work.</summary>
     public decimal Missing => Required > Available ? Required - Available : 0;
 
     public bool IsCovered => Missing == 0;
+
+    /// <summary>
+    /// What a shelf built from this starts with: the amount somebody wrote, and where nobody wrote one,
+    /// the lines already crossed off - see GenerateInventoryFromTaskListCommandHandler.
+    /// </summary>
+    public decimal StartingStock => SmallestAmountWritten ?? Done;
 }
 
 /// <summary>

@@ -58,8 +58,31 @@ public sealed class AccountDeletionRepository : IAccountDeletionRepository
         // membership that outlived its account silently breaks group messaging for everyone still in it.
         await _dbContext.ChatGroupMembers.Where(member => member.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.UserVerificationCodes.Where(code => code.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await DeleteWhatTheAccountHandedOutAsync(userId, cancellationToken);
         await _dbContext.Users.Where(user => user.Id == userId).ExecuteDeleteAsync(cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The account's own rows that name it by something other than a UserId column: the shares it
+    /// granted, its contact list, its public links and the positions it shared. They were left behind
+    /// because the list above deletes by UserId, and a deletion somebody asked for should take what the
+    /// account gave out as well as what it kept - a public link to a note that is gone, a position still
+    /// sitting in somebody's map, a contact list of a person who no longer exists.
+    ///
+    /// Only the account's side of each: a share *to* this account, a contact list naming it, a position
+    /// shared *with* it are other people's rows, and IAccountDeletionRepository says why those stay.
+    /// </summary>
+    private async Task DeleteWhatTheAccountHandedOutAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        await _dbContext.NoteShares.Where(share => share.OwnerUserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await _dbContext.TaskShares.Where(share => share.OwnerUserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await _dbContext.CalendarEventShares.Where(share => share.OwnerUserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await _dbContext.InventoryShares.Where(share => share.OwnerUserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await _dbContext.PlaceShares.Where(share => share.OwnerUserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await _dbContext.Contacts.Where(contact => contact.OwnerUserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await _dbContext.PublicShareLinks.Where(link => link.OwnerUserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await _dbContext.SharedLocations.Where(shared => shared.SharerUserId == userId).ExecuteDeleteAsync(cancellationToken);
     }
 }

@@ -105,12 +105,18 @@
                      at the head of a line turns it into a tick box, which is the design's own way in and
                      the reason there is no toolbar. A reader who never finds that never finds it at all.
 
+                     The left half is the design's other half of the foot: who shared the note in, when
+                     somebody did, and when it last changed - see NoteDetailViewModel.Footnote. It stays on
+                     a note nobody can edit, where the trick has nothing to offer.
+
                      The hairline runs between the two so the line reads as a foot rather than as another
                      line of the note. -->
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,24,0,0"
-                      IsVisible="{Binding CanEdit}">
-                    <BoxView Grid.Column="0" Style="{StaticResource Hairline}" VerticalOptions="Center" />
-                    <Label Grid.Column="1" Text="{controls:Translate 'Type [] for a checkbox'}"
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="0,24,0,0">
+                    <Label Grid.Column="0" Text="{Binding Footnote}"
+                           Style="{StaticResource ItemCardFooter}" VerticalOptions="Center" />
+                    <BoxView Grid.Column="1" Style="{StaticResource Hairline}" VerticalOptions="Center" />
+                    <Label Grid.Column="2" Text="{controls:Translate 'Type [] for a checkbox'}"
+                           IsVisible="{Binding CanEdit}"
                            Style="{StaticResource ItemCardFooter}" VerticalOptions="Center" />
                 </Grid>
             </VerticalStackLayout>

@@ -101,6 +101,41 @@ public sealed class CalendarEventSummaryTests : OrbitTestContext
         Assert.EndsWith($"/calendar/{EventId}/edit", new Uri(navigationManager.Uri).AbsolutePath);
     }
 
+    /// <summary>
+    /// The form is told to come back to this page - its own address, returnTo and all - so an edit ends
+    /// on the appointment it changed rather than skipping past it to wherever this page was opened from.
+    /// </summary>
+    [Fact]
+    public void The_form_is_told_to_come_back_to_this_page()
+    {
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var here = $"/calendar/{EventId}?returnTo=%2Fcalendar";
+        navigationManager.NavigateTo(here);
+        var cut = RenderComponent<CalendarEventSummary>(parameters => parameters.Add(page => page.Id, EventId));
+
+        cut.FindAll(".editor-rail button").First(button => button.GetAttribute("aria-label") == "Edit").Click();
+
+        Assert.Equal(ReturnTo.Link($"/calendar/{EventId}/edit", here), "/" + navigationManager.ToBaseRelativePath(navigationManager.Uri));
+    }
+
+    /// <summary>
+    /// Back steps back onto the calendar it was opened from - on the day it was showing, which a fresh
+    /// navigation to "/calendar" would have reset - and leaves this page out of the history.
+    /// </summary>
+    [Fact]
+    public void Back_steps_back_onto_the_day_the_calendar_was_showing()
+    {
+        Services.GetRequiredService<NavigationTrail>();
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo("/calendar?view=day&on=2026-09-14");
+        navigationManager.NavigateTo($"/calendar/{EventId}?returnTo=%2Fcalendar");
+        var cut = RenderComponent<CalendarEventSummary>(parameters => parameters.Add(page => page.Id, EventId));
+
+        cut.FindAll(".editor-rail button").First(button => button.GetAttribute("aria-label") == "Back").Click();
+
+        Assert.Equal(-1, JSInterop.VerifyInvoke("history.go").Arguments[0]);
+    }
+
     /// <summary>Somebody else's appointment is theirs to change: this reader looks, and cannot delete.</summary>
     [Fact]
     public void An_event_shared_with_this_reader_offers_no_deleting()

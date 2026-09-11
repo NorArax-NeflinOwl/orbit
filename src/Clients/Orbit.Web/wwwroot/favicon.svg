@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+    <!-- The phone's launcher icon in a browser tab: the same tile colour and the same mark as
+         Orbit.Maui/Resources/AppIcon (appicon.svg behind appiconfg.svg), rounded because a tab has no
+         launcher to cut the corners off for it. -->
+    <rect width="64" height="64" rx="14" fill="#512BD4" />
+    <g transform="translate(32 32)">
+        <ellipse cx="0" cy="0" rx="25" ry="12.5" fill="none" stroke="#FFFFFF" stroke-width="3.8"
+                 transform="rotate(-28)" />
+        <circle cx="0" cy="0" r="7" fill="#FFFFFF" />
+    </g>
+</svg>

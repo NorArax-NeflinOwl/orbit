@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.HintMark"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    x:DataType="controls:HintMark"
+    x:Name="Root"
+    WidthRequest="18" HeightRequest="18">
+
+    <!-- The "?" that stands for a folded sentence, on its own so that the two places a sentence folds
+         into draw the same mark: beside a field's or a section's name (FieldHint), and beside the
+         screen's name in the top bar (NavigationBar.Description), where there is no FieldHint to hold it
+         because the name is the bar's.
+
+         A drawn ring rather than a character in a circle, for the reason CheckCircle gives: the text
+         faces this app uses carry almost none of the glyphs that would do it, so Android substitutes a
+         system face and the same mark comes out differently on two screens. -->
+    <Grid>
+        <Ellipse x:Name="Ring" StrokeThickness="1.2" />
+        <Label x:Name="Glyph" Text="?" FontSize="11" FontAttributes="Bold"
+               HorizontalOptions="Center" VerticalOptions="Center" />
+        <!-- The sentence itself is the press's hint, so a screen reader hears what the mark folds away
+             without having to open it first - the mark says what it is, the hint says what is behind it. -->
+        <Button x:Name="Press" BackgroundColor="Transparent" BorderWidth="0" Padding="0"
+                MinimumHeightRequest="0" MinimumWidthRequest="0"
+                SemanticProperties.Description="{Binding AskedAs, Source={x:Reference Root}}"
+                SemanticProperties.Hint="{Binding Text, Source={x:Reference Root}}"
+                Clicked="OnPressed" />
+    </Grid>
+
+</ContentView>

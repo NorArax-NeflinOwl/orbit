@@ -129,6 +129,9 @@ builder.Services.AddScoped<BrowserStorageConsent>();
 // query string. Scoped, which in WebAssembly means one for the life of the app, so the page that picks
 // it up is the same one the map handed it to.
 builder.Services.AddScoped<ChosenPlace>();
+// How a screen is finished without leaving it in the browser's history - see NavigationTrail. Scoped
+// for the same reason: one for the life of the app, watching every navigation from App.razor on.
+builder.Services.AddScoped<NavigationTrail>();
 builder.Services.AddScoped<DashboardPinService>();
 builder.Services.AddScoped<DashboardCardPreferences>();
 // Scoped for the same reason PresenceService below is: in WebAssembly there is one scope for the life
@@ -162,11 +165,18 @@ builder.Services.AddScoped<CalendarListOrder>();
 // When this browser was last interrupted by the advert that covers the page - the clock behind
 // AdInterruption's minimum gap. On the device, so a refresh is not a way of asking for it again.
 builder.Services.AddScoped<LastAdInterruption>();
+// Whether this reader may be shown adverts at all - asked by every advertising surface, so none of them
+// re-derives it. See AdAudience.
+builder.Services.AddScoped<AdAudience>();
 // Singleton rather than scoped: PersistentLoggerProvider is registered as a singleton and reads the log
 // level from this on every line it considers.
 builder.Services.AddSingleton<DevicePreferences>();
 // Singleton so every page reads the same choice - MainLayout initialises it and re-renders on Changed.
 builder.Services.AddSingleton<Translations>();
+// What "now" and "today" are, asked of this rather than of the machine by every page that has an answer
+// that changes at midnight - so a test can say what day it is instead of hoping. DashboardTests failed for
+// the last three hours of every day while the dashboard read DateTime.Today itself.
+builder.Services.AddSingleton(TimeProvider.System);
 // Shared unread state so the avatar badge, the nav-section badges, and Chat's contact avatars all read
 // the same poll (MainLayout owns it) instead of each fetching their own.
 builder.Services.AddScoped<NotificationFeedState>();

@@ -91,9 +91,61 @@ public sealed class TaskItemCompletion(
 
         // By id, and by position only for an entry that has none - see the class comment.
         var toggledIndex = item.Id == Guid.Empty ? taskList.Items.ToList().IndexOf(item) : -1;
+        return await SaveAsync(taskList, TicksChanged(taskList, item, state, toggledIndex), cancellationToken);
+    }
+
+    /// <summary>
+    /// Takes this entry off its list - the entry page's "Delete item". The same whole-list save a tick
+    /// is, with the entry left out. An appointment the entry raised stays in the calendar, as it does
+    /// when the entry is removed in the list's own form: the event is the reader's to delete, not a side
+    /// effect of tidying a list.
+    /// </summary>
+    public Task<TaskItemTickOutcome> RemoveAsync(
+        TaskDto taskList, TaskItemDto item, CancellationToken cancellationToken = default)
+    {
+        FailureMessage = null;
+        Note = null;
+        return SaveAsync(
+            taskList,
+            [.. taskList.Items.Where(existingItem => existingItem.Id != item.Id).Select(TaskItemRequest.From)],
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// A second entry saying the same, straight under this one and under an id of its own - the entry
+    /// page's "Duplicate". Copied the way DuplicateTaskListCommandHandler copies a list's entries:
+    /// everything but the appointment, which exactly one entry raises, so a second one pointing at it
+    /// would make which of them owns it a matter of order. The server keeps an id a client names an
+    /// entry by (see TaskItemIdentity), so the copy can be opened by the id given here.
+    ///
+    /// Answers the copy's id, or null when the save did not go through.
+    /// </summary>
+    public async Task<Guid?> DuplicateAsync(
+        TaskDto taskList, TaskItemDto item, CancellationToken cancellationToken = default)
+    {
+        FailureMessage = null;
+        Note = null;
+        var copyId = Guid.NewGuid();
+        var items = new List<TaskItemRequest>();
+        foreach (var existingItem in taskList.Items)
+        {
+            items.Add(TaskItemRequest.From(existingItem));
+            if (existingItem.Id == item.Id)
+            {
+                items.Add(TaskItemRequest.From(existingItem) with { Id = copyId, LinkedCalendarEventId = null });
+            }
+        }
+
+        return await SaveAsync(taskList, items, cancellationToken) == TaskItemTickOutcome.Ticked ? copyId : null;
+    }
+
+    /// <summary>Every entry as it already is, with one entry's answer changed.</summary>
+    private static List<TaskItemRequest> TicksChanged(
+        TaskDto taskList, TaskItemDto item, TickState state, int toggledIndex)
+    {
         // Everything as it already is, with one entry's answer changed - see TaskItemRequest.From on
         // why the fields are not listed here.
-        var items = taskList.Items
+        return taskList.Items
             .Select((existingItem, index) =>
             {
                 var isTheOneBeingTicked = item.Id == Guid.Empty
@@ -107,7 +159,15 @@ public sealed class TaskItemCompletion(
                 };
             })
             .ToList();
+    }
 
+    /// <summary>
+    /// Writes the list back with these entries and says what came of it - the one save a tick, a
+    /// removal and a copy all are, since the update endpoint replaces the list wholesale.
+    /// </summary>
+    private async Task<TaskItemTickOutcome> SaveAsync(
+        TaskDto taskList, List<TaskItemRequest> items, CancellationToken cancellationToken)
+    {
         try
         {
             var outcome = await tasksApiClient.UpdateTaskListAsync(

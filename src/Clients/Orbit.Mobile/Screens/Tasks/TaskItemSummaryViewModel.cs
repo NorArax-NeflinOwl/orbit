@@ -75,6 +75,13 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
     [ObservableProperty]
     private string _taskListTitle = string.Empty;
 
+    /// <summary>
+    /// How far down its list the entry stands - "2 of 5", which is what the design's foot line says on
+    /// the right. Counted from the list this screen already reads to find the entry in.
+    /// </summary>
+    [ObservableProperty]
+    private string _position = string.Empty;
+
     /// <summary>Already in the reader's calendar, or "no date set" - the entry may have lost its date.</summary>
     [ObservableProperty]
     private string _when = string.Empty;
@@ -131,6 +138,10 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
         }
 
         TaskListTitle = taskList.Title;
+        Position = _translations.Format(
+            "{0} of {1}",
+            (taskList.Items.ToList().FindIndex(candidate => candidate.Id == _itemId) + 1).ToString(_translations.DisplayCulture),
+            taskList.Items.Count.ToString(_translations.DisplayCulture));
         Description = item.Description;
         IsCompleted = item.IsCompleted;
         IsFailed = item.IsFailed;
@@ -264,6 +275,29 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
                 : candidate)
             .ToList();
 
+        if (!await SaveItemsAsync(taskList, items, cancellationToken))
+        {
+            return;
+        }
+
+        IsCompleted = next.IsCompleted();
+        IsFailed = next.IsFailed();
+        await SynchroniseAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Writes the list back with these entries, and says whether it went. Every other field of the list
+    /// goes back as it stands - the reader's own answer about whether it is finished included, which was
+    /// left out once, so every tick made on this screen quietly handed that answer back to the entries
+    /// (see TaskListContent.Completion) while the list screen kept it.
+    ///
+    /// Whether it may be written at all is the store's answer - see LocalWriteOutcome - and a refusal is
+    /// said in the status line, under the entry, where the press was made.
+    /// </summary>
+    private async Task<bool> SaveItemsAsync(
+        LocalTaskList taskList, IReadOnlyList<Orbit.Contracts.Tasks.TaskItemDto> items,
+        CancellationToken cancellationToken)
+    {
         LocalWriteOutcome outcome;
         try
         {
@@ -271,7 +305,7 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
                 _taskListLocalId,
                 new TaskListContent(
                     taskList.Title, items, taskList.IsGroup, taskList.Priority, taskList.IsPrivate,
-                    taskList.Description),
+                    taskList.Description, taskList.Completion),
                 cancellationToken);
         }
         catch (EncryptionKeyLockedException)
@@ -279,18 +313,76 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
             // Sealing needs the account's own key, and this device has not got it - the same gate the
             // list screen sends the reader to for the same reason.
             _navigator.ShowChatKeyGate();
-            return;
+            return false;
         }
 
         if (outcome.WasRefused())
         {
             Status = outcome.Explain(RefusalMessage, _translations);
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// A second entry saying the same, straight under this one and under an id of its own - the entry
+    /// menu's "Duplicate", which Orbit.Web's entry page offers too. Copied the way the server copies a
+    /// list's entries (DuplicateTaskListCommandHandler): everything but the appointment, which exactly
+    /// one entry raises, so a second pointing at the same event would fight over it. Then the copy's
+    /// own screen, so the reader is looking at what they just made.
+    /// </summary>
+    [RelayCommand]
+    private async Task DuplicateAsync(CancellationToken cancellationToken)
+    {
+        Status = string.Empty;
+        if (await _taskLists.FindAsync(_taskListLocalId, cancellationToken) is not { } taskList
+            || taskList.Items.FirstOrDefault(candidate => candidate.Id == _itemId) is not { } item)
+        {
+            // Gone underneath the reader, as LoadAsync answers the same case.
+            _navigator.ShowCalendar();
             return;
         }
 
-        IsCompleted = next.IsCompleted();
-        IsFailed = next.IsFailed();
+        var copy = item with { Id = Guid.NewGuid(), LinkedCalendarEventId = null };
+        var items = taskList.Items
+            .SelectMany(existing => existing.Id == _itemId ? new[] { existing, copy } : new[] { existing })
+            .ToList();
+
+        if (!await SaveItemsAsync(taskList, items, cancellationToken))
+        {
+            return;
+        }
+
         await SynchroniseAsync(cancellationToken);
+        _navigator.ShowTaskItem(_taskListLocalId, copy.Id);
+    }
+
+    /// <summary>
+    /// Takes this entry off its list - the entry menu's "Delete item", and the same removal the list's
+    /// own row menu makes (TaskListDetailViewModel.RemoveItem). The appointment the entry raised stays
+    /// in the calendar, as it does there: the event is the reader's to delete, not a side effect of
+    /// tidying a list. Then the list, since nothing is left here to read. The page asks first.
+    /// </summary>
+    [RelayCommand]
+    private async Task DeleteAsync(CancellationToken cancellationToken)
+    {
+        Status = string.Empty;
+        if (await _taskLists.FindAsync(_taskListLocalId, cancellationToken) is not { } taskList
+            || taskList.Items.All(candidate => candidate.Id != _itemId))
+        {
+            _navigator.ShowCalendar();
+            return;
+        }
+
+        if (!await SaveItemsAsync(
+                taskList, [.. taskList.Items.Where(candidate => candidate.Id != _itemId)], cancellationToken))
+        {
+            return;
+        }
+
+        await SynchroniseAsync(cancellationToken);
+        _navigator.ShowTaskList(_taskListLocalId);
     }
 
     /// <summary>

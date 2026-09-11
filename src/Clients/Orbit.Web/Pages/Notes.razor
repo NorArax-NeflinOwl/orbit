@@ -11,6 +11,7 @@
 @inject IJSRuntime JSRuntime
 @inject ILogger<Notes> Logger
 @inject NotificationFeedState NotificationFeedState
+@inject TimeProvider TimeProvider
 @inject Translations T
 
 <PageTitle>@T["Orbit — Notes"]</PageTitle>
@@ -73,6 +74,27 @@
                                 DeleteLabel="@(note.IsShared ? T["Remove from my list"] : T["Delete"])"
                                 OnDelete="() => DeleteNoteAsync(note)" DeleteDisabled="@(_deletingNoteId == note.Id)" />
                 </Menu>
+                @* The same marks a task list's card carries, in the same order - a note's card was the one
+                   card that said nothing about whether it was sealed, shared or pinned, so the page had to
+                   be opened note by note to find out. *@
+                <Tags>
+                    @if (note.IsPrivate)
+                    {
+                        <span class="card-badge" title="@(T["Private - encrypted, and only you can read it"])">@T["Private"]</span>
+                    }
+                    @if (note.IsShared)
+                    {
+                        <span class="card-badge">@T["Shared"]</span>
+                    }
+                    @if (PriorityOf(note) != ItemPriority.Normal)
+                    {
+                        <span class="card-badge card-badge-priority-@note.Priority.ToLowerInvariant()">@(PriorityOf(note) == ItemPriority.High ? T["High"] : T["Low"])</span>
+                    }
+                    @if (note.IsPinned)
+                    {
+                        <span class="card-badge card-badge-pinned">@T["Pinned"]</span>
+                    }
+                </Tags>
                 <Extras>
                     @* When, in as few words as it takes. "Created" is gone: a note is read by when it
                        last changed, and two timestamps on a card this size is one more than anybody
@@ -129,6 +151,10 @@
     private IEnumerable<NoteDto> Ordered(IReadOnlyList<NoteDto> notes)
         => notes.OrderByDescending(note => note.IsPinned);
 
+    /// <summary>An unreadable priority reads as Normal and draws no mark, the rule every card follows.</summary>
+    private static ItemPriority PriorityOf(NoteDto note)
+        => Enum.TryParse<ItemPriority>(note.Priority, out var priority) ? priority : ItemPriority.Normal;
+
     /// <summary>
     /// The first line that has anything on it, or null for a note with nothing written in it yet. Used
     /// instead of the whole body glued together: a preview that prints everything is not a preview.
@@ -159,7 +185,7 @@
     private string WhenLastChanged(DateTimeOffset updatedAtUtc)
     {
         var when = updatedAtUtc.LocalDateTime;
-        var daysAgo = (DateTime.Now.Date - when.Date).Days;
+        var daysAgo = (TimeProvider.GetLocalNow().Date - when.Date).Days;
         return daysAgo switch
         {
             0 => T["Today"],

@@ -109,35 +109,121 @@ public sealed class ChatGroup
     /// <summary>
     /// Takes somebody out of the group - or shows themselves out, which is not the same act and does not
     /// need the same standing. Removing another member is an admin's to do; leaving is anybody's, and
-    /// requiring admin for both left an ordinary member with no way out of a group at all.
+    /// requiring admin for both left an ordinary member with no way out of a group at all. Removing
+    /// yourself is leaving, so it is handed to <see cref="Leave"/> and follows its rules - installed phone
+    /// builds leave through this route, and a second set of rules for the same act is how the two drifted.
     ///
-    /// Removing the last admin is still refused while anyone remains: it would strand a group nobody can
-    /// add to, remove from, or promote in. The last person out is let go, emptying the group - the same
-    /// end <see cref="RemoveDeletedAccount"/> reaches, and refusing there would strand them instead.
+    /// Removing somebody else needs no "last admin" check: the actor is an admin and is not the one going,
+    /// so an admin is left whoever the subject is.
     /// </summary>
     public void RemoveMember(Guid actorUserId, Guid userId)
     {
-        if (actorUserId != userId)
+        if (actorUserId == userId)
         {
-            RequireAdmin(actorUserId);
-        }
-        else if (!IsMember(actorUserId))
-        {
-            throw new InvalidRequestException("You aren't in this group.");
+            Leave(actorUserId);
+            return;
         }
 
-        var member = FindMember(userId);
-        if (member is null)
+        RequireAdmin(actorUserId);
+        if (FindMember(userId) is { } member)
+        {
+            _members.Remove(member);
+        }
+    }
+
+    /// <summary>
+    /// Shows somebody out of the group. Anybody may leave, whatever their role and whoever else is in it:
+    /// refusing the last admin until they had promoted somebody - which is what this used to do - left
+    /// the one person with the most say in a group as the one person who could not walk out of it, and a
+    /// phone that offered no "promote" step before "leave" could not get them out at all.
+    ///
+    /// What is still prevented is the state that refusal was protecting: a group with people in it and
+    /// nobody able to manage it. So when the last admin goes, somebody takes over. The leaver may name
+    /// who (successorUserId), which is what the web asks them before confirming; left unnamed, the group
+    /// promotes the longest-standing member itself, by the same rule an account deletion uses - see
+    /// <see cref="ChooseSuccessor{TMember}"/>.
+    ///
+    /// A named successor who is not in the group, or is the leaver, is refused rather than quietly
+    /// replaced by the automatic choice. The leaver asked for a particular person; handing the group to
+    /// somebody else instead is a decision they did not make and can no longer undo once they are out,
+    /// whereas a refusal costs them one more look at the roster. Naming one is also an admin's act - it
+    /// promotes somebody - so a plain member who names one is refused the same way.
+    ///
+    /// The last person out is let go, emptying the group - the same end <see cref="RemoveDeletedAccount"/>
+    /// reaches, and refusing there would strand them instead.
+    /// </summary>
+    public void Leave(Guid userId, Guid? successorUserId = null)
+    {
+        var member = FindMember(userId)
+            ?? throw new InvalidRequestException("You aren't in this group.");
+
+        if (successorUserId is { } chosenUserId)
+        {
+            HandOver(member, chosenUserId);
+        }
+
+        _members.Remove(member);
+        PromoteSuccessorIfNobodyManages();
+    }
+
+    /// <summary>
+    /// Makes the leaver's chosen successor an admin before the leaver goes. Checked in full before
+    /// anything changes, so a refused choice leaves the group exactly as it was.
+    /// </summary>
+    private void HandOver(ChatGroupMembership leaving, Guid successorUserId)
+    {
+        if (leaving.Role != ChatGroupRole.Admin)
+        {
+            throw new InvalidRequestException("Only a group admin can choose who takes over.");
+        }
+
+        if (successorUserId == leaving.UserId)
+        {
+            throw new InvalidRequestException("Choose somebody other than yourself to take over.");
+        }
+
+        var successor = FindMember(successorUserId)
+            ?? throw new InvalidRequestException("The person you chose to take over isn't in this group any more.");
+
+        if (successor.Role == ChatGroupRole.Admin)
         {
             return;
         }
 
-        if (member.Role == ChatGroupRole.Admin && AdminCount == 1 && _members.Count > 1)
+        _members.Remove(successor);
+        _members.Add(successor with { Role = ChatGroupRole.Admin });
+    }
+
+    /// <summary>
+    /// Who takes a group over when its last admin goes without naming anybody: the longest-standing of
+    /// the candidates, on the grounds that they have seen the most of the group. Public and generic so
+    /// the web can offer the same person as the default in its "who takes over" picker, from the member
+    /// list it holds, instead of a second copy of the rule that could drift from this one.
+    /// </summary>
+    public static TMember ChooseSuccessor<TMember>(
+        IEnumerable<TMember> candidates, Func<TMember, DateTimeOffset> joinedAtUtc, Func<TMember, Guid> userId)
+        => candidates
+            .OrderBy(joinedAtUtc)
+            // Two people can join in the same tick; ordering by id as well keeps the choice deterministic
+            // rather than dependent on however the rows came back.
+            .ThenBy(userId)
+            .First();
+
+    /// <summary>
+    /// Promotes a successor when the group has people in it and no admin among them - which only happens
+    /// the moment an admin has gone. Does nothing to an emptied group: there is nobody to promote, and
+    /// the caller deletes it.
+    /// </summary>
+    private void PromoteSuccessorIfNobodyManages()
+    {
+        if (AdminCount > 0 || _members.Count == 0)
         {
-            throw new InvalidRequestException("A group needs at least one admin - promote someone else first.");
+            return;
         }
 
-        _members.Remove(member);
+        var successor = ChooseSuccessor(_members, member => member.JoinedAtUtc, member => member.UserId);
+        _members.Remove(successor);
+        _members.Add(successor with { Role = ChatGroupRole.Admin });
     }
 
     /// <summary>
@@ -146,9 +232,9 @@ public sealed class ChatGroup
     ///
     /// There is no actor: nobody performed this, the person simply no longer exists. And it cannot be
     /// refused - refusing would mean an account could not be deleted because of a group it happens to be
-    /// in, which is not a trade anyone would accept. So where RemoveMember tells the last admin to
-    /// promote someone first, this promotes for them: the longest-standing remaining member takes over,
-    /// on the grounds that they have seen the most of the group. Leaving it admin-less instead would
+    /// in, which is not a trade anyone would accept. When the account was the last admin, the
+    /// longest-standing remaining member takes over - the same succession <see cref="Leave"/> applies
+    /// when nobody was named, since a deleted account can name nobody. Leaving it admin-less instead would
     /// strand a group nobody can add to, rename, or remove from - the state every other rule here exists
     /// to prevent.
     ///
@@ -164,27 +250,17 @@ public sealed class ChatGroup
         }
 
         _members.Remove(member);
-
-        if (member.Role != ChatGroupRole.Admin || AdminCount > 0 || _members.Count == 0)
-        {
-            return;
-        }
-
-        var successor = _members
-            .OrderBy(candidate => candidate.JoinedAtUtc)
-            // Two people can join in the same tick; ordering by id as well keeps the choice deterministic
-            // rather than dependent on however the rows came back.
-            .ThenBy(candidate => candidate.UserId)
-            .First();
-
-        _members.Remove(successor);
-        _members.Add(successor with { Role = ChatGroupRole.Admin });
+        PromoteSuccessorIfNobodyManages();
     }
 
     /// <summary>True once nobody is left - see <see cref="RemoveDeletedAccount"/>.</summary>
     public bool IsEmpty => _members.Count == 0;
 
-    /// <summary>Promotes or demotes a member. Demoting the last admin is refused for the same reason removing them is.</summary>
+    /// <summary>
+    /// Promotes or demotes a member. Demoting the last admin is refused: it would leave people in a group
+    /// nobody can manage. Unlike leaving, there is no successor to fall back on here - somebody still in
+    /// the group asking to stop managing it can promote whoever they want first, or leave.
+    /// </summary>
     public void ChangeRole(Guid actorUserId, Guid userId, ChatGroupRole role)
     {
         RequireAdmin(actorUserId);

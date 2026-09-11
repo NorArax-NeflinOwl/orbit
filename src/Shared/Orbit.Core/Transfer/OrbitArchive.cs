@@ -13,15 +13,37 @@ namespace Orbit.Core.Transfer;
 /// Bumped only when a later reader could not otherwise make sense of an older file. An importer
 /// refusing a version it doesn't know is better than one guessing at it.
 /// </param>
+/// <param name="Places">
+/// The places this account keeps - see <see cref="ArchivedPlace"/>. Defaulted, and last, rather than a
+/// reason to bump the version: a file written before places could be exported says nothing here and
+/// reads as an account that kept none, and one written now still imports into an older Orbit, which
+/// reads past a field it does not know.
+/// </param>
 public sealed record OrbitArchive(
     int Version,
     DateTimeOffset ExportedAtUtc,
     IReadOnlyList<ArchivedNote> Notes,
     IReadOnlyList<ArchivedTaskList> TaskLists,
     IReadOnlyList<ArchivedCalendarEvent> CalendarEvents,
-    IReadOnlyList<ArchivedInventory> Inventories)
+    IReadOnlyList<ArchivedInventory> Inventories,
+    IReadOnlyList<ArchivedPlace>? Places = null)
 {
     public const int CurrentVersion = 1;
+
+    /// <summary>The places as something to read without a null check - see <see cref="Places"/>.</summary>
+    public IReadOnlyList<ArchivedPlace> AllPlaces => Places ?? [];
+
+    /// <summary>
+    /// The archive as it may be handed back to the server: every private place with its readable half
+    /// emptied, leaving only the sealed one. A file may carry a private place opened - that is what an
+    /// export of places is (see <see cref="ArchivedPlace"/>) - but the server was never allowed to read
+    /// one, and an import is no reason to start. It would throw the words away anyway (a sealed place
+    /// stores its columns empty); this is so they are never sent in the first place.
+    /// </summary>
+    public OrbitArchive WithPrivatePlacesClosed()
+        => Places is null
+            ? this
+            : this with { Places = [.. Places.Select(place => place.IsPrivate ? place.Closed() : place)] };
 }
 
 /// <param name="EncryptedContent">
@@ -68,7 +90,15 @@ public sealed record ArchivedTaskItem(
     /// same reason everything above it is: a file written before the cross existed says nothing here,
     /// and reads as an entry that was simply not done.
     /// </summary>
-    bool IsFailed = false)
+    bool IsFailed = false,
+    /// <summary>
+    /// The private lists it stands for, each by the nonce of its sealed half rather than by title: a
+    /// private list's title is empty outside the key, so a title would name whichever private list came
+    /// first. AES-GCM never repeats a nonce under one key, so it names that one sealing, and the list
+    /// carries it in the same file. Defaulted and last for the reason everything above is; an older
+    /// reader drops these links, as it drops any link it cannot resolve.
+    /// </summary>
+    IReadOnlyList<string>? LinkedSealedTaskLists = null)
 {
     /// <summary>The categories as something to read without a null check.</summary>
     public IReadOnlyList<string> AllCategories => Categories ?? [];
@@ -116,6 +146,41 @@ public sealed record ArchivedInventoryItem(
     /// <summary>Whichever shape the archive used, read as one - see <see cref="Categories"/>.</summary>
     public IReadOnlyList<string> AllCategories
         => Categories is { Count: > 0 } categories ? categories : Category.Length > 0 ? [Category] : [];
+}
+
+/// <summary>
+/// One place - see Orbit.Core.Places.Place.
+///
+/// <b>The one part of an archive a private item does not travel sealed in.</b> Everything else keeps its
+/// sealed bytes and nothing more, because that is what marking something private promised. A place is
+/// private by default, so an export that did the same would be a file of empty rows - and the reader who
+/// asks for their places asks to be able to read them somewhere else. The server still writes a private
+/// place with its readable fields empty, because it cannot do otherwise; the browser that holds the key
+/// fills them in before the file is saved, and says first that the file is then readable by anyone who
+/// gets hold of it.
+/// </summary>
+/// <param name="TaskListTitles">
+/// The lists it belongs to, by title, for the reason a task entry's links are carried that way - see
+/// <see cref="ArchivedTaskItem.LinkedTaskListTitle"/>.
+/// </param>
+/// <param name="EncryptedContent">
+/// Kept beside the opened fields for a private place, so importing the file back restores it sealed the
+/// way a private note is restored: the server can store a sealed half it is handed, but it cannot make
+/// one out of words.
+/// </param>
+/// <param name="SealedTaskLists">
+/// The private lists it belongs to, by the nonce of each one's sealed half - see
+/// <see cref="ArchivedTaskItem.LinkedSealedTaskLists"/>. Defaulted and last, so a file written before
+/// these links travelled still reads, as a place that belongs to no private list.
+/// </param>
+public sealed record ArchivedPlace(
+    string Name, string Description, ArchivedEventLocation Where, string Colour, string Priority,
+    IReadOnlyList<string> TaskListTitles, bool IsPrivate, ArchivedEncryptedContent? EncryptedContent,
+    IReadOnlyList<string>? SealedTaskLists = null)
+{
+    /// <summary>This place with its readable half emptied - what the server holds for a sealed one.</summary>
+    public ArchivedPlace Closed()
+        => this with { Name = string.Empty, Description = string.Empty, Where = new ArchivedEventLocation(string.Empty, 0, 0) };
 }
 
 public sealed record ArchivedEncryptedContent(string Ciphertext, string Nonce);

@@ -37,6 +37,9 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
     private readonly List<UpdateCalendarEventRequest> _updated = [];
     private readonly List<UpdateTaskRequest> _savedLists = [];
 
+    /// <summary>Every new list the page asked the server to create, as it was sent.</summary>
+    private readonly List<CreateTaskRequest> _createdLists = [];
+
     public TaskEditorCalendarLocationTests()
     {
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
@@ -327,6 +330,9 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
             // Creating a new list answers with its id, not with a list of lists like the fallback below.
             if (request.Method == HttpMethod.Post && path == "/api/tasks")
             {
+                var body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                _createdLists.Add(JsonSerializer.Deserialize<CreateTaskRequest>(
+                    body, new JsonSerializerOptions(JsonSerializerDefaults.Web))!);
                 return Ok(Guid.NewGuid());
             }
 
@@ -527,6 +533,45 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
 
         Assert.Empty(RenderComponent<TaskEditor>().FindAll(".editor-item-details"));
     }
+
+    /// <summary>
+    /// Made while the Finished tab is open, a list begins marked finished - that is what gathers a list
+    /// under the tab, and one made there that landed anywhere else would vanish from under its maker.
+    /// </summary>
+    [Fact]
+    public void A_list_made_on_the_Finished_tab_is_created_marked_finished()
+    {
+        RegisterApiClients(Item("unused"));
+        ChooseTheTab(Orbit.Core.Folders.BuiltInFolder.Finished);
+        var cut = RenderComponent<TaskEditor>();
+
+        Save(cut);
+
+        Assert.Equal("Finished", Assert.Single(_createdLists).Completion);
+    }
+
+    /// <summary>And made while the Private tab is open, it begins sealed - see NoteEditor, which does the same.</summary>
+    ///
+    /// Read off the form rather than off a save: a sealed list is sealed in this browser before it is
+    /// sent, and this fixture holds no key to seal with.
+    [Fact]
+    public void A_list_made_on_the_Private_tab_starts_sealed()
+    {
+        RegisterApiClients(Item("unused"));
+        ChooseTheTab(Orbit.Core.Folders.BuiltInFolder.Private);
+        var cut = RenderComponent<TaskEditor>();
+
+        // What the list is rather than what is on it lives in the panel's menu - see TaskEditor.
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        var privateBox = cut.FindAll(".editor-settings-menu label")
+            .First(label => label.TextContent.Contains("Private", StringComparison.Ordinal))
+            .QuerySelector("input[type=checkbox]")!;
+        Assert.True(privateBox.HasAttribute("checked"));
+    }
+
+    private void ChooseTheTab(Orbit.Core.Folders.BuiltInFolder builtIn)
+        => Services.GetRequiredService<FolderState>().Choose(
+            Orbit.Core.Folders.FolderPage.Tasks, Orbit.Core.Folders.FolderKey.Of(builtIn));
 
     private static AngleSharp.Dom.IElement LocationBoxIn(AngleSharp.Dom.IElement entry)
         => entry.QuerySelectorAll("input").First(box => box.GetAttribute("placeholder") == "Where this happens");

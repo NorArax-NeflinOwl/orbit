@@ -13,7 +13,7 @@
    "this page is broken" look identical to a reader when the section simply is not there. *@
 <PageHeader>
     <Title>@T["Get the app"]</Title>
-    <Subtitle>@T["The phone apps sign in to this same Orbit, with the same account and the same data."]</Subtitle>
+    <Description>@T["The phone apps sign in to this same Orbit, with the same account and the same data."]</Description>
 </PageHeader>
 
 <div class="card-grid">
@@ -26,14 +26,12 @@
         {
             <p>
                 <a class="btn-primary" href="@Downloads.AndroidUrl">@T["Download for Android"]</a>
+                <FieldHint>@T["This build is not from Google Play, so Android checks with you before installing it. That is the prompt about unknown sources, and it is expected here."]</FieldHint>
             </p>
             <ol>
                 <li>@T["Open the downloaded file. Android will ask whether this browser may install apps - allow it."]</li>
                 <li>@T["Install, then open Orbit and sign in with your usual account."]</li>
             </ol>
-            <p class="page-subtitle">
-                @T["This build is not from Google Play, so Android checks with you before installing it. That is the prompt about unknown sources, and it is expected here."]
-            </p>
         }
         else
         {

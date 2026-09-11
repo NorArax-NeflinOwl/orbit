@@ -114,6 +114,10 @@ public static class OutboxReplay
     ///
     /// No destination: there is nothing to open that would help. The change is gone, and a tap landing
     /// on the thing as it now stands would suggest otherwise.
+    ///
+    /// A create given up on is worded apart, because nothing is lost there: the row stays on the phone,
+    /// and its next edit queues the create again (see LostCreates). "No longer waiting to be sent" would
+    /// tell the reader their note had gone, when what they need to know is that it is here alone.
     /// </summary>
     private static void AnnounceAsDropped(
         OrbitLocalDbContext dbContext, OutboxEntry entry, TimeProvider timeProvider)
@@ -121,8 +125,12 @@ public static class OutboxReplay
         {
             Id = Guid.NewGuid(),
             Kind = "ChangeDropped",
-            Title = "A change couldn't be saved",
-            Body = DroppedDescription(entry.EntityType),
+            Title = entry.Operation is OutboxOperation.Create
+                ? "Kept on this phone only"
+                : "A change couldn't be saved",
+            Body = entry.Operation is OutboxOperation.Create
+                ? UnsentDescription(entry.EntityType)
+                : DroppedDescription(entry.EntityType),
             Url = null,
             CreatedAtUtc = timeProvider.GetUtcNow(),
             IsRaisedHere = true
@@ -145,6 +153,23 @@ public static class OutboxReplay
             SyncEntityType.CalendarEvent => "Orbit couldn't save a change to an appointment, so it is no longer waiting to be sent.",
             SyncEntityType.Inventory => "Orbit couldn't save a change to an inventory, so it is no longer waiting to be sent.",
             _ => "Orbit couldn't save a change, so it is no longer waiting to be sent."
+        };
+
+    /// <summary>
+    /// What a create given up on means for the reader: the thing is on this phone and nowhere else, and
+    /// changing it is how it gets another try. One whole sentence per kind, for the reason
+    /// <see cref="DroppedDescription"/> gives - and a folder is renamed rather than edited.
+    /// </summary>
+    private static string UnsentDescription(string entityType)
+        => entityType switch
+        {
+            SyncEntityType.Note => "Orbit couldn't send a new note to the server. It is kept on this phone, and editing it will try again.",
+            SyncEntityType.TaskList => "Orbit couldn't send a new task list to the server. It is kept on this phone, and editing it will try again.",
+            SyncEntityType.CalendarEvent => "Orbit couldn't send a new appointment to the server. It is kept on this phone, and editing it will try again.",
+            SyncEntityType.Inventory => "Orbit couldn't send a new inventory to the server. It is kept on this phone, and editing it will try again.",
+            SyncEntityType.Place => "Orbit couldn't send a new place to the server. It is kept on this phone, and editing it will try again.",
+            SyncEntityType.Folder => "Orbit couldn't send a new folder to the server. It is kept on this phone, and renaming it will try again.",
+            _ => "Orbit couldn't send something new to the server. It is kept on this phone, and editing it will try again."
         };
 
     /// <summary>Returns 1 when the change was given up on rather than kept for another attempt.</summary>
