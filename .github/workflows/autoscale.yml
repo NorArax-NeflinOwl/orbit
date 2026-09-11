@@ -1,0 +1,99 @@
+# Turns autoscaling of orbit-api and orbit-web on or off, by hand, from the Actions tab.
+#
+# Off is the default and what runs today: at most one replica of each. On lets each app grow to three
+# replicas, started one at a time as concurrent HTTP requests pass the threshold given below, and shrink
+# back when the traffic goes. Nothing else about the apps changes - not the image, not min-replicas
+# (orbit-web keeps scaling to zero when idle; orbit-api keeps its one warm replica), not CPU or memory.
+#
+# Why "off" means max-replicas 1 rather than "no scale rule": an app with no rule of its own still gets
+# Container Apps' default HTTP rule, so leaving max-replicas at 3 with the rule removed would scale all
+# the same. The ceiling is the switch; the rule only says how eagerly to use it.
+#
+# Scale settings live on the revision template, so each run makes a new revision of both apps. The
+# image is unchanged, so this costs nothing beyond the replicas that then run - but it is a mutating
+# change on a pay-as-you-go subscription, which is why it is a button somebody presses rather than
+# something any other workflow does on its own. See info/azure-setup.md, "Scaling".
+#
+# Only from main: the federated credential on identity-orbit trusts refs/heads/main and nothing else,
+# so a run started from another branch could not log in anyway - the check below says so plainly
+# instead of failing inside azure/login.
+
+name: Turn autoscaling on or off
+
+on:
+  workflow_dispatch:
+    inputs:
+      autoscaling:
+        description: 'off = at most one replica (today). on = up to three, scaled by concurrent requests.'
+        type: choice
+        options:
+          - 'off'
+          - 'on'
+        default: 'off'
+      concurrentRequests:
+        description: 'With autoscaling on: concurrent HTTP requests one replica takes before another starts.'
+        type: number
+        default: 30
+
+# The same queue the deploy uses, so a scale change and a deploy never update the same app at once -
+# whichever finished last would otherwise decide which revision template survived.
+concurrency:
+  group: deploy-orbit
+  cancel-in-progress: false
+
+env:
+  resourceGroupName: Orbit
+  maxReplicasWhenOn: 3
+
+permissions:
+  id-token: write   # required for OIDC login to Azure
+  contents: read
+
+jobs:
+  scale:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_439F88151FA943D78D4BF8F33E39354D }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_94E34BA93C604CA382EDE479DD7DF344 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_4D66E98B9B334790B251FF8C8748B1B1 }}
+
+      - name: Apply the choice to both apps
+        env:
+          AUTOSCALING: ${{ inputs.autoscaling }}
+          CONCURRENT_REQUESTS: ${{ inputs.concurrentRequests }}
+        run: |
+          for app in orbit-api orbit-web; do
+            if [ "$AUTOSCALING" = "on" ]; then
+              echo "Turning autoscaling on for $app: up to ${{ env.maxReplicasWhenOn }} replicas, a new one past $CONCURRENT_REQUESTS concurrent requests."
+              az containerapp update \
+                --name "$app" \
+                --resource-group ${{ env.resourceGroupName }} \
+                --max-replicas ${{ env.maxReplicasWhenOn }} \
+                --scale-rule-name http-concurrency \
+                --scale-rule-type http \
+                --scale-rule-http-concurrency "$CONCURRENT_REQUESTS" \
+                --output none
+            else
+              echo "Turning autoscaling off for $app: at most one replica."
+              az containerapp update \
+                --name "$app" \
+                --resource-group ${{ env.resourceGroupName }} \
+                --max-replicas 1 \
+                --output none
+            fi
+          done
+
+      # Printed rather than assumed, so the run's own log is the record of what each app now does.
+      - name: Show what each app now scales to
+        run: |
+          for app in orbit-api orbit-web; do
+            echo "--- $app ---"
+            az containerapp show \
+              --name "$app" \
+              --resource-group ${{ env.resourceGroupName }} \
+              --query "properties.template.scale" -o json
+          done
