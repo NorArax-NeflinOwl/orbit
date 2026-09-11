@@ -898,7 +898,10 @@
     private void GoToEntry(Guid taskListId, Guid itemId)
     {
         Logger.LogInformation("User opened task entry {TaskItemId} from the task list page", itemId);
-        NavigationManager.NavigateTo($"/tasks/{taskListId}/items/{itemId}");
+        // Naming this page as the way back, as every other page that opens something does: without it
+        // the entry's Back fell back to its list and replaced the entry with the checklist, rather than
+        // stepping back to the page of lists it was opened from - see NavigationTrail.
+        NavigationManager.NavigateTo(ReturnTo.Link($"/tasks/{taskListId}/items/{itemId}", "/tasks"));
     }
 
     private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
@@ -997,7 +1000,7 @@
     private void GoToChecklist(Guid taskListId)
     {
         Logger.LogInformation("User clicked 'Open checklist' for task list {TaskListId}", taskListId);
-        NavigationManager.NavigateTo($"/tasks/{taskListId}");
+        NavigationManager.NavigateTo(ReturnTo.Link($"/tasks/{taskListId}", "/tasks"));
     }
 
     /// <summary>

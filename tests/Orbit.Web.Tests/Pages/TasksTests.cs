@@ -285,7 +285,7 @@ public sealed class TasksTests : OrbitTestContext
 
         // "/tasks/{id}" is the shallow level, wherever somebody arrives from; the deep editor lives one
         // named click further on, so nothing lands there by default.
-        Assert.EndsWith($"/tasks/{taskList.Id}", navigationManager.Uri);
+        Assert.EndsWith(ReturnTo.Link($"/tasks/{taskList.Id}", "/tasks"), navigationManager.Uri);
 
         OpenTheCardMenu(cut);
         cut.FindAll(".item-card-menu button").First(button => button.TextContent.Trim() == "Edit").Click();
@@ -313,7 +313,7 @@ public sealed class TasksTests : OrbitTestContext
 
         cut.Find(".item-card-body .task-preview-row").Click();
 
-        Assert.EndsWith($"/tasks/{taskList.Id}/items/{item.Id}", navigationManager.Uri);
+        Assert.EndsWith(ReturnTo.Link($"/tasks/{taskList.Id}/items/{item.Id}", "/tasks"), navigationManager.Uri);
     }
 
     /// <summary>
@@ -330,7 +330,7 @@ public sealed class TasksTests : OrbitTestContext
 
         cut.Find(".item-card-body").Click();
 
-        Assert.EndsWith($"/tasks/{taskList.Id}", navigationManager.Uri);
+        Assert.EndsWith(ReturnTo.Link($"/tasks/{taskList.Id}", "/tasks"), navigationManager.Uri);
     }
 
     /// <summary>
@@ -841,7 +841,7 @@ public sealed class TasksTests : OrbitTestContext
 
         FoldedRowOf(cut, "Recipes").Click();
 
-        Assert.EndsWith($"/tasks/{taskList.Id}/items/{entry.Id}", navigationManager.Uri);
+        Assert.EndsWith(ReturnTo.Link($"/tasks/{taskList.Id}/items/{entry.Id}", "/tasks"), navigationManager.Uri);
     }
 
     /// <summary>
@@ -859,7 +859,7 @@ public sealed class TasksTests : OrbitTestContext
 
         CardFor(cut, "Recipes").QuerySelector(".item-card-body")!.Click();
 
-        Assert.EndsWith($"/tasks/{taskList.Id}", navigationManager.Uri);
+        Assert.EndsWith(ReturnTo.Link($"/tasks/{taskList.Id}", "/tasks"), navigationManager.Uri);
     }
 
     /// <summary>
@@ -879,7 +879,7 @@ public sealed class TasksTests : OrbitTestContext
 
         FoldedRowOf(cut, "Cooking").Click();
 
-        Assert.EndsWith($"/tasks/{member.Id}/items/{errand.Id}", navigationManager.Uri);
+        Assert.EndsWith(ReturnTo.Link($"/tasks/{member.Id}/items/{errand.Id}", "/tasks"), navigationManager.Uri);
     }
 
     /// <summary>
