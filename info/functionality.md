@@ -1144,8 +1144,9 @@ own copy learns it is gone, and `GET /api/places/changes?since=` is the delta th
 `POST /api/places/{id}/shares`). It works the way the other four kinds do — an offer that does nothing
 until it is taken up, announced by an encrypted chat message the recipient presses Accept on, listed on
 the contact's own card and withdrawable from there. The differences are all subtractions: there is no
-per-recipient pin, because a place has no list of its own to sit at the top of, and no refusal for a
-private one, because nothing about a place is ever sealed.
+per-recipient pin, because a place has no list of its own to sit at the top of. A **sealed** place -
+which is what a place is unless its owner says otherwise - cannot be shared at all: the server holds no
+readable copy of it to hand anybody, and the handlers refuse rather than the menu merely hiding it.
 
 - A **read-only** grant means read-only: `UpdatePlaceCommandHandler` refuses a save from anybody whose
   grant is not `CanEdit`, and the menu says **View** rather than Edit so the form does not offer a button
@@ -1212,8 +1213,9 @@ only when the box is empty, so "the back entrance" survives.
 
 **The dashboard gives them a card of their own**, keyed `places`, between Inventory and Groups: its own
 card rather than a corner of Upcoming, which is a list of things happening at a time — a place has none,
-which is the whole point of one. Nothing about a place is ever sealed, so the Private tab leaves it out
-the way it leaves out the appointments and the people, and a folder tab does too. Pressing a row goes to
+which is the whole point of one. A place is filed in no folder, so the Private tab leaves it out the
+way it leaves out the appointments and the people - sealed or not, since sealing a place is not filing
+it - and a folder tab does too. Pressing a row goes to
 `/map?place={id}` and the map opens centred on that pin: a place is met on the map, there being no page
 of a place's own, and an id this account has no place under still arrives at the map rather than at an
 error — which is the right answer for a link to one since forgotten.
