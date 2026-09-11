@@ -116,7 +116,7 @@ else
             <h2 class="map-panel-heading">@T["Share where you are"]</h2>
             @if (_contacts.Count == 0)
             {
-                <p class="empty-hint">@T["No contacts to share with yet - start a conversation first."]</p>
+                <p class="empty-hint empty-list">@T["No contacts to share with yet - start a conversation first."]</p>
             }
             else
             {
@@ -342,7 +342,7 @@ else
             }
             @if (_placed.Count == 0)
             {
-                <p class="empty-hint">@T["Nothing in your calendar or your lists says where it happens."]</p>
+                <p class="empty-hint empty-list">@T["Nothing in your calendar or your lists says where it happens."]</p>
             }
             @foreach (var placed in _placed)
             {

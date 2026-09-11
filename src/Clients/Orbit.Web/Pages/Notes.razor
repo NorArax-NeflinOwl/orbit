@@ -44,7 +44,7 @@
 <ObjectList IsLoading="_notes is null" IsEmpty="_notes is { Count: 0 }" EmptyMessage="@T["No notes."]">
     @if (_notes is { Count: > 0 } && VisibleNotes.Count == 0)
     {
-        <p class="empty-hint">@T["Nothing in this folder."]</p>
+        <p class="empty-hint empty-list">@T["Nothing in this folder."]</p>
     }
     <div class="item-card-list">
         @foreach (var note in Ordered(VisibleNotes))

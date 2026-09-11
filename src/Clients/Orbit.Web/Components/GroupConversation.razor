@@ -24,7 +24,7 @@
 <div class="chat-messages" @onclick="CloseMessageMenu">
     @if (_messages.Count == 0 && _announcements.Count == 0)
     {
-        <p class="empty-hint">@T["Nothing here yet. Anything sent before you joined is only readable if somebody passed it on to you."]</p>
+        <p class="empty-hint empty-list">@T["Nothing here yet. Anything sent before you joined is only readable if somebody passed it on to you."]</p>
     }
     @foreach (var line in Lines)
     {

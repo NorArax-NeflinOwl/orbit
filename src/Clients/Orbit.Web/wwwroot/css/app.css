@@ -4459,6 +4459,16 @@ input.note-editor-title {
     font-size: 13px;
 }
 
+/* An .empty-hint standing where a list's contents would be - "No lists are done.", "No groups yet." -
+   centred in the space the list would have filled, so it reads as the list saying it is empty rather
+   than as a stray line of small print at its edge. Only there: the same class also carries notes that
+   sit beside things (a count under a filtered list, a field's "No guests."), which stay where they are
+   read from. Every container it lands in is a stretching flex column, so centring the text is enough. */
+.empty-list {
+    text-align: center;
+    padding-block: 12px;
+}
+
 /* Calendar.razor's event list, sharing the editor row shape so a day's events read the same way an
    editor's items do. */
 .event-list {

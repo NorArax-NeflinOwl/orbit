@@ -148,15 +148,15 @@
            "no lists are new" in a tab holding no lists at all blames a chip nobody pressed. *@
         @if (TaskListsInTheOpenFolder.Count == 0)
         {
-            <p class="empty-hint">@T["Nothing is in this folder yet."]</p>
+            <p class="empty-hint empty-list">@T["Nothing is in this folder yet."]</p>
         }
         else if (_itemFilter.IsActive)
         {
-            <p class="empty-hint">@T["Nothing on any list matches that."]</p>
+            <p class="empty-hint empty-list">@T["Nothing on any list matches that."]</p>
         }
         else
         {
-            <p class="empty-hint">@T.Format("No lists are {0}.", DescribeFilter(_filter).ToLowerInvariant())</p>
+            <p class="empty-hint empty-list">@T.Format("No lists are {0}.", DescribeFilter(_filter).ToLowerInvariant())</p>
         }
     }
 
@@ -374,7 +374,7 @@
                 }
                 @if (taskList.Items.Count == 0)
                 {
-                    <p class="empty-hint">@T["No items on this list."]</p>
+                    <p class="empty-hint empty-list">@T["No items on this list."]</p>
                 }
                     </Body>
                 </ItemCard>
