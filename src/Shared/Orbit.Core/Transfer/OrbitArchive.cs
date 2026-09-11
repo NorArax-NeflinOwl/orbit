@@ -26,12 +26,21 @@ public sealed record OrbitArchive(
     IReadOnlyList<ArchivedTaskList> TaskLists,
     IReadOnlyList<ArchivedCalendarEvent> CalendarEvents,
     IReadOnlyList<ArchivedInventory> Inventories,
-    IReadOnlyList<ArchivedPlace>? Places = null)
+    IReadOnlyList<ArchivedPlace>? Places = null,
+    /// <summary>
+    /// The colours this account gave its tags - see Orbit.Core.Tags.TagColour. Defaulted and last for the
+    /// reason <paramref name="Places"/> is: a file written before tags had colours says nothing here, and
+    /// its tags come back plain.
+    /// </summary>
+    IReadOnlyList<ArchivedTagColour>? TagColours = null)
 {
     public const int CurrentVersion = 1;
 
     /// <summary>The places as something to read without a null check - see <see cref="Places"/>.</summary>
     public IReadOnlyList<ArchivedPlace> AllPlaces => Places ?? [];
+
+    /// <summary>The tag colours as something to read without a null check - see <see cref="TagColours"/>.</summary>
+    public IReadOnlyList<ArchivedTagColour> AllTagColours => TagColours ?? [];
 
     /// <summary>
     /// The archive as it may be handed back to the server: every private place with its readable half
@@ -52,15 +61,32 @@ public sealed record OrbitArchive(
 /// importing into a different one restores something nobody there can open, which is the whole promise
 /// of marking it private.
 /// </param>
+/// <param name="Tags">
+/// The words it is tagged with - see Orbit.Core.Notes.Note.Tags. Empty for a private note, whose tags are
+/// inside its sealed bytes. Defaulted and last: a file written before tags existed says nothing here.
+/// </param>
 public sealed record ArchivedNote(
-    string Title, IReadOnlyList<ArchivedNoteLine> Content, bool IsPrivate, ArchivedEncryptedContent? EncryptedContent);
+    string Title, IReadOnlyList<ArchivedNoteLine> Content, bool IsPrivate, ArchivedEncryptedContent? EncryptedContent,
+    IReadOnlyList<string>? Tags = null)
+{
+    /// <summary>The tags as something to read without a null check - see <see cref="Tags"/>.</summary>
+    public IReadOnlyList<string> AllTags => Tags ?? [];
+}
+
+/// <summary>One tag's colour, as the account set it - see Orbit.Core.Tags.TagColour.</summary>
+public sealed record ArchivedTagColour(string Tag, string Colour);
 
 /// <param name="IsFailed">Crossed out rather than ticked - see Orbit.Core.Notes.NoteContentLine.IsFailed.</param>
 public sealed record ArchivedNoteLine(string Text, bool IsChecklistItem, bool IsChecked, bool IsFailed = false);
 
+/// <param name="Tags">The words it is tagged with - see <see cref="ArchivedNote.Tags"/>, which says the same.</param>
 public sealed record ArchivedTaskList(
     string Title, IReadOnlyList<ArchivedTaskItem> Items, bool IsGroup, bool IsPrivate,
-    ArchivedEncryptedContent? EncryptedContent, string Priority);
+    ArchivedEncryptedContent? EncryptedContent, string Priority, IReadOnlyList<string>? Tags = null)
+{
+    /// <summary>The tags as something to read without a null check - see <see cref="Tags"/>.</summary>
+    public IReadOnlyList<string> AllTags => Tags ?? [];
+}
 
 /// <param name="LinkedTaskListTitle">
 /// A title rather than an id: ids are not carried, and a link is only meaningful if the list it points

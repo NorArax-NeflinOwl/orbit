@@ -41,6 +41,9 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<InventoryManagedTaskListEntity> InventoryManagedTaskLists => Set<InventoryManagedTaskListEntity>();
     public DbSet<InventoryExpiryNotificationDeliveryEntity> InventoryExpiryNotificationDeliveries => Set<InventoryExpiryNotificationDeliveryEntity>();
     public DbSet<NotificationSettingsEntity> NotificationSettings => Set<NotificationSettingsEntity>();
+
+    /// <summary>The colour each of an account's tags is drawn in - see Orbit.Core.Tags.TagColour.</summary>
+    public DbSet<TagColourEntity> TagColours => Set<TagColourEntity>();
     public DbSet<NotificationEntryEntity> NotificationEntries => Set<NotificationEntryEntity>();
     public DbSet<DiagnosticLogEntryEntity> DiagnosticLogEntries => Set<DiagnosticLogEntryEntity>();
     public DbSet<SyncTombstoneEntity> SyncTombstones => Set<SyncTombstoneEntity>();
@@ -91,6 +94,9 @@ public sealed class OrbitDbContext : DbContext
             entity.Property(note => note.Title).IsRequired().HasMaxLength(StoredTextLimits.Title);
             // Matches UserEntity.UserName's max length, since this is always copied from there.
             entity.Property(note => note.LockedByUserName).HasMaxLength(64);
+            // Defaulted rather than nullable, so a row written before tags existed reads as a note with
+            // none rather than as something every reader has to check for.
+            entity.Property(note => note.TagsJson).IsRequired().HasDefaultValue("[]");
             // Every note query is scoped to a single user's notes; this is the index that makes those
             // lookups fast instead of scanning the whole table.
             entity.HasIndex(note => note.UserId);
@@ -174,6 +180,8 @@ public sealed class OrbitDbContext : DbContext
                 .HasMaxLength(StoredTextLimits.EventDescription).HasDefaultValue(string.Empty);
             // Matches UserEntity.UserName's max length, since this is always copied from there.
             entity.Property(task => task.LockedByUserName).HasMaxLength(64);
+            // The same as a note's - see NoteEntity.TagsJson.
+            entity.Property(task => task.TagsJson).IsRequired().HasDefaultValue("[]");
             // Matches TaskListCompletion.FromTheEntries, so a row written before the reader could
             // disagree with its own entries reads back as "the entries decide", which is what the
             // boolean this replaced meant when it was false.
@@ -626,6 +634,15 @@ public sealed class OrbitDbContext : DbContext
             // A given (inventory item, expiry date) pair is only ever warned about once; this unique
             // index is what actually enforces that - see the entity's class comment.
             entity.HasIndex(delivery => new { delivery.InventoryItemId, delivery.ExpiryDate }).IsUnique();
+        });
+
+        modelBuilder.Entity<TagColourEntity>(entity =>
+        {
+            // One colour per tag per account, whatever case the tag is written in - see TagNames.KeyOf.
+            entity.HasKey(row => new { row.UserId, row.NormalizedTag });
+            entity.Property(row => row.NormalizedTag).IsRequired().HasMaxLength(StoredTextLimits.Category);
+            entity.Property(row => row.Tag).IsRequired().HasMaxLength(StoredTextLimits.Category);
+            entity.Property(row => row.Colour).IsRequired().HasMaxLength(StoredTextLimits.Color);
         });
 
         modelBuilder.Entity<NotificationSettingsEntity>(entity =>

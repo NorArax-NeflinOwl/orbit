@@ -39,8 +39,14 @@ public sealed class LinkedTaskCompletionResolverRebuildTests
 
             var before = property.GetValue(original);
             var after = property.GetValue(resolved);
+            // A list of words is the same list when it holds the same words - the rebuild tidies it into
+            // a new one, and comparing the two by reference would fail on a field that survived.
+            var survived = before is System.Collections.IEnumerable beforeWords and not string
+                && after is System.Collections.IEnumerable afterWords
+                    ? beforeWords.Cast<object?>().SequenceEqual(afterWords.Cast<object?>())
+                    : Equals(before, after);
             Assert.True(
-                Equals(before, after),
+                survived,
                 $"TaskList.{property.Name} was {before ?? "null"} and came back {after ?? "null"} - " +
                 "LinkedTaskCompletionResolver rebuilds the list and this field was left out of that rebuild.");
             unchecked_.Add(property.Name);
@@ -150,7 +156,7 @@ public sealed class LinkedTaskCompletionResolverRebuildTests
             lockExpiresAtUtc: new DateTimeOffset(2026, 3, 3, 0, 0, 0, TimeSpan.Zero),
             ItemPriority.High, isPinned: true, linkedInventoryId: Guid.NewGuid(),
             description: "What this list is for", folderId: Guid.NewGuid(),
-            completion: TaskListCompletion.Finished);
+            completion: TaskListCompletion.Finished, tags: ["home", "weekly"]);
         taskList.SetAccessContext(isShared: true, sharedByUserName: "anna", ShareAccessLevel.ReadOnly);
         // Every field set to something other than its default, or the walk below compares two defaults
         // and passes on a field the rebuild drops - which is how Description and IsSharedWithOthers both

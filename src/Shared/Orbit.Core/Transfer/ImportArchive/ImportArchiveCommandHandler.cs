@@ -24,6 +24,7 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
     private readonly IInventoryRepository _inventoryRepository;
     private readonly IInventoryItemRepository _inventoryItemRepository;
     private readonly IPlaceRepository _placeRepository;
+    private readonly Orbit.Core.Tags.ITagColourRepository _tagColourRepository;
 
     public ImportArchiveCommandHandler(
         INoteRepository noteRepository,
@@ -31,8 +32,10 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
         ICalendarEventRepository calendarEventRepository,
         IInventoryRepository inventoryRepository,
         IInventoryItemRepository inventoryItemRepository,
-        IPlaceRepository placeRepository)
+        IPlaceRepository placeRepository,
+        Orbit.Core.Tags.ITagColourRepository tagColourRepository)
     {
+        _tagColourRepository = tagColourRepository;
         _noteRepository = noteRepository;
         _taskRepository = taskRepository;
         _calendarEventRepository = calendarEventRepository;
@@ -55,8 +58,35 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
         var calendarEventCount = await ImportCalendarEventsAsync(archive, request.UserId, cancellationToken);
         var inventoryCount = await ImportInventoriesAsync(archive, request.UserId, cancellationToken);
         var placeCount = await ImportPlacesAsync(archive, request.UserId, createdTaskLists, cancellationToken);
+        await ImportTagColoursAsync(archive, request.UserId, cancellationToken);
 
         return new ImportArchiveResult(noteCount, archive.TaskLists.Count, calendarEventCount, inventoryCount, placeCount);
+    }
+
+    /// <summary>
+    /// The colours the account gave its tags. Only for tags this account has not coloured already: an
+    /// import adds and never overwrites (see OrbitArchive), and a colour somebody chose here since the file
+    /// was written is the newer answer. A colour this build would refuse is left out rather than failing a
+    /// whole import over something cosmetic.
+    /// </summary>
+    private async Task ImportTagColoursAsync(OrbitArchive archive, Guid userId, CancellationToken cancellationToken)
+    {
+        var alreadyColoured = (await _tagColourRepository.GetAllAsync(userId, cancellationToken))
+            .Select(colour => Orbit.Core.Tags.TagNames.KeyOf(colour.Tag))
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var archived in archive.AllTagColours)
+        {
+            var tag = archived.Tag.Trim();
+            if (tag.Length == 0 || tag.Length > StoredTextLimits.Category
+                || !Orbit.Core.Tags.TagColour.IsAColour(archived.Colour)
+                || !alreadyColoured.Add(Orbit.Core.Tags.TagNames.KeyOf(tag)))
+            {
+                continue;
+            }
+
+            await _tagColourRepository.SetAsync(userId, tag, archived.Colour.ToLowerInvariant(), cancellationToken);
+        }
     }
 
     private async Task<int> ImportNotesAsync(OrbitArchive archive, Guid userId, CancellationToken cancellationToken)
@@ -66,7 +96,7 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
             var note = Note.Create(
                 userId, archived.Title,
                 archived.Content.Select(line => new NoteContentLine(line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed)).ToList(),
-                archived.IsPrivate, ToPayload(archived.EncryptedContent));
+                archived.IsPrivate, ToPayload(archived.EncryptedContent), tags: archived.AllTags);
             await _noteRepository.AddAsync(note, cancellationToken);
         }
 
@@ -90,7 +120,7 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
         {
             var taskList = TaskList.Create(
                 userId, archived.Title, [], archived.IsGroup, archived.IsPrivate, ToPayload(archived.EncryptedContent),
-                ParsePriority(archived.Priority));
+                ParsePriority(archived.Priority), tags: archived.AllTags);
             await _taskRepository.AddAsync(taskList, cancellationToken);
             created.Add(taskList);
             createdTaskLists.Add(archived, taskList.Id);

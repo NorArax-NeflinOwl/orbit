@@ -391,6 +391,42 @@ security page - so the address is built out of the web client's, which the serve
 not said where its web client is, and a phone that cannot reach the server to ask, both leave the bar
 something to read rather than press - see `HouseAdLink`.
 
+## Tags and their colours
+
+**Notes and task lists carry tags** (2026-09-11): words saying what the item is about, as many as apply,
+under the item's title and description on both clients. The same shape and the same tidying a task entry's
+categories have (`Orbit.Core.Tags.TagNames`): blanks dropped, edges trimmed, a word written twice kept once
+whatever its case. Stored as a JSON list on the item's own row (`OP_NOTES.OP_N_TAGSJSON`,
+`OP_TASKS.OP_T_TAGSJSON`) rather than in tables of their own, because nothing on the server asks for one tag
+of one item - suggestions are gathered by the clients from what they already hold. On the wire they are
+`Tags` on `NoteDto`/`TaskDto` and on the create and update requests, where **null means "not provided"**
+and keeps what is stored: an installed phone that has never heard of tags saves a note or a list without
+untagging it. An empty list clears them.
+
+**A private item's tags are sealed with it**, in `SealedNote.Tags` / `SealedTaskList.Tags`, and the server
+keeps none for it (`Note.Tags` and `TaskList.Tags` are emptied for a private item exactly as a list's
+description is) - a readable tag beside a sealed title would say in the open what the title hides.
+
+**A tag has one colour for the whole account** (`OS_TAGS_COLOURS`, `Orbit.Core.Tags.TagColour`): the colour
+belongs to the word, so colouring "work" on one note colours it on every note and list. Read with
+`GET /api/tags/colours`, set one tag at a time with `PUT /api/tags/colours` (`{ tag, colour }`, "#rrggbb",
+an empty colour taking it away), each answering every colour the account has. Keyed by the tag in lower
+case, so "Work" and "work" share one.
+
+**The privacy decision, stated plainly:** the colour table is the account's own setting, and it is
+**readable on the server**. It names each coloured tag in the clear, so a tag used only on private items
+becomes readable there **once somebody gives it a colour** - even though every item carrying it is sealed.
+Chosen over keeping colours sealed on each client because a colour is meant to follow the tag everywhere,
+across devices, and a per-device sealed colour would be a second answer to keep in step with no server to
+arbitrate. What limits the exposure: a row exists only for a tag somebody chose a colour for (nothing
+writes one by itself, and an uncoloured tag on a private item is never named anywhere readable), the rows
+are deleted with the account, and the colour form says so beside the colour well. Somebody who wants a
+private tag kept unreadable leaves it uncoloured.
+
+The export archive carries both, defaulted and last as every late field is: `ArchivedNote.Tags`,
+`ArchivedTaskList.Tags`, and `OrbitArchive.TagColours`. An import adds colours only for tags the account
+has not coloured since - an import never overwrites.
+
 ## Folders
 
 Every page made of cards - the dashboard, the notes and the task lists - is read under a **row of

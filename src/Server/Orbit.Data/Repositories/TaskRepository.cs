@@ -110,6 +110,7 @@ public sealed class TaskRepository : ITaskRepository
         var entity = await _dbContext.Tasks.FirstAsync(task => task.Id == taskList.Id, cancellationToken);
         entity.Title = taskList.Title;
         entity.Description = taskList.Description;
+        entity.TagsJson = StoredTags.Write(taskList.Tags);
         entity.IsCompleted = taskList.IsCompleted;
         entity.Completion = taskList.Completion.ToString();
         entity.IsGroup = taskList.IsGroup;
@@ -203,7 +204,8 @@ public sealed class TaskRepository : ITaskRepository
             entity.LockExpiresAtUtc,
             Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal,
             entity.IsPinned, entity.LinkedInventoryId, entity.Description, entity.FolderId,
-            Enum.TryParse<TaskListCompletion>(entity.Completion, out var completion) ? completion : TaskListCompletion.FromTheEntries);
+            Enum.TryParse<TaskListCompletion>(entity.Completion, out var completion) ? completion : TaskListCompletion.FromTheEntries,
+            StoredTags.Read(entity.TagsJson));
 
     private static TaskItem ToItemDomain(TaskItemEntity entity)
         => TaskItem.FromPersistence(
@@ -258,6 +260,7 @@ public sealed class TaskRepository : ITaskRepository
             UserId = taskList.UserId,
             Title = taskList.Title,
             Description = taskList.Description,
+            TagsJson = StoredTags.Write(taskList.Tags),
             IsCompleted = taskList.IsCompleted,
             Completion = taskList.Completion.ToString(),
             IsGroup = taskList.IsGroup,

@@ -105,7 +105,7 @@ public sealed class AccountDeletionSweepTests : IDisposable
     private static readonly string[] SeededEntityTypeNames =
     [
         nameof(NoteEntity), nameof(TaskEntity), nameof(FolderEntity), nameof(PlaceEntity), nameof(CalendarEventEntity), nameof(InventoryEntity),
-        nameof(RefreshTokenEntity), nameof(PushSubscriptionEntity), nameof(NotificationSettingsEntity),
+        nameof(RefreshTokenEntity), nameof(PushSubscriptionEntity), nameof(NotificationSettingsEntity), nameof(TagColourEntity),
         nameof(NotificationEntryEntity), nameof(UserVerificationCodeEntity), nameof(ChatGroupMemberEntity),
         nameof(DiagnosticLogEntryEntity), nameof(SyncTombstoneEntity), nameof(UserPermissionEntity),
         nameof(NoteShareEntity), nameof(TaskShareEntity), nameof(CalendarEventShareEntity), nameof(InventoryShareEntity),
@@ -124,6 +124,7 @@ public sealed class AccountDeletionSweepTests : IDisposable
         _dbContext.RefreshTokens.Add(new RefreshTokenEntity { Id = Guid.NewGuid(), UserId = userId, TokenHash = Guid.NewGuid().ToString("N"), ExpiresAtUtc = now, CreatedAtUtc = now });
         _dbContext.PushSubscriptions.Add(new PushSubscriptionEntity { Id = Guid.NewGuid(), UserId = userId, Endpoint = $"https://push.example/{userId}", P256dhBase64 = "k", AuthBase64 = "a", CreatedAtUtc = now });
         _dbContext.NotificationSettings.Add(new NotificationSettingsEntity { Id = Guid.NewGuid(), UserId = userId });
+        _dbContext.TagColours.Add(new TagColourEntity { UserId = userId, NormalizedTag = "work", Tag = "Work", Colour = "#aa3355", UpdatedAtUtc = now });
         _dbContext.NotificationEntries.Add(new NotificationEntryEntity { Id = Guid.NewGuid(), UserId = userId, Kind = "Chat", Title = "Hi", Body = "Body", CreatedAtUtc = now });
         _dbContext.UserPermissions.Add(new UserPermissionEntity { UserId = userId, Permission = nameof(ApplicationPermission.Contacts), GrantedAtUtc = now });
         _dbContext.UserVerificationCodes.Add(new UserVerificationCodeEntity { Id = Guid.NewGuid(), UserId = userId, Purpose = "EmailVerification", CodeHash = "h", EmailAddress = "a@example.com", CreatedAtUtc = now, ExpiresAtUtc = now });
@@ -157,6 +158,7 @@ public sealed class AccountDeletionSweepTests : IDisposable
         (nameof(_dbContext.RefreshTokens), await _dbContext.RefreshTokens.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.PushSubscriptions), await _dbContext.PushSubscriptions.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.NotificationSettings), await _dbContext.NotificationSettings.CountAsync(row => row.UserId == userId)),
+        (nameof(_dbContext.TagColours), await _dbContext.TagColours.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.NotificationEntries), await _dbContext.NotificationEntries.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.UserPermissions), await _dbContext.UserPermissions.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.UserVerificationCodes), await _dbContext.UserVerificationCodes.CountAsync(row => row.UserId == userId)),

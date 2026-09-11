@@ -36,7 +36,8 @@ public sealed class CreateTaskListCommandHandler : IRequestHandler<CreateTaskLis
 
         var taskList = TaskList.Create(
             request.UserId, request.Title, identity.Items, request.IsGroup, request.IsPrivate, request.EncryptedContent,
-            request.Priority, description: request.Description ?? string.Empty, folderId: request.FolderId);
+            request.Priority, description: request.Description ?? string.Empty, folderId: request.FolderId,
+            tags: request.Tags);
         // A list made on the Finished tab begins there - see TaskEditor's new-list defaults.
         taskList.SetCompletion(request.Completion);
 

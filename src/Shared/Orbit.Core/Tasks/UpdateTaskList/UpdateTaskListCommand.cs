@@ -51,5 +51,7 @@ public sealed record UpdateTaskListCommand(
     /// caller said nothing and the stored answer stands - the same rule the three fields above follow,
     /// and the reason is the same: the phone saves lists without knowing this exists.
     /// </summary>
-    TaskListCompletion? Completion = null)
+    TaskListCompletion? Completion = null,
+    /// <summary>Null leaves the stored tags alone - see UpdateTaskRequest.Tags. An empty list clears them.</summary>
+    IReadOnlyList<string>? Tags = null)
     : IRequest<EditOutcome>;

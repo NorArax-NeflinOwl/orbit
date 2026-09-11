@@ -84,7 +84,8 @@ public static class TaskEndpoints
                     request.Description, request.FolderId,
                     request.Completion is null
                         ? TaskListCompletion.FromTheEntries
-                        : RequestEnum.Parse<TaskListCompletion>(request.Completion, "completion")),
+                        : RequestEnum.Parse<TaskListCompletion>(request.Completion, "completion"),
+                    request.Tags),
                 cancellationToken);
             return Results.Created($"/api/tasks/{id}", id);
         });
@@ -101,7 +102,8 @@ public static class TaskEndpoints
                     EntriesSayingNothingAboutTheirNotes(request.Items),
                     EntriesSayingNothingAboutTheirSteps(request.Items),
                     EntriesSayingNothingAboutTheirLook(request.Items),
-                    request.Completion is null ? null : RequestEnum.Parse<TaskListCompletion>(request.Completion, "completion")),
+                    request.Completion is null ? null : RequestEnum.Parse<TaskListCompletion>(request.Completion, "completion"),
+                    request.Tags),
                 cancellationToken);
             return ToApiResult(outcome);
         });
@@ -525,7 +527,8 @@ public static class TaskEndpoints
             // The owner's filing, and only theirs - see NoteEndpoints.ToDto, which says why a recipient
             // is told nothing about it.
             taskList.IsShared ? null : taskList.FolderId,
-            taskList.Completion.ToString());
+            taskList.Completion.ToString(),
+            taskList.Tags);
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

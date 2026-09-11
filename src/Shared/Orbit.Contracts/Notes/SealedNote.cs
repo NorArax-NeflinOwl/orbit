@@ -9,4 +9,9 @@ namespace Orbit.Contracts.Notes;
 /// browser could no longer read, and neither side would find out until somebody opened one on the
 /// other device.
 /// </summary>
-public sealed record SealedNote(string Title, IReadOnlyList<NoteContentLineDto> Content);
+/// <param name="Tags">
+/// A private note's tags, which the server keeps none of for it - see NoteDto.Tags. Defaulted and last:
+/// a payload sealed before tags existed says nothing here, and opens as a note with no tags.
+/// </param>
+public sealed record SealedNote(
+    string Title, IReadOnlyList<NoteContentLineDto> Content, IReadOnlyList<string>? Tags = null);

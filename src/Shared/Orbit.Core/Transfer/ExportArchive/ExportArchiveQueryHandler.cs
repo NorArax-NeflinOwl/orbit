@@ -21,6 +21,7 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
     private readonly IInventoryRepository _inventoryRepository;
     private readonly IInventoryItemRepository _inventoryItemRepository;
     private readonly IPlaceRepository _placeRepository;
+    private readonly Orbit.Core.Tags.ITagColourRepository _tagColourRepository;
 
     public ExportArchiveQueryHandler(
         INoteRepository noteRepository,
@@ -28,7 +29,8 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
         ICalendarEventRepository calendarEventRepository,
         IInventoryRepository inventoryRepository,
         IInventoryItemRepository inventoryItemRepository,
-        IPlaceRepository placeRepository)
+        IPlaceRepository placeRepository,
+        Orbit.Core.Tags.ITagColourRepository tagColourRepository)
     {
         _noteRepository = noteRepository;
         _taskRepository = taskRepository;
@@ -36,6 +38,7 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
         _inventoryRepository = inventoryRepository;
         _inventoryItemRepository = inventoryItemRepository;
         _placeRepository = placeRepository;
+        _tagColourRepository = tagColourRepository;
     }
 
     public async Task<OrbitArchive> HandleAsync(ExportArchiveQuery request, CancellationToken cancellationToken)
@@ -45,6 +48,7 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
         var calendarEvents = await _calendarEventRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
         var inventories = await _inventoryRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
         var places = await _placeRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
+        var tagColours = await _tagColourRepository.GetAllAsync(request.UserId, cancellationToken);
 
         var ownTaskLists = taskLists.Where(taskList => taskList.UserId == request.UserId).ToList();
         var links = new TaskListLinks(ownTaskLists);
@@ -56,7 +60,8 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
             ownTaskLists.Select(taskList => ToArchived(taskList, links)).ToList(),
             calendarEvents.Where(calendarEvent => calendarEvent.UserId == request.UserId).Select(ToArchived).ToList(),
             await ToArchivedInventoriesAsync(inventories, request.UserId, cancellationToken),
-            places.Where(place => place.UserId == request.UserId).Select(place => ToArchived(place, links)).ToList());
+            places.Where(place => place.UserId == request.UserId).Select(place => ToArchived(place, links)).ToList(),
+            tagColours.Select(colour => new ArchivedTagColour(colour.Tag, colour.Colour)).ToList());
     }
 
     /// <summary>
@@ -105,7 +110,8 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
             note.Title,
             note.Content.Select(line => new ArchivedNoteLine(line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed)).ToList(),
             note.IsPrivate,
-            ToArchived(note.EncryptedContent));
+            ToArchived(note.EncryptedContent),
+            note.Tags);
 
     private static ArchivedTaskList ToArchived(TaskList taskList, TaskListLinks links)
         => new(
@@ -129,7 +135,8 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
             taskList.IsGroup,
             taskList.IsPrivate,
             ToArchived(taskList.EncryptedContent),
-            taskList.Priority.ToString());
+            taskList.Priority.ToString(),
+            taskList.Tags);
 
     /// <summary>
     /// How a link to one of the exported lists is written, because a file has no ids worth keeping - it

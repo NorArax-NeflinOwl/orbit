@@ -48,6 +48,8 @@ public sealed class AccountDeletionRepository : IAccountDeletionRepository
         await _dbContext.RefreshTokens.Where(refreshToken => refreshToken.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.PushSubscriptions.Where(subscription => subscription.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.NotificationSettings.Where(settings => settings.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+        // The colours name the account's tags in the clear - see TagColourEntity - so they go with it.
+        await _dbContext.TagColours.Where(colour => colour.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.NotificationEntries.Where(entry => entry.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.DiagnosticLogEntries.Where(entry => entry.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.SyncTombstones.Where(tombstone => tombstone.UserId == userId).ExecuteDeleteAsync(cancellationToken);

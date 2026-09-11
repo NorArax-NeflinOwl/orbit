@@ -89,7 +89,7 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
         // lists without erasing what was written somewhere else.
         taskList.Update(
             request.Title, identity.Items, request.IsGroup, request.IsPrivate, request.EncryptedContent, request.Priority,
-            request.Description ?? taskList.Description);
+            request.Description ?? taskList.Description, request.Tags);
 
         // After Update, which rebuilds the items and therefore the derived half of completion. Said
         // only when the caller said it: null is "not provided", and a save from a client that has never

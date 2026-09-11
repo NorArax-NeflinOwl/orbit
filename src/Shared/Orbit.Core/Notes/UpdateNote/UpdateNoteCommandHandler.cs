@@ -41,7 +41,7 @@ public sealed class UpdateNoteCommandHandler : IRequestHandler<UpdateNoteCommand
             return EditOutcome.LockedBy(note.LockedByUserName!);
         }
 
-        note.Update(request.Title, request.Content, request.IsPrivate, request.EncryptedContent, request.Priority);
+        note.Update(request.Title, request.Content, request.IsPrivate, request.EncryptedContent, request.Priority, request.Tags);
         await _noteRepository.UpdateAsync(note, cancellationToken);
         return EditOutcome.Success;
     }
