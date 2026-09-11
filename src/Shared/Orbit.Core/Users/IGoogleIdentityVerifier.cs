@@ -6,7 +6,11 @@ namespace Orbit.Core.Users;
 /// <param name="SubjectId">Google's stable, never-reassigned id for the account - what Orbit links on.</param>
 /// <param name="Email">The address Google holds, already confirmed by Google itself.</param>
 /// <param name="DisplayName">The person's name as Google reports it, used to seed a new account's display name.</param>
-public sealed record GoogleIdentity(string SubjectId, string Email, string DisplayName);
+/// <param name="IssuedAtUtc">
+/// When Google issued the token. What tells a sign-in made a moment ago from one kept since - deleting an
+/// account asks for the former (see DeleteAccountCommandHandler), since a token is good for an hour.
+/// </param>
+public sealed record GoogleIdentity(string SubjectId, string Email, string DisplayName, DateTimeOffset IssuedAtUtc);
 
 /// <summary>
 /// Validates a Google ID token: its signature against Google's published keys, its audience against this

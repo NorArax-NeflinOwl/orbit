@@ -65,6 +65,9 @@ public sealed class GoogleIdentityVerifier : IGoogleIdentityVerifier
         }
 
         var displayName = string.IsNullOrWhiteSpace(payload.Name) ? payload.Email : payload.Name;
-        return new GoogleIdentity(payload.Subject, payload.Email.Trim().ToLowerInvariant(), displayName);
+        // Google always sets the issue time; a token without one reads as issued at the epoch, which is
+        // as stale as a token can be - so it is never taken for a fresh sign-in.
+        var issuedAtUtc = DateTimeOffset.FromUnixTimeSeconds(payload.IssuedAtTimeSeconds ?? 0);
+        return new GoogleIdentity(payload.Subject, payload.Email.Trim().ToLowerInvariant(), displayName, issuedAtUtc);
     }
 }

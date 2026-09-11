@@ -42,7 +42,12 @@ public sealed record UpdateProfileRequest(string DisplayName, string UserName);
 
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 
-public sealed record DeleteAccountRequest(string Password);
+/// <param name="GoogleIdToken">
+/// A fresh Google sign-in proving the account's owner is the one asking - optional, so every phone build
+/// installed before it existed, which sends the password alone, still binds. Checked when sent; see
+/// DeleteAccountCommandHandler for what it proves and info/future-plan.md for when it becomes required.
+/// </param>
+public sealed record DeleteAccountRequest(string Password, string? GoogleIdToken = null);
 
 /// <summary>Passing the account's current address re-verifies it; passing a different one starts an email change that only completes on confirmation.</summary>
 public sealed record RequestEmailVerificationRequest(string EmailAddress);

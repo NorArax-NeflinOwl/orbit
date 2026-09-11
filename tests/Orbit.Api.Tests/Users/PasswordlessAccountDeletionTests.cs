@@ -42,7 +42,8 @@ public sealed class PasswordlessAccountDeletionTests : IDisposable
         await _dbContext.SaveChangesAsync();
 
         var handler = new DeleteAccountCommandHandler(
-            users, new PasswordHasher(), new AccountDeletionRepository(_dbContext), new InMemoryChatGroupRepository());
+            users, new PasswordHasher(), new AccountDeletionRepository(_dbContext), new InMemoryChatGroupRepository(),
+            new StubGoogleIdentityVerifier(subjectId: "google-subject-gina"));
 
         var deleted = await handler.HandleAsync(new DeleteAccountCommand(googleUser.Id, string.Empty), CancellationToken.None);
 
