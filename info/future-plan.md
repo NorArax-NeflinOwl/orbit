@@ -871,6 +871,18 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   allowed. A fake built without an inventory server still places nothing. As noticed: it did not, the way the real server does since
   2026-09-11, so a screen test can only assert what was sent. A fake that placed them would need to know
   the fake inventory server; until then the placement itself is covered by `ProductEntryPlacementTests`.
+  Still not modelled: the restock list the server settles after a placement
+  (`SettleTheRestockListAsync`) - the fakes keep no restock lists at all.
+
+- **The Android head still builds with twelve warnings** (noticed 2026-09-11, after the seven
+  `DisplayActionSheet` CS0618s went). None fails anything, and the head is not in `Orbit.CI.slnf`, so
+  nothing gates them: one more CS0618, `AutomationProperties.Name` on the accent swatches in
+  `AccountPage.xaml` (MAUI wants `SemanticProperties.Description`, which the swatch's button already
+  carries); five CS0108 where `AvatarCircle`/`PersonRow` declare `Id` and four controls name an element
+  `Frame`, hiding the base members; two CS8625 in `ItemCard.xaml.cs`, a CS8602 in `MainActivity.cs`, and
+  two CS1574 crefs (`StartupViewModel` in `App.xaml.cs`, `WebSignInBrowser` in
+  `WebAuthenticationCallbackActivity.cs`) that no longer resolve. What it would take: the swatch attribute
+  dropped, the two `Id`s and four `Frame`s renamed, and the rest a line each.
 
 - ~~**Options still calls an inventory a "storage".**~~ Done on 2026-09-10, and it was wider than the
   export section: eleven English strings across both clients still said storage - the task editor's
