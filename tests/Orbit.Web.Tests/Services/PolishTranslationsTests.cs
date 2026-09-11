@@ -104,7 +104,8 @@ public sealed class PolishTranslationsTests
         // The same check from the other side: formatting each entry with as many arguments as its
         // English asks for must not throw, whatever the translation does with them.
         var translations = InPolish();
-        var arguments = new object[] { "one", "two", "three", "four" };
+        // As many as the longest English asks for - the export's result lines count five things.
+        var arguments = new object[] { "one", "two", "three", "four", "five" };
 
         foreach (var english in PolishTranslations.ByEnglish.Keys)
         {

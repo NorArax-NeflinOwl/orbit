@@ -1247,6 +1247,40 @@ that hands the point to a map app. Behind the three dots: **Edit**, **Duplicate*
 same, for two entrances to one building — and **Delete**, which asks first, because forgetting a place is
 the one thing on that panel that cannot be undone.
 
+### Taking places out in a file
+
+**Places can be exported, and they are the one part of the file written out decrypted** (2026-09-11,
+`ArchivedPlace`, `OrbitArchive.Places`). The account export on the Options page (`/api/transfer/export`,
+"Your data") opens nothing else: a private note, list or inventory travels as its sealed bytes and
+nothing more. A place is sealed by default, so an export that did the same would be a file of empty rows
+— and somebody asking for their places is asking to read them somewhere else. So the server writes each
+of the owner's places as it holds it — an open one readable, a sealed one as empty words beside
+`EncryptedContent`, since it has no key — and the browser opens the sealed ones with
+`PrivateContentSealer` (`TransferApiClient.OpenPlacesAsync`) before the file is saved. The sealed half
+stays in the file beside the opened words.
+
+- **Asked for, not assumed.** Places is the one box unticked to begin with, and while it is ticked the
+  page says, in the danger colour, that the file is not encrypted and that anyone who gets it can read
+  every place in it, private ones included. Export pressed the way it always was writes no places and
+  never reaches for the key.
+- **Only your own.** Places somebody handed over are left out, like every other shared thing in the
+  export: the share is access, and a readable copy of their place in a file is theirs to make.
+- **A place this browser cannot open** — sealed under a key since replaced — is written with its empty
+  words rather than failing the export, and the page says how many.
+- **Importing restores a private place sealed**, under the half the file carried, the way a private note
+  is restored: readable again in the account that sealed it, and a place nobody can open in any other.
+  Both clients empty a private place's words before the file goes back up
+  (`OrbitArchive.WithPrivatePlacesClosed`), so the server never reads them. One the file calls private
+  with nothing sealed is left out and not counted: the server cannot seal it, and storing it readable
+  would publish what the file says is private.
+- **Lists travel by title**, as a task entry's links do, and are found again among the lists the same
+  import made. A link to a private list is dropped, because that list's title is empty on the server.
+- **Older files still open.** `Places` is defaulted and last, so the archive's version stays 1: a file
+  without it reads as an account that kept no places, and one with it imports into an older Orbit, which
+  reads past the field.
+- **The phone does not offer it yet.** Its export empties places (`ExportChoice.Narrow`), and its import
+  sends a file's private places closed, like the browser's.
+
 ## Private notes and task lists
 
 A note or task list can be marked **private**, which means exactly one thing: only its creator can ever

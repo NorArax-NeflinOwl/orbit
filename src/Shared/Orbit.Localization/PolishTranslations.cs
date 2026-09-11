@@ -921,6 +921,7 @@ public static class PolishTranslations
         ["Task lists"] = "Listy zadań",
         ["Calendar events"] = "Wydarzenia w kalendarzu",
         ["Inventories"] = "Magazyny",
+        ["Places"] = "Miejsca",
         ["Export"] = "Eksport",
         ["Import"] = "Import",
         ["Danger zone"] = "Strefa niebezpieczna",
@@ -1124,8 +1125,8 @@ public static class PolishTranslations
         ["What this browser reports about Orbit itself. Kept on this device."] =
             "Co ta przeglądarka raportuje o samym Orbicie. Zapamiętywane na tym urządzeniu.",
         ["Kept on this device, because a browser grants location per device."] = "Zapamiętywane na tym urządzeniu, bo przeglądarka przyznaje dostęp do położenia osobno na każdym.",
-        ["Everything you own — notes, task lists, events and inventories — as one JSON file, and back again."] =
-            "Wszystko, co masz — notatki, listy zadań, wydarzenia i magazyny — w jednym pliku JSON i z powrotem.",
+        ["Everything you own — notes, task lists, events, inventories and places — as one JSON file, and back again."] =
+            "Wszystko, co masz — notatki, listy zadań, wydarzenia, magazyny i miejsca — w jednym pliku JSON i z powrotem.",
         ["Master switch for everything below, and for the notifications panel itself."] = "Główny przełącznik dla wszystkiego poniżej i dla samego panelu powiadomień.",
         ["Instant alerts for new messages, event reminders and overdue tasks, even while Orbit isn't open."] =
             "Natychmiastowe alerty o nowych wiadomościach, przypomnieniach i zaległych zadaniach, nawet gdy Orbit jest zamknięty.",
@@ -1267,6 +1268,12 @@ public static class PolishTranslations
             "Wyeksportowano: notatki ({0}), listy zadań ({1}), wydarzenia ({2}), magazyny ({3}).",
         ["Imported {0} notes, {1} task lists, {2} events and {3} inventories."] =
             "Zaimportowano: notatki ({0}), listy zadań ({1}), wydarzenia ({2}), magazyny ({3}).",
+        ["Exported {0} notes, {1} task lists, {2} events, {3} inventories and {4} places."] =
+            "Wyeksportowano: notatki ({0}), listy zadań ({1}), wydarzenia ({2}), magazyny ({3}), miejsca ({4}).",
+        ["Imported {0} notes, {1} task lists, {2} events, {3} inventories and {4} places."] =
+            "Zaimportowano: notatki ({0}), listy zadań ({1}), wydarzenia ({2}), magazyny ({3}), miejsca ({4}).",
+        ["{0} private places couldn't be opened in this browser and were written without their content."] =
+            "Nie udało się odszyfrować w tej przeglądarce prywatnych miejsc ({0}) — trafiły do pliku bez swojej treści.",
         ["That didn't work. Reload the group and try again."] = "Nie udało się. Odśwież grupę i spróbuj ponownie.",
         ["That message is no longer yours to delete."] = "Tej wiadomości nie możesz już usunąć.",
         ["Something went wrong. Try again."] = "Coś poszło nie tak. Spróbuj ponownie.",
@@ -1342,7 +1349,9 @@ public static class PolishTranslations
             "Osoba, która go udostępniła, mogła go wyłączyć, albo rzecz, na którą wskazywał, już nie istnieje. Poproś o nowy.",
         ["The invitation always reaches your notifications. This adds a push or email on top, so you hear about it straight away."] = "Zaproszenie i tak zawsze trafia do powiadomień. To dokłada push lub e-mail, żebyś dowiedział się od razu.",
         ["Downloads everything in your account as one file. Things shared with you are left out, and a private item travels sealed."] = "Pobiera wszystko z Twojego konta jako jeden plik. Rzeczy udostępnione Tobie zostają pominięte, a element prywatny podróżuje zaszyfrowany.",
-        ["Downloads what you tick below as one file. Things shared with you are left out, and a private item travels sealed."] = "Pobiera jako jeden plik to, co zaznaczysz poniżej. Rzeczy udostępnione Tobie zostają pominięte, a element prywatny podróżuje zaszyfrowany.",
+        ["Downloads what you tick below as one file. Things shared with you are left out, and a private item travels sealed - except a place, which is opened first."] = "Pobiera jako jeden plik to, co zaznaczysz poniżej. Rzeczy udostępnione Tobie zostają pominięte, a element prywatny podróżuje zaszyfrowany — poza miejscem, które jest najpierw odszyfrowywane.",
+        ["Places are written to the file decrypted. The file itself is not encrypted, so anyone who gets it can read every place in it - names, addresses, coordinates and descriptions - private ones included."] =
+            "Miejsca trafiają do pliku odszyfrowane. Sam plik nie jest zaszyfrowany, więc każdy, kto go zdobędzie, odczyta wszystkie zapisane w nim miejsca — nazwy, adresy, współrzędne i opisy — także te prywatne.",
         ["Adds everything in a file to this account. Nothing is replaced, so importing the same file twice leaves two copies."] = "Dodaje do tego konta wszystko z pliku. Nic nie jest zastępowane, więc dwukrotny import zostawia dwie kopie.",
         ["Lets the Notifications panel list this browser's own recent errors, each with a \"Copy\" button for reporting a bug."] =
             "Pozwala panelowi powiadomień wypisać ostatnie błędy tej przeglądarki, każdy z przyciskiem „Kopiuj” do zgłoszenia usterki.",

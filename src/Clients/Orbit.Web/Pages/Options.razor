@@ -223,15 +223,16 @@
         </div>
 
         <div class="options-section">
-            <h2 class="options-heading">@T["Your data"]<FieldHint>@T["Everything you own — notes, task lists, events and inventories — as one JSON file, and back again."]</FieldHint></h2>
+            <h2 class="options-heading">@T["Your data"]<FieldHint>@T["Everything you own — notes, task lists, events, inventories and places — as one JSON file, and back again."]</FieldHint></h2>
             <div class="options-card">
                 <div class="options-row options-row-stacked">
                     <div>
-                        <div class="options-row-title">@T["Export"]<FieldHint>@T["Downloads what you tick below as one file. Things shared with you are left out, and a private item travels sealed."]</FieldHint></div>
+                        <div class="options-row-title">@T["Export"]<FieldHint>@T["Downloads what you tick below as one file. Things shared with you are left out, and a private item travels sealed - except a place, which is opened first."]</FieldHint></div>
                     </div>
-                    @* What goes in the file. All four to begin with, which is what this used to do
+                    @* What goes in the file. The first four to begin with, which is what this used to do
                        without asking - somebody exporting their notes to read elsewhere had no way of
-                       leaving three years of stock counts out of it. *@
+                       leaving three years of stock counts out of it. Places wait to be asked for: see
+                       ExportChoice. *@
                     <div class="export-choices">
                         @foreach (var part in Enum.GetValues<ExportPart>())
                         {
@@ -241,6 +242,13 @@
                             </label>
                         }
                     </div>
+                    @* Said before the button rather than after the file, and only while places are ticked:
+                       it is the one part of the file that is not sealed, and a warning printed under
+                       every export would be read as boilerplate by the time it mattered. *@
+                    @if (_exportChoice.Includes(ExportPart.Places))
+                    {
+                        <p class="export-warning">@T["Places are written to the file decrypted. The file itself is not encrypted, so anyone who gets it can read every place in it - names, addresses, coordinates and descriptions - private ones included."]</p>
+                    }
                     <button type="button" class="btn-secondary" disabled="@(_isExporting || _exportChoice.IsEmpty)"
                             @onclick="ExportAsync">
                         @(_isExporting ? T["Preparing…"] : T["Export"])
@@ -752,16 +760,27 @@
             // Narrowed here rather than by the server: the export is one query over an account, and
             // asking it four different ways would be four endpoints answering the same question. What
             // the file contains is what somebody ticked; the archive's shape is unchanged, so a file
-            // holding only notes still imports like any other.
-            var archive = _exportChoice.Narrow(everything);
+            // holding only notes still imports like any other. Places are opened after narrowing, so
+            // an export that left them out never reaches for the key.
+            var opened = await TransferApiClient.OpenPlacesAsync(_exportChoice.Narrow(everything));
+            var archive = opened.Archive;
             var json = JsonSerializer.Serialize(archive, new JsonSerializerOptions { WriteIndented = true });
             await using var downloadModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/fileDownload.js");
             await downloadModule.InvokeVoidAsync(
                 "downloadText", $"orbit-export-{DateTimeOffset.Now:yyyy-MM-dd}.json", "application/json", json);
 
             _transferMessage = T.Format(
-                "Exported {0} notes, {1} task lists, {2} events and {3} inventories.",
-                archive.Notes.Count, archive.TaskLists.Count, archive.CalendarEvents.Count, archive.Inventories.Count);
+                "Exported {0} notes, {1} task lists, {2} events, {3} inventories and {4} places.",
+                archive.Notes.Count, archive.TaskLists.Count, archive.CalendarEvents.Count, archive.Inventories.Count,
+                archive.AllPlaces.Count);
+            if (opened.UnopenedPlaces > 0)
+            {
+                // Written anyway rather than refused: the rest of the file is still worth having, and
+                // what is missing from it is said here rather than found when the file is opened.
+                _transferErrorMessage = T.Format(
+                    "{0} private places couldn't be opened in this browser and were written without their content.",
+                    opened.UnopenedPlaces);
+            }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -798,8 +817,8 @@
             }
 
             _transferMessage = T.Format(
-                "Imported {0} notes, {1} task lists, {2} events and {3} inventories.",
-                result.Notes, result.TaskLists, result.CalendarEvents, result.Inventories);
+                "Imported {0} notes, {1} task lists, {2} events, {3} inventories and {4} places.",
+                result.Notes, result.TaskLists, result.CalendarEvents, result.Inventories, result.Places);
         }
         catch (JsonException)
         {
@@ -1325,13 +1344,14 @@
         public string Password { get; set; } = string.Empty;
     }
 
-    /// <summary>The four things an account holds, as the export offers them - see OrbitArchive.</summary>
+    /// <summary>The five things an account holds, as the export offers them - see OrbitArchive.</summary>
     private enum ExportPart
     {
         Notes,
         TaskLists,
         CalendarEvents,
-        Inventories
+        Inventories,
+        Places
     }
 
     private string DescribeExportPart(ExportPart part) => part switch
@@ -1339,17 +1359,24 @@
         ExportPart.Notes => T["Notes"],
         ExportPart.TaskLists => T["Task lists"],
         ExportPart.CalendarEvents => T["Calendar events"],
-        _ => T["Inventories"]
+        ExportPart.Inventories => T["Inventories"],
+        _ => T["Places"]
     };
 
     /// <summary>
-    /// Which parts of the account the next export will carry. Everything to begin with, because that is
-    /// what an export meant before there was anything to choose, and it is what somebody who does not
-    /// read this row expects to get.
+    /// Which parts of the account the next export will carry. Everything but places to begin with,
+    /// because that is what an export meant before there was anything to choose, and it is what somebody
+    /// who does not read this row expects to get.
+    ///
+    /// Places are the exception because they are the one part written out opened (see ArchivedPlace):
+    /// somebody pressing Export the way they always have should not come away with a readable file of
+    /// where they keep the spare key. Ticking the box is the asking, and the warning beside it says what
+    /// the answer costs.
     /// </summary>
     private sealed class ExportChoice
     {
-        private readonly HashSet<ExportPart> _chosen = [.. Enum.GetValues<ExportPart>()];
+        private readonly HashSet<ExportPart> _chosen =
+            [.. Enum.GetValues<ExportPart>().Where(part => part != ExportPart.Places)];
 
         public bool Includes(ExportPart part) => _chosen.Contains(part);
 
@@ -1378,7 +1405,8 @@
                 Notes = Includes(ExportPart.Notes) ? archive.Notes : [],
                 TaskLists = Includes(ExportPart.TaskLists) ? archive.TaskLists : [],
                 CalendarEvents = Includes(ExportPart.CalendarEvents) ? archive.CalendarEvents : [],
-                Inventories = Includes(ExportPart.Inventories) ? archive.Inventories : []
+                Inventories = Includes(ExportPart.Inventories) ? archive.Inventories : [],
+                Places = Includes(ExportPart.Places) ? archive.AllPlaces : []
             };
     }
 

@@ -608,6 +608,21 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   a live state or is the only thing on its screen; folding them is a judgement a later pass may still
   want to make, with a `Warns` "!" for the ones about a state.
 
+- **The phone's export does not offer places.** The browser gained a Places box on 2026-09-11 that writes
+  every place out opened, behind a warning (see [functionality](functionality.md#taking-places-out-in-a-file)).
+  The phone's `ExportChoice.Narrow` empties places instead, because passing the server's rows through
+  would write sealed places nobody could read, and its import message still names four counts, not five.
+  What it would take: an `IncludesPlaces` switch that starts off, the same warning beside it in
+  `AccountPage.xaml`, and opening each sealed place with the key `LocalPlaceRepository` already uses
+  (`SealedContentSerializerContext.Default.SealedPlace`) before `TransferClient.Write`. Import already
+  sends places closed, so that half is done.
+
+- **An exported place loses its link to a private list.** A private task list's title is empty on the
+  server, and the archive carries links by title, so `ExportArchiveQueryHandler` drops such a link rather
+  than writing a title that would match whichever untitled list came first. A task entry linking to a
+  private list has always had the same gap. What it would take: the browser opening the private lists'
+  titles while it opens the places, and writing those in - which only helps when lists are exported too.
+
 - **Orbit.Web's pages read the machine's clock directly** - `DateTime.Today` and `DateTime.Now`, in
   eighteen places across the pages and components, with no `TimeProvider` injected anywhere in that
   client. It is why `DashboardTests.An_appointment_that_has_ended_counts_as_one_that_is_behind_the_reader`
