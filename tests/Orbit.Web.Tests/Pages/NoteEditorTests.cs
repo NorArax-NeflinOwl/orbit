@@ -433,6 +433,90 @@ public sealed class NoteEditorTests : OrbitTestContext
     }
 
     /// <summary>
+    /// The example this was reported with: a note opened from the dashboard, then its form from the note's
+    /// own page. Saving ends on the note - which shows what was saved - by stepping back onto it, so the
+    /// form is not left on top for the browser's Back to reopen. The note's own Back still knows the
+    /// dashboard, since its address carries it.
+    /// </summary>
+    [Fact]
+    public void Saving_a_note_opened_from_its_own_page_steps_back_onto_it()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        Services.GetRequiredService<NavigationTrail>();
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var summary = $"/notes/{note.Id}?returnTo=%2F";
+        navigationManager.NavigateTo(summary);
+        navigationManager.NavigateTo(ReturnTo.Link($"/notes/{note.Id}/edit", summary));
+        // Its returnTo is read off the address navigated to above, the way the router hands it over.
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        cut.Find(".page-action-primary").Click();
+
+        Assert.Equal(-1, JSInterop.VerifyInvoke("history.go").Arguments[0]);
+    }
+
+    /// <summary>
+    /// A new note, made from the notes page: saving returns to the list by stepping back, so Back from
+    /// the list does not open the form again - one press from saving the same note twice.
+    /// </summary>
+    [Fact]
+    public void Saving_a_new_note_steps_back_onto_the_list_it_was_made_from()
+    {
+        RegisterApiClients(note: null);
+        Services.GetRequiredService<NavigationTrail>();
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo("/notes");
+        navigationManager.NavigateTo("/notes/new");
+        var cut = RenderComponent<NoteEditor>();
+
+        WriteFirstLine(cut, "Dentist on Tuesday");
+        cut.Find(".page-action-primary").Click();
+
+        Assert.Equal(-1, JSInterop.VerifyInvoke("history.go").Arguments[0]);
+    }
+
+    /// <summary>
+    /// A form reached by its address has nothing of Orbit's behind it, so there is nothing to step back
+    /// onto: it is replaced with where it names, rather than left underneath it.
+    /// </summary>
+    [Fact]
+    public void Saving_a_form_opened_directly_replaces_it_with_where_it_names()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var summary = $"/notes/{note.Id}?returnTo=%2F";
+        navigationManager.NavigateTo(ReturnTo.Link($"/notes/{note.Id}/edit", summary));
+        // Its returnTo is read off the address navigated to above, the way the router hands it over.
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        cut.Find(".page-action-primary").Click();
+
+        Assert.Equal($"http://localhost{summary}", navigationManager.Uri);
+        Assert.True(Services.GetRequiredService<Bunit.TestDoubles.FakeNavigationManager>().History.First().Options.ReplaceHistoryEntry);
+    }
+
+    /// <summary>Back out of the form ends where Save does, the same way - see the test above it.</summary>
+    [Fact]
+    public void Leaving_the_form_without_saving_steps_back_onto_the_note()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        Services.GetRequiredService<NavigationTrail>();
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var summary = $"/notes/{note.Id}";
+        navigationManager.NavigateTo(summary);
+        navigationManager.NavigateTo(ReturnTo.Link($"/notes/{note.Id}/edit", summary));
+        // Its returnTo is read off the address navigated to above, the way the router hands it over.
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        cut.FindAll(".editor-rail button").First(button => button.GetAttribute("aria-label") == "Back").Click();
+
+        Assert.Equal(-1, JSInterop.VerifyInvoke("history.go").Arguments[0]);
+    }
+
+    /// <summary>
     /// Answers the editor's whole load sequence from one place: the note itself, the lock it tries to
     /// take, and the contacts the sharing picker offers.
     /// </summary>
@@ -490,6 +574,12 @@ public sealed class NoteEditorTests : OrbitTestContext
             if (path.StartsWith("/api/share-links", StringComparison.Ordinal))
             {
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
+            // Creating one answers with the new note's id, the way the server does.
+            if (request.Method == HttpMethod.Post && path.TrimEnd('/').EndsWith("/api/notes", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(Guid.NewGuid()) };
             }
 
             // The column of notes beside the writing asks for the lot - see NoteEditor's

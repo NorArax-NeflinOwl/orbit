@@ -738,8 +738,10 @@ disagree in.
   `InputSelect`/`InputCheckbox`: the panel is outside the `EditForm`, and those need its `EditContext`.
 - **The notes in the same folder stand beside it**, a fifth of the width, most recently changed first,
   with the one being written marked. What is being written is one of a set, and moving between them
-  should not mean going back to the page of cards each time. Pressing one is an ordinary navigation and
-  means exactly what Back-then-open means: whatever has not been saved is not kept. Below 1100px the
+  should not mean going back to the page of cards each time. Pressing one opens it in place of the note
+  being written - whatever has not been saved is not kept - and replaces that form in the history rather
+  than stacking a second on top of it, so finishing the next note still ends where the first was opened
+  from and Back does not walk through every note looked at on the way (`NavigationTrail`). Below 1100px the
   column is dropped - a fifth of a narrow window cannot name a note, and the writing needs the room.
   Because a route parameter changing does not remake a Blazor component, the editor loads in
   `OnParametersSetAsync` keyed by the note's id, releases the previous note's edit lock on the way, and
