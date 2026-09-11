@@ -702,6 +702,26 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   right after, so all it costs is an error in the log - but an update of a row that may have gone should
   be a conditional update, not a read and a blind write.
 
+- **Handing an appointment to a contact still happens in its form.** The note, task list and inventory
+  forms moved Share and Share link into the panel's menu on 2026-09-11; the calendar event's form moved
+  only its link, because giving an appointment to somebody is adding them as a guest (`EventFields`), and
+  that is part of what Save writes - the invitation goes out once the event is saved
+  (`CalendarEventEditor.ShareWithNewlyAddedContactsAsync`). A Share entry for an event needs its own
+  answer to whether a guest added from the panel is saved on the spot or waits for Save; neither was
+  obviously right, so the guests stayed where they are.
+
+- **Moving between notes in the editor's column carries the first note's way back.** Opening another note
+  from the column replaces the form (`NavigationTrail`) and keeps the returnTo the first one was opened
+  with. When that was the first note's own page, finishing the second note ends on the first note's
+  page. What it would take: when `ComeBackTo` names the page of the note being left, hand the next form
+  that page's own returnTo instead - it is on the address being replaced, so nothing has to be remembered.
+
+- **A task entry opened from the page of lists names no way back.** `Tasks.razor` opens an entry's page
+  as `/tasks/{list}/items/{item}` with no returnTo, so the entry's Back falls back to its list and
+  replaces the entry's page with the checklist, rather than stepping back to `/tasks`. Naming itself -
+  `ReturnTo.Link(..., "/tasks")`, as every other page that opens something now does - would make it step
+  back.
+
 - **Orbit.Web's pages read the machine's clock directly** - `DateTime.Today` and `DateTime.Now`, in
   eighteen places across the pages and components, with no `TimeProvider` injected anywhere in that
   client. It is why `DashboardTests.An_appointment_that_has_ended_counts_as_one_that_is_behind_the_reader`
