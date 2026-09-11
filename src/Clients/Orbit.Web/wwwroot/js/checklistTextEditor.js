@@ -32,10 +32,14 @@ export function initialize(container, dotNetHelper, initialLinesJson) {
         onKeyDown(event, container, dotNetHelper);
     };
     state.onClick = (event) => onClick(event, container, dotNetHelper);
+    state.onCopy = (event) => onCopy(event, container, /* isCut */ false);
+    state.onCut = (event) => onCopy(event, container, /* isCut */ true);
 
     container.addEventListener('input', state.onInput);
     container.addEventListener('keydown', state.onKeyDown);
     container.addEventListener('click', state.onClick);
+    container.addEventListener('copy', state.onCopy);
+    container.addEventListener('cut', state.onCut);
 }
 
 export function dispose(container) {
@@ -46,7 +50,40 @@ export function dispose(container) {
     container.removeEventListener('input', state.onInput);
     container.removeEventListener('keydown', state.onKeyDown);
     container.removeEventListener('click', state.onClick);
+    container.removeEventListener('copy', state.onCopy);
+    container.removeEventListener('cut', state.onCut);
     instances.delete(container);
+}
+
+/// Copies what is selected as text somebody can paste anywhere: one line per line, and a tick-box line
+/// as a "- " bullet. Left to the browser, a tick box is a button with no text, so a checklist pasted
+/// into a message or another app arrived as a column of bare lines with nothing saying they were items.
+///
+/// Only a selection spanning lines is rewritten. Inside one line there is no box in the selection to
+/// speak for - it is a run of words, and the browser already copies a run of words correctly.
+function onCopy(event, container, isCut) {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed || !event.clipboardData) {
+        return;
+    }
+
+    const lines = Array.from(selection.getRangeAt(0).cloneContents().children)
+        .filter((element) => element.classList.contains('note-line'));
+    if (lines.length === 0) {
+        return;
+    }
+
+    const text = lines
+        .map((line) => (line.classList.contains('note-line-checklist') ? '- ' : '') + lineText(line))
+        .join('\n');
+    event.clipboardData.setData('text/plain', text);
+    event.preventDefault();
+
+    // A cut still has to take the words away. The browser's own delete does it, and fires the input
+    // event every other edit here goes through, so Blazor hears about it the ordinary way.
+    if (isCut && container.getAttribute('contenteditable') === 'true') {
+        document.execCommand('delete');
+    }
 }
 
 export function getLinesAsJson(container) {
