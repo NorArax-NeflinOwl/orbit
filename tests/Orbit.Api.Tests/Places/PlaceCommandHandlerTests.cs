@@ -89,6 +89,59 @@ public sealed class PlaceCommandHandlerTests
         Assert.Empty(stored.TaskListIds);
     }
 
+    /// <summary>A place a list's Location entry made remembers which entry - see Place.SourceTaskItemId.</summary>
+    [Fact]
+    public async Task A_place_made_from_an_entry_remembers_which()
+    {
+        var userId = Guid.NewGuid();
+        var entryId = Guid.NewGuid();
+
+        var id = await new CreatePlaceCommandHandler(_places).HandleAsync(
+            new CreatePlaceCommand(
+                userId, "The new flat", "", Somewhere(), TaskListIds: [Guid.NewGuid()], IsPrivate: false,
+                SourceTaskItemId: entryId),
+            CancellationToken.None);
+
+        Assert.Equal(entryId, (await _places.GetByIdAsync(userId, id, CancellationToken.None))!.SourceTaskItemId);
+    }
+
+    /// <summary>
+    /// And a save that does not say - the phone's, which knows nothing about entries' places - leaves it
+    /// answering to the same one, rather than cutting it loose so the next list save makes a second.
+    /// </summary>
+    [Fact]
+    public async Task Saving_a_place_without_naming_an_entry_keeps_the_one_it_came_from()
+    {
+        var userId = Guid.NewGuid();
+        var entryId = Guid.NewGuid();
+        var place = Place.Create(userId, "The new flat", "", Somewhere(), isPrivate: false, sourceTaskItemId: entryId);
+        await _places.AddAsync(place, CancellationToken.None);
+
+        await new UpdatePlaceCommandHandler(Access, _places).HandleAsync(
+            new UpdatePlaceCommand(
+                userId, place.Id, "The new flat", "", Somewhere(), "#3f9a56", ItemPriority.Low, null, IsPrivate: false),
+            CancellationToken.None);
+
+        Assert.Equal(entryId, (await _places.GetByIdAsync(userId, place.Id, CancellationToken.None))!.SourceTaskItemId);
+    }
+
+    /// <summary>
+    /// A copy is somebody keeping that spot on purpose, so it answers to no entry: removing the entry
+    /// takes its own place away and leaves the copy.
+    /// </summary>
+    [Fact]
+    public async Task A_copy_of_a_place_an_entry_made_answers_to_no_entry()
+    {
+        var userId = Guid.NewGuid();
+        var place = Place.Create(userId, "The new flat", "", Somewhere(), isPrivate: false, sourceTaskItemId: Guid.NewGuid());
+        await _places.AddAsync(place, CancellationToken.None);
+
+        var copyId = await new DuplicatePlaceCommandHandler(Access, _places).HandleAsync(
+            new DuplicatePlaceCommand(userId, place.Id, "The new flat (copy)"), CancellationToken.None);
+
+        Assert.Null((await _places.GetByIdAsync(userId, copyId!.Value, CancellationToken.None))!.SourceTaskItemId);
+    }
+
     [Fact]
     public async Task Somebody_elses_place_cannot_be_saved()
     {

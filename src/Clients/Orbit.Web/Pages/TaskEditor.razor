@@ -37,6 +37,7 @@
 @inject Translations T
 @inject TimeProvider TimeProvider
 @inject ChosenPlace ChosenPlace
+@inject TaskEntryPlaces EntryPlaces
 
 <PageTitle>@(IsNewTaskList ? T["New task list"] : T["Edit task list"])</PageTitle>
 
@@ -2291,6 +2292,19 @@ else
         return item.Product.ToTaskItemProduct();
     }
 
+    /// <summary>
+    /// The Location entries that say where in words, as the list was just saved with them - what their
+    /// kept places are made from. See TaskEntryPlaces.
+    /// </summary>
+    private IReadOnlyList<EntryWithAPlace> EntriesWithAPlace()
+        => [.. _formModel.Items
+            .Where(item => item.Kind == nameof(TaskItemKind.Location)
+                && item.Id is not null
+                && item.Location.Trim().Length > 0)
+            .Select(item => new EntryWithAPlace(
+                item.Id!.Value, item.Description, item.Location, item.LocationLatitude, item.LocationLongitude,
+                item.Colour, item.Priority))];
+
     /// <summary>The folder the list was in when it was read, so a save knows whether it has been moved.</summary>
     private Guid? _savedFolderId;
 
@@ -2312,7 +2326,19 @@ else
             return;
         }
 
+        // A Location entry is about to keep a place, which answers to it by id - so one added in this
+        // sitting is named here, the way the phone names its own entries, rather than by the save. The
+        // server keeps an id a client gives an entry (see TaskItemIdentity).
+        foreach (var newLocationEntry in _formModel.Items.Where(item =>
+                     item.Id is null && item.Kind == nameof(TaskItemKind.Location)))
+        {
+            newLocationEntry.Id = Guid.NewGuid();
+        }
+
         var items = ItemsAsSaved();
+
+        // Which list was written, once one has been - what the entries' places are kept against below.
+        Guid? savedTaskListId = null;
 
         // Blocks the button for the duration of the save (see the button above), so a second click or a
         // double Enter-press can't fire this again while the first request is still in flight and create
@@ -2327,6 +2353,7 @@ else
                     Priority: _formModel.Priority, Description: _formModel.Description,
                     FolderId: _formModel.FolderId, Completion: CompletionToSave.ToString()));
                 Logger.LogInformation("Task list {TaskListId} created", newTaskListId);
+                savedTaskListId = newTaskListId;
             }
             else
             {
@@ -2356,6 +2383,7 @@ else
                 }
 
                 Logger.LogInformation("Task list {TaskListId} updated", Id);
+                savedTaskListId = Id.Value;
 
                 // Filing travels separately from the list itself - see MoveToFolderRequest - so it is
                 // sent only when it actually changed.
@@ -2403,6 +2431,13 @@ else
         finally
         {
             _isSaving = false;
+        }
+
+        // The list is saved; each Location entry now keeps a place of its own on the map, and one whose
+        // entry went loses it. Best effort - see TaskEntryPlaces.
+        if (savedTaskListId is { } keptAgainst)
+        {
+            await EntryPlaces.KeepAsync(keptAgainst, _formModel.IsPrivate, EntriesWithAPlace());
         }
 
         // Without this form left behind it: Back after saving a new list would open the form again, one

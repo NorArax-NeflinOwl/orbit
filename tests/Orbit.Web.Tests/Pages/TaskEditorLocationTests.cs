@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Notifications;
+using Orbit.Contracts.Places;
 using Orbit.Contracts.Tasks;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
@@ -152,6 +153,104 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
 
         Assert.Empty(cut.FindAll(".map-overlay"));
         Assert.Equal("Przychodnia", LocationBoxOf(cut).GetAttribute("value"));
+    }
+
+    /// <summary>
+    /// A Location entry keeps a place of its own once the list is saved: named for the entry, on this
+    /// list, answering to the entry, and open because the list is.
+    /// </summary>
+    [Fact]
+    public void Saving_a_list_keeps_a_place_for_its_location_entry()
+    {
+        var entry = Item("The new flat", kind: "Location", location: "Piękna 1, Warszawa");
+        RegisterApiClients(entry);
+        var places = KeepPlaces();
+        var cut = Render();
+
+        ClickButtonSaying(cut, "Save");
+
+        cut.WaitForAssertion(() =>
+        {
+            var created = Assert.Single(places.Created);
+            Assert.Equal(entry.Id, created.SourceTaskItemId);
+            Assert.Equal([TaskListId], created.TaskListIds);
+            Assert.Equal("The new flat", created.Name);
+            Assert.Equal("Piękna 1, Warszawa", created.Where.Address);
+            Assert.Equal(52.23, created.Where.Latitude);
+            Assert.False(created.IsPrivate);
+        });
+    }
+
+    /// <summary>And a place whose entry is no longer a Location entry goes with it.</summary>
+    [Fact]
+    public void A_place_whose_entry_is_gone_is_taken_off_the_map()
+    {
+        RegisterApiClients(Item("Buy milk", kind: "Checklist"));
+        var orphanId = Guid.NewGuid();
+        var places = KeepPlaces(
+            "[{\"id\":\"" + orphanId + "\",\"name\":\"The old flat\",\"description\":\"\","
+            + "\"where\":{\"address\":\"Długa 4\",\"latitude\":52.2,\"longitude\":21.0},"
+            + "\"colour\":\"\",\"priority\":\"Normal\",\"taskListIds\":[\"" + TaskListId + "\"],"
+            + "\"createdAtUtc\":\"2026-09-10T10:00:00+00:00\",\"updatedAtUtc\":\"2026-09-10T10:00:00+00:00\","
+            + "\"isShared\":false,\"sharedByUserName\":null,\"accessLevel\":\"CanEdit\",\"isSharedWithOthers\":false,"
+            + "\"sourceTaskItemId\":\"" + Guid.NewGuid() + "\"}]");
+        var cut = Render();
+
+        ClickButtonSaying(cut, "Save");
+
+        cut.WaitForAssertion(() => Assert.Equal([orphanId], places.Deleted));
+        Assert.Empty(places.Created);
+    }
+
+    /// <summary>What the places server was asked to do, for the two tests above.</summary>
+    private sealed class PlacesAsked
+    {
+        public List<SavePlaceRequest> Created { get; } = [];
+        public List<Guid> Deleted { get; } = [];
+    }
+
+    /// <summary>
+    /// The places a list's Location entries keep, answered by a server holding <paramref name="keptJson"/>
+    /// and a Nominatim that finds every address at one point.
+    /// </summary>
+    private PlacesAsked KeepPlaces(string keptJson = "[]")
+    {
+        var asked = new PlacesAsked();
+        var places = new PlacesApiClient(new HttpClient(new StubHttpMessageHandler(request =>
+        {
+            if (request.Method == HttpMethod.Get)
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(keptJson, Encoding.UTF8, "application/json")
+                };
+            }
+
+            if (request.Method == HttpMethod.Delete)
+            {
+                asked.Deleted.Add(Guid.Parse(request.RequestUri!.Segments[^1]));
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
+            asked.Created.Add(request.Content!.ReadFromJsonAsync<SavePlaceRequest>().GetAwaiter().GetResult()!);
+            return Ok(Guid.NewGuid());
+        }))
+        {
+            BaseAddress = new Uri("https://example.test/")
+        });
+        var geocoding = new GeocodingApiClient(new HttpClient(new StubHttpMessageHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """[{"lat":"52.23","lon":"21.01","display_name":"Piękna 1, Warszawa"}]""",
+                    Encoding.UTF8,
+                    "application/json")
+            }))
+        {
+            BaseAddress = new Uri("https://geocode.test/")
+        });
+        Services.AddScoped(_ => new TaskEntryPlaces(places, geocoding, NullLogger<TaskEntryPlaces>.Instance));
+        return asked;
     }
 
     private IRenderedComponent<TaskEditor> Render()

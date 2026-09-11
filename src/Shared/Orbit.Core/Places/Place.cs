@@ -77,6 +77,17 @@ public sealed class Place
     /// </summary>
     public IReadOnlyList<Guid> TaskListIds { get; private set; }
 
+    /// <summary>
+    /// The task entry this place was made from, or null for one somebody kept by hand. A list's Location
+    /// entry becomes a place of its own when the list is saved - the client does it, since it is the one
+    /// holding the point and the key - and this is how the place knows which entry it answers to, so the
+    /// next save updates it rather than making a second, and removing the entry removes it.
+    ///
+    /// Readable even when the place is sealed, like <see cref="TaskListIds"/>: it names an entry of the
+    /// owner's own list, which the server already holds, and says nothing about where the place is.
+    /// </summary>
+    public Guid? SourceTaskItemId { get; private set; }
+
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
@@ -116,8 +127,9 @@ public sealed class Place
         Guid id, Guid userId, string name, string description, EventLocation where, string colour,
         ItemPriority priority, IReadOnlyList<Guid>? taskListIds,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        bool isPrivate, EncryptedPayload? encryptedContent)
+        bool isPrivate, EncryptedPayload? encryptedContent, Guid? sourceTaskItemId)
     {
+        SourceTaskItemId = sourceTaskItemId;
         Id = id;
         UserId = userId;
         (Name, Description, Where, IsPrivate, EncryptedContent) =
@@ -142,10 +154,11 @@ public sealed class Place
     /// place, which means a caller that has not been taught about sealing cannot make an open one by
     /// accident.
     /// </param>
+    /// <param name="sourceTaskItemId">The task entry this place is made from, if any - see <see cref="SourceTaskItemId"/>.</param>
     public static Place Create(
         Guid userId, string name, string description, EventLocation where, string colour = "",
         ItemPriority priority = ItemPriority.Normal, IReadOnlyList<Guid>? taskListIds = null,
-        bool isPrivate = true, EncryptedPayload? encryptedContent = null)
+        bool isPrivate = true, EncryptedPayload? encryptedContent = null, Guid? sourceTaskItemId = null)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         EnsureSomethingToRead(name, isPrivate);
@@ -153,7 +166,7 @@ public sealed class Place
         var nowUtc = DateTimeOffset.UtcNow;
         return new Place(
             Guid.NewGuid(), userId, name, description, where, colour, priority, taskListIds, nowUtc, nowUtc,
-            isPrivate, encryptedContent);
+            isPrivate, encryptedContent, sourceTaskItemId);
     }
 
     /// <summary>Rebuilds one from a stored row, with none of the checks above - see <see cref="Create"/>.</summary>
@@ -161,19 +174,26 @@ public sealed class Place
         Guid id, Guid userId, string name, string description, EventLocation where, string colour,
         ItemPriority priority, IReadOnlyList<Guid>? taskListIds,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        bool isPrivate = false, EncryptedPayload? encryptedContent = null)
+        bool isPrivate = false, EncryptedPayload? encryptedContent = null, Guid? sourceTaskItemId = null)
         => new(
             id, userId, name, description, where, colour, priority, taskListIds, createdAtUtc, updatedAtUtc,
-            isPrivate, encryptedContent);
+            isPrivate, encryptedContent, sourceTaskItemId);
 
     /// <summary>
     /// Everything a reader can change about a place. One method rather than one per field, because the
     /// form saves the lot: a place is small enough that partial updates would be more machinery than the
     /// thing being updated.
     /// </summary>
+    /// <param name="sourceTaskItemId">
+    /// The task entry this place answers to, or null to leave whatever it answers to alone. Null is
+    /// "not said" here rather than "none", unlike every other field: a client that knows nothing about
+    /// places made from entries - the phone, which never sends one - must not cut a place loose from its
+    /// entry by editing its colour. A place is never moved to another entry; it is deleted with its own.
+    /// </param>
     public void Update(
         string name, string description, EventLocation where, string colour, ItemPriority priority,
-        IReadOnlyList<Guid>? taskListIds, bool isPrivate = true, EncryptedPayload? encryptedContent = null)
+        IReadOnlyList<Guid>? taskListIds, bool isPrivate = true, EncryptedPayload? encryptedContent = null,
+        Guid? sourceTaskItemId = null)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         EnsureSomethingToRead(name, isPrivate);
@@ -183,6 +203,7 @@ public sealed class Place
         Colour = colour.Trim();
         Priority = priority;
         TaskListIds = taskListIds is null ? [] : [.. taskListIds.Distinct()];
+        SourceTaskItemId = sourceTaskItemId ?? SourceTaskItemId;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 

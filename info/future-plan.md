@@ -881,6 +881,11 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   Orbit can hold. The alternatives worth weighing when somebody wants this: an optional link from an
   entry to a `Place` (one point, one owner, and the entry borrows it), or leaving Location as prose and
   letting the entry offer "keep this as a place" once. Needs a decision before any of it is built.
+  **Done 2026-09-11, the user's choice:** the link runs the other way. Saving a list on the web makes a
+  place for each Location entry (`TaskEntryPlaces`), and the place names its entry
+  (`Place.SourceTaskItemId`). The point is still stored once, on the place. On the map these places are
+  grouped under their list, can be hidden, and open their list from the pin. The phone does not make
+  them yet - see functionality.md, "A task list's Location entry keeps a place of its own".
 
 - **Why the map's Start and Share do nothing on a phone: two of the three causes are ruled out.** Both
   are hidden below 680px as of 2026-09-09 (`.map-panel-start`, `.map-panel-share`), on a report that

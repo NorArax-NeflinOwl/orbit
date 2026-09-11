@@ -261,6 +261,7 @@ erDiagram
         float OP_P_LONGITUDE "0 when sealed"
         text OP_P_COLOUR "empty = whatever a place is drawn in"
         text OP_P_PRIORITY "ItemPriority by name"
+        uuid OP_P_SOURCETASKITEMID "the Location entry that made it, or null - readable, no FK"
     }
     OL_PLACES_TASKS {
         uuid OL_PT_PLACEID PK

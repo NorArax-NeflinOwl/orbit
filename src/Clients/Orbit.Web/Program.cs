@@ -87,6 +87,8 @@ builder.Services.AddHttpClient<SharesApiClient>(httpClient => httpClient.BaseAdd
 // The places this account keeps on the map - see Orbit.Core.Places.Place.
 builder.Services.AddHttpClient<PlacesApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
+// The place each Location entry of a task list keeps, made and kept in step when the list is saved.
+builder.Services.AddScoped<TaskEntryPlaces>();
 builder.Services.AddHttpClient<CalendarApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<AuthApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))

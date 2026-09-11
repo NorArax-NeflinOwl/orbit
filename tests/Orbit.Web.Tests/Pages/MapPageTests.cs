@@ -917,17 +917,91 @@ public sealed class MapPageTests : OrbitTestContext
     /// </summary>
     private string _placesJson = "[]";
 
-    /// <summary>One kept place, as the server sends it.</summary>
+    /// <summary>
+    /// One kept place, as the server sends it. <paramref name="fromEntry"/> makes it one a task list's
+    /// Location entry made, on <paramref name="fromList"/> - see TaskEntryPlaces.
+    /// </summary>
     private static string OneKeptPlace(
         string name, string colour = "", string priority = "Normal",
-        bool isShared = false, string? sharedBy = null, string accessLevel = "CanEdit")
-        => "[{\"id\":\"" + Guid.NewGuid() + "\",\"name\":\"" + name + "\",\"description\":\"\","
+        bool isShared = false, string? sharedBy = null, string accessLevel = "CanEdit",
+        Guid? fromList = null, Guid? fromEntry = null, Guid? id = null)
+        => "[{\"id\":\"" + (id ?? Guid.NewGuid()) + "\",\"name\":\"" + name + "\",\"description\":\"\","
         + "\"where\":{\"address\":\"Piękna 1\",\"latitude\":52.2,\"longitude\":21.0},"
-        + "\"colour\":\"" + colour + "\",\"priority\":\"" + priority + "\",\"taskListIds\":[],"
+        + "\"colour\":\"" + colour + "\",\"priority\":\"" + priority + "\","
+        + "\"taskListIds\":" + (fromList is null ? "[]" : "[\"" + fromList + "\"]") + ","
         + "\"createdAtUtc\":\"2026-09-10T10:00:00+00:00\",\"updatedAtUtc\":\"2026-09-10T10:00:00+00:00\","
         + "\"isShared\":" + (isShared ? "true" : "false") + ","
         + "\"sharedByUserName\":" + (sharedBy is null ? "null" : "\"" + sharedBy + "\"") + ","
-        + "\"accessLevel\":\"" + accessLevel + "\",\"isSharedWithOthers\":false}]";
+        + "\"accessLevel\":\"" + accessLevel + "\",\"isSharedWithOthers\":false,"
+        + "\"sourceTaskItemId\":" + (fromEntry is null ? "null" : "\"" + fromEntry + "\"") + "}]";
+
+    /// <summary>Several of <see cref="OneKeptPlace"/>'s answers as the one list the server sends.</summary>
+    private static string Together(params string[] places)
+        => "[" + string.Join(",", places.Select(place => place[1..^1])) + "]";
+
+    /// <summary>
+    /// A place a list's Location entry made sits under that list's name, below the ones kept by hand -
+    /// whatever order the server sent them in - so a row is never read as a place somebody chose to keep.
+    /// </summary>
+    [Fact]
+    public void A_place_a_list_made_sits_under_the_lists_name()
+    {
+        GrantLocations();
+        _taskListsJson = OneListWhoseEntryRaisedTheEvent("Moving", "Pick up the keys");
+        _placesJson = Together(
+            OneKeptPlace("The new flat", fromList: TaskListId, fromEntry: TaskItemId),
+            OneKeptPlace("The good bakery"));
+
+        var cut = RenderComponent<MapPage>();
+
+        var section = SectionNamed(cut, "Places you keep");
+        Assert.Equal("Moving", Assert.Single(section.QuerySelectorAll(".map-panel-subheading")).TextContent.Trim());
+        var rows = section.QuerySelectorAll(".map-share-row").Select(row => row.TextContent).ToList();
+        Assert.Equal(2, rows.Count);
+        Assert.Contains("The good bakery", rows[0], StringComparison.Ordinal);
+        Assert.Contains("The new flat", rows[1], StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// And the menu on the list's heading leaves them out - rows and pins together, the places kept by
+    /// hand staying where they are.
+    /// </summary>
+    [Fact]
+    public void The_places_lists_made_can_be_left_out_from_the_lists_menu()
+    {
+        GrantLocations();
+        _taskListsJson = OneListWhoseEntryRaisedTheEvent("Moving", "Pick up the keys");
+        _placesJson = Together(
+            OneKeptPlace("The new flat", fromList: TaskListId, fromEntry: TaskItemId),
+            OneKeptPlace("The good bakery"));
+        var cut = RenderComponent<MapPage>();
+
+        SectionNamed(cut, "Places you keep").QuerySelector(".map-panel-heading-row .overflow-menu-trigger")!.Click();
+        ButtonSaying(cut, "Hide places from tasks").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            var section = SectionNamed(cut, "Places you keep");
+            Assert.DoesNotContain("The new flat", section.TextContent, StringComparison.Ordinal);
+            Assert.Contains("The good bakery", section.TextContent, StringComparison.Ordinal);
+            Assert.Empty(section.QuerySelectorAll(".map-panel-subheading"));
+        });
+    }
+
+    /// <summary>"Go to the task" on such a place's pin opens the list it came from.</summary>
+    [Fact]
+    public async Task Go_to_the_task_opens_the_list_the_place_came_from()
+    {
+        GrantLocations();
+        var placeId = Guid.NewGuid();
+        _taskListsJson = OneListWhoseEntryRaisedTheEvent("Moving", "Pick up the keys");
+        _placesJson = OneKeptPlace("The new flat", fromList: TaskListId, fromEntry: TaskItemId, id: placeId);
+        var cut = RenderComponent<MapPage>();
+
+        await cut.InvokeAsync(() => cut.Instance.OnPinOpenTask("place:" + placeId));
+
+        Assert.EndsWith($"/tasks/{TaskListId}", Services.GetRequiredService<NavigationManager>().Uri, StringComparison.Ordinal);
+    }
 
     /// <summary>
     /// A place somebody handed over says who from, so a row on this list is not read as one the reader
@@ -955,7 +1029,7 @@ public sealed class MapPageTests : OrbitTestContext
         _placesJson = OneKeptPlace("Their bakery", isShared: true, sharedBy: "Anna", accessLevel: "ReadOnly");
         var cut = RenderComponent<MapPage>();
 
-        SectionNamed(cut, "Places you keep").QuerySelector(".overflow-menu-trigger")!.Click();
+        SectionNamed(cut, "Places you keep").QuerySelector(".map-share-row .overflow-menu-trigger")!.Click();
 
         var entries = cut.FindAll(".overflow-menu-dropdown button").Select(button => button.TextContent.Trim());
         Assert.Contains("View", entries);
@@ -972,7 +1046,7 @@ public sealed class MapPageTests : OrbitTestContext
         _placesJson = OneKeptPlace("The good bakery");
         var cut = RenderComponent<MapPage>();
 
-        SectionNamed(cut, "Places you keep").QuerySelector(".overflow-menu-trigger")!.Click();
+        SectionNamed(cut, "Places you keep").QuerySelector(".map-share-row .overflow-menu-trigger")!.Click();
         cut.FindAll(".overflow-menu-dropdown button").First(button => button.TextContent.Trim() == "Share").Click();
 
         // The panel itself, on the place that was pressed. Which contacts it offers is its own test -

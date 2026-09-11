@@ -110,7 +110,7 @@ function drawMarkers(map, points, dotNetHelper) {
 /// somebody typed. textContent is what makes those text rather than markup, and it is also what lets the
 /// button carry a real click handler instead of an inline one.
 function popupFor(point, dotNetHelper) {
-    if (!point.label && !point.canNavigate && !point.canPlan) {
+    if (!point.label && !point.canNavigate && !point.canPlan && !point.openTaskLabel) {
         return null;
     }
 
@@ -167,6 +167,18 @@ function popupFor(point, dotNetHelper) {
             dotNetHelper.invokeMethodAsync('OnPinRoute', point.key ?? '');
         });
         panel.appendChild(route);
+    }
+
+    // The list a place came from, for a place a task list's entry made - see MapPage.OnPinOpenTask.
+    if (point.openTaskLabel && dotNetHelper) {
+        const openTask = document.createElement('button');
+        openTask.type = 'button';
+        openTask.className = 'map-popup-navigate';
+        openTask.textContent = point.openTaskLabel;
+        openTask.addEventListener('click', () => {
+            dotNetHelper.invokeMethodAsync('OnPinOpenTask', point.key ?? '');
+        });
+        panel.appendChild(openTask);
     }
 
     return panel;
