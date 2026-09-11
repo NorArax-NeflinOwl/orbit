@@ -281,10 +281,109 @@ public sealed class AccountScreenTests
 
         await screen.ChangePasswordCommand.ExecuteAsync(null);
 
-        Assert.True(screen.MessageIsFailure);
-        Assert.True(screen.HasMessage);
+        Assert.True(screen.PasswordMessage.IsFailure);
+        Assert.Equal("The two new passwords don't match.", screen.PasswordMessage.Text);
         // Nothing was sent, so nothing was cleared - what was typed is still there to be corrected.
         Assert.Equal(Chosen, screen.NewPassword);
+    }
+
+    /// <summary>
+    /// Each form answers under its own button. The three shared one line at the top of a long screen, so
+    /// a reader who had scrolled down to the form they pressed saw nothing happen - the reason the
+    /// deletion's refusals moved into the danger card before these did.
+    /// </summary>
+    [Fact]
+    public async Task A_password_refusal_is_said_beside_the_password_form_alone()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+        screen.NewPassword = Chosen;
+        screen.RepeatedNewPassword = Mistyped;
+
+        await screen.ChangePasswordCommand.ExecuteAsync(null);
+
+        Assert.True(screen.PasswordMessage.IsShown);
+        Assert.False(screen.UserNameMessage.IsShown);
+        Assert.False(screen.EmailMessage.IsShown);
+    }
+
+    [Fact]
+    public async Task A_username_change_answers_beside_the_username_form()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+        context.Users.IsUnreachable = true;
+        screen.UserName = "someone-else";
+
+        await screen.ChangeUserNameCommand.ExecuteAsync(null);
+
+        Assert.True(screen.UserNameMessage.IsShown);
+        Assert.True(screen.UserNameMessage.IsFailure);
+        Assert.False(screen.EmailMessage.IsShown);
+        Assert.False(screen.PasswordMessage.IsShown);
+    }
+
+    /// <summary>Both of the email form's buttons answer on its one line - they are two steps of one change.</summary>
+    [Fact]
+    public async Task Both_steps_of_an_email_change_answer_beside_the_email_form()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+        context.Users.IsUnreachable = true;
+
+        screen.NewEmailAddress = "new@orbit.example";
+        await screen.RequestEmailChangeCommand.ExecuteAsync(null);
+        Assert.True(screen.EmailMessage.IsFailure);
+
+        screen.EmailMessage.Say(string.Empty, isFailure: false);
+        screen.EmailConfirmationCode = "123456";
+        await screen.ConfirmEmailChangeCommand.ExecuteAsync(null);
+
+        Assert.True(screen.EmailMessage.IsShown);
+        Assert.True(screen.EmailMessage.IsFailure);
+        Assert.False(screen.UserNameMessage.IsShown);
+        Assert.False(screen.PasswordMessage.IsShown);
+    }
+
+    /// <summary>
+    /// A password change the server never heard of answers beside the password form, and leaves what was
+    /// typed in place to try again.
+    /// </summary>
+    [Fact]
+    public async Task A_password_change_that_could_not_be_sent_answers_beside_the_password_form()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+        context.Users.IsUnreachable = true;
+        screen.CurrentPassword = Current;
+        screen.NewPassword = Chosen;
+        screen.RepeatedNewPassword = Chosen;
+
+        await screen.ChangePasswordCommand.ExecuteAsync(null);
+
+        Assert.True(screen.PasswordMessage.IsFailure);
+        Assert.Equal(Chosen, screen.NewPassword);
+        Assert.False(screen.UserNameMessage.IsShown);
+    }
+
+    /// <summary>
+    /// One form's answer is not written over by another's: with a single shared line, the username
+    /// form's answer replaced the password's refusal while the password boxes still held the mistake.
+    /// </summary>
+    [Fact]
+    public async Task One_forms_answer_leaves_another_forms_answer_standing()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+        screen.NewPassword = Chosen;
+        screen.RepeatedNewPassword = Mistyped;
+        await screen.ChangePasswordCommand.ExecuteAsync(null);
+
+        context.Users.IsUnreachable = true;
+        await screen.ChangeUserNameCommand.ExecuteAsync(null);
+
+        Assert.Equal("The two new passwords don't match.", screen.PasswordMessage.Text);
+        Assert.True(screen.UserNameMessage.IsShown);
     }
 
     /// <summary>

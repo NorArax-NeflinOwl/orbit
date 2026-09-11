@@ -252,14 +252,23 @@
                    TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
                    LineBreakMode="WordWrap" />
 
-            <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" LineBreakMode="WordWrap" />
-
+            <!-- Each form below says what became of it under its own button, as the danger card does -
+                 see AccountViewModel.UserNameMessage. They shared one line here, out of sight of a
+                 reader who had scrolled down to the form they pressed. -->
             <VerticalStackLayout Spacing="8" IsEnabled="{Binding Connection.IsMet}" IsVisible="{Binding IsShowingAccount}">
                 <Label Text="{controls:Translate 'Login'}" Style="{StaticResource SectionHeading}" />
                 <!-- See RegisterPage for why this is not the default text keyboard. -->
                 <Entry Placeholder="{controls:Translate 'New username'}" Text="{Binding UserName}" Keyboard="Plain" />
                 <Entry Placeholder="{controls:Translate 'Display name'}" Text="{Binding DisplayName}" />
                 <Button Text="{controls:Translate 'Change username'}" Command="{Binding ChangeUserNameCommand}" />
+                <Label Text="{Binding UserNameMessage.Text}" IsVisible="{Binding UserNameMessage.IsShown}"
+                       FontSize="12" LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}">
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding UserNameMessage.IsFailure}" Value="True">
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
             </VerticalStackLayout>
 
             <VerticalStackLayout Spacing="8" IsEnabled="{Binding Connection.IsMet}" IsVisible="{Binding IsShowingAccount}">
@@ -273,6 +282,15 @@
                 <Button Text="{controls:Translate 'Send confirmation code'}" Command="{Binding RequestEmailChangeCommand}" />
                 <Entry Placeholder="{controls:Translate 'Confirmation code'}" Text="{Binding EmailConfirmationCode}" Keyboard="Numeric" />
                 <Button Text="{controls:Translate 'Confirm new address'}" Command="{Binding ConfirmEmailChangeCommand}" />
+                <!-- One line for both buttons: they are two steps of the same change. -->
+                <Label Text="{Binding EmailMessage.Text}" IsVisible="{Binding EmailMessage.IsShown}"
+                       FontSize="12" LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}">
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding EmailMessage.IsFailure}" Value="True">
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
             </VerticalStackLayout>
 
             <!-- What this phone hands to Google, which is a different question from what the account is
@@ -319,6 +337,14 @@
                 <Entry Placeholder="{controls:Translate 'Repeat new password'}" Text="{Binding RepeatedNewPassword}"
                        IsPassword="True" />
                 <Button Text="{controls:Translate 'Change password'}" Command="{Binding ChangePasswordCommand}" />
+                <Label Text="{Binding PasswordMessage.Text}" IsVisible="{Binding PasswordMessage.IsShown}"
+                       FontSize="12" LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}">
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding PasswordMessage.IsFailure}" Value="True">
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
                 <Button Text="{controls:Translate 'Chat key'}" Command="{Binding GoToChatKeyCommand}"
                         HorizontalOptions="Start" Style="{StaticResource LinkButton}" />
             </VerticalStackLayout>

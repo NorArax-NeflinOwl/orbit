@@ -732,7 +732,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   2026-09-11 - it deletes on the platform prompt alone. Also the phone's own to build: a field bound in
   `AccountViewModel` beside `RequiresPasswordToDelete`, checked against the account it loaded.
 
-- **The phone account screen's other forms answer at the top** (noticed 2026-09-11, while folding that
+- ~~**The phone account screen's other forms answer at the top**~~ Fixed 2026-09-11: each form says what
+  became of it under its own button (`AccountViewModel.UserNameMessage`, `EmailMessage`,
+  `PasswordMessage`, each a `FormMessage`), in the accent colour or the danger colour on a refusal, and the
+  shared `Message` line is gone (needs the rebuilt APK). As noticed (2026-09-11, while folding that
   screen's section sentences). Its own subtitle, the other leftover noticed then, is behind the bar's "?"
   since the same day (`NavigationBar.Description` in `AccountPage.xaml`). The
   username, email and password forms still report into the one `Message` line at the top of the screen,

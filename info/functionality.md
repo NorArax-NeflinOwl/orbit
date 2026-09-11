@@ -71,7 +71,9 @@ the page before its platform prompt and again by `DeleteAccountCommand`): the Go
 where the deployment offers Google to the app (`ConfirmsWithGoogle`: Delete asks Google again after the
 prompt and sends the fresh token; backing out sends nothing), the typed address or login where it does
 not - checked against the account the screen read, never its own login box - and no request before the
-account has loaded. A refusal is said inside the danger card, where the button is.
+account has loaded. A refusal is said inside the danger card, where the button is - and so is every
+other form's answer on that screen: the username, email and password forms each have their own line
+under their button (`FormMessage`), rather than the one line at the top of the screen they shared.
 One the server gives an account that had no password when the screen read it makes the screen read the
 account again, so the password field appears.
 
