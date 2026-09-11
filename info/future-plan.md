@@ -642,8 +642,8 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 - **A few sentences under a control, rather than under a title, were left in view on the web.** The
   restock switches' three `<p class="field-hint">` lines in `InventoryEditor.razor` and the one in
-  `GenerateInventoryOverlay.razor` change with the switch they follow, and have no CSS rule at all - the
-  class was never styled, so they render as body-size paragraphs. Also kept: the two lines under the
+  `GenerateInventoryOverlay.razor` change with the switch they follow. They had no CSS rule at all and
+  rendered as body-size paragraphs until 2026-09-11, when `p.field-hint` was given the small print's style. Also kept: the two lines under the
   claim buttons on `SharedItemPage.razor`, `ShareLinkButton`'s note once a link exists, the unknown-sources
   note on `Download.razor`, `FeatureLocked`'s explanation and `ChatPasswordGate`'s. Each either describes
   a live state or is the only thing on its screen; folding them is a judgement a later pass may still

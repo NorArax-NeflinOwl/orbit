@@ -5393,6 +5393,17 @@ input.note-editor-title {
     color: var(--text-secondary);
 }
 
+/* A sentence under a control that changes with how it is set - what a restock switch will do, that a
+   group goes with the last person out of it. Small print like .form-hint: it was never given a rule of
+   its own and rendered as body text as loud as the form it explains. Not behind FieldHint's "?", since
+   what it says depends on the control's state right now. The element is named so FieldHint's own
+   .field-hint-* classes cannot be caught by it. */
+p.field-hint {
+    margin: 4px 0 0;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+}
+
 /* Delete sits with Save and Cancel but reads as the one that takes something away
    (CalendarEventEditor.razor). */
 .form-actions-danger {
