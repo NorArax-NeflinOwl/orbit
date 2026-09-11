@@ -65,6 +65,14 @@ The server still accepts the empty password from a passwordless account that sen
 installed phones send exactly that - requiring the token is the last step, in [Future Plan](future-plan.md).
 Options also refuses to delete while the account has not loaded, rather than guessing it needs nothing.
 
+The phone's account screen does the same since 2026-09-11 (`AccountViewModel.IsReadyToDelete`, asked by
+the page before its platform prompt and again by `DeleteAccountCommand`): the Google-linked password hint,
+"Forgot your password?" to the reset screen sign-in also offers, the typed address or login for an account
+without a password - checked against the account the screen read, never its own login box - and no
+request before the account has loaded. A refusal is said inside the danger card, where the button is.
+One the server gives an account that had no password when the screen read it makes the screen read the
+account again, so the password field appears.
+
 Both sign-in forms listen for `input` as well as `change`, and neither uses `@bind`, which can only be
 told about one of the two. A password manager fills a box without anybody typing in it: some raise one
 event, some the other, some neither until the field is touched — so a form bound to a single event
@@ -1352,8 +1360,13 @@ stays in the file beside the opened words.
 - **Older files still open.** `Places` is defaulted and last, so the archive's version stays 1: a file
   without it reads as an account that kept no places, and one with it imports into an older Orbit, which
   reads past the field.
-- **The phone does not offer it yet.** Its export empties places (`ExportChoice.Narrow`), and its import
-  sends a file's private places closed, like the browser's.
+- **The phone offers it the same way** (2026-09-11). The account screen's export has a Places switch that
+  starts off (`ExportChoice.IncludesPlaces`), the same warning beside it while it is on, and
+  `TransferClient.OpenPlacesAsync` opens each sealed place with the key `LocalPlaceRepository` opens the
+  map's pins with, after narrowing, so an export without places never unlocks it. A place the phone
+  cannot open - no key on this device, or one sealed under a key pair since replaced - goes out empty and
+  is counted in a line under the result. Its import sends a file's private places closed, like the
+  browser's, and its result names all five counts.
 
 ## Private notes and task lists
 

@@ -85,6 +85,13 @@ public partial class AccountPage : ContentPage
 	/// </summary>
 	private async void OnDeleteAccountClicked(object? sender, EventArgs e)
 	{
+		// Asked first, so the prompt is never shown for a deletion that would be refused anyway - the
+		// password missing, or the address not typed. The view model says why on screen.
+		if (!_viewModel.IsReadyToDelete())
+		{
+			return;
+		}
+
 		var confirmed = await DisplayAlertAsync(
 			_translations["Delete account"],
 			_translations["Delete your account? This permanently deletes everything - notes, tasks, calendar events, inventory, and chat history. This cannot be undone."],

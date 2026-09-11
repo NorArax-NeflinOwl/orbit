@@ -118,8 +118,6 @@ public static class PolishTranslations
         ["This errand's product needs an amount."] = "Produkt tego sprawunku potrzebuje ilości.",
         ["What Orbit reports about itself. Kept on this device."] =
             "Co Orbit mówi sam o sobie. Trzymane na tym urządzeniu.",
-        ["Downloads what you choose below as one file. Things shared with you are left out, and a private item travels sealed."] =
-            "Pobiera to, co wybierzesz poniżej, jako jeden plik. Rzeczy udostępnione tobie są pomijane, a element prywatny podróżuje zapieczętowany.",
         ["{0}, what you were sent here for"] = "{0} - to, po co tu przyszedłeś",
         ["Can this be done?"] = "Czy da się to wykonać?",
         ["Nothing due in this period."] = "Nic z terminem w tym okresie.",
@@ -1111,7 +1109,6 @@ public static class PolishTranslations
         ["Change password"] = "Zmień hasło",
         ["Email verification"] = "Potwierdzenie adresu e-mail",
         ["Delete account"] = "Usuń konto",
-        ["Your account has been deleted."] = "Twoje konto zostało usunięte.",
         ["Disconnect"] = "Odłącz",
         ["Push notifications"] = "Powiadomienia push",
         ["Allow mobile notification"] = "Zezwalaj na dymek powiadomienia",
@@ -1247,6 +1244,9 @@ public static class PolishTranslations
             "Twoje konto jeszcze się nie wczytało. Odśwież stronę i spróbuj ponownie.",
         ["This account has a password now - reload the page and enter it."] =
             "To konto ma teraz hasło — odśwież stronę i je wpisz.",
+        ["Your account hasn't loaded yet. Open this screen again and try again."] =
+            "Twoje konto jeszcze się nie wczytało. Otwórz ten ekran ponownie i spróbuj jeszcze raz.",
+        ["This account has a password now - enter it."] = "To konto ma teraz hasło — wpisz je.",
         ["Couldn't change your password. Try again."] = "Nie udało się zmienić hasła. Spróbuj ponownie.",
         ["That code isn't valid any more. Request a new one."] = "Ten kod stracił ważność. Poproś o nowy.",
         ["Couldn't send the code. Try again."] = "Nie udało się wysłać kodu. Spróbuj ponownie.",
@@ -1281,16 +1281,14 @@ public static class PolishTranslations
         ["That file didn't contain an Orbit export."] = "Ten plik nie zawiera eksportu z Orbita.",
         ["Orbit couldn't read that file. It may have been written by a different version."] =
             "Orbit nie potrafi odczytać tego pliku. Mógł go zapisać inna wersja aplikacji.",
-        ["Exported {0} notes, {1} task lists, {2} events and {3} inventories."] =
-            "Wyeksportowano: notatki ({0}), listy zadań ({1}), wydarzenia ({2}), magazyny ({3}).",
-        ["Imported {0} notes, {1} task lists, {2} events and {3} inventories."] =
-            "Zaimportowano: notatki ({0}), listy zadań ({1}), wydarzenia ({2}), magazyny ({3}).",
         ["Exported {0} notes, {1} task lists, {2} events, {3} inventories and {4} places."] =
             "Wyeksportowano: notatki ({0}), listy zadań ({1}), wydarzenia ({2}), magazyny ({3}), miejsca ({4}).",
         ["Imported {0} notes, {1} task lists, {2} events, {3} inventories and {4} places."] =
             "Zaimportowano: notatki ({0}), listy zadań ({1}), wydarzenia ({2}), magazyny ({3}), miejsca ({4}).",
         ["{0} private places couldn't be opened in this browser and were written without their content."] =
             "Nie udało się odszyfrować w tej przeglądarce prywatnych miejsc ({0}) — trafiły do pliku bez swojej treści.",
+        ["{0} private places couldn't be opened on this phone and were written without their content."] =
+            "Nie udało się odszyfrować na tym telefonie prywatnych miejsc ({0}) — trafiły do pliku bez swojej treści.",
         ["That didn't work. Reload the group and try again."] = "Nie udało się. Odśwież grupę i spróbuj ponownie.",
         ["That message is no longer yours to delete."] = "Tej wiadomości nie możesz już usunąć.",
         ["Something went wrong. Try again."] = "Coś poszło nie tak. Spróbuj ponownie.",
