@@ -75,9 +75,11 @@ is pressable as of 2026-09-09**, on this screen and on Orbit.Web's own entry pag
 kept it read-only ("the list it is on is where it can be ticked off") is gone, because the one screen
 about an entry was the one place the entry could not be finished. It writes to this phone and queues
 from there, and says under the entry when a list shared to read refuses it or the save is still waiting
-to go out. Still not built, and still not invented: the note field, "Move to another list…",
-"Duplicate", "Delete item", and the position in the list - **nothing hands this screen the list to
-count within**, so "2 of 5" has no source.
+to go out. **The position in the list is on the foot line as of 2026-09-11** ("2 of 5", on the right of
+the list's name): the screen reads the whole list to find the entry in, so the count was there all
+along. Still not built, and still not invented: the note field, "Move to another list…", "Duplicate"
+and "Delete item" - Orbit.Web's own entry page carries the same two-way-out menu this one does, so
+adding them here alone would make the two clients answer different questions, and that is a decision.
 
 ***Walked on the device on 2026-09-09***, and it reads as drawn. Getting to it used to be the awkward
 part: it opened from the calendar only for a deadline that `IsSomewhere`

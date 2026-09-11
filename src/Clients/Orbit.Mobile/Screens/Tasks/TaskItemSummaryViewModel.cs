@@ -75,6 +75,13 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
     [ObservableProperty]
     private string _taskListTitle = string.Empty;
 
+    /// <summary>
+    /// How far down its list the entry stands - "2 of 5", which is what the design's foot line says on
+    /// the right. Counted from the list this screen already reads to find the entry in.
+    /// </summary>
+    [ObservableProperty]
+    private string _position = string.Empty;
+
     /// <summary>Already in the reader's calendar, or "no date set" - the entry may have lost its date.</summary>
     [ObservableProperty]
     private string _when = string.Empty;
@@ -131,6 +138,10 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
         }
 
         TaskListTitle = taskList.Title;
+        Position = _translations.Format(
+            "{0} of {1}",
+            (taskList.Items.ToList().FindIndex(candidate => candidate.Id == _itemId) + 1).ToString(_translations.DisplayCulture),
+            taskList.Items.Count.ToString(_translations.DisplayCulture));
         Description = item.Description;
         IsCompleted = item.IsCompleted;
         IsFailed = item.IsFailed;

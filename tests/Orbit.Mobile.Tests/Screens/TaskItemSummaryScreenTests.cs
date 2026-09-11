@@ -39,6 +39,21 @@ public sealed class TaskItemSummaryScreenTests
         Assert.False(screen.IsCompleted);
     }
 
+    /// <summary>
+    /// How far down its list the entry stands, as the design's foot line says it - an entry read away
+    /// from its list still says where on it it is.
+    /// </summary>
+    [Fact]
+    public async Task It_says_where_on_its_list_the_entry_stands()
+    {
+        using var context = new ScreenContext();
+        var opened = await context.AddEntryAsync("Collect the parcel", entriesBefore: 1, entriesAfter: 3);
+
+        var screen = await context.OpenAsync(opened);
+
+        Assert.Equal("2 of 5", screen.Position);
+    }
+
     /// <summary>An entry can lose its date and still be looked at, which is not the same as having none said.</summary>
     [Fact]
     public async Task An_entry_with_no_date_says_so()
@@ -344,9 +359,11 @@ public sealed class TaskItemSummaryScreenTests
         /// The list this entry stands for, by the server id such a tie is stored as - an entry with one
         /// is done when that list is, and is not ticked here at all.
         /// </param>
+        /// <param name="entriesBefore">Other entries on the same list above this one.</param>
+        /// <param name="entriesAfter">Other entries on the same list below this one.</param>
         public async Task<(Guid TaskListLocalId, Guid ItemId)> AddEntryAsync(
             string description, DateTime? due = null, string at = "", Guid? tiedTo = null,
-            bool isCompleted = false, Guid? standingFor = null)
+            bool isCompleted = false, Guid? standingFor = null, int entriesBefore = 0, int entriesAfter = 0)
         {
             var itemId = Guid.NewGuid();
             var dueUtc = due is { } localDue
@@ -355,13 +372,18 @@ public sealed class TaskItemSummaryScreenTests
 
             var created = await _taskLists.CreateAsync("Errands",
             [
+                .. Enumerable.Range(0, entriesBefore).Select(index => AnotherEntry($"Above {index}")),
                 new TaskItemDto(
                     itemId, description, dueUtc, isCompleted, standingFor, "None", false, "None", new TimeOnly(9, 0),
-                    "Checklist", at, tiedTo)
+                    "Checklist", at, tiedTo),
+                .. Enumerable.Range(0, entriesAfter).Select(index => AnotherEntry($"Below {index}"))
             ]);
 
             return (created.LocalId, itemId);
         }
+
+        private static TaskItemDto AnotherEntry(string description)
+            => new(Guid.NewGuid(), description, null, false, null, "None", false, "None", new TimeOnly(9, 0));
 
         /// <summary>Another list of this account's, already known to the server - what an entry can stand for.</summary>
         public async Task<Guid> AddTaskListAsync(string title)

@@ -112,13 +112,14 @@
                  the entry is what the reader came for and its own name is in the bar, so the list it
                  came from is a footnote about where it lives.
 
-                 The design puts its position in the list on the right of the same line ("2 of 5"). This
-                 screen does not know it - it is opened from the calendar, one entry at a time, and
-                 nothing hands it the list to count within. -->
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,6,0,0">
+                 Its position in the list goes on the right of the same line ("2 of 5"), as the design
+                 draws it - counted from the list the screen reads to find the entry in. -->
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="0,6,0,0">
                 <Label Grid.Column="0" Text="{Binding TaskListTitle}"
                        Style="{StaticResource ItemCardFooter}" VerticalOptions="Center" />
                 <BoxView Grid.Column="1" Style="{StaticResource Hairline}" VerticalOptions="Center" />
+                <Label Grid.Column="2" Text="{Binding Position}"
+                       Style="{StaticResource ItemCardFooter}" VerticalOptions="Center" />
             </Grid>
 
         </VerticalStackLayout>

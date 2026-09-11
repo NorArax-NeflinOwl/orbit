@@ -482,6 +482,8 @@ public static class PolishTranslations
         ["Nothing left today"] = "Nic już na dziś",
         ["Open Orbit to see your day"] = "Otwórz Orbita, żeby zobaczyć swój dzień",
         ["{0} more"] = "jeszcze {0}",
+        // Where an entry stands on its list, in the foot of its own screen - see TaskItemSummaryViewModel.
+        ["{0} of {1}"] = "{0} z {1}",
         ["Saved, but that place could not be found - use your location to keep a point for it."] =
             "Zapisano, ale nie udało się znaleźć tego miejsca - użyj swojej lokalizacji, żeby zapisać punkt.",
         ["Saved, but that place could not be found - open the map and point at it to keep it."] =
