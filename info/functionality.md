@@ -2377,8 +2377,12 @@ and clearing the filter again finds the row still marked.
 **The phone describes one the same way, one entry at a time.** An Inventory entry on a list measured
 against a storage opens the product's fields with no name box (`ShelfProductFor`,
 `InventoryItemEditor.ForSomethingNotOnTheShelfYet`), says above them which shelf it will go on, and
-saving the entry puts it there - a shelf already holding something by that name is what the entry was
-asking for, so nothing is added twice (`ShelfCorrection.ApplyAsync`). The same fields correct a product
+saving the entry sends what it describes for the server to put there (`ProductEntryPlacement`) - a shelf
+already holding something by that name is what the entry was asking for, so nothing is added twice;
+`ShelfCorrection.ApplyAsync` then pulls the shelf to show the row. Until the server has placed it - saved
+offline, or with the shelf declined - the entry carries its product (`TaskItemDto.Product`), and opened
+again it shows that rather than the defaults (`TaskItemShelfProduct.ForSomethingNotOnTheShelfYet`'s
+`described`). The same fields correct a product
 the entry is already linked to, which is all the phone could do before: the difference is whether the
 form is filling in something that has an id yet, and the entry's own words are the name either way. It
 happens on the entry's save rather than the list's, because that is the moment this screen has. The

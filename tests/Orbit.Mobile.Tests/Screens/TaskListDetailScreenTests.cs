@@ -1042,6 +1042,35 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// Until the server has placed it, an entry saved for the shelf carries its own product
+    /// (TaskItemDto.Product) - and opened again meanwhile, the form showed the defaults instead, which
+    /// the next save would have sent over what had been typed. Saved here with the server out of reach,
+    /// which is what leaves it unplaced on a phone.
+    /// </summary>
+    [Fact]
+    public async Task An_errand_the_server_has_not_placed_yet_reopens_on_what_it_describes()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        await context.MeasureAgainstAnEmptyShelfAsync(screen, "Kitchen");
+        await context.AddErrandForSomethingNotOnTheShelfAsync(screen, "Coffee");
+        context.Server.IsUnreachable = true;
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Shelf!.Product.Quantity = "1";
+        screen.BeingEdited.Shelf.Product.MinimumQuantity = "4";
+        screen.BeingEdited.Shelf.Product.ProductType = "ground";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        var reopened = screen.BeingEdited!;
+        Assert.True(reopened.IsDescribingSomethingNew);
+        Assert.Equal("1", reopened.Shelf!.Product.Quantity);
+        Assert.Equal("4", reopened.Shelf.Product.MinimumQuantity);
+        Assert.Equal("ground", reopened.Shelf.Product.ProductType);
+    }
+
+    /// <summary>
     /// A list with no storage behind it can still say what it wants, which the phone could not: an
     /// Inventory entry there named a thing and nothing else, so an amount or a unit somebody meant was
     /// lost to the shelf "Generate inventory" would later build. The entry keeps it (TaskItem.Product)

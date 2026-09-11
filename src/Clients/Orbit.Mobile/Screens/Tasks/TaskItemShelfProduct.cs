@@ -1,4 +1,5 @@
 using Orbit.Contracts.Inventories;
+using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Inventory;
 
@@ -36,11 +37,17 @@ public sealed record TaskItemShelfProduct(
     /// The defaults are the ones generating a storage from a list already uses, and the same two
     /// Orbit.Web's form starts on: one of the thing wanted, none of it there yet, counted in pieces.
     /// Two ways onto one shelf should not disagree about what an entry asking for something means.
+    ///
+    /// <paramref name="described"/> is what the entry already says about it, or null for one nobody has
+    /// described. An entry saved while the server could not place it - offline, or refused - carries its
+    /// product until it is placed (TaskItemDto.Product); opened again meanwhile, the form shows that
+    /// rather than the defaults, which the next save would otherwise have sent over it.
     /// </summary>
     public static TaskItemShelfProduct ForSomethingNotOnTheShelfYet(
-        Guid inventoryLocalId, string inventoryName, Translations translations)
+        Guid inventoryLocalId, string inventoryName, Translations translations,
+        TaskItemProductDto? described = null)
         => new(
             inventoryLocalId,
             inventoryName,
-            InventoryItemEditor.ForSomethingNotOnTheShelfYet(translations).AskedFromATaskEntry());
+            InventoryItemEditor.ForSomethingAListWillAskFor(described, translations));
 }

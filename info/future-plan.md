@@ -847,7 +847,9 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   once per list (`StockRequirementCounter.RequiredBy`). Rare - generation points only its own list's
   entries at the rows it builds - but a hand-made errand on a second list makes both look short.
 
-- **The phone reopens an entry saved offline on a blank product form** until the server has placed it:
+- ~~**The phone reopens an entry saved offline on a blank product form**~~ Fixed 2026-09-11:
+  `ShelfForSomethingNew` hands the entry's own product to `TaskItemShelfProduct.ForSomethingNotOnTheShelfYet`,
+  which fills the form from it (needs the rebuilt APK). As noticed: until the server has placed it,
   `TaskListDetailViewModel.ShelfForSomethingNew` does not fill the form from `TaskItemDto.Product`, which
   such an entry now carries. Not new - the form was blank before too - but the answer is on the entry now.
 
