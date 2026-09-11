@@ -378,8 +378,12 @@ public static partial class NoteSurfaceEdits
     }
 
     /// <summary>
-    /// A press on a line's box: the next of its three answers (see <see cref="Ticks.Next"/>). The
-    /// selection stays as it was - pressing a box is not moving the caret.
+    /// A press on a line's box: the next of its three answers (see <see cref="Ticks.Next"/>). When the
+    /// line is one of several checklist lines inside the selection (see
+    /// <see cref="SelectedChecklistLines"/>), every one of them takes that same answer - the pressed line
+    /// decides, so a mixed set ends up all alike rather than each stepping on from where it was. A box
+    /// outside the selection answers only for itself. The selection stays as it was - pressing a box is
+    /// not moving the caret - so a second press carries on with the same lines.
     /// </summary>
     public static SurfaceState? Cycle(SurfaceState state, int pressedLine)
     {
@@ -391,9 +395,37 @@ public static partial class NoteSurfaceEdits
 
         var pressed = state.Lines[pressedLine];
         var next = Ticks.Read(pressed.IsChecked, pressed.IsFailed).Next();
+        var selected = SelectedChecklistLines(state);
+        IEnumerable<int> answering = selected.Contains(pressedLine) ? selected : [pressedLine];
+
         var lines = state.Lines.ToList();
-        lines[pressedLine] = pressed with { IsChecked = next.IsCompleted(), IsFailed = next.IsFailed() };
+        foreach (var index in answering)
+        {
+            lines[index] = lines[index] with { IsChecked = next.IsCompleted(), IsFailed = next.IsFailed() };
+        }
+
         return state with { Lines = lines };
+    }
+
+    /// <summary>
+    /// The checklist lines a selection covers, when there are at least two of them - which is when a
+    /// press on one of their boxes answers for all of them, and when the surface rings those boxes to
+    /// say so. One box on its own is just a line with the caret in it, and a collapsed caret selects
+    /// nothing.
+    /// </summary>
+    public static IReadOnlyList<int> SelectedChecklistLines(SurfaceState state)
+    {
+        state = state.Normalized();
+        if (state.IsCollapsed)
+        {
+            return [];
+        }
+
+        var (first, last) = state.SelectedLines;
+        var checklist = Enumerable.Range(first, last - first + 1)
+            .Where(index => state.Lines[index].IsChecklistItem)
+            .ToList();
+        return checklist.Count >= 2 ? checklist : [];
     }
 
     private static bool SpansLines(SurfaceState state) => state.Start.Line != state.End.Line;

@@ -8,6 +8,7 @@
 @using Orbit.Web.Services
 @implements IAsyncDisposable
 @inject IJSRuntime JSRuntime
+@inject Translations T
 
 @* A surface nobody may write to must not take writing. A disabled <fieldset> around this does nothing:
    it disables form controls, and a contenteditable div is not one - which is how a note held read-only,
@@ -42,6 +43,14 @@
     [Parameter]
     public bool TakesTab { get; set; }
 
+    /// <summary>
+    /// How many boxes the selection covers while a press on one of them would answer for all of them -
+    /// two or more - and zero once it does not; see NoteSurfaceEdits.SelectedChecklistLines. For a page
+    /// that says what that press will do.
+    /// </summary>
+    [Parameter]
+    public EventCallback<int> SelectedTicksChanged { get; set; }
+
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
@@ -67,7 +76,14 @@
         _dotNetRef = DotNetObjectReference.Create(this);
         _history.Reset(SurfaceState.CaretAt(Lines, new SurfacePoint(0, 0)).Normalized());
         var initialLinesJson = JsonSerializer.Serialize(Lines, JsonOptions);
-        await _module.InvokeVoidAsync("initialize", _containerRef, _dotNetRef, initialLinesJson, new { takesTab = TakesTab });
+        // Each box's tooltip: how several of them are made to answer together, which nothing else on
+        // the surface would suggest - see NoteSurfaceEdits.Cycle.
+        var options = new
+        {
+            takesTab = TakesTab,
+            tickHint = T["Shift+click to select several lines - ticking one selected box then ticks them all."]
+        };
+        await _module.InvokeVoidAsync("initialize", _containerRef, _dotNetRef, initialLinesJson, options);
     }
 
     /// <summary>
@@ -129,6 +145,22 @@
         Lines = after.Lines;
         return JsonSerializer.Serialize(after, JsonOptions);
     }
+
+    /// <summary>
+    /// The lines whose boxes a press would answer for together, for the surface to ring - see
+    /// NoteSurfaceEdits.SelectedChecklistLines. Asked synchronously on every change of a selection that
+    /// is more than a caret, so the rings follow a drag while it is being made.
+    /// </summary>
+    [JSInvokable]
+    public int[] SelectedChecklistLines(string requestJson)
+    {
+        var request = JsonSerializer.Deserialize<SurfaceRequest>(requestJson, JsonOptions);
+        return request is null ? [] : [.. NoteSurfaceEdits.SelectedChecklistLines(request.State())];
+    }
+
+    /// <summary>Told when the number of ringed boxes changes - see <see cref="SelectedTicksChanged"/>.</summary>
+    [JSInvokable]
+    public Task OnSelectedTicksChanged(int count) => SelectedTicksChanged.InvokeAsync(count);
 
     /// <summary>An edit C# makes, recorded as a step of the kind it is - see SurfaceEditKind.</summary>
     private SurfaceState? Apply(SurfaceRequest request)

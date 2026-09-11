@@ -1054,6 +1054,10 @@ public static class PolishTranslations
         ["Table"] = "Tabela",
         ["Attachment"] = "Załącznik",
         ["{0}: not implemented yet."] = "{0}: jeszcze niezaimplementowane.",
+        // Several boxes selected in a note's writing - see NoteSurfaceEdits.Cycle. The first is the
+        // bubble over the tools while they are selected, the second each box's own tooltip.
+        ["{0} selected items - ticking one ticks them all."] = "Zaznaczone pozycje: {0} - odhaczenie jednej odhacza wszystkie.",
+        ["Shift+click to select several lines - ticking one selected box then ticks them all."] = "Shift+klik zaznacza kilka linii - odhaczenie jednego zaznaczonego pola odhacza wtedy wszystkie.",
         ["This note was shared by"] = "Tę notatkę udostępnił",
         ["Add item"] = "Dodaj pozycję",
         ["Item description"] = "Opis pozycji",

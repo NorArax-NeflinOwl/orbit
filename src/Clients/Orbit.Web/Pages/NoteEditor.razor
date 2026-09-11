@@ -90,6 +90,7 @@ else
                 <ChecklistTextEditor @ref="_checklistEditorRef" CssClass="note-editor-content note-editor-titled note-editor-page"
                                      IsReadOnly="@(_isSharedReadOnly || _lockedByUserName is not null)"
                                      TakesTab="true"
+                                     SelectedTicksChanged="count => _selectedTicks = count"
                                      @bind-Lines="_formModel.Lines" />
 
                 @* Over the corner of the writing rather than above it: a toolbar at the top of a note
@@ -100,7 +101,9 @@ else
                 @if (!_isSharedReadOnly && _lockedByUserName is null)
                 {
                     <div class="note-editor-tools">
-                        @if (_toolBeingExplained is { } explained)
+                        @* The same bubble says what a press on one of several selected boxes will do,
+                           while they are selected - see SelectionHint. *@
+                        @if ((_toolBeingExplained ?? SelectionHint) is { } explained)
                         {
                             <span class="note-tool-bubble" role="status">@explained</span>
                         }
@@ -345,6 +348,20 @@ else
     /// nothing, and the row is the row this design draws.
     /// </summary>
     private string? _toolBeingExplained;
+
+    /// <summary>
+    /// How many boxes the selection in the writing covers, when it covers several - see
+    /// ChecklistTextEditor.SelectedTicksChanged. Zero otherwise.
+    /// </summary>
+    private int _selectedTicks;
+
+    /// <summary>
+    /// What a press on one of several selected boxes will do, said while they are selected. The rings
+    /// round the boxes show which ones; this says why - a selection of lines is otherwise only
+    /// highlighted text, and nothing about it suggests the boxes in it now answer together.
+    /// </summary>
+    private string? SelectionHint
+        => _selectedTicks >= 2 ? T.Format("{0} selected items - ticking one ticks them all.", _selectedTicks.ToString()) : null;
 
     private void OnPriorityChosen(ChangeEventArgs args)
         => _formModel.Priority = args.Value?.ToString() is { Length: > 0 } chosen ? chosen : NoteFormModel.NormalPriority;

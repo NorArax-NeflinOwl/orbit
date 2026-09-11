@@ -158,6 +158,37 @@ public sealed class ChecklistTextEditorTests : OrbitTestContext
     }
 
     [Fact]
+    public async Task The_boxes_to_ring_are_the_ones_a_press_would_answer_for_and_the_page_hears_how_many()
+    {
+        var counts = new List<int>();
+        var lines = new[] { Text("Shopping"), Box("milk"), Box("eggs"), Text("then") };
+        var cut = RenderComponent<ChecklistTextEditor>(parameters => parameters
+            .Add(editor => editor.Lines, lines)
+            .Add(editor => editor.SelectedTicksChanged, count => counts.Add(count)));
+
+        var ringed = await cut.InvokeAsync(() => cut.Instance.SelectedChecklistLines(JsonSerializer.Serialize(
+            new { command = "select", lines, anchor = Caret(0, 2), focus = Caret(3, 1) }, Json)));
+        var justACaret = await cut.InvokeAsync(() => cut.Instance.SelectedChecklistLines(JsonSerializer.Serialize(
+            new { command = "select", lines, anchor = Caret(1, 2), focus = Caret(1, 2) }, Json)));
+        await cut.InvokeAsync(() => cut.Instance.OnSelectedTicksChanged(2));
+
+        Assert.Equal([1, 2], ringed);
+        Assert.Empty(justACaret);
+        Assert.Equal([2], counts);
+    }
+
+    [Fact]
+    public void A_press_on_one_of_several_selected_boxes_ticks_them_all()
+    {
+        var lines = new[] { Box("milk"), Box("eggs"), Box("bread") };
+        var cut = Surface(lines);
+
+        Send(cut, new { command = "tick", line = 0, lines, anchor = Caret(0, 0), focus = Caret(1, 4) });
+
+        Assert.Equal([Box("milk") with { IsChecked = true }, Box("eggs") with { IsChecked = true }, Box("bread")], cut.Instance.Lines);
+    }
+
+    [Fact]
     public void Undo_with_nothing_to_undo_answers_nothing()
     {
         var cut = Surface(Text("abc"));

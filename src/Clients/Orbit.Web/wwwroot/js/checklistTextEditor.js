@@ -20,28 +20,31 @@
 
 const instances = new Map();
 
-/// options: { takesTab } - see ChecklistTextEditor.TakesTab.
+/// options: { takesTab, tickHint } - see ChecklistTextEditor.TakesTab, and the tooltip each box carries.
 export function initialize(container, dotNetHelper, initialLinesJson, options) {
-    render(container, normalizeLines(JSON.parse(initialLinesJson)));
-
-    const state = { dotNetHelper, options: options || {}, selectionBefore: null };
+    const state = { dotNetHelper, options: options || {}, selectionBefore: null, pickedCount: 0 };
     instances.set(container, state);
+    render(container, normalizeLines(JSON.parse(initialLinesJson)));
 
     state.onBeforeInput = (event) => onBeforeInput(event, container, state);
     state.onInput = (event) => onInput(event, container, state);
     state.onKeyDown = (event) => onKeyDown(event, container, state);
+    state.onMouseDown = (event) => onMouseDown(event, container);
     state.onClick = (event) => onClick(event, container, state);
     state.onCopy = (event) => onCopy(event, container, state, /* isCut */ false);
     state.onCut = (event) => onCopy(event, container, state, /* isCut */ true);
     state.onPaste = (event) => onPaste(event, container, state);
+    state.onSelectionChange = () => onSelectionChange(container, state);
 
     container.addEventListener('beforeinput', state.onBeforeInput);
     container.addEventListener('input', state.onInput);
     container.addEventListener('keydown', state.onKeyDown);
+    container.addEventListener('mousedown', state.onMouseDown);
     container.addEventListener('click', state.onClick);
     container.addEventListener('copy', state.onCopy);
     container.addEventListener('cut', state.onCut);
     container.addEventListener('paste', state.onPaste);
+    document.addEventListener('selectionchange', state.onSelectionChange);
 }
 
 export function dispose(container) {
@@ -52,10 +55,12 @@ export function dispose(container) {
     container.removeEventListener('beforeinput', state.onBeforeInput);
     container.removeEventListener('input', state.onInput);
     container.removeEventListener('keydown', state.onKeyDown);
+    container.removeEventListener('mousedown', state.onMouseDown);
     container.removeEventListener('click', state.onClick);
     container.removeEventListener('copy', state.onCopy);
     container.removeEventListener('cut', state.onCut);
     container.removeEventListener('paste', state.onPaste);
+    document.removeEventListener('selectionchange', state.onSelectionChange);
     instances.delete(container);
 }
 
@@ -258,24 +263,75 @@ function onInput(event, container, state) {
     notifyChanged(container, state.dotNetHelper);
 }
 
+function tickOf(event) {
+    return event.target.closest ? event.target.closest('.note-line-tick') : null;
+}
+
+/// A box is pressed without the press moving the caret: left to the browser, the mousedown would put
+/// the caret by the box and throw away a selection of lines made for the box to answer for (see
+/// onClick). Shift+click on a box is how that selection is stretched to the box's line.
+function onMouseDown(event, container) {
+    const tick = tickOf(event);
+    if (!tick || !isWritable(container)) {
+        return;
+    }
+
+    event.preventDefault();
+    if (event.shiftKey) {
+        extendSelectionTo(container, tick.closest('.note-line'));
+    }
+}
+
 function onClick(event, container, state) {
-    const tick = event.target.closest ? event.target.closest('.note-line-tick') : null;
+    const tick = tickOf(event);
     if (!tick) {
         return;
     }
 
     // Three answers, one press at a time: nothing, done, given up on - the same cycle the browser's
-    // own TickBox and the phone's CheckCircle follow, see Orbit.Core.Abstractions.TickState.
+    // own TickBox and the phone's CheckCircle follow, see Orbit.Core.Abstractions.TickState. Inside a
+    // selection of several boxes, the answer goes to all of them - NoteSurfaceEdits.Cycle decides.
+    // A Shift+click only selects: see onMouseDown.
     event.preventDefault();
-    if (!isWritable(container)) {
+    if (!isWritable(container) || event.shiftKey) {
         return;
     }
 
     const line = tick.closest('.note-line');
     const answer = ask(container, state, 'tick', { line: Array.prototype.indexOf.call(container.children, line) });
     if (answer) {
-        // Only the box changed, and the caret is wherever the reader left it.
+        // Only boxes changed, and the caret - or the selection - is wherever the reader left it.
         show(container, state, answer, /* placeSelection */ false);
+    }
+}
+
+/// Shift+click on a box: the selection stretches from where it was started to that box's line - to the
+/// line's end when it lies below the start, to its head when above - so the line is inside it. With no
+/// selection on the surface yet, the selection is the box's line.
+function extendSelectionTo(container, line) {
+    const index = Array.prototype.indexOf.call(container.children, line);
+    const current = readSelection(container);
+    const anchor = current.anchor || { line: index, offset: 0 };
+    const below = index > anchor.line || (index === anchor.line && anchor.offset === 0);
+    const focus = below ? { line: index, offset: lineText(line).length } : { line: index, offset: 0 };
+    select(container, anchor, focus);
+}
+
+/// Rings the boxes a press would answer for together, and tells the page how many there are when that
+/// changes. Which boxes they are is C#'s to say (NoteSurfaceEdits.SelectedChecklistLines), the same
+/// rule the press itself follows, so the rings never promise a different set than a press changes.
+function onSelectionChange(container, state) {
+    const selection = window.getSelection();
+    const inside = isWritable(container) && selection && selection.rangeCount > 0 && !selection.isCollapsed
+        && container.contains(selection.anchorNode) && container.contains(selection.focusNode);
+    const picked = inside
+        ? state.dotNetHelper.invokeMethod('SelectedChecklistLines', JSON.stringify({ command: 'select', ...readSurface(container) }))
+        : [];
+
+    Array.from(container.children).forEach((line, index) => line.classList.toggle('note-line-picked', picked.includes(index)));
+    if (picked.length !== state.pickedCount) {
+        state.pickedCount = picked.length;
+        state.dotNetHelper.invokeMethodAsync('OnSelectedTicksChanged', picked.length);
     }
 }
 
@@ -321,7 +377,7 @@ function notifyChanged(container, dotNetHelper) {
 function render(container, lines) {
     container.innerHTML = '';
     for (const line of lines) {
-        container.appendChild(createLineElement(line));
+        container.appendChild(createLineElement(line, tickHintOf(container)));
     }
 }
 
@@ -336,17 +392,18 @@ function draw(container, lines) {
         }
     }
 
+    const hint = tickHintOf(container);
     const existing = Array.from(container.children);
     lines.forEach((line, index) => {
         const element = existing[index];
         if (!element) {
-            container.appendChild(createLineElement(line));
+            container.appendChild(createLineElement(line, hint));
             return;
         }
 
         const tick = element.querySelector('.note-line-tick');
         if (!!tick !== !!line.isChecklistItem || !element.querySelector('.note-line-text')) {
-            element.replaceWith(createLineElement(line));
+            element.replaceWith(createLineElement(line, hint));
             return;
         }
 
@@ -363,11 +420,16 @@ function draw(container, lines) {
     }
 }
 
+function tickHintOf(container) {
+    const state = instances.get(container);
+    return state && state.options.tickHint ? state.options.tickHint : null;
+}
+
 function normalizeLines(lines) {
     return lines && lines.length > 0 ? lines : [{ text: '', isChecklistItem: false, isChecked: false }];
 }
 
-function createLineElement(line) {
+function createLineElement(line, tickHint) {
     const div = document.createElement('div');
     div.className = 'note-line';
 
@@ -382,6 +444,9 @@ function createLineElement(line) {
         tick.contentEditable = 'false';
         tick.setAttribute('role', 'checkbox');
         tick.className = 'tick-box note-line-tick';
+        if (tickHint) {
+            tick.title = tickHint;
+        }
         div.appendChild(tick);
     }
 

@@ -766,6 +766,15 @@ disagree in.
 - **The writing keeps room under its last line** for the tools and three lines more, and the caret's
   line scrolls clear of them (`.note-editor-page`'s padding and `scroll-padding`): the text used to run
   on underneath the tools.
+- **Several boxes answer together** (`NoteSurfaceEdits.Cycle`, `SelectedChecklistLines`). Lines are
+  selected the way text is - a drag, Shift+click in the words, Shift+arrows - and Shift+click on a box
+  stretches the selection to that box's line. A press on a box inside a selection that covers two or
+  more boxes gives every one of them the pressed box's next answer: the pressed box decides, so a mixed
+  set ends up alike rather than each stepping on. A press outside the selection, or with only a caret,
+  is a single press as before, and pressing a box never moves the caret or drops the selection (its
+  `mousedown` is stopped). Found three ways: the boxes a press will change are ringed while selected
+  (`.note-line-picked`), the bubble over the tools says how many are selected and what a press does
+  (`NoteEditor.SelectionHint`), and every box's tooltip says Shift+click selects several.
 - **Undo and redo are the surface's own** (`NoteSurfaceHistory`, kept by `ChecklistTextEditor`):
   Ctrl+Z undoes, Ctrl+Y and Ctrl+Shift+Z redo (Cmd on a Mac), and the browser's own Undo/Redo menu
   entries (`historyUndo`/`historyRedo`) reach the same history. The browser's history is lost here - the

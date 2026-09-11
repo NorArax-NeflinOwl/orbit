@@ -628,6 +628,13 @@ input.note-editor-title {
     margin-top: 0.3em;
 }
 
+/* One of several boxes inside the selection: a press on any of them answers for all of them - see
+   NoteSurfaceEdits.Cycle. Ringed, so which boxes a press will change is plain before it is pressed. */
+.note-line-picked .note-line-tick {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
 /* pre-wrap, so what is typed is what is stored and what is drawn: without it a run of spaces and a tab
    collapse to one space on the screen, and the browser types a no-break space to keep a second space
    visible - which is then saved as that. A tab is a level of indentation (see
