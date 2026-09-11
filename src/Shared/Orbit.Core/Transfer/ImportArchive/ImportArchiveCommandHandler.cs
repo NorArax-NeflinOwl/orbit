@@ -3,6 +3,7 @@ using Orbit.Core.Calendar;
 using Orbit.Core.Inventories;
 using Orbit.Core.Notes;
 using Orbit.Core.Notifications;
+using Orbit.Core.Places;
 using Orbit.Core.Tasks;
 
 namespace Orbit.Core.Transfer.ImportArchive;
@@ -22,19 +23,22 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
     private readonly ICalendarEventRepository _calendarEventRepository;
     private readonly IInventoryRepository _inventoryRepository;
     private readonly IInventoryItemRepository _inventoryItemRepository;
+    private readonly IPlaceRepository _placeRepository;
 
     public ImportArchiveCommandHandler(
         INoteRepository noteRepository,
         ITaskRepository taskRepository,
         ICalendarEventRepository calendarEventRepository,
         IInventoryRepository inventoryRepository,
-        IInventoryItemRepository inventoryItemRepository)
+        IInventoryItemRepository inventoryItemRepository,
+        IPlaceRepository placeRepository)
     {
         _noteRepository = noteRepository;
         _taskRepository = taskRepository;
         _calendarEventRepository = calendarEventRepository;
         _inventoryRepository = inventoryRepository;
         _inventoryItemRepository = inventoryItemRepository;
+        _placeRepository = placeRepository;
     }
 
     public async Task<ImportArchiveResult> HandleAsync(ImportArchiveCommand request, CancellationToken cancellationToken)
@@ -47,11 +51,12 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
         }
 
         var noteCount = await ImportNotesAsync(archive, request.UserId, cancellationToken);
-        var taskListCount = await ImportTaskListsAsync(archive, request.UserId, cancellationToken);
+        var createdTaskListIdsByTitle = await ImportTaskListsAsync(archive, request.UserId, cancellationToken);
         var calendarEventCount = await ImportCalendarEventsAsync(archive, request.UserId, cancellationToken);
         var inventoryCount = await ImportInventoriesAsync(archive, request.UserId, cancellationToken);
+        var placeCount = await ImportPlacesAsync(archive, request.UserId, createdTaskListIdsByTitle, cancellationToken);
 
-        return new ImportArchiveResult(noteCount, taskListCount, calendarEventCount, inventoryCount);
+        return new ImportArchiveResult(noteCount, archive.TaskLists.Count, calendarEventCount, inventoryCount, placeCount);
     }
 
     private async Task<int> ImportNotesAsync(OrbitArchive archive, Guid userId, CancellationToken cancellationToken)
@@ -72,8 +77,11 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
     /// Two passes, because a task item can link to another list: the lists have to exist before anything
     /// can point at them, and the archive carries links by title (see ArchivedTaskItem). A link whose
     /// list didn't come along in the same file is dropped rather than guessed at.
+    ///
+    /// Hands back the lists it made by title, which is how the places imported after it find theirs.
     /// </summary>
-    private async Task<int> ImportTaskListsAsync(OrbitArchive archive, Guid userId, CancellationToken cancellationToken)
+    private async Task<IReadOnlyDictionary<string, Guid>> ImportTaskListsAsync(
+        OrbitArchive archive, Guid userId, CancellationToken cancellationToken)
     {
         var createdIdsByTitle = new Dictionary<string, Guid>(StringComparer.Ordinal);
         var created = new List<TaskList>();
@@ -107,7 +115,7 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
             await _taskRepository.UpdateAsync(taskList, cancellationToken);
         }
 
-        return archive.TaskLists.Count;
+        return createdIdsByTitle;
     }
 
     private async Task<int> ImportCalendarEventsAsync(OrbitArchive archive, Guid userId, CancellationToken cancellationToken)
@@ -160,6 +168,44 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
         }
 
         return archive.Inventories.Count;
+    }
+
+    /// <summary>
+    /// A private place comes back sealed under the half the file carried, the way a private note does:
+    /// readable again in the account that sealed it, and in any other account a place nobody there can
+    /// open. Its opened words are read past - Place stores a sealed place's columns empty whatever it is
+    /// handed, and the clients strip them before sending (see OrbitArchive.WithPrivatePlacesClosed).
+    ///
+    /// One the file calls private but gives no sealed half for is left out and not counted. The server
+    /// cannot seal it, and storing it readable would publish what the file itself says is private -
+    /// Place refuses exactly that pairing, and the importer does not look for a way round it.
+    /// </summary>
+    private async Task<int> ImportPlacesAsync(
+        OrbitArchive archive, Guid userId, IReadOnlyDictionary<string, Guid> createdTaskListIdsByTitle,
+        CancellationToken cancellationToken)
+    {
+        var imported = 0;
+        foreach (var archived in archive.AllPlaces)
+        {
+            var sealedContent = ToPayload(archived.EncryptedContent);
+            if (archived.IsPrivate && sealedContent is null)
+            {
+                continue;
+            }
+
+            var place = Place.Create(
+                userId, archived.Name, archived.Description,
+                new EventLocation(archived.Where.Address, archived.Where.Latitude ?? 0, archived.Where.Longitude ?? 0),
+                archived.Colour, ParsePriority(archived.Priority),
+                [.. archived.TaskListTitles
+                    .Select(title => createdTaskListIdsByTitle.TryGetValue(title, out var taskListId) ? taskListId : (Guid?)null)
+                    .OfType<Guid>()],
+                archived.IsPrivate, sealedContent);
+            await _placeRepository.AddAsync(place, cancellationToken);
+            imported++;
+        }
+
+        return imported;
     }
 
     private static TaskItem ToTaskItem(ArchivedTaskItem item, IReadOnlyDictionary<string, Guid> createdIdsByTitle)

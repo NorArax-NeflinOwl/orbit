@@ -2,6 +2,7 @@ using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
 using Orbit.Core.Inventories;
 using Orbit.Core.Notes;
+using Orbit.Core.Places;
 using Orbit.Core.Tasks;
 
 namespace Orbit.Core.Transfer.ExportArchive;
@@ -9,7 +10,8 @@ namespace Orbit.Core.Transfer.ExportArchive;
 /// <summary>
 /// Reads only what this user owns. Things merely shared with them are left out: they belong to someone
 /// else, and an export that quietly copied another person's note into a file would be a way of taking
-/// it - the share is the access, and it stays where it is.
+/// it - the share is the access, and it stays where it is. Places follow the same rule, though the file
+/// is where a place's content ends up readable: a place somebody handed over is theirs to write out.
 /// </summary>
 public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQuery, OrbitArchive>
 {
@@ -18,19 +20,22 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
     private readonly ICalendarEventRepository _calendarEventRepository;
     private readonly IInventoryRepository _inventoryRepository;
     private readonly IInventoryItemRepository _inventoryItemRepository;
+    private readonly IPlaceRepository _placeRepository;
 
     public ExportArchiveQueryHandler(
         INoteRepository noteRepository,
         ITaskRepository taskRepository,
         ICalendarEventRepository calendarEventRepository,
         IInventoryRepository inventoryRepository,
-        IInventoryItemRepository inventoryItemRepository)
+        IInventoryItemRepository inventoryItemRepository,
+        IPlaceRepository placeRepository)
     {
         _noteRepository = noteRepository;
         _taskRepository = taskRepository;
         _calendarEventRepository = calendarEventRepository;
         _inventoryRepository = inventoryRepository;
         _inventoryItemRepository = inventoryItemRepository;
+        _placeRepository = placeRepository;
     }
 
     public async Task<OrbitArchive> HandleAsync(ExportArchiveQuery request, CancellationToken cancellationToken)
@@ -39,6 +44,7 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
         var taskLists = await _taskRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
         var calendarEvents = await _calendarEventRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
         var inventories = await _inventoryRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
+        var places = await _placeRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
 
         var ownTaskLists = taskLists.Where(taskList => taskList.UserId == request.UserId).ToList();
         var taskListTitlesById = ownTaskLists.ToDictionary(taskList => taskList.Id, taskList => taskList.Title);
@@ -49,8 +55,29 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
             notes.Where(note => note.UserId == request.UserId).Select(ToArchived).ToList(),
             ownTaskLists.Select(taskList => ToArchived(taskList, taskListTitlesById)).ToList(),
             calendarEvents.Where(calendarEvent => calendarEvent.UserId == request.UserId).Select(ToArchived).ToList(),
-            await ToArchivedInventoriesAsync(inventories, request.UserId, cancellationToken));
+            await ToArchivedInventoriesAsync(inventories, request.UserId, cancellationToken),
+            places.Where(place => place.UserId == request.UserId).Select(place => ToArchived(place, taskListTitlesById)).ToList());
     }
+
+    /// <summary>
+    /// A private place goes out as the server holds it - empty words beside the sealed half - because
+    /// the server has no key to do anything else. Opening it is the browser's part; see ArchivedPlace.
+    /// </summary>
+    private static ArchivedPlace ToArchived(Place place, IReadOnlyDictionary<Guid, string> taskListTitlesById)
+        => new(
+            place.Name,
+            place.Description,
+            new ArchivedEventLocation(place.Where.Address ?? string.Empty, place.Where.Latitude, place.Where.Longitude),
+            place.Colour,
+            place.Priority.ToString(),
+            // A private list's title is empty on the server, and an empty title would resolve on import
+            // to whichever untitled list happened to come first - so a link to one is left out instead.
+            [.. place.TaskListIds
+                .Select(taskListId => taskListTitlesById.TryGetValue(taskListId, out var title) ? title : null)
+                .Where(title => !string.IsNullOrEmpty(title))
+                .OfType<string>()],
+            place.IsPrivate,
+            ToArchived(place.EncryptedContent));
 
     private async Task<IReadOnlyList<ArchivedInventory>> ToArchivedInventoriesAsync(
         IReadOnlyList<Inventory> inventories, Guid userId, CancellationToken cancellationToken)
