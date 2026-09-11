@@ -110,7 +110,7 @@ function drawMarkers(map, points, dotNetHelper) {
 /// somebody typed. textContent is what makes those text rather than markup, and it is also what lets the
 /// button carry a real click handler instead of an inline one.
 function popupFor(point, dotNetHelper) {
-    if (!point.label && !point.canNavigate) {
+    if (!point.label && !point.canNavigate && !point.canPlan) {
         return null;
     }
 
@@ -135,6 +135,25 @@ function popupFor(point, dotNetHelper) {
             dotNetHelper.invokeMethodAsync('OnPinNavigate', point.key ?? '');
         });
         panel.appendChild(button);
+    }
+
+    // What can be started at the pin - an appointment there, or a list of work beginning there. Reported
+    // by key and by which of the two, for the reason the navigate button above gives.
+    if (point.canPlan && dotNetHelper) {
+        const actions = document.createElement('div');
+        actions.className = 'map-popup-actions';
+        for (const [plan, label] of [['Event', point.planEventLabel], ['TaskList', point.planTaskListLabel]]) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'map-popup-navigate';
+            button.textContent = label ?? plan;
+            button.addEventListener('click', () => {
+                dotNetHelper.invokeMethodAsync('OnPinPlan', point.key ?? '', plan);
+            });
+            actions.appendChild(button);
+        }
+
+        panel.appendChild(actions);
     }
 
     return panel;

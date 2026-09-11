@@ -227,6 +227,7 @@ public static class PolishTranslations
         ["When the standing \"Update stock levels\" reminder arrives."] = "Kiedy przychodzi stałe przypomnienie „Zaktualizuj stany magazynowe”.",
         ["Save settings"] = "Zapisz ustawienia",
         ["Refresh"] = "Odśwież",
+        ["Refresh the map"] = "Odśwież mapę",
         ["The restock list already asks for exactly what it should."] = "Lista uzupełnień prosi dokładnie o to, o co powinna.",
         ["Restock list updated: {0} added, {1} removed."] = "Lista uzupełnień zaktualizowana: dodano {0}, usunięto {1}.",
         ["That didn't work. Try again."] = "Nie udało się. Spróbuj ponownie.",
@@ -729,6 +730,8 @@ public static class PolishTranslations
         ["Nothing found for that. Try fewer words."] = "Nic nie znaleziono. Spróbuj krótszej frazy.",
         ["What happens here?"] = "Co się tu dzieje?",
         ["An event in the calendar"] = "Wydarzenie w kalendarzu",
+        ["An event here"] = "Wydarzenie tutaj",
+        ["A task list here"] = "Lista zadań tutaj",
         ["A task list starting here"] = "Lista zadań zaczynająca się tutaj",
         ["Orbit isn't allowed to use your location. Turn it on in Options first."] =
             "Orbit nie ma zgody na korzystanie z Twojego położenia. Włącz ją najpierw w Opcjach.",

@@ -4900,6 +4900,35 @@ input.note-editor-title {
     background: var(--bg-subtle);
 }
 
+/* Beside the full-screen button, the same square - see MapPage.razor. */
+.map-refresh-button {
+    position: absolute;
+    top: 10px;
+    right: 46px;
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    cursor: pointer;
+    color: var(--text-primary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 1px 4px oklch(20% 0.02 60 / 0.25);
+}
+
+.map-refresh-button:hover {
+    background: var(--bg-subtle);
+}
+
+.map-refresh-button:disabled {
+    cursor: progress;
+    opacity: 0.6;
+}
+
 /* A form rather than a question, so it is given the room a form needs and its fields are allowed to
    scroll - the panel is capped by .map-overlay-panel and a place with six lists on it would otherwise
    push its own Create button off the bottom of the screen. */
@@ -5996,6 +6025,27 @@ input.note-editor-title {
 
 .map-popup-label {
     color: var(--text-primary);
+}
+
+/* Leaflet paints its popup white whatever the theme is, and the label above takes the theme's text
+   colour - so in the dark theme a pin opened on light text on a white card, which was barely readable.
+   The card now takes the theme too, which keeps the two in step rather than fixing one colour to match
+   the other. */
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+}
+
+.leaflet-container a.leaflet-popup-close-button {
+    color: var(--text-secondary);
+}
+
+/* What can be started at the pin, under the way to be taken there - see locationMap.js's popupFor. */
+.map-popup-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
 }
 
 /* Drawn as a link rather than as a button: a popup is two lines wide, and a filled button in it is

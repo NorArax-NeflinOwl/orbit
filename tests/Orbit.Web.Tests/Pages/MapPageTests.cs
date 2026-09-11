@@ -673,13 +673,71 @@ public sealed class MapPageTests : OrbitTestContext
     public void Each_list_has_its_own_eye()
     {
         GrantLocations();
+        _calendarEventsJson = OneEventAtAPlace("Dentist", startsInDays: 2);
+        _placesJson = OneKeptPlace("The good bakery");
 
         var cut = RenderComponent<MapPage>();
 
-        PinToggleFor(cut, "Sharing with you").Click();
+        PinToggleFor(cut, "Places you keep").Click();
 
-        Assert.Contains("off", PinToggleFor(cut, "Sharing with you").ClassName);
+        Assert.Contains("off", PinToggleFor(cut, "Places you keep").ClassName);
         Assert.DoesNotContain("off", PinToggleFor(cut, "Where your plans are").ClassName);
+    }
+
+    /// <summary>
+    /// A pin's popup starts an appointment at that pin: the place goes to the editor the same way the
+    /// "what happens here?" answer sends it, so the reader does not have to pin the same spot again.
+    /// </summary>
+    [Fact]
+    public async Task An_event_started_from_a_pin_opens_the_editor_holding_that_place()
+    {
+        GrantLocations();
+        _ownLocationJson = OwnLocation();
+        var cut = RenderComponent<MapPage>();
+
+        await cut.InvokeAsync(() => cut.Instance.OnPinPlan("own", "Event"));
+
+        Assert.EndsWith("/calendar/new", Services.GetRequiredService<NavigationManager>().Uri, StringComparison.Ordinal);
+        var place = Services.GetRequiredService<ChosenPlace>().Take();
+        Assert.Equal("Długa 4, Warszawa", place?.Address);
+    }
+
+    /// <summary>And a list of work beginning there, the other thing a place can be the start of.</summary>
+    [Fact]
+    public async Task A_task_list_started_from_a_pin_opens_the_list_editor()
+    {
+        GrantLocations();
+        _ownLocationJson = OwnLocation();
+        var cut = RenderComponent<MapPage>();
+
+        await cut.InvokeAsync(() => cut.Instance.OnPinPlan("own", "TaskList"));
+
+        Assert.EndsWith("/tasks/new", Services.GetRequiredService<NavigationManager>().Uri, StringComparison.Ordinal);
+    }
+
+    /// <summary>A key nothing on the map answers to starts nothing - a pin that has since gone.</summary>
+    [Fact]
+    public async Task A_pin_that_is_gone_starts_nothing()
+    {
+        GrantLocations();
+        var cut = RenderComponent<MapPage>();
+
+        await cut.InvokeAsync(() => cut.Instance.OnPinPlan("place:" + Guid.NewGuid(), "Event"));
+
+        Assert.DoesNotContain("/calendar/new", Services.GetRequiredService<NavigationManager>().Uri, StringComparison.Ordinal);
+    }
+
+    /// <summary>The refresh button sits on the map beside full screen, and pressing it reads again.</summary>
+    [Fact]
+    public void The_map_offers_a_refresh_beside_full_screen()
+    {
+        GrantLocations();
+        var cut = RenderComponent<MapPage>();
+        _placesJson = OneKeptPlace("The good bakery");
+
+        cut.Find(".map-refresh-button").Click();
+
+        Assert.Contains("The good bakery", SectionNamed(cut, "Places you keep").TextContent, StringComparison.Ordinal);
     }
 
     private static void ShowPastPlaces(IRenderedFragment cut)
@@ -703,17 +761,19 @@ public sealed class MapPageTests : OrbitTestContext
         Assert.Contains("The good bakery", section.TextContent, StringComparison.Ordinal);
     }
 
-    /// <summary>And it says so rather than drawing an empty box on an account that has kept none.</summary>
+    /// <summary>
+    /// An account that has kept none has no box for them at all - the way an empty card is left off the
+    /// dashboard. Every list on the panel follows the same rule, and the + on the map is still there.
+    /// </summary>
     [Fact]
-    public void With_nothing_kept_the_list_says_where_one_starts()
+    public void With_nothing_in_them_the_lists_are_left_out()
     {
         GrantLocations();
         var cut = RenderComponent<MapPage>();
 
-        Assert.Contains(
-            "Nothing kept yet",
-            SectionNamed(cut, "Places you keep").TextContent,
-            StringComparison.Ordinal);
+        var headings = cut.FindAll(".map-panel-heading").Select(heading => heading.TextContent).ToList();
+        Assert.Equal(["Share where you are"], headings);
+        Assert.NotEmpty(cut.FindAll(".map-add-place-button"));
     }
 
     /// <summary>
@@ -743,6 +803,7 @@ public sealed class MapPageTests : OrbitTestContext
     public void A_panel_heading_reads_pin_then_name_then_eye()
     {
         GrantLocations();
+        _calendarEventsJson = OneEventAtAPlace("Dentist", startsInDays: 2);
         var heading = SectionNamed(cut: RenderComponent<MapPage>(), heading: "Where your plans are")
             .QuerySelector(".map-panel-heading-row")!;
 
@@ -771,6 +832,7 @@ public sealed class MapPageTests : OrbitTestContext
     public void A_panel_list_can_be_pinned_to_the_top_of_the_panel()
     {
         GrantLocations();
+        _calendarEventsJson = OneEventAtAPlace("Dentist", startsInDays: 2);
         var cut = RenderComponent<MapPage>();
         Assert.Empty(cut.FindAll(".map-panel-section-pinned"));
 
@@ -785,15 +847,17 @@ public sealed class MapPageTests : OrbitTestContext
     public void Pinning_a_second_list_leaves_the_first_pinned_and_unpinning_puts_it_back()
     {
         GrantLocations();
+        _calendarEventsJson = OneEventAtAPlace("Dentist", startsInDays: 2);
+        _placesJson = OneKeptPlace("The good bakery");
         var cut = RenderComponent<MapPage>();
         PanelPinFor(cut, "Where your plans are").Click();
-        PanelPinFor(cut, "Sharing with you").Click();
+        PanelPinFor(cut, "Places you keep").Click();
         Assert.Equal(2, cut.FindAll(".map-panel-section-pinned").Count);
 
         PanelPinFor(cut, "Where your plans are").Click();
 
         var pinned = Assert.Single(cut.FindAll(".map-panel-section-pinned"));
-        Assert.Contains("Sharing with you", pinned.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Places you keep", pinned.TextContent, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -804,11 +868,12 @@ public sealed class MapPageTests : OrbitTestContext
     public void Pinning_a_list_does_not_take_its_pins_off_the_map()
     {
         GrantLocations();
+        _placesJson = OneKeptPlace("The good bakery");
         var cut = RenderComponent<MapPage>();
 
-        PanelPinFor(cut, "Sharing with you").Click();
+        PanelPinFor(cut, "Places you keep").Click();
 
-        Assert.Equal("true", PinToggleFor(cut, "Sharing with you").GetAttribute("aria-pressed"));
+        Assert.Equal("true", PinToggleFor(cut, "Places you keep").GetAttribute("aria-pressed"));
     }
 
     /// <summary>
