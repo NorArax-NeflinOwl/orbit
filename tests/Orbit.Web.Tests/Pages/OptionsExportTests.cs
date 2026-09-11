@@ -62,7 +62,7 @@ public sealed class OptionsExportTests : OrbitTestContext
 
         Assert.False(PlacesBox(cut).HasAttribute("checked"));
         Assert.True(ExportBox(cut, "Notes").HasAttribute("checked"));
-        Assert.Empty(cut.FindAll(".export-warning"));
+        Assert.Empty(cut.FindAll(".export-choices .field-hint-mark.warns"));
     }
 
     [Fact]
@@ -72,7 +72,9 @@ public sealed class OptionsExportTests : OrbitTestContext
 
         PlacesBox(cut).Change(true);
 
-        var warning = cut.Find(".export-warning").TextContent;
+        // A "!" beside Places rather than a line of prose under the choices.
+        Assert.Equal("!", cut.Find(".export-choices .field-hint-mark.warns").TextContent);
+        var warning = cut.Find(".export-choices .field-hint-bubble").TextContent;
         Assert.Contains("decrypted", warning);
         Assert.Contains("private ones included", warning);
     }

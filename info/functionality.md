@@ -1359,9 +1359,9 @@ of the owner's places as it holds it — an open one readable, a sealed one as e
 `PrivateContentSealer` (`TransferApiClient.OpenPlacesAsync`) before the file is saved. The sealed half
 stays in the file beside the opened words.
 
-- **Asked for, not assumed.** Places is the one box unticked to begin with, and while it is ticked the
-  page says, in the danger colour, that the file is not encrypted and that anyone who gets it can read
-  every place in it, private ones included. Export pressed the way it always was writes no places and
+- **Asked for, not assumed.** Places is the one box unticked to begin with. While it is ticked, a "!"
+  stands beside it (a `FieldHint`, since 2026-09-11 on both clients). It says that the file is not
+  encrypted and that anyone who gets it can read every place in it, private ones included. Export pressed the way it always was writes no places and
   never reaches for the key.
 - **Only your own.** Places somebody handed over are left out, like every other shared thing in the
   export: the share is access, and a readable copy of their place in a file is theirs to make.

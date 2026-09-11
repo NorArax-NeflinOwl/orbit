@@ -239,16 +239,16 @@
                             <label class="field-checkbox">
                                 <input type="checkbox" checked="@_exportChoice.Includes(part)"
                                        @onchange="args => _exportChoice.Set(part, (bool)args.Value!)" />@DescribeExportPart(part)
+                                @* A "!" beside Places, and only while it is ticked: it is the one part of the
+                                   file that is not sealed, and a warning shown under every export would be
+                                   read as boilerplate by the time it mattered. *@
+                                @if (part == ExportPart.Places && _exportChoice.Includes(part))
+                                {
+                                    <FieldHint Warns="true">@T["Places are written to the file decrypted. The file itself is not encrypted, so anyone who gets it can read every place in it - names, addresses, coordinates and descriptions - private ones included."]</FieldHint>
+                                }
                             </label>
                         }
                     </div>
-                    @* Said before the button rather than after the file, and only while places are ticked:
-                       it is the one part of the file that is not sealed, and a warning printed under
-                       every export would be read as boilerplate by the time it mattered. *@
-                    @if (_exportChoice.Includes(ExportPart.Places))
-                    {
-                        <p class="export-warning">@T["Places are written to the file decrypted. The file itself is not encrypted, so anyone who gets it can read every place in it - names, addresses, coordinates and descriptions - private ones included."]</p>
-                    }
                     <button type="button" class="btn-secondary" disabled="@(_isExporting || _exportChoice.IsEmpty)"
                             @onclick="ExportAsync">
                         @(_isExporting ? T["Preparing…"] : T["Export"])
