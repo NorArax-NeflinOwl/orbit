@@ -238,10 +238,11 @@ only if it is a genuine sign-in for this account's `GoogleSubjectId` issued with
 (`GoogleIdentity.IssuedAtUtc`, `DeleteAccountCommandHandler.FreshGoogleSignIn`) - a token that proves
 nothing is a refusal, and a Google-linked account whose password is forgotten may confirm with Google
 instead. The web's Options shows Google's button to a passwordless linked account where Google is
-configured, and keeps the typed address only where it is not. **Still to do:** the phone sending the
-token (its `GoogleSignIn` beside the delete form, then a rebuilt APK), and only after those builds are
-the ones in use, step three - refusing a passwordless account that sends no token, with the emailed-code
-fallback below for a deployment without Google. Until then the empty password is still accepted from
+configured, and keeps the typed address only where it is not. The phone does the same since the same
+day (`AccountViewModel.ConfirmsWithGoogle`, `GoogleAccountLink.SignInAgainAsync`) - but only once the
+rebuilt APK is installed. **Still to do:** once those builds are the ones in use, step three - refusing a
+passwordless account that sends no token, with the emailed-code fallback below for a deployment without
+Google. Until then the empty password is still accepted from
 such an account, exactly as installed phones send it. What was written before building it:
 
 Since 2026-09-11 an account with no password - made with Google and never given one - types its email

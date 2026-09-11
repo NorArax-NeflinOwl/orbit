@@ -67,9 +67,11 @@ Options also refuses to delete while the account has not loaded, rather than gue
 
 The phone's account screen does the same since 2026-09-11 (`AccountViewModel.IsReadyToDelete`, asked by
 the page before its platform prompt and again by `DeleteAccountCommand`): the Google-linked password hint,
-"Forgot your password?" to the reset screen sign-in also offers, the typed address or login for an account
-without a password - checked against the account the screen read, never its own login box - and no
-request before the account has loaded. A refusal is said inside the danger card, where the button is.
+"Forgot your password?" to the reset screen sign-in also offers, Google for an account without a password
+where the deployment offers Google to the app (`ConfirmsWithGoogle`: Delete asks Google again after the
+prompt and sends the fresh token; backing out sends nothing), the typed address or login where it does
+not - checked against the account the screen read, never its own login box - and no request before the
+account has loaded. A refusal is said inside the danger card, where the button is.
 One the server gives an account that had no password when the screen read it makes the screen read the
 account again, so the password field appears.
 
