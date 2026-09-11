@@ -637,6 +637,15 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   (`ChatGroup.Leave`). The roster offered the picker; the archive (`Contacts.razor`) and the phone (group
   detail and group list) left without asking, so they always got the automatic choice.
 
+- **The phone's old leave sentence is a dead translation, and four pages still call the obsolete action
+  sheet.** Since the phone asks the web's leave question (2026-09-11), "You stop receiving what is posted,
+  and the group sees you go." in `PolishTranslations.cs` is no longer asked for anywhere; nothing fails
+  on an unused key, so it will sit there until somebody removes it. And the Android head builds with
+  CS0618 on `Page.DisplayActionSheet` in `TaskListDetailPage` (four calls), `CalendarEventDetailPage`
+  (two) and `InventoryDetailPage` (one) - MAUI 10 wants `DisplayActionSheetAsync`, which
+  `GroupLeaveDialog` already uses. Only warnings, and the head is not in `Orbit.CI.slnf`, so no gate
+  catches them. What it would take: deleting the one dictionary entry, and renaming the seven calls.
+
 - ~~**The phone's group detail screen leaves through the wrong route.**~~ Fixed 2026-09-11: the self row
   now calls `ChatClient.LeaveGroupAsync` (needs the rebuilt APK). As noticed: `GroupDetailViewModel.RemoveAsync`
   leaves by removing itself (`DELETE .../members/{ownId}`, `RemoveChatGroupMemberCommandHandler`), which
