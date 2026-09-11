@@ -82,8 +82,11 @@ Orbit.Web's entry page together - the user's decision, since adding them to one 
 made the two answer different questions. A copy goes straight under the entry, made the way
 `DuplicateTaskListCommandHandler` copies entries (everything but the appointment, which one entry
 raises), and opens; a removal asks first, leaves the appointment in the calendar as the list's own
-row menu does, and lands on the list. Still not built: the note field, and "Move to another list…",
-which needs a list picker the design does not draw.
+row menu does, and lands on the list. **"Move to another list…" is in the menu too, since the same
+day**: a second menu of the other lists, by the rule the list's own entry form has always kept for its
+picker (any other list the server knows, except one the entry stands for), and the same move - what the
+phone holds goes out first, the server moves the entry, both lists come back - after which the entry opens
+on the list it went to. Still not built: the note field.
 
 ***Walked on the device on 2026-09-09***, and it reads as drawn. Getting to it used to be the awkward
 part: it opened from the calendar only for a deadline that `IsSomewhere`
