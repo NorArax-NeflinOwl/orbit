@@ -3053,8 +3053,10 @@ the position always, the words only into a box nobody has written in.
 
 The line along the foot of every page used to be the version numbers and the licence. It answered
 "which build is this" for the few people who ask that, and nothing at all for everybody else - so it now
-reads `© 2026 Orbit · EN / PL · About · Privacy · Security · Docs · Status · All Rights Reserved · Manage cookies`,
-modelled on GitHub's own. Two of those open a dialog rather than a page and are drawn exactly like the
+reads `© 2026 Patryk Pudwel · EN / PL · About · Privacy · Security · Docs · Status · All Rights Reserved · Manage cookies`,
+modelled on GitHub's own. The copyright line names the person who publishes Orbit (`OrbitRelease.PublishedBy`,
+the application's own name until 2026-09-11), and the same line closes the About dialog, the Privacy and
+Licence pages and the phone's About screen. Two of those open a dialog rather than a page and are drawn exactly like the
 links beside them: which of the two a reader is pressing is not a distinction they should have to make.
 
 - **EN / PL** (`LanguagePicker`) - which language Orbit is read in, kept in this browser under
