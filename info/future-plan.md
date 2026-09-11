@@ -745,7 +745,11 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   a `TagChips` the way `NotesViewModel` does - colours from `LocalTagColourRepository.ColoursAsync` - is what
   it takes.
 
-- **The phone's inventory screen still asks for a product type in a plain box.** Since 2026-09-11 a task
+- ~~**The phone's inventory screen still asks for a product type in a plain box.**~~ Fixed 2026-09-11:
+  `InventoryDetailViewModel` hands the item editor the account's known product types
+  (`InventoryItemEditor.Knowing`) whenever it opens an item - every shelf's and every task entry's on this
+  phone, gathered by `KnownProductTypes`, the rule `TaskListDetailViewModel` now shares - so the form
+  offers the same chips from both screens. As noticed: since 2026-09-11 a task
   entry's product form offers the account's known product types as chips under the box
   (`InventoryItemEditor.OfferedProductTypes`, handed over by `TaskListDetailViewModel` through
   `TaskItemEditor.KnowingProductTypes`). The same form opened from the inventory itself

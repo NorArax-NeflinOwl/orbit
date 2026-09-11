@@ -551,17 +551,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
         _shelfProducts = byProductId;
 
-        // What this account calls kinds of product, for the box on an errand's product form: every
-        // shelf's answers and every entry's own - the same two halves Orbit.Web's editor offers, since an
-        // entry describing something no shelf has yet carries its type itself.
-        var lists = await _taskLists.GetAllAsync(cancellationToken);
-        _knownProductTypes = [.. shelves
-            .SelectMany(inventory => inventory.Items.Select(product => product.ProductType))
-            .Concat(lists.SelectMany(list => list.Items).Select(item => item.Product?.ProductType ?? string.Empty))
-            .Select(productType => productType.Trim())
-            .Where(productType => productType.Length > 0)
-            .Distinct(StringComparer.CurrentCultureIgnoreCase)
-            .OrderBy(productType => productType, StringComparer.CurrentCultureIgnoreCase)];
+        // What this account calls kinds of product, for the box on an errand's product form - see
+        // KnownProductTypes, which the inventory's own screen asks too.
+        _knownProductTypes = Inventory.KnownProductTypes.From(shelves, await _taskLists.GetAllAsync(cancellationToken));
 
         _theListsOwnShelf = _linkedInventoryId is { } inventoryId
             ? shelves.FirstOrDefault(inventory => inventory.ServerId == inventoryId)

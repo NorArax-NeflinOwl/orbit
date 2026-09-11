@@ -3184,8 +3184,9 @@ categories box offers categories: every shelf's product types (`GET /api/suggest
 the lists the editor already loads). The entries' half matters because an entry describing something no
 shelf holds yet carries its type itself, and an account whose products were all still written on lists
 was offered nothing. The browser draws it as `SuggestedTextField`; the phone puts the same list as chips
-under its box (`InventoryItemEditor.OfferedProductTypes`, filled by the list screen from its own copies
-of the shelves and lists, so it works offline). Taking one replaces what is in the box; typing a new
+under its box (`InventoryItemEditor.OfferedProductTypes`, filled by the list screen and by the
+inventory's own screen from this phone's copies of the shelves and lists - `KnownProductTypes` - so it
+works offline). Taking one replaces what is in the box; typing a new
 one is as good an answer.
 
 Saving the list writes the change back to the inventory and then rebuilds that inventory's restock list,
