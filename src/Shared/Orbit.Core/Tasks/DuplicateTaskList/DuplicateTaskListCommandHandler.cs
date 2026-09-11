@@ -68,5 +68,7 @@ public sealed class DuplicateTaskListCommandHandler : IRequestHandler<DuplicateT
             item.Categories,
             item.Product,
             item.Notes,
-            item.IsFailed);
+            item.IsFailed,
+            // Done when the original was, for the reason CopyTaskItemCommandHandler gives.
+            completedAtUtc: item.CompletedAtUtc);
 }

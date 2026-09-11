@@ -217,7 +217,8 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
                 ParseChannel(item.DailyReminderNotificationChannel),
                 item.DailyReminderTimeOfDay),
             categories: item.AllCategories,
-            isFailed: item.IsFailed);
+            isFailed: item.IsFailed,
+            completedAtUtc: item.CompletedAtUtc);
 
     /// <summary>An unrecognised channel reads as None: a file should not be able to switch on notifications this account never asked for.</summary>
     private static NotificationChannel ParseChannel(string channel)

@@ -80,7 +80,13 @@ public sealed record TaskItemDto(
     /// takes. Null means "not provided" like Priority above; an empty string means "no colour of its
     /// own", which every screen reads as "whatever this kind is drawn in".
     /// </summary>
-    string? Colour = null)
+    string? Colour = null,
+    /// <summary>
+    /// When this entry was ticked off - see Orbit.Core.Tasks.TaskItem.CompletedAtUtc. Null for an entry
+    /// that is not done, and for one ticked before the time was kept. Sealed with the rest of the entry
+    /// on a private list, which is the only place such a list keeps it.
+    /// </summary>
+    DateTimeOffset? CompletedAtUtc = null)
 {
     /// <summary>
     /// Whichever shape the sender used, read as one. Needed on the way in as well as the way out: a

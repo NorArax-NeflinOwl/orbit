@@ -78,7 +78,15 @@ public sealed record TaskItemRequest(
     /// <inheritdoc cref="TaskItemDto.Priority"/>
     string? Priority = null,
     /// <inheritdoc cref="TaskItemDto.Colour"/>
-    string? Colour = null)
+    string? Colour = null,
+    /// <summary>
+    /// When this entry was ticked off - see Orbit.Core.Tasks.TaskItem.CompletedAtUtc. Ignored for an entry
+    /// that is not ticked, whose time is always cleared. For a ticked one, <b>null means "not provided"</b>:
+    /// the server keeps the time it already holds for an entry that was already done, and records the
+    /// moment of the save for one that has only just been ticked. That is what a client written before
+    /// this existed sends, so a save from an installed phone neither wipes a recorded time nor moves it.
+    /// </summary>
+    DateTimeOffset? CompletedAtUtc = null)
 {
     /// <summary>Whichever shape the sender used, read as one - see <see cref="LinkedTaskListIds"/>.</summary>
     public IReadOnlyList<Guid> AllLinkedTaskListIds
@@ -123,7 +131,8 @@ public sealed record TaskItemRequest(
             item.AllWaitsForTaskItemIds,
             // As they came, null included, for the reason Notes above gives.
             item.Priority,
-            item.Colour);
+            item.Colour,
+            item.CompletedAtUtc);
 
     /// <summary>
     /// This entry as a private list seals it: every field it carries, under the id it is known by. The
@@ -143,5 +152,8 @@ public sealed record TaskItemRequest(
             LinkedTaskListId: null,
             OverdueNotificationChannel, RemindDaily, DailyReminderNotificationChannel, DailyReminderTimeOfDay,
             Kind, Location, LinkedCalendarEventId, LinkedInventoryItemId, AllLinkedTaskListIds,
-            Categories, Product, Notes, IsFailed, WaitsForTaskItemIds, Priority, Colour);
+            Categories, Product, Notes, IsFailed, WaitsForTaskItemIds, Priority, Colour,
+            // Nobody else keeps a private entry's time - the server never sees the entry - so it is
+            // sealed as the client holds it, and cleared for one that is not done.
+            IsCompleted ? CompletedAtUtc : null);
 }

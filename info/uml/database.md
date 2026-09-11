@@ -192,6 +192,7 @@ erDiagram
         timestamptz OP_TI_DUEDATEUTC
         bool OP_TI_ISCOMPLETED
         bool OP_TI_ISFAILED "crossed out rather than ticked - never both"
+        timestamptz OP_TI_COMPLETEDATUTC "when it was ticked - null unless done"
         text OP_TI_KIND
         text OP_TI_PRIORITY "the entry's own, beside the list's"
         text OP_TI_COLOUR "empty means: drawn in whatever its kind is"

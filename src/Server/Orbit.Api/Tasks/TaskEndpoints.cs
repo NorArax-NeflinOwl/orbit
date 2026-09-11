@@ -444,7 +444,7 @@ public static class TaskEndpoints
             return TaskItem.Create(
                 item.Description, item.DueDateUtc, item.IsCompleted, item.AllLinkedTaskListIds,
                 reminders, subject, item.AllCategories, product, item.Notes, item.IsFailed,
-                item.WaitsForTaskItemIds, priority, item.Colour);
+                item.WaitsForTaskItemIds, priority, item.Colour, item.CompletedAtUtc);
         }
 
         // Same override Create applies: a linked entry's completion follows the list it links to, so a
@@ -454,7 +454,7 @@ public static class TaskEndpoints
             item.AllLinkedTaskListIds.Count == 0 && item.IsCompleted, item.AllLinkedTaskListIds,
             reminders, subject, item.AllCategories, product, item.Notes,
             item.AllLinkedTaskListIds.Count == 0 && item.IsFailed,
-            item.WaitsForTaskItemIds, priority, item.Colour);
+            item.WaitsForTaskItemIds, priority, item.Colour, item.CompletedAtUtc);
     }
 
 
@@ -506,7 +506,8 @@ public static class TaskEndpoints
                     item.IsFailed,
                     item.WaitsForTaskItemIds,
                     item.Priority.ToString(),
-                    item.Colour))
+                    item.Colour,
+                    item.CompletedAtUtc))
                 .ToList(),
             taskList.IsCompleted,
             taskList.IsGroup,

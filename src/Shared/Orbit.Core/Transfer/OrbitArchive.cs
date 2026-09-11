@@ -98,7 +98,13 @@ public sealed record ArchivedTaskItem(
     /// carries it in the same file. Defaulted and last for the reason everything above is; an older
     /// reader drops these links, as it drops any link it cannot resolve.
     /// </summary>
-    IReadOnlyList<string>? LinkedSealedTaskLists = null)
+    IReadOnlyList<string>? LinkedSealedTaskLists = null,
+    /// <summary>
+    /// When the entry was ticked off - see Orbit.Core.Tasks.TaskItem.CompletedAtUtc. Defaulted and last
+    /// for the reason everything above is: a file written before the time was kept says nothing here,
+    /// and its ticked entries come back done at a time nobody knows, which is what they were.
+    /// </summary>
+    DateTimeOffset? CompletedAtUtc = null)
 {
     /// <summary>The categories as something to read without a null check.</summary>
     public IReadOnlyList<string> AllCategories => Categories ?? [];

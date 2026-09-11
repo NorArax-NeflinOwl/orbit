@@ -228,7 +228,8 @@ public sealed class TaskRepository : ITaskRepository
             // Anything unreadable falls back to Normal, the way every other stored-by-name enum here
             // does: a row must not throw while being read.
             Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal,
-            entity.Colour);
+            entity.Colour,
+            entity.CompletedAtUtc);
 
     /// <summary>
     /// What the entry asks for, when it asks for anything - see TaskItemEntity.ProductType for why the
@@ -308,6 +309,7 @@ public sealed class TaskRepository : ITaskRepository
             Location = item.Location,
             Priority = item.Priority.ToString(),
             Colour = item.Colour,
+            CompletedAtUtc = item.CompletedAtUtc,
             LinkedCalendarEventId = item.LinkedCalendarEventId,
             LinkedInventoryItemId = item.LinkedInventoryItemId,
             // All of them or none of them - see TaskItemEntity.ProductType. An entry that describes

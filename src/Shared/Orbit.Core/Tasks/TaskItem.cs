@@ -45,6 +45,19 @@ public sealed class TaskItem
     public bool IsFailed { get; private set; }
 
     /// <summary>
+    /// When this entry was ticked off, or null while it is not. Kept per entry rather than per list: a
+    /// list is finished when its last entry is, which says nothing about when each of the others was.
+    /// Null as well for an entry ticked before the time was kept - an honest "not known" rather than a
+    /// guess, which is why nothing fills one in for an entry that was already done.
+    ///
+    /// Only ever set on a completed entry: the constructor drops one given to an entry that is not, and
+    /// taking the tick back - <see cref="Reopen"/>, or <see cref="TaskListSteps"/> refusing it - clears
+    /// it. A cross is not a completion and carries none. Recorded by <see cref="RecordWhenItWasDone"/>
+    /// on a save, and by <see cref="Complete"/> when Orbit crosses an entry off itself.
+    /// </summary>
+    public DateTimeOffset? CompletedAtUtc { get; private set; }
+
+    /// <summary>
     /// Whether this entry is finished with, either way - ticked off or given up on. The question every
     /// count of what is still owed asks: reminders, a list's own completion, what is due today.
     /// </summary>
@@ -172,7 +185,7 @@ public sealed class TaskItem
         TaskItemReminders? reminders, TaskItemSubject? subject, IReadOnlyList<string>? categories,
         TaskItemProduct? product, string? notes, bool isFailed = false,
         IReadOnlyList<Guid>? waitsForTaskItemIds = null,
-        ItemPriority priority = ItemPriority.Normal, string? colour = null)
+        ItemPriority priority = ItemPriority.Normal, string? colour = null, DateTimeOffset? completedAtUtc = null)
     {
         Id = id;
         Description = description;
@@ -185,6 +198,8 @@ public sealed class TaskItem
         // a cross, so nothing downstream has to decide what an entry claiming both would mean. A linked
         // entry has neither of its own - its completion follows the lists it stands for.
         IsFailed = isFailed && !isCompleted;
+        // A time for being done belongs to something that is done - see CompletedAtUtc.
+        CompletedAtUtc = isCompleted ? completedAtUtc : null;
         // Distinct and in order: naming the same list twice is one link written twice, not two steps,
         // and it would make the entry look like it stands for more work than it does.
         LinkedTaskListIds = linkedTaskListIds is null ? [] : [.. linkedTaskListIds.Distinct()];
@@ -238,6 +253,7 @@ public sealed class TaskItem
             // A cross is a way of being finished with something, so bringing the entry back as work
             // clears it too - a reopened entry nobody has answered yet is neither done nor given up on.
             IsFailed = false;
+            CompletedAtUtc = null;
         }
     }
 
@@ -252,9 +268,34 @@ public sealed class TaskItem
     {
         if (!IsALinkToOtherLists)
         {
+            // Stamped as it happens, and only when it does: completing something already done moves
+            // nothing, least of all when it was done.
+            CompletedAtUtc = IsCompleted ? CompletedAtUtc : DateTimeOffset.UtcNow;
             IsCompleted = true;
             IsFailed = false;
         }
+    }
+
+    /// <summary>
+    /// Settles when this entry was done, for a save that may or may not have said. A time that was sent
+    /// is taken at its word: it can be edited, and the reader may be correcting it. None sent keeps the
+    /// one already recorded for an entry that was already done - which is what a client written before
+    /// this existed needs, since it hands back a tick it knows nothing about the time of. And none sent
+    /// for an entry that has only just been ticked records <paramref name="nowUtc"/>.
+    ///
+    /// The one place that sees both the entry as sent and the entry as stored is a save's handler, so
+    /// that is where this is called from - see UpdateTaskListCommandHandler and CreateTaskListCommandHandler.
+    /// </summary>
+    /// <param name="stored">The entry as it is stored now, or null for one that is new.</param>
+    public void RecordWhenItWasDone(TaskItem? stored, DateTimeOffset nowUtc)
+    {
+        if (!IsCompleted)
+        {
+            CompletedAtUtc = null;
+            return;
+        }
+
+        CompletedAtUtc ??= stored is { IsCompleted: true } ? stored.CompletedAtUtc : nowUtc;
     }
 
     /// <summary>
@@ -322,7 +363,7 @@ public sealed class TaskItem
         TaskItemReminders? reminders = null, TaskItemSubject? subject = null, IReadOnlyList<string>? categories = null,
         TaskItemProduct? product = null, string? notes = null, bool isFailed = false,
         IReadOnlyList<Guid>? waitsForTaskItemIds = null,
-        ItemPriority priority = ItemPriority.Normal, string? colour = null)
+        ItemPriority priority = ItemPriority.Normal, string? colour = null, DateTimeOffset? completedAtUtc = null)
     {
         // Here rather than in the constructor, which FromPersistence also uses: a row already stored
         // fits by definition, and rejecting one on the way back out would make an old entry unreadable
@@ -351,7 +392,7 @@ public sealed class TaskItem
         return new TaskItem(
             Guid.NewGuid(), description, dueDateUtc, standsOnItsOwn && isCompleted, linkedTaskListIds,
             reminders, subject, categories, product, notes, standsOnItsOwn && isFailed, waitsForTaskItemIds,
-            priority, colour);
+            priority, colour, completedAtUtc);
     }
 
     /// <summary>
@@ -362,7 +403,8 @@ public sealed class TaskItem
     public TaskItem WithNewId()
         => new(
             Guid.NewGuid(), Description, DueDateUtc, IsCompleted, LinkedTaskListIds,
-            Reminders, Subject, Categories, Product, Notes, IsFailed, WaitsForTaskItemIds, Priority, Colour);
+            Reminders, Subject, Categories, Product, Notes, IsFailed, WaitsForTaskItemIds, Priority, Colour,
+            CompletedAtUtc);
 
     /// <summary>
     /// Rebuilds a checklist entry from already-known values, bypassing the completion override above -
@@ -374,16 +416,20 @@ public sealed class TaskItem
         TaskItemReminders? reminders, TaskItemSubject? subject = null, IReadOnlyList<string>? categories = null,
         TaskItemProduct? product = null, string? notes = null, bool isFailed = false,
         IReadOnlyList<Guid>? waitsForTaskItemIds = null,
-        ItemPriority priority = ItemPriority.Normal, string? colour = null)
+        ItemPriority priority = ItemPriority.Normal, string? colour = null, DateTimeOffset? completedAtUtc = null)
         => new(
             id, description, dueDateUtc, isCompleted, linkedTaskListIds, reminders, subject, categories, product,
-            notes, isFailed, waitsForTaskItemIds, priority, colour);
+            notes, isFailed, waitsForTaskItemIds, priority, colour, completedAtUtc);
 
     /// <summary>
     /// Takes the tick back off an entry that may not carry one yet, because something it waits for is
     /// unfinished - see TaskListSteps, which is the only caller and where the rule itself lives.
     /// </summary>
-    internal void CannotBeDoneYet() => IsCompleted = false;
+    internal void CannotBeDoneYet()
+    {
+        IsCompleted = false;
+        CompletedAtUtc = null;
+    }
 
     /// <summary>
     /// Keeps only the steps that are entries on this list, dropping an id that names nothing here - a

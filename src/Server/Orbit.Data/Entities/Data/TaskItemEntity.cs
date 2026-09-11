@@ -48,6 +48,13 @@ public sealed class TaskItemEntity
     public bool IsFailed { get; set; }
 
     /// <summary>
+    /// When this entry was ticked off - see Orbit.Core.Tasks.TaskItem.CompletedAtUtc. Null for one that is
+    /// not done, and for every entry ticked before this column existed: the time was not kept then, and
+    /// the migration leaves those empty rather than inventing one.
+    /// </summary>
+    public DateTimeOffset? CompletedAtUtc { get; set; }
+
+    /// <summary>
     /// The lists this entry references instead of being independently completable - see
     /// <see cref="Orbit.Core.Tasks.LinkedTaskCompletionResolver"/>. Empty for an ordinary entry.
     /// </summary>

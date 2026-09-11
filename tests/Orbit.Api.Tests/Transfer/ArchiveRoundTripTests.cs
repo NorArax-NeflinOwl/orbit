@@ -98,6 +98,26 @@ public sealed class ArchiveRoundTripTests
         Assert.Equal(["shopping", "weekly"], Assert.Single(taskList.Items).Categories);
     }
 
+    /// <summary>
+    /// And when it was done: an archive that brought the tick back without its time would put every
+    /// finished entry at "not recorded" - or, worse, at the moment of the import.
+    /// </summary>
+    [Fact]
+    public async Task When_an_entry_was_done_comes_back_with_it()
+    {
+        var source = new ArchiveTestContext();
+        var doneAt = new DateTimeOffset(2026, 9, 1, 8, 30, 0, TimeSpan.Zero);
+        await source.AddDoneTaskListAsync("Errands", "Buy milk", doneAt);
+        var archive = await source.ExportAsync();
+
+        var destination = new ArchiveTestContext();
+        await destination.ImportAsync(archive);
+
+        var entry = Assert.Single(Assert.Single(await destination.OwnTaskListsAsync()).Items);
+        Assert.True(entry.IsCompleted);
+        Assert.Equal(doneAt, entry.CompletedAtUtc);
+    }
+
     [Fact]
     public async Task A_link_between_two_task_lists_is_rebuilt_against_the_new_ones()
     {
@@ -443,6 +463,17 @@ public sealed class ArchiveRoundTripTests
         public async Task<Guid> AddTaskListAsync(string title, params string[] descriptions)
         {
             var taskList = TaskList.Create(UserId, title, descriptions.Select(description => Item(description)).ToList());
+            await _taskRepository.AddAsync(taskList, CancellationToken.None);
+            return taskList.Id;
+        }
+
+        /// <summary>A list of one entry that is done, and was done at <paramref name="doneAtUtc"/>.</summary>
+        public async Task<Guid> AddDoneTaskListAsync(string title, string description, DateTimeOffset doneAtUtc)
+        {
+            var taskList = TaskList.Create(
+                UserId, title,
+                [TaskItem.FromPersistence(
+                    Guid.NewGuid(), description, null, true, null, TaskItemReminders.Default, completedAtUtc: doneAtUtc)]);
             await _taskRepository.AddAsync(taskList, CancellationToken.None);
             return taskList.Id;
         }

@@ -85,5 +85,8 @@ public sealed class CopyTaskItemCommandHandler : IRequestHandler<CopyTaskItemCom
             item.Categories,
             item.Product,
             item.Notes,
-            item.IsFailed);
+            item.IsFailed,
+            // A copy of something done was done when the original was - the copy is of the entry,
+            // not a new tick.
+            completedAtUtc: item.CompletedAtUtc);
 }

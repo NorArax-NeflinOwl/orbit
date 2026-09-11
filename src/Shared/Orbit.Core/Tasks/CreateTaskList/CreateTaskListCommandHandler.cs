@@ -25,6 +25,15 @@ public sealed class CreateTaskListCommandHandler : IRequestHandler<CreateTaskLis
             await _taskRepository.GetHoldingItemsAsync(
                 request.UserId, Guid.Empty, [.. request.Items.Select(item => item.Id)], cancellationToken));
 
+        // Entries can arrive already ticked - a list written offline and pushed whole, or one made from
+        // another. There is nothing stored to keep a time from, so a tick that came without one is
+        // recorded as of now - see TaskItem.RecordWhenItWasDone.
+        var nowUtc = DateTimeOffset.UtcNow;
+        foreach (var item in identity.Items)
+        {
+            item.RecordWhenItWasDone(stored: null, nowUtc);
+        }
+
         var taskList = TaskList.Create(
             request.UserId, request.Title, identity.Items, request.IsGroup, request.IsPrivate, request.EncryptedContent,
             request.Priority, description: request.Description ?? string.Empty, folderId: request.FolderId);
