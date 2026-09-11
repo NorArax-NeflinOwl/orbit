@@ -204,6 +204,75 @@ public sealed class GroupConversationPagesTests : OrbitTestContext
     }
 
     /// <summary>
+    /// The only admin leaving people behind is asked who takes over, and the person already chosen is
+    /// the one the server would pick by itself - the longest-standing, who here is listed second, so a
+    /// picker that merely defaulted to the first row would fail.
+    /// </summary>
+    [Fact]
+    public void The_only_admin_is_asked_who_takes_over_with_the_longest_standing_member_chosen()
+    {
+        RegisterChatApi(ownRole: "Admin", includeAddableContact: true, includeLongerStandingMember: true);
+        var cut = RenderMembers();
+
+        ItemSaying(OpenTheMenuFor(cut, OwnUserId), "Leave group").Click();
+
+        Assert.Equal(AddableUserId.ToString(), cut.Find("#successorInput").GetAttribute("value"));
+    }
+
+    [Fact]
+    public void Confirming_sends_the_chosen_successor_and_goes_back_to_the_list()
+    {
+        RegisterChatApi(ownRole: "Admin");
+        var cut = RenderMembers();
+        ItemSaying(OpenTheMenuFor(cut, OwnUserId), "Leave group").Click();
+
+        cut.Find("#successorInput").Change(OtherUserId.ToString());
+        cut.Find(".group-leave-confirmation .btn-danger").Click();
+
+        // The leave route, which takes the reader's copies with them - not removing themselves, which
+        // left the copies behind for nobody.
+        Assert.Contains(_requests, request => request.Method == HttpMethod.Delete
+            && request.PathAndQuery == $"/api/chat/groups/{GroupId}/membership?successorUserId={OtherUserId}");
+        Assert.EndsWith("/chat/groups", Services.GetRequiredService<NavigationManager>().Uri);
+    }
+
+    /// <summary>
+    /// Everybody is asked before leaving, since it takes their copies with them - but only the one reader
+    /// who would leave the group with nobody to manage it is asked who takes over.
+    /// </summary>
+    [Fact]
+    public void A_plain_member_is_asked_to_confirm_but_not_who_takes_over()
+    {
+        RegisterChatApi(ownRole: "Member");
+        var cut = RenderMembers();
+        ItemSaying(OpenTheMenuFor(cut, OwnUserId), "Leave group").Click();
+
+        Assert.Empty(cut.FindAll("#successorInput"));
+        cut.Find(".group-leave-confirmation .btn-danger").Click();
+
+        Assert.Contains(_requests, request => request.Method == HttpMethod.Delete
+            && request.PathAndQuery == $"/api/chat/groups/{GroupId}/membership");
+    }
+
+    /// <summary>
+    /// A refusal is said on the page in the server's words. Only logged, it looked like a button that
+    /// did nothing; said as "check your connection", it sent somebody looking for the wrong fault.
+    /// </summary>
+    [Fact]
+    public void A_refused_leave_is_said_on_screen_and_the_reader_stays()
+    {
+        RegisterChatApi(ownRole: "Admin", refuseLeavingWith: "The person you chose to take over isn't in this group any more.");
+        var cut = RenderMembers();
+        ItemSaying(OpenTheMenuFor(cut, OwnUserId), "Leave group").Click();
+
+        cut.Find(".group-leave-confirmation .btn-danger").Click();
+
+        Assert.Contains("isn't in this group any more", cut.Find("p.error").TextContent);
+        Assert.DoesNotContain("/chat/groups", Services.GetRequiredService<NavigationManager>().Uri);
+        Assert.NotEmpty(cut.FindAll(".group-leave-confirmation"));
+    }
+
+    /// <summary>
     /// The row for one member, with its menu opened. Found again after the press rather than kept: the
     /// dropdown only exists once the menu is open, so the element read before it was there holds none
     /// of the entries this asks about.
@@ -279,14 +348,27 @@ public sealed class GroupConversationPagesTests : OrbitTestContext
     private IRenderedComponent<GroupMembers> RenderMembers()
         => RenderComponent<GroupMembers>(parameters => parameters.Add(page => page.GroupId, GroupId));
 
-    private void RegisterChatApi(string ownRole, bool includeGroup = true, bool includeAddableContact = false)
+    /// <summary>Every request the page made, so a test can say what it actually asked the server for.</summary>
+    private readonly List<(HttpMethod Method, string PathAndQuery)> _requests = [];
+
+    /// <param name="includeLongerStandingMember">
+    /// Puts the addable contact in the group too, having joined before anybody else - so who has been
+    /// there longest is not simply whoever is listed first.
+    /// </param>
+    /// <param name="refuseLeavingWith">Answers the leave route with a 400 carrying this, as ChatGroup's refusals arrive.</param>
+    private void RegisterChatApi(
+        string ownRole, bool includeGroup = true, bool includeAddableContact = false,
+        bool includeLongerStandingMember = false, string? refuseLeavingWith = null)
     {
+        var longerStandingMemberJson = includeLongerStandingMember
+            ? $$""",{"userId":"{{AddableUserId}}","role":"Member","joinedAtUtc":"2026-07-01T10:00:00+00:00"}"""
+            : string.Empty;
         var groupsJson = includeGroup
             ? $$"""
               [{"id":"{{GroupId}}","name":"Weekend trip","createdByUserId":"{{OwnUserId}}",
                 "createdAtUtc":"2026-08-01T10:00:00+00:00","ownRole":"{{ownRole}}",
                 "members":[{"userId":"{{OwnUserId}}","role":"{{ownRole}}","joinedAtUtc":"2026-08-01T10:00:00+00:00"},
-                           {"userId":"{{OtherUserId}}","role":"Member","joinedAtUtc":"2026-08-01T10:00:00+00:00"}]}]
+                           {"userId":"{{OtherUserId}}","role":"Member","joinedAtUtc":"2026-08-01T10:00:00+00:00"}{{longerStandingMemberJson}}]}]
               """
             : "[]";
         var addableContactJson = includeAddableContact
@@ -305,9 +387,21 @@ public sealed class GroupConversationPagesTests : OrbitTestContext
             """;
 
         var httpClient = new HttpClient(new StubHttpMessageHandler(request =>
-            Json(request.RequestUri!.AbsolutePath.EndsWith("/groups", StringComparison.Ordinal)
+        {
+            _requests.Add((request.Method, request.RequestUri!.PathAndQuery));
+            if (refuseLeavingWith is not null && request.RequestUri.AbsolutePath.EndsWith("/membership", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.BadRequest)
+                {
+                    Content = new StringContent(
+                        JsonSerializer.Serialize(new { message = refuseLeavingWith }), Encoding.UTF8, "application/json")
+                };
+            }
+
+            return Json(request.RequestUri.AbsolutePath.EndsWith("/groups", StringComparison.Ordinal)
                 ? groupsJson
-                : contactsJson)))
+                : contactsJson);
+        }))
         {
             BaseAddress = new Uri("https://example.test/")
         };

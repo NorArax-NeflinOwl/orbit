@@ -1526,7 +1526,16 @@ public static class PolishTranslations
         ["That message is no longer yours to edit."] = "Tej wiadomości nie możesz już edytować.",
         ["Nothing matches that."] = "Nic nie pasuje.",
         ["Leave group"] = "Opuść grupę",
+        ["Leave this group? Your copies of its messages go with you, and only an admin can add you back."] =
+            "Opuścić tę grupę? Twoje kopie jej wiadomości zostaną usunięte, a wrócić możesz tylko wtedy, gdy doda Cię administrator.",
+        ["You're the last one here, so the group is deleted when you go."] =
+            "Jesteś tu ostatnią osobą, więc po Twoim wyjściu grupa zostanie usunięta.",
+        ["You're the only admin here. Who takes over?"] = "Jesteś jedynym administratorem. Kto przejmie grupę?",
         ["You aren't in this group."] = "Nie należysz do tej grupy.",
+        ["Only a group admin can choose who takes over."] = "Tylko administrator grupy może wskazać następcę.",
+        ["Choose somebody other than yourself to take over."] = "Wskaż na następcę kogoś innego niż siebie.",
+        ["The person you chose to take over isn't in this group any more."] =
+            "Osoba wskazana na następcę nie należy już do tej grupy.",
         ["Remove from my list"] = "Usuń z mojej listy",
         ["Remove \"{0}\" from your list? The owner keeps it."] = "Usunąć „{0}” z Twojej listy? Właściciel ją zachowa.",
         ["Delete note \"{0}\"?"] = "Usunąć notatkę „{0}”?",

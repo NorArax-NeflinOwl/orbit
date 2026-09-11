@@ -344,11 +344,22 @@ else
         await LoadContactsAsync();
     }
 
+    /// <summary>
+    /// Leaves from the archive, where nobody is asked who takes over: the server hands a group whose last
+    /// admin leaves to its longest-standing member (see ChatGroup.Leave). A refusal it does send back is
+    /// said on screen in its own words, since "check your connection" would send somebody looking for a
+    /// fault they do not have.
+    /// </summary>
     private async Task LeaveTheGroupAsync(Guid groupId)
     {
         try
         {
-            await ChatApiClient.LeaveGroupAsync(groupId);
+            var refusal = await ChatApiClient.LeaveGroupAsync(groupId);
+            if (refusal is not null)
+            {
+                _loadError = T[refusal];
+                return;
+            }
         }
         catch (HttpRequestException exception)
         {
