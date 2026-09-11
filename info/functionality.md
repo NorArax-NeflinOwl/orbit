@@ -2347,7 +2347,11 @@ row** (2026-09-11, `ProductEntryPlacement`, run on the server by every save of t
 each client): a new row holds what the entry describes, entries naming the same thing in one save counted
 by the rule above; a shelf already holding exactly one thing by that name is what the entry was asking
 for, so nothing is added twice and that row is left as it was - a reused shopping list would otherwise
-raise a pantry's minimum every trip. The entry's own description is dropped in the same breath, as
+raise a pantry's minimum every trip. **The web's entry form says which of these will happen before the
+list is saved** (2026-09-11, `TaskEditor.WhereANewProductGoes`, against the list's shelf read when the
+editor opens): a new row, a row already there that the entry will be matched to and that keeps its own
+minimum - so what is typed in the form is not kept - or, with two rows of the name, no match at all.
+The entry's own description is dropped in the same breath, as
 generating does, and the storage's restock list is brought up to date. It happens only for somebody who
 may edit that storage, never on a private one, and not while somebody else holds its edit lock, whose
 whole-shelf save would delete the row; a list measured against no storage keeps the description on the
