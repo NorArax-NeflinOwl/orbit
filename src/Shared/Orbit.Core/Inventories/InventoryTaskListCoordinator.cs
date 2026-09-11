@@ -330,7 +330,8 @@ public sealed class InventoryTaskListCoordinator
 
 /// <summary>
 /// One thing to bring back, and how many of it - see RestockTaskNaming.EntryFor. No unit, deliberately:
-/// this is counted off a checklist, where repetition is the quantity (see StockRequirementCounter), so
-/// the number is a count of lines rather than an amount of anything measurable.
+/// this is counted off a checklist (see StockRequirementCounter), where each line adds its own minimum
+/// or one, and the lines naming one thing need not agree about what it is counted in - so the number is
+/// how much the list asks for rather than an amount in any one unit.
 /// </summary>
 public sealed record RestockNeed(string ProductName, decimal? Quantity);

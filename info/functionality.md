@@ -2206,7 +2206,12 @@ A group list can be pointed at an inventory (`PUT /api/tasks/{id}/inventory`), a
 `GET /api/tasks/{id}/stock-check` then answers what the work costs against it. The counting rule is that
 **repetition is quantity**: a tree naming "Makaron świderki" in three recipes needs three
 (`StockRequirementCounter`). That is what makes a checklist a bill of materials without asking anybody
-to type a number beside every line. A line with a due date in the future is not counted - that work has
+to type a number beside every line. **Each line adds its own minimum** where it says one
+(`TaskItemProduct.MinimumQuantity`) and one where it does not (2026-09-11), so two recipes wanting two
+and three kilos of flour need five, and a third that only names it makes six. Entries that already stand
+for a shelf item count that item's minimum once between them - it is the sum they handed over when the
+shelf was built - so the check, the shelf and the restock errands read the same number
+(`StockRequirementCounter.RequiredBy`). A line with a due date in the future is not counted - that work has
 not come round, and counting it would raise a restock errand early. `POST /api/tasks/{id}/stock-check/shortfalls`
 puts what is short onto the inventory's standing restock list, where the daily reminder brings it up;
 names already waiting are left alone. The panel carries a menu of its own: whether it is in the way at
@@ -2230,9 +2235,10 @@ the web now recalculates by reading, and the phone by the same two presses. It w
 left reachable, since an endpoint nothing asks for is an endpoint nobody notices going wrong.
 
 Two things are defaulted rather than asked for, and the same way in both directions: the unit is
-**pieces**, and **how many times a name is written is how little is too little** - one entry asks for one
-of the thing, the same entry twice asks for two. Nothing on a task entry says an amount, so repetition is
-what says it, and pieces is what something nobody counted otherwise is counted in.
+**pieces**, and **how many times a name is written is how little is too little** where nobody said
+otherwise - one entry asks for one of the thing, the same entry twice asks for two, and an entry that
+does say a minimum adds that instead of one. Pieces is what something nobody counted otherwise is counted
+in.
 
 **An entry on a list that already has a storage describes a product for that shelf.** It shows the
 product's fields - how much, how little is too little, the unit, what it is, how long it keeps - and
@@ -2457,10 +2463,14 @@ future: the shelf holds what the whole job will need, while the check counts onl
 reached from the three-dot menu on the checklist and the deep editor, where "recalculate" is offered
 greyed until an inventory is chosen rather than hidden.
 
-**An entry that described the thing it names is taken at its word** (`TaskItemProduct`): the amounts, the
-unit, what it is filed under, how long it keeps and whether it is one to look at every round are what
-somebody wrote on the entry, and the counting rule only answers for the boxes nobody filled in - a blank
-minimum is counted off the lines, and an amount of zero leaves the crossed-off lines to say how much is
+**An entry that described the thing it names is taken at its word** (`TaskItemProduct`): the unit, what
+it is filed under, how long it keeps and whether it is one to look at every round are what the first
+entry describing it wrote. **The amounts are heard from every entry naming the thing** (2026-09-11,
+`StockRequirementCounter`): the minimum is the sum of each one's own minimum, an entry that left it blank
+adding one - minimums of two and three make five, two and a blank make three - and what starts on the
+shelf is the **smallest** amount any of them wrote (`StockRequirement.StartingStock`). An amount of zero
+is the box nobody filled in and takes no part, since one untouched entry would otherwise pin the shelf at
+nothing over an amount somebody did write; where nobody wrote one, the crossed-off lines say how much is
 already there. Each entry then **points at the row it asked for** (`TaskItem.PointAtShelfItem`), which is
 what every other screen reads an errand through, and the description on the entry is dropped in the same
 breath: the shelf item is now the answer, and two answers are how they come to disagree.

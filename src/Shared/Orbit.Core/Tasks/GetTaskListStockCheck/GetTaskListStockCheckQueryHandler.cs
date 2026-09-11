@@ -34,7 +34,7 @@ public sealed class GetTaskListStockCheckQueryHandler : IRequestHandler<GetTaskL
         var now = DateTimeOffset.UtcNow;
 
         return StockRequirementCounter.Count(
-            work, stock, now, AskedForByTheOtherLists(taskList, reachable, inventoryId, now));
+            work, stock, now, AskedForByTheOtherLists(taskList, reachable, inventoryId, stock, now));
     }
 
     /// <summary>
@@ -43,10 +43,13 @@ public sealed class GetTaskListStockCheckQueryHandler : IRequestHandler<GetTaskL
     /// each wanting the last bag of flour would both be told the bag is theirs.
     ///
     /// Each list is counted through its own tree, the same way this one is, and a list appearing in
-    /// another's tree is not counted twice - what a group list stands for is already in it.
+    /// another's tree is not counted twice - what a group list stands for is already in it. The shelf
+    /// goes along so an entry standing for one of its items is counted the same way here as on this
+    /// list - see StockRequirementCounter.RequiredBy.
     /// </summary>
     private static IReadOnlyDictionary<string, decimal> AskedForByTheOtherLists(
-        TaskList taskList, IReadOnlyList<TaskList> reachable, Guid inventoryId, DateTimeOffset nowUtc)
+        TaskList taskList, IReadOnlyList<TaskList> reachable, Guid inventoryId, IReadOnlyList<InventoryItem> stock,
+        DateTimeOffset nowUtc)
     {
         var alreadyCounted = LinkedTaskListTree.Flatten(taskList, reachable).Select(list => list.Id).ToHashSet();
         var elsewhere = new Dictionary<string, decimal>();
@@ -55,7 +58,7 @@ public sealed class GetTaskListStockCheckQueryHandler : IRequestHandler<GetTaskL
             candidate.LinkedInventoryId == inventoryId && !alreadyCounted.Contains(candidate.Id)))
         {
             foreach (var (name, quantity) in StockRequirementCounter.DemandOf(
-                LinkedTaskListTree.WorkIn(other, reachable), nowUtc))
+                LinkedTaskListTree.WorkIn(other, reachable), stock, nowUtc))
             {
                 elsewhere[name] = elsewhere.GetValueOrDefault(name) + quantity;
             }
