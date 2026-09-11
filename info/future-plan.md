@@ -631,6 +631,40 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   private list has always had the same gap. What it would take: the browser opening the private lists'
   titles while it opens the places, and writing those in - which only helps when lists are exported too.
 
+- **A wrong password on a signed-in endpoint is retried as if the session had expired** (noticed
+  2026-09-11, while looking at account deletion). `DELETE /api/users/me` and `PUT /api/users/me/password`
+  answer 401 for a wrong password, and `AuthorizationMessageHandler` reads every 401 outside the sign-in
+  paths as an expired access token: it spends the refresh token, rotates the pair and sends the request
+  again. The answer is still right, but each wrong try costs two of the five a minute the `Auth` rate
+  limit allows, so the third wrong try in a minute comes back 429 - which Options reports as the generic
+  "Couldn't delete your account. Try again." (or "Couldn't change your password") rather than as a wrong
+  password, and trying again is what keeps the window shut. What it would take: those endpoints
+  answering a wrong password with something other than 401 (403, or 400 with a reason, as login's
+  `LoginRejectionDto` does), and every client that branches on the 401 changed in the same breath -
+  both web pages, `AccountClient` on the phone and `FakeUsersServer` in its tests.
+
+- **The phone's delete-account form has the dead end the web's had** (noticed 2026-09-11). For an
+  account with a password it shows an Entry whose placeholder is "Password" and nothing else: no word
+  about which password a Google account holds, and no way to the forgotten-password screen, which the
+  phone only offers from sign-in. The fix is the phone's own (`AccountPage.xaml`, `AccountViewModel`),
+  not shared with the web's; the same hint and a way to the reset screen would do it.
+
+- **Account deletion leaves the account's own rows keyed on anything but `UserId`.** The sweep test
+  finds entities by a property called `UserId` (`AccountDeletionSweepTests.Every_entity_owning_a_user_is_covered_by_this_test`),
+  and `AccountDeletionRepository` deletes by it. Rows the account owns under another name stay: the
+  shares it granted (`OP_*_SHARED.*_OWNERUSERID`), its contact list (`OL_CONTACTS` owner), its public
+  links (`OL_PUBLIC_SHARES` owner) and the positions it shared (`OP_LOCATIONS` sharer).
+  `IAccountDeletionRepository` says leaving references in *other* people's data is deliberate; these are
+  the deleted account's own, and a deletion somebody asked for should take them. None of them blocks a
+  deletion - nothing in the schema has a foreign key to `OS_USERS` - so this is tidiness and privacy, not
+  a failure.
+
+- **A heartbeat that races an account deletion answers 500.** `PresenceHeartbeatCommandHandler` reads
+  the user, then saves it with `UserRepository.UpdateAsync`; if the deletion commits between the two,
+  the update affects no row and EF throws. The account is gone either way and the browser signs out
+  right after, so all it costs is an error in the log - but an update of a row that may have gone should
+  be a conditional update, not a read and a blind write.
+
 - **Orbit.Web's pages read the machine's clock directly** - `DateTime.Today` and `DateTime.Now`, in
   eighteen places across the pages and components, with no `TimeProvider` injected anywhere in that
   client. It is why `DashboardTests.An_appointment_that_has_ended_counts_as_one_that_is_behind_the_reader`

@@ -39,6 +39,21 @@ the old password stay unreadable. The web offers the same two steps at `/forgot-
 (`ForgotPassword.razor`), reached from a link under the sign-in form; it also still reaches them from
 the chat password gate, which is the same flow for somebody already signed in.
 
+**Deleting the account.** `DELETE /api/users/me` with a `DeleteAccountRequest(password)` body wipes every
+row the account owns (`DeleteAccountCommandHandler`, then `AccountDeletionRepository`) and answers 204,
+or 401 when the password does not match. An account that has a password has to send it; one that has
+none - made with Google and never given one - sends an empty string and the server asks for nothing,
+since being signed in is the proof there. That path works end to end against a real schema
+(`PasswordlessAccountDeletionTests`, 2026-09-11). What made a Google account look unable to delete
+itself was the other kind: **an account that signs in with Google can hold a password without thinking
+of itself as having one** - chat makes a Google account set one before it can be used, and a Google
+sign-in that matched an existing address keeps that account's password. Options then asked for a bare
+"Password" and offered nothing when it was not recognised. For a Google-linked account it now says which
+password it means, and every account with a password gets the "Forgot your password?" link beside the
+field - a reset is the way to delete an account whose password is gone. Proving the account with Google
+itself instead is written up as a proposal in [Future Plan](future-plan.md), since it changes the
+request installed phones send.
+
 Both sign-in forms listen for `input` as well as `change`, and neither uses `@bind`, which can only be
 told about one of the two. A password manager fills a box without anybody typing in it: some raise one
 event, some the other, some neither until the field is touched — so a form bound to a single event

@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Config;
@@ -57,6 +58,68 @@ public sealed class OptionsTests : OrbitTestContext
     /// <summary>The account the page loads. Google-linked, so the Google row shows its Disconnect button rather than Google's own.</summary>
     private AccountDto Account { get; set; } = new(
         Guid.NewGuid(), "gina@example.com", "gina", "Gina", IsEmailVerified: true, HasPassword: false, IsGoogleLinked: true);
+
+    /// <summary>
+    /// The password the server holds for the account, or null for one that has none - which is what
+    /// decides whether DELETE /api/users/me is refused, exactly as DeleteAccountCommandHandler decides it.
+    /// </summary>
+    private string? ServerPassword { get; set; }
+
+    /// <summary>Every body DELETE /api/users/me was sent, refused or not.</summary>
+    private readonly List<DeleteAccountRequest> _deletionRequests = [];
+
+    private bool _accountDeleted;
+
+    /// <summary>
+    /// An account that signs in with Google and has a password anyway - chat made it set one. The form
+    /// asks for it, and has to say which password it means and where to go when it is forgotten: a bare
+    /// "Password" was a dead end for somebody who has only ever pressed the Google button.
+    /// </summary>
+    [Fact]
+    public void A_google_account_with_a_password_is_told_which_password_and_where_to_reset_it()
+    {
+        Account = Account with { HasPassword = true };
+        ServerPassword = "chat-password";
+
+        var cut = RenderComponent<Options>();
+
+        cut.WaitForAssertion(() => cut.Find("#deleteAccountPasswordInput"));
+        Assert.Contains("besides Google", cut.Find("label[for=deleteAccountPasswordInput]").TextContent);
+        Assert.Equal("/forgot-password", cut.Find("#deleteAccountForgotPassword").GetAttribute("href"));
+    }
+
+    /// <summary>The server refuses a wrong password, and the page says so rather than claiming it worked.</summary>
+    [Fact]
+    public void A_wrong_password_leaves_the_account_where_it_was()
+    {
+        Account = Account with { HasPassword = true };
+        ServerPassword = "chat-password";
+        JSInterop.Setup<bool>("confirm", _ => true).SetResult(true);
+        var cut = RenderComponent<Options>();
+        cut.WaitForAssertion(() => cut.Find("#deleteAccountPasswordInput"));
+
+        cut.Find("#deleteAccountPasswordInput").Change("not-it");
+        cut.Find(".btn-danger").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("That password isn't right.", cut.Markup));
+        Assert.False(_accountDeleted);
+    }
+
+    [Fact]
+    public void The_right_password_deletes_the_account_and_signs_out()
+    {
+        Account = Account with { HasPassword = true };
+        ServerPassword = "chat-password";
+        JSInterop.Setup<bool>("confirm", _ => true).SetResult(true);
+        var cut = RenderComponent<Options>();
+        cut.WaitForAssertion(() => cut.Find("#deleteAccountPasswordInput"));
+
+        cut.Find("#deleteAccountPasswordInput").Change("chat-password");
+        cut.Find(".btn-danger").Click();
+
+        cut.WaitForAssertion(() => Assert.True(_accountDeleted));
+        Assert.EndsWith("/login", Services.GetRequiredService<NavigationManager>().Uri);
+    }
 
     [Fact]
     public void The_ads_switch_is_not_offered_to_an_account_without_Debugger()
@@ -129,6 +192,7 @@ public sealed class OptionsTests : OrbitTestContext
                 Content = new StringContent("{\"granted\":" + _grantedJson + "}", Encoding.UTF8, "application/json")
             },
             ("GET", "/api/users/me") => new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(Account) },
+            ("DELETE", "/api/users/me") => DeleteAccount(request),
             ("GET", "/api/notifications/settings") => new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = JsonContent.Create(new NotificationSettingsDto(
@@ -142,5 +206,28 @@ public sealed class OptionsTests : OrbitTestContext
             },
             _ => new HttpResponseMessage(HttpStatusCode.NotFound)
         };
+    }
+
+    /// <summary>
+    /// DeleteAccountCommandHandler's rule, and no more generous: an account with a password is refused
+    /// unless the one sent matches, and one without needs none. A body missing altogether is refused the
+    /// way the binder refuses it.
+    /// </summary>
+    private HttpResponseMessage DeleteAccount(HttpRequestMessage request)
+    {
+        var body = request.Content?.ReadFromJsonAsync<DeleteAccountRequest>().GetAwaiter().GetResult();
+        if (body is null)
+        {
+            return new HttpResponseMessage(HttpStatusCode.BadRequest);
+        }
+
+        _deletionRequests.Add(body);
+        if (ServerPassword is { } expected && body.Password != expected)
+        {
+            return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+        }
+
+        _accountDeleted = true;
+        return new HttpResponseMessage(HttpStatusCode.NoContent);
     }
 }

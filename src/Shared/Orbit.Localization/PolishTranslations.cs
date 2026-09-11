@@ -1233,6 +1233,8 @@ public static class PolishTranslations
             "To konto ma już hasło — wpisz je zamiast ustawiać nowe.",
         ["Password changed."] = "Hasło zmienione.",
         ["Enter your password to confirm."] = "Wpisz hasło, aby potwierdzić.",
+        ["The password this account has besides Google - the one you set to use chat, or the one it had before Google was connected."] =
+            "Hasło, które to konto ma oprócz Google — ustawione, żeby korzystać z czatu, albo to, które miało, zanim połączono Google.",
         ["Couldn't change your password. Try again."] = "Nie udało się zmienić hasła. Spróbuj ponownie.",
         ["That code isn't valid any more. Request a new one."] = "Ten kod stracił ważność. Poproś o nowy.",
         ["Couldn't send the code. Try again."] = "Nie udało się wysłać kodu. Spróbuj ponownie.",
