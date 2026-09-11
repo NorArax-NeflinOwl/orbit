@@ -78,9 +78,8 @@
             <Button Text="{controls:Translate 'Create account'}" Style="{StaticResource PrimaryButton}"
                     Command="{Binding RegisterCommand}" Margin="0,6,0,0" />
 
-            <ActivityIndicator IsRunning="{Binding RegisterCommand.IsRunning}"
-                               IsVisible="{Binding RegisterCommand.IsRunning}"
-                               HorizontalOptions="Center" />
+            <controls:OrbitLoading IsRunning="{Binding RegisterCommand.IsRunning}" RingSize="30"
+                                   HorizontalOptions="Center" />
 
             <Button Text="{controls:Translate 'I already have an account'}"
                     Command="{Binding GoToSignInCommand}"

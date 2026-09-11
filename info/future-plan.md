@@ -1364,7 +1364,13 @@ its shared controls. What that pass left, all of it now overtaken:
 
 ## Smaller identified follow-ups
 
-- **The phone's wait does not look like the web's yet.** Since 2026-09-11 the web waits with Orbit's icon
+- ~~**The phone's wait does not look like the web's yet.**~~ Fixed 2026-09-11: `OrbitLoading` (Controls) is
+  the icon in its own tile colours inside an accent arc turning over a hairline-coloured track, sized 64 or
+  30 as the web's two, described "Loading…" to a screen reader, turning only while running, visible and
+  on a window, and slowed to a step every quarter second (three seconds a turn) where Android's animations
+  are switched off (`Motion`, which `ItemCard` now shares). It replaced every `ActivityIndicator` and its
+  style. iOS's reduce-motion setting is not read yet, and nothing of it has been seen on a device. As
+  noticed: since 2026-09-11 the web waits with Orbit's icon
   inside a turning ring (`Components/Loading.razor`, and the boot screen in `wwwroot/index.html`); the
   phone still draws MAUI's own `ActivityIndicator` wherever it waits (the startup screen, sign-in,
   register, password reset, the map, the notification feed, an inventory, an invitation, a shared link,

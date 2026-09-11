@@ -10,13 +10,19 @@
     <Grid RowDefinitions="*,Auto,*" Padding="32">
         <VerticalStackLayout Grid.Row="1" Spacing="24" HorizontalOptions="Center">
 
-            <controls:OrbitMark MarkSize="88" HorizontalOptions="Center" />
+            <!-- While it checks, the turning ring with Orbit's icon in it stands where the mark stands -
+                 the web's boot screen, which is the ring and the name - rather than a spinner under a
+                 second copy of the mark. See OrbitLoading. -->
+            <controls:OrbitMark MarkSize="88" HorizontalOptions="Center">
+                <controls:OrbitMark.Triggers>
+                    <DataTrigger TargetType="controls:OrbitMark" Binding="{Binding IsChecking}" Value="True">
+                        <Setter Property="IsVisible" Value="False" />
+                    </DataTrigger>
+                </controls:OrbitMark.Triggers>
+            </controls:OrbitMark>
+            <controls:OrbitLoading IsRunning="{Binding IsChecking}" RingSize="88" HorizontalOptions="Center" />
 
             <Label Text="{controls:Translate 'Orbit'}" FontSize="44" FontAttributes="Bold" HorizontalOptions="Center" />
-
-            <ActivityIndicator IsRunning="{Binding IsChecking}"
-                               IsVisible="{Binding IsChecking}"
-                               HorizontalOptions="Center" />
 
             <!-- The whole blocked state. There is no navigation away from this page, by design. -->
             <VerticalStackLayout Spacing="16" IsVisible="{Binding IsBlocked}">
