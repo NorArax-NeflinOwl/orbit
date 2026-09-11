@@ -77,6 +77,21 @@ public sealed class ChecklistTextEditorTests : OrbitTestContext
     }
 
     [Fact]
+    public void A_paste_goes_in_at_the_caret_and_a_copied_checklist_comes_back_as_boxes()
+    {
+        var lines = new[] { Text("Buy today") };
+        var cut = Surface(lines);
+
+        var words = Send(cut, new { command = "paste", lines, anchor = Caret(0, 4), focus = Caret(0, 4), text = "milk " });
+        var checklist = Send(cut, new { command = "paste", lines = new[] { Text("") }, anchor = Caret(0, 0), focus = Caret(0, 0), text = "- milk\n- eggs" });
+
+        using var answer = JsonDocument.Parse(words!);
+        Assert.Equal(9, answer.RootElement.GetProperty("focus").GetProperty("offset").GetInt32());
+        Assert.NotNull(checklist);
+        Assert.Equal([Box("milk"), Box("eggs")], cut.Instance.Lines);
+    }
+
+    [Fact]
     public void A_press_from_the_toolbar_with_no_caret_on_the_surface_starts_a_box_under_the_last_line()
     {
         var cut = Surface(Text("Shopping"), Text("milk"));

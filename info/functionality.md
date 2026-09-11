@@ -766,6 +766,13 @@ disagree in.
 - **The writing keeps room under its last line** for the tools and three lines more, and the caret's
   line scrolls clear of them (`.note-editor-page`'s padding and `scroll-padding`): the text used to run
   on underneath the tools.
+- **A paste goes in at the caret**, in place of a selection, as plain text (`onPaste`, then
+  `NoteSurfaceEdits.Replace` with `readsMarkers`): the browser used to put it at the start of the line.
+  Pasted text with line breaks becomes that many lines. A pasted line starting `[]`/`[ ]` comes in as a
+  box, as a typed one does; `[x]`/`[X]` as a ticked box; and `- ` (or a bare `-`) as a box too, because
+  that is how the surface copies one out - a checklist copied and pasted back is a checklist again. Only
+  a line the paste starts is read like that: pasted into the middle of words, or onto an existing box, a
+  marker is words. `-5` is not a bullet.
 - **Copying lines copies tick boxes as `- ` bullets** (`checklistTextEditor.js`, `onCopy`; a cut the
   same). A tick box is a button with no text, so a checklist pasted into a message arrived as bare lines.
   A selection inside one line is left to the browser - there is no box in it to speak for.

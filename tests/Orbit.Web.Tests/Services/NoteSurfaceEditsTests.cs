@@ -178,7 +178,7 @@ public sealed class NoteSurfaceEditsTests
     [Fact]
     public void Typing_over_whole_lines_writes_on_a_line_of_its_own_rather_than_at_the_end_of_the_line_above()
     {
-        var after = NoteSurfaceEdits.Replace(Selecting(new(1, 0), new(2, 4), Text("Shopping"), Box("milk"), Box("eggs")), "x");
+        var after = NoteSurfaceEdits.Replace(Selecting(new(1, 0), new(2, 4), Text("Shopping"), Box("milk"), Box("eggs")), "x", readsMarkers: false);
 
         Assert.Equal([Text("Shopping"), Text("x")], after.Lines);
         Assert.Equal(new SurfacePoint(1, 1), after.Caret);

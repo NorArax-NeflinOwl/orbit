@@ -173,11 +173,18 @@ public static partial class NoteSurfaceEdits
     }
 
     /// <summary>
-    /// Writes text where the selection is - typing over a selection that spans lines, which the browser
-    /// would do by gluing the lines' elements together and losing their boxes. Text with line breaks in
+    /// Writes text where the selection is. Used for typing over a selection that spans lines, which the
+    /// browser would do by gluing the lines' elements together and losing their boxes, and for a paste,
+    /// which the browser put at the start of the line rather than at the caret. Text with line breaks in
     /// it becomes that many lines, the caret at the end of what was written.
+    ///
+    /// With readsMarkers - a paste - a line of it that starts the way a typed checklist line starts
+    /// ("[]", "[ ]") becomes a box, and so do the two ways a box is written out: "[x]" ticked, and the
+    /// "- " bullet this surface copies one as (see onCopy in checklistTextEditor.js), so a checklist
+    /// copied out and pasted back is a checklist again. Only a line the paste starts is read that way:
+    /// words pasted into the middle of a line, or onto a box that is already there, are words.
     /// </summary>
-    public static SurfaceState Replace(SurfaceState state, string text)
+    public static SurfaceState Replace(SurfaceState state, string text, bool readsMarkers)
     {
         var cleared = DeleteSelection(state.Normalized(), forReplacement: true);
         var caret = cleared.Caret;
@@ -186,21 +193,56 @@ public static partial class NoteSurfaceEdits
         var before = line.Text[..caret.Offset];
         var after = line.Text[caret.Offset..];
         var written = LinesOf(text);
+        var startsALine = readsMarkers && caret.Offset == 0 && !line.IsChecklistItem;
 
         if (written.Count == 1)
         {
+            if (startsALine && Read(written[0]) is { IsChecklistItem: true } box)
+            {
+                lines[caret.Line] = box with { Text = box.Text + after };
+                return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, box.Text.Length));
+            }
+
             lines[caret.Line] = line with { Text = before + written[0] + after };
             return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, caret.Offset + written[0].Length));
         }
 
-        var replacement = new List<NoteContentLineDto> { line with { Text = before + written[0] } };
-        replacement.AddRange(written.Skip(1).SkipLast(1).Select(Plain));
-        replacement.Add(Plain(written[^1] + after));
+        var replacement = new List<NoteContentLineDto>
+        {
+            startsALine ? Read(written[0]) : line with { Text = before + written[0] }
+        };
+        replacement.AddRange(written.Skip(1).SkipLast(1).Select(pasted => readsMarkers ? Read(pasted) : Plain(pasted)));
+        var last = readsMarkers ? Read(written[^1]) : Plain(written[^1]);
+        replacement.Add(last with { Text = last.Text + after });
 
         lines.RemoveAt(caret.Line);
         lines.InsertRange(caret.Line, replacement);
-        return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line + replacement.Count - 1, written[^1].Length));
+        return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line + replacement.Count - 1, last.Text.Length));
     }
+
+    /// <summary>A pasted line read the way <see cref="Replace"/> describes.</summary>
+    private static NoteContentLineDto Read(string pasted)
+    {
+        var tick = PastedTick().Match(pasted);
+        if (tick.Success)
+        {
+            var isTicked = tick.Groups["mark"].Value is "x" or "X";
+            return new NoteContentLineDto(pasted[tick.Length..], IsChecklistItem: true, IsChecked: isTicked);
+        }
+
+        var bullet = PastedBullet().Match(pasted);
+        return bullet.Success
+            ? new NoteContentLineDto(pasted[bullet.Length..], IsChecklistItem: true, IsChecked: false)
+            : Plain(pasted);
+    }
+
+    /// <summary>The typed marker, plus "[x]" for a box that arrives already ticked.</summary>
+    [GeneratedRegex(@"^\[(?<mark>[ \txX]?)\][ \t]?")]
+    private static partial Regex PastedTick();
+
+    /// <summary>"- " as this surface copies a box out - a bare "-" too, which is an empty one.</summary>
+    [GeneratedRegex(@"^-(?:[ \t]|$)")]
+    private static partial Regex PastedBullet();
 
     /// <summary>
     /// After something was typed: a plain line that now starts "[]" (or "[ ]") becomes a tick box, and

@@ -32,6 +32,7 @@ export function initialize(container, dotNetHelper, initialLinesJson) {
     state.onClick = (event) => onClick(event, container, state);
     state.onCopy = (event) => onCopy(event, container, state, /* isCut */ false);
     state.onCut = (event) => onCopy(event, container, state, /* isCut */ true);
+    state.onPaste = (event) => onPaste(event, container, state);
 
     container.addEventListener('beforeinput', state.onBeforeInput);
     container.addEventListener('input', state.onInput);
@@ -39,6 +40,7 @@ export function initialize(container, dotNetHelper, initialLinesJson) {
     container.addEventListener('click', state.onClick);
     container.addEventListener('copy', state.onCopy);
     container.addEventListener('cut', state.onCut);
+    container.addEventListener('paste', state.onPaste);
 }
 
 export function dispose(container) {
@@ -52,7 +54,29 @@ export function dispose(container) {
     container.removeEventListener('click', state.onClick);
     container.removeEventListener('copy', state.onCopy);
     container.removeEventListener('cut', state.onCut);
+    container.removeEventListener('paste', state.onPaste);
     instances.delete(container);
+}
+
+/// A paste goes in at the caret, in place of what is selected, as plain text - the browser put it at
+/// the start of the line, and would have brought the copied page's markup in with it. Where the lines of
+/// it go, and which of them come in as boxes, is NoteSurfaceEdits.Replace's to say. Clipboard content
+/// with no text in it - an image on its own - pastes nothing.
+function onPaste(event, container, state) {
+    if (!isWritable(container) || !event.clipboardData) {
+        return;
+    }
+
+    event.preventDefault();
+    const text = event.clipboardData.getData('text/plain');
+    if (!text) {
+        return;
+    }
+
+    const answer = ask(container, state, 'paste', { text });
+    if (answer) {
+        show(container, state, answer);
+    }
 }
 
 export function getLinesAsJson(container) {
