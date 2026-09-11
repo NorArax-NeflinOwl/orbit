@@ -118,7 +118,8 @@ public sealed class GetContactsQueryHandlerTests
         await contactRepository.EnsureContactAsync(reader.Id, writer.Id, DateTimeOffset.UtcNow, CancellationToken.None);
         await messageRepository.AddAsync(ChatMessage.Create(writer.Id, reader.Id, "a", "n"), CancellationToken.None);
 
-        await messageRepository.MarkConversationAsReadAsync(reader.Id, writer.Id, DateTimeOffset.UtcNow, CancellationToken.None);
+        await messageRepository.MarkConversationAsReadAsync(
+            reader.Id, writer.Id, DateTimeOffset.UtcNow, readUpToUtc: null, CancellationToken.None);
 
         var handler = new GetContactsQueryHandler(
             contactRepository, userRepository, new InMemoryChatConversationAccessRepository(), messageRepository);

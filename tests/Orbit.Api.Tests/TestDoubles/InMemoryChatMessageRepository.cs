@@ -60,10 +60,11 @@ internal sealed class InMemoryChatMessageRepository : IChatMessageRepository
     /// each other. See MarkConversationAsReadCommandHandler.
     /// </summary>
     public Task<bool> MarkConversationAsReadAsync(
-        Guid readerUserId, Guid otherUserId, DateTimeOffset readAtUtc, CancellationToken cancellationToken)
+        Guid readerUserId, Guid otherUserId, DateTimeOffset readAtUtc, DateTimeOffset? readUpToUtc,
+        CancellationToken cancellationToken)
     {
         var anythingWasUnread = false;
-        foreach (var message in _messages)
+        foreach (var message in _messages.Where(message => IsUpTo(message, readUpToUtc)))
         {
             var isUnreadFromOtherParty =
                 message.SenderUserId == otherUserId && message.RecipientUserId == readerUserId && !_readAtUtcByMessageId.ContainsKey(message.Id);
@@ -175,17 +176,25 @@ internal sealed class InMemoryChatMessageRepository : IChatMessageRepository
             _messages.Where(message => message.GroupMessageId == groupMessageId).ToList());
     /// <summary>The group's own, and the same answer - see MarkConversationAsReadAsync above.</summary>
     public Task<bool> MarkGroupConversationAsReadAsync(
-        Guid readerUserId, Guid groupId, DateTimeOffset readAtUtc, CancellationToken cancellationToken)
+        Guid readerUserId, Guid groupId, DateTimeOffset readAtUtc, DateTimeOffset? readUpToUtc,
+        CancellationToken cancellationToken)
     {
         var anythingWasUnread = false;
         foreach (var message in _messages.Where(message =>
-                     message.GroupId == groupId && message.RecipientUserId == readerUserId))
+                     message.GroupId == groupId && message.RecipientUserId == readerUserId && IsUpTo(message, readUpToUtc)))
         {
             anythingWasUnread |= _readAtUtcByMessageId.TryAdd(message.Id, readAtUtc);
         }
 
         return Task.FromResult(anythingWasUnread);
     }
+
+    /// <summary>
+    /// The real repository's cut, inclusive: a message sent at exactly readUpToUtc is the one the reader
+    /// saw, and a double that left it unread would make a correct client look broken.
+    /// </summary>
+    private static bool IsUpTo(ChatMessage message, DateTimeOffset? readUpToUtc)
+        => readUpToUtc is null || message.SentAtUtc <= readUpToUtc.Value;
 
     public Task<IReadOnlyDictionary<Guid, IReadOnlyList<GroupMessageReceipt>>> GetGroupReceiptsAsync(
         IReadOnlyCollection<Guid> groupMessageIds, CancellationToken cancellationToken)
