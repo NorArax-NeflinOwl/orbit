@@ -735,6 +735,96 @@ public sealed class AccountScreenTests
     }
 
     /// <summary>
+    /// Where this deployment offers Google to the phone, an account without a password confirms its
+    /// deletion with Google - asked again, and checked by the server - rather than by typing its address,
+    /// which anybody holding the unlocked phone could do as easily as its owner.
+    /// </summary>
+    [Fact]
+    public async Task Where_google_is_offered_a_passwordless_account_confirms_with_it()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { HasPassword = false, IsGoogleLinked = true };
+        context.Users.GoogleAndroidClientId = "android-client";
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.True(screen.ConfirmsWithGoogle);
+        Assert.False(screen.RequiresTypedAccountToDelete);
+        Assert.True(screen.IsReadyToDelete());
+    }
+
+    [Fact]
+    public async Task A_fresh_google_sign_in_deletes_the_account_and_empties_the_device()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { HasPassword = false, IsGoogleLinked = true };
+        context.Users.GoogleAndroidClientId = "android-client";
+        context.Keep(new LocalNote { Title = "Bank details" });
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        await screen.DeleteWithGoogleCommand.ExecuteAsync(null);
+
+        Assert.True(context.Users.AccountDeleted);
+        Assert.Equal("the-id-token", context.Users.LastDeletionGoogleIdToken);
+        Assert.Null(await context.Session.GetAsync());
+        Assert.Equal("ShowSignIn", context.Navigator.LastDestination);
+    }
+
+    /// <summary>A sign-in the server does not take leaves the account and the device, and says why.</summary>
+    [Fact]
+    public async Task A_google_sign_in_the_server_refuses_leaves_everything_and_says_so()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { HasPassword = false, IsGoogleLinked = true };
+        context.Users.GoogleAndroidClientId = "android-client";
+        context.Users.GoogleIssuesToken = "an-old-token";
+        context.Keep(new LocalNote { Title = "Bank details" });
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        await screen.DeleteWithGoogleCommand.ExecuteAsync(null);
+
+        Assert.False(context.Users.AccountDeleted);
+        Assert.Equal("Google didn't confirm this account. Try again.", screen.DeletionMessage);
+        Assert.NotNull(await context.Session.GetAsync());
+        using var store = context.Store.CreateDbContext();
+        Assert.NotEmpty(store.Notes);
+    }
+
+    /// <summary>Backing out of Google's screen is the reader changing their mind: nothing is sent and nothing is said.</summary>
+    [Fact]
+    public async Task Backing_out_of_google_deletes_nothing()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { HasPassword = false, IsGoogleLinked = true };
+        context.Users.GoogleAndroidClientId = "android-client";
+        context.SignInBrowser = new FakeSignInBrowser { Result = null };
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        await screen.DeleteWithGoogleCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, context.Users.DeletionRequests);
+        Assert.False(screen.HasDeletionMessage);
+    }
+
+    /// <summary>Where Google is not offered, the typed address stays the way - the server has nothing else to check yet.</summary>
+    [Fact]
+    public async Task Where_google_is_not_offered_the_address_is_typed_instead()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { HasPassword = false, IsGoogleLinked = true };
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.False(screen.ConfirmsWithGoogle);
+        Assert.True(screen.RequiresTypedAccountToDelete);
+    }
+
+    /// <summary>
     /// An account that signs in with Google can hold a password without thinking of itself as having
     /// one, so it is told which one is meant - and every account asked for one is offered the way to a
     /// new one, since a reset is how an account whose password is gone gets deleted at all.
@@ -989,9 +1079,12 @@ public sealed class AccountScreenTests
                 new GoogleAccountLink(
                     new AccountClient(_users.ToHttpClient(), FixedNetworkStatus.Online, _sessionStore),
                     new AuthenticationClient(_users.ToHttpClient(), FixedNetworkStatus.Online, _sessionStore),
-                    new GoogleSignIn(new FakeSignInBrowser(), _users.ToHttpClient()),
+                    new GoogleSignIn(SignInBrowser, _users.ToHttpClient()),
                     new Translations(new InMemoryLanguageStore())),
                 GoogleExtras);
+
+        /// <summary>The system browser Google is opened in - a reader who signs in, unless a test says they back out.</summary>
+        public FakeSignInBrowser SignInBrowser { get; set; } = new();
 
         /// <summary>What this "device" answers about the Google links - see GoogleExtras.</summary>
         public GoogleExtras GoogleExtras { get; } = new(new InMemoryGoogleExtrasStore());

@@ -431,6 +431,13 @@
                                SemanticProperties.Description="{controls:Translate 'Type your email address or login to confirm'}" />
                     </VerticalStackLayout>
 
+                    <!-- Where Google is offered, an account with no password confirms with it instead:
+                         pressing Delete asks Google again after the prompt - see
+                         AccountViewModel.ConfirmsWithGoogle and the page's OnDeleteAccountClicked. -->
+                    <controls:FieldHint Label="{controls:Translate 'Confirm with Google to delete this account'}"
+                                        Text="{controls:Translate 'An account without a password proves it is yours by signing in with Google again - just now, not the sign-in that opened this page.'}"
+                                        IsVisible="{Binding ConfirmsWithGoogle}" />
+
                     <Button x:Name="DeleteAccountButton" Text="{controls:Translate 'Delete account'}" HorizontalOptions="Start"
                             Style="{StaticResource DangerButton}" Clicked="OnDeleteAccountClicked" />
                     <Label Text="{Binding DeletionMessage}" IsVisible="{Binding HasDeletionMessage}"

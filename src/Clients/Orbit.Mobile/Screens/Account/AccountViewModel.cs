@@ -115,7 +115,16 @@ public sealed partial class AccountViewModel : ObservableObject
     /// have no password: an account with none has nothing to prove itself with, and the server asks it
     /// for nothing, so typing this is what stands between one stray press and everything it holds.
     /// </summary>
-    public bool RequiresTypedAccountToDelete => _account is { HasPassword: false };
+    public bool RequiresTypedAccountToDelete => _account is { HasPassword: false } && !ConfirmsWithGoogle;
+
+    /// <summary>
+    /// Whether an account without a password proves it is the owner with Google rather than by typing its
+    /// address: it is linked to Google, and this deployment offers Google to this app. Google is asked
+    /// again when Delete is pressed, and the server checks the sign-in is this account's and a fresh one -
+    /// which a phone left unlocked somewhere could not fake the way it could type an address. Orbit.Web
+    /// asks the same way (see Options' danger zone).
+    /// </summary>
+    public bool ConfirmsWithGoogle => _account is { HasPassword: false, IsGoogleLinked: true } && GoogleLink.IsOffered;
 
     /// <summary>
     /// Whether to say which password is meant. An account that signs in with Google can hold one without
@@ -527,6 +536,9 @@ public sealed partial class AccountViewModel : ObservableObject
             // offered where the account qualifies - the line Orbit.Web draws over the same row.
             CanChooseGoogleExtras = GoogleIntegrationAccess.Qualifies(account);
             await GoogleLink.ShowAsync(account);
+            // After the Google row has asked whether Google is offered here, which is half of the answer.
+            OnPropertyChanged(nameof(ConfirmsWithGoogle));
+            OnPropertyChanged(nameof(RequiresTypedAccountToDelete));
         }
         catch (HttpRequestException)
         {
@@ -705,10 +717,10 @@ public sealed partial class AccountViewModel : ObservableObject
     /// never shown for a deletion that would be refused anyway; <see cref="DeleteAccountCommand"/> asks
     /// again, so nothing reaches the server without it.
     ///
-    /// An account with a password gives it (see DeleteAccountRequest). One without has nothing to give,
-    /// and the server asks it for nothing - being signed in is the proof there - so it types its address
-    /// or login, checked here against the account already loaded, as Orbit.Web checks it. That makes the
-    /// press deliberate rather than proving anything to the server.
+    /// An account with a password gives it (see DeleteAccountRequest). One without confirms with Google
+    /// where Google is offered (see <see cref="ConfirmsWithGoogle"/>, asked after this agrees); where it is
+    /// not, it types its address or login, checked here against the account already loaded, as Orbit.Web
+    /// checks it - which makes the press deliberate rather than proving anything to the server.
     /// </summary>
     public bool IsReadyToDelete()
     {
@@ -724,7 +736,7 @@ public sealed partial class AccountViewModel : ObservableObject
             return false;
         }
 
-        if (!_account.HasPassword && !ConfirmsAccount(_account))
+        if (!_account.HasPassword && !ConfirmsWithGoogle && !ConfirmsAccount(_account))
         {
             DeletionMessage = _translations["That isn't this account's email address or login."];
             return false;
@@ -765,12 +777,53 @@ public sealed partial class AccountViewModel : ObservableObject
             return;
         }
 
+        await DeleteAsync(googleIdToken: null, cancellationToken);
+    }
+
+    /// <summary>
+    /// The same deletion, for an account that confirms with Google (<see cref="ConfirmsWithGoogle"/>):
+    /// Google is asked again first, and what comes back goes with the request for the server to check.
+    /// Backing out of Google's screen deletes nothing and says nothing - it is the reader changing their mind.
+    /// </summary>
+    [RelayCommand]
+    private async Task DeleteWithGoogleAsync(CancellationToken cancellationToken)
+    {
+        if (!IsReadyToDelete() || !ConfirmsWithGoogle)
+        {
+            return;
+        }
+
+        string? idToken;
+        try
+        {
+            idToken = await GoogleLink.SignInAgainAsync(cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            DeletionMessage = _translations["Couldn't reach Orbit. Check your connection and try again."];
+            return;
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (idToken is null)
+        {
+            return;
+        }
+
+        await DeleteAsync(idToken, cancellationToken);
+    }
+
+    private async Task DeleteAsync(string? googleIdToken, CancellationToken cancellationToken)
+    {
         var account = _account!;
         DeletionMessage = string.Empty;
         AccountOperationResult result;
         try
         {
-            result = await _accountClient.DeleteAccountAsync(DeleteAccountPassword, cancellationToken);
+            result = await _accountClient.DeleteAccountAsync(DeleteAccountPassword, googleIdToken, cancellationToken);
         }
         catch (HttpRequestException)
         {
@@ -780,6 +833,14 @@ public sealed partial class AccountViewModel : ObservableObject
         catch (OperationCanceledException)
         {
             // The screen went away mid-request; there is nobody left to tell.
+            return;
+        }
+
+        if (!result.Succeeded && googleIdToken is not null)
+        {
+            // Google's answer, not a password that was set elsewhere: the sign-in was not this account's,
+            // or not a fresh one, and trying again means signing in again.
+            DeletionMessage = _translations[result.Message ?? "Google didn't confirm this account. Try again."];
             return;
         }
 

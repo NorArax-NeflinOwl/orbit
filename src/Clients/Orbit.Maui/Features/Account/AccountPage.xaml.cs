@@ -103,6 +103,14 @@ public partial class AccountPage : ContentPage
 			return;
 		}
 
+		// Google is asked after the prompt rather than before it, so declining the prompt never opens a
+		// browser - see AccountViewModel.ConfirmsWithGoogle.
+		if (_viewModel.ConfirmsWithGoogle)
+		{
+			await _viewModel.DeleteWithGoogleCommand.ExecuteAsync(null);
+			return;
+		}
+
 		await _viewModel.DeleteAccountCommand.ExecuteAsync(null);
 	}
 
