@@ -112,34 +112,12 @@ else if (_errorMessage is not null)
         }
     </div>
 
-    @* Asked before leaving rather than done on the click: leaving takes this reader's copies of the
-       group's messages with them and only an admin can bring them back. And the one reader who leaves
-       people behind with nobody to manage the group - its only admin - is asked who takes over, with
-       the person the server would pick anyway already chosen, so confirming without looking is never
-       worse than the automatic rule. *@
+    @* Asked before leaving rather than done on the click - see GroupLeaveConfirmation, which the
+       archive asks with too. *@
     @if (_isConfirmingLeave)
     {
-        <div class="card group-leave-confirmation">
-            <p>@T["Leave this group? Your copies of its messages go with you, and only an admin can add you back."]</p>
-            @if (OtherMembers.Count == 0)
-            {
-                <p class="field-hint">@T["You're the last one here, so the group is deleted when you go."]</p>
-            }
-            @if (MustChooseSuccessor)
-            {
-                <label for="successorInput">@T["You're the only admin here. Who takes over?"]</label>
-                <select id="successorInput" @bind="_successorUserId">
-                    @foreach (var candidate in OtherMembers)
-                    {
-                        <option value="@candidate.UserId">@DisplayNameFor(candidate.UserId)</option>
-                    }
-                </select>
-            }
-            <div class="field-row">
-                <button type="button" class="btn-danger" disabled="@_isBusy" @onclick="LeaveGroupAsync">@T["Leave group"]</button>
-                <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="CancelLeaving">@T["Cancel"]</button>
-            </div>
-        </div>
+        <GroupLeaveConfirmation Group="group" Contacts="_contacts"
+                                OnLeft="GoBackToTheGroups" OnCancel="CancelLeaving" OnRefused="LoadAsync" />
     }
 }
 
@@ -298,74 +276,16 @@ else if (_errorMessage is not null)
     /// <summary>Whether the leave question is on screen - see the panel below the roster.</summary>
     private bool _isConfirmingLeave;
 
-    /// <summary>Who takes over when this reader is the group's only admin; a string for the select's sake.</summary>
-    private string _successorUserId = string.Empty;
-
-    private IReadOnlyList<ChatGroupMemberDto> OtherMembers
-        => _group is { } group ? [.. group.Members.Where(member => member.UserId != _ownUserId)] : [];
-
-    /// <summary>
-    /// Whether this reader going would leave people in the group with no admin among them - the one case
-    /// the server has to hand the group to somebody, and so the one case worth asking who.
-    /// </summary>
-    private bool MustChooseSuccessor
-        => IsOwnAdmin && OtherMembers.Count > 0 && OtherMembers.All(member => member.Role != AdminRole);
-
     private void StartLeaving()
     {
         _errorMessage = null;
         _isConfirmingLeave = true;
-        ChooseDefaultSuccessorUnlessStillValid();
     }
 
     private void CancelLeaving() => _isConfirmingLeave = false;
 
-    /// <summary>
-    /// Offers the person the server would promote anyway, by the very rule it uses - see
-    /// ChatGroup.ChooseSuccessor - so the picker's default and the automatic choice cannot disagree.
-    /// Keeps a choice still on the roster, so reloading after a refusal does not undo what was picked.
-    /// </summary>
-    private void ChooseDefaultSuccessorUnlessStillValid()
-    {
-        if (!MustChooseSuccessor)
-        {
-            _successorUserId = string.Empty;
-            return;
-        }
-
-        if (OtherMembers.Any(member => member.UserId.ToString() == _successorUserId))
-        {
-            return;
-        }
-
-        _successorUserId = Orbit.Core.Chat.Groups.ChatGroup
-            .ChooseSuccessor(OtherMembers, member => member.JoinedAtUtc, member => member.UserId)
-            .UserId.ToString();
-    }
-
-    /// <summary>
-    /// Leaves the group - through the leave route, which takes this reader's copies of its messages with
-    /// them, rather than by removing themselves, which left the copies behind for nobody to read - and
-    /// goes back to the conversation list. A refusal (the chosen successor has left in the meantime, say)
-    /// is said on screen in the server's words, and the roster is read again so the picker offers who is
-    /// actually there now.
-    /// </summary>
-    private async Task LeaveGroupAsync()
-        => await RunAsync(async () =>
-        {
-            Guid? successorUserId = MustChooseSuccessor && Guid.TryParse(_successorUserId, out var chosen) ? chosen : null;
-            var refusal = await ChatApiClient.LeaveGroupAsync(GroupId, successorUserId);
-            if (refusal is null)
-            {
-                NavigationManager.NavigateTo("/chat/groups");
-                return;
-            }
-
-            Logger.LogWarning("Leaving group {GroupId} was refused: {Reason}", GroupId, refusal);
-            await LoadAsync();
-            ChooseDefaultSuccessorUnlessStillValid();
-            _errorMessage = T[refusal];
-        });
+    /// <summary>There is nothing left to look at once the reader is out, so back to the conversation list.</summary>
+    private void GoBackToTheGroups() => NavigationManager.NavigateTo("/chat/groups");
 
     private async Task ChangeRoleAsync(Guid userId, string role)
         => await RunAsync(async () =>
