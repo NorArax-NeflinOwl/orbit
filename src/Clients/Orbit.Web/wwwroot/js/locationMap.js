@@ -156,7 +156,90 @@ function popupFor(point, dotNetHelper) {
         panel.appendChild(actions);
     }
 
+    // One end of a route - see MapPage.OnPinRoute, which decides whether this press starts one or ends it
+    // and says which in the label it hands over.
+    if (point.routeLabel && dotNetHelper) {
+        const route = document.createElement('button');
+        route.type = 'button';
+        route.className = 'map-popup-navigate';
+        route.textContent = point.routeLabel;
+        route.addEventListener('click', () => {
+            dotNetHelper.invokeMethodAsync('OnPinRoute', point.key ?? '');
+        });
+        panel.appendChild(route);
+    }
+
     return panel;
+}
+
+// The public demo server of the Open Source Routing Machine, run by FOSSGIS for OpenStreetMap. Light use
+// only, by its own policy - the same bargain the geocoding makes with Nominatim; a deployment with real
+// traffic should run its own. Driving, because the demo serves cars and nothing else reliably.
+const ROUTING_SERVICE = 'https://router.project-osrm.org/route/v1/driving/';
+
+/// Draws a route between two points and frames it, replacing whatever route was drawn before. Asks the
+/// routing service only when `mayAskOtherSites` - the reader's own "keep third parties out" answer, the
+/// one mapTiles.js reads - and otherwise, or when the service does not answer, joins the two in a straight
+/// line. Answers how far it is, how long by road when the service said, and which of the two was drawn.
+export async function showRoute(elementId, from, to, mayAskOtherSites) {
+    const instance = mapInstancesByElementId.get(elementId);
+    if (!instance) {
+        return null;
+    }
+
+    clearRoute(elementId);
+
+    const byRoad = mayAskOtherSites ? await askForARoute(from, to) : null;
+    const latLngs = byRoad?.latLngs ?? [[from.latitude, from.longitude], [to.latitude, to.longitude]];
+
+    // A class rather than a colour: the stroke is an SVG attribute, and an attribute cannot read a CSS
+    // variable - see .map-route-line in app.css, which gives it the accent.
+    instance.route = L.polyline(latLngs, {
+        className: byRoad ? 'map-route-line' : 'map-route-line map-route-line-straight',
+        weight: 5,
+        opacity: 0.85
+    }).addTo(instance.map);
+    instance.map.fitBounds(instance.route.getBounds(), { padding: [40, 40], animate: false });
+
+    return byRoad
+        ? { distanceMetres: byRoad.distanceMetres, durationSeconds: byRoad.durationSeconds, followsRoads: true }
+        : { distanceMetres: instance.map.distance(latLngs[0], latLngs[1]), durationSeconds: null, followsRoads: false };
+}
+
+/// Takes the route off the map, if there is one. The markers stay.
+export function clearRoute(elementId) {
+    const instance = mapInstancesByElementId.get(elementId);
+    if (instance?.route) {
+        instance.route.remove();
+        instance.route = null;
+    }
+}
+
+/// The road route, or null for anything short of one - no answer, a refusal, or no road between them.
+/// Null is not an error here: the caller draws a straight line and says so.
+async function askForARoute(from, to) {
+    try {
+        const response = await fetch(
+            `${ROUTING_SERVICE}${from.longitude},${from.latitude};${to.longitude},${to.latitude}?overview=full&geometries=geojson`);
+        if (!response.ok) {
+            return null;
+        }
+
+        const answer = await response.json();
+        const route = answer?.code === 'Ok' ? answer.routes?.[0] : null;
+        if (!route?.geometry?.coordinates?.length) {
+            return null;
+        }
+
+        return {
+            // GeoJSON writes longitude first; Leaflet reads latitude first.
+            latLngs: route.geometry.coordinates.map(([longitude, latitude]) => [latitude, longitude]),
+            distanceMetres: route.distance,
+            durationSeconds: route.duration
+        };
+    } catch {
+        return null;
+    }
 }
 
 /// Moves the markers on a map that is already there to wherever the given points now are, without

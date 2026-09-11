@@ -474,6 +474,27 @@ else
                 <button type="button" class="btn-secondary" @onclick="ForgetTheFoundPlace">@T["Cancel"]</button>
             </div>
         }
+
+        @* A route between two pins, chosen from their popups - see OnPinRoute. Along the foot of the map
+           with the other questions about pins, because it is about two of them. *@
+        @if (_routeStart is { } routeStart)
+        {
+            <div class="map-create-event map-route">
+                @if (_routeEnd is { } routeEnd)
+                {
+                    <span class="map-create-event-place">@T.Format("{0} → {1}", routeStart.Address, routeEnd.Address)</span>
+                    @if (_route is { } route)
+                    {
+                        <span class="map-create-event-question">@DescribeRoute(route)</span>
+                    }
+                }
+                else
+                {
+                    <span class="map-create-event-question">@T.Format("Route from {0}. Open another pin and choose where it goes.", routeStart.Address)</span>
+                }
+                <button type="button" class="btn-secondary" @onclick="ClearTheRouteAsync">@T["Clear the route"]</button>
+            </div>
+        }
     </div>
 </div>
 }
@@ -1094,6 +1115,8 @@ else
             _mapModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/locationMap.js");
             _pageReference ??= DotNetObjectReference.Create(this);
             await _mapModule.InvokeVoidAsync("showLocations", MapElementId, MapPoints(), _pageReference);
+            // A map drawn again from scratch takes everything on it with it, a route included.
+            await DrawTheRouteAsync();
             await GoToThePlaceAskedForAsync();
         }
         catch (JSException exception)
@@ -1149,7 +1172,8 @@ else
                 color = "var(--accent)",
                 canPlan = true,
                 planEventLabel = T["An event here"],
-                planTaskListLabel = T["A task list here"]
+                planTaskListLabel = T["A task list here"],
+                routeLabel = RouteLabel
             });
         }
 
@@ -1170,7 +1194,8 @@ else
                 navigateLabel = T["Take me there"],
                 canPlan = true,
                 planEventLabel = T["An event here"],
-                planTaskListLabel = T["A task list here"]
+                planTaskListLabel = T["A task list here"],
+                routeLabel = RouteLabel
             }));
         }
 
@@ -1190,7 +1215,8 @@ else
                 navigateLabel = T["Take me there"],
                 canPlan = true,
                 planEventLabel = T["An event here"],
-                planTaskListLabel = T["A task list here"]
+                planTaskListLabel = T["A task list here"],
+                routeLabel = RouteLabel
             }));
         }
 
@@ -1209,7 +1235,8 @@ else
                 navigateLabel = T["Take me there"],
                 canPlan = true,
                 planEventLabel = T["An event here"],
-                planTaskListLabel = T["A task list here"]
+                planTaskListLabel = T["A task list here"],
+                routeLabel = RouteLabel
             }));
         }
 
@@ -1227,7 +1254,8 @@ else
                 navigateLabel = T["Take me there"],
                 canPlan = true,
                 planEventLabel = T["An event here"],
-                planTaskListLabel = T["A task list here"]
+                planTaskListLabel = T["A task list here"],
+                routeLabel = RouteLabel
             });
         }
 
@@ -1243,7 +1271,9 @@ else
                 label = pressed.Name,
                 color = "var(--danger)",
                 canNavigate = true,
-                navigateLabel = T["Take me there"]
+                navigateLabel = T["Take me there"],
+                // Any spot on the map can be one end of a route: press it, and this pin is how.
+                routeLabel = RouteLabel
             });
         }
 
@@ -1996,6 +2026,136 @@ else
         _placeToPlanFor = place;
         HandOverThePlaceTo(plan == nameof(PlanForAPlace.Event) ? "/calendar/new" : "/tasks/new");
         return Task.CompletedTask;
+    }
+
+    /// <summary>Where the route being drawn starts, once a pin's popup has said so - see OnPinRoute.</summary>
+    private PickedPlace? _routeStart;
+
+    /// <summary>Where it ends, once a second pin has said so. Never set without a start.</summary>
+    private PickedPlace? _routeEnd;
+
+    /// <summary>What drawing it came back with - how far, how long, and whether it follows the roads.</summary>
+    private RouteSummary? _route;
+
+    /// <summary>
+    /// What locationMap.js's showRoute answers: the distance always, the time only when the route came
+    /// from the routing service, and whether it follows the roads or is a straight line between the two.
+    /// </summary>
+    private sealed record RouteSummary(double DistanceMetres, double? DurationSeconds, bool FollowsRoads);
+
+    /// <summary>
+    /// What the route button in a popup says: where a route starts until one has, and where it goes after.
+    /// One button that changes rather than two side by side - a popup is two lines wide, and "from here"
+    /// and "to here" together would be a question the reader has to answer before they have one.
+    /// </summary>
+    private string RouteLabel => _routeStart is null || _routeEnd is not null
+        ? T["Start a route here"]
+        : T["Route to here"];
+
+    /// <summary>
+    /// The route button in a pin's popup. The first press says where a route starts; the second, on
+    /// another pin, where it goes, and the route is drawn. A press once both are chosen starts over from
+    /// that pin, which is what somebody pressing "start a route here" on a map already showing one means.
+    ///
+    /// Looked up by key for the reason OnPinNavigate gives.
+    /// </summary>
+    [JSInvokable]
+    public async Task OnPinRoute(string key)
+    {
+        if (PlaceForKey(key) is not { } place)
+        {
+            return;
+        }
+
+        if (_routeStart is null || _routeEnd is not null)
+        {
+            Logger.LogInformation("User started a route on the map");
+            await ClearTheRouteLineAsync();
+            _routeStart = place;
+            _routeEnd = null;
+            _route = null;
+        }
+        else
+        {
+            Logger.LogInformation("User finished a route on the map");
+            _routeEnd = place;
+            await DrawTheRouteAsync();
+        }
+
+        // The popups' own button says the other thing now.
+        await RefreshMapMarkersAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Draws the chosen route on the map. The road route comes from a service somebody else runs, so it is
+    /// asked for only where the reader lets Orbit reach other sites at all - the same answer that decides
+    /// whether the map has a background (see mapTiles.js). Otherwise, and when the service does not
+    /// answer, the two ends are joined in a straight line and the distance is that line's.
+    /// </summary>
+    private async Task DrawTheRouteAsync()
+    {
+        if (_mapModule is null || _routeStart is not { } start || _routeEnd is not { } end)
+        {
+            return;
+        }
+
+        try
+        {
+            _route = await _mapModule.InvokeAsync<RouteSummary?>(
+                "showRoute", MapElementId,
+                new { latitude = start.Latitude, longitude = start.Longitude },
+                new { latitude = end.Latitude, longitude = end.Longitude },
+                _mapTilesAllowed);
+        }
+        catch (JSException exception)
+        {
+            Logger.LogWarning(exception, "Could not draw a route on the map");
+            _route = null;
+        }
+    }
+
+    private async Task ClearTheRouteAsync()
+    {
+        await ClearTheRouteLineAsync();
+        _routeStart = null;
+        _routeEnd = null;
+        _route = null;
+        await RefreshMapMarkersAsync();
+    }
+
+    private async Task ClearTheRouteLineAsync()
+    {
+        if (_mapModule is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _mapModule.InvokeVoidAsync("clearRoute", MapElementId);
+        }
+        catch (JSException exception)
+        {
+            Logger.LogWarning(exception, "Could not take a route off the map");
+        }
+    }
+
+    /// <summary>
+    /// How far and how long, in the reader's own number format. A straight line says so: its distance is
+    /// as the crow flies, and a reader who took it for the road would set out underestimating the trip.
+    /// </summary>
+    private string DescribeRoute(RouteSummary route)
+    {
+        var kilometres = (route.DistanceMetres / 1000).ToString("0.0", T.DisplayCulture);
+        if (!route.FollowsRoads)
+        {
+            return $"{kilometres} km · {T["in a straight line"]}";
+        }
+
+        return route.DurationSeconds is { } seconds
+            ? $"{kilometres} km · {T.Format("about {0} min", Math.Max(1, (int)Math.Round(seconds / 60)))}"
+            : $"{kilometres} km";
     }
 
     private PickedPlace? PlaceForKey(string key)

@@ -727,6 +727,41 @@ public sealed class MapPageTests : OrbitTestContext
         Assert.DoesNotContain("/calendar/new", Services.GetRequiredService<NavigationManager>().Uri, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A route is two presses on two pins: the first says where it starts and the bar under the map
+    /// asks for the other end; the second says where it goes, and the bar names both.
+    /// </summary>
+    [Fact]
+    public async Task A_route_runs_between_the_two_pins_it_was_started_and_ended_on()
+    {
+        GrantLocations();
+        _ownLocationJson = OwnLocation();
+        var cut = RenderComponent<MapPage>();
+
+        await cut.InvokeAsync(() => cut.Instance.OnPinRoute("own"));
+        Assert.Contains("Route from Długa 4, Warszawa", cut.Find(".map-route").TextContent, StringComparison.Ordinal);
+
+        await cut.InvokeAsync(() => cut.Instance.OnMapPressed(54.35, 18.65));
+        await cut.InvokeAsync(() => cut.Instance.OnPinRoute("pressed"));
+
+        var bar = cut.Find(".map-route").TextContent;
+        Assert.Contains("Długa 4, Warszawa → Wały Piastowskie 1, Gdańsk", bar, StringComparison.Ordinal);
+    }
+
+    /// <summary>And clearing it takes the bar away, leaving the pins where they were.</summary>
+    [Fact]
+    public async Task Clearing_a_route_takes_it_off_the_page()
+    {
+        GrantLocations();
+        _ownLocationJson = OwnLocation();
+        var cut = RenderComponent<MapPage>();
+        await cut.InvokeAsync(() => cut.Instance.OnPinRoute("own"));
+
+        ButtonSaying(cut, "Clear the route").Click();
+
+        Assert.Empty(cut.FindAll(".map-route"));
+    }
+
     /// <summary>The refresh button sits on the map beside full screen, and pressing it reads again.</summary>
     [Fact]
     public void The_map_offers_a_refresh_beside_full_screen()

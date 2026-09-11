@@ -6078,6 +6078,17 @@ input.note-editor-title {
     color: var(--text-secondary);
 }
 
+/* A route between two pins - see locationMap.js's showRoute. The accent, because it is the reader's own
+   question on the map; dashed where it is only a straight line between the two, so it cannot be taken
+   for a road. */
+.map-route-line {
+    stroke: var(--accent);
+}
+
+.map-route-line-straight {
+    stroke-dasharray: 8 8;
+}
+
 /* What can be started at the pin, under the way to be taken there - see locationMap.js's popupFor. */
 .map-popup-actions {
     display: flex;
