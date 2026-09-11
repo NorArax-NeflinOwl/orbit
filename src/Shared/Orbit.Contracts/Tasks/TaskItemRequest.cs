@@ -124,4 +124,24 @@ public sealed record TaskItemRequest(
             // As they came, null included, for the reason Notes above gives.
             item.Priority,
             item.Colour);
+
+    /// <summary>
+    /// This entry as a private list seals it: every field it carries, under the id it is known by. The
+    /// sealed half is the only place a private list's entries are kept at all - the server stores no item
+    /// rows for one - so a field left out here is a field a private list loses on every save.
+    ///
+    /// The mirror of <see cref="From"/>, and here for the same reason: the browser built its sealed
+    /// entry by hand from the fields entries had when private lists were written, and every field added
+    /// since - kind, place, the two links, categories, product, description, the cross, steps, priority
+    /// and colour - came back blank from a private list after its first save in a browser.
+    /// </summary>
+    public TaskItemDto AsEntry(Guid id)
+        => new(
+            id, Description, DueDateUtc, IsCompleted,
+            // The new field only: the single one carries just the first list, and a private list would
+            // lose the rest of an entry standing for several.
+            LinkedTaskListId: null,
+            OverdueNotificationChannel, RemindDaily, DailyReminderNotificationChannel, DailyReminderTimeOfDay,
+            Kind, Location, LinkedCalendarEventId, LinkedInventoryItemId, AllLinkedTaskListIds,
+            Categories, Product, Notes, IsFailed, WaitsForTaskItemIds, Priority, Colour);
 }

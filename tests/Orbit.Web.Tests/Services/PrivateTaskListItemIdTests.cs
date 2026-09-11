@@ -84,6 +84,42 @@ public sealed class PrivateTaskListItemIdTests : OrbitTestContext
         Assert.Equal(ids, secondRead!.Items.Select(item => item.Id));
     }
 
+    /// <summary>
+    /// Everything an entry says comes back out of the seal, not only what entries said when private lists
+    /// were written. The sealed entry was built by hand from those nine fields, so a private list saved
+    /// in a browser came back with every entry a plain, unfiled, uncoloured checklist line - its place,
+    /// categories, description and priority gone.
+    /// </summary>
+    [Fact]
+    public async Task Everything_an_entry_says_survives_being_sealed()
+    {
+        var client = ClientThatSealsAndOpens();
+
+        await client.CreateTaskListAsync(
+            new CreateTaskRequest(
+                "Bank things",
+                [
+                    Entry("Visit the branch") with
+                    {
+                        Kind = "Location",
+                        Location = "Długa 4",
+                        Categories = ["bank"],
+                        Notes = "Bring the passport",
+                        Priority = "High",
+                        Colour = "#aa3355"
+                    }
+                ],
+                IsGroup: false, IsPrivate: true, EncryptedContent: null));
+        var entry = Assert.Single((await client.GetTaskListByIdAsync(TaskListId))!.Items);
+
+        Assert.Equal("Location", entry.Kind);
+        Assert.Equal("Długa 4", entry.Location);
+        Assert.Equal(["bank"], entry.AllCategories);
+        Assert.Equal("Bring the passport", entry.Notes);
+        Assert.Equal("High", entry.Priority);
+        Assert.Equal("#aa3355", entry.Colour);
+    }
+
     private static TaskItemRequest Entry(string description)
         => new(description, Id: null, DueDateUtc: null, IsCompleted: false, LinkedTaskListId: null,
             OverdueNotificationChannel: "None", RemindDaily: false, DailyReminderNotificationChannel: "None",

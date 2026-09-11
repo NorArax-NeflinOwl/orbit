@@ -1479,6 +1479,14 @@ those), and anything sealed before that is given an id derived from the list and
 as it is opened, so an address stays the same across reads and reloads rather than being invented
 afresh each time.
 
+**And everything else an entry says goes into the seal with it** - which until 2026-09-11 it did not in
+a browser. `SealIfPrivateAsync` built the sealed entry by hand from the nine fields entries had when
+private lists were written, so every field added since - kind, place, the two links, categories,
+product, description, the cross, steps, priority and colour - came back blank after a private list's
+first save in a browser. It seals `TaskItemRequest.AsEntry` now, the mirror of `TaskItemRequest.From`,
+so a field added to an entry is sealed by the same mapping that sends it. The phone always sealed the
+whole `TaskItemDto`.
+
 **Both clients do all of this**, and to the same bytes: what goes inside the ciphertext is JSON, so the
 payload shapes (`SealedNote`, `SealedTaskList`, `SealedInventory`) live in `Orbit.Contracts` and are
 serialized with the same property names on either side — `SealedContentTests` pins the phone's

@@ -242,21 +242,16 @@ public sealed class TasksApiClient
             throw new InvalidOperationException("This TasksApiClient was built without a PrivateContentSealer, so it can't save a private list.");
         }
 
+        // Every field the entry carries - see TaskItemRequest.AsEntry, which exists because this line
+        // used to list them by hand and had stopped at the ones entries had when it was written.
         var sealedItems = items
-            .Select(item => new TaskItemDto(
-                // The entry's own id, sealed with it. It used to be Guid.Empty for every entry, which
-                // made a private list's entries indistinguishable from one another: nothing points at
-                // one server-side (a private list stores no item rows at all), but the *client* does -
-                // an entry's own page is addressed by id, so pressing the third entry on a private list
-                // opened the first. A new entry gets one minted here, since a request carries no id for
-                // something that has never been saved. See TaskItemRequest.Id.
-                item.Id ?? Guid.NewGuid(), item.Description, item.DueDateUtc, item.IsCompleted,
-                // Sealed from whichever shape the caller used, and written into the new field: the
-                // single one carries only the first, and a private list would silently lose the rest.
-                LinkedTaskListId: null,
-                item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
-                item.DailyReminderTimeOfDay,
-                LinkedTaskListIds: item.AllLinkedTaskListIds))
+            // The entry's own id, sealed with it. It used to be Guid.Empty for every entry, which made a
+            // private list's entries indistinguishable from one another: nothing points at one
+            // server-side (a private list stores no item rows at all), but the *client* does - an entry's
+            // own page is addressed by id, so pressing the third entry on a private list opened the
+            // first. A new entry gets one minted here, since a request carries no id for something that
+            // has never been saved. See TaskItemRequest.Id.
+            .Select(item => item.AsEntry(item.Id ?? Guid.NewGuid()))
             .ToList();
         var encryptedContent = await _privateContentSealer.SealAsync(new SealedTaskList(title, sealedItems), cancellationToken);
         return (string.Empty, [], encryptedContent);
