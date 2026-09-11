@@ -271,7 +271,12 @@ adb shell am start -n "com.orbitmaui.android/crc64a05c27c563ec9e41.MainActivity"
   before `adb input tap`.
 - **`adb shell input text` turns `%s` into a space** and decodes nothing else: `[` and `]` need
   `input keyevent KEYCODE_LEFT_BRACKET KEYCODE_RIGHT_BRACKET`. Seed test accounts with alphanumeric
-  passwords, since `!` and `%` cannot be typed this way at all.
+  passwords, since `!` and `%` cannot be typed this way at all. **Clearing a field** is
+  `adb shell input keycombination 113 29` (Ctrl+A) followed by `adb shell input keyevent 67` (Delete).
+- **An AVD's `config.ini` must name the system image that is actually installed.** On the Windows
+  machine only `google_apis` is, so an AVD whose `image.sysdir.1` or `tag.id` says
+  `google_apis_playstore` will not start, and the emulator reports it as "Broken AVD system path" rather
+  than as a missing image.
 - **`dumpsys input_method | grep mServedView` is the truth about focus.** `uiautomator`'s
   `focused="true"` has sat on a button while typing went somewhere else entirely.
 - **A worktree needs four gitignored files**, not three: `.env` and `docker-compose.override.yml` from
