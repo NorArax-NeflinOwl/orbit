@@ -71,6 +71,78 @@ public sealed class OptionsTests : OrbitTestContext
     private bool _accountDeleted;
 
     /// <summary>
+    /// This deployment's Google client id - none unless a test configures one, which leaves the typed
+    /// confirmation as the passwordless account's way to delete itself.
+    /// </summary>
+    private string _googleClientId = string.Empty;
+
+    /// <summary>The one token the server double takes for a fresh Google sign-in of this account.</summary>
+    private const string FreshGoogleToken = "fresh-google-token";
+
+    /// <summary>
+    /// Where Google can be asked, a passwordless account confirms with it: Google's button in place of the
+    /// typed address, and in place of the Delete button too - pressing Google's is what deletes.
+    /// </summary>
+    [Fact]
+    public void Where_google_is_configured_a_passwordless_account_confirms_with_it()
+    {
+        _googleClientId = "web-client-id";
+
+        var cut = RenderComponent<Options>();
+
+        cut.WaitForAssertion(() => cut.Find("#deleteAccountWithGoogle"));
+        Assert.Empty(cut.FindAll("#deleteAccountConfirmationInput"));
+        Assert.Empty(cut.FindAll(".btn-danger"));
+    }
+
+    [Fact]
+    public async Task A_fresh_google_sign_in_deletes_the_passwordless_account()
+    {
+        _googleClientId = "web-client-id";
+        JSInterop.Setup<bool>("confirm", _ => true).SetResult(true);
+        var cut = RenderComponent<Options>();
+        cut.WaitForAssertion(() => cut.Find("#deleteAccountWithGoogle"));
+
+        await cut.InvokeAsync(() => DeletionsGoogleButton(cut).Instance.OnGoogleCredential(FreshGoogleToken));
+
+        cut.WaitForAssertion(() => Assert.True(_accountDeleted));
+        Assert.Equal(FreshGoogleToken, Assert.Single(_deletionRequests).GoogleIdToken);
+        Assert.EndsWith("/login", Services.GetRequiredService<NavigationManager>().Uri);
+    }
+
+    [Fact]
+    public async Task A_google_sign_in_the_server_refuses_leaves_the_account_and_says_so()
+    {
+        _googleClientId = "web-client-id";
+        JSInterop.Setup<bool>("confirm", _ => true).SetResult(true);
+        var cut = RenderComponent<Options>();
+        cut.WaitForAssertion(() => cut.Find("#deleteAccountWithGoogle"));
+
+        await cut.InvokeAsync(() => DeletionsGoogleButton(cut).Instance.OnGoogleCredential("an-old-token"));
+
+        cut.WaitForAssertion(() => Assert.Contains("Google didn't confirm this account. Try again.", cut.Markup));
+        Assert.False(_accountDeleted);
+    }
+
+    /// <summary>Declining the confirm() after Google stops it as it stops every other way in.</summary>
+    [Fact]
+    public async Task Declining_the_confirmation_after_google_still_stops_it()
+    {
+        _googleClientId = "web-client-id";
+        JSInterop.Setup<bool>("confirm", _ => true).SetResult(false);
+        var cut = RenderComponent<Options>();
+        cut.WaitForAssertion(() => cut.Find("#deleteAccountWithGoogle"));
+
+        await cut.InvokeAsync(() => DeletionsGoogleButton(cut).Instance.OnGoogleCredential(FreshGoogleToken));
+
+        Assert.Empty(_deletionRequests);
+    }
+
+    /// <summary>The Google button inside the danger zone - the linked account shows no other one.</summary>
+    private static IRenderedComponent<Orbit.Web.Components.GoogleSignInButton> DeletionsGoogleButton(IRenderedComponent<Options> cut)
+        => cut.FindComponents<Orbit.Web.Components.GoogleSignInButton>().Single();
+
+    /// <summary>
     /// An account that signs in with Google and has a password anyway - chat made it set one. The form
     /// asks for it, and has to say which password it means and where to go when it is forgotten: a bare
     /// "Password" was a dead end for somebody who has only ever pressed the Google button.
@@ -280,7 +352,7 @@ public sealed class OptionsTests : OrbitTestContext
             ("GET", "/api/config/client-flags") => new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = JsonContent.Create(new ClientFlagsDto(
-                    ExceptionDetailsAllowed: false, GoogleClientId: string.Empty, WebAddress: string.Empty,
+                    ExceptionDetailsAllowed: false, GoogleClientId: _googleClientId, WebAddress: string.Empty,
                     GoogleAndroidClientId: string.Empty, GoogleIosClientId: string.Empty))
             },
             _ => new HttpResponseMessage(HttpStatusCode.NotFound)
@@ -288,7 +360,8 @@ public sealed class OptionsTests : OrbitTestContext
     }
 
     /// <summary>
-    /// DeleteAccountCommandHandler's rule, and no more generous: an account with a password is refused
+    /// DeleteAccountCommandHandler's rule, and no more generous: a Google sign-in that was sent decides it
+    /// (only a fresh one for a linked account passes), otherwise an account with a password is refused
     /// unless the one sent matches, and one without needs none. A body missing altogether is refused the
     /// way the binder refuses it.
     /// </summary>
@@ -301,7 +374,14 @@ public sealed class OptionsTests : OrbitTestContext
         }
 
         _deletionRequests.Add(body);
-        if (ServerPassword is { } expected && body.Password != expected)
+        if (body.GoogleIdToken is { Length: > 0 } idToken)
+        {
+            if (!Account.IsGoogleLinked || idToken != FreshGoogleToken)
+            {
+                return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+            }
+        }
+        else if (ServerPassword is { } expected && body.Password != expected)
         {
             return new HttpResponseMessage(HttpStatusCode.Unauthorized);
         }

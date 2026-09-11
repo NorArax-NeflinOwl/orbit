@@ -1239,6 +1239,10 @@ public static class PolishTranslations
         ["An account without a password has nothing else to confirm it with, so typing this is what makes deleting it deliberate."] =
             "Konto bez hasła nie ma czym innym tego potwierdzić, więc to wpisanie sprawia, że usunięcie jest zamierzone.",
         ["That isn't this account's email address or login."] = "To nie jest adres e-mail ani login tego konta.",
+        ["Confirm with Google to delete this account"] = "Potwierdź przez Google, aby usunąć to konto",
+        ["An account without a password proves it is yours by signing in with Google again - just now, not the sign-in that opened this page."] =
+            "Konto bez hasła potwierdza, że jest Twoje, logując się ponownie przez Google - teraz, a nie logowaniem, którym otwarto tę stronę.",
+        ["Google didn't confirm this account. Try again."] = "Google nie potwierdził tego konta. Spróbuj ponownie.",
         ["Your account hasn't loaded yet. Reload the page and try again."] =
             "Twoje konto jeszcze się nie wczytało. Odśwież stronę i spróbuj ponownie.",
         ["This account has a password now - reload the page and enter it."] =

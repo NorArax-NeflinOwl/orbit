@@ -296,12 +296,26 @@
                             <a class="options-row-desc" id="deleteAccountForgotPassword" href="/forgot-password">@T["Forgot your password?"]</a>
                         </div>
                     }
+                    else if (ConfirmsWithGoogle)
+                    {
+                        @* An account without a password proves it is its owner the way it signs in: with
+                           Google, again, now - the server checks that the sign-in is this account's and a
+                           fresh one (DeleteAccountCommandHandler). Pressing Google's button is what deletes,
+                           after the confirm(), so there is no second button to press. *@
+                        <div class="field" id="deleteAccountWithGoogle">
+                            <span class="options-row-desc">
+                                @T["Confirm with Google to delete this account"]
+                                <FieldHint>@T["An account without a password proves it is yours by signing in with Google again - just now, not the sign-in that opened this page."]</FieldHint>
+                            </span>
+                            <GoogleSignInButton OnCredential="DeleteWithGoogleAsync" />
+                        </div>
+                    }
                     else if (_account is not null)
                     {
-                        @* An account without a password has nothing to prove itself with, and the server asks
-                           it for nothing - so typing the address or the login is what stands between one stray
-                           press on a confirm() and everything it holds. Checked here, against the account
-                           already loaded - see DeleteAccountFormModel.ConfirmsAccount. *@
+                        @* An account without a password, on a deployment with no Google sign-in to confirm
+                           with: typing the address or the login is what stands between one stray press on a
+                           confirm() and everything it holds. Checked here, against the account already
+                           loaded - see DeleteAccountFormModel.ConfirmsAccount. *@
                         <div class="field">
                             <label for="deleteAccountConfirmationInput">
                                 @T["Type your email address or login to confirm"]
@@ -311,9 +325,12 @@
                                    @bind="_deleteAccountForm.Confirmation" @bind:event="oninput" />
                         </div>
                     }
-                    <div class="form-actions">
-                        <button type="button" class="btn-danger" disabled="@_isDeletingAccount" @onclick="DeleteAccountAsync">@T["Delete account"]</button>
-                    </div>
+                    @if (!ConfirmsWithGoogle)
+                    {
+                        <div class="form-actions">
+                            <button type="button" class="btn-danger" disabled="@_isDeletingAccount" @onclick="DeleteAccountAsync">@T["Delete account"]</button>
+                        </div>
+                    }
                     @if (_deleteAccountMessage is not null)
                     {
                         <p class="@(_deleteAccountFailed ? "error" : "info")">@_deleteAccountMessage</p>
@@ -1104,6 +1121,7 @@
         try
         {
             _account = await UsersApiClient.GetAccountAsync();
+            await ReadWhetherGoogleCanConfirmAsync();
             if (_account is not null)
             {
                 _profileForm.DisplayName = _account.DisplayName;
@@ -1276,15 +1294,61 @@
     }
 
     /// <summary>
+    /// Whether this deployment can show Google's sign-in at all - without a client id the button renders
+    /// nothing, and an account with no password would be left with nothing to delete itself with. Read
+    /// with the account rather than assumed: see ConfirmsWithGoogle.
+    /// </summary>
+    private bool _canConfirmWithGoogle;
+
+    /// <summary>
+    /// Whether this account proves it is the owner with Google rather than with a password or by typing
+    /// its address: it has no password, it is linked to Google, and Google can be asked here.
+    /// </summary>
+    private bool ConfirmsWithGoogle
+        => _account is { HasPassword: false, IsGoogleLinked: true } && _canConfirmWithGoogle;
+
+    private async Task ReadWhetherGoogleCanConfirmAsync()
+    {
+        try
+        {
+            _canConfirmWithGoogle = (await ClientFlagsApiClient.GetGoogleClientIdAsync()).Length > 0;
+        }
+        catch (HttpRequestException exception)
+        {
+            // The typed confirmation is still there to fall back on, so this is not worth a message.
+            Logger.LogWarning(exception, "Couldn't read whether Google sign-in is configured");
+            _canConfirmWithGoogle = false;
+        }
+    }
+
+    /// <summary>
+    /// The Google button in the danger zone: a sign-in made just now, sent with the deletion for the
+    /// server to check (DeleteAccountCommandHandler) - which is what proves the owner is the one asking,
+    /// where a session left open somewhere could type the address as easily as the owner could.
+    /// </summary>
+    private async Task DeleteWithGoogleAsync(string idToken)
+    {
+        if (!await AskToDeleteAsync())
+        {
+            return;
+        }
+
+        await SendDeletionAsync(string.Empty, idToken, T["Google didn't confirm this account. Try again."]);
+    }
+
+    private async Task<bool> AskToDeleteAsync()
+        => await JSRuntime.InvokeAsync<bool>(
+            "confirm",
+            T["Delete your account? This permanently deletes everything - notes, tasks, calendar events, inventory, and chat history. This cannot be undone."]);
+
+    /// <summary>
     /// Asks for an explicit confirm() on top of what the account confirms itself with first - the one truly
     /// irreversible action on this page gets a stronger guard than the rest. An account with a password
-    /// gives it (see DeleteAccountRequest). A Google-only account (see SetPasswordCommand) has none, and
-    /// the server asks it for nothing - being signed in is the proof there - so it types its email address
-    /// or login instead, checked here against the account already loaded. That makes the press deliberate
-    /// rather than proving anything to the server; proving it with Google again is the stronger answer,
-    /// written up in info/future-plan.md. On success the account and everything it owns is already gone
-    /// server-side; this only drops the local session and sends the browser to /login, mirroring
-    /// MainLayout.LogoutAsync.
+    /// gives it (see DeleteAccountRequest). One without confirms with Google (see DeleteWithGoogleAsync),
+    /// or - where this deployment has no Google sign-in - types its email address or login, checked here
+    /// against the account already loaded, which makes the press deliberate rather than proving anything
+    /// to the server. On success the account and everything it owns is already gone server-side; this
+    /// only drops the local session and sends the browser to /login, mirroring MainLayout.LogoutAsync.
     /// </summary>
     private async Task DeleteAccountAsync()
     {
@@ -1311,27 +1375,35 @@
             return;
         }
 
-        var confirmed = await JSRuntime.InvokeAsync<bool>(
-            "confirm",
-            T["Delete your account? This permanently deletes everything - notes, tasks, calendar events, inventory, and chat history. This cannot be undone."]);
-        if (!confirmed)
+        if (!await AskToDeleteAsync())
         {
             return;
         }
 
+        // Refused although no password was asked for means one was set since this page loaded - on
+        // another device, or at the chat gate in another tab.
+        await SendDeletionAsync(
+            _deleteAccountForm.Password, googleIdToken: null,
+            _account.HasPassword
+                ? T["That password isn't right."]
+                : T["This account has a password now - reload the page and enter it."]);
+    }
+
+    /// <summary>
+    /// Sends the deletion with whatever the account confirmed itself with, and says <paramref name="refused"/>
+    /// when the server turns it down - which differs by what was offered, so the caller names it.
+    /// </summary>
+    private async Task SendDeletionAsync(string password, string? googleIdToken, string refused)
+    {
         _isDeletingAccount = true;
         _deleteAccountMessage = null;
         try
         {
-            var deleted = await UsersApiClient.DeleteAccountAsync(_deleteAccountForm.Password);
+            var deleted = await UsersApiClient.DeleteAccountAsync(password, googleIdToken);
             if (!deleted)
             {
-                // Refused although no password was asked for means one was set since this page loaded -
-                // on another device, or at the chat gate in another tab.
                 _deleteAccountFailed = true;
-                _deleteAccountMessage = _account.HasPassword
-                    ? T["That password isn't right."]
-                    : T["This account has a password now - reload the page and enter it."];
+                _deleteAccountMessage = refused;
                 return;
             }
 
