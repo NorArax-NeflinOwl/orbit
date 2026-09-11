@@ -913,13 +913,15 @@ its shared controls. What that pass left, all of it now overtaken:
   card carries the news because a shelf about to go off names no shelf. Two smaller things came with
   it: putting every part away now says so instead of telling a full account to add a note, and pressing
   a shelf opens that shelf.
-- **A conversation still shows no count of what is waiting.** The one part of Orbit.Web's avatar the
-  phone does not draw, and it is missing for want of a number rather than a control: `UnreadBadge`
-  reads a per-conversation unread count, `LocalContact` has none, and nothing on the device derives one
-  - `LocalChatMessage.IsReadByEveryone` is about messages this reader *sent*. What it would take is a
-  read mark per conversation that survives a restart, which is a chat feature rather than a look, and
-  the phone already says the smaller thing in the row's own mark: something unread points at that
-  person.
+- ~~**A conversation still shows no count of what is waiting.**~~ Done on 2026-09-11, and it needed no
+  read mark of the phone's own after all: the server keeps one per conversation and already sends the
+  count on every contact (`ContactDto.UnreadCount`) - the phone simply dropped it on the way into its
+  store. `LocalContact.UnreadCount` keeps it (local migration `KeepHowManyMessagesAreWaiting`), so it
+  survives a restart and reads offline; `ChatRepository.MarkReadAsync` takes it to nought the moment the
+  server has been told a conversation was read; and `AvatarCircle` draws it where `UnreadBadge` sits on
+  the web - bottom left, "9+" above nine, nothing at nought. The row's own mark now lights for unread
+  messages as well as for a request to answer, as Orbit.Web's does. A group has no count on either
+  client, and the dashboard's rows still draw no face to put one on (see android-design-deltas.md).
 - ~~**`ContactsPage.xaml` declares a `PresenceColor` converter it never uses.**~~ Gone: the row that
   needed it became `AvatarCircle`, which holds the converter itself, and the declaration went with the
   markup it belonged to.

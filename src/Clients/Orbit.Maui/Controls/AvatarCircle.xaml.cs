@@ -35,6 +35,13 @@ public partial class AvatarCircle : ContentView
 	public static readonly BindableProperty StatusProperty = BindableProperty.Create(
 		nameof(Status), typeof(string), typeof(AvatarCircle), string.Empty, propertyChanged: OnStatusChanged);
 
+	/// <summary>
+	/// How many messages are waiting from this person - ContactDto.UnreadCount. Nought draws nothing,
+	/// which is what a group and a conversation with nothing new get.
+	/// </summary>
+	public static readonly BindableProperty UnreadCountProperty = BindableProperty.Create(
+		nameof(UnreadCount), typeof(int), typeof(AvatarCircle), 0, propertyChanged: OnUnreadCountChanged);
+
 	private readonly PresenceColorConverter _presenceColours = new();
 
 	public AvatarCircle()
@@ -108,6 +115,32 @@ public partial class AvatarCircle : ContentView
 		Circle.HeightRequest = Diameter;
 		Round.CornerRadius = Diameter / 2;
 		InitialsLabel.FontSize = Diameter <= 28 ? 11 : 13;
+	}
+
+	/// <inheritdoc cref="UnreadCountProperty"/>
+	public int UnreadCount
+	{
+		get => (int)GetValue(UnreadCountProperty);
+		set => SetValue(UnreadCountProperty, value);
+	}
+
+	/// <summary>
+	/// 1 to 9 as they are and "9+" above, the rule Orbit.Web's UnreadBadge keeps, so a long wait does
+	/// not stretch the circle it sits on. Said out loud in full, since "9+" is a shape rather than a
+	/// number to somebody hearing the screen.
+	/// </summary>
+	private static void OnUnreadCountChanged(BindableObject bindable, object oldValue, object newValue)
+	{
+		var avatar = (AvatarCircle)bindable;
+		var count = newValue is int waiting ? waiting : 0;
+
+		avatar.UnreadBadge.IsVisible = count > 0;
+		avatar.UnreadLabel.Text = count > 9 ? "9+" : count.ToString(CultureInfo.CurrentCulture);
+		SemanticProperties.SetDescription(
+			avatar.UnreadBadge,
+			count > 0 && IPlatformApplication.Current?.Services.GetService<Orbit.Mobile.Localization.Translations>() is { } translations
+				? translations.Format("{0} new", count)
+				: null);
 	}
 
 	private static void OnStatusChanged(BindableObject bindable, object oldValue, object newValue)

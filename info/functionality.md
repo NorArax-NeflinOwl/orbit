@@ -3784,6 +3784,14 @@ say "nobody waiting" while one of them said otherwise — and the dashboard, the
 at, was among the silent ones. Nothing at all is drawn when nothing is waiting: an empty badge is a
 mark, and a mark means something.
 
+**The phone draws the same count** since 2026-09-11, on its contact list: `AvatarCircle` puts it at the
+avatar's bottom-left edge by the web's rules (nothing at nought, "9+" above nine), and the row's mark
+lights for it as well as for a request to answer. It is the same `ContactDto.UnreadCount`, kept on
+`LocalContact` so it survives a restart and reads offline, and taken to nought the moment the server has
+been told a conversation was read rather than at the next refresh; a conversation opened with no
+connection keeps its count, because nothing was told. Groups carry no count on either client, and the
+phone's dashboard rows draw no face to put one on.
+
 How long that toast stays up, and the minimum quiet gap before the next one, are per-user settings
 (`BannerTiming`, defaulting to 5 seconds each) editable from Options — the poll interval only bounds how
 quickly a new entry is *noticed*, not banner pacing. `BannerTiming` clamps rather than rejects

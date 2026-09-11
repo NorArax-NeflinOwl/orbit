@@ -182,8 +182,9 @@ Deliberately not copied from the design:
 - **The month grid carries a dot per day, not a chip per event** — see `orbit-maui-plan.md` §14.1.
 - **The phone keeps a map** where Orbit.Web hides one below 680px: on Android it is the platform's own
   control, pinchable, on the one device that actually has a location.
-- **A conversation shows no count of what is waiting.** `LocalContact` has no unread count and nothing
-  on the device derives one.
+- ~~**A conversation shows no count of what is waiting.**~~ It does since 2026-09-11: the server had
+  counted all along (`ContactDto.UnreadCount`), and the phone now keeps the count on `LocalContact` and
+  draws it on the avatar where Orbit.Web's `UnreadBadge` sits. A group carries no count, on either client.
 
 ## The screens the written spec does not describe yet
 

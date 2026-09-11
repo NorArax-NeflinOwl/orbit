@@ -68,6 +68,22 @@ public sealed class LocalContact
     [NotMapped]
     public bool IsPinned { get; set; }
 
+    /// <summary>
+    /// How many of their messages this reader has not read - ContactDto.UnreadCount, which the server
+    /// works out from the read mark it keeps per conversation. Kept with the row, like everything else on
+    /// it, so the count survives a restart and the list says it offline; the next refresh brings it up to
+    /// date, and opening the conversation takes it to nought on the spot (ChatRepository.MarkReadAsync)
+    /// rather than waiting for that refresh.
+    /// </summary>
+    public int UnreadCount { get; set; }
+
+    /// <summary>
+    /// Something here is waiting on this reader - a request to answer, or messages to read. What the
+    /// row's mark says; Orbit.Web marks a row for the same two reasons.
+    /// </summary>
+    [NotMapped]
+    public bool HasSomethingWaiting => RequiresApprovalFromCurrentUser || UnreadCount > 0;
+
     /// <summary>A chat request this user sent that the signed-in user hasn't approved yet.</summary>
     public bool RequiresApprovalFromCurrentUser { get; set; }
 

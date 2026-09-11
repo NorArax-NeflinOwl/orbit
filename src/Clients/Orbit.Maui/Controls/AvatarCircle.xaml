@@ -41,6 +41,22 @@
                 <shapes:RoundRectangle CornerRadius="7" />
             </Border.StrokeShape>
         </Border>
+
+        <!-- How many messages are waiting from this person - Orbit.Web's UnreadBadge, on the bottom-left
+             edge where app.css puts .notif-badge, so it never sits on the presence dot at the top right.
+             The same danger ground with the accent's light letters, hanging over the edge by the same
+             2. Nothing at all at nought: an empty badge is a mark, and a mark means something. -->
+        <Border x:Name="UnreadBadge" IsVisible="False" HeightRequest="16" MinimumWidthRequest="16"
+                Padding="3,0" StrokeThickness="0" Margin="-2,0,0,-2"
+                HorizontalOptions="Start" VerticalOptions="End"
+                BackgroundColor="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}">
+            <Border.StrokeShape>
+                <shapes:RoundRectangle CornerRadius="8" />
+            </Border.StrokeShape>
+            <Label x:Name="UnreadLabel" FontSize="10" FontAttributes="Bold"
+                   TextColor="{StaticResource AccentOn}"
+                   HorizontalOptions="Center" VerticalOptions="Center" />
+        </Border>
     </Grid>
 
 </ContentView>

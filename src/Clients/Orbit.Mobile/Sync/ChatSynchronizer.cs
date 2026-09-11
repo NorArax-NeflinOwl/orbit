@@ -171,6 +171,8 @@ public sealed class ChatSynchronizer
             // by anything the reader has to do. Then asked the other way round, for the reader's own
             // messages - one round trip each, on a screen that is already talking to the server.
             await _chatClient.MarkConversationAsReadAsync(otherUserId, cancellationToken);
+            // And the count on their row goes with it, here and now - not at the next refresh.
+            await _chatRepository.MarkReadAsync(otherUserId, cancellationToken);
             var theyReadUpToUtc = await _chatClient.GetReadReceiptAsync(otherUserId, cancellationToken);
 
             return new ChatSyncResult(push.Sent, stored, ReachedTheServer: true, theyReadUpToUtc);
