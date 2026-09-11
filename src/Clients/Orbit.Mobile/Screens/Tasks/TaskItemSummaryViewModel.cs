@@ -326,6 +326,66 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
     }
 
     /// <summary>
+    /// A second entry saying the same, straight under this one and under an id of its own - the entry
+    /// menu's "Duplicate", which Orbit.Web's entry page offers too. Copied the way the server copies a
+    /// list's entries (DuplicateTaskListCommandHandler): everything but the appointment, which exactly
+    /// one entry raises, so a second pointing at the same event would fight over it. Then the copy's
+    /// own screen, so the reader is looking at what they just made.
+    /// </summary>
+    [RelayCommand]
+    private async Task DuplicateAsync(CancellationToken cancellationToken)
+    {
+        Status = string.Empty;
+        if (await _taskLists.FindAsync(_taskListLocalId, cancellationToken) is not { } taskList
+            || taskList.Items.FirstOrDefault(candidate => candidate.Id == _itemId) is not { } item)
+        {
+            // Gone underneath the reader, as LoadAsync answers the same case.
+            _navigator.ShowCalendar();
+            return;
+        }
+
+        var copy = item with { Id = Guid.NewGuid(), LinkedCalendarEventId = null };
+        var items = taskList.Items
+            .SelectMany(existing => existing.Id == _itemId ? new[] { existing, copy } : new[] { existing })
+            .ToList();
+
+        if (!await SaveItemsAsync(taskList, items, cancellationToken))
+        {
+            return;
+        }
+
+        await SynchroniseAsync(cancellationToken);
+        _navigator.ShowTaskItem(_taskListLocalId, copy.Id);
+    }
+
+    /// <summary>
+    /// Takes this entry off its list - the entry menu's "Delete item", and the same removal the list's
+    /// own row menu makes (TaskListDetailViewModel.RemoveItem). The appointment the entry raised stays
+    /// in the calendar, as it does there: the event is the reader's to delete, not a side effect of
+    /// tidying a list. Then the list, since nothing is left here to read. The page asks first.
+    /// </summary>
+    [RelayCommand]
+    private async Task DeleteAsync(CancellationToken cancellationToken)
+    {
+        Status = string.Empty;
+        if (await _taskLists.FindAsync(_taskListLocalId, cancellationToken) is not { } taskList
+            || taskList.Items.All(candidate => candidate.Id != _itemId))
+        {
+            _navigator.ShowCalendar();
+            return;
+        }
+
+        if (!await SaveItemsAsync(
+                taskList, [.. taskList.Items.Where(candidate => candidate.Id != _itemId)], cancellationToken))
+        {
+            return;
+        }
+
+        await SynchroniseAsync(cancellationToken);
+        _navigator.ShowTaskList(_taskListLocalId);
+    }
+
+    /// <summary>
     /// The entries of this list it is still waiting on. The same rule the server keeps: a step crossed
     /// out counts as not done, because that is what a cross says. See TaskListSteps.
     /// </summary>

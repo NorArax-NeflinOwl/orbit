@@ -77,9 +77,13 @@ about an entry was the one place the entry could not be finished. It writes to t
 from there, and says under the entry when a list shared to read refuses it or the save is still waiting
 to go out. **The position in the list is on the foot line as of 2026-09-11** ("2 of 5", on the right of
 the list's name): the screen reads the whole list to find the entry in, so the count was there all
-along. Still not built, and still not invented: the note field, "Move to another list…", "Duplicate"
-and "Delete item" - Orbit.Web's own entry page carries the same two-way-out menu this one does, so
-adding them here alone would make the two clients answer different questions, and that is a decision.
+along. **"Duplicate" and "Delete item" are in the menu as of 2026-09-11**, on this screen and on
+Orbit.Web's entry page together - the user's decision, since adding them to one client alone would have
+made the two answer different questions. A copy goes straight under the entry, made the way
+`DuplicateTaskListCommandHandler` copies entries (everything but the appointment, which one entry
+raises), and opens; a removal asks first, leaves the appointment in the calendar as the list's own
+row menu does, and lands on the list. Still not built: the note field, and "Move to another list…",
+which needs a list picker the design does not draw.
 
 ***Walked on the device on 2026-09-09***, and it reads as drawn. Getting to it used to be the awkward
 part: it opened from the calendar only for a deadline that `IsSomewhere`

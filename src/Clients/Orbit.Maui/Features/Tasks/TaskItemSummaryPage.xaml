@@ -24,8 +24,8 @@
                  done and offer nothing, so the one screen about this entry was the one place it could
                  not be finished - a reader who opened it to see when something was due had to go back
                  to the list to cross it off. Orbit.Web's own entry page ticks it the same way now.
-                 The menu under the name still offers one way out rather than the "edit · delete" every
-                 other object carries: an entry belongs to a list rather than standing on its own. -->
+                 The menu under the name leads to the list, and makes a copy of the entry or takes it off
+                 the list - see TaskItemSummaryPage.ShowEntryMenu. -->
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
                 <controls:CheckCircle Grid.Column="0" Diameter="26" Margin="0,6,0,0"
                                       VerticalOptions="Start" IsChecked="{Binding IsCompleted}"

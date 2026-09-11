@@ -1987,6 +1987,17 @@ the same on `TaskItemSummaryPage`: the circle at the head of the entry is presse
 drawn, written to that phone and queued from there, with a read-only share or an unreachable server
 answered in the line under the entry.
 
+**An entry can be copied and removed from its own page**, since 2026-09-11, on both clients - the two
+things the phone's design puts in the entry's menu. **Duplicate** puts a second entry straight under
+this one, under an id of its own, and opens it; it is copied the way `DuplicateTaskListCommandHandler`
+copies entries, so everything comes along but the appointment, which exactly one entry raises. **Delete
+item** asks first, takes the entry off its list and lands on that list; the appointment the entry raised
+stays in the calendar, as it does when the entry is removed in the list's own form. Both are the same
+whole-list save a tick is (`TaskItemCompletion` on the web, `TaskItemSummaryViewModel.SaveItemsAsync` on
+the phone), and neither is offered on the web for a list shared to read; the phone offers them and says
+the store's refusal under the entry, as it does for a tick. Moving an entry to another list is still
+done in the list's own form.
+
 **When it happens is read off the appointment, not off the entry.** A calendar entry's day and hour live
 on the event the editor writes them into, so the entry's own `DueDateUtc` is empty for exactly the
 entries this page exists to show - and the page, reading only the entry, said "No date set" about an

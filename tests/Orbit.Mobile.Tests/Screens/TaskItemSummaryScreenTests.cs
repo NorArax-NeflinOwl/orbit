@@ -251,6 +251,66 @@ public sealed class TaskItemSummaryScreenTests
         Assert.Equal("Unfinished", (await context.StoredListAsync(opened.TaskListLocalId)).Completion);
     }
 
+    /// <summary>
+    /// "Duplicate", as the design draws the entry's menu: a second entry straight under this one, under
+    /// an id of its own, and then its screen. The appointment is not copied - one entry raises it, and
+    /// a second pointing at the same event would fight over it (see DuplicateTaskListCommandHandler).
+    /// </summary>
+    [Fact]
+    public async Task Duplicate_puts_a_copy_under_the_entry_without_its_appointment_and_opens_it()
+    {
+        using var context = new ScreenContext();
+        var eventId = Guid.NewGuid();
+        var opened = await context.AddEntryAsync("Dentist", tiedTo: eventId, entriesAfter: 1);
+        var screen = await context.OpenAsync(opened);
+
+        await screen.DuplicateCommand.ExecuteAsync(null);
+
+        var items = (await context.StoredListAsync(opened.TaskListLocalId)).Items;
+        Assert.Equal(3, items.Count);
+        Assert.Equal(opened.ItemId, items[0].Id);
+        Assert.Equal(eventId, items[0].LinkedCalendarEventId);
+        Assert.Equal("Dentist", items[1].Description);
+        Assert.NotEqual(opened.ItemId, items[1].Id);
+        Assert.Null(items[1].LinkedCalendarEventId);
+        Assert.Equal((opened.TaskListLocalId, items[1].Id), context.Navigator.LastTaskItem);
+    }
+
+    /// <summary>"Delete item": the entry goes from its list, and the reader lands on that list.</summary>
+    [Fact]
+    public async Task Delete_item_takes_the_entry_off_its_list_and_opens_the_list()
+    {
+        using var context = new ScreenContext();
+        var opened = await context.AddEntryAsync("Collect the parcel", entriesBefore: 1);
+        var screen = await context.OpenAsync(opened);
+
+        await screen.DeleteCommand.ExecuteAsync(null);
+
+        var items = (await context.StoredListAsync(opened.TaskListLocalId)).Items;
+        Assert.DoesNotContain(items, item => item.Id == opened.ItemId);
+        Assert.Single(items);
+        Assert.Equal(opened.TaskListLocalId, context.Navigator.LastTaskListId);
+    }
+
+    /// <summary>
+    /// A list shared to be read is refused by the store, wherever the write is made from - so the press
+    /// is answered with why, and the entry is still there.
+    /// </summary>
+    [Fact]
+    public async Task Delete_item_on_a_list_shared_to_read_is_refused_and_said()
+    {
+        using var context = new ScreenContext();
+        var opened = await context.AddEntryAsync("Collect the parcel");
+        await context.ShareToReadAsync(opened.TaskListLocalId);
+        var screen = await context.OpenAsync(opened);
+
+        await screen.DeleteCommand.ExecuteAsync(null);
+
+        Assert.NotEmpty(screen.Status);
+        Assert.Contains((await context.StoredListAsync(opened.TaskListLocalId)).Items, item => item.Id == opened.ItemId);
+        Assert.DoesNotContain("ShowTaskList", context.Navigator.Destinations);
+    }
+
     /// <summary>A tick is a tick either way round - a box that only fills in is a trap for a misread row.</summary>
     [Fact]
     public async Task A_tick_can_be_taken_back_here_too()
