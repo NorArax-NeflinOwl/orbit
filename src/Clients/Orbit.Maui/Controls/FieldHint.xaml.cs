@@ -1,6 +1,3 @@
-using Microsoft.Maui.Controls.Shapes;
-using Orbit.Mobile.Localization;
-
 namespace Orbit.Maui.Controls;
 
 /// <summary>
@@ -20,14 +17,9 @@ public partial class FieldHint : ContentView
 	public static readonly BindableProperty TextProperty =
 		BindableProperty.Create(nameof(Text), typeof(string), typeof(FieldHint), string.Empty);
 
-	/// <summary>
-	/// Whether this is news rather than reference - see Orbit.Web's FieldHint, which draws the same
-	/// distinction. A "!" in the warning colour for something true of the screen right now; a quiet "?"
-	/// for what a field is for, which most readers already know.
-	/// </summary>
+	/// <inheritdoc cref="HintMark.WarnsProperty"/>
 	public static readonly BindableProperty WarnsProperty =
-		BindableProperty.Create(nameof(Warns), typeof(bool), typeof(FieldHint), false,
-			propertyChanged: (hint, _, _) => ((FieldHint)hint).Redraw());
+		BindableProperty.Create(nameof(Warns), typeof(bool), typeof(FieldHint), false);
 
 	/// <summary>
 	/// Whether the name is a section's heading rather than a field's label. The two are the same control
@@ -35,6 +27,15 @@ public partial class FieldHint : ContentView
 	/// </summary>
 	public static readonly BindableProperty IsHeadingProperty =
 		BindableProperty.Create(nameof(IsHeading), typeof(bool), typeof(FieldHint), false,
+			propertyChanged: (hint, _, _) => ((FieldHint)hint).Redraw());
+
+	/// <summary>
+	/// The look of the name where it is neither a section's heading nor a field's label - the one heading
+	/// a screen draws for itself because there is no bar above it to carry its name (sign-in's
+	/// neighbours). Wins over <see cref="IsHeading"/> when set.
+	/// </summary>
+	public static readonly BindableProperty LabelStyleProperty =
+		BindableProperty.Create(nameof(LabelStyle), typeof(Style), typeof(FieldHint), null,
 			propertyChanged: (hint, _, _) => ((FieldHint)hint).Redraw());
 
 	public FieldHint()
@@ -67,49 +68,52 @@ public partial class FieldHint : ContentView
 		set => SetValue(IsHeadingProperty, value);
 	}
 
-	/// <summary>
-	/// What the mark is called to a screen reader. Read from the app's own translations rather than
-	/// passed in: it is the same two words on every screen, and asking each page to supply them is how
-	/// one of them ends up in English.
-	/// </summary>
-	public string AskedAs
-		=> IPlatformApplication.Current?.Services.GetService<Translations>() is { } translations
-			? translations[Warns ? "What to know about this" : "What this is for"]
-			: "What this is for";
+	public Style? LabelStyle
+	{
+		get => (Style?)GetValue(LabelStyleProperty);
+		set => SetValue(LabelStyleProperty, value);
+	}
 
 	private void OnPressed(object? sender, EventArgs e) => Sentence.IsVisible = !Sentence.IsVisible;
 
 	/// <summary>
-	/// Neither colour is written in the markup on purpose: a value set there is a *local* value, and in
-	/// MAUI a local value beats a dynamic resource - so the theme could never get in. See CheckCircle,
-	/// which says the same about its ring.
+	/// A hint centred on its screen keeps its name and its sentence centred too. Without this the name
+	/// jumps to the left edge the moment the sentence opens: the sentence widens the control to the whole
+	/// line, and the row holding the name lays out from its start.
+	/// </summary>
+	protected override void OnPropertyChanged(string? propertyName = null)
+	{
+		base.OnPropertyChanged(propertyName);
+
+		// NameRow is null while the base constructor runs, before InitializeComponent has built it.
+		if (propertyName != HorizontalOptionsProperty.PropertyName || NameRow is null)
+		{
+			return;
+		}
+
+		var centred = HorizontalOptions.Alignment == LayoutAlignment.Center;
+		NameRow.HorizontalOptions = centred ? LayoutOptions.Center : LayoutOptions.Start;
+		Sentence.HorizontalTextAlignment = centred ? TextAlignment.Center : TextAlignment.Start;
+	}
+
+	/// <summary>
+	/// The name's style is picked here rather than in the markup, for the reason HintMark gives about its
+	/// colours: a value written there is a local value, and it would beat the style a page sets later.
 	/// </summary>
 	private void Redraw()
 	{
-		Ring.ClearValue(Shape.StrokeProperty);
-		Mark.ClearValue(Microsoft.Maui.Controls.Label.TextColorProperty);
 		NameLabel.ClearValue(StyleProperty);
 
-		// Named per theme rather than as one dynamic resource, the way CheckCircle picks its own: the
-		// palette holds a light and a dark colour under two keys, not one that follows the theme.
-		var light = Warns ? "AwayLight" : "TertiaryTextLight";
-		var dark = Warns ? "AwayDark" : "TertiaryTextDark";
-		Ring.SetAppTheme(Shape.StrokeProperty, Look(light), Look(dark));
-		Mark.SetAppTheme(Microsoft.Maui.Controls.Label.TextColorProperty, Look(light), Look(dark));
-		Mark.Text = Warns ? "!" : "?";
+		if (LabelStyle is { } own)
+		{
+			NameLabel.Style = own;
+			return;
+		}
 
 		if (Application.Current?.Resources.TryGetValue(IsHeading ? "SectionHeading" : "FieldLabel", out var style) is true
 			&& style is Style named)
 		{
 			NameLabel.Style = named;
 		}
-
-		OnPropertyChanged(nameof(AskedAs));
 	}
-
-	/// <inheritdoc cref="CheckCircle.Look"/>
-	private static Color Look(string key)
-		=> Application.Current?.Resources.TryGetValue(key, out var value) is true && value is Color colour
-			? colour
-			: Colors.Transparent;
 }

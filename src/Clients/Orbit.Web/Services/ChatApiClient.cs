@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Logging.Abstractions;
+using Orbit.Contracts;
 using Orbit.Contracts.Chat;
 using Orbit.Core.Abstractions;
 using Orbit.Web.Services.Logging;
@@ -257,11 +258,30 @@ public sealed class ChatApiClient
     /// <summary>
     /// Walks out of a group and deletes this reader's copies of what was said in it. One call, because
     /// leaving and still holding every message is a state nobody asks for.
+    ///
+    /// successorUserId names who takes over when this reader is the last admin; without one the server
+    /// promotes the longest-standing member (see ChatGroup.Leave). Answers the server's own refusal when
+    /// it says no - a chosen successor who has since gone, say - and null once the reader is out. The
+    /// refusal is returned rather than thrown so the page can say it in the server's words: an
+    /// HttpRequestException carries only a status code, and "check your connection" is the wrong advice
+    /// for a request the server read and turned down.
     /// </summary>
-    public async Task LeaveGroupAsync(Guid groupId, CancellationToken cancellationToken = default)
+    public async Task<string?> LeaveGroupAsync(
+        Guid groupId, Guid? successorUserId = null, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.DeleteAsync($"api/chat/groups/{groupId}/membership", cancellationToken);
+        var path = successorUserId is { } successor
+            ? $"api/chat/groups/{groupId}/membership?successorUserId={successor}"
+            : $"api/chat/groups/{groupId}/membership";
+
+        var response = await _httpClient.DeleteAsync(path, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            var refusal = await response.Content.ReadFromJsonAsync<RefusalDto>(cancellationToken: cancellationToken);
+            return refusal?.Message ?? "Orbit refused that change.";
+        }
+
         response.EnsureSuccessStatusCode();
+        return null;
     }
 
     /// <summary>The same for a group, and equally only for this reader - nobody else's list moves.</summary>

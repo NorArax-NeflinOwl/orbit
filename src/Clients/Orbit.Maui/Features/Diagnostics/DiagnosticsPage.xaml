@@ -15,12 +15,6 @@
 
                 <!-- No heading of its own: the screen's name is in the bar, and this page was the last
                      one still drawing it twice. -->
-                <Label FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}">
-                    <Label.Text>
-                        <controls:Translate Text="Orbit's own log, on this phone. Nothing leaves it unless you send it." />
-                    </Label.Text>
-                </Label>
-
                 <Label Text="{Binding DeviceSummary}" FontSize="12" LineBreakMode="WordWrap"
                        Style="{StaticResource SubtleLabel}" />
 
@@ -77,7 +71,13 @@
 
             </VerticalStackLayout>
         </ScrollView>
-        <controls:NavigationBar Grid.Row="0" />
+        <!-- What the screen is for, behind the "?" beside its name - see NavigationBar.Description. The
+             element form because the sentence has an apostrophe, which the quoted form cannot carry. -->
+        <controls:NavigationBar Grid.Row="0">
+            <controls:NavigationBar.Description>
+                <controls:Translate Text="Orbit's own log, on this phone. Nothing leaves it unless you send it." />
+            </controls:NavigationBar.Description>
+        </controls:NavigationBar>
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
         <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>

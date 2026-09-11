@@ -26,13 +26,39 @@ internal sealed class FakeUsersServer : HttpMessageHandler
     public RedeemPermissionCodeResultDto? RedeemResult { get; set; }
 
     /// <summary>
-    /// The password the deletion endpoint accepts. Null stands for an account with none - a Google-only
-    /// one - which the server lets through unchecked, so a test can cover that path too.
+    /// The password the deletion endpoint accepts, for an account that has one. Whether it is asked for
+    /// at all is <see cref="AccountDto.HasPassword"/> on <see cref="Account"/>, as it is on the server: an
+    /// account with none - a Google-only one - is let through unchecked, and one with a password is
+    /// refused anything but this, including when this was never set.
     /// </summary>
     public string? DeletionPassword { get; set; }
 
     /// <summary>Whether the account was actually deleted, so a refusal can be told from a deletion.</summary>
     public bool AccountDeleted { get; private set; }
+
+    /// <summary>How many deletions were asked for, so a test can say nothing was sent at all.</summary>
+    public int DeletionRequests { get; private set; }
+
+    /// <summary>
+    /// This deployment's Google client id for the Android app - none unless a test configures one, which
+    /// is what hides everything Google-shaped on the account screen.
+    /// </summary>
+    public string GoogleAndroidClientId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The ID token Google hands back when the phone exchanges its code - this fake stands in for Google's
+    /// token endpoint too, since the account screen's GoogleSignIn is given this same client.
+    /// </summary>
+    public string GoogleIssuesToken { get; set; } = "the-id-token";
+
+    /// <summary>
+    /// The one token the deletion endpoint takes as a fresh Google sign-in of this account - see
+    /// DeleteAccountCommandHandler, which checks the subject and the age where this checks the value.
+    /// </summary>
+    public string FreshGoogleToken { get; set; } = "the-id-token";
+
+    /// <summary>What the last deletion sent as its Google sign-in, if anything.</summary>
+    public string? LastDeletionGoogleIdToken { get; private set; }
 
     /// <summary>
     /// What GET /users/me answers with. An unverified account with no Google behind it by default, which
@@ -86,7 +112,18 @@ internal sealed class FakeUsersServer : HttpMessageHandler
             {
                 Content = JsonContent.Create(new ClientFlagsDto(
                     ExceptionDetailsAllowed: false, GoogleClientId: string.Empty, WebAddress: string.Empty,
-                    GoogleAndroidClientId: string.Empty, GoogleIosClientId: string.Empty))
+                    GoogleAndroidClientId: GoogleAndroidClientId, GoogleIosClientId: string.Empty))
+            });
+        }
+
+        // Google's own token endpoint, where GoogleSignIn exchanges the code the browser brought back.
+        if (request.Method == HttpMethod.Post
+            && request.RequestUri.Host == "oauth2.googleapis.com"
+            && request.RequestUri.AbsolutePath == "/token")
+        {
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new { id_token = GoogleIssuesToken })
             });
         }
 
@@ -119,14 +156,24 @@ internal sealed class FakeUsersServer : HttpMessageHandler
     }
 
     /// <summary>
-    /// Mirrors DeleteAccountCommandHandler: an account with a password has to prove it, one without -
-    /// signed in with Google and never given one - does not.
+    /// Mirrors DeleteAccountCommandHandler: a Google sign-in that was sent decides it - only a fresh one
+    /// for a Google-linked account passes - and otherwise an account with a password has to prove it,
+    /// while one without - signed in with Google and never given one - does not, yet.
     /// </summary>
     private async Task<HttpResponseMessage> DeleteAccountAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        DeletionRequests++;
         var body = await request.Content!.ReadFromJsonAsync<DeleteAccountRequest>(cancellationToken);
-        if (DeletionPassword is { } expected && body?.Password != expected)
+        LastDeletionGoogleIdToken = body?.GoogleIdToken;
+        if (body?.GoogleIdToken is { Length: > 0 } idToken)
+        {
+            if (!Account.IsGoogleLinked || idToken != FreshGoogleToken)
+            {
+                return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+            }
+        }
+        else if (Account.HasPassword && (DeletionPassword is null || body?.Password != DeletionPassword))
         {
             return new HttpResponseMessage(HttpStatusCode.Unauthorized);
         }

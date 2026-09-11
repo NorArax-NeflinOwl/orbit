@@ -39,6 +39,42 @@ the old password stay unreadable. The web offers the same two steps at `/forgot-
 (`ForgotPassword.razor`), reached from a link under the sign-in form; it also still reaches them from
 the chat password gate, which is the same flow for somebody already signed in.
 
+**Deleting the account.** `DELETE /api/users/me` with a `DeleteAccountRequest(password)` body wipes every
+row the account owns (`DeleteAccountCommandHandler`, then `AccountDeletionRepository`) and answers 204,
+or 401 when the password does not match. An account that has a password has to send it; one that has
+none - made with Google and never given one - sends an empty string and the server asks for nothing,
+since being signed in is the proof there. That path works end to end against a real schema
+(`PasswordlessAccountDeletionTests`, 2026-09-11). What made a Google account look unable to delete
+itself was the other kind: **an account that signs in with Google can hold a password without thinking
+of itself as having one** - chat makes a Google account set one before it can be used, and a Google
+sign-in that matched an existing address keeps that account's password. Options then asked for a bare
+"Password" and offered nothing when it was not recognised. For a Google-linked account it now says which
+password it means, and every account with a password gets the "Forgot your password?" link beside the
+field - a reset is the way to delete an account whose password is gone.
+
+An account with **no** password used to delete itself with nothing but a `confirm()`. **It now confirms
+with Google** (2026-09-11, the user's choice): where the deployment has a Google client id, Options shows
+Google's own button in the danger zone, and pressing it - then the confirm() - sends the fresh ID token
+with the request, `DeleteAccountRequest(Password, GoogleIdToken)`. The server deletes only when the token
+is a genuine sign-in for this account's Google identity issued within the last ten minutes, so a session
+left open somewhere cannot end the account the way it could type an address; a token that proves nothing
+is refused, and says so. A Google-linked account whose password is forgotten may confirm with Google too.
+Where Google is not configured, Options falls back to asking for the email address or login (any case,
+spaces ignored), checked in the browser, which makes the press deliberate rather than proving anything.
+The server still accepts the empty password from a passwordless account that sends no token, because
+installed phones send exactly that - requiring the token is the last step, in [Future Plan](future-plan.md).
+Options also refuses to delete while the account has not loaded, rather than guessing it needs nothing.
+
+The phone's account screen does the same since 2026-09-11 (`AccountViewModel.IsReadyToDelete`, asked by
+the page before its platform prompt and again by `DeleteAccountCommand`): the Google-linked password hint,
+"Forgot your password?" to the reset screen sign-in also offers, Google for an account without a password
+where the deployment offers Google to the app (`ConfirmsWithGoogle`: Delete asks Google again after the
+prompt and sends the fresh token; backing out sends nothing), the typed address or login where it does
+not - checked against the account the screen read, never its own login box - and no request before the
+account has loaded. A refusal is said inside the danger card, where the button is.
+One the server gives an account that had no password when the screen read it makes the screen read the
+account again, so the password field appears.
+
 Both sign-in forms listen for `input` as well as `change`, and neither uses `@bind`, which can only be
 told about one of the two. A password manager fills a box without anybody typing in it: some raise one
 event, some the other, some neither until the field is touched — so a form bound to a single event
@@ -223,18 +259,43 @@ they are not descriptions: **where the verification code will be sent** (the add
 made, and it has to be read before the button is pressed) and **"Not supported in this browser"**, which
 replaces the switch rather than explaining it.
 
+**Pages and sections fold theirs the same way.** A page's title used to carry a sentence under it saying
+what the page is for ("Everything on your plate, in one place.") and so did most section headings - the
+Options sections, an event's Google Calendar section, the lists measured against a storage, the map's
+overlays. Those are behind a "?" beside the heading now: `PageHeader`'s `Description` for a page, a
+`FieldHint` inside the `<h1>`/`<h2>` where a page draws its own heading (the map, the password reset).
+What stays under a title is what is *about the thing shown* - a "Shared by" line, a storage's or a list's
+own description, the count of lists a group gathers, a copyright line (`PageHeader`'s `Subtitle`). The
+map's note about a live share becomes a **"!"** on "You are sharing with", since it is true only while one
+is live. A document's own body - Docs, Privacy, Security - is content, not a description, and stays.
+
 **What is still said out loud** is a refusal that has already happened: an error under Save, a message
 after an action. Those answer a question the reader is asking at that moment, and an answer behind a mark
-is an answer nobody finds.
+is an answer nobody finds. So is a list that is empty right now ("No contacts yet."), and an instruction
+that exists only while the screen is waiting for it (the map's "Click the map to drop a pin." until one
+is dropped).
 
 **The phone does the same thing its own way** (`Orbit.Maui/Controls/FieldHint.xaml`). There is no hover
 on a phone, so the mark is tapped; and what it opens is the sentence itself, in place under the name,
 rather than a bubble over the page — a phone has no room for a layer, and text that appears where it
 belongs needs no arrow pointing at what it is about. Tapping again folds it back. The control carries the
 field's name as well as the sentence, which is what lets the two lay out as one thing; `IsHeading` picks
-between a section's heading and a field's label, and `Warns` draws the same "!" the browser does. What
-stays visible there is what the browser keeps too: a page's own subtitle, and anything that reports a
-state rather than describing a control.
+between a section's heading and a field's label, `LabelStyle` covers a heading a screen draws for itself,
+and `Warns` draws the same "!" the browser does.
+
+**The phone folds its page descriptions too** (since 2026-09-11). Most screens have no heading of their
+own - the name is in the top bar - so a screen hands its sentence to the bar (`NavigationBar.Description`),
+which draws the same mark beside the name (`Controls/HintMark.xaml`, the one FieldHint uses) and opens
+the sentence centred under the bar; the mark also gives the sentence to a screen reader as its hint.
+Folded that way: contact info, Groups, Update, both copy screens, Diagnostics. Folded beside a heading the
+screen draws itself, because sign-in's neighbours have no bar: Create an account, and Forgotten password
+only until the password is set, as on the web. A setting row joined them: "Check every round" on the shelf
+form, which the browser folds too. What stays in view is what stays in the browser - statuses, empty
+lists, errors, the chat key gate's and a locked feature's explanations, the claim screens' lines, a shared
+item's own subtitle, About's body, and the restock rule that changes with its switch. One deliberate
+difference: the Update screen's closing line ("The phone apps sign in to this same Orbit...") is the web
+Download page's folded description, but on the phone it is body text at the foot of the page rather than a
+sentence under a name, so it stays.
 
 ## Advertising
 
@@ -271,10 +332,24 @@ its own consent question, an account somebody has to open and keys to keep; see
 **Every slot says "Ad".** A house advert that read as Orbit talking would be the one kind worth
 objecting to.
 
-**The dialog is the only one that interrupts, and it is not shown to an account holding the Debugger
-permission** (`AdInterruption`). Whoever holds that is looking at Orbit's own internals, which means
-they are working on Orbit rather than reading it. The rail and the bar are shown to everybody and simply
-sit there.
+**The dialog is the only one that interrupts** (`AdInterruption`). The rail and the bar simply sit
+there.
+
+**An account holding the Debugger permission sees no adverts at all until it asks for them** (2026-09-11)
+- not the dialog, and not the rail or the bar either. Whoever holds that permission is looking at
+Orbit's own internals, which means they are working on Orbit rather than reading it, and the slots were
+as much in the way of that as the interruption. Options → Debug carries an **Allow ads** switch, off by
+default and kept on the device (`DevicePreferences.AllowAdsForDebugger`, `orbit-allow-ads-for-debugger`),
+so the people who make the adverts can still see them the way everybody else does. It is per browser
+rather than per account for the same reason the rest of that tab is: it is about what one screen shows
+whoever is at it, and nothing on the server stores a debugging preference to put it beside. An account
+without the permission sees adverts whatever the switch says - it is not a way of opting out of them.
+
+Every surface asks one place whether this reader may be shown adverts - `AdAudience.MayShowAds`, which
+combines the permission and the switch - rather than each working it out: `AdSlot` and `AdDialog` draw
+nothing when it says no, and `AdInterruption` asks it before its own pacing. It announces a change
+(`AdAudience.Changed`), so the slot beside the page takes itself away, or comes back, the moment the switch
+is flipped rather than at the next reload.
 
 **It is paced rather than counted: at most once every `AdInterruption.MinimumGap`, five minutes**
 (2026-09-10). It used to be "once a visit", held in a field on the layout - which sounds like the same
@@ -312,6 +387,13 @@ tab on a page that could never file anything into it. The **dashboard has no sco
 shows both kinds of card, so it draws both pages' tabs and offers no way to make, rename or delete one
 (`FolderPage`, `FolderPages` on the client). Which tab is open is the page's own answer as well
 (`FolderState.ChosenOn`), for the same reason.
+
+**Something new is made where the reader is standing.** A note or list made while a folder of the
+reader's own is open is filed in it; made on **Private** it starts sealed, since being sealed is what
+puts it there; and a list made on **Finished** starts marked finished (`CreateTaskRequest.Completion`,
+null for every client that says nothing) - unless an entry on it stands for a list that is not finished
+yet, in which case the Finished tab's tick falls back to "the entries decide", because a list is not done
+while something it is made of is not. Pressing the Completed box makes the answer the reader's own.
 
 **On a phone the tabs fold into one Menu button**, and so does everything else a page is narrowed by:
 on the task lists that is the search box and both rows of chips as well (`PhoneToolbar`). Three rows of
@@ -665,6 +747,12 @@ disagree in.
   draws: text style, checklist, table, attachment. **Only the checklist one does anything**; the other
   three answer a press with "*Text style*: not implemented yet." rather than being greyed out, because a
   dead button explains nothing and a row of them explains less.
+- **The writing keeps room under its last line** for the tools and three lines more, and the caret's
+  line scrolls clear of them (`.note-editor-page`'s padding and `scroll-padding`): the text used to run
+  on underneath the tools.
+- **Copying lines copies tick boxes as `- ` bullets** (`checklistTextEditor.js`, `onCopy`; a cut the
+  same). A tick box is a button with no text, so a checklist pasted into a message arrived as bare lines.
+  A selection inside one line is left to the browser - there is no box in it to speak for.
 - **The checklist tool types `[]`**, which the surface then turns into a tick box
   (`checklistTextEditor.js`, `CHECKLIST_MARKER`). Typing the same two characters at the head of a line
   does the same thing, so the button is a shortcut into the rule rather than a second way in - which is
@@ -676,8 +764,10 @@ disagree in.
   `InputSelect`/`InputCheckbox`: the panel is outside the `EditForm`, and those need its `EditContext`.
 - **The notes in the same folder stand beside it**, a fifth of the width, most recently changed first,
   with the one being written marked. What is being written is one of a set, and moving between them
-  should not mean going back to the page of cards each time. Pressing one is an ordinary navigation and
-  means exactly what Back-then-open means: whatever has not been saved is not kept. Below 1100px the
+  should not mean going back to the page of cards each time. Pressing one opens it in place of the note
+  being written - whatever has not been saved is not kept - and replaces that form in the history rather
+  than stacking a second on top of it, so finishing the next note still ends where the first was opened
+  from and Back does not walk through every note looked at on the way (`NavigationTrail`). Below 1100px the
   column is dropped - a fifth of a narrow window cannot name a note, and the writing needs the room.
   Because a route parameter changing does not remake a Blazor component, the editor loads in
   `OnParametersSetAsync` keyed by the note's id, releases the previous note's edit lock on the way, and
@@ -741,9 +831,20 @@ item's actual owner (`Note.UserId`/`TaskList.UserId`/`CalendarEvent.UserId`): si
 underlying row now, its owner already has full access, so offering it back to them would be meaningless
 at best and a way to bypass the level cap above at worst. All of these are "not found" responses rather
 than a distinct "forbidden," so a caller can't tell "doesn't exist" apart from "exists but you can't
-share it" by probing ids. The Blazor editor pages mirror this: the sharing section is hidden entirely for
+share it" by probing ids. The Blazor editor pages mirror this: the sharing entry is left out entirely for
 a `ReadOnly` grantee, the access-level dropdown only offers levels the current user is allowed to grant,
 and the contact picker excludes the owner.
+
+**On the web, handing something on is in the editor panel's menu.** The note, task list and inventory
+forms carry **Share** (a contact and an access level, and the chat invitation that goes with it) and
+**Share link** (the public link, `ShareLinkButton`) as entries in the menu on the right-hand panel
+(`EditorRail`), each opening a `Dialog` over the page; the calendar event's form carries **Share link**
+there, since handing an appointment to a contact is inviting them as a guest and stays in the form. They
+used to be sections under the form - below everything else on a long list or shelf. The entries follow
+the old sections' rules: nothing before the first save, nothing for a sealed item (the server refuses to
+share one and cannot publish what it cannot read), and Share only where the reader's own access allows
+passing it on. Ticking Private withdraws both at once, with the menu still open. On a narrow screen the
+panel is a bar along the foot of the window and the menu stays in it, so both are reached the same way.
 
 **Duplicate offers.** Sharing something that was already offered to the same recipient — accepted or
 still pending — doesn't create a second `NoteShare`/`TaskListShare`/`CalendarEventShare` row.
@@ -856,6 +957,28 @@ made the names the narrowest thing on it. It offers three things: **Make admin**
 (the same `/contacts/{userId}` card everything else opens, which resolves for a member who is not a
 contact too), and **Remove** — or **Leave group** on your own row, since showing yourself out is not the
 same act as removing somebody and needs no admin standing.
+
+**Anybody may leave, whatever their role and whoever else is in the group.** Leaving always asks first,
+wherever it starts — the roster's own row, the archive's "Leave and delete chat history", and on the
+phone the group's own screen and a group's row in the list — and always goes through
+`DELETE /api/chat/groups/{id}/membership`, so your copies of the group's messages go with you. The
+question is one thing written once per client: `GroupLeaveConfirmation` on the web (the roster shows it
+under the members, the archive under the row), `GroupLeaveQuestion` on the phone (asked by
+`GroupLeaveDialog`: an action sheet for the choice, then the confirmation). Everybody is asked to
+confirm; **the last person out is told the group is deleted when they go**; and when you are the
+group's **only admin and other people remain**, the question also asks **who takes over**, with the
+longest-standing member already chosen: the person the server would pick anyway, by the same
+`ChatGroup.ChooseSuccessor` rule, so confirming without looking is never worse than not being asked (the
+phone keeps each member's join time for this, in the membership it caches). The choice travels as an
+optional `successorUserId` query value; left out — by phone builds from before 2026-09-11 — the server
+promotes the longest-standing member itself, the rule an account deletion has always used. A named
+successor who is no longer in the group, or is the leaver, is **refused rather than swapped** for the
+automatic choice, and so is a plain member who names anybody: the leaver asked for a particular person
+and could not undo somebody else being handed the group once out, whereas a refusal costs one more look
+at the roster. Both clients say the refusal in the server's own words and read the group again, so the
+next question offers who is actually there. The last person out empties the group and it is deleted.
+Removing yourself through the older `members/{yourId}` route — what installed phones from before
+2026-09-11 do — follows the same rules (`ChatGroup.RemoveMember` hands itself to `ChatGroup.Leave`).
 
 **What the reader may not do is greyed, not left out**, and says why on itself. An option that
 disappears looks like an option that does not exist, and "you are not an admin here" is worth saying;
@@ -992,9 +1115,10 @@ line, and a permission matrix nobody varies is machinery to keep correct for not
 | Promote and demote | no | yes |
 | Rename the group | no | yes |
 
-The creator is the first admin. **The last admin can't be removed or demoted** — that would leave a
-group nobody can manage and no way to fix it from inside; an admin can step down once someone else can
-take over. Adding someone requires an existing one-to-one chat with them, so a group can't be used to
+The creator is the first admin. **The last admin can't be demoted, and a group is never left with people
+in it and no admin** — that would leave a group nobody can manage and no way to fix it from inside. The
+last admin may still leave: whoever they name takes over, or the longest-standing member if they name
+nobody (see the members page above). Adding someone requires an existing one-to-one chat with them, so a group can't be used to
 reach a stranger who never agreed to hear from you; re-adding an existing member skips that check, being
 a no-op.
 
@@ -1102,8 +1226,9 @@ own copy learns it is gone, and `GET /api/places/changes?since=` is the delta th
 `POST /api/places/{id}/shares`). It works the way the other four kinds do — an offer that does nothing
 until it is taken up, announced by an encrypted chat message the recipient presses Accept on, listed on
 the contact's own card and withdrawable from there. The differences are all subtractions: there is no
-per-recipient pin, because a place has no list of its own to sit at the top of, and no refusal for a
-private one, because nothing about a place is ever sealed.
+per-recipient pin, because a place has no list of its own to sit at the top of. A **sealed** place -
+which is what a place is unless its owner says otherwise - cannot be shared at all: the server holds no
+readable copy of it to hand anybody, and the handlers refuse rather than the menu merely hiding it.
 
 - A **read-only** grant means read-only: `UpdatePlaceCommandHandler` refuses a save from anybody whose
   grant is not `CanEdit`, and the menu says **View** rather than Edit so the form does not offer a button
@@ -1170,8 +1295,9 @@ only when the box is empty, so "the back entrance" survives.
 
 **The dashboard gives them a card of their own**, keyed `places`, between Inventory and Groups: its own
 card rather than a corner of Upcoming, which is a list of things happening at a time — a place has none,
-which is the whole point of one. Nothing about a place is ever sealed, so the Private tab leaves it out
-the way it leaves out the appointments and the people, and a folder tab does too. Pressing a row goes to
+which is the whole point of one. A place is filed in no folder, so the Private tab leaves it out the
+way it leaves out the appointments and the people - sealed or not, since sealing a place is not filing
+it - and a folder tab does too. Pressing a row goes to
 `/map?place={id}` and the map opens centred on that pin: a place is met on the map, there being no page
 of a place's own, and an id this account has no place under still arrives at the map rather than at an
 error — which is the right answer for a link to one since forgotten.
@@ -1204,6 +1330,45 @@ that page. A row shows the place's colour, its name, its priority when that is n
 that hands the point to a map app. Behind the three dots: **Edit**, **Duplicate** — a second one of the
 same, for two entrances to one building — and **Delete**, which asks first, because forgetting a place is
 the one thing on that panel that cannot be undone.
+
+### Taking places out in a file
+
+**Places can be exported, and they are the one part of the file written out decrypted** (2026-09-11,
+`ArchivedPlace`, `OrbitArchive.Places`). The account export on the Options page (`/api/transfer/export`,
+"Your data") opens nothing else: a private note, list or inventory travels as its sealed bytes and
+nothing more. A place is sealed by default, so an export that did the same would be a file of empty rows
+— and somebody asking for their places is asking to read them somewhere else. So the server writes each
+of the owner's places as it holds it — an open one readable, a sealed one as empty words beside
+`EncryptedContent`, since it has no key — and the browser opens the sealed ones with
+`PrivateContentSealer` (`TransferApiClient.OpenPlacesAsync`) before the file is saved. The sealed half
+stays in the file beside the opened words.
+
+- **Asked for, not assumed.** Places is the one box unticked to begin with, and while it is ticked the
+  page says, in the danger colour, that the file is not encrypted and that anyone who gets it can read
+  every place in it, private ones included. Export pressed the way it always was writes no places and
+  never reaches for the key.
+- **Only your own.** Places somebody handed over are left out, like every other shared thing in the
+  export: the share is access, and a readable copy of their place in a file is theirs to make.
+- **A place this browser cannot open** — sealed under a key since replaced — is written with its empty
+  words rather than failing the export, and the page says how many.
+- **Importing restores a private place sealed**, under the half the file carried, the way a private note
+  is restored: readable again in the account that sealed it, and a place nobody can open in any other.
+  Both clients empty a private place's words before the file goes back up
+  (`OrbitArchive.WithPrivatePlacesClosed`), so the server never reads them. One the file calls private
+  with nothing sealed is left out and not counted: the server cannot seal it, and storing it readable
+  would publish what the file says is private.
+- **Lists travel by title**, as a task entry's links do, and are found again among the lists the same
+  import made. A link to a private list is dropped, because that list's title is empty on the server.
+- **Older files still open.** `Places` is defaulted and last, so the archive's version stays 1: a file
+  without it reads as an account that kept no places, and one with it imports into an older Orbit, which
+  reads past the field.
+- **The phone offers it the same way** (2026-09-11). The account screen's export has a Places switch that
+  starts off (`ExportChoice.IncludesPlaces`), the same warning beside it while it is on, and
+  `TransferClient.OpenPlacesAsync` opens each sealed place with the key `LocalPlaceRepository` opens the
+  map's pins with, after narrowing, so an export without places never unlocks it. A place the phone
+  cannot open - no key on this device, or one sealed under a key pair since replaced - goes out empty and
+  is counted in a line under the result. Its import sends a file's private places closed, like the
+  browser's, and its result names all five counts.
 
 ## Private notes and task lists
 
@@ -1395,6 +1560,15 @@ press to get the pins back and the reader can still read what they hid. **The ey
 past filter**: somebody who hid their plans and then asked to see past ones meant to be shown nothing,
 not to have the whole lot come back.
 
+**A list with nothing in it is left off the panel** (2026-09-11), the way an empty card is left off the
+dashboard: four headings each saying "Nobody yet" were most of the panel spent on what is not there.
+"Share where you are" stays, because it is how any of the others comes to have something in it, and
+"Where your plans are" stays while the past is being shown, because it then holds the field that can
+change the answer. **A refresh button sits beside full screen** on the map: it reads everything again
+and moves the pins in place (`RefreshMapMarkersAsync`), so the pan and zoom it was pressed from are kept.
+**A pin's popup takes the theme** - Leaflet paints it white, and in the dark theme its label was light
+text on a white card.
+
 ### Planning something at a place
 
 The map is where people already go to point at somewhere, so it is also where pointing at somewhere and
@@ -1434,6 +1608,29 @@ and a place is exactly the kind of thing that should not be sitting in a link so
 Nothing about it needs to survive a reload - it is a handover between two screens, a second apart - and
 it is **taken** rather than read, so coming back to a new event or a new list later starts empty instead
 of at somewhere the reader looked at once and has no memory of choosing.
+
+**A pin's own popup starts an event or a list too** (2026-09-11): "An event here" and "A task list here"
+under "Take me there", on every pin but the question one. They hand the pin over the same way the
+question's answers do (`MapPage.OnPinPlan`), carrying the pin's address where it has one, so somebody
+looking at a kept place or a friend's position need not pin the same spot a second time to plan something
+there. **Once a place has been kept, the red question pin goes**: it has been answered, and left beside
+the new place's own pin it read as a second place still waiting.
+
+### A route between two pins
+
+**"Start a route here" in one pin's popup, then "Route to here" in another's** (2026-09-11,
+`MapPage.OnPinRoute`, `locationMap.js`'s `showRoute`). One button that changes its words rather than two
+side by side. Any spot can be an end: press the map there, and the pin that press draws carries the same
+button. A bar under the map names both ends and says how far and how long, with **Clear the route**.
+
+The road route comes from the **public OSRM demo server** (FOSSGIS, OpenStreetMap's routing machine),
+driving only - that is what the demo serves reliably. It is a third party, so it is asked **only where the
+reader lets Orbit reach other sites** - the same `KeepsThirdPartiesOut` answer that decides whether the map
+has a background (`mapTiles.js`). Otherwise, and whenever the service does not answer, the two ends are
+joined by a **dashed straight line** and the bar says "in a straight line", so a distance as the crow
+flies is never mistaken for the road. The route is drawn again after the map is rebuilt from scratch, and
+goes when the reader clears it or starts another. Light use only, by the demo's own policy - the same
+bargain the geocoding makes with Nominatim; a deployment with real traffic should run its own.
 
 ## Handing something off to Google
 
@@ -1531,6 +1728,11 @@ at the half hour; the hour ones are drawn solid so the hours can still be counte
 **Whole-day things go in a band across the top**, above the hours — they have no hour to be drawn at, and
 giving them one would put them at midnight, which is a lie about when they are. The band is left out
 entirely on a week with nothing in it.
+
+**Every entry says which it is** (2026-09-11): a small calendar mark before an event's name and a tick
+box before a task's, in the day, week and month views alike - a CSS mask, so it takes the text's colour,
+a done entry's greyed one included. The dashed edge a task already had said so only to somebody who had
+learned what the dash meant.
 
 It is built from seven day grids rather than from a week-shaped pass of its own: what "which column does
 this overlap into" means is a question about one day, and answering it twice in two places is how the two
@@ -1762,7 +1964,9 @@ away, not to the default, which may be a choice nobody made in months.
 ### The page of lists
 
 `/tasks` is one card per list, showing enough to recognise it: its badges, how far through it is, and a
-few of its rows. A row that only points at another list is followed — the first few items of the list it
+few of its rows. Each row carries its entry's categories and, when it is not Normal, its own priority -
+the rows of a gathered list included (2026-09-11). The notes page's cards carry the same marks a list's
+do: Private, Shared, a priority that is not Normal, and Pinned. A row that only points at another list is followed — the first few items of the list it
 points at are drawn under it — so a group list's card says something about the work rather than being a
 stack of titles.
 
@@ -2100,7 +2304,12 @@ A group list can be pointed at an inventory (`PUT /api/tasks/{id}/inventory`), a
 `GET /api/tasks/{id}/stock-check` then answers what the work costs against it. The counting rule is that
 **repetition is quantity**: a tree naming "Makaron świderki" in three recipes needs three
 (`StockRequirementCounter`). That is what makes a checklist a bill of materials without asking anybody
-to type a number beside every line. A line with a due date in the future is not counted - that work has
+to type a number beside every line. **Each line adds its own minimum** where it says one
+(`TaskItemProduct.MinimumQuantity`) and one where it does not (2026-09-11), so two recipes wanting two
+and three kilos of flour need five, and a third that only names it makes six. Entries that already stand
+for a shelf item count that item's minimum once between them - it is the sum they handed over when the
+shelf was built - so the check, the shelf and the restock errands read the same number
+(`StockRequirementCounter.RequiredBy`). A line with a due date in the future is not counted - that work has
 not come round, and counting it would raise a restock errand early. `POST /api/tasks/{id}/stock-check/shortfalls`
 puts what is short onto the inventory's standing restock list, where the daily reminder brings it up;
 names already waiting are left alone. The panel carries a menu of its own: whether it is in the way at
@@ -2124,16 +2333,28 @@ the web now recalculates by reading, and the phone by the same two presses. It w
 left reachable, since an endpoint nothing asks for is an endpoint nobody notices going wrong.
 
 Two things are defaulted rather than asked for, and the same way in both directions: the unit is
-**pieces**, and **how many times a name is written is how little is too little** - one entry asks for one
-of the thing, the same entry twice asks for two. Nothing on a task entry says an amount, so repetition is
-what says it, and pieces is what something nobody counted otherwise is counted in.
+**pieces**, and **how many times a name is written is how little is too little** where nobody said
+otherwise - one entry asks for one of the thing, the same entry twice asks for two, and an entry that
+does say a minimum adds that instead of one. Pieces is what something nobody counted otherwise is counted
+in.
 
 **An entry on a list that already has a storage describes a product for that shelf.** It shows the
 product's fields - how much, how little is too little, the unit, what it is, how long it keeps - and
 everything except the name, because the entry's own words are the name. That is the same rule the
 generation above follows and the same one the check matches by, so the two cannot come to disagree about
-which product an errand is about. Saving the list puts it on the shelf; a shelf already holding
-something by that name is what the entry was asking for, so nothing is added twice.
+which product an errand is about. Saving the list puts it on the shelf **and points the entry at the
+row** (2026-09-11, `ProductEntryPlacement`, run on the server by every save of the list rather than by
+each client): a new row holds what the entry describes, entries naming the same thing in one save counted
+by the rule above; a shelf already holding exactly one thing by that name is what the entry was asking
+for, so nothing is added twice and that row is left as it was - a reused shopping list would otherwise
+raise a pantry's minimum every trip. The entry's own description is dropped in the same breath, as
+generating does, and the storage's restock list is brought up to date. It happens only for somebody who
+may edit that storage, never on a private one, and not while somebody else holds its edit lock, whose
+whole-shelf save would delete the row; a list measured against no storage keeps the description on the
+entry until one is generated. Before this the browser and the phone each wrote the product onto the shelf
+and left the entry pointing at nothing, so no errand was ever about it and nothing crossed it off. The
+phone now sends the product on the entry and pulls the row back (`ShelfCorrection`) instead of writing its
+own copy of the shelf, which raced the server's row and deleted it.
 
 **And says when each batch arrived**, which is the fourth thing a shelf answers and the one the phone
 left out. The date comes down with the items and is kept beside them (`LocalInventory.ItemArrivals`)
@@ -2165,11 +2386,30 @@ without knowing it was there.
 land on the section the thing belongs to - `/tasks`, `/notes`, `/calendar`, `/inventory` - whatever route
 reached the form, so an appointment opened from the calendar ended its edit two sections from where it
 started. The page that sends somebody in now says where it is, as a `returnTo` on the address
-(`ReturnTo`), and it is carried the whole way: the calendar and the dashboard name themselves, and the
-pages between - a task entry's own page, a checklist, a note's or a storage's summary - pass on what they
-were given rather than replacing it with themselves, because they are stops on the way. **All four forms
-read it**: task list, note, calendar event and storage. A form reached without one - somebody typing the
-address - still ends on its own section, which is what every route did before.
+(`ReturnTo`): the calendar and the dashboard name themselves, and so does every page that reads one
+thing - a note's, an appointment's, a storage's, a checklist, a task entry's own page. A form opened from
+one of those ends back on it, showing what was saved, and that page's own Back still returns wherever
+*it* was opened from, because its address carries its own `returnTo` (`NavigationTrail.Here`). They used
+to pass on what they had been given instead, so saving a note opened from the dashboard skipped the note
+and landed on the dashboard. **All four forms read it**: task list, note, calendar event and storage. A
+form reached without one - somebody typing the address - still ends on its own section, which is what
+every route did before.
+
+**Finishing does not leave the screen in the history.** Save, Back and Delete - on a form and on a page
+that reads one thing - go through `NavigationTrail`: when where they end is the entry right before this
+one in the browser's history, they step back onto it (`history.go`), and otherwise they replace the page.
+The browser's Back afterwards therefore never reopens a form that was just finished - which, for a new
+note, used to be one press from saving it twice. The same page with more on its address counts as the
+entry behind, so leaving an appointment for "/calendar" steps back onto the day the calendar was showing.
+The trail is only what the app has seen itself (`InAppHistory`), and the browser does not say whether a
+move was Back, so arriving at an address still on the trail is *read* as going back to it - one entry
+with Back, or several through the browser's history menu. A link to such a page is read the same way,
+and the most that costs is a screen reached like that stepping back onto the wrong one of Orbit's pages
+when it is finished; reading a jump back as a new page instead is the mistake that could step out of
+Orbit. A page reached by its address or a reload has nothing of Orbit's behind it and is replaced.
+**Deleting takes the deleted thing's pages with it**: a summary under the form opened from it would now
+say "no longer exists", so every such entry on top of the history is left too, and the delete ends on the
+thing's section (`/notes`, `/calendar`, `/inventory`, `/tasks`) rather than on a page of what is gone.
 
 **Only a path on this site is ever followed.** The value comes off the address bar, so it is whatever
 anybody put there: an absolute URL, a protocol-relative `//host`, or anything holding a backslash (which
@@ -2179,10 +2419,10 @@ took them, which is the ordinary shape of an open redirect.
 
 **A list says what it is for, under its name.** The editor has always asked a task list for a description
 and no page showed it - the one field in Orbit that could be written and never read. It is the checklist's
-subtitle now, where a storage's description already sat, and it takes the place of the sentence that used
-to be there ("Tick items off; use Edit to change the list itself.", or the count of a group's linked
-lists): those are a signpost about the page and a pointer at sections drawn directly below it, and
-somebody's own words about their list beat both. A list nobody described still gets the signpost.
+subtitle now, where a storage's description already sat, and it takes the place of the count of a group's
+linked lists, a pointer at sections drawn directly below it that somebody's own words about their list
+beat. The signpost that used to share that line ("Tick items off; use Edit to change the list itself.")
+is behind the title's "?" on every list instead: folded away, it no longer competes with anybody's words.
 
 **A web address written in a description can be pressed.** Wherever a description is *read* - a task
 list's, a calendar event's, a task entry's, a note's own lines, a storage's - the addresses in it are links
@@ -2331,7 +2571,11 @@ rather than only a group one - an entry describing a product has to be able to s
 on. The picker offers every storage, the ones other lists already measure included - a store serves as many
 jobs as it holds things for - and marks those as shared. A shelf several lists ask for is split between
 them in proportion to what each asks for, so each list is told its own share rather than being told the
-last bag is theirs (see `StockRequirementCounter.ShareOfTheShelf`). The tie can be made from either end:
+last bag is theirs (see `StockRequirementCounter.ShareOfTheShelf`). A row that entries on several lists
+stand for is asked for **once** across them (2026-09-11): its minimum is what those entries handed over
+together, so counting it per list made a shelf holding exactly that look short to every one of them.
+**Linking a list puts its product entries on the shelf there and then** (same day), as saving it does -
+it used to set the link and nothing else, so they waited for the list's next save. The tie can be made from either end:
 an inventory's editor carries a checklist of the lists measured against it. "Generate inventory" is still
 refused to a list that already has one: it would build a second and quietly move the list onto it,
 leaving the first with nothing pointing at it.
@@ -2351,10 +2595,14 @@ future: the shelf holds what the whole job will need, while the check counts onl
 reached from the three-dot menu on the checklist and the deep editor, where "recalculate" is offered
 greyed until an inventory is chosen rather than hidden.
 
-**An entry that described the thing it names is taken at its word** (`TaskItemProduct`): the amounts, the
-unit, what it is filed under, how long it keeps and whether it is one to look at every round are what
-somebody wrote on the entry, and the counting rule only answers for the boxes nobody filled in - a blank
-minimum is counted off the lines, and an amount of zero leaves the crossed-off lines to say how much is
+**An entry that described the thing it names is taken at its word** (`TaskItemProduct`): the unit, what
+it is filed under, how long it keeps and whether it is one to look at every round are what the first
+entry describing it wrote. **The amounts are heard from every entry naming the thing** (2026-09-11,
+`StockRequirementCounter`): the minimum is the sum of each one's own minimum, an entry that left it blank
+adding one - minimums of two and three make five, two and a blank make three - and what starts on the
+shelf is the **smallest** amount any of them wrote (`StockRequirement.StartingStock`). An amount of zero
+is the box nobody filled in and takes no part, since one untouched entry would otherwise pin the shelf at
+nothing over an amount somebody did write; where nobody wrote one, the crossed-off lines say how much is
 already there. Each entry then **points at the row it asked for** (`TaskItem.PointAtShelfItem`), which is
 what every other screen reads an errand through, and the description on the entry is dropped in the same
 breath: the shelf item is now the answer, and two answers are how they come to disagree.
@@ -2836,8 +3084,10 @@ Orbit uses **local storage, never cookies**, so "Manage cookies" manages that. T
 - **Preferences** - theme, accent hue, dashboard pins/hidden cards/filters, checklist views, the
   calendar and task-list and inventory orderings, conversation pins, panel states, and
   `orbit-last-advert` (when the interrupting advert last went up - not something anybody arranged, but
-  the same kind of thing, and declining it costs nothing but seeing that advert more often), and
-  `orbit-map-panel-pin-*` (which of the map panel's lists is kept at the top of it).
+  the same kind of thing, and declining it costs nothing but seeing that advert more often),
+  `orbit-allow-ads-for-debugger` (whether an account holding Debugger is shown adverts here - declining
+  it leaves the default, which is none), and `orbit-map-panel-pin-*` (which of the map panel's lists is
+  kept at the top of it).
 - **Diagnostics** - `orbit.clientLogs` and `orbit-diagnostics-mode`.
 
 The gate is `wwwroot/js/storageConsent.js`, and **where** it sits is the point: it wraps
@@ -3449,7 +3699,9 @@ load.
 Each card that has something to filter by carries its own menu in its top right: everything, what is
 pinned, or one priority. The count beside a card's title counts what the card is showing rather than
 what it holds, so a filtered card cannot look like one that lost something. A calendar event offers no
-"pinned" - it has a priority but nothing to pin it to.
+"pinned" - it has a priority but nothing to pin it to. **Each folder tab keeps its own filter**
+(2026-09-11): "only what is pinned" is something wanted of one folder and not of every other. Public keeps
+the card's bare key, so a filter chosen before tabs had their own still applies where it was chosen.
 
 Both live on the device (`DashboardCardPreferences`, localStorage), like the pins beside them: they
 describe one page for one reader and say nothing about what the cards hold. What is stored is what is

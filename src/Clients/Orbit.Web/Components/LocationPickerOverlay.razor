@@ -12,7 +12,9 @@
 <div class="map-overlay" @onclick="CancelAsync">
     <div class="map-overlay-panel" @onclick:stopPropagation="true">
         <div class="map-overlay-header">
-            <h2>@T["Pick a place"]</h2>
+            @* Says what a press on the map does, which is ask rather than move: the pin follows the
+               answer. Behind the heading's mark rather than as a line over the map - see FieldHint. *@
+            <h2>@T["Pick a place"]<FieldHint>@T["Click the map to pick a place - it asks before the pin moves."]</FieldHint></h2>
             <button type="button" class="icon-btn" title="@(T["Close"])" aria-label="@(T["Close"])" @onclick="CancelAsync">✕</button>
         </div>
 
@@ -47,8 +49,6 @@
             <p class="map-overlay-hint">@T["Nothing found for that. Try fewer words, or point at it on the map."]</p>
         }
 
-        @* Says what a press does, which is ask rather than move: the pin follows the answer. *@
-        <p class="map-overlay-hint">@T["Click the map to pick a place - it asks before the pin moves."]</p>
         <div id="@MapElementId" class="map-overlay-map"></div>
 
         @if (_pickedAddress is not null)

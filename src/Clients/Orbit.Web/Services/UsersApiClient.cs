@@ -201,12 +201,17 @@ public sealed class UsersApiClient
         return true;
     }
 
-    /// <summary>False when the password doesn't match. On success, every row this account owns is gone server-side.</summary>
-    public async Task<bool> DeleteAccountAsync(string password, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// False when what was offered does not prove it is the owner - a wrong password, or a Google sign-in
+    /// that is not this account's or not a fresh one. On success, every row this account owns is gone
+    /// server-side.
+    /// </summary>
+    public async Task<bool> DeleteAccountAsync(
+        string password, string? googleIdToken = null, CancellationToken cancellationToken = default)
     {
         using var request = new HttpRequestMessage(HttpMethod.Delete, "api/users/me")
         {
-            Content = JsonContent.Create(new DeleteAccountRequest(password))
+            Content = JsonContent.Create(new DeleteAccountRequest(password, googleIdToken))
         };
         var response = await _httpClient.SendAsync(request, cancellationToken);
         if (response.StatusCode == HttpStatusCode.Unauthorized)

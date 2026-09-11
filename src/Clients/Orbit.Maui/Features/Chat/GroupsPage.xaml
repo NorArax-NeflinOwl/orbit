@@ -37,9 +37,6 @@
                                      Description="{controls:Translate 'New group'}"
                                      Command="{Binding StartCreatingCommand}" />
             </controls:PageHeader.LeadingAction>
-            <controls:PageHeader.Subtitle>
-                <controls:Translate Text="Conversations with more than one other person." />
-            </controls:PageHeader.Subtitle>
         </controls:PageHeader>
         <Label Grid.Row="1" Text="{Binding Message}" IsVisible="{Binding HasMessage}"
                LineBreakMode="WordWrap" Style="{StaticResource InfoLabel}" />
@@ -119,7 +116,9 @@
         <!-- Across the foot, under everything the page itself draws - see AdBanner, and .ad-banner
              in Orbit.Web's app.css, which is the same bar on a narrow window. -->
         <controls:AdBanner Grid.Row="2" />
-        <controls:NavigationBar Grid.Row="0" />
+        <!-- What the screen is for, behind the "?" beside its name - see NavigationBar.Description. -->
+        <controls:NavigationBar Grid.Row="0"
+                                Description="{controls:Translate 'Conversations with more than one other person.'}" />
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
                               BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=chat:GroupsPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />

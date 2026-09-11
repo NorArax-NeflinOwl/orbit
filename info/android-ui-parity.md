@@ -143,9 +143,10 @@ picture. There was no picture: the prototype never drew them. What that meant in
 
 - **No page heading where the bar already carries the name.** Diagnostics was the last screen still
   writing its own name at 26pt under a bar that had just said it.
-- **One quiet line of context** (12px, secondary) where a screen needs one, which is what the design
-  gives the settings screen. Everything else was a `PageHeader`, and that control no longer draws a
-  title.
+- **One quiet line of context** where a screen needs one, which is what the design gives the settings
+  screen - and since 2026-09-11 it is folded behind a "?" beside the screen's name in the bar
+  (`NavigationBar.Description`), as the browser folds its page descriptions. Everything else was a
+  `PageHeader`, and that control no longer draws a title.
 - **Hairlines above a row, and one more under the last** — the shape `ItemCard` draws for every list.
   The copy-history rows drew theirs underneath, which leaves a rule hanging under a list that has
   ended.

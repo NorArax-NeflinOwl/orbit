@@ -34,6 +34,9 @@ internal sealed class InventoryTestContext
     /// <summary>Writes an inventory's item list - what both creating one and saving one go through.</summary>
     public InventoryItemsSaver ItemsSaver { get; }
 
+    /// <summary>Puts a list's product entries on the shelf it is measured against - see ProductEntryPlacement.</summary>
+    public ProductEntryPlacement ProductEntryPlacement { get; }
+
     public InventoryTestContext()
     {
         AccessResolver = new InventoryAccessResolver(InventoryRepository, InventoryShareRepository, UserRepository);
@@ -46,6 +49,7 @@ internal sealed class InventoryTestContext
             ManagedTaskListRepository, InventoryItemRepository, InventoryRepository, TaskRepository, TaskListCoordinator);
         StockedEntryCompletion = new StockedEntryCompletion(InventoryRepository, InventoryItemRepository);
         ItemsSaver = new InventoryItemsSaver(InventoryItemRepository, TaskListCoordinator);
+        ProductEntryPlacement = new ProductEntryPlacement(AccessResolver, InventoryItemRepository, RestockListRefresh);
     }
 
     /// <summary>Creates and stores an inventory owned by ownerUserId, returning its id - the starting point for almost every inventory test.</summary>

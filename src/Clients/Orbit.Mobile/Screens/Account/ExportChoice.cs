@@ -4,11 +4,16 @@ using Orbit.Core.Transfer;
 namespace Orbit.Mobile.Screens.Account;
 
 /// <summary>
-/// Which parts of the account the next export will carry. Everything to begin with, because that is
-/// what an export meant before there was anything to choose, and it is what somebody who does not read
-/// the row expects to get.
+/// Which parts of the account the next export will carry. Everything but places to begin with, because
+/// that is what an export meant before there was anything to choose, and it is what somebody who does
+/// not read the row expects to get.
 ///
-/// The same four choices Orbit.Web offers, written again rather than shared: the browser's live inside
+/// Places are the exception because they are the one part written out opened (see ArchivedPlace):
+/// somebody pressing Export the way they always have should not come away with a readable file of where
+/// they keep the spare key. Turning the switch on is the asking, and the warning beside it says what the
+/// answer costs.
+///
+/// The same five choices Orbit.Web offers, written again rather than shared: the browser's live inside
 /// its Options page, which is a client this project cannot reference. What is shared is the archive
 /// itself - see <see cref="OrbitArchive"/> - which is the part that has to agree.
 /// </summary>
@@ -26,16 +31,24 @@ public sealed partial class ExportChoice : ObservableObject
     [ObservableProperty]
     private bool _includesInventories = true;
 
+    [ObservableProperty]
+    private bool _includesPlaces;
+
     /// <summary>
     /// Nothing chosen is not an export of nothing - it is a button with no reason to be pressed, so it
     /// is not offered.
     /// </summary>
     public bool IsEmpty
-        => !IncludesNotes && !IncludesTaskLists && !IncludesCalendarEvents && !IncludesInventories;
+        => !IncludesNotes && !IncludesTaskLists && !IncludesCalendarEvents && !IncludesInventories
+            && !IncludesPlaces;
 
     /// <summary>
     /// The archive with the parts nobody asked for emptied. Emptied rather than left out: the file's
     /// shape is what an importer reads, and one missing a list is a file an older Orbit would refuse.
+    ///
+    /// Places pass through as the server wrote them, sealed ones as empty words - opening them is
+    /// TransferClient.OpenPlacesAsync's job, and it runs after this so an export that left places out
+    /// never reaches for the key.
     /// </summary>
     public OrbitArchive Narrow(OrbitArchive archive)
         => archive with
@@ -43,7 +56,8 @@ public sealed partial class ExportChoice : ObservableObject
             Notes = IncludesNotes ? archive.Notes : [],
             TaskLists = IncludesTaskLists ? archive.TaskLists : [],
             CalendarEvents = IncludesCalendarEvents ? archive.CalendarEvents : [],
-            Inventories = IncludesInventories ? archive.Inventories : []
+            Inventories = IncludesInventories ? archive.Inventories : [],
+            Places = IncludesPlaces ? archive.AllPlaces : []
         };
 
     partial void OnIncludesNotesChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
@@ -53,4 +67,6 @@ public sealed partial class ExportChoice : ObservableObject
     partial void OnIncludesCalendarEventsChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
 
     partial void OnIncludesInventoriesChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
+
+    partial void OnIncludesPlacesChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
 }

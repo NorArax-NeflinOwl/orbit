@@ -124,4 +124,104 @@ public sealed class StockRequirementCounterTests
         Assert.Empty(check.Requirements);
         Assert.True(check.IsAchievable);
     }
+
+    /// <summary>An entry that describes a product, saying how little is too little and how much there is.</summary>
+    private static TaskItem Asking(
+        string description, decimal? minimum = null, decimal quantity = 0, bool isCompleted = false)
+        => TaskItem.Create(
+            description, dueDateUtc: null, isCompleted,
+            subject: new TaskItemSubject(TaskItemKind.Inventory),
+            product: TaskItemProduct.Default with { MinimumQuantity = minimum, Quantity = quantity });
+
+    /// <summary>An entry that already stands for a row on a shelf.</summary>
+    private static TaskItem StandingFor(InventoryItem shelfItem)
+        => TaskItem.Create(
+            shelfItem.Name, dueDateUtc: null, isCompleted: false,
+            subject: new TaskItemSubject(TaskItemKind.Inventory, linkedInventoryItemId: shelfItem.Id));
+
+    private static InventoryItem Stocked(string name, decimal quantity, decimal? minimumQuantity)
+        => InventoryItem.Create(Guid.NewGuid(), name, "Part", ["Hardware"], quantity, minimumQuantity,
+            InventoryUnit.Piece, expiryDate: null, NotificationChannel.None);
+
+    /// <summary>Every occurrence still adds up - but by what it asks for, not by one.</summary>
+    [Fact]
+    public void Each_entry_adds_its_own_minimum()
+    {
+        var check = StockRequirementCounter.Count([Asking("Mąka", 2), Asking(" mąka ", 3)], [], Now);
+
+        Assert.Equal(5, Assert.Single(check.Requirements).Required);
+    }
+
+    /// <summary>A line that says nothing is the counting rule's one, beside the one that did say.</summary>
+    [Fact]
+    public void An_entry_with_no_minimum_adds_one()
+    {
+        var check = StockRequirementCounter.Count([Asking("Mąka", 2), Asking("Mąka"), Work("Mąka")], [], Now);
+
+        Assert.Equal(4, Assert.Single(check.Requirements).Required);
+    }
+
+    /// <summary>Several claims about one shelf: the smallest is the one that cannot be overstating it.</summary>
+    [Fact]
+    public void What_there_is_already_is_the_least_amount_written()
+    {
+        var requirement = Assert.Single(
+            StockRequirementCounter.CountRegardlessOfDueDate([Asking("Mąka", quantity: 4), Asking("Mąka", quantity: 1)])
+                .Requirements);
+
+        Assert.Equal(1, requirement.SmallestAmountWritten);
+        Assert.Equal(1, requirement.StartingStock);
+    }
+
+    /// <summary>Zero is the box nobody filled in, and it does not overrule an amount somebody did write.</summary>
+    [Fact]
+    public void An_amount_nobody_filled_in_takes_no_part()
+    {
+        var requirement = Assert.Single(
+            StockRequirementCounter.CountRegardlessOfDueDate([Asking("Mąka", quantity: 4), Asking("Mąka")])
+                .Requirements);
+
+        Assert.Equal(4, requirement.StartingStock);
+    }
+
+    /// <summary>With no amount written anywhere, the crossed-off lines are still what says how much there is.</summary>
+    [Fact]
+    public void With_no_amount_written_the_crossed_off_lines_answer()
+    {
+        var requirement = Assert.Single(
+            StockRequirementCounter.CountRegardlessOfDueDate(
+                [Asking("Mąka", isCompleted: true), Asking("Mąka", isCompleted: true), Asking("Mąka")])
+                .Requirements);
+
+        Assert.Null(requirement.SmallestAmountWritten);
+        Assert.Equal(2, requirement.StartingStock);
+    }
+
+    /// <summary>
+    /// Entries that stand for one shelf item handed it their minimums when it was built, so its minimum
+    /// is counted once between them - what makes the check read the number the shelf and its restock
+    /// errand read.
+    /// </summary>
+    [Fact]
+    public void Entries_standing_for_one_shelf_item_ask_for_its_minimum_once()
+    {
+        var flour = Stocked("Mąka", quantity: 2, minimumQuantity: 5);
+
+        var check = StockRequirementCounter.Count([StandingFor(flour), StandingFor(flour)], [flour], Now);
+
+        var requirement = Assert.Single(check.Requirements);
+        Assert.Equal(5, requirement.Required);
+        Assert.Equal(3, requirement.Missing);
+    }
+
+    /// <summary>A shelf item with no minimum was left to the counting rule, so its entries count one by one.</summary>
+    [Fact]
+    public void Entries_standing_for_a_shelf_item_with_no_minimum_are_counted_one_by_one()
+    {
+        var flour = Stocked("Mąka", quantity: 0, minimumQuantity: null);
+
+        var check = StockRequirementCounter.Count([StandingFor(flour), StandingFor(flour)], [flour], Now);
+
+        Assert.Equal(2, Assert.Single(check.Requirements).Required);
+    }
 }

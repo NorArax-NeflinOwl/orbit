@@ -102,16 +102,141 @@ public sealed class ChatGroupTests
         Assert.Contains("at least one admin", exception.Message);
     }
 
+    /// <summary>
+    /// This used to be refused ("promote someone else first"), which left the one person with the most
+    /// say in a group as the one person who could not walk out of it. What the refusal protected - a
+    /// group with people in it and nobody able to manage it - is prevented by handing it over instead.
+    /// </summary>
     [Fact]
-    public void The_last_admin_cannot_be_removed_or_leave_while_anyone_would_be_stranded()
+    public void The_only_admin_leaving_one_other_member_hands_the_group_to_them()
     {
         var group = ChatGroup.Create(_creatorId, "Weekend trip");
         group.AddMember(_creatorId, _memberId);
 
-        // The same call covers both readings now that leaving no longer needs admin standing: what is
-        // refused is the group losing its last admin while somebody is still in it.
-        Assert.Throws<InvalidRequestException>(() => group.RemoveMember(_creatorId, _creatorId));
+        group.Leave(_creatorId);
+
+        Assert.False(group.IsMember(_creatorId));
+        Assert.True(group.IsAdmin(_memberId));
+    }
+
+    [Fact]
+    public void The_only_admin_leaving_many_members_hands_the_group_to_the_longest_standing()
+    {
+        var admin = Guid.NewGuid();
+        var newest = Guid.NewGuid();
+        var oldest = Guid.NewGuid();
+        var middle = Guid.NewGuid();
+        var group = GroupOf(
+            (admin, ChatGroupRole.Admin, 30), (newest, ChatGroupRole.Member, 1),
+            (oldest, ChatGroupRole.Member, 20), (middle, ChatGroupRole.Member, 10));
+
+        group.Leave(admin);
+
+        // Exactly one new admin, and it is the member who has been there longest - the same person an
+        // account deletion would have promoted, since both go through ChooseSuccessor.
+        Assert.Equal(oldest, Assert.Single(group.Members, member => member.Role == ChatGroupRole.Admin).UserId);
+        Assert.Equal(3, group.Members.Count);
+    }
+
+    /// <summary>
+    /// Removing yourself through the roster's route is leaving too. Installed phone builds leave that
+    /// way, so it must not keep the old refusal while the dedicated route has dropped it.
+    /// </summary>
+    [Fact]
+    public void Removing_yourself_is_leaving_and_follows_the_same_rules()
+    {
+        var group = ChatGroup.Create(_creatorId, "Weekend trip");
+        group.AddMember(_creatorId, _memberId);
+
+        group.RemoveMember(_creatorId, _creatorId);
+
+        Assert.False(group.IsMember(_creatorId));
+        Assert.True(group.IsAdmin(_memberId));
+    }
+
+    [Fact]
+    public void An_admin_among_several_leaves_without_anybody_being_promoted()
+    {
+        var leaving = Guid.NewGuid();
+        var otherAdmin = Guid.NewGuid();
+        var member = Guid.NewGuid();
+        var group = GroupOf(
+            (leaving, ChatGroupRole.Admin, 30), (otherAdmin, ChatGroupRole.Admin, 5), (member, ChatGroupRole.Member, 20));
+
+        group.Leave(leaving);
+
+        // The group can still be managed, so the longest-standing member is not handed anything.
+        Assert.True(group.IsAdmin(otherAdmin));
+        Assert.False(group.IsAdmin(member));
+    }
+
+    [Fact]
+    public void The_leaving_admin_may_name_who_takes_over()
+    {
+        var admin = Guid.NewGuid();
+        var oldest = Guid.NewGuid();
+        var chosen = Guid.NewGuid();
+        var group = GroupOf((admin, ChatGroupRole.Admin, 30), (oldest, ChatGroupRole.Member, 20), (chosen, ChatGroupRole.Member, 1));
+
+        group.Leave(admin, chosen);
+
+        // The named person, not the one the automatic rule would have picked.
+        Assert.True(group.IsAdmin(chosen));
+        Assert.False(group.IsAdmin(oldest));
+        Assert.False(group.IsMember(admin));
+    }
+
+    /// <summary>
+    /// Refused rather than replaced by the automatic choice: the leaver asked for a particular person,
+    /// and once they are out they cannot undo somebody else being handed the group.
+    /// </summary>
+    [Fact]
+    public void A_successor_who_is_not_in_the_group_is_refused_and_nothing_changes()
+    {
+        var group = ChatGroup.Create(_creatorId, "Weekend trip");
+        group.AddMember(_creatorId, _memberId);
+
+        var exception = Assert.Throws<InvalidRequestException>(() => group.Leave(_creatorId, _outsiderId));
+
+        Assert.Contains("isn't in this group", exception.Message);
+        Assert.True(group.IsAdmin(_creatorId));
+        Assert.False(group.IsAdmin(_memberId));
+    }
+
+    [Fact]
+    public void The_leaver_cannot_name_themselves_to_take_over()
+    {
+        var group = ChatGroup.Create(_creatorId, "Weekend trip");
+        group.AddMember(_creatorId, _memberId);
+
+        Assert.Throws<InvalidRequestException>(() => group.Leave(_creatorId, _creatorId));
         Assert.True(group.IsMember(_creatorId));
+    }
+
+    /// <summary>Naming a successor promotes somebody, which is an admin's act and not a plain member's.</summary>
+    [Fact]
+    public void A_plain_member_cannot_name_a_successor_on_the_way_out()
+    {
+        var group = ChatGroup.Create(_creatorId, "Weekend trip");
+        group.AddMember(_creatorId, _memberId);
+        group.AddMember(_creatorId, _outsiderId);
+
+        Assert.Throws<InvalidRequestException>(() => group.Leave(_memberId, _outsiderId));
+        Assert.True(group.IsMember(_memberId));
+        Assert.False(group.IsAdmin(_outsiderId));
+    }
+
+    [Fact]
+    public void Removing_another_admin_is_still_an_admins_to_do_and_keeps_the_actor_in_charge()
+    {
+        var group = ChatGroup.Create(_creatorId, "Weekend trip");
+        group.AddMember(_creatorId, _memberId);
+        group.ChangeRole(_creatorId, _memberId, ChatGroupRole.Admin);
+
+        group.RemoveMember(_creatorId, _memberId);
+
+        Assert.False(group.IsMember(_memberId));
+        Assert.True(group.IsAdmin(_creatorId));
     }
 
     [Fact]
@@ -204,4 +329,11 @@ public sealed class ChatGroupTests
         Assert.False(group.CanDeleteMessageFrom(_outsiderId, _outsiderId));
         Assert.False(group.CanDeleteMessageFrom(_outsiderId, _memberId));
     }
+
+    /// <summary>A group whose members joined the given number of days ago, so who has been there longest is known.</summary>
+    private static ChatGroup GroupOf(params (Guid UserId, ChatGroupRole Role, int JoinedDaysAgo)[] members)
+        => ChatGroup.FromPersistence(
+            Guid.NewGuid(), "Team", members[0].UserId, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            [.. members.Select(member => new ChatGroupMembership(
+                Guid.Empty, member.UserId, member.Role, DateTimeOffset.UtcNow.AddDays(-member.JoinedDaysAgo)))]);
 }

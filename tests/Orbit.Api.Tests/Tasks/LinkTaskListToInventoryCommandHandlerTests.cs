@@ -15,7 +15,7 @@ public sealed class LinkTaskListToInventoryCommandHandlerTests
     private readonly InventoryTestContext _context = new();
 
     private LinkTaskListToInventoryCommandHandler AHandler()
-        => new(_context.TaskRepository, _context.InventoryRepository);
+        => new(_context.TaskRepository, _context.InventoryRepository, _context.ProductEntryPlacement);
 
     /// <summary>
     /// Long enough ago that no clock this runs on could read the same value twice - see

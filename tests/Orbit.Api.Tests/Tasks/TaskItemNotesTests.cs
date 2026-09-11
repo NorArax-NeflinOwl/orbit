@@ -114,5 +114,6 @@ public sealed class TaskItemNotesTests
                 new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryItemRepository(),
                 new InMemoryInventoryRepository(), new InMemoryTaskRepository()),
             new StockedEntryCompletion(
-                new InMemoryInventoryRepository(), new InMemoryInventoryItemRepository()));
+                new InMemoryInventoryRepository(), new InMemoryInventoryItemRepository()),
+            new InventoryTestContext().ProductEntryPlacement);
 }

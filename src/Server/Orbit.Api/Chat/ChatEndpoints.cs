@@ -212,11 +212,17 @@ public static class ChatEndpoints
         // both, because leaving and still holding every message is a state nobody asks for - see
         // LeaveChatGroupCommand. Separate from removing a member: that one is an admin acting on
         // somebody else, and it is refused for anybody but an admin.
+        //
+        // successorUserId names who takes over when the last admin leaves. A query parameter rather than
+        // a body: a DELETE body is something proxies and HTTP clients are free to drop, and an optional
+        // query value is what keeps every phone build installed before it working unchanged - they send
+        // none, and the group promotes somebody itself (see ChatGroup.Leave).
         groups.MapDelete("/{groupId:guid}/membership", async (
-            Guid groupId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+            Guid groupId, Guid? successorUserId, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
         {
             var left = await dispatcher.SendAsync(
-                new LeaveChatGroupCommand(GetUserId(user), groupId), cancellationToken);
+                new LeaveChatGroupCommand(GetUserId(user), groupId, successorUserId), cancellationToken);
             return left ? Results.NoContent() : Results.NotFound();
         });
 

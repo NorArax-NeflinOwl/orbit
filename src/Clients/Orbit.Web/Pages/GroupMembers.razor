@@ -73,7 +73,7 @@ else if (_errorMessage is not null)
                         @if (member.UserId == _ownUserId)
                         {
                             <button type="button" class="avatar-dropdown-item" disabled="@_isBusy"
-                                    @onclick="LeaveGroupAsync">@T["Leave group"]</button>
+                                    @onclick="StartLeaving">@T["Leave group"]</button>
                         }
                         else
                         {
@@ -103,15 +103,22 @@ else if (_errorMessage is not null)
                in it, and handing it on is a decision, not a default. *@
             <label class="field-checkbox" for="shareHistoryInput">
                 <input id="shareHistoryInput" type="checkbox" @bind="_shareHistoryWithNewMember" />
-                <span>@T["Also give them what was said before they joined"]</span>
+                <span>@T["Also give them what was said before they joined"]<FieldHint>@T["Your device re-encrypts each message for them, so only messages it can open are passed on."]</FieldHint></span>
             </label>
-            <p class="field-hint">@T["Your device re-encrypts each message for them, so only messages it can open are passed on."]</p>
             @if (_historyShareMessage is not null)
             {
                 <p class="field-hint">@_historyShareMessage</p>
             }
         }
     </div>
+
+    @* Asked before leaving rather than done on the click - see GroupLeaveConfirmation, which the
+       archive asks with too. *@
+    @if (_isConfirmingLeave)
+    {
+        <GroupLeaveConfirmation Group="group" Contacts="_contacts"
+                                OnLeft="GoBackToTheGroups" OnCancel="CancelLeaving" OnRefused="LoadAsync" />
+    }
 }
 
 @code {
@@ -266,17 +273,19 @@ else if (_errorMessage is not null)
             await LoadAsync();
         });
 
-    /// <summary>
-    /// Leaves the group and goes back to the conversation list, since the group this page was showing is
-    /// no longer one this reader is in. The server refuses a sole admin who would strand the others -
-    /// that comes back as a 400 naming the rule, which RunAsync surfaces.
-    /// </summary>
-    private async Task LeaveGroupAsync()
-        => await RunAsync(async () =>
-        {
-            await ChatApiClient.RemoveGroupMemberAsync(GroupId, _ownUserId);
-            NavigationManager.NavigateTo("/chat/groups");
-        });
+    /// <summary>Whether the leave question is on screen - see the panel below the roster.</summary>
+    private bool _isConfirmingLeave;
+
+    private void StartLeaving()
+    {
+        _errorMessage = null;
+        _isConfirmingLeave = true;
+    }
+
+    private void CancelLeaving() => _isConfirmingLeave = false;
+
+    /// <summary>There is nothing left to look at once the reader is out, so back to the conversation list.</summary>
+    private void GoBackToTheGroups() => NavigationManager.NavigateTo("/chat/groups");
 
     private async Task ChangeRoleAsync(Guid userId, string role)
         => await RunAsync(async () =>

@@ -19,6 +19,7 @@
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject NameSuggestionsApiClient NameSuggestionsApiClient
 @inject NavigationManager NavigationManager
+@inject NavigationTrail NavigationTrail
 @inject ILogger<InventoryEditor> Logger
 @inject Translations T
 
@@ -37,7 +38,7 @@ else
 
     <PageHeader>
         <Title>@PageHeading</Title>
-        <Subtitle>@T["Everything in this inventory, edited together - a low item still raises a restock task."]</Subtitle>
+        <Description>@T["Everything in this inventory, edited together - a low item still raises a restock task."]</Description>
     </PageHeader>
 
     @if (_isShared)
@@ -224,21 +225,6 @@ else
                 }
             </fieldset>
         </div>
-
-        @if (!IsNewInventory)
-        {
-            @* Handing the shelf to somebody, from inside the shelf. It used to be offered only from the
-               card on the list, so anybody already in here had to leave and find it again - see
-               ShareInventoryPanel, which is the same panel both places show. *@
-            @if (_inventory is { } inventory && _access.CanShare)
-            {
-                <h2>@T["Share"]</h2>
-                <ShareInventoryPanel Inventory="inventory" Contacts="_contacts" OwnUserId="_ownUserId" />
-            }
-
-            <h2>@T["Link"]</h2>
-            <ShareLinkButton ItemType="Inventory" ItemId="InventoryId!.Value" />
-        }
     }
 
     @* Both of these are about a shelf that already exists - what asks for it, and what it asks back -
@@ -250,10 +236,10 @@ else
        its end - said from here as well because a store is opened as often as a list is, and somebody
        standing in the pantry is thinking about which jobs it serves rather than the other way round.
 
-       Several lists may share it. What that costs is said above the boxes rather than discovered later:
-       the shelf is split between everything asking for it, so a second list asking for the same flour
-       leaves both of them short. *@
-    <h2>@T["Lists measured against this inventory"]</h2>
+       Several lists may share it. What that costs is behind the heading's mark rather than discovered
+       later: the shelf is split between everything asking for it, so a second list asking for the same
+       flour leaves both of them short. *@
+    <h2>@T["Lists measured against this inventory"]<FieldHint>@T["A shelf several lists ask for is split between them, so each is told its own share."]</FieldHint></h2>
     <div class="card">
         @if (_taskLists.Count == 0)
         {
@@ -261,7 +247,6 @@ else
         }
         else
         {
-            <p class="field-hint">@T["A shelf several lists ask for is split between them, so each is told its own share."]</p>
             @foreach (var taskList in _taskLists)
             {
                 @* A list reached because a group list above it is measured here. Ticked, because it is
@@ -386,8 +371,42 @@ else
     @* Beside the button that failed rather than at the end of a shelf that is taller than the screen:
        a save that did not happen and an inventory somebody else is holding are both answers to "why has
        Save done nothing", and an answer nobody scrolls to is not one. *@
+    <ChildContent>
+        @* Handing the shelf on, from inside the shelf - to a contact, or as a link anybody can read.
+           Each opens over the page; they used to be two sections under the form, below everything else
+           on a long shelf. Offered on the same terms as then: only for a shelf that has been saved and
+           is not sealed, and sharing only where this reader's own access allows passing it on. See
+           ShareInventoryPanel, the same panel the card on the list opens. *@
+        @if (CanOfferSharing || CanOfferALink)
+        {
+            <OverflowMenu>
+                @if (CanOfferSharing)
+                {
+                    <button type="button" class="avatar-dropdown-item" @onclick="() => _isSharingOpen = true">@T["Share"]</button>
+                }
+                @if (CanOfferALink)
+                {
+                    <button type="button" class="avatar-dropdown-item" @onclick="() => _isShareLinkOpen = true">@T["Share link"]</button>
+                }
+            </OverflowMenu>
+        }
+    </ChildContent>
 </EditorRail>
 </div>
+
+@if (_isSharingOpen && CanOfferSharing && _inventory is { } inventory)
+{
+    <Dialog Title="@T["Share"]" OnClosed="() => _isSharingOpen = false">
+        <ShareInventoryPanel Inventory="inventory" Contacts="_contacts" OwnUserId="_ownUserId" />
+    </Dialog>
+}
+
+@if (_isShareLinkOpen && CanOfferALink)
+{
+    <Dialog Title="@T["Share link"]" OnClosed="() => _isShareLinkOpen = false">
+        <ShareLinkButton ItemType="Inventory" ItemId="InventoryId!.Value" />
+    </Dialog>
+}
 }
 
 @code {
@@ -469,6 +488,18 @@ else
     private IReadOnlyList<ContactDto> _contacts = [];
     private Guid _ownUserId;
 
+    /// <summary>
+    /// Whether this reader may hand the shelf to a contact: a saved shelf that is not sealed, held at a
+    /// level that allows passing it on - see SharedItemAccess.
+    /// </summary>
+    private bool CanOfferSharing => !IsNewInventory && !_formModel.IsPrivate && _inventory is not null && _access.CanShare;
+
+    /// <summary>Whether a public link may be made: a saved shelf that is not sealed. Who may publish is the server's answer - see ShareLinkButton.</summary>
+    private bool CanOfferALink => !IsNewInventory && !_formModel.IsPrivate;
+
+    private bool _isSharingOpen;
+    private bool _isShareLinkOpen;
+
     /// <summary>A read-only or share-only grant can look but not touch, so the whole form is disabled.</summary>
     private bool _isReadOnly;
 
@@ -514,7 +545,7 @@ else
             var inventory = await InventoryApiClient.GetInventoryByIdAsync(InventoryId!.Value);
             if (inventory is null)
             {
-                NavigationManager.NavigateTo(WhenFinished);
+                await NavigationTrail.FinishAsync(WhenFinished);
                 return;
             }
 
@@ -879,8 +910,11 @@ else
         _formModel.Items.Remove(item);
     }
 
-    /// <summary>Cancel, and every other way this form ends - see WhenFinished for where that is.</summary>
-    private void GoBack() => NavigationManager.NavigateTo(WhenFinished);
+    /// <summary>
+    /// Cancel, and every other way this form ends - see WhenFinished for where that is, and
+    /// NavigationTrail for why the form is not left behind it in the history.
+    /// </summary>
+    private Task GoBack() => NavigationTrail.FinishAsync(WhenFinished);
 
     private async Task SaveAsync()
     {
@@ -938,7 +972,7 @@ else
             _isSaving = false;
         }
 
-        NavigationManager.NavigateTo(WhenFinished);
+        await GoBack();
     }
 
     private async Task AcquireLockAsync()

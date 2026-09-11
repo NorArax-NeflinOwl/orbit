@@ -362,6 +362,84 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
     }
 
     /// <summary>
+    /// An appointment's public link is in the panel's menu and opens over the page; it used to be a
+    /// section under the form. Handing it to a contact stays where it was, as inviting a guest.
+    /// </summary>
+    [Fact]
+    public void An_events_share_link_opens_from_the_panels_menu()
+    {
+        var eventId = Guid.NewGuid();
+        _existingEvent = AnEventCalled(eventId, "Dentist");
+        RegisterChatApiClient([]);
+        var cut = RenderComponent<CalendarEventEditor>(parameters => parameters.Add(editor => editor.Id, eventId));
+
+        Assert.Empty(cut.FindAll(".editor-page-body .share-link"));
+
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        cut.FindAll(".editor-rail .avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Share link").Click();
+
+        Assert.NotEmpty(cut.FindAll(".dialog-panel .share-link"));
+    }
+
+    /// <summary>Nothing to link to before the first save, so the menu that holds the link is not drawn.</summary>
+    [Fact]
+    public void A_new_event_offers_no_share_link()
+    {
+        RegisterChatApiClient([]);
+
+        var cut = RenderComponent<CalendarEventEditor>();
+
+        Assert.Empty(cut.FindAll(".editor-rail .overflow-menu-trigger"));
+    }
+
+    /// <summary>
+    /// A form opened from the appointment's own page ends on that page, and by stepping back onto it -
+    /// so the browser's Back afterwards is the calendar, not the form again.
+    /// </summary>
+    [Fact]
+    public void Saving_an_event_opened_from_its_own_page_steps_back_onto_it()
+    {
+        var eventId = Guid.NewGuid();
+        _existingEvent = AnEventCalled(eventId, "Dentist");
+        RegisterChatApiClient([]);
+        Services.GetRequiredService<NavigationTrail>();
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var summary = $"/calendar/{eventId}?returnTo=%2Fcalendar";
+        navigationManager.NavigateTo(summary);
+        navigationManager.NavigateTo(ReturnTo.Link($"/calendar/{eventId}/edit", summary));
+        var cut = RenderComponent<CalendarEventEditor>(parameters => parameters.Add(editor => editor.Id, eventId));
+
+        ClickSave(cut);
+
+        Assert.Equal(-1, JSInterop.VerifyInvoke("history.go").Arguments[0]);
+    }
+
+    /// <summary>
+    /// Deleted from a form opened on its own page: that page would now open on nothing, so it is left
+    /// too - two steps back, onto the calendar it was opened from - rather than being where the form ends.
+    /// </summary>
+    [Fact]
+    public void Deleting_an_event_opened_from_its_own_page_leaves_both_for_the_calendar()
+    {
+        var eventId = Guid.NewGuid();
+        _existingEvent = AnEventCalled(eventId, "Dentist");
+        RegisterChatApiClient([]);
+        JSInterop.Setup<bool>("confirm", _ => true).SetResult(true);
+        Services.GetRequiredService<NavigationTrail>();
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var summary = $"/calendar/{eventId}?returnTo=%2Fcalendar";
+        navigationManager.NavigateTo("/calendar");
+        navigationManager.NavigateTo(summary);
+        navigationManager.NavigateTo(ReturnTo.Link($"/calendar/{eventId}/edit", summary));
+        var cut = RenderComponent<CalendarEventEditor>(parameters => parameters.Add(editor => editor.Id, eventId));
+
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        cut.FindAll(".avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Delete event").Click();
+
+        Assert.Equal(-2, JSInterop.VerifyInvoke("history.go").Arguments[0]);
+    }
+
+    /// <summary>
     /// Both halves of inviting somebody: the share the server records, and the sealed message that
     /// carries its id - the only thing a guest can press "Accept" on (see Chat.razor's TryParseShare).
     /// The server cannot send the second, holding no key to seal it with, so a screen that forgets it

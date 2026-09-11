@@ -214,6 +214,42 @@ public sealed class InventoryEditorTests : OrbitTestContext
         Assert.DoesNotContain("Lists measured against this inventory", cut.Markup);
         Assert.DoesNotContain("Restock list", cut.Markup);
         Assert.Empty(cut.FindAll(".share-link"));
+        // Nor a way of handing it on: the panel's menu that holds both is not drawn at all.
+        Assert.Empty(cut.FindAll(".editor-rail .overflow-menu-trigger"));
+    }
+
+    /// <summary>
+    /// Handing a shelf on - to a contact, or as a link anybody can read - is in the panel's menu and opens
+    /// over the page. Both used to be sections under the form, below everything else on a long shelf.
+    /// </summary>
+    [Fact]
+    public void A_shelf_you_own_is_shared_from_the_panels_menu()
+    {
+        RegisterApiClients([Item("Flour", quantity: 3)]);
+        var cut = RenderComponent<InventoryEditor>(parameters => parameters.Add(editor => editor.InventoryId, InventoryId));
+
+        Assert.Empty(cut.FindAll(".editor-page-body .share-link"));
+        Assert.Empty(cut.FindAll(".editor-page-body .inventory-share-panel"));
+
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        var offered = cut.FindAll(".editor-rail .avatar-dropdown-item").Select(entry => entry.TextContent.Trim()).ToList();
+        Assert.Equal(["Share", "Share link"], offered);
+
+        cut.FindAll(".editor-rail .avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Share").Click();
+
+        Assert.NotEmpty(cut.FindAll(".dialog-panel .inventory-share-panel"));
+    }
+
+    [Fact]
+    public void A_shelfs_link_opens_over_the_page()
+    {
+        RegisterApiClients([Item("Flour", quantity: 3)]);
+        var cut = RenderComponent<InventoryEditor>(parameters => parameters.Add(editor => editor.InventoryId, InventoryId));
+
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        cut.FindAll(".editor-rail .avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Share link").Click();
+
+        Assert.NotEmpty(cut.FindAll(".dialog-panel .share-link"));
     }
 
     [Fact]

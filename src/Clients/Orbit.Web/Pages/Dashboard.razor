@@ -33,7 +33,7 @@
 
 <PageHeader>
     <Title>@T["Dashboard"]</Title>
-    <Subtitle>@T["Everything on your plate, in one place."]</Subtitle>
+    <Description>@T["Everything on your plate, in one place."]</Description>
     <Actions>
         @* Which parts of this page are wanted at all. A menu of settings rather than of actions, so it
            stays open while several are changed - see OverflowMenu.StaysOpen. *@
@@ -107,7 +107,7 @@ else
                     <PinButton IsPinned='DashboardPins.IsPinned("notes")' OnPinnedChanged='pinned => SetCardPinnedAsync("notes", pinned)' />
                 </Pin>
                 <Menu>
-                    <CardFilterMenu Filter='CardPreferences.FilterFor("notes")' Options="PinnableOptions" FilterChanged='filter => SetCardFilterAsync("notes", filter)' />
+                    <CardFilterMenu Filter='FilterFor("notes")' Options="PinnableOptions" FilterChanged='filter => SetCardFilterAsync("notes", filter)' />
                 </Menu>
                 <Extras>
                     <span class="card-count">@(NotesToShow.Count)</span>
@@ -139,7 +139,7 @@ else
                     <PinButton IsPinned='DashboardPins.IsPinned("tasks")' OnPinnedChanged='pinned => SetCardPinnedAsync("tasks", pinned)' />
                 </Pin>
                 <Menu>
-                    <CardFilterMenu Filter='CardPreferences.FilterFor("tasks")' Options="PinnableOptions" FilterChanged='filter => SetCardFilterAsync("tasks", filter)' />
+                    <CardFilterMenu Filter='FilterFor("tasks")' Options="PinnableOptions" FilterChanged='filter => SetCardFilterAsync("tasks", filter)' />
                 </Menu>
                 <Extras>
                     <span class="card-count">@(T.Format("{0} lists", TaskListsToShow.Count))</span>
@@ -190,7 +190,7 @@ else
                     <PinButton IsPinned='DashboardPins.IsPinned("upcoming")' OnPinnedChanged='pinned => SetCardPinnedAsync("upcoming", pinned)' />
                 </Pin>
                 <Menu>
-                    <CardFilterMenu Filter='CardPreferences.FilterFor("upcoming")' Options="PriorityOptions" FilterChanged='filter => SetCardFilterAsync("upcoming", filter)' />
+                    <CardFilterMenu Filter='FilterFor("upcoming")' Options="PriorityOptions" FilterChanged='filter => SetCardFilterAsync("upcoming", filter)' />
                 </Menu>
                 <Extras>
                     <span class="card-count">@(UpcomingToShow.Count)</span>
@@ -649,7 +649,7 @@ else
     /// crosses the wire - an unreadable one is treated as Normal rather than hidden, since a filter is
     /// no place to make something disappear over a word nobody recognises.
     /// </summary>
-    private bool Matches(string cardKey, bool isPinned, string priority) => CardPreferences.FilterFor(cardKey) switch
+    private bool Matches(string cardKey, bool isPinned, string priority) => FilterFor(cardKey) switch
     {
         DashboardCardFilter.Pinned => isPinned,
         DashboardCardFilter.HighPriority => PriorityOf(priority) == ItemPriority.High,
@@ -661,10 +661,18 @@ else
     private static ItemPriority PriorityOf(string priority)
         => Enum.TryParse<ItemPriority>(priority, out var parsed) ? parsed : ItemPriority.Normal;
 
+    /// <summary>
+    /// What a card is filtered to under the folder tab that is open - each tab keeps its own, see
+    /// DashboardCardPreferences.FilterFor.
+    /// </summary>
+    private DashboardCardFilter FilterFor(string cardKey)
+        => CardPreferences.FilterFor(cardKey, Folders.ChosenOn(FolderPage.Dashboard));
+
     private async Task SetCardFilterAsync(string cardKey, DashboardCardFilter filter)
     {
-        Logger.LogInformation("User filtered dashboard card {CardKey} to {Filter}", cardKey, filter);
-        await CardPreferences.SetFilterAsync(cardKey, filter);
+        var folder = Folders.ChosenOn(FolderPage.Dashboard);
+        Logger.LogInformation("User filtered dashboard card {CardKey} to {Filter} under {Folder}", cardKey, filter, folder);
+        await CardPreferences.SetFilterAsync(cardKey, folder, filter);
     }
 
     /// <summary>

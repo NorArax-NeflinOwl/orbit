@@ -9,7 +9,8 @@ namespace Orbit.Mobile.Screens.Authentication;
 /// <summary>
 /// Getting back into an account whose password has been forgotten: a code by email, then a new password.
 ///
-/// Reached from the sign-in screen, which is the only place it is any use. The two endpoints behind it
+/// Reached from the sign-in screen, and from the account screen's delete form, where a password nobody
+/// remembers would otherwise stand between an account and its deletion. The two endpoints behind it
 /// have existed all along and both clients already wrapped them, but the only way in was the chat key
 /// gate - which is behind signing in. So the one person who needed this could not reach it.
 ///

@@ -755,6 +755,7 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         TheBrowserCanSeal();
         RegisterApiClients(AnItem());
         var cut = Render();
+        OpenSharingFromThePanelsMenu(cut);
 
         cut.Find("#shareContactSelect").Change(GuestUserId.ToString());
         cut.Find("#shareTaskListButton").Click();
@@ -770,10 +771,35 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         TheBrowserCanSeal();
         RegisterApiClients(AnItem());
         var cut = Render();
+        OpenSharingFromThePanelsMenu(cut);
 
         cut.Find("#shareTaskListButton").Click();
 
         Assert.Null(_lastChatMessageJson);
+    }
+
+    /// <summary>
+    /// The list's sharing is reached from the panel's menu and opens over the page - it used to be a
+    /// section under the entries. Nothing of it is on the page until then.
+    /// </summary>
+    [Fact]
+    public void Sharing_the_list_is_in_the_panels_menu_and_opens_over_the_page()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        Assert.Empty(cut.FindAll("#shareContactSelect"));
+        Assert.Empty(cut.FindAll(".editor-page-body .share-link"));
+
+        OpenSharingFromThePanelsMenu(cut);
+
+        Assert.NotEmpty(cut.FindAll(".dialog-panel #shareContactSelect"));
+    }
+
+    private static void OpenSharingFromThePanelsMenu(IRenderedFragment cut)
+    {
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        cut.FindAll(".editor-rail .avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Share").Click();
     }
 
     private void TheBrowserCanSeal()
@@ -802,11 +828,13 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
 
     /// <summary>
     /// The one box, all the way to the shelf: what the entry is filed under is what the row it puts on
-    /// that shelf is filed under. Before this the product form asked again, in a box that looked exactly
-    /// like the entry's, and the answer typed in the visible one never reached the storage.
+    /// that shelf is filed under. The row is put there by the server when the list is saved
+    /// (ProductEntryPlacement, which files it under the entry's categories when its product names none),
+    /// so what this page has to get right is that the entry travels with them - and that it no longer
+    /// writes the row a second time itself.
     /// </summary>
     [Fact]
-    public void An_entrys_categories_are_what_its_new_shelf_row_is_filed_under()
+    public void An_entrys_categories_travel_with_it_to_the_server_that_shelves_it()
     {
         MeasuredAgainstAStorage();
         RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)));
@@ -817,8 +845,11 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         cut.Find(".tag-field-add").Click();
         ClickButtonSaying(cut, "Save");
 
-        Assert.Contains("\"name\":\"Buy milk\"", _lastShelfJson);
-        Assert.Contains("\"categories\":[\"Dry goods\"]", _lastShelfJson);
+        Assert.Contains("\"description\":\"Buy milk\"", _lastSavedJson);
+        Assert.Contains("\"categories\":[\"Dry goods\"]", _lastSavedJson);
+        Assert.True(
+            _lastShelfJson is null || !_lastShelfJson.Contains("\"name\":\"Buy milk\"", StringComparison.Ordinal),
+            "The page wrote the new product onto the shelf itself, which the server already does.");
     }
 
     /// <summary>

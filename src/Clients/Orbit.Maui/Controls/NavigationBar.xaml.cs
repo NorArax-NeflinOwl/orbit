@@ -18,6 +18,23 @@ public partial class NavigationBar : ContentView
 	/// </summary>
 	private static readonly TimeSpan IdleCheckInterval = TimeSpan.FromSeconds(15);
 
+	/// <summary>
+	/// How wide the name may run while the "?" stands beside it. The markup's 200 is the worst case of
+	/// everything else in the bar; the mark takes 24 more of it (18 across, 4 of margin, 2 of spacing), and
+	/// a name that kept all 200 would push the avatar off the far edge on a screen with both arrows.
+	/// </summary>
+	private const double NameWidthBesideAMark = 176;
+
+	/// <summary>
+	/// What the screen is for, folded behind a "?" beside its name rather than stated under it - the
+	/// phone's side of Orbit.Web's PageHeader.Description. Set where a page places its bar, because the bar
+	/// is where the name is: a screen whose name is in the bar has no heading of its own to put a
+	/// FieldHint beside. Empty leaves the bar with no mark at all.
+	/// </summary>
+	public static readonly BindableProperty DescriptionProperty = BindableProperty.Create(
+		nameof(Description), typeof(string), typeof(NavigationBar), string.Empty,
+		propertyChanged: (bar, _, value) => ((NavigationBar)bar).ShowDescription(value as string));
+
 	private readonly NavigationBarViewModel _viewModel;
 	private readonly Presence _presence;
 	private IDispatcherTimer? _idleTimer;
@@ -30,6 +47,31 @@ public partial class NavigationBar : ContentView
 		_presence = services.GetRequiredService<Presence>();
 		BindingContext = _viewModel;
 	}
+
+	/// <inheritdoc cref="DescriptionProperty"/>
+	public string Description
+	{
+		get => (string)GetValue(DescriptionProperty);
+		set => SetValue(DescriptionProperty, value);
+	}
+
+	private void ShowDescription(string? description)
+	{
+		var hasOne = !string.IsNullOrWhiteSpace(description);
+
+		DescriptionMark.Text = description ?? string.Empty;
+		DescriptionMark.IsVisible = hasOne;
+		DescriptionSentence.Text = description ?? string.Empty;
+		DescriptionSentence.IsVisible = DescriptionSentence.IsVisible && hasOne;
+
+		if (hasOne)
+		{
+			TitleLabel.MaximumWidthRequest = NameWidthBesideAMark;
+		}
+	}
+
+	private void OnDescriptionPressed(object? sender, EventArgs e)
+		=> DescriptionSentence.IsVisible = !DescriptionSentence.IsVisible;
 
 	/// <summary>
 	/// Takes the screen's name and its menu from the page the bar is sitting in.

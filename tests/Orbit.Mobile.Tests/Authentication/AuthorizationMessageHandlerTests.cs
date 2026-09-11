@@ -88,6 +88,23 @@ public sealed class AuthorizationMessageHandlerTests
         Assert.Single(context.Api.ReceivedRequests);
     }
 
+    /// <summary>
+    /// A wrong password on deleting the account is the endpoint's answer about what was typed - a 401
+    /// with no bearer challenge on it - and sending it again only spent another of the few tries a
+    /// minute the server allows.
+    /// </summary>
+    [Fact]
+    public async Task A_refused_password_is_not_sent_again()
+    {
+        var context = new HandlerContext(alwaysAnswering: HttpStatusCode.Unauthorized);
+
+        var response = await context.Client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, "api/users/me"));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Single(context.Api.ReceivedRequests);
+        Assert.Empty(context.Refresh.ReceivedRequests);
+    }
+
     private sealed class HandlerContext
     {
         public HandlerContext(

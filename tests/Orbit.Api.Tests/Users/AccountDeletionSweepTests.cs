@@ -81,9 +81,12 @@ public sealed class AccountDeletionSweepTests : IDisposable
     public void Every_entity_owning_a_user_is_covered_by_this_test()
     {
         // The trap that produced this bug: someone adds a table with a UserId column and nothing points
-        // out that account deletion now misses it. This fails when that happens, naming the table.
+        // out that account deletion now misses it. This fails when that happens, naming the table. The
+        // account's own rows also go by OwnerUserId and SharerUserId - which is how its shares, contacts,
+        // links and shared positions were missed the same way until 2026-09-11.
         var ownedByUser = _dbContext.Model.GetEntityTypes()
-            .Where(entityType => entityType.ClrType.GetProperty("UserId", BindingFlags.Public | BindingFlags.Instance) is not null)
+            .Where(entityType => OwnerColumns.Any(column =>
+                entityType.ClrType.GetProperty(column, BindingFlags.Public | BindingFlags.Instance) is not null))
             .Select(entityType => entityType.ClrType.Name)
             .ToHashSet();
 
@@ -95,13 +98,18 @@ public sealed class AccountDeletionSweepTests : IDisposable
             "deletion removes it. Add it to SeedEverythingOwnedByAsync and to AccountDeletionRepository.");
     }
 
+    /// <summary>The names a column goes by when the row it is on belongs to the account it names.</summary>
+    private static readonly string[] OwnerColumns = ["UserId", "OwnerUserId", "SharerUserId"];
+
     /// <summary>Every entity type this test plants a row in - kept beside the seeding so the two can't drift.</summary>
     private static readonly string[] SeededEntityTypeNames =
     [
         nameof(NoteEntity), nameof(TaskEntity), nameof(FolderEntity), nameof(PlaceEntity), nameof(CalendarEventEntity), nameof(InventoryEntity),
         nameof(RefreshTokenEntity), nameof(PushSubscriptionEntity), nameof(NotificationSettingsEntity),
         nameof(NotificationEntryEntity), nameof(UserVerificationCodeEntity), nameof(ChatGroupMemberEntity),
-        nameof(DiagnosticLogEntryEntity), nameof(SyncTombstoneEntity), nameof(UserPermissionEntity)
+        nameof(DiagnosticLogEntryEntity), nameof(SyncTombstoneEntity), nameof(UserPermissionEntity),
+        nameof(NoteShareEntity), nameof(TaskShareEntity), nameof(CalendarEventShareEntity), nameof(InventoryShareEntity),
+        nameof(PlaceShareEntity), nameof(ContactEntity), nameof(PublicShareLinkEntity), nameof(SharedLocationEntity)
     ];
 
     private async Task SeedEverythingOwnedByAsync(Guid userId)
@@ -125,6 +133,17 @@ public sealed class AccountDeletionSweepTests : IDisposable
         _dbContext.ChatGroupMembers.Add(new ChatGroupMemberEntity { Id = Guid.NewGuid(), GroupId = groupId, UserId = userId, Role = nameof(ChatGroupRole.Member), JoinedAtUtc = now });
         _dbContext.DiagnosticLogEntries.Add(new DiagnosticLogEntryEntity { Id = Guid.NewGuid(), UserId = userId, ReceivedAtUtc = now, TimestampUtc = now, Level = "Error", Message = "Something went wrong" });
         _dbContext.SyncTombstones.Add(new SyncTombstoneEntity { Id = Guid.NewGuid(), UserId = userId, EntityType = SyncEntityType.Note, EntityId = Guid.NewGuid(), DeletedAtUtc = now });
+        // What the account handed out to somebody else - the other end of each is a stranger's id, since
+        // these rows are the account's own however the recipient looks.
+        var somebodyElse = Guid.NewGuid();
+        _dbContext.NoteShares.Add(new NoteShareEntity { Id = Guid.NewGuid(), SourceNoteId = Guid.NewGuid(), OwnerUserId = userId, RecipientUserId = somebodyElse, CreatedAtUtc = now });
+        _dbContext.TaskShares.Add(new TaskShareEntity { Id = Guid.NewGuid(), SourceTaskListId = Guid.NewGuid(), OwnerUserId = userId, RecipientUserId = somebodyElse, CreatedAtUtc = now });
+        _dbContext.CalendarEventShares.Add(new CalendarEventShareEntity { Id = Guid.NewGuid(), SourceCalendarEventId = Guid.NewGuid(), OwnerUserId = userId, RecipientUserId = somebodyElse, CreatedAtUtc = now });
+        _dbContext.InventoryShares.Add(new InventoryShareEntity { Id = Guid.NewGuid(), SourceInventoryId = Guid.NewGuid(), OwnerUserId = userId, RecipientUserId = somebodyElse, CreatedAtUtc = now });
+        _dbContext.PlaceShares.Add(new PlaceShareEntity { Id = Guid.NewGuid(), SourcePlaceId = Guid.NewGuid(), OwnerUserId = userId, RecipientUserId = somebodyElse, CreatedAtUtc = now });
+        _dbContext.Contacts.Add(new ContactEntity { Id = Guid.NewGuid(), OwnerUserId = userId, ContactUserId = somebodyElse, CreatedAtUtc = now, LastMessageAtUtc = now });
+        _dbContext.PublicShareLinks.Add(new PublicShareLinkEntity { Id = Guid.NewGuid(), Token = Guid.NewGuid().ToString("N"), OwnerUserId = userId, ItemType = "Note", ItemId = Guid.NewGuid(), CreatedAtUtc = now });
+        _dbContext.SharedLocations.Add(new SharedLocationEntity { Id = Guid.NewGuid(), SharerUserId = userId, RecipientUserId = somebodyElse, CiphertextBase64 = "c", NonceBase64 = "n", UpdatedAtUtc = now });
         await _dbContext.SaveChangesAsync();
     }
 
@@ -143,6 +162,14 @@ public sealed class AccountDeletionSweepTests : IDisposable
         (nameof(_dbContext.UserVerificationCodes), await _dbContext.UserVerificationCodes.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.ChatGroupMembers), await _dbContext.ChatGroupMembers.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.DiagnosticLogEntries), await _dbContext.DiagnosticLogEntries.CountAsync(row => row.UserId == userId)),
-        (nameof(_dbContext.SyncTombstones), await _dbContext.SyncTombstones.CountAsync(row => row.UserId == userId))
+        (nameof(_dbContext.SyncTombstones), await _dbContext.SyncTombstones.CountAsync(row => row.UserId == userId)),
+        (nameof(_dbContext.NoteShares), await _dbContext.NoteShares.CountAsync(row => row.OwnerUserId == userId)),
+        (nameof(_dbContext.TaskShares), await _dbContext.TaskShares.CountAsync(row => row.OwnerUserId == userId)),
+        (nameof(_dbContext.CalendarEventShares), await _dbContext.CalendarEventShares.CountAsync(row => row.OwnerUserId == userId)),
+        (nameof(_dbContext.InventoryShares), await _dbContext.InventoryShares.CountAsync(row => row.OwnerUserId == userId)),
+        (nameof(_dbContext.PlaceShares), await _dbContext.PlaceShares.CountAsync(row => row.OwnerUserId == userId)),
+        (nameof(_dbContext.Contacts), await _dbContext.Contacts.CountAsync(row => row.OwnerUserId == userId)),
+        (nameof(_dbContext.PublicShareLinks), await _dbContext.PublicShareLinks.CountAsync(row => row.OwnerUserId == userId)),
+        (nameof(_dbContext.SharedLocations), await _dbContext.SharedLocations.CountAsync(row => row.SharerUserId == userId))
     ];
 }

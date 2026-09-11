@@ -120,6 +120,12 @@ internal sealed class FakeChatServer : HttpMessageHandler
     /// </summary>
     public Action? WhenAGroupMessageArrives { get; set; }
 
+    /// <summary>
+    /// Every group this reader left through the leave route - the one that also deletes their copies of
+    /// what was said there, which removing yourself from the member list does not.
+    /// </summary>
+    public List<Guid> GroupsLeft { get; } = [];
+
     /// <summary>A message arriving from the other side, as a poll would find it.</summary>
     public ChatMessageDto AddIncoming(Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64)
     {
@@ -320,12 +326,7 @@ internal sealed class FakeChatServer : HttpMessageHandler
         // api/chat/groups/{id}/membership - leaving, which the rest of the group sees.
         if (segments.Length == 5 && segments[4] == "membership" && request.Method == HttpMethod.Delete)
         {
-            Groups[Groups.IndexOf(group)] = group with
-            {
-                Members = [.. group.Members.Where(member => member.UserId != CallerUserId)]
-            };
-
-            return new HttpResponseMessage(HttpStatusCode.NoContent);
+            return Leave(group, request);
         }
 
         // api/chat/groups/{id}/read
@@ -415,14 +416,10 @@ internal sealed class FakeChatServer : HttpMessageHandler
 
         if (request.Method == HttpMethod.Delete)
         {
-            // While anyone remains. The last person out is let go rather than stranded in a group they
-            // cannot leave - the same line ChatGroup.RemoveMember draws.
-            if (subject.Role == "Admin" && adminCount == 1 && group.Members.Count > 1)
-            {
-                return Refused("A group needs at least one admin - promote someone else first.");
-            }
-
-            Groups[index] = group with { Members = [.. group.Members.Where(member => member.UserId != subjectUserId)] };
+            // No "last admin" refusal any more, for leaving or for removing: ChatGroup hands the group
+            // to somebody when its last admin goes, and an admin removing somebody else is still there
+            // themselves. A fake that kept refusing would make a phone that simply leaves look broken.
+            Groups[index] = Without(group, subjectUserId);
             return new HttpResponseMessage(HttpStatusCode.NoContent);
         }
 
@@ -442,6 +439,78 @@ internal sealed class FakeChatServer : HttpMessageHandler
 
         return new HttpResponseMessage(HttpStatusCode.NoContent);
     }
+
+    /// <summary>
+    /// The group once somebody has gone, the way ChatGroup.Leave leaves it: when they were the last admin
+    /// and anyone remains, the longest-standing member takes over - chosen by ChatGroup.ChooseSuccessor
+    /// itself, so this fake cannot promote somebody the server would not.
+    /// </summary>
+    private static ChatGroupDto Without(ChatGroupDto group, Guid leavingUserId)
+    {
+        var remaining = group.Members.Where(member => member.UserId != leavingUserId).ToList();
+        if (remaining.Count > 0 && remaining.All(member => member.Role != "Admin"))
+        {
+            var successor = Orbit.Core.Chat.Groups.ChatGroup.ChooseSuccessor(
+                remaining, member => member.JoinedAtUtc, member => member.UserId);
+            remaining = [.. remaining.Select(member => member.UserId == successor.UserId ? member with { Role = "Admin" } : member)];
+        }
+
+        return group with { Members = remaining };
+    }
+
+    /// <summary>
+    /// Who each accepted leave named to take over, in order - null for a leave that named nobody. What the
+    /// phone sent, which the group's state afterwards cannot always tell apart from the server's own choice.
+    /// </summary>
+    public List<Guid?> SuccessorsNamed { get; } = [];
+
+    /// <summary>
+    /// Leaving through the leave route, by ChatGroup.Leave itself rather than a copy of its rules: a named
+    /// successor is promoted, and one who is not in the group, is the leaver, or is named by somebody who
+    /// is not an admin is refused in the server's own words - with the group left exactly as it was. The
+    /// last person out takes the group with them, as LeaveChatGroupCommandHandler deletes an emptied one.
+    /// </summary>
+    private HttpResponseMessage Leave(ChatGroupDto group, HttpRequestMessage request)
+    {
+        var named = HttpUtility.ParseQueryString(request.RequestUri!.Query)["successorUserId"];
+        Guid? successorUserId = named is null ? null : Guid.Parse(named);
+
+        var domain = ToDomain(group);
+        try
+        {
+            domain.Leave(CallerUserId, successorUserId);
+        }
+        catch (Orbit.Core.Abstractions.InvalidRequestException refusal)
+        {
+            return Refused(refusal.Message);
+        }
+
+        GroupsLeft.Add(group.Id);
+        SuccessorsNamed.Add(successorUserId);
+
+        var index = Groups.IndexOf(group);
+        if (domain.IsEmpty)
+        {
+            Groups.RemoveAt(index);
+        }
+        else
+        {
+            Groups[index] = group with
+            {
+                Members = [.. domain.Members.Select(member =>
+                    new ChatGroupMemberDto(member.UserId, member.Role.ToString(), member.JoinedAtUtc))]
+            };
+        }
+
+        return new HttpResponseMessage(HttpStatusCode.NoContent);
+    }
+
+    private static Orbit.Core.Chat.Groups.ChatGroup ToDomain(ChatGroupDto group)
+        => Orbit.Core.Chat.Groups.ChatGroup.FromPersistence(
+            group.Id, group.Name, group.CreatedByUserId, group.CreatedAtUtc, group.LastMessageAtUtc,
+            [.. group.Members.Select(member => new Orbit.Core.Chat.Groups.ChatGroupMembership(
+                group.Id, member.UserId, Enum.Parse<Orbit.Core.Chat.Groups.ChatGroupRole>(member.Role),
+                member.JoinedAtUtc))]);
 
     /// <summary>A refusal the caller is entitled to hear about - see InvalidRequestExceptionHandler.</summary>
     private static HttpResponseMessage Refused(string message)

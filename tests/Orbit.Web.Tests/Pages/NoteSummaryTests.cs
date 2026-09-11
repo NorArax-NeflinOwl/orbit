@@ -125,6 +125,74 @@ public sealed class NoteSummaryTests : OrbitTestContext
     }
 
     /// <summary>
+    /// The form is told to come back to this page - its own address, returnTo and all - rather than
+    /// being handed this page's returnTo. That handing-on is how saving a note opened from the dashboard
+    /// used to skip the note and land on the dashboard.
+    /// </summary>
+    [Fact]
+    public void The_form_is_told_to_come_back_to_this_page()
+    {
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var here = $"/notes/{NoteId}?returnTo=%2F";
+        navigationManager.NavigateTo(here);
+        var cut = RenderComponent<NoteSummary>(parameters => parameters.Add(page => page.Id, NoteId));
+
+        cut.FindAll(".editor-rail button").First(button => button.GetAttribute("aria-label") == "Edit").Click();
+
+        Assert.Equal(ReturnTo.Link($"/notes/{NoteId}/edit", here), "/" + navigationManager.ToBaseRelativePath(navigationManager.Uri));
+    }
+
+    /// <summary>
+    /// Back goes where the note was opened from - the dashboard here - and by stepping back, so this page
+    /// is not left on top of the history for the browser's Back to return to.
+    /// </summary>
+    [Fact]
+    public void Back_steps_back_to_where_the_note_was_opened_from()
+    {
+        Services.GetRequiredService<NavigationTrail>();
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo($"/notes/{NoteId}?returnTo=%2F");
+        var cut = RenderComponent<NoteSummary>(parameters => parameters.Add(page => page.Id, NoteId));
+
+        cut.FindAll(".editor-rail button").First(button => button.GetAttribute("aria-label") == "Back").Click();
+
+        Assert.Equal(-1, JSInterop.VerifyInvoke("history.go").Arguments[0]);
+    }
+
+    /// <summary>A note reached by its address has nothing of Orbit's behind it: Back replaces it with where it names.</summary>
+    [Fact]
+    public void Back_from_a_note_opened_directly_replaces_it()
+    {
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo($"/notes/{NoteId}?returnTo=%2Fcalendar");
+        var cut = RenderComponent<NoteSummary>(parameters => parameters.Add(page => page.Id, NoteId));
+
+        cut.FindAll(".editor-rail button").First(button => button.GetAttribute("aria-label") == "Back").Click();
+
+        Assert.Equal("http://localhost/calendar", navigationManager.Uri);
+        Assert.True(Services.GetRequiredService<Bunit.TestDoubles.FakeNavigationManager>().History.First().Options.ReplaceHistoryEntry);
+    }
+
+    /// <summary>
+    /// Deleted, the note is gone from the history too: the page leaves for the notes - not for where it
+    /// was opened from - and replaces itself, so Back does not open "That note no longer exists".
+    /// </summary>
+    [Fact]
+    public void Deleting_leaves_for_the_notes_without_leaving_the_note_behind()
+    {
+        JSInterop.Setup<bool>("confirm", _ => true).SetResult(true);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo($"/notes/{NoteId}?returnTo=%2F");
+        var cut = RenderComponent<NoteSummary>(parameters => parameters.Add(page => page.Id, NoteId));
+
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        cut.FindAll(".avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Delete").Click();
+
+        Assert.Equal("http://localhost/notes", navigationManager.Uri);
+        Assert.True(Services.GetRequiredService<Bunit.TestDoubles.FakeNavigationManager>().History.First().Options.ReplaceHistoryEntry);
+    }
+
+    /// <summary>
     /// A tick is what a checklist row is for, so the row keeps its own press: ticking a line must not
     /// open the whole note to write in, which is a different question entirely.
     /// </summary>

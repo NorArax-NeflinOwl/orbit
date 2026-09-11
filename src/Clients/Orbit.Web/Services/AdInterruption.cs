@@ -1,5 +1,3 @@
-using Orbit.Core.Permissions;
-
 namespace Orbit.Web.Services;
 
 /// <summary>
@@ -9,13 +7,12 @@ namespace Orbit.Web.Services;
 /// Two conditions, and both are about not being a nuisance. <b>It is shown at most once every
 /// <see cref="MinimumGap"/></b>, and the clock behind that is kept on the device rather than in the
 /// page (see <see cref="LastAdInterruption"/>): it used to be a field that lasted as long as the page
-/// did, so every refresh was a fresh visit and every refresh brought the advert back. And it is never
-/// shown to an account holding the Debugger permission - whoever holds that is looking at Orbit's own
-/// internals, which means they are working on it rather than reading it, and an advert over the top of
-/// that interrupts without having anything to offer.
+/// did, so every refresh was a fresh visit and every refresh brought the advert back. And it is shown
+/// only to a reader who may be shown adverts at all - see <see cref="AdAudience"/>, which is what keeps
+/// every advert away from an account holding the Debugger permission until it asks for them.
 ///
-/// The slots beside the page are not gated on any of this: they sit where they are and wait, which is
-/// what makes them the polite half of the same idea.
+/// The slots beside the page ask the same audience question but not the gap: they sit where they are
+/// and wait, which is what makes them the polite half of the same idea.
 /// </summary>
 public static class AdInterruption
 {
@@ -26,12 +23,13 @@ public static class AdInterruption
     /// </summary>
     public static readonly TimeSpan MinimumGap = TimeSpan.FromMinutes(5);
 
+    /// <param name="audience">Whether this reader may be shown adverts at all.</param>
     /// <param name="lastShownAtUtc">
     /// When this browser last showed one, or null for one that never has - which is also what a browser
     /// that has not been allowed to remember answers. See <see cref="LastAdInterruption"/>.
     /// </param>
-    public static bool ShouldShow(
-        UserPermissionState permissions, DateTimeOffset? lastShownAtUtc, DateTimeOffset nowUtc)
-        => !permissions.Has(ApplicationPermission.Debug)
+    /// <param name="nowUtc">The moment being asked about.</param>
+    public static bool ShouldShow(AdAudience audience, DateTimeOffset? lastShownAtUtc, DateTimeOffset nowUtc)
+        => audience.MayShowAds
         && (lastShownAtUtc is not { } lastShown || nowUtc - lastShown >= MinimumGap);
 }

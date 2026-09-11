@@ -1,3 +1,5 @@
+using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Places;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
@@ -356,6 +358,193 @@ public sealed class AccountScreenTests
         Assert.Equal(OrbitArchive.CurrentVersion, written.Version);
     }
 
+    /// <summary>
+    /// Places are the one part written out opened, so they wait to be asked for: somebody pressing Export
+    /// the way they always have should not come away with a readable file of where they keep the spare
+    /// key. The browser starts its box unticked for the same reason.
+    /// </summary>
+    [Fact]
+    public async Task Places_are_left_out_of_an_export_until_they_are_asked_for()
+    {
+        using var context = new ScreenContext();
+        context.Transfer.Archive = context.Transfer.Archive with { Notes = [ANote()], Places = [ASealedPlace()] };
+
+        var screen = context.Open();
+        (string FileName, string Json)? offered = null;
+        screen.ExportReady += (_, export) => offered = export;
+
+        Assert.False(screen.Export.IncludesPlaces);
+        await screen.ExportCommand.ExecuteAsync(null);
+
+        var written = Read(offered!.Value.Json);
+        Assert.Single(written.Notes);
+        Assert.Empty(written.AllPlaces);
+    }
+
+    /// <summary>
+    /// Said beside the switch while it is on, and only then - a warning under every export would be read
+    /// as boilerplate by the time it mattered.
+    /// </summary>
+    [Fact]
+    public void The_file_is_said_to_be_unencrypted_while_places_are_chosen()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+
+        Assert.False(screen.HasPlacesWarning);
+
+        screen.Export.IncludesPlaces = true;
+
+        Assert.True(screen.HasPlacesWarning);
+        Assert.Contains("not encrypted", screen.PlacesWarning, StringComparison.Ordinal);
+
+        screen.Export.IncludesPlaces = false;
+
+        Assert.False(screen.HasPlacesWarning);
+    }
+
+    /// <summary>
+    /// Somebody asking for their places is asking to read them somewhere else, and the server cannot
+    /// open a sealed one - so the phone opens it with the key it opens the map's pins with. The sealed
+    /// half stays beside the words, so the file still imports sealed.
+    /// </summary>
+    [Fact]
+    public async Task Chosen_places_are_written_opened()
+    {
+        using var context = new ScreenContext();
+        var spareKey = new SealedPlace(
+            "The spare key", "Under the third pot", new EventLocationDto("Piękna 1, Warszawa", 52.2297, 21.0122));
+        context.Transfer.Archive = context.Transfer.Archive with
+        {
+            Places = [APlace("The park"), ASealedPlace() with { EncryptedContent = context.Seal(spareKey) }]
+        };
+
+        var screen = context.Open();
+        screen.Export.IncludesPlaces = true;
+        (string FileName, string Json)? offered = null;
+        screen.ExportReady += (_, export) => offered = export;
+
+        await screen.ExportCommand.ExecuteAsync(null);
+
+        var written = Read(offered!.Value.Json).AllPlaces;
+        Assert.Equal(new[] { "The park", "The spare key" }, written.Select(place => place.Name));
+        var opened = written[1];
+        Assert.Equal("Under the third pot", opened.Description);
+        Assert.Equal("Piękna 1, Warszawa", opened.Where.Address);
+        Assert.Equal(52.2297, opened.Where.Latitude);
+        Assert.NotNull(opened.EncryptedContent);
+        Assert.Equal("Exported 0 notes, 0 task lists, 0 events, 0 inventories and 2 places.", screen.TransferMessage);
+        Assert.False(screen.HasTransferWarning);
+    }
+
+    /// <summary>
+    /// A place sealed under a key pair since replaced cannot be opened here. It still goes into the file,
+    /// with its empty words, rather than failing the whole export - and the screen says how many did.
+    /// </summary>
+    [Fact]
+    public async Task A_place_this_phone_cannot_open_goes_out_empty_and_is_counted()
+    {
+        using var context = new ScreenContext();
+        var sealedElsewhere = SealedUnderAnotherKey(
+            new SealedPlace("Somebody's secret", string.Empty, new EventLocationDto("Hidden", 1, 2)));
+        context.Transfer.Archive = context.Transfer.Archive with
+        {
+            Places = [ASealedPlace() with { EncryptedContent = sealedElsewhere }]
+        };
+
+        var screen = context.Open();
+        screen.Export.IncludesPlaces = true;
+        (string FileName, string Json)? offered = null;
+        screen.ExportReady += (_, export) => offered = export;
+
+        await screen.ExportCommand.ExecuteAsync(null);
+
+        var written = Assert.Single(Read(offered!.Value.Json).AllPlaces);
+        Assert.Equal(string.Empty, written.Name);
+        Assert.Equal(0, written.Where.Latitude);
+        Assert.True(screen.HasTransferWarning);
+        Assert.StartsWith("1 private places", screen.TransferWarning, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// An export that leaves places out never reaches for the key - a phone without one exports the rest
+    /// exactly as it did before places could be chosen, and has nothing to warn about.
+    /// </summary>
+    [Fact]
+    public async Task An_export_without_places_says_nothing_about_them_being_unopened()
+    {
+        using var context = new ScreenContext();
+        context.Transfer.Archive = context.Transfer.Archive with { Places = [ASealedPlace()] };
+        var screen = context.Open();
+
+        await screen.ExportCommand.ExecuteAsync(null);
+
+        Assert.False(screen.HasTransferWarning);
+    }
+
+    /// <summary>
+    /// Five counts, as the browser says them: an import that brought places back and did not say so
+    /// would leave the reader wondering whether the file had carried them at all.
+    /// </summary>
+    [Fact]
+    public async Task Importing_says_how_many_places_came_back_too()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+        var file = new OrbitArchive(
+            OrbitArchive.CurrentVersion, DateTimeOffset.UtcNow, [ANote()], [], [], [], [APlace("The park")]);
+
+        await screen.ImportAsync(JsonSerializer.Serialize(file));
+
+        Assert.Equal("Imported 1 notes, 0 task lists, 0 events, 0 inventories and 1 places.", screen.TransferMessage);
+    }
+
+    private static OrbitArchive Read(string json)
+        => JsonSerializer.Deserialize<OrbitArchive>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+
+    /// <summary>An open place as the server writes one into an export: its words readable, nothing sealed.</summary>
+    private static ArchivedPlace APlace(string name)
+        => new(name, string.Empty, new ArchivedEventLocation("Park Skaryszewski", 52.24, 21.05), "", "Normal", [],
+            IsPrivate: false, EncryptedContent: null);
+
+    /// <summary>Sealed by another account's key - what a phone holding a replaced key pair cannot open.</summary>
+    private static ArchivedEncryptedContent SealedUnderAnotherKey(SealedPlace place)
+    {
+        using var key = PrivateContent.WithAKey().UnlockAsync().GetAwaiter().GetResult();
+        var sealedContent = key.Seal(place, SealedContentSerializerContext.Default.SealedPlace);
+        return new ArchivedEncryptedContent(sealedContent.Ciphertext, sealedContent.Nonce);
+    }
+
+    /// <summary>
+    /// A file the browser wrote carries its private places opened. Importing it here still sends them up
+    /// closed: the server was never meant to read one, and it restores them from the sealed half.
+    /// </summary>
+    [Fact]
+    public async Task An_imported_files_private_places_reach_the_server_closed()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+        var file = new OrbitArchive(
+            OrbitArchive.CurrentVersion, DateTimeOffset.UtcNow, [], [], [], [],
+            [ASealedPlace() with
+            {
+                Name = "The spare key",
+                Where = new ArchivedEventLocation("Piękna 1, Warszawa", 52.2297, 21.0122)
+            }]);
+
+        await screen.ImportAsync(JsonSerializer.Serialize(file));
+
+        var sent = Assert.Single(context.Transfer.Imported!.AllPlaces);
+        Assert.Equal(string.Empty, sent.Name);
+        Assert.Equal(0, sent.Where.Latitude);
+        Assert.Equal("c2VhbGVk", sent.EncryptedContent!.Ciphertext);
+    }
+
+    /// <summary>A private place as the server writes one into an export: empty words beside its sealed half.</summary>
+    private static ArchivedPlace ASealedPlace()
+        => new(string.Empty, string.Empty, new ArchivedEventLocation(string.Empty, 0, 0), "", "Normal", [],
+            IsPrivate: true, new ArchivedEncryptedContent("c2VhbGVk", "bm9uY2U="));
+
     /// <summary>Nothing chosen is not an export of nothing - the button has no reason to be pressed.</summary>
     [Fact]
     public void An_export_of_nothing_is_not_offered()
@@ -466,6 +655,7 @@ public sealed class AccountScreenTests
         context.Users.DeletionPassword = Real;
         context.Keep(new LocalNote { Title = "Bank details" });
         var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
         screen.DeleteAccountPassword = Real;
 
         await screen.DeleteAccountCommand.ExecuteAsync(null);
@@ -489,12 +679,14 @@ public sealed class AccountScreenTests
         context.Users.DeletionPassword = Real;
         context.Keep(new LocalNote { Title = "Bank details" });
         var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
         screen.DeleteAccountPassword = Guessed;
 
         await screen.DeleteAccountCommand.ExecuteAsync(null);
 
         Assert.False(context.Users.AccountDeleted);
-        Assert.True(screen.MessageIsFailure);
+        // Said inside the danger card, where the reader pressed the button - see DeletionMessage.
+        Assert.True(screen.HasDeletionMessage);
         Assert.NotNull(await context.Session.GetAsync());
         using var store = context.Store.CreateDbContext();
         Assert.NotEmpty(store.Notes);
@@ -542,6 +734,257 @@ public sealed class AccountScreenTests
         Assert.False(screen.RequiresPasswordToDelete);
     }
 
+    /// <summary>
+    /// Where this deployment offers Google to the phone, an account without a password confirms its
+    /// deletion with Google - asked again, and checked by the server - rather than by typing its address,
+    /// which anybody holding the unlocked phone could do as easily as its owner.
+    /// </summary>
+    [Fact]
+    public async Task Where_google_is_offered_a_passwordless_account_confirms_with_it()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { HasPassword = false, IsGoogleLinked = true };
+        context.Users.GoogleAndroidClientId = "android-client";
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.True(screen.ConfirmsWithGoogle);
+        Assert.False(screen.RequiresTypedAccountToDelete);
+        Assert.True(screen.IsReadyToDelete());
+    }
+
+    [Fact]
+    public async Task A_fresh_google_sign_in_deletes_the_account_and_empties_the_device()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { HasPassword = false, IsGoogleLinked = true };
+        context.Users.GoogleAndroidClientId = "android-client";
+        context.Keep(new LocalNote { Title = "Bank details" });
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        await screen.DeleteWithGoogleCommand.ExecuteAsync(null);
+
+        Assert.True(context.Users.AccountDeleted);
+        Assert.Equal("the-id-token", context.Users.LastDeletionGoogleIdToken);
+        Assert.Null(await context.Session.GetAsync());
+        Assert.Equal("ShowSignIn", context.Navigator.LastDestination);
+    }
+
+    /// <summary>A sign-in the server does not take leaves the account and the device, and says why.</summary>
+    [Fact]
+    public async Task A_google_sign_in_the_server_refuses_leaves_everything_and_says_so()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { HasPassword = false, IsGoogleLinked = true };
+        context.Users.GoogleAndroidClientId = "android-client";
+        context.Users.GoogleIssuesToken = "an-old-token";
+        context.Keep(new LocalNote { Title = "Bank details" });
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        await screen.DeleteWithGoogleCommand.ExecuteAsync(null);
+
+        Assert.False(context.Users.AccountDeleted);
+        Assert.Equal("Google didn't confirm this account. Try again.", screen.DeletionMessage);
+        Assert.NotNull(await context.Session.GetAsync());
+        using var store = context.Store.CreateDbContext();
+        Assert.NotEmpty(store.Notes);
+    }
+
+    /// <summary>Backing out of Google's screen is the reader changing their mind: nothing is sent and nothing is said.</summary>
+    [Fact]
+    public async Task Backing_out_of_google_deletes_nothing()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { HasPassword = false, IsGoogleLinked = true };
+        context.Users.GoogleAndroidClientId = "android-client";
+        context.SignInBrowser = new FakeSignInBrowser { Result = null };
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        await screen.DeleteWithGoogleCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, context.Users.DeletionRequests);
+        Assert.False(screen.HasDeletionMessage);
+    }
+
+    /// <summary>Where Google is not offered, the typed address stays the way - the server has nothing else to check yet.</summary>
+    [Fact]
+    public async Task Where_google_is_not_offered_the_address_is_typed_instead()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { HasPassword = false, IsGoogleLinked = true };
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.False(screen.ConfirmsWithGoogle);
+        Assert.True(screen.RequiresTypedAccountToDelete);
+    }
+
+    /// <summary>
+    /// An account that signs in with Google can hold a password without thinking of itself as having
+    /// one, so it is told which one is meant - and every account asked for one is offered the way to a
+    /// new one, since a reset is how an account whose password is gone gets deleted at all.
+    /// </summary>
+    [Fact]
+    public async Task A_Google_account_with_a_password_is_told_which_one_and_offered_a_reset()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { HasPassword = true, IsGoogleLinked = true };
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.True(screen.RequiresPasswordToDelete);
+        Assert.True(screen.ExplainsWhichPassword);
+        Assert.False(screen.RequiresTypedAccountToDelete);
+
+        screen.GoToPasswordResetCommand.Execute(null);
+
+        Assert.Equal("ShowPasswordReset", context.Navigator.LastDestination);
+    }
+
+    /// <summary>An account that has only ever had a password has nothing to be confused about.</summary>
+    [Fact]
+    public async Task An_account_without_Google_is_not_told_about_Google()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.True(screen.RequiresPasswordToDelete);
+        Assert.False(screen.ExplainsWhichPassword);
+    }
+
+    /// <summary>
+    /// An account with no password has nothing to prove itself with, and the server asks it for nothing -
+    /// so typing its address or login is what stands between one stray press and everything it holds.
+    /// Nothing is sent until what was typed matches the account this screen loaded.
+    /// </summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("somebody@else.example")]
+    public async Task A_passwordless_account_is_not_deleted_until_it_types_its_address(string typed)
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { HasPassword = false, IsGoogleLinked = true };
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.DeleteAccountConfirmation = typed;
+
+        Assert.True(screen.RequiresTypedAccountToDelete);
+        Assert.False(screen.IsReadyToDelete());
+        await screen.DeleteAccountCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, context.Users.DeletionRequests);
+        Assert.False(context.Users.AccountDeleted);
+        Assert.True(screen.HasDeletionMessage);
+        Assert.Null(context.Navigator.LastDestination);
+    }
+
+    /// <summary>
+    /// Either of the two things it signs in with, in any case and with stray spaces ignored - both are
+    /// things the reader knows without looking them up.
+    /// </summary>
+    [Theory]
+    [InlineData(" ME@Orbit.Example ")]
+    [InlineData("Me")]
+    public async Task A_passwordless_account_that_types_its_address_or_login_is_deleted(string typed)
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { HasPassword = false, IsGoogleLinked = true };
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.DeleteAccountConfirmation = typed;
+
+        Assert.True(screen.IsReadyToDelete());
+        await screen.DeleteAccountCommand.ExecuteAsync(null);
+
+        Assert.True(context.Users.AccountDeleted);
+        Assert.Equal("ShowSignIn", context.Navigator.LastDestination);
+    }
+
+    /// <summary>
+    /// Checked against the account the server described, not the login box on this screen - the reader
+    /// can type anything into that, and a check it could satisfy would check nothing.
+    /// </summary>
+    [Fact]
+    public async Task The_login_box_on_this_screen_is_not_what_the_typed_login_is_checked_against()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { HasPassword = false };
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.UserName = "anything";
+        screen.DeleteAccountConfirmation = "anything";
+
+        Assert.False(screen.IsReadyToDelete());
+    }
+
+    /// <summary>
+    /// Without the account there is no telling what to ask for, and guessing "nothing" is the one wrong
+    /// guess that deletes something - so nothing is sent before it has loaded, password typed or not.
+    /// </summary>
+    [Fact]
+    public async Task Nothing_is_deleted_before_the_account_has_loaded()
+    {
+        using var context = new ScreenContext();
+        context.Users.DeletionPassword = Real;
+        var screen = context.Open();
+        screen.DeleteAccountPassword = Real;
+
+        Assert.False(screen.IsReadyToDelete());
+        await screen.DeleteAccountCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, context.Users.DeletionRequests);
+        Assert.False(context.Users.AccountDeleted);
+        Assert.True(screen.HasDeletionMessage);
+    }
+
+    /// <summary>An account with a password is not sent to the server without one - it could only be refused.</summary>
+    [Fact]
+    public async Task An_account_with_a_password_is_asked_for_it_before_anything_is_sent()
+    {
+        using var context = new ScreenContext();
+        context.Users.DeletionPassword = Real;
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        await screen.DeleteAccountCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, context.Users.DeletionRequests);
+        Assert.Equal("Enter your password to confirm.", screen.DeletionMessage);
+    }
+
+    /// <summary>
+    /// A password set since the screen read the account - on another device, or at the chat gate - makes
+    /// the server refuse a deletion that asked for none. The screen reads the account again, so the
+    /// password field is there to be filled rather than the same refusal waiting on the next press.
+    /// </summary>
+    [Fact]
+    public async Task A_password_set_since_the_screen_loaded_is_asked_for_next()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { HasPassword = false };
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+        context.Users.Account = context.Users.Account with { HasPassword = true };
+        context.Users.DeletionPassword = Real;
+        screen.DeleteAccountConfirmation = "me";
+
+        await screen.DeleteAccountCommand.ExecuteAsync(null);
+
+        Assert.False(context.Users.AccountDeleted);
+        Assert.Equal("This account has a password now - enter it.", screen.DeletionMessage);
+        Assert.True(screen.RequiresPasswordToDelete);
+        Assert.False(screen.RequiresTypedAccountToDelete);
+    }
+
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -567,10 +1010,32 @@ public sealed class AccountScreenTests
         /// </summary>
         public FakeNotificationServer Notifications { get; } = new();
 
-        private readonly SessionStore _sessionStore = new(new InMemorySessionStorage(
-            new UserSession("access", "refresh", Guid.NewGuid(), "me@orbit.example", "Me")));
+        private readonly SessionStore _sessionStore;
+
+        /// <summary>This device's own key for the signed-in account - what opens its sealed places.</summary>
+        private readonly InMemoryChatKeyStorage _keys = new();
+
+        public ScreenContext()
+        {
+            var userId = Guid.NewGuid();
+            _sessionStore = new(new InMemorySessionStorage(
+                new UserSession("access", "refresh", userId, "me@orbit.example", "Me")));
+
+            using var identity = ChatIdentity.Create();
+            _keys.WritePrivateKeyJwkAsync(userId, identity.ExportPrivateKeyJwk()).GetAwaiter().GetResult();
+        }
 
         public SessionStore Session => _sessionStore;
+
+        /// <summary>A place sealed under this device's key, as the server would hand it back in an export.</summary>
+        public ArchivedEncryptedContent Seal(SealedPlace place)
+        {
+            using var key = Sealer().UnlockAsync().GetAwaiter().GetResult();
+            var sealedContent = key.Seal(place, SealedContentSerializerContext.Default.SealedPlace);
+            return new ArchivedEncryptedContent(sealedContent.Ciphertext, sealedContent.Nonce);
+        }
+
+        private PrivateContentSealer Sealer() => new(_keys, _sessionStore);
 
         /// <summary>Puts something in the phone's own database, so a test can watch what becomes of it.</summary>
         public void Keep(LocalNote note)
@@ -603,7 +1068,7 @@ public sealed class AccountScreenTests
                     : UnlockedPermissions.For(_localStore),
                 Themes,
                 Accents,
-                new TransferClient(Transfer.ToHttpClient()),
+                new TransferClient(Transfer.ToHttpClient(), Sealer()),
                 new LocalStoreReset(_localStore),
                 new NotificationSettingsViewModel(
                     new NotificationsClient(Notifications.ToHttpClient()),
@@ -614,9 +1079,12 @@ public sealed class AccountScreenTests
                 new GoogleAccountLink(
                     new AccountClient(_users.ToHttpClient(), FixedNetworkStatus.Online, _sessionStore),
                     new AuthenticationClient(_users.ToHttpClient(), FixedNetworkStatus.Online, _sessionStore),
-                    new GoogleSignIn(new FakeSignInBrowser(), _users.ToHttpClient()),
+                    new GoogleSignIn(SignInBrowser, _users.ToHttpClient()),
                     new Translations(new InMemoryLanguageStore())),
                 GoogleExtras);
+
+        /// <summary>The system browser Google is opened in - a reader who signs in, unless a test says they back out.</summary>
+        public FakeSignInBrowser SignInBrowser { get; set; } = new();
 
         /// <summary>What this "device" answers about the Google links - see GoogleExtras.</summary>
         public GoogleExtras GoogleExtras { get; } = new(new InMemoryGoogleExtrasStore());

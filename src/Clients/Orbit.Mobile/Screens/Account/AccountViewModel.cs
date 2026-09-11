@@ -70,6 +70,29 @@ public sealed partial class AccountViewModel : ObservableObject
     [ObservableProperty]
     private string _deleteAccountPassword = string.Empty;
 
+    /// <summary>
+    /// What an account without a password types before it is deleted - its email address or its login.
+    /// See <see cref="ConfirmsAccount"/>.
+    /// </summary>
+    [ObservableProperty]
+    private string _deleteAccountConfirmation = string.Empty;
+
+    /// <summary>
+    /// What the last attempt to delete said. Its own line, inside the danger card, rather than the shared
+    /// one at the top of the screen: the reader is at the foot of a long scroll when they press Delete,
+    /// and a refusal printed where they cannot see it reads as a button that did nothing.
+    /// </summary>
+    [ObservableProperty]
+    private string _deletionMessage = string.Empty;
+
+    /// <summary>
+    /// The account as the server last described it, or null until it has been read. Deleting is refused
+    /// while it is null: without it there is no telling what to ask for, and guessing "nothing" is the
+    /// one wrong guess that deletes something. The form's own <see cref="UserName"/> is not a substitute
+    /// - it is the box the reader edits.
+    /// </summary>
+    private Orbit.Contracts.Users.AccountDto? _account;
+
     /// <summary>The address the account signs in with today, which the form below changes.</summary>
     [ObservableProperty]
     private string _emailAddress = string.Empty;
@@ -81,10 +104,36 @@ public sealed partial class AccountViewModel : ObservableObject
     /// Whether deleting needs the password. False for a Google account that never set one - being signed
     /// in is the proof there, and DeleteAccountCommandHandler says so on the server. True until the
     /// account has actually been read: asking for a password that turns out not to be needed is a
-    /// nuisance, while not asking when it is needed looks like the deletion silently failed.
+    /// nuisance, while not asking when it is needed looks like the deletion silently failed. Nothing is
+    /// sent before then either way - see <see cref="IsReadyToDelete"/>.
     /// </summary>
     [ObservableProperty]
     private bool _requiresPasswordToDelete = true;
+
+    /// <summary>
+    /// Whether deleting needs the address or login typed out instead. Only once the account is known to
+    /// have no password: an account with none has nothing to prove itself with, and the server asks it
+    /// for nothing, so typing this is what stands between one stray press and everything it holds.
+    /// </summary>
+    public bool RequiresTypedAccountToDelete => _account is { HasPassword: false } && !ConfirmsWithGoogle;
+
+    /// <summary>
+    /// Whether an account without a password proves it is the owner with Google rather than by typing its
+    /// address: it is linked to Google, and this deployment offers Google to this app. Google is asked
+    /// again when Delete is pressed, and the server checks the sign-in is this account's and a fresh one -
+    /// which a phone left unlocked somewhere could not fake the way it could type an address. Orbit.Web
+    /// asks the same way (see Options' danger zone).
+    /// </summary>
+    public bool ConfirmsWithGoogle => _account is { HasPassword: false, IsGoogleLinked: true } && GoogleLink.IsOffered;
+
+    /// <summary>
+    /// Whether to say which password is meant. An account that signs in with Google can hold one without
+    /// thinking of itself as having one - chat made it set one, or it had one before Google was connected
+    /// - and a bare "Password" left it asking for something it did not recognise. Orbit.Web says the same.
+    /// </summary>
+    public bool ExplainsWhichPassword => _account is { HasPassword: true, IsGoogleLinked: true };
+
+    public bool HasDeletionMessage => DeletionMessage.Length > 0;
 
     /// <summary>
     /// "Verified" or "Not verified" - the same pair Orbit.Web shows beside the address. One label whose
@@ -124,7 +173,12 @@ public sealed partial class AccountViewModel : ObservableObject
         _encryptionKeyProvider = encryptionKeyProvider;
         Connection = connection;
         // The button answers to both of them: something to export, and a connection to ask for it over.
-        Export.PropertyChanged += (_, _) => OnPropertyChanged(nameof(CanExport));
+        Export.PropertyChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(CanExport));
+            OnPropertyChanged(nameof(PlacesWarning));
+            OnPropertyChanged(nameof(HasPlacesWarning));
+        };
         connection.PropertyChanged += (_, _) => OnPropertyChanged(nameof(CanExport));
         _sessionStore = sessionStore;
         _translations = translations;
@@ -234,6 +288,28 @@ public sealed partial class AccountViewModel : ObservableObject
 
     public bool HasTransferMessage => TransferMessage.Length > 0;
 
+    /// <summary>
+    /// What the last export could not do although it wrote the file - private places this phone could
+    /// not open. Apart from <see cref="TransferMessage"/>, and in the warning colour, because it is about
+    /// what is missing from a file that otherwise looks complete.
+    /// </summary>
+    [ObservableProperty]
+    private string _transferWarning = string.Empty;
+
+    public bool HasTransferWarning => TransferWarning.Length > 0;
+
+    /// <summary>
+    /// Said beside the places switch while it is on, and only then: places are the one part of the file
+    /// that is not sealed, and a warning printed under every export would be read as boilerplate by the
+    /// time it mattered. Empty while places are left out.
+    /// </summary>
+    public string PlacesWarning
+        => Export.IncludesPlaces
+            ? _translations["Places are written to the file decrypted. The file itself is not encrypted, so anyone who gets it can read every place in it - names, addresses, coordinates and descriptions - private ones included."]
+            : string.Empty;
+
+    public bool HasPlacesWarning => PlacesWarning.Length > 0;
+
     /// <summary>What the file picker is titled - the picker is the platform's, the words are the app's.</summary>
     public string ImportPickerTitle => _translations["Import"];
 
@@ -245,8 +321,8 @@ public sealed partial class AccountViewModel : ObservableObject
     public event EventHandler<(string FileName, string Json)>? ExportReady;
 
     /// <summary>
-    /// What the next export will carry - all four parts unless the reader says otherwise, the same four
-    /// the browser offers. See ExportChoice.
+    /// What the next export will carry - the same five parts the browser offers, every one but places
+    /// unless the reader says otherwise. See ExportChoice.
     /// </summary>
     public ExportChoice Export { get; } = new();
 
@@ -260,6 +336,7 @@ public sealed partial class AccountViewModel : ObservableObject
     private async Task ExportAsync(CancellationToken cancellationToken)
     {
         IsTransferring = true;
+        TransferWarning = string.Empty;
         try
         {
             var everything = await _transfer.ExportAsync(cancellationToken);
@@ -269,13 +346,23 @@ public sealed partial class AccountViewModel : ObservableObject
                 return;
             }
 
-            var archive = Export.Narrow(everything);
+            // Places are opened after narrowing, so an export that left them out never reaches for the key.
+            var opened = await _transfer.OpenPlacesAsync(Export.Narrow(everything), cancellationToken);
+            var archive = opened.Archive;
             // Said rather than left to the file: what was asked for and what came back are two different
             // things, and a file nobody opens is where that difference would otherwise be found.
             TransferMessage = _translations.Format(
-                "Exported {0} notes, {1} task lists, {2} events and {3} inventories.",
+                "Exported {0} notes, {1} task lists, {2} events, {3} inventories and {4} places.",
                 archive.Notes.Count, archive.TaskLists.Count, archive.CalendarEvents.Count,
-                archive.Inventories.Count);
+                archive.Inventories.Count, archive.AllPlaces.Count);
+            if (opened.UnopenedPlaces > 0)
+            {
+                // Written anyway rather than refused: the rest of the file is still worth having, and
+                // what is missing from it is said here rather than found when the file is opened.
+                TransferWarning = _translations.Format(
+                    "{0} private places couldn't be opened on this phone and were written without their content.",
+                    opened.UnopenedPlaces);
+            }
 
             ExportReady?.Invoke(
                 this, ($"orbit-export-{DateTimeOffset.Now:yyyy-MM-dd}.json", _transfer.Write(archive)));
@@ -335,8 +422,8 @@ public sealed partial class AccountViewModel : ObservableObject
             TransferMessage = result is null
                 ? _translations["That file didn't contain an Orbit export."]
                 : _translations.Format(
-                    "Imported {0} notes, {1} task lists, {2} events and {3} inventories.",
-                    result.Notes, result.TaskLists, result.CalendarEvents, result.Inventories);
+                    "Imported {0} notes, {1} task lists, {2} events, {3} inventories and {4} places.",
+                    result.Notes, result.TaskLists, result.CalendarEvents, result.Inventories, result.Places);
         }
         catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
         {
@@ -437,15 +524,21 @@ public sealed partial class AccountViewModel : ObservableObject
                 return;
             }
 
+            _account = account;
             UserName = account.UserName;
             DisplayName = account.DisplayName;
             EmailAddress = account.Email;
             IsEmailVerified = account.IsEmailVerified;
             RequiresPasswordToDelete = account.HasPassword;
+            OnPropertyChanged(nameof(RequiresTypedAccountToDelete));
+            OnPropertyChanged(nameof(ExplainsWhichPassword));
             // A switch for something the account cannot use yet would turn nothing off, so it is only
             // offered where the account qualifies - the line Orbit.Web draws over the same row.
             CanChooseGoogleExtras = GoogleIntegrationAccess.Qualifies(account);
             await GoogleLink.ShowAsync(account);
+            // After the Google row has asked whether Google is offered here, which is half of the answer.
+            OnPropertyChanged(nameof(ConfirmsWithGoogle));
+            OnPropertyChanged(nameof(RequiresTypedAccountToDelete));
         }
         catch (HttpRequestException)
         {
@@ -612,36 +705,153 @@ public sealed partial class AccountViewModel : ObservableObject
     private void GoToChatKey() => _navigator.ShowChatKeyGate();
 
     /// <summary>
+    /// The way to a new password for somebody asked for one they no longer know - the same screen sign-in
+    /// offers. A reset is how an account whose password is gone gets deleted at all.
+    /// </summary>
+    [RelayCommand]
+    private void GoToPasswordReset() => _navigator.ShowPasswordReset();
+
+    /// <summary>
+    /// Whether the account has confirmed itself the way it has to before it is deleted, saying on screen
+    /// why not when it has not. The page asks this before the platform's own prompt, so a prompt is
+    /// never shown for a deletion that would be refused anyway; <see cref="DeleteAccountCommand"/> asks
+    /// again, so nothing reaches the server without it.
+    ///
+    /// An account with a password gives it (see DeleteAccountRequest). One without confirms with Google
+    /// where Google is offered (see <see cref="ConfirmsWithGoogle"/>, asked after this agrees); where it is
+    /// not, it types its address or login, checked here against the account already loaded, as Orbit.Web
+    /// checks it - which makes the press deliberate rather than proving anything to the server.
+    /// </summary>
+    public bool IsReadyToDelete()
+    {
+        if (_account is null)
+        {
+            DeletionMessage = _translations["Your account hasn't loaded yet. Open this screen again and try again."];
+            return false;
+        }
+
+        if (_account.HasPassword && DeleteAccountPassword.Length == 0)
+        {
+            DeletionMessage = _translations["Enter your password to confirm."];
+            return false;
+        }
+
+        if (!_account.HasPassword && !ConfirmsWithGoogle && !ConfirmsAccount(_account))
+        {
+            DeletionMessage = _translations["That isn't this account's email address or login."];
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// The address or the login, in any case and with stray spaces ignored: both are what the reader
+    /// signs in with, so either is something they know without looking it up. Not a secret - the address
+    /// is on this screen - because what this checks is that the deletion was meant.
+    /// </summary>
+    private bool ConfirmsAccount(Orbit.Contracts.Users.AccountDto account)
+    {
+        var typed = DeleteAccountConfirmation.Trim();
+        return typed.Length > 0
+            && (string.Equals(typed, account.Email, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(typed, account.UserName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
     /// Deletes the account, then leaves this device holding nothing of it.
     ///
     /// The order is the point: the local database is emptied only once the server has agreed. A wrong
     /// password or a lost connection has to leave the phone exactly as it was, because the account it
     /// still belongs to is still there.
     ///
-    /// Whether the server agreed is tracked here rather than read back from <see cref="MessageIsFailure"/>,
-    /// which a cancelled request leaves untouched - and "the screen went away mid-request" must never be
-    /// mistaken for "the account is gone".
+    /// Whether the server agreed is tracked here rather than read back from a message, which a cancelled
+    /// request leaves untouched - and "the screen went away mid-request" must never be mistaken for "the
+    /// account is gone".
     /// </summary>
     [RelayCommand]
     private async Task DeleteAccountAsync(CancellationToken cancellationToken)
     {
-        var deleted = false;
-
-        await RunAsync(
-            async () =>
-            {
-                var result = await _accountClient.DeleteAccountAsync(DeleteAccountPassword, cancellationToken);
-                deleted = result.Succeeded;
-                return result;
-            },
-            "Your account has been deleted.");
-
-        if (!deleted)
+        if (!IsReadyToDelete())
         {
             return;
         }
 
+        await DeleteAsync(googleIdToken: null, cancellationToken);
+    }
+
+    /// <summary>
+    /// The same deletion, for an account that confirms with Google (<see cref="ConfirmsWithGoogle"/>):
+    /// Google is asked again first, and what comes back goes with the request for the server to check.
+    /// Backing out of Google's screen deletes nothing and says nothing - it is the reader changing their mind.
+    /// </summary>
+    [RelayCommand]
+    private async Task DeleteWithGoogleAsync(CancellationToken cancellationToken)
+    {
+        if (!IsReadyToDelete() || !ConfirmsWithGoogle)
+        {
+            return;
+        }
+
+        string? idToken;
+        try
+        {
+            idToken = await GoogleLink.SignInAgainAsync(cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            DeletionMessage = _translations["Couldn't reach Orbit. Check your connection and try again."];
+            return;
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (idToken is null)
+        {
+            return;
+        }
+
+        await DeleteAsync(idToken, cancellationToken);
+    }
+
+    private async Task DeleteAsync(string? googleIdToken, CancellationToken cancellationToken)
+    {
+        var account = _account!;
+        DeletionMessage = string.Empty;
+        AccountOperationResult result;
+        try
+        {
+            result = await _accountClient.DeleteAccountAsync(DeleteAccountPassword, googleIdToken, cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            DeletionMessage = _translations["Couldn't reach Orbit. Check your connection and try again."];
+            return;
+        }
+        catch (OperationCanceledException)
+        {
+            // The screen went away mid-request; there is nobody left to tell.
+            return;
+        }
+
+        if (!result.Succeeded && googleIdToken is not null)
+        {
+            // Google's answer, not a password that was set elsewhere: the sign-in was not this account's,
+            // or not a fresh one, and trying again means signing in again.
+            DeletionMessage = _translations[result.Message ?? "Google didn't confirm this account. Try again."];
+            return;
+        }
+
+        if (!result.Succeeded)
+        {
+            await ExplainRefusedDeletionAsync(account, result);
+            return;
+        }
+
         DeleteAccountPassword = string.Empty;
+        DeleteAccountConfirmation = string.Empty;
 
         // No sign-out call: it would revoke a refresh token belonging to an account that no longer
         // exists. What is left is all local - the session, the cached database, and what this account
@@ -650,6 +860,24 @@ public sealed partial class AccountViewModel : ObservableObject
         await _localStore.ClearForAsync(Guid.Empty, cancellationToken);
         _permissions.Forget();
         _navigator.ShowSignIn();
+    }
+
+    /// <summary>
+    /// Refused although no password was asked for means one was set since this screen read the account -
+    /// on another device, or at the chat gate. The account is read again so the password field appears,
+    /// rather than leaving the reader facing a form that can only be refused the same way again.
+    /// </summary>
+    private async Task ExplainRefusedDeletionAsync(
+        Orbit.Contracts.Users.AccountDto account, AccountOperationResult result)
+    {
+        if (account.HasPassword || result.Status is not AccountOperationStatus.Refused)
+        {
+            DeletionMessage = result.Message ?? _translations["That didn't work."];
+            return;
+        }
+
+        DeletionMessage = _translations["This account has a password now - enter it."];
+        await ShowAccountAsync();
     }
 
     [RelayCommand]
@@ -679,6 +907,10 @@ public sealed partial class AccountViewModel : ObservableObject
     }
 
     partial void OnTransferMessageChanged(string value) => OnPropertyChanged(nameof(HasTransferMessage));
+
+    partial void OnTransferWarningChanged(string value) => OnPropertyChanged(nameof(HasTransferWarning));
+
+    partial void OnDeletionMessageChanged(string value) => OnPropertyChanged(nameof(HasDeletionMessage));
 
     partial void OnIsEmailVerifiedChanged(bool value) => OnPropertyChanged(nameof(EmailVerificationLabel));
 

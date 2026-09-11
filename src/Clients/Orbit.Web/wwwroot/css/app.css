@@ -488,6 +488,12 @@ input.note-editor-title {
    which is what keeps the tools in the corner where they were put. */
 .note-editor-page {
     min-height: calc(100vh - 230px);
+    /* Room under the last line for the tools in the corner and three lines more: the writing used to
+       run on underneath the tools, so whatever was typed at the foot of a long note was hidden behind
+       them. The padding is part of what scrolls, and scroll-padding keeps the caret's own line clear
+       of them too when the surface scrolls to follow it. */
+    padding-bottom: calc(14px + 40px + 4.8em);
+    scroll-padding-bottom: calc(14px + 40px + 3.2em);
 }
 
 /* Over the corner of the writing rather than above it: a toolbar at the top of a note is a strip of
@@ -2894,11 +2900,13 @@ input.note-editor-title {
     margin-bottom: 32px;
 }
 
+/* The sentence that used to stand under each of these carried the gap to the card below it, and is
+   behind the heading's "?" now - so the heading keeps a little of that room itself. */
 .options-heading {
     font-family: var(--font-display);
     font-weight: 600;
     font-size: 16px;
-    margin: 0 0 4px 0;
+    margin: 0 0 12px 0;
 }
 
 .options-subtext {
@@ -3447,6 +3455,37 @@ input.note-editor-title {
     margin-right: 0.25rem;
 }
 
+/* Which of the two an entry on the calendar is, said by a mark before its name: a calendar for an
+   event, a tick box for a task. The dashed edge a task's chip already had said it too, but only to
+   somebody who had learned what the dash meant - and next to an event drawn in a pale colour the two
+   edges were hard to tell apart at all. Drawn in the text's secondary colour, small, so a day full of
+   entries still reads as names rather than as a column of icons. A mask rather than an image, so the
+   mark takes whatever colour the text around it has - a done entry's greyed one included. */
+.calendar-event-chip .calendar-event-chip-title::before,
+.calendar-event-block .calendar-event-block-title::before,
+.calendar-task-chip .calendar-event-chip-title::before,
+.calendar-task-block .calendar-event-block-title::before {
+    content: "";
+    display: inline-block;
+    width: 0.9em;
+    height: 0.9em;
+    margin-right: 0.25em;
+    vertical-align: -0.12em;
+    background-color: var(--text-secondary);
+    -webkit-mask: var(--calendar-entry-mark) center / contain no-repeat;
+    mask: var(--calendar-entry-mark) center / contain no-repeat;
+}
+
+.calendar-event-chip,
+.calendar-event-block {
+    --calendar-entry-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'%3E%3Crect x='2' y='3' width='12' height='11' rx='2'/%3E%3Cpath d='M2 7h12M5.5 1.5v3M10.5 1.5v3'/%3E%3C/svg%3E");
+}
+
+.calendar-task-chip,
+.calendar-task-block {
+    --calendar-entry-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='2' width='12' height='12' rx='3'/%3E%3Cpath d='m5 8.2 2 2 4-4.4'/%3E%3C/svg%3E");
+}
+
 /* Calendar.razor / CalendarMonthGrid.razor / CalendarDayGrid.razor: a due task's chip, laid out like
    .calendar-event-chip but with a fixed dashed accent color instead of the event's own Color, so a task
    with a deadline reads as a different kind of entry even though it's placed on the calendar the same way. */
@@ -3872,6 +3911,18 @@ input.note-editor-title {
     .field-hint-bubble {
         max-width: min(280px, 86vw);
     }
+}
+
+/* The same mark beside a page's or a section's heading - see PageHeader.Description. A heading is
+   larger and set in the display face, so the mark is given more room from the words and put back in the
+   body face it has beside a label; its own size is fixed already and does not grow with the heading. */
+:is(h1, h2, h3) > .field-hint-holder {
+    margin-left: 8px;
+}
+
+:is(h1, h2, h3) .field-hint-mark {
+    font-family: var(--font-body);
+    letter-spacing: normal;
 }
 
 /* Where a phone's Menu button lands - see PageToolbarTrigger. The auto margin eats the free space the
@@ -4900,6 +4951,35 @@ input.note-editor-title {
     background: var(--bg-subtle);
 }
 
+/* Beside the full-screen button, the same square - see MapPage.razor. */
+.map-refresh-button {
+    position: absolute;
+    top: 10px;
+    right: 46px;
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    cursor: pointer;
+    color: var(--text-primary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 1px 4px oklch(20% 0.02 60 / 0.25);
+}
+
+.map-refresh-button:hover {
+    background: var(--bg-subtle);
+}
+
+.map-refresh-button:disabled {
+    cursor: progress;
+    opacity: 0.6;
+}
+
 /* A form rather than a question, so it is given the room a form needs and its fields are allowed to
    scroll - the panel is capped by .map-overlay-panel and a place with six lists on it would otherwise
    push its own Create button off the bottom of the screen. */
@@ -5313,6 +5393,17 @@ input.note-editor-title {
     color: var(--text-secondary);
 }
 
+/* A sentence under a control that changes with how it is set - what a restock switch will do, that a
+   group goes with the last person out of it. Small print like .form-hint: it was never given a rule of
+   its own and rendered as body text as loud as the form it explains. Not behind FieldHint's "?", since
+   what it says depends on the control's state right now. The element is named so FieldHint's own
+   .field-hint-* classes cannot be caught by it. */
+p.field-hint {
+    margin: 4px 0 0;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+}
+
 /* Delete sits with Save and Cancel but reads as the one that takes something away
    (CalendarEventEditor.razor). */
 .form-actions-danger {
@@ -5663,6 +5754,14 @@ input.note-editor-title {
     gap: 6px;
 }
 
+/* Shown while places are ticked: the one part of an export written out decrypted. In the danger colour
+   because what it warns about cannot be taken back once the file has left the browser. */
+.export-warning {
+    margin: 0;
+    color: var(--danger);
+    font-size: 0.9em;
+}
+
 .permissions-table {
     width: 100%;
     border-collapse: collapse;
@@ -5996,6 +6095,40 @@ input.note-editor-title {
 
 .map-popup-label {
     color: var(--text-primary);
+}
+
+/* Leaflet paints its popup white whatever the theme is, and the label above takes the theme's text
+   colour - so in the dark theme a pin opened on light text on a white card, which was barely readable.
+   The card now takes the theme too, which keeps the two in step rather than fixing one colour to match
+   the other. Prefixed with the container, because leaflet.css loads after this file (see index.html)
+   and its own rules name the same classes: at equal weight the later file wins, and the card stayed
+   white. */
+.leaflet-container .leaflet-popup-content-wrapper,
+.leaflet-container .leaflet-popup-tip {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+}
+
+.leaflet-container .leaflet-popup a.leaflet-popup-close-button {
+    color: var(--text-secondary);
+}
+
+/* A route between two pins - see locationMap.js's showRoute. The accent, because it is the reader's own
+   question on the map; dashed where it is only a straight line between the two, so it cannot be taken
+   for a road. */
+.map-route-line {
+    stroke: var(--accent);
+}
+
+.map-route-line-straight {
+    stroke-dasharray: 8 8;
+}
+
+/* What can be started at the pin, under the way to be taken there - see locationMap.js's popupFor. */
+.map-popup-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
 }
 
 /* Drawn as a link rather than as a button: a popup is two lines wide, and a filled button in it is

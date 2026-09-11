@@ -27,12 +27,14 @@ public sealed class LeaveChatGroupCommandHandler : IRequestHandler<LeaveChatGrou
             return false;
         }
 
-        // Removing yourself is allowed without being an admin; the sole admin of a group with other
-        // people in it is still refused, and says so - see ChatGroup.RemoveMember.
-        group.RemoveMember(request.UserId, request.UserId);
+        // Anybody may leave. The last admin going hands the group to whoever they named, or to the
+        // longest-standing member if they named nobody - see ChatGroup.Leave. A named successor who
+        // cannot take over is refused there, before anything below has run.
+        group.Leave(request.UserId, request.SuccessorUserId);
 
         // Told to whoever is left as well as to the person leaving: their own list has lost a group,
-        // and everyone else's member list has changed.
+        // and everyone else's member list has changed. Whoever took over is among those left, and
+        // their screen is the one that most needs redrawing - it now offers what an admin may do.
         var toTell = group.Members.Select(member => member.UserId).Append(request.UserId).Distinct().ToList();
 
         // Before the group itself may be deleted below, so the copies are gone either way.

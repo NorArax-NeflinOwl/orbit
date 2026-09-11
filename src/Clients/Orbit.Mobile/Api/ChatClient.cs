@@ -196,20 +196,22 @@ public sealed class ChatClient
     /// <summary>
     /// Leaves a group. A different thing from putting it away: what is posted afterwards no longer
     /// arrives, and the rest of the group sees somebody go.
+    ///
+    /// successorUserId names who takes over when the reader is the group's only admin; left out, the
+    /// server promotes the longest-standing member itself (see ChatGroup.Leave). It answers the way the
+    /// other membership changes do rather than throwing on a refusal, because the refusals here - a chosen
+    /// successor who has since left, say - are worth saying in the server's own words, and a thrown
+    /// HttpRequestException reads as "check your connection".
     /// </summary>
-    public async Task<bool> LeaveGroupAsync(Guid groupId, CancellationToken cancellationToken = default)
-    {
-        using var response = await _httpClient.DeleteAsync(
-            $"api/chat/groups/{groupId}/membership", cancellationToken);
-
-        if (response.StatusCode is HttpStatusCode.NotFound)
-        {
-            return false;
-        }
-
-        response.EnsureSuccessStatusCode();
-        return true;
-    }
+    public Task<GroupMemberChangeResult> LeaveGroupAsync(
+        Guid groupId, Guid? successorUserId = null, CancellationToken cancellationToken = default)
+        => ChangeMembershipAsync(
+            new HttpRequestMessage(
+                HttpMethod.Delete,
+                successorUserId is { } successor
+                    ? $"api/chat/groups/{groupId}/membership?successorUserId={successor}"
+                    : $"api/chat/groups/{groupId}/membership"),
+            "You could not leave this group.", cancellationToken);
 
     public async Task<bool> ApproveConversationAsync(Guid otherUserId, CancellationToken cancellationToken = default)
     {

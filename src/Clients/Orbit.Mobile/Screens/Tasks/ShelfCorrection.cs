@@ -65,6 +65,17 @@ public sealed class ShelfCorrection
             return ShelfCorrectionOutcome.NotFound;
         }
 
+        // A product the shelf has not got yet is not written here: the entry carried it up with the
+        // list, and the server put it on the shelf and pointed the entry at it (see
+        // Orbit.Core.Inventories.ProductEntryPlacement). Writing it here as well raced that - this
+        // phone's copy of the shelf, pushed whole, did not hold the row the server had just made, so the
+        // push deleted it and added a second one nothing pointed at. Pulling is what shows the row.
+        if (shelf.Product.IsSomethingNew)
+        {
+            await _synchronizer.SynchroniseAsync(cancellationToken);
+            return ShelfCorrectionOutcome.Applied;
+        }
+
         var corrected = shelf.Product.ToDto();
         var outcome = await _inventories.UpdateAsync(
             shelf.InventoryLocalId,
@@ -85,25 +96,11 @@ public sealed class ShelfCorrection
     }
 
     /// <summary>
-    /// The shelf with this product on it: the one it corrects replaced, or the product added where it
-    /// has no id yet.
-    ///
-    /// A shelf already holding something by that name is what the entry was asking for, so nothing is
-    /// added for it - the stock check matches an errand to a product by name, and two rows of one name
-    /// would be two answers to "is there enough". The same rule Orbit.Web's own save applies.
+    /// The shelf with this product in place of the one it corrects. Only ever a product already there:
+    /// one that is not yet is placed by the server - see ApplyAsync.
     /// </summary>
     private static IReadOnlyList<InventoryItemRequest> ShelfWith(LocalInventory inventory, InventoryItemRequest product)
-    {
-        if (product.Id is { } productId)
-        {
-            return [.. inventory.Items.Select(stored => stored.Id == productId ? product : stored)];
-        }
-
-        var alreadyThere = inventory.Items.Any(stored =>
-            string.Equals(stored.Name.Trim(), product.Name.Trim(), StringComparison.CurrentCultureIgnoreCase));
-
-        return alreadyThere ? inventory.Items : [.. inventory.Items, product];
-    }
+        => [.. inventory.Items.Select(stored => stored.Id == product.Id ? product : stored)];
 
     /// <summary>
     /// Best effort, and deliberately quiet: the correction is already saved on this phone and on its way

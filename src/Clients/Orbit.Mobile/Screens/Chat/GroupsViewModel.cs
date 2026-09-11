@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Chat;
 using Orbit.Mobile.Api;
+using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
 using Orbit.Core.Permissions;
@@ -30,6 +31,9 @@ public sealed partial class GroupsViewModel : ObservableObject
     private readonly ConversationPins _pins;
     private readonly IScreenNavigator _navigator;
 
+    /// <summary>Who is reading - the one member the leave question leaves out of who could take over.</summary>
+    private readonly SessionStore _sessionStore;
+
     [ObservableProperty]
     private string _message = string.Empty;
 
@@ -45,9 +49,10 @@ public sealed partial class GroupsViewModel : ObservableObject
     public GroupsViewModel(
         ChatRepository chatRepository, ChatClient chatClient, ChatSynchronizer synchronizer,
         OwnEncryptionKeyProvider encryptionKeyProvider, Translations translations, UserPermissions permissions,
-        IScreenNavigator navigator, ConversationPins pins)
+        IScreenNavigator navigator, ConversationPins pins, SessionStore sessionStore)
     {
         _pins = pins;
+        _sessionStore = sessionStore;
         _chatRepository = chatRepository;
         _chatClient = chatClient;
         _synchronizer = synchronizer;
@@ -280,24 +285,39 @@ public sealed partial class GroupsViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Puts a <see cref="GroupLeaveQuestion"/> on screen and answers whether the reader still wants to go -
+    /// set by the page, which is what knows how to ask. Nobody to ask means nobody leaves: going without
+    /// the question is what this replaced.
+    /// </summary>
+    public Func<GroupLeaveQuestion, Task<bool>>? AskBeforeLeaving { get; set; }
+
+    /// <summary>
     /// Leaves the group for good. Unlike putting it away, the rest of the group sees somebody go and
-    /// nothing posted afterwards arrives - which is why the screen asks first.
+    /// nothing posted afterwards arrives - which is why the reader is asked first, and asked who takes
+    /// over when they are its only admin, exactly as the group's own screen asks.
+    ///
+    /// A refusal (the chosen successor has left in the meantime, say) is said in the server's own words:
+    /// "check your connection" would send somebody looking for a fault they do not have.
     /// </summary>
     [RelayCommand]
     private async Task LeaveAsync(LocalChatGroup? group, CancellationToken cancellationToken)
     {
-        if (group is null)
+        if (group is null || AskBeforeLeaving is null)
         {
             return;
         }
 
+        var ownUserId = await _sessionStore.GetAsync() is { } session ? session.UserId : Guid.Empty;
+        var question = GroupLeaveQuestion.For(group, ownUserId, _translations);
+        if (!await AskBeforeLeaving(question))
+        {
+            return;
+        }
+
+        GroupMemberChangeResult result;
         try
         {
-            if (!await _chatClient.LeaveGroupAsync(group.Id, cancellationToken))
-            {
-                Message = _translations["Orbit has no such group any more."];
-                return;
-            }
+            result = await _chatClient.LeaveGroupAsync(group.Id, question.SuccessorToSend, cancellationToken);
         }
         catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
         {
@@ -305,7 +325,17 @@ public sealed partial class GroupsViewModel : ObservableObject
             return;
         }
 
+        // Read again either way: after leaving the group is gone from the list, and after a refusal the
+        // next question has to offer who is actually in it now.
         await RefreshFromTheServerAsync(cancellationToken);
+
+        if (!result.Done)
+        {
+            // After the refresh, which would otherwise clear it.
+            Message = result.Refusal is { } refusal
+                ? _translations[refusal]
+                : _translations["Orbit has no such group any more."];
+        }
     }
 
     /// <inheritdoc cref="ContactsViewModel.RefreshFromTheServerAsync"/>

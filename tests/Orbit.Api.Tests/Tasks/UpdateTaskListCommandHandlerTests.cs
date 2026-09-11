@@ -21,7 +21,8 @@ public sealed class UpdateTaskListCommandHandlerTests
                 new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryItemRepository(),
                 new InMemoryInventoryRepository(), new InMemoryTaskRepository()),
             new StockedEntryCompletion(
-                new InMemoryInventoryRepository(), new InMemoryInventoryItemRepository()));
+                new InMemoryInventoryRepository(), new InMemoryInventoryItemRepository()),
+            new InventoryTestContext().ProductEntryPlacement);
 
     [Fact]
     public async Task HandleAsync_updates_a_task_list_owned_by_the_requesting_user()

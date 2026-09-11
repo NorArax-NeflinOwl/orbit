@@ -199,12 +199,142 @@ public sealed class ContactsScreenTests
         using var context = new ContactsContext();
         context.Server.AddGroup("Weekend trip", Guid.NewGuid());
         var screen = context.OpenGroups();
+        Answering(screen, _ => true);
 
         await screen.LeaveCommand.ExecuteAsync(Assert.Single(screen.Groups));
 
         Assert.Empty(screen.Groups);
         // The group itself is still there for whoever is left in it.
         Assert.Single(context.Server.Groups);
+    }
+
+    /// <summary>Asked first, as the group's own screen asks - and a no leaves nobody.</summary>
+    [Fact]
+    public async Task Leaving_a_group_from_the_list_asks_first_and_a_no_leaves_nobody()
+    {
+        using var context = new ContactsContext();
+        context.Server.AddGroup("Weekend trip", Guid.NewGuid());
+        var screen = context.OpenGroups();
+        var questions = Answering(screen, _ => false);
+
+        await screen.LeaveCommand.ExecuteAsync(Assert.Single(screen.Groups));
+
+        Assert.Single(questions);
+        Assert.Single(screen.Groups);
+        Assert.Empty(context.Server.GroupsLeft);
+    }
+
+    /// <summary>
+    /// The only admin leaving from the list is asked who takes over, with the longest-standing member
+    /// already chosen - not first by name here - and whoever they pick instead is sent and promoted.
+    /// </summary>
+    [Fact]
+    public async Task The_only_admin_leaving_from_the_list_is_asked_who_takes_over_and_the_choice_is_sent()
+    {
+        using var context = new ContactsContext();
+        var zenon = Guid.NewGuid();
+        var ada = Guid.NewGuid();
+        context.Users.Add(zenon, "Zenon", publicKeyBase64: "a-key");
+        context.Users.Add(ada, "Ada", publicKeyBase64: "a-key");
+        var group = context.Server.AddGroup("Weekend trip", zenon);
+        context.MoveOn(TimeSpan.FromDays(1));
+        context.Server.AddMember(group.Id, ada);
+        var screen = context.OpenGroups();
+        Guid? offeredFirst = null;
+        var questions = Answering(screen, question =>
+        {
+            offeredFirst = question.ChosenSuccessorUserId;
+            question.ChosenSuccessorUserId = ada;
+            return true;
+        });
+
+        await screen.LeaveCommand.ExecuteAsync(Assert.Single(screen.Groups));
+
+        var asked = Assert.Single(questions);
+        Assert.True(asked.MustChooseSuccessor);
+        Assert.Equal(zenon, offeredFirst);
+        Assert.Equal(ada, Assert.Single(context.Server.SuccessorsNamed));
+        Assert.Equal("Admin", context.Server.Groups.Single().Members.Single(member => member.UserId == ada).Role);
+        Assert.Empty(screen.Groups);
+    }
+
+    [Fact]
+    public async Task The_last_one_out_from_the_list_is_told_the_group_goes()
+    {
+        using var context = new ContactsContext();
+        context.Server.AddGroup("Just me");
+        var screen = context.OpenGroups();
+        var questions = Answering(screen, _ => true);
+
+        await screen.LeaveCommand.ExecuteAsync(Assert.Single(screen.Groups));
+
+        var asked = Assert.Single(questions);
+        Assert.True(asked.IsLastOneOut);
+        Assert.Contains("the group is deleted when you go", asked.Message);
+        Assert.Empty(context.Server.Groups);
+    }
+
+    [Fact]
+    public async Task A_plain_member_leaving_from_the_list_is_asked_only_to_confirm()
+    {
+        using var context = new ContactsContext();
+        var group = context.Server.AddGroup("Weekend trip", Guid.NewGuid());
+        context.Server.Groups[0] = group with
+        {
+            OwnRole = "Member",
+            Members = [.. group.Members.Select(member => member with
+            {
+                Role = member.UserId == context.Server.CallerUserId ? "Member" : "Admin"
+            })]
+        };
+        var screen = context.OpenGroups();
+        var questions = Answering(screen, _ => true);
+
+        await screen.LeaveCommand.ExecuteAsync(Assert.Single(screen.Groups));
+
+        var asked = Assert.Single(questions);
+        Assert.False(asked.MustChooseSuccessor);
+        Assert.False(asked.IsLastOneOut);
+        Assert.Null(Assert.Single(context.Server.SuccessorsNamed));
+    }
+
+    /// <summary>
+    /// The person chosen has left in the meantime: the server refuses rather than hand the group to
+    /// somebody else, and the list says so in its words - not "check your connection".
+    /// </summary>
+    [Fact]
+    public async Task A_refused_leave_from_the_list_is_said_in_the_servers_words()
+    {
+        using var context = new ContactsContext();
+        var celina = Guid.NewGuid();
+        var group = context.Server.AddGroup("Weekend trip", celina);
+        var screen = context.OpenGroups();
+        Answering(screen, question =>
+        {
+            context.Server.Groups[0] = group with
+            {
+                Members = [.. group.Members.Where(member => member.UserId != celina)]
+            };
+            return true;
+        });
+
+        await screen.LeaveCommand.ExecuteAsync(Assert.Single(screen.Groups));
+
+        Assert.Contains("isn't in this group any more", screen.Message);
+        Assert.Empty(context.Server.GroupsLeft);
+        Assert.Single(screen.Groups);
+    }
+
+    /// <summary>Answers the list's leave question the way a test says, keeping every question it was asked.</summary>
+    private static List<GroupLeaveQuestion> Answering(GroupsViewModel screen, Func<GroupLeaveQuestion, bool> answer)
+    {
+        var questions = new List<GroupLeaveQuestion>();
+        screen.AskBeforeLeaving = question =>
+        {
+            questions.Add(question);
+            return Task.FromResult(answer(question));
+        };
+        return questions;
     }
 
     [Fact]
@@ -455,7 +585,7 @@ public sealed class ContactsScreenTests
             var screen = new GroupsViewModel(
                 Repository, _chatClient, _synchronizer, _encryptionKeyProvider,
                 new Translations(new InMemoryLanguageStore()), UnlockedPermissions.For(_localStore), Navigator,
-                Pins);
+                Pins, _sessionStore);
             screen.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
             return screen;
         }

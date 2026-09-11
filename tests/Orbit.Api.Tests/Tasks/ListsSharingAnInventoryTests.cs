@@ -93,32 +93,76 @@ public sealed class ListsSharingAnInventoryTests
         Assert.True(await context.LinkAsync(second.Id, shed.Id));
     }
 
+    /// <summary>
+    /// Linking puts the list's product entries on the shelf there and then, and points each at its row -
+    /// before, a list linked and left alone had its products on no shelf until it was next saved.
+    /// </summary>
+    [Fact]
+    public async Task Linking_puts_the_lists_products_on_the_shelf()
+    {
+        var context = new LinkingContext();
+        var inventory = await context.AInventoryAsync();
+        var list = await context.AListAsync(
+            TaskItem.Create(
+                "Mąka", dueDateUtc: null, isCompleted: false, subject: new TaskItemSubject(TaskItemKind.Inventory),
+                product: TaskItemProduct.Default with { MinimumQuantity = 2 }),
+            TaskItem.Create("Jajka", dueDateUtc: null, isCompleted: false));
+
+        Assert.True(await context.LinkAsync(list.Id, inventory.Id));
+
+        var row = Assert.Single(await context.ShelfAsync(inventory.Id));
+        Assert.Equal("Mąka", row.Name);
+        Assert.Equal(2, row.MinimumQuantity);
+        var flour = Assert.Single((await context.ReadAsync(list.Id))!.Items, item => item.Description == "Mąka");
+        Assert.Equal(row.Id, flour.LinkedInventoryItemId);
+    }
+
+    /// <summary>And letting the shelf go puts nothing anywhere: there is no shelf to put it on.</summary>
+    [Fact]
+    public async Task Unlinking_puts_nothing_on_any_shelf()
+    {
+        var context = new LinkingContext();
+        var inventory = await context.AInventoryAsync();
+        var list = await context.AListAsync(
+            TaskItem.Create(
+                "Mąka", dueDateUtc: null, isCompleted: false, subject: new TaskItemSubject(TaskItemKind.Inventory),
+                product: TaskItemProduct.Default));
+
+        Assert.True(await context.LinkAsync(list.Id, inventoryId: null));
+
+        Assert.Empty(await context.ShelfAsync(inventory.Id));
+    }
+
+    /// <summary>The same collaborators DI hands the handler - see InventoryTestContext.</summary>
     private sealed class LinkingContext
     {
-        private readonly InMemoryTaskRepository _taskRepository = new();
-        private readonly InMemoryInventoryRepository _inventoryRepository = new();
+        private readonly InventoryTestContext _inventories = new();
 
         private Guid UserId { get; } = Guid.NewGuid();
 
         public async Task<Inventory> AInventoryAsync()
         {
             var inventory = Inventory.Create(UserId, "Pantry");
-            await _inventoryRepository.AddAsync(inventory, CancellationToken.None);
+            await _inventories.InventoryRepository.AddAsync(inventory, CancellationToken.None);
             return inventory;
         }
 
-        public async Task<TaskList> AListAsync()
+        public async Task<TaskList> AListAsync(params TaskItem[] items)
         {
-            var taskList = TaskList.Create(UserId, "Errands", []);
-            await _taskRepository.AddAsync(taskList, CancellationToken.None);
+            var taskList = TaskList.Create(UserId, "Errands", items);
+            await _inventories.TaskRepository.AddAsync(taskList, CancellationToken.None);
             return taskList;
         }
 
         public Task<bool> LinkAsync(Guid taskListId, Guid? inventoryId)
-            => new LinkTaskListToInventoryCommandHandler(_taskRepository, _inventoryRepository)
+            => new LinkTaskListToInventoryCommandHandler(
+                    _inventories.TaskRepository, _inventories.InventoryRepository, _inventories.ProductEntryPlacement)
                 .HandleAsync(new LinkTaskListToInventoryCommand(UserId, taskListId, inventoryId), CancellationToken.None);
 
         public Task<TaskList?> ReadAsync(Guid taskListId)
-            => _taskRepository.GetByIdAsync(UserId, taskListId, CancellationToken.None);
+            => _inventories.TaskRepository.GetByIdAsync(UserId, taskListId, CancellationToken.None);
+
+        public Task<IReadOnlyList<InventoryItem>> ShelfAsync(Guid inventoryId)
+            => _inventories.InventoryItemRepository.GetAllAsync(inventoryId, CancellationToken.None);
     }
 }

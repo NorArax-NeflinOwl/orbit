@@ -17,6 +17,7 @@ public partial class GroupsPage : ContentPage
 		_viewModel = viewModel;
 		_translations = translations;
 		ShowGroupMenuCommand = new Command<LocalChatGroup>(ShowGroupMenu);
+		viewModel.AskBeforeLeaving = question => GroupLeaveDialog.AskAsync(this, question, translations);
 
 		InitializeComponent();
 		BindingContext = viewModel;
@@ -57,22 +58,10 @@ public partial class GroupsPage : ContentPage
 
 		// Last, because it is the one everybody else sees: putting a group away changes nothing for
 		// anybody but the reader, and leaving is seen by the whole group.
-		entries.Add(new ScreenMenuEntry(_translations["Leave group"], () => _ = LeaveAsync(group)));
+		// Asked before it happens, because the whole group sees the answer - see GroupLeaveDialog, which the
+		// group's own screen asks with too.
+		entries.Add(new ScreenMenuEntry(_translations["Leave group"], () => _viewModel.LeaveCommand.Execute(group)));
 
 		Menu.Show(entries, group.Name, placement: MenuPlacement.FromTheFoot);
-	}
-
-	/// <summary>Asked before it happens, because the whole group sees the answer.</summary>
-	private async Task LeaveAsync(LocalChatGroup group)
-	{
-		var confirmed = await DisplayAlertAsync(
-			_translations["Leave group"],
-			_translations["You stop receiving what is posted, and the group sees you go."],
-			_translations["Leave group"], _translations["Cancel"]);
-
-		if (confirmed)
-		{
-			_viewModel.LeaveCommand.Execute(group);
-		}
 	}
 }

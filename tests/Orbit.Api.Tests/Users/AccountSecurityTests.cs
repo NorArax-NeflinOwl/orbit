@@ -181,6 +181,75 @@ public sealed class AccountSecurityTests
         Assert.Equal(user.Id, Assert.Single(context.AccountDeletionRepository.DeletedUserIds));
     }
 
+    /// <summary>A Google sign-in made a moment ago, for this account's own Google identity, is the owner confirming it.</summary>
+    [Fact]
+    public async Task A_fresh_google_sign_in_for_the_account_deletes_it()
+    {
+        var context = new AccountTestContext();
+        var user = User.CreateFromGoogle("alice@example.com", "alice", "Alice", "google-subject-id");
+        await context.UserRepository.AddAsync(user, CancellationToken.None);
+
+        var deleted = await context.DeleteAccountHandler().HandleAsync(
+            new DeleteAccountCommand(user.Id, string.Empty, StubGoogleIdentityVerifier.ValidToken), CancellationToken.None);
+
+        Assert.True(deleted);
+        Assert.Equal(user.Id, Assert.Single(context.AccountDeletionRepository.DeletedUserIds));
+    }
+
+    /// <summary>
+    /// A token that was sent decides it: one that proves nothing - forged, for somebody else's Google
+    /// account, or kept since an earlier sign-in - is a refusal, not a fall back to the empty password.
+    /// </summary>
+    [Theory]
+    [InlineData("not-a-real-token", "google-subject-id", 0)]
+    [InlineData(StubGoogleIdentityVerifier.ValidToken, "somebody-elses-subject", 0)]
+    [InlineData(StubGoogleIdentityVerifier.ValidToken, "google-subject-id", 30)]
+    public async Task A_google_sign_in_that_does_not_prove_it_is_the_owner_is_refused(
+        string idToken, string tokenSubject, int minutesOld)
+    {
+        var context = new AccountTestContext();
+        var user = User.CreateFromGoogle("alice@example.com", "alice", "Alice", "google-subject-id");
+        await context.UserRepository.AddAsync(user, CancellationToken.None);
+        var google = new StubGoogleIdentityVerifier(
+            subjectId: tokenSubject, issuedAtUtc: DateTimeOffset.UtcNow.AddMinutes(-minutesOld));
+
+        var deleted = await context.DeleteAccountHandler(google).HandleAsync(
+            new DeleteAccountCommand(user.Id, string.Empty, idToken), CancellationToken.None);
+
+        Assert.False(deleted);
+        Assert.Empty(context.AccountDeletionRepository.DeletedUserIds);
+    }
+
+    /// <summary>
+    /// The other way round: a Google-linked account whose password is forgotten can confirm with Google
+    /// instead - the password it no longer knows is not asked for.
+    /// </summary>
+    [Fact]
+    public async Task A_linked_account_with_a_forgotten_password_can_confirm_with_google()
+    {
+        var context = new AccountTestContext();
+        var user = await context.AddUserAsync("alice@example.com", "alice", password: "long-forgotten");
+        user.LinkGoogle("google-subject-id");
+
+        var deleted = await context.DeleteAccountHandler().HandleAsync(
+            new DeleteAccountCommand(user.Id, string.Empty, StubGoogleIdentityVerifier.ValidToken), CancellationToken.None);
+
+        Assert.True(deleted);
+    }
+
+    /// <summary>An account linked to no Google identity cannot be confirmed by one, whatever the token says.</summary>
+    [Fact]
+    public async Task An_account_not_linked_to_google_cannot_be_confirmed_by_it()
+    {
+        var context = new AccountTestContext();
+        var user = await context.AddUserAsync("alice@example.com", "alice", password: "original");
+
+        var deleted = await context.DeleteAccountHandler().HandleAsync(
+            new DeleteAccountCommand(user.Id, string.Empty, StubGoogleIdentityVerifier.ValidToken), CancellationToken.None);
+
+        Assert.False(deleted);
+    }
+
     [Fact]
     public async Task Deleting_an_account_takes_it_out_of_its_chat_groups()
     {
@@ -359,8 +428,10 @@ public sealed class AccountSecurityTests
             return user;
         }
 
-        public DeleteAccountCommandHandler DeleteAccountHandler()
-            => new(UserRepository, PasswordHasher, AccountDeletionRepository, ChatGroupRepository);
+        /// <param name="googleVerifier">Google as these tests stand it in - a fresh sign-in for "google-subject-id" unless a test says otherwise.</param>
+        public DeleteAccountCommandHandler DeleteAccountHandler(IGoogleIdentityVerifier? googleVerifier = null)
+            => new(UserRepository, PasswordHasher, AccountDeletionRepository, ChatGroupRepository,
+                googleVerifier ?? new StubGoogleIdentityVerifier(subjectId: "google-subject-id"));
 
         public Task<EmailVerificationRequestResult> RequestEmailVerificationAsync(Guid userId, string emailAddress)
             => new RequestEmailVerificationCommandHandler(UserRepository, CodeRepository, CodeGenerator, EmailSender)

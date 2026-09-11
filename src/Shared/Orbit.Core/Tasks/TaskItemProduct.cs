@@ -23,7 +23,8 @@ namespace Orbit.Core.Tasks;
 /// <param name="Quantity">
 /// How much of it there already is - the shelf's starting amount. Zero is not a claim that there is
 /// none: it is the box nobody filled in, and the lines already crossed off answer instead - see
-/// GenerateInventoryFromTaskListCommandHandler.
+/// GenerateInventoryFromTaskListCommandHandler. Where several entries name the same thing, the least
+/// amount any of them wrote is what the shelf starts with - see StockRequirement.StartingStock.
 /// </param>
 /// <param name="Categories">
 /// What it is filed under, as many words as apply - the same answer a shelf item keeps (see
@@ -31,8 +32,9 @@ namespace Orbit.Core.Tasks;
 /// is the question a thing that is plainly both has no answer to.
 /// </param>
 /// <param name="MinimumQuantity">
-/// How little is too little, which is what the work needs. Null leaves that to the counting rule: a
-/// thing named three times is three of it.
+/// How little is too little, which is what this entry's part of the work needs. Entries naming the same
+/// thing add theirs up, and null counts as one - the counting rule's answer for a line that says
+/// nothing, so a thing named three times is three of it. See StockRequirementCounter.
 /// </param>
 public sealed record TaskItemProduct(
     string ProductType,

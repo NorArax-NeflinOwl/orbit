@@ -30,7 +30,7 @@ public sealed class AuthorizationMessageHandler : DelegatingHandler
 
         await AttachAccessTokenAsync(request);
         var response = await base.SendAsync(request, cancellationToken);
-        if (response.StatusCode != HttpStatusCode.Unauthorized)
+        if (response.StatusCode != HttpStatusCode.Unauthorized || RefusesThePassword(request, response))
         {
             return response;
         }
@@ -45,6 +45,29 @@ public sealed class AuthorizationMessageHandler : DelegatingHandler
         await AttachAccessTokenAsync(retry);
         return await base.SendAsync(retry, cancellationToken);
     }
+
+    /// <summary>
+    /// The two requests that prove a password again - deleting the account and changing the password -
+    /// answer a wrong one with 401 too. Refreshing and sending it again spent a second of the five tries
+    /// a minute the server allows, so a reader who mistyped twice was turned away by the rate limit
+    /// rather than told the password was wrong. The browser's handler has the same rule, and says more.
+    ///
+    /// The path alone cannot decide it, since the session may also really have expired: the bearer
+    /// authentication that turns away an expired token says so in a WWW-Authenticate header, and an
+    /// endpoint refusing what was typed sends none.
+    /// </summary>
+    private static readonly (HttpMethod Method, string Path)[] PasswordProvingRequests =
+    [
+        (HttpMethod.Delete, "/api/users/me"),
+        (HttpMethod.Put, "/api/users/me/password")
+    ];
+
+    private static bool RefusesThePassword(HttpRequestMessage request, HttpResponseMessage response)
+        => request.RequestUri is { } uri
+            && PasswordProvingRequests.Any(proving => proving.Method == request.Method
+                && string.Equals(proving.Path, uri.AbsolutePath, StringComparison.OrdinalIgnoreCase))
+            && !response.Headers.WwwAuthenticate.Any(challenge =>
+                string.Equals(challenge.Scheme, "Bearer", StringComparison.OrdinalIgnoreCase));
 
     private async Task AttachAccessTokenAsync(HttpRequestMessage request)
     {

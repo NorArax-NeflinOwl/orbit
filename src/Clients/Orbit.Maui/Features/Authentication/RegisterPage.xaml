@@ -14,15 +14,23 @@
          Five, where the design draws four - it has no Login, and this account has one. A display name
          is what other people see and a login is what you sign in with; dropping the box would not
          simplify the form, it would make the account unreachable. -->
+    <ContentPage.Resources>
+        <Style x:Key="ScreenHeading" TargetType="Label">
+            <Setter Property="FontFamily" Value="OrbitDisplay" />
+            <Setter Property="FontSize" Value="32" />
+            <Setter Property="FontAttributes" Value="Bold" />
+        </Style>
+    </ContentPage.Resources>
+
     <ScrollView>
         <VerticalStackLayout Padding="32,40" Spacing="14" VerticalOptions="Center">
 
-            <Label Text="{controls:Translate 'Create an account'}" FontFamily="OrbitDisplay"
-                   FontSize="32" FontAttributes="Bold" />
-
-            <Label Text="{controls:Translate 'One account for the browser and this phone.'}"
-                   Style="{StaticResource SubtleLabel}" FontSize="13" LineBreakMode="WordWrap"
-                   Margin="0,0,0,8" />
+            <!-- The screen's name is drawn here because there is no bar above it to carry it, so what
+                 the account is goes behind a "?" beside this heading rather than under it - see
+                 FieldHint, and NavigationBar.Description for the screens that do have a bar. -->
+            <controls:FieldHint Margin="0,0,0,8" LabelStyle="{StaticResource ScreenHeading}"
+                                Label="{controls:Translate 'Create an account'}"
+                                Text="{controls:Translate 'One account for the browser and this phone.'}" />
 
             <!-- Said up front rather than after four fields have been filled in. -->
             <Label Text="{controls:Translate 'Creating an account needs a connection to Orbit.'}"

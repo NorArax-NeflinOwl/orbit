@@ -1,0 +1,147 @@
+@using Orbit.Contracts.Chat
+@using Orbit.Web.Services
+@inject ChatApiClient ChatApiClient
+@inject OrbitAuthenticationStateProvider AuthenticationStateProvider
+@inject ILogger<GroupLeaveConfirmation> Logger
+@inject Translations T
+
+@* The question asked before somebody leaves a group, wherever they leave it from - the roster and the
+   archive both. Asked rather than done on the click: leaving takes this reader's copies of the group's
+   messages with them and only an admin can bring them back. And the one reader who leaves people behind
+   with nobody to manage the group - its only admin - is asked who takes over, with the person the server
+   would pick anyway already chosen, so confirming without looking is never worse than the automatic rule.
+
+   One component rather than a copy per page: the archive used to leave without asking, which handed the
+   group to whoever the server chose, and two copies of the question are how that drifted. *@
+<div class="card group-leave-confirmation">
+    <p>@T["Leave this group? Your copies of its messages go with you, and only an admin can add you back."]</p>
+    @if (OtherMembers.Count == 0)
+    {
+        <p class="field-hint">@T["You're the last one here, so the group is deleted when you go."]</p>
+    }
+    @if (MustChooseSuccessor)
+    {
+        <label for="successorInput">@T["You're the only admin here. Who takes over?"]</label>
+        <select id="successorInput" @bind="_successorUserId">
+            @foreach (var candidate in OtherMembers)
+            {
+                <option value="@candidate.UserId">@DisplayNameFor(candidate.UserId)</option>
+            }
+        </select>
+    }
+    @if (_errorMessage is not null)
+    {
+        <p class="error">@_errorMessage</p>
+    }
+    <div class="field-row">
+        <button type="button" class="btn-danger" disabled="@_isBusy" @onclick="LeaveAsync">@T["Leave group"]</button>
+        <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="CancelAsync">@T["Cancel"]</button>
+    </div>
+</div>
+
+@code {
+    private const string AdminRole = "Admin";
+
+    /// <summary>The group being left, as the page last read it - re-read by the page after a refusal.</summary>
+    [Parameter, EditorRequired] public ChatGroupDto Group { get; set; } = default!;
+
+    /// <summary>Who the other members are called. Somebody who is not a contact is "Someone".</summary>
+    [Parameter] public IReadOnlyList<ContactDto> Contacts { get; set; } = [];
+
+    /// <summary>The reader is out of the group - the page decides where that leaves them.</summary>
+    [Parameter] public EventCallback OnLeft { get; set; }
+
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    /// <summary>
+    /// The server said no. The page reads the group again, so the picker offers who is actually there
+    /// now rather than who was when the question was opened.
+    /// </summary>
+    [Parameter] public EventCallback OnRefused { get; set; }
+
+    private Guid _ownUserId;
+
+    /// <summary>Who takes over when this reader is the group's only admin; a string for the select's sake.</summary>
+    private string _successorUserId = string.Empty;
+
+    private bool _isBusy;
+    private string? _errorMessage;
+
+    private IReadOnlyList<ChatGroupMemberDto> OtherMembers
+        => [.. Group.Members.Where(member => member.UserId != _ownUserId)];
+
+    /// <summary>
+    /// Whether this reader going would leave people in the group with no admin among them - the one case
+    /// the server has to hand the group to somebody, and so the one case worth asking who.
+    /// </summary>
+    private bool MustChooseSuccessor
+        => Group.OwnRole == AdminRole && OtherMembers.Count > 0 && OtherMembers.All(member => member.Role != AdminRole);
+
+    protected override async Task OnInitializedAsync()
+        => _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync() ?? Guid.Empty;
+
+    protected override void OnParametersSet() => ChooseDefaultSuccessorUnlessStillValid();
+
+    /// <summary>
+    /// Offers the person the server would promote anyway, by the very rule it uses - see
+    /// ChatGroup.ChooseSuccessor - so the picker's default and the automatic choice cannot disagree.
+    /// Keeps a choice still in the group, so the page re-reading it after a refusal does not undo what
+    /// was picked.
+    /// </summary>
+    private void ChooseDefaultSuccessorUnlessStillValid()
+    {
+        if (!MustChooseSuccessor)
+        {
+            _successorUserId = string.Empty;
+            return;
+        }
+
+        if (OtherMembers.Any(member => member.UserId.ToString() == _successorUserId))
+        {
+            return;
+        }
+
+        _successorUserId = Orbit.Core.Chat.Groups.ChatGroup
+            .ChooseSuccessor(OtherMembers, member => member.JoinedAtUtc, member => member.UserId)
+            .UserId.ToString();
+    }
+
+    /// <summary>
+    /// Leaves through the leave route, which takes this reader's copies of the group's messages with them.
+    /// A refusal (the chosen successor has left in the meantime, say) is said here in the server's words -
+    /// "check your connection" would send somebody looking for a fault they do not have.
+    /// </summary>
+    private async Task LeaveAsync()
+    {
+        _isBusy = true;
+        _errorMessage = null;
+        try
+        {
+            Guid? successorUserId = MustChooseSuccessor && Guid.TryParse(_successorUserId, out var chosen) ? chosen : null;
+            var refusal = await ChatApiClient.LeaveGroupAsync(Group.Id, successorUserId);
+            if (refusal is null)
+            {
+                await OnLeft.InvokeAsync();
+                return;
+            }
+
+            Logger.LogWarning("Leaving group {GroupId} was refused: {Reason}", Group.Id, refusal);
+            await OnRefused.InvokeAsync();
+            _errorMessage = T[refusal];
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Leaving group {GroupId} failed", Group.Id);
+            _errorMessage = T["Could not leave that group. Check your connection and try again."];
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private Task CancelAsync() => OnCancel.InvokeAsync();
+
+    private string DisplayNameFor(Guid userId)
+        => Contacts.FirstOrDefault(contact => contact.UserId == userId)?.DisplayName ?? T["Someone"];
+}

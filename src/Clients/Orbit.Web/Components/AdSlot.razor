@@ -1,6 +1,8 @@
 @using Orbit.Core.Advertising
 @using Orbit.Web.Services
+@implements IDisposable
 @inject Translations T
+@inject AdAudience Audience
 
 @* Where Orbit advertises itself. Two of them, drawn from one component and told apart by the window's
    own width rather than by asking JavaScript how wide it is: a rail down the right on a screen with
@@ -8,8 +10,9 @@
    Exactly one is ever visible - see .ad-rail and .ad-banner in app.css.
 
    What they show is Orbit's own (see HouseAds): nothing is fetched from anywhere else, so a slot costs
-   no third-party request and tells nobody that this reader was here. *@
-@if (Advert is { } advert)
+   no third-party request and tells nobody that this reader was here. Whether they show at all is
+   AdAudience's answer, not this component's - see it for who is left alone. *@
+@if (Audience.MayShowAds && Advert is { } advert)
 {
     <aside class="ad-rail" aria-label="@(T["Advertisement"])">
         <div class="ad-card">
@@ -39,4 +42,15 @@
     [Parameter] public int Slot { get; set; }
 
     private HouseAd? Advert => HouseAds.ForSlot(Slot);
+
+    /// <summary>
+    /// Listened to rather than read once: the slot sits beside every page, so flipping "Allow ads" under
+    /// Options re-renders Options and nothing else - without this the slot would keep its old answer
+    /// until the next reload.
+    /// </summary>
+    protected override void OnInitialized() => Audience.Changed += OnAudienceChanged;
+
+    private void OnAudienceChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Audience.Changed -= OnAudienceChanged;
 }
