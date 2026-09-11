@@ -593,16 +593,17 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   rather than refused: nothing about a body this build cannot parse says the reader may not have what
   they asked for.
 
-- **A create the outbox has given up on leaves a row that never syncs.** When a queued create is
-  dropped - after five answered refusals, which since 2026-09-10 includes a 4xx and not only a
-  persistent 500 (`SyncFailure.StaysInTheOutbox`) - the phone says so in its feed and deletes the queue
-  entry, but the local row stays with no `ServerId`. It reads like any other note; every later edit
-  queues an update, and an update on a row the server has never seen is `Abandoned` quietly
-  (`NoteSynchronizer.SendUpdateAsync`), so it is local-only for good with nothing on it saying so. The
-  same is true of every entity type, and was true before the 4xx change - it is only more reachable now.
-  What it would take: a repository that queues a *create* rather than an update when the row has no
-  server id, so the next edit is a second try; or a mark on the row the list can draw, with "send again"
-  under its menu. Neither is small enough to fold into the fix that made this visible.
+- ~~**A create the outbox has given up on leaves a row that never syncs.**~~ Done on 2026-09-11, with
+  the first of the two designs this entry named. When a queued create is dropped - after five answered
+  refusals (`SyncFailure.StaysInTheOutbox`) - the local row stays with no `ServerId`, and every later
+  edit used to queue an update that is `Abandoned` quietly on a row the server has never seen. Now the
+  next edit of such a row - a save, a filing, a folder rename, a review's "keep mine", a calendar link
+  resolved onto a list - queues the *create* again instead, and the create carries what the edit
+  changed (`LostCreates`, used by all six repositories and `PendingCalendarLinkResolver`). A copy
+  awaiting review is left alone: it has no create on purpose.
+  - **Not done, and chosen not to be:** the other design, a mark on the row the list can draw with
+    "send again" under its menu. The retry is silent, so a row nobody edits again stays on the phone
+    alone, and a server that keeps refusing it says so in the feed once per five tries.
 
 - ~~**Options still calls an inventory a "storage".**~~ Done on 2026-09-10, and it was wider than the
   export section: eleven English strings across both clients still said storage - the task editor's

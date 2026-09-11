@@ -297,7 +297,11 @@ public sealed class LocalNoteRepository : ICopyReviewStore
         original.Title = copy.Title;
         original.Content = copy.Content;
         original.UpdatedAtUtc = now;
-        Enqueue(dbContext, original.LocalId, OutboxOperation.Update, now, original.ServerId);
+        if (!await LostCreates.QueueAgainAsync(
+                dbContext, SyncEntityType.Note, original.LocalId, original.ServerId, now, cancellationToken))
+        {
+            Enqueue(dbContext, original.LocalId, OutboxOperation.Update, now, original.ServerId);
+        }
 
         CopiesForEditing.Remove(dbContext, copy, SyncEntityType.Note);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -409,7 +413,10 @@ public sealed class LocalNoteRepository : ICopyReviewStore
         note.Priority = content.Priority;
         note.UpdatedAtUtc = now;
 
-        if (!CopiesForEditing.IsAwaitingReview(note))
+        // A note whose create the outbox gave up on is created again rather than updated - see LostCreates.
+        if (!CopiesForEditing.IsAwaitingReview(note)
+            && !await LostCreates.QueueAgainAsync(
+                dbContext, SyncEntityType.Note, localId, note.ServerId, now, cancellationToken))
         {
             Enqueue(dbContext, localId, OutboxOperation.Update, now);
         }
@@ -506,10 +513,16 @@ public sealed class LocalNoteRepository : ICopyReviewStore
         note.FolderId = folderId;
 
         // A note the server has never seen carries its folder on the create instead - there is nothing
-        // to send a filing against yet, and the create is already queued in front of it.
+        // to send a filing against yet. The create is queued in front of this, or is queued again here
+        // when the outbox gave up on it (see LostCreates); a copy awaiting review is sent by its review.
         if (note.ServerId is not null)
         {
             Enqueue(dbContext, localId, OutboxOperation.File, _timeProvider.GetUtcNow(), note.ServerId);
+        }
+        else if (!CopiesForEditing.IsAwaitingReview(note))
+        {
+            await LostCreates.QueueAgainAsync(
+                dbContext, SyncEntityType.Note, localId, serverId: null, _timeProvider.GetUtcNow(), cancellationToken);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

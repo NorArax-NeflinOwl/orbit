@@ -257,6 +257,32 @@ public sealed class NoteSynchronizerTests
     }
 
     /// <summary>
+    /// What is left after that give-up: a row with no server id. Every later edit used to queue an
+    /// update, which is abandoned quietly on a row the server has never seen - so the note stayed on this
+    /// phone for good, reading like any other. The next edit is a second try at the create now, and it
+    /// carries what the edit changed - see LostCreates.
+    /// </summary>
+    [Fact]
+    public async Task Editing_a_note_whose_create_was_given_up_on_creates_it_after_all()
+    {
+        using var context = new SyncContext();
+        var note = await context.Notes.CreateAsync("Written for a server that is behind", SomeContent);
+        context.Server.ForcedWriteFailure = HttpStatusCode.NotFound;
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            await context.SynchroniseAsync();
+        }
+
+        context.Server.ForcedWriteFailure = null;
+        await context.Notes.UpdateAsync(note.LocalId, new NoteContent("Sent at last", SomeContent, "Normal"));
+        await context.SynchroniseAsync();
+
+        Assert.Single(context.Server.Notes, sent => sent.Title == "Sent at last");
+        Assert.NotNull((await context.DbContext.Notes.SingleAsync(stored => stored.LocalId == note.LocalId)).ServerId);
+        Assert.Empty(await context.DbContext.Outbox.ToListAsync());
+    }
+
+    /// <summary>
     /// A server that was merely behind gets its five syncs: the create is still there to send once the
     /// endpoint exists.
     /// </summary>

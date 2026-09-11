@@ -183,7 +183,11 @@ public sealed class LocalInventoryRepository : ICopyReviewStore
 
         // A copy still awaiting review is written to this phone and queued for nobody: what it is has
         // not been decided yet, and the review is what sends it - see LocalNoteRepository.UpdateAsync.
-        if (!CopiesForEditing.IsAwaitingReview(inventory))
+        // An inventory whose create the outbox gave up on is created again rather than updated - see
+        // LostCreates.
+        if (!CopiesForEditing.IsAwaitingReview(inventory)
+            && !await LostCreates.QueueAgainAsync(
+                dbContext, SyncEntityType.Inventory, localId, inventory.ServerId, now, cancellationToken))
         {
             Enqueue(dbContext, localId, OutboxOperation.Update, now);
         }
@@ -343,7 +347,11 @@ public sealed class LocalInventoryRepository : ICopyReviewStore
         original.Name = copy.Name;
         original.Items = copy.Items;
         original.UpdatedAtUtc = now;
-        Enqueue(dbContext, original.LocalId, OutboxOperation.Update, now, original.ServerId);
+        if (!await LostCreates.QueueAgainAsync(
+                dbContext, SyncEntityType.Inventory, original.LocalId, original.ServerId, now, cancellationToken))
+        {
+            Enqueue(dbContext, original.LocalId, OutboxOperation.Update, now, original.ServerId);
+        }
 
         CopiesForEditing.Remove(dbContext, copy, SyncEntityType.Inventory);
         await dbContext.SaveChangesAsync(cancellationToken);
