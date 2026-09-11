@@ -159,6 +159,9 @@ public sealed class SharedControlTests : OrbitTestContext
         Assert.Contains("Not unlocked yet", cut.Markup);
         Assert.Contains("Conversations, with one person or with several.", cut.Markup);
         Assert.Equal("/options", cut.Find("a").GetAttribute("href"));
+        // Behind a "!" beside the title rather than as prose under it: it is true of this screen now.
+        Assert.Equal("!", cut.Find(".options-row-title .field-hint-mark").TextContent);
+        Assert.Contains("Conversations, with one person or with several.", cut.Find(".field-hint-bubble").TextContent);
     }
 
     [Theory]
