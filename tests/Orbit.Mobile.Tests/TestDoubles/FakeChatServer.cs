@@ -326,9 +326,7 @@ internal sealed class FakeChatServer : HttpMessageHandler
         // api/chat/groups/{id}/membership - leaving, which the rest of the group sees.
         if (segments.Length == 5 && segments[4] == "membership" && request.Method == HttpMethod.Delete)
         {
-            GroupsLeft.Add(group.Id);
-            Groups[Groups.IndexOf(group)] = Without(group, CallerUserId);
-            return new HttpResponseMessage(HttpStatusCode.NoContent);
+            return Leave(group, request);
         }
 
         // api/chat/groups/{id}/read
@@ -459,6 +457,60 @@ internal sealed class FakeChatServer : HttpMessageHandler
 
         return group with { Members = remaining };
     }
+
+    /// <summary>
+    /// Who each accepted leave named to take over, in order - null for a leave that named nobody. What the
+    /// phone sent, which the group's state afterwards cannot always tell apart from the server's own choice.
+    /// </summary>
+    public List<Guid?> SuccessorsNamed { get; } = [];
+
+    /// <summary>
+    /// Leaving through the leave route, by ChatGroup.Leave itself rather than a copy of its rules: a named
+    /// successor is promoted, and one who is not in the group, is the leaver, or is named by somebody who
+    /// is not an admin is refused in the server's own words - with the group left exactly as it was. The
+    /// last person out takes the group with them, as LeaveChatGroupCommandHandler deletes an emptied one.
+    /// </summary>
+    private HttpResponseMessage Leave(ChatGroupDto group, HttpRequestMessage request)
+    {
+        var named = HttpUtility.ParseQueryString(request.RequestUri!.Query)["successorUserId"];
+        Guid? successorUserId = named is null ? null : Guid.Parse(named);
+
+        var domain = ToDomain(group);
+        try
+        {
+            domain.Leave(CallerUserId, successorUserId);
+        }
+        catch (Orbit.Core.Abstractions.InvalidRequestException refusal)
+        {
+            return Refused(refusal.Message);
+        }
+
+        GroupsLeft.Add(group.Id);
+        SuccessorsNamed.Add(successorUserId);
+
+        var index = Groups.IndexOf(group);
+        if (domain.IsEmpty)
+        {
+            Groups.RemoveAt(index);
+        }
+        else
+        {
+            Groups[index] = group with
+            {
+                Members = [.. domain.Members.Select(member =>
+                    new ChatGroupMemberDto(member.UserId, member.Role.ToString(), member.JoinedAtUtc))]
+            };
+        }
+
+        return new HttpResponseMessage(HttpStatusCode.NoContent);
+    }
+
+    private static Orbit.Core.Chat.Groups.ChatGroup ToDomain(ChatGroupDto group)
+        => Orbit.Core.Chat.Groups.ChatGroup.FromPersistence(
+            group.Id, group.Name, group.CreatedByUserId, group.CreatedAtUtc, group.LastMessageAtUtc,
+            [.. group.Members.Select(member => new Orbit.Core.Chat.Groups.ChatGroupMembership(
+                group.Id, member.UserId, Enum.Parse<Orbit.Core.Chat.Groups.ChatGroupRole>(member.Role),
+                member.JoinedAtUtc))]);
 
     /// <summary>A refusal the caller is entitled to hear about - see InvalidRequestExceptionHandler.</summary>
     private static HttpResponseMessage Refused(string message)

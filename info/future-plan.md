@@ -628,14 +628,14 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
-- **Only the web's members page asks who takes over a group.** Since 2026-09-11 a group's last admin
-  may leave, naming a successor (`successorUserId` on `DELETE /api/chat/groups/{id}/membership`) or
-  letting the server promote the longest-standing member (`ChatGroup.Leave`). The roster offers the
-  picker; the archive's "Leave and delete chat history" (`Contacts.razor`) and the phone (group detail
-  and group list) leave without asking, so they always get the automatic choice. What it would take: the
-  roster's confirmation panel pulled out into a component the archive can open too, and on the phone a
-  second step after "Leave group" when `GroupMemberRow.IsSelf` is the only admin - then a rebuilt APK,
-  since the phone updates on its own schedule.
+- ~~**Only the web's members page asks who takes over a group.**~~ Fixed 2026-09-11: the roster's
+  question is `GroupLeaveConfirmation`, which the archive's "Leave and delete chat history" opens too, and
+  the phone asks the same question (`GroupLeaveQuestion`, `GroupLeaveDialog`) from the group's own screen
+  and from the group list, sending the choice as `successorUserId` (needs the rebuilt APK). As noticed:
+  since 2026-09-11 a group's last admin may leave, naming a successor (`successorUserId` on
+  `DELETE /api/chat/groups/{id}/membership`) or letting the server promote the longest-standing member
+  (`ChatGroup.Leave`). The roster offered the picker; the archive (`Contacts.razor`) and the phone (group
+  detail and group list) left without asking, so they always got the automatic choice.
 
 - ~~**The phone's group detail screen leaves through the wrong route.**~~ Fixed 2026-09-11: the self row
   now calls `ChatClient.LeaveGroupAsync` (needs the rebuilt APK). As noticed: `GroupDetailViewModel.RemoveAsync`

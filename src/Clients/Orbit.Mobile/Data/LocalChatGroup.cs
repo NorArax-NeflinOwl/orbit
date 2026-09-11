@@ -40,4 +40,11 @@ public sealed class LocalChatGroup
 /// <see cref="LocalContact"/> gives: a key the member has since replaced would seal a message nobody
 /// can open.
 /// </summary>
-public sealed record LocalChatGroupMember(Guid UserId, string Role, string DisplayName, string? PublicKeyBase64);
+/// <param name="JoinedAtUtc">
+/// When they joined, which is who takes over by default when the group's only admin leaves - see
+/// Orbit.Core.Chat.Groups.ChatGroup.ChooseSuccessor. Optional and last because the membership is one JSON
+/// column: a row stored before this existed reads back with the default, until the next refresh of the
+/// group list - which every screen that asks the question runs on opening - writes the real one.
+/// </param>
+public sealed record LocalChatGroupMember(
+    Guid UserId, string Role, string DisplayName, string? PublicKeyBase64, DateTimeOffset JoinedAtUtc = default);

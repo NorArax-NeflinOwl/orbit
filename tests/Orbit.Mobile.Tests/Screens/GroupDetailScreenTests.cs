@@ -122,9 +122,9 @@ public sealed class GroupDetailScreenTests
     }
 
     /// <summary>
-    /// The only admin can leave straight away, without promoting anybody first - installed phones have
-    /// no "who takes over" step, so the server hands the group to its longest-standing member. This
-    /// used to come back as a refusal, which left the one person with the most say unable to get out.
+    /// The only admin can leave straight away, without promoting anybody first - they are asked who takes
+    /// over, and confirming with the choice left alone hands the group to its longest-standing member.
+    /// This used to come back as a refusal, which left the one person with the most say unable to get out.
     /// </summary>
     [Fact]
     public async Task The_only_admin_can_leave_without_promoting_anybody_first()
@@ -137,6 +137,153 @@ public sealed class GroupDetailScreenTests
 
         Assert.Equal("ShowGroups", context.Navigator.LastDestination);
         Assert.Equal("Admin", context.Server.Groups.Single().Members.Single().Role);
+    }
+
+    /// <summary>
+    /// The only admin leaving people behind is asked who takes over, and the person already chosen is the
+    /// one the server would pick by itself - the longest-standing, who is not first by name here, so a
+    /// choice that defaulted to the alphabet would fail. Saying no leaves nobody.
+    /// </summary>
+    [Fact]
+    public async Task The_only_admin_is_asked_who_takes_over_with_the_longest_standing_member_chosen()
+    {
+        using var context = new GroupContext();
+        var zenon = context.AddContact("Zenon");
+        var ada = context.AddContact("Ada");
+        context.AnswerToLeaving = _ => false;
+        var screen = await context.OpenGroupAsync("Trip", withMembers: [zenon], joiningLater: [ada]);
+
+        await screen.RemoveCommand.ExecuteAsync(screen.Members.Single(member => member.IsSelf));
+
+        var question = Assert.Single(context.Questions);
+        Assert.True(question.MustChooseSuccessor);
+        Assert.Equal(zenon, question.ChosenSuccessorUserId);
+        Assert.Equal(new[] { "Zenon", "Ada" }, question.Candidates.Select(candidate => candidate.DisplayName));
+        Assert.Empty(context.Server.GroupsLeft);
+        Assert.NotEqual("ShowGroups", context.Navigator.LastDestination);
+    }
+
+    [Fact]
+    public async Task The_chosen_successor_is_sent_and_takes_over()
+    {
+        using var context = new GroupContext();
+        var zenon = context.AddContact("Zenon");
+        var ada = context.AddContact("Ada");
+        context.AnswerToLeaving = question =>
+        {
+            question.ChosenSuccessorUserId = ada;
+            return true;
+        };
+        var screen = await context.OpenGroupAsync("Trip", withMembers: [zenon], joiningLater: [ada]);
+
+        await screen.RemoveCommand.ExecuteAsync(screen.Members.Single(member => member.IsSelf));
+
+        Assert.Equal(ada, Assert.Single(context.Server.SuccessorsNamed));
+        var group = Assert.Single(context.Server.Groups);
+        Assert.Equal("Admin", group.Members.Single(member => member.UserId == ada).Role);
+        Assert.Equal("Member", group.Members.Single(member => member.UserId == zenon).Role);
+        Assert.Equal("ShowGroups", context.Navigator.LastDestination);
+    }
+
+    /// <summary>The last person out is told the group goes with them - and it does.</summary>
+    [Fact]
+    public async Task The_last_one_out_is_told_the_group_goes_with_them()
+    {
+        using var context = new GroupContext();
+        var screen = await context.OpenGroupAsync("Trip");
+
+        await screen.RemoveCommand.ExecuteAsync(screen.Members.Single(member => member.IsSelf));
+
+        var question = Assert.Single(context.Questions);
+        Assert.True(question.IsLastOneOut);
+        Assert.False(question.MustChooseSuccessor);
+        Assert.Contains("the group is deleted when you go", question.Message);
+        Assert.Empty(context.Server.Groups);
+        Assert.Equal("ShowGroups", context.Navigator.LastDestination);
+    }
+
+    /// <summary>Everybody is asked to confirm, and a plain member is asked nothing more - and names nobody.</summary>
+    [Fact]
+    public async Task A_plain_member_is_asked_only_to_confirm()
+    {
+        using var context = new GroupContext();
+        var celina = context.AddContact("Celina");
+        var screen = await context.OpenGroupAsync("Trip", withMembers: [celina], ownRole: "Member");
+
+        await screen.RemoveCommand.ExecuteAsync(screen.Members.Single(member => member.IsSelf));
+
+        var question = Assert.Single(context.Questions);
+        Assert.False(question.MustChooseSuccessor);
+        Assert.False(question.IsLastOneOut);
+        Assert.Equal(
+            "Leave this group? Your copies of its messages go with you, and only an admin can add you back.",
+            question.Message);
+        Assert.Null(Assert.Single(context.Server.SuccessorsNamed));
+    }
+
+    /// <summary>
+    /// The person chosen has left in the meantime. The server refuses rather than handing the group to
+    /// somebody else, and the screen says so in its words, stays, and reads the group again so the next
+    /// question offers who is actually there.
+    /// </summary>
+    [Fact]
+    public async Task A_refused_leave_is_said_in_the_servers_words_and_the_reader_stays()
+    {
+        using var context = new GroupContext();
+        var zenon = context.AddContact("Zenon");
+        var ada = context.AddContact("Ada");
+        context.AnswerToLeaving = question =>
+        {
+            question.ChosenSuccessorUserId = ada;
+            context.LeavesInTheMeantime(ada);
+            return true;
+        };
+        var screen = await context.OpenGroupAsync("Trip", withMembers: [zenon], joiningLater: [ada]);
+
+        await screen.RemoveCommand.ExecuteAsync(screen.Members.Single(member => member.IsSelf));
+
+        Assert.Contains("isn't in this group any more", screen.Message);
+        Assert.Empty(context.Server.GroupsLeft);
+        Assert.NotEqual("ShowGroups", context.Navigator.LastDestination);
+        Assert.Contains(screen.Members, member => member.IsSelf);
+        Assert.DoesNotContain(screen.Members, member => member.DisplayName == "Ada");
+    }
+
+    /// <summary>
+    /// The fake refuses what ChatGroup.Leave refuses - the leaver named as their own successor, and a plain
+    /// member naming anybody at all - and leaves the group as it was. A fake that took these would let a
+    /// phone that sent them look right.
+    /// </summary>
+    [Fact]
+    public async Task The_server_refuses_a_successor_it_would_not_accept()
+    {
+        using var context = new GroupContext();
+        var celina = context.AddContact("Celina");
+        await context.OpenGroupAsync("Trip", withMembers: [celina]);
+        var groupId = context.Server.Groups.Single().Id;
+
+        var yourself = await context.Client.LeaveGroupAsync(groupId, context.OwnUserId);
+        Assert.Equal("Choose somebody other than yourself to take over.", yourself.Refusal);
+
+        var stranger = await context.Client.LeaveGroupAsync(groupId, Guid.NewGuid());
+        Assert.Equal("The person you chose to take over isn't in this group any more.", stranger.Refusal);
+
+        Assert.Empty(context.Server.GroupsLeft);
+        Assert.Equal(2, context.Server.Groups.Single().Members.Count);
+    }
+
+    [Fact]
+    public async Task The_server_refuses_a_plain_member_who_names_a_successor()
+    {
+        using var context = new GroupContext();
+        var celina = context.AddContact("Celina");
+        await context.OpenGroupAsync("Trip", withMembers: [celina], ownRole: "Member");
+        var groupId = context.Server.Groups.Single().Id;
+
+        var result = await context.Client.LeaveGroupAsync(groupId, celina);
+
+        Assert.Equal("Only a group admin can choose who takes over.", result.Refusal);
+        Assert.Empty(context.Server.GroupsLeft);
     }
 
     /// <summary>
@@ -261,6 +408,23 @@ public sealed class GroupDetailScreenTests
 
         public RecordingScreenNavigator Navigator { get; } = new();
 
+        public ChatClient Client => _chatClient;
+
+        public Guid OwnUserId => _ownUserId;
+
+        /// <summary>Every question the screen asked before leaving, in order - what the page would have shown.</summary>
+        public List<GroupLeaveQuestion> Questions { get; } = [];
+
+        /// <summary>How the reader answers. Yes, with the choice left alone, unless a test says otherwise.</summary>
+        public Func<GroupLeaveQuestion, bool> AnswerToLeaving { get; set; } = _ => true;
+
+        /// <summary>Somebody leaves on the server while the question is on screen - the phone has not heard yet.</summary>
+        public void LeavesInTheMeantime(Guid userId)
+        {
+            var group = Server.Groups.Single();
+            Server.Groups[0] = group with { Members = [.. group.Members.Where(member => member.UserId != userId)] };
+        }
+
         /// <summary>Somebody this account has a conversation with, so the server will let them be added.</summary>
         public Guid AddContact(string displayName)
         {
@@ -271,8 +435,12 @@ public sealed class GroupDetailScreenTests
             return userId;
         }
 
+        /// <param name="joiningLater">
+        /// Put in as plain members a day apart, after everybody in withMembers - so who has been there
+        /// longest is decided by when they joined rather than by whose id sorts first.
+        /// </param>
         public async Task<GroupDetailViewModel> OpenGroupAsync(
-            string name, Guid[]? withMembers = null, string ownRole = "Admin")
+            string name, Guid[]? withMembers = null, string ownRole = "Admin", Guid[]? joiningLater = null)
         {
             var group = Server.AddGroup(name, withMembers ?? []);
             if (ownRole != "Admin")
@@ -286,13 +454,26 @@ public sealed class GroupDetailScreenTests
                 };
             }
 
+            foreach (var userId in joiningLater ?? [])
+            {
+                _clock.Advance(TimeSpan.FromDays(1));
+                Server.AddMember(group.Id, userId);
+            }
+
             await _synchronizer.SynchroniseGroupsAsync();
             var stored = (await _repository.GetGroupsAsync()).Single(candidate => candidate.Id == group.Id);
 
             var screen = new GroupDetailViewModel(
                 _repository, _chatClient, _synchronizer, _sessionStore,
                 GroupHistory.SharedBy(_chatClient, _sessionStore, _users),
-                new Translations(new InMemoryLanguageStore()), Navigator);
+                new Translations(new InMemoryLanguageStore()), Navigator)
+            {
+                AskBeforeLeaving = question =>
+                {
+                    Questions.Add(question);
+                    return Task.FromResult(AnswerToLeaving(question));
+                }
+            };
             screen.Open(stored);
             await screen.LoadCommand.ExecuteAsync(null);
             return screen;

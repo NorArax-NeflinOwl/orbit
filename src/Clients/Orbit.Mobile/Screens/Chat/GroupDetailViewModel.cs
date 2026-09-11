@@ -220,25 +220,26 @@ public sealed partial class GroupDetailViewModel : ObservableObject
         // Your own row leaves through the leave route rather than by removing yourself: the server takes the
         // account out either way, but only leaving also deletes this reader's copies of what was said in the
         // group, which removing left behind for nobody to read - see LeaveChatGroupCommand.
-        if (!await ApplyAsync(
-                group => member.IsSelf
-                    ? LeaveAsync(group, cancellationToken)
-                    : _chatClient.RemoveGroupMemberAsync(group, member.UserId, cancellationToken),
-                cancellationToken))
-        {
-            return;
-        }
-
-        // There is nothing left to look at once you have left.
         if (member.IsSelf)
         {
-            await _synchronizer.SynchroniseGroupsAsync(cancellationToken);
-            _navigator.ShowGroups();
+            await LeaveAsync(cancellationToken);
             return;
         }
 
-        await LoadAsync(cancellationToken);
+        if (await ApplyAsync(
+                group => _chatClient.RemoveGroupMemberAsync(group, member.UserId, cancellationToken),
+                cancellationToken))
+        {
+            await LoadAsync(cancellationToken);
+        }
     }
+
+    /// <summary>
+    /// Puts a <see cref="GroupLeaveQuestion"/> on screen and answers whether the reader still wants to go -
+    /// set by the page, which is what knows how to ask. Nobody to ask means nobody leaves: going without
+    /// the question is what this replaced.
+    /// </summary>
+    public Func<GroupLeaveQuestion, Task<bool>>? AskBeforeLeaving { get; set; }
 
     [RelayCommand]
     private Task PromoteAsync(GroupMemberRow? member, CancellationToken cancellationToken)
@@ -260,13 +261,52 @@ public sealed partial class GroupDetailViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Leaving, answered the way ApplyAsync reads every other change: a group the server no longer has is
-    /// the same "no longer available" a removal that found nobody would be.
+    /// Leaves the group once the reader has answered the question - who takes over included, when they are
+    /// its only admin - and goes back to the list, since there is nothing left to look at. A refusal (the
+    /// chosen successor has left in the meantime, say) is said in the server's words, and the group is read
+    /// again so the next question offers who is actually there now.
     /// </summary>
-    private async Task<GroupMemberChangeResult> LeaveAsync(Guid groupId, CancellationToken cancellationToken)
-        => await _chatClient.LeaveGroupAsync(groupId, cancellationToken)
-            ? GroupMemberChangeResult.Applied
-            : new GroupMemberChangeResult(Done: false);
+    private async Task LeaveAsync(CancellationToken cancellationToken)
+    {
+        if (_group is null || AskBeforeLeaving is null)
+        {
+            return;
+        }
+
+        var ownUserId = await _sessionStore.GetAsync() is { } session ? session.UserId : Guid.Empty;
+        var question = GroupLeaveQuestion.For(_group, ownUserId, _translations);
+        if (!await AskBeforeLeaving(question))
+        {
+            return;
+        }
+
+        var wasRefused = false;
+        var left = await ApplyAsync(
+            async group =>
+            {
+                var result = await _chatClient.LeaveGroupAsync(group, question.SuccessorToSend, cancellationToken);
+                wasRefused = result.Refusal is not null;
+                return result;
+            },
+            cancellationToken);
+
+        if (!left)
+        {
+            if (wasRefused)
+            {
+                // Read again after the refusal is on screen, and put back after it: the reload says nothing
+                // of its own unless it fails, and the refusal is the thing the reader needs to see.
+                var refusal = Message;
+                await LoadAsync(cancellationToken);
+                Message = refusal;
+            }
+
+            return;
+        }
+
+        await _synchronizer.SynchroniseGroupsAsync(cancellationToken);
+        _navigator.ShowGroups();
+    }
 
     /// <summary>
     /// Runs one membership change and turns whatever came back into something to read. False means the
@@ -289,7 +329,11 @@ public sealed partial class GroupDetailViewModel : ObservableObject
                 return true;
             }
 
-            Message = result.Refusal ?? _translations["This group is no longer available."];
+            // The server's words, in the reader's language where the dictionary has them - it does for
+            // every rule ChatGroup states.
+            Message = result.Refusal is { } refusal
+                ? _translations[refusal]
+                : _translations["This group is no longer available."];
             return false;
         }
         catch (HttpRequestException)

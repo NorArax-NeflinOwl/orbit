@@ -96,7 +96,8 @@ public sealed class ChatSynchronizer
                             member.UserId,
                             member.Role,
                             members.GetValueOrDefault(member.UserId)?.DisplayName ?? "Someone",
-                            members.GetValueOrDefault(member.UserId)?.PublicKeyBase64))
+                            members.GetValueOrDefault(member.UserId)?.PublicKeyBase64,
+                            member.JoinedAtUtc))
                         .ToList()
                 }).ToList(),
                 cancellationToken);

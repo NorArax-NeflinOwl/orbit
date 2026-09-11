@@ -948,20 +948,27 @@ made the names the narrowest thing on it. It offers three things: **Make admin**
 contact too), and **Remove** — or **Leave group** on your own row, since showing yourself out is not the
 same act as removing somebody and needs no admin standing.
 
-**Anybody may leave, whatever their role and whoever else is in the group.** Leaving from the roster
-asks first — it goes through the same `DELETE /api/chat/groups/{id}/membership` route as the archive's
-"Leave and delete chat history", so your copies of the group's messages go with you. When you are the
+**Anybody may leave, whatever their role and whoever else is in the group.** Leaving always asks first,
+wherever it starts — the roster's own row, the archive's "Leave and delete chat history", and on the
+phone the group's own screen and a group's row in the list — and always goes through
+`DELETE /api/chat/groups/{id}/membership`, so your copies of the group's messages go with you. The
+question is one thing written once per client: `GroupLeaveConfirmation` on the web (the roster shows it
+under the members, the archive under the row), `GroupLeaveQuestion` on the phone (asked by
+`GroupLeaveDialog`: an action sheet for the choice, then the confirmation). Everybody is asked to
+confirm; **the last person out is told the group is deleted when they go**; and when you are the
 group's **only admin and other people remain**, the question also asks **who takes over**, with the
 longest-standing member already chosen: the person the server would pick anyway, by the same
-`ChatGroup.ChooseSuccessor` rule, so confirming without looking is never worse than not being asked. The
-choice travels as an optional `successorUserId` query value; left out — by the archive, and by every
-phone build — the server promotes the longest-standing member itself, the rule an account deletion has
-always used. A named successor who is no longer in the group, or is the leaver, is **refused rather than
-swapped** for the automatic choice: the leaver asked for a particular person and could not undo somebody
-else being handed the group once out, whereas a refusal costs one more look at the roster, which the page
-re-reads and says the refusal on screen. The last person out empties the group and it is deleted.
-Removing yourself through the older `members/{yourId}` route — what installed phones do — follows the
-same rules (`ChatGroup.RemoveMember` hands itself to `ChatGroup.Leave`).
+`ChatGroup.ChooseSuccessor` rule, so confirming without looking is never worse than not being asked (the
+phone keeps each member's join time for this, in the membership it caches). The choice travels as an
+optional `successorUserId` query value; left out — by phone builds from before 2026-09-11 — the server
+promotes the longest-standing member itself, the rule an account deletion has always used. A named
+successor who is no longer in the group, or is the leaver, is **refused rather than swapped** for the
+automatic choice, and so is a plain member who names anybody: the leaver asked for a particular person
+and could not undo somebody else being handed the group once out, whereas a refusal costs one more look
+at the roster. Both clients say the refusal in the server's own words and read the group again, so the
+next question offers who is actually there. The last person out empties the group and it is deleted.
+Removing yourself through the older `members/{yourId}` route — what installed phones from before
+2026-09-11 do — follows the same rules (`ChatGroup.RemoveMember` hands itself to `ChatGroup.Leave`).
 
 **What the reader may not do is greyed, not left out**, and says why on itself. An option that
 disappears looks like an option that does not exist, and "you are not an admin here" is worth saying;
