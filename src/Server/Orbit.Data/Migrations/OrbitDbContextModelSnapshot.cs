@@ -957,6 +957,13 @@ namespace Orbit.Data.Migrations
                         .HasDefaultValue("Normal")
                         .HasColumnName("OP_N_PRIORITY");
 
+                    b.Property<string>("TagsJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("[]")
+                        .HasColumnName("OP_N_TAGSJSON");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -1554,6 +1561,38 @@ namespace Orbit.Data.Migrations
                     b.ToTable("OS_SYNC_TOMBSTONES");
                 });
 
+            modelBuilder.Entity("Orbit.Data.Entities.TagColourEntity", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_TC_USERID");
+
+                    b.Property<string>("NormalizedTag")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("OS_TC_NORMALIZEDTAG");
+
+                    b.Property<string>("Colour")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("OS_TC_COLOUR");
+
+                    b.Property<string>("Tag")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("OS_TC_TAG");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_TC_UPDATEDATUTC");
+
+                    b.HasKey("UserId", "NormalizedTag");
+
+                    b.ToTable("OS_TAGS_COLOURS");
+                });
+
             modelBuilder.Entity("Orbit.Data.Entities.TaskDailyReminderDeliveryEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1661,6 +1700,13 @@ namespace Orbit.Data.Migrations
                         .HasDefaultValue("Normal")
                         .HasColumnName("OP_T_PRIORITY");
 
+                    b.Property<string>("TagsJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("[]")
+                        .HasColumnName("OP_T_TAGSJSON");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -1755,6 +1801,10 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("character varying(20)")
                         .HasDefaultValue("")
                         .HasColumnName("OP_TI_COLOUR");
+
+                    b.Property<DateTimeOffset?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_TI_COMPLETEDATUTC");
 
                     b.Property<DateTimeOffset?>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")

@@ -5,6 +5,7 @@ using Microsoft.JSInterop;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Inventories;
+using Orbit.Core.Tasks;
 
 namespace Orbit.Web.Services;
 
@@ -110,10 +111,19 @@ public sealed class TaskItemCompletion(
             .. item.AllAlternatives.Select((way, index) =>
                 index == wayIndex && way.LinkedTaskListId is null ? way with { IsDone = isDone } : way)
         ];
+        var isDoneNow = ways.Any(way => way.IsDone);
         return SaveAsync(
             taskList,
             [.. taskList.Items.Select(existingItem => existingItem.Id == item.Id
-                ? TaskItemRequest.From(existingItem) with { Alternatives = ways, IsCompleted = ways.Any(way => way.IsDone) }
+                ? TaskItemRequest.From(existingItem) with
+                {
+                    Alternatives = ways,
+                    IsCompleted = isDoneNow,
+                    // Taking a way is what finished the entry, so it is when the entry was done -
+                    // recorded here for the same reason a tick's time is, see TaskItemCompletionTime.
+                    CompletedAtUtc = TaskItemCompletionTime.After(
+                        existingItem.IsCompleted, existingItem.CompletedAtUtc, isDoneNow, DateTimeOffset.UtcNow)
+                }
                 : TaskItemRequest.From(existingItem))],
             cancellationToken);
     }
@@ -163,6 +173,26 @@ public sealed class TaskItemCompletion(
         return await SaveAsync(taskList, items, cancellationToken) == TaskItemTickOutcome.Ticked ? copyId : null;
     }
 
+    /// <summary>
+    /// Corrects when a finished entry was done - the entry page's date and time, which are offered only
+    /// once the entry is ticked. The same whole-list save a tick is, with that one entry's time changed;
+    /// an entry that is not done has no time to correct, and asking changes nothing.
+    /// </summary>
+    public Task<TaskItemTickOutcome> SetCompletedAtAsync(
+        TaskDto taskList, TaskItemDto item, DateTimeOffset completedAtUtc, CancellationToken cancellationToken = default)
+    {
+        FailureMessage = null;
+        Note = null;
+        return SaveAsync(
+            taskList,
+            [
+                .. taskList.Items.Select(existingItem => existingItem.Id == item.Id && existingItem.IsCompleted
+                    ? TaskItemRequest.From(existingItem) with { CompletedAtUtc = completedAtUtc.ToUniversalTime() }
+                    : TaskItemRequest.From(existingItem))
+            ],
+            cancellationToken);
+    }
+
     /// <summary>Every entry as it already is, with one entry's answer changed.</summary>
     private static List<TaskItemRequest> TicksChanged(
         TaskDto taskList, TaskItemDto item, TickState state, int toggledIndex)
@@ -176,11 +206,18 @@ public sealed class TaskItemCompletion(
                     ? index == toggledIndex
                     : existingItem.Id == item.Id;
 
-                return TaskItemRequest.From(existingItem) with
-                {
-                    IsCompleted = isTheOneBeingTicked ? state.IsCompleted() : existingItem.IsCompleted,
-                    IsFailed = isTheOneBeingTicked ? state.IsFailed() : existingItem.IsFailed
-                };
+                return isTheOneBeingTicked
+                    ? TaskItemRequest.From(existingItem) with
+                    {
+                        IsCompleted = state.IsCompleted(),
+                        IsFailed = state.IsFailed(),
+                        // Recorded here rather than left to the server, which never sees a private
+                        // list's entries - see TaskItemCompletionTime.
+                        CompletedAtUtc = TaskItemCompletionTime.After(
+                            existingItem.IsCompleted, existingItem.CompletedAtUtc, state.IsCompleted(),
+                            DateTimeOffset.UtcNow)
+                    }
+                    : TaskItemRequest.From(existingItem);
             })
             .ToList();
     }
@@ -199,10 +236,12 @@ public sealed class TaskItemCompletion(
                 // Everything about the list as it already is, not only its entries: the endpoint replaces a
                 // list wholesale, and a request that left IsPrivate out saved a private list back in the
                 // clear - its title and every entry readable on the server - while one that left Priority
-                // out put every list back to Normal on a tick. The description and the reader's answer
-                // about whether it is finished say "not provided" by being null, and keep what is stored.
+                // out put every list back to Normal on a tick, and one that left the tags out emptied
+                // them. The description and the reader's answer about whether it is finished say "not
+                // provided" by being null, and keep what is stored.
                 new UpdateTaskRequest(
-                    taskList.Title, items, taskList.IsGroup, taskList.IsPrivate, Priority: taskList.Priority),
+                    taskList.Title, items, taskList.IsGroup, taskList.IsPrivate,
+                    Priority: taskList.Priority, Tags: taskList.AllTags),
                 cancellationToken);
             if (outcome.Kind == EditOutcomeKind.Locked)
             {

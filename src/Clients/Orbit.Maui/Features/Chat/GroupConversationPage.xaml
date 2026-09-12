@@ -35,7 +35,8 @@
                FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
 
         <RefreshView Grid.Row="3" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
-            <CollectionView x:Name="Thread" ItemsSource="{Binding Messages}" ItemsUpdatingScrollMode="KeepLastItemInView">
+            <CollectionView x:Name="Thread" ItemsSource="{Binding Messages}" ItemsUpdatingScrollMode="KeepLastItemInView"
+                            Scrolled="OnThreadScrolled">
 
                 <CollectionView.EmptyView>
                     <Label Text="{controls:Translate 'No messages yet.'}" Padding="0,12" Style="{StaticResource EmptyHint}" />

@@ -41,6 +41,16 @@ public partial class IconButton : ContentView
 		nameof(IsEnabledForPress), typeof(bool), typeof(IconButton), true,
 		propertyChanged: (button, _, _) => ((IconButton)button).Redraw());
 
+	/// <summary>
+	/// How big the press target is. 30 by default, Orbit.Web's .icon-btn, for a button in a row of others
+	/// at a card's head; 44 where the button is a thumb's work on the screen - the size the phone's style
+	/// gives every other control it presses (Styles.xaml's MinimumHeightRequest). The drawing stays 18
+	/// either way: only the area that takes the press grows.
+	/// </summary>
+	public static readonly BindableProperty TouchSizeProperty = BindableProperty.Create(
+		nameof(TouchSize), typeof(double), typeof(IconButton), 30d,
+		propertyChanged: (button, _, _) => ((IconButton)button).Redraw());
+
 	public IconButton()
 	{
 		InitializeComponent();
@@ -92,6 +102,13 @@ public partial class IconButton : ContentView
 		set => SetValue(IsEnabledForPressProperty, value);
 	}
 
+	/// <inheritdoc cref="TouchSizeProperty"/>
+	public double TouchSize
+	{
+		get => (double)GetValue(TouchSizeProperty);
+		set => SetValue(TouchSizeProperty, value);
+	}
+
 	/// <summary>
 	/// Which of the two looks this is, as the two styles that draw it. Styles rather than properties
 	/// set here, because the accent is a resource the reader can change while a screen is open - and
@@ -103,6 +120,9 @@ public partial class IconButton : ContentView
 
 		ButtonFrame.Style = Look<Style>(isAccented ? "PageAddBorder" : "IconButtonFrame");
 		Glyph.Style = Look<Style>(isAccented ? "IconPathAccent" : "IconPath");
+		// After the style, which says 30: a value set here wins over a style's setter.
+		ButtonFrame.WidthRequest = TouchSize;
+		ButtonFrame.HeightRequest = TouchSize;
 
 		Press.IsEnabled = IsEnabledForPress;
 		Opacity = IsEnabledForPress ? 1 : 0.55;

@@ -45,6 +45,11 @@ public sealed class LinkedTaskCompletionResolver
         // a list is done when that list is, and its entry when any way is. A list that cannot be resolved
         // counts as not done either way, the same as a single missing link always did.
         var resolvedItems = taskList.Items
+            // Everything the entry says, with only its tick worked out afresh - see
+            // TaskItem.ResolvedAgainst. This rebuild used to name the tick, the links and the steps and
+            // nothing else, so an entry standing for other lists came back from every read unfiled,
+            // undescribed, uncoloured and at Normal priority - and the next save from a browser, which
+            // sends back what it read, wrote that over the stored answers.
             .Select(item => item.IsALinkToOtherLists || item.HasAlternatives
                 ? item.ResolvedAgainst(listId => Resolve(listId, context)?.IsCompleted ?? false)
                 : item)
@@ -54,7 +59,7 @@ public sealed class LinkedTaskCompletionResolver
             taskList.Id, taskList.UserId, taskList.Title, resolvedItems, taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent,
             taskList.CreatedAtUtc, taskList.UpdatedAtUtc,
             taskList.LockedByUserId, taskList.LockedByUserName, taskList.LockExpiresAtUtc, taskList.Priority, taskList.IsPinned,
-            taskList.LinkedInventoryId, taskList.Description, taskList.FolderId, taskList.Completion);
+            taskList.LinkedInventoryId, taskList.Description, taskList.FolderId, taskList.Completion, taskList.Tags);
         // Every persisted field has to be named above, and every new one has to be added here too - this
         // rebuild is on the path of every read, so a field left out of it is a field that is stored,
         // works in the handler that reads the row directly, and comes back null to the client.

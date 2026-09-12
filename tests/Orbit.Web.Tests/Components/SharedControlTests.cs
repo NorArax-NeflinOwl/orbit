@@ -13,17 +13,20 @@ namespace Orbit.Web.Tests.Components;
 public sealed class SharedControlTests : OrbitTestContext
 {
     /// <summary>
-    /// A wait shows the mark and the turning ring, and the word only for a screen reader: "Loading…"
+    /// A wait shows Orbit's icon inside a turning ring, and the word only for a screen reader: "Loading…"
     /// alone in a corner reads as a page that has gone wrong rather than one that is coming, which is
     /// the reading the boot screen was written to avoid.
     /// </summary>
     [Fact]
-    public void A_wait_draws_the_mark_and_keeps_the_word_for_a_screen_reader()
+    public void A_wait_draws_the_icon_inside_the_ring_and_keeps_the_word_for_a_screen_reader()
     {
         var cut = RenderComponent<Loading>();
 
-        Assert.NotEmpty(cut.FindAll(".loading-orbit-mark"));
-        Assert.NotEmpty(cut.FindAll(".loading-orbit-spinner"));
+        var ring = cut.Find(".loading-orbit-ring");
+        Assert.Equal("true", ring.GetAttribute("aria-hidden"));
+        Assert.NotNull(ring.QuerySelector(".loading-orbit-spinner"));
+        Assert.NotNull(ring.QuerySelector("svg.loading-orbit-icon"));
+        Assert.Equal("status", cut.Find(".loading-orbit").GetAttribute("role"));
         Assert.Equal("Loading…", cut.Find(".visually-hidden").TextContent);
         // No wordmark and no line: this is a wait inside a page that already says Orbit at the top.
         Assert.Empty(cut.FindAll(".loading-orbit-name"));
@@ -46,6 +49,17 @@ public sealed class SharedControlTests : OrbitTestContext
         Assert.Equal("Orbit", cut.Find(".loading-orbit-name").TextContent);
         Assert.Equal("Checking permissions…", cut.Find(".loading-orbit-says").TextContent);
         Assert.Empty(cut.FindAll(".visually-hidden"));
+    }
+
+    /// <summary>The small version in a corner of a screen is the same ring and icon, a size down.</summary>
+    [Fact]
+    public void An_inline_wait_is_the_same_ring_a_size_down()
+    {
+        var cut = RenderComponent<Loading>(parameters => parameters.Add(loading => loading.IsInline, true));
+
+        Assert.Contains("loading-orbit-inline", cut.Find(".loading-orbit").ClassList);
+        Assert.NotNull(cut.Find(".loading-orbit-ring").QuerySelector("svg.loading-orbit-icon"));
+        Assert.Equal("Loading…", cut.Find(".visually-hidden").TextContent);
     }
 
     [Fact]

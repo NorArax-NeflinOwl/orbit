@@ -131,6 +131,45 @@ public sealed class TitledDescriptionTests : OrbitTestContext
         Assert.Equal("Name", cut.Find(".titled-description-editor").GetAttribute("aria-label"));
     }
 
+    /// <summary>
+    /// "[] milk" in a list's description is words. The field stores only text, so reading the brackets
+    /// as a box - which is what the note's surface does - handed the page a description without them,
+    /// and the box itself went nowhere on save. Typed, and pasted, the way the surface's own JavaScript
+    /// asks: the edit first, then what the surface now holds.
+    /// </summary>
+    [Theory]
+    [InlineData("typed")]
+    [InlineData("paste")]
+    public async Task Brackets_in_the_description_are_kept_as_words(string command)
+    {
+        var descriptions = new List<string>();
+        var cut = Render("Shopping", string.Empty, onDescription: descriptions.Add);
+        var editor = cut.FindComponent<ChecklistTextEditor>().Instance;
+        var json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var request = command == "typed"
+            ? JsonSerializer.Serialize(new
+            {
+                command, inputType = "insertText", text = "k",
+                lines = new[] { Line("Shopping"), Line("[] milk") },
+                anchor = new { line = 1, offset = 7 }, focus = new { line = 1, offset = 7 }
+            }, json)
+            : JsonSerializer.Serialize(new
+            {
+                command, text = "[] milk",
+                lines = new[] { Line("Shopping"), Line("") },
+                anchor = new { line = 1, offset = 0 }, focus = new { line = 1, offset = 0 }
+            }, json);
+
+        await cut.InvokeAsync(() => editor.Edit(request));
+        await cut.InvokeAsync(() => editor.OnLinesChangedFromJs(JsonSerializer.Serialize(editor.Lines, json)));
+
+        Assert.False(editor.ReadsMarkers);
+        Assert.Equal([Line("Shopping"), Line("[] milk")], editor.Lines);
+        Assert.Equal(["[] milk"], descriptions);
+    }
+
+    private static NoteContentLineDto Line(string text) => new(text, IsChecklistItem: false, IsChecked: false);
+
     /// <summary>What the editing surface was handed to draw itself from.</summary>
     private static string[] LinesHandedToTheEditor(IRenderedComponent<TitledDescription> cut)
         => [.. cut.FindComponent<ChecklistTextEditor>().Instance.Lines.Select(line => line.Text)];

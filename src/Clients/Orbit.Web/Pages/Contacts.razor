@@ -127,7 +127,7 @@ else
                 }
                 @if (ArrangedGroups.Count == 0)
                 {
-                    <p class="empty-hint">@T["No groups yet."]</p>
+                    <p class="empty-hint empty-list">@T["No groups yet."]</p>
                 }
             }
             else if (_tab == ContactsTab.Archive)
@@ -182,7 +182,7 @@ else
                 }
                 @if (ArchivedCount == 0)
                 {
-                    <p class="empty-hint">@T["Nothing put away."]</p>
+                    <p class="empty-hint empty-list">@T["Nothing put away."]</p>
                 }
             }
             else
@@ -208,7 +208,7 @@ else
                 }
                 @if (RowsForTheChosenTab.Count == 0)
                 {
-                    <p class="empty-hint">
+                    <p class="empty-hint empty-list">
                         @(_tab == ContactsTab.Chats
                             ? T["No chats. Search for a user by email address or login to start a conversation."]
                             : T["No contacts yet."])

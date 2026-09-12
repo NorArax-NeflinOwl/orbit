@@ -93,7 +93,13 @@ public sealed record TaskItemDto(
     /// </summary>
     Guid? ReferencesTaskItemId = null,
     /// <summary>How much of its product this entry needs - see Orbit.Core.Tasks.TaskItem.RequiredQuantity.</summary>
-    decimal? RequiredQuantity = null)
+    decimal? RequiredQuantity = null,
+    /// <summary>
+    /// When this entry was ticked off - see Orbit.Core.Tasks.TaskItem.CompletedAtUtc. Null for an entry
+    /// that is not done, and for one ticked before the time was kept. Sealed with the rest of the entry
+    /// on a private list, which is the only place such a list keeps it.
+    /// </summary>
+    DateTimeOffset? CompletedAtUtc = null)
 {
     /// <summary>The ways as something to read without a null check - see <see cref="Alternatives"/>.</summary>
     public IReadOnlyList<TaskItemAlternativeDto> AllAlternatives => Alternatives ?? [];
@@ -135,7 +141,10 @@ public sealed record TaskItemDto(
             item.Colour,
             item.Alternatives,
             item.ReferencesTaskItemId,
-            item.RequiredQuantity);
+            item.RequiredQuantity,
+            // Nobody else keeps a private entry's time - the server never sees the entry - so it is
+            // sealed as the client holds it, and cleared for one that is not done.
+            item.IsCompleted ? item.CompletedAtUtc : null);
 
     /// <summary>
     /// Whichever shape the sender used, read as one. Needed on the way in as well as the way out: a

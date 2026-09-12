@@ -259,14 +259,16 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         var created = AddTaskList(body!.Title);
         _taskLists[created.Id] = created with
         {
-            Items = ToDtos(body.Items), IsGroup = body.IsGroup, IsPrivate = body.IsPrivate,
+            Items = ToDtos(body.Items, stored: null, _timeProvider.GetUtcNow()), IsGroup = body.IsGroup, IsPrivate = body.IsPrivate,
             // Stored as the real endpoint stores it: a private list's title and entries are only here,
             // so a fake that dropped it would answer the next pull with an empty list.
             EncryptedContent = body.EncryptedContent,
             Priority = body.Priority,
             // As the real endpoint stores it: null means "not provided", and a private list keeps none
             // at all - see Orbit.Core.Tasks.TaskList.
-            Description = body.IsPrivate ? string.Empty : body.Description ?? string.Empty
+            Description = body.IsPrivate ? string.Empty : body.Description ?? string.Empty,
+            // As TaskList.Create keeps them: tidied, and none for a private list, whose tags are sealed.
+            Tags = body.IsPrivate ? [] : Orbit.Core.Tags.TagNames.Tidy(body.Tags)
         };
         return Json(created.Id, HttpStatusCode.Created);
     }
@@ -299,7 +301,7 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         {
             Title = body!.Title,
             // Placed before the list is written, as UpdateTaskListCommandHandler places them.
-            Items = PlaceProductEntries(existing, ToDtos(body.Items, existing.Items), body.IsPrivate),
+            Items = PlaceProductEntries(existing, ToDtos(body.Items, existing.Items, _timeProvider.GetUtcNow()), body.IsPrivate),
             // Sent on every update and stored by the real endpoint - a fake that dropped it made
             // "this list is now a group list" look like a client that had not sent it. The priority
             // went the same way afterwards: the push carried it, the pull brought back the fake's own
@@ -317,6 +319,10 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             // "FromTheEntries" to a client that said nothing would quietly reopen every list the
             // browser had closed. What the answer *means* is worked out below, the way TaskList does.
             Completion = body.Completion ?? existing.Completion,
+            // As TaskList.Update keeps them - see FakeNotesServer.UpdateAsync, which says why null keeps.
+            Tags = body.IsPrivate
+                ? []
+                : body.Tags is null ? existing.Tags : Orbit.Core.Tags.TagNames.Tidy(body.Tags),
             UpdatedAtUtc = _timeProvider.GetUtcNow()
         };
         _taskLists[id] = _taskLists[id] with { IsCompleted = IsFinished(_taskLists[id]) };
@@ -460,14 +466,14 @@ internal sealed class FakeTasksServer : HttpMessageHandler
     /// nothing stored to keep.
     /// </param>
     private static IReadOnlyList<TaskItemDto> ToDtos(
-        IReadOnlyList<TaskItemRequest> items, IReadOnlyList<TaskItemDto>? stored = null)
+        IReadOnlyList<TaskItemRequest> items, IReadOnlyList<TaskItemDto>? stored, DateTimeOffset nowUtc)
     {
         var storedById = (stored ?? []).Where(item => item.Id != Guid.Empty).ToDictionary(item => item.Id);
         return InTheOrderTheyCanBeDone(items.Select(item => new TaskItemDto(
             item.Id ?? Guid.NewGuid(), item.Description, item.DueDateUtc,
             // An entry done by ways is done when one is, whatever was sent for it - TaskItem's own rule.
             // A way that is a list is not worked out here: no test asks this fake to resolve lists.
-            WaysOf(item, storedById) is { Count: > 0 } ways ? ways.Any(way => way.IsDone) : item.IsCompleted,
+            IsDone(item, storedById),
             // Whichever shape the client sent, answered in both - what the real endpoint does, so a
             // client reading only the old field still works against this fake. See TaskEndpoints.ToDto.
             item.AllLinkedTaskListIds.Count > 0 ? item.AllLinkedTaskListIds[0] : null,
@@ -509,14 +515,41 @@ internal sealed class FakeTasksServer : HttpMessageHandler
                 ?? (item.Id is { } waiting && storedById.TryGetValue(waiting, out var asStored)
                     ? asStored.AllWaitsForTaskItemIds
                     : []),
+            // How the entry is drawn and how much it matters, both or neither - see
+            // TaskEndpoints.EntriesSayingNothingAboutTheirLook. This fake dropped them, so every pull
+            // answered with an entry nobody had coloured over whatever the phone had sent.
+            Priority: item is { Priority: null, Colour: null }
+                ? storedById.GetValueOrDefault(item.Id ?? Guid.Empty)?.Priority
+                : item.Priority ?? "Normal",
+            Colour: item is { Priority: null, Colour: null }
+                ? storedById.GetValueOrDefault(item.Id ?? Guid.Empty)?.Colour
+                : item.Colour ?? string.Empty,
             Alternatives: WaysOf(item, storedById),
             // Null keeps what is stored, the empty id says "none" - the real endpoint's rule for both.
             ReferencesTaskItemId: item.ReferencesTaskItemId is { } referenced
                 ? referenced == Guid.Empty ? null : referenced
                 : item.Id is { } holder && storedById.TryGetValue(holder, out var held) ? held.ReferencesTaskItemId : null,
             RequiredQuantity: item.RequiredQuantity
-                ?? (item.Id is { } needer && storedById.TryGetValue(needer, out var needs) ? needs.RequiredQuantity : null))).ToList());
+                ?? (item.Id is { } needer && storedById.TryGetValue(needer, out var needs) ? needs.RequiredQuantity : null),
+            // When it was done, by TaskItem.RecordWhenItWasDone's rule: a time sent is kept, none sent
+            // keeps what an already-done entry had, a fresh tick is recorded as now, and an entry that is
+            // not done has none. A fake that wrote the null through would let a phone that never records
+            // the time pass here, and the real server would answer it with one. Read off the tick as this
+            // fake settles it, so an entry done one of its ways carries a time too.
+            CompletedAtUtc: !IsDone(item, storedById)
+                ? null
+                : item.CompletedAtUtc
+                    ?? (storedById.GetValueOrDefault(item.Id ?? Guid.Empty) is { IsCompleted: true } wasDone
+                        ? wasDone.CompletedAtUtc
+                        : nowUtc))).ToList());
     }
+
+    /// <summary>
+    /// Whether the entry counts as done once its ways have had their say - the answer TaskItem settles in
+    /// its constructor, and the one both the tick and the time it carries are read off.
+    /// </summary>
+    private static bool IsDone(TaskItemRequest item, IReadOnlyDictionary<Guid, TaskItemDto> storedById)
+        => WaysOf(item, storedById) is { Count: > 0 } ways ? ways.Any(way => way.IsDone) : item.IsCompleted;
 
     /// <summary>
     /// The ways an entry is done by, as the real endpoint answers them: none on an entry standing for
@@ -547,7 +580,9 @@ internal sealed class FakeTasksServer : HttpMessageHandler
                 return item with
                 {
                     WaitsForTaskItemIds = steps,
-                    IsCompleted = item.IsCompleted && isClearToStart
+                    IsCompleted = item.IsCompleted && isClearToStart,
+                    // A tick refused takes its time with it - see TaskItem.CannotBeDoneYet.
+                    CompletedAtUtc = item.IsCompleted && isClearToStart ? item.CompletedAtUtc : null
                 };
             })
         ];

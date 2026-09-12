@@ -78,9 +78,8 @@
                         Style="{StaticResource LinkButton}" />
             </HorizontalStackLayout>
 
-            <ActivityIndicator IsRunning="{Binding SignInCommand.IsRunning}"
-                               IsVisible="{Binding SignInCommand.IsRunning}"
-                               HorizontalOptions="Center" />
+            <controls:OrbitLoading IsRunning="{Binding SignInCommand.IsRunning}" RingSize="30"
+                                   HorizontalOptions="Center" />
 
         </VerticalStackLayout>
     </ScrollView>

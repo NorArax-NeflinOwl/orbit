@@ -20,7 +20,7 @@
 
                 <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="12"
                        LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
-                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />
+                <controls:OrbitLoading IsRunning="{Binding IsBusy}" RingSize="30" HorizontalOptions="Start" />
 
                 <!-- One setting, so it is a row between hairlines rather than a card of one - the
                      account screen's own shape, at the one-row size. -->

@@ -122,7 +122,7 @@ else
             }
             else if (VisibleItems.Count == 0)
             {
-                <p class="empty-hint">@T["Nothing here matches that. The rest of the inventory is still there - clear the filter to see it."]</p>
+                <p class="empty-hint empty-list">@T["Nothing here matches that. The rest of the inventory is still there - clear the filter to see it."]</p>
             }
             else
             {
@@ -249,7 +249,7 @@ else
     <div class="card">
         @if (_taskLists.Count == 0)
         {
-            <p class="empty-hint">@T["No task lists yet."]</p>
+            <p class="empty-hint empty-list">@T["No task lists yet."]</p>
         }
         else
         {

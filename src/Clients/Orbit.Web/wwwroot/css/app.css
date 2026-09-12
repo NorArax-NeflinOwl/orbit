@@ -628,11 +628,24 @@ input.note-editor-title {
     margin-top: 0.3em;
 }
 
+/* One of several boxes inside the selection: a press on any of them answers for all of them - see
+   NoteSurfaceEdits.Cycle. Ringed, so which boxes a press will change is plain before it is pressed. */
+.note-line-picked .note-line-tick {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* pre-wrap, so what is typed is what is stored and what is drawn: without it a run of spaces and a tab
+   collapse to one space on the screen, and the browser types a no-break space to keep a second space
+   visible - which is then saved as that. A tab is a level of indentation (see
+   NoteSurfaceEdits.Indentation) and is drawn four characters wide, as the note's own page draws it. */
 .note-line-text {
     flex: 1;
     min-width: 0;
     outline: none;
     overflow-wrap: break-word;
+    white-space: pre-wrap;
+    tab-size: 4;
 }
 
 /* Finished with, either way - a line somebody gave up on is struck through like a done one, and told
@@ -4272,6 +4285,19 @@ input.note-editor-title {
    entry it is that box (see .event-fields-description). Its label sits above rather than beside it:
    every other field here is one short value on a line, and a two-line box beside a label would hang
    under the wrong thing. */
+/* A Location entry's address and the pin beside it. The whole row, like the description below: left to
+   size itself among the other fields, the block was only as wide as its content, the box claimed all of
+   that, and the pin was pushed onto a line of its own under the box it belongs to. Never wrapped, for
+   the same reason - the pin is part of the box, not the next field. */
+.editor-item-place {
+    flex: 1 1 100%;
+    min-width: 0;
+}
+
+.editor-item-place > .field-row {
+    flex-wrap: nowrap;
+}
+
 .editor-item-notes {
     flex: 1 1 100%;
     min-width: 0;
@@ -4465,6 +4491,16 @@ input.note-editor-title {
 .empty-hint {
     color: var(--text-tertiary);
     font-size: 13px;
+}
+
+/* An .empty-hint standing where a list's contents would be - "No lists are done.", "No groups yet." -
+   centred in the space the list would have filled, so it reads as the list saying it is empty rather
+   than as a stray line of small print at its edge. Only there: the same class also carries notes that
+   sit beside things (a count under a filtered list, a field's "No guests."), which stay where they are
+   read from. Every container it lands in is a stretching flex column, so centring the text is enough. */
+.empty-list {
+    text-align: center;
+    padding-block: 12px;
 }
 
 /* Calendar.razor's event list, sharing the editor row shape so a day's events read the same way an
@@ -4909,15 +4945,17 @@ input.note-editor-title {
     }
 }
 
-/* The line that stands in for them, which is nothing at all on a screen where they work. */
+/* The "!" beside the page's name that stands in for them, which is nothing at all on a screen where
+   they work. */
 .map-phone-note {
     display: none;
 }
 
 @media (max-width: 680px) {
     .map-phone-note {
-        display: block;
-        margin: 0;
+        display: inline-flex;
+        margin-left: 6px;
+        vertical-align: middle;
     }
 }
 
@@ -5396,6 +5434,54 @@ input.note-editor-title {
     color: var(--accent);
 }
 
+/* A tag on a card or in the tags field - see TagChips and TagsField. Plain until the account gives the
+   word a colour, and then tinted with it the way the status marks are tinted with theirs: a wash of the
+   colour behind and the colour as the outline, with the page's own text colour on top rather than the tag
+   colour itself - any colour somebody picks, a pale yellow or a near-black, then stays readable in the
+   light theme and the dark one alike. */
+/* The colour itself arrives on the element, from the account's choice (style="--tag-colour: ..."); this is
+   what a tag chip holds until then, so the variable is always defined and a declaration using it is never
+   dropped for want of it. */
+.card-badge-tag {
+    --tag-colour: var(--border);
+}
+
+.card-badge-tag-coloured {
+    background: color-mix(in oklch, var(--tag-colour) 22%, transparent);
+    border-color: color-mix(in oklch, var(--tag-colour) 75%, transparent);
+    color: var(--text-primary, inherit);
+}
+
+/* Under the tags field: each tag with its colour well, a line of their own under the words. */
+.tags-field-colours {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    margin-top: 8px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+}
+
+.tags-field-colour {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tags-field-colour .card-badge {
+    margin-left: 0;
+}
+
+.tags-field-colour input[type="color"] {
+    width: 28px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: none;
+}
+
 /* Says what is missing beside a disabled Save (NoteEditor.razor). */
 .form-hint {
     align-self: center;
@@ -5554,9 +5640,19 @@ p.field-hint {
     gap: 12px;
 }
 
+/* The ring and the icon inside it - see .loading-orbit-ring, which is the same thing a size down. */
+.app-boot-ring {
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 84px;
+    height: 84px;
+}
+
 .app-boot-mark {
-    width: 56px;
-    height: 56px;
+    width: 46px;
+    height: 46px;
 }
 
 .app-boot-name {
@@ -5568,12 +5664,13 @@ p.field-hint {
     line-height: 1;
 }
 
-/* A ring with one lit quarter, turning. The same shape as the mark's own orbit, which is why it is a
-   ring rather than the three bouncing dots every other app uses. */
+/* A ring with one lit quarter, turning round the icon. The same shape as the mark's own orbit, which is
+   why it is a ring rather than the three bouncing dots every other app uses. Laid over the ring's box
+   rather than around the icon's, so it turns without moving the icon. */
 .app-boot-spinner {
-    width: 22px;
-    height: 22px;
-    border: 2px solid var(--border);
+    position: absolute;
+    inset: 0;
+    border: 3px solid var(--border);
     border-top-color: var(--accent);
     border-radius: 50%;
     animation: app-boot-turn 0.9s linear infinite;
@@ -5593,7 +5690,7 @@ p.field-hint {
     }
 }
 
-/* The same wait, inside the app - see Components/Loading.razor. The mark, then the ring the boot screen
+/* The same wait, inside the app - see Components/Loading.razor. The icon inside the ring the boot screen
    turns, so a page fetching its own contents looks like the screen that was standing in for it a moment
    ago rather than like a page that has stopped. */
 .loading-orbit {
@@ -5605,16 +5702,26 @@ p.field-hint {
     padding: 48px 16px;
 }
 
-/* Mark and word together, the same pairing the boot screen and the top bar carry - see .app-boot-lockup. */
+/* Ring and word together, the same pairing the boot screen and the top bar carry - see .app-boot-lockup. */
 .loading-orbit-lockup {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
 }
 
-.loading-orbit-mark {
-    width: 40px;
-    height: 40px;
+/* A box the size of the ring, with the icon centred in it and the turning ring laid over its edge. */
+.loading-orbit-ring {
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 64px;
+    height: 64px;
+}
+
+.loading-orbit-icon {
+    width: 34px;
+    height: 34px;
 }
 
 .loading-orbit-name {
@@ -5634,9 +5741,9 @@ p.field-hint {
 }
 
 .loading-orbit-spinner {
-    width: 18px;
-    height: 18px;
-    border: 2px solid var(--border);
+    position: absolute;
+    inset: 0;
+    border: 3px solid var(--border);
     border-top-color: var(--accent);
     border-radius: 50%;
     animation: app-boot-turn 0.9s linear infinite;
@@ -5657,14 +5764,18 @@ p.field-hint {
     padding: 16px 12px;
 }
 
-.loading-orbit-inline .loading-orbit-mark {
-    width: 24px;
-    height: 24px;
+.loading-orbit-inline .loading-orbit-ring {
+    width: 30px;
+    height: 30px;
+}
+
+.loading-orbit-inline .loading-orbit-icon {
+    width: 16px;
+    height: 16px;
 }
 
 .loading-orbit-inline .loading-orbit-spinner {
-    width: 14px;
-    height: 14px;
+    border-width: 2px;
 }
 
 .visually-hidden {
@@ -5766,12 +5877,6 @@ p.field-hint {
 
 /* Shown while places are ticked: the one part of an export written out decrypted. In the danger colour
    because what it warns about cannot be taken back once the file has left the browser. */
-.export-warning {
-    margin: 0;
-    color: var(--danger);
-    font-size: 0.9em;
-}
-
 .permissions-table {
     width: 100%;
     border-collapse: collapse;
@@ -6584,6 +6689,16 @@ p.field-hint {
     /* pre-wrap keeps the note's own spacing and wraps between words; this is for the run that has no
        spaces to wrap between - a web address, which is now pressable and was going over the edge. */
     overflow-wrap: anywhere;
+    /* A tab is a level of indentation - see NoteSurfaceEdits.Indentation - drawn as wide as the writing
+       surface draws it. */
+    tab-size: 4;
+}
+
+/* The same for a checklist line on the note's page: its words are a CheckRow, which elsewhere is a
+   name and has no spacing of its own worth keeping, so this is narrowed to the note. */
+.note-summary-opens .check-row-text {
+    white-space: pre-wrap;
+    tab-size: 4;
 }
 
 .note-summary-break {

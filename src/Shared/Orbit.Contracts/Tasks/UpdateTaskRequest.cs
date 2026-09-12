@@ -25,4 +25,10 @@ public sealed record UpdateTaskRequest(
     /// somebody closed in a browser. "FromTheEntries" is a real answer rather than the absence of one -
     /// it hands the question back to the entries.
     /// </summary>
-    string? Completion = null);
+    string? Completion = null,
+    /// <summary>
+    /// The words it is tagged with - see TaskDto.Tags. <b>Null means "not provided"</b> and leaves the
+    /// stored tags alone, the rule Description and Completion above follow and for the same reason: an
+    /// installed phone saves lists without knowing tags exist. An empty list means "none".
+    /// </summary>
+    IReadOnlyList<string>? Tags = null);

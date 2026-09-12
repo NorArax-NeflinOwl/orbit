@@ -160,14 +160,16 @@ public sealed class PrivateTaskListItemIdTests : OrbitTestContext
     /// Ticking an entry of a private list - from the checklist or the entry's own page, both through
     /// TaskItemCompletion - saves the list sealed, as it was. It used to leave IsPrivate out of the save,
     /// which the server took as "this list is not private" and stored its title and entries in the clear;
-    /// and it left the priority out, which put every list it touched back to Normal.
+    /// it left the priority out, which put every list it touched back to Normal; and it left the tags out,
+    /// which emptied them, since a private list keeps them nowhere but in its seal.
     /// </summary>
     [Fact]
     public async Task Ticking_an_entry_of_a_private_list_keeps_it_sealed_and_as_it_was()
     {
         var client = ClientThatSealsAndOpens();
         await client.CreateTaskListAsync(new CreateTaskRequest(
-            "Bank things", [Entry("Change the card")], IsGroup: false, IsPrivate: true, EncryptedContent: null));
+            "Bank things", [Entry("Change the card")], IsGroup: false, IsPrivate: true, EncryptedContent: null,
+            Tags: ["bank"]));
         var opened = (await client.GetTaskListByIdAsync(TaskListId))!;
         var completion = new TaskItemCompletion(
             client, Services.GetRequiredService<NavigationManager>(), JSInterop.JSRuntime,
@@ -180,6 +182,10 @@ public sealed class PrivateTaskListItemIdTests : OrbitTestContext
         Assert.Equal(string.Empty, sent.GetProperty("title").GetString());
         Assert.Equal(0, sent.GetProperty("items").GetArrayLength());
         Assert.Equal("High", sent.GetProperty("priority").GetString());
+        var resealed = JsonSerializer.Deserialize<SealedTaskList>(
+            (string)JSInterop.Invocations["encryptForSelf"].Last().Arguments[1]!)!;
+        // The tag went back into the seal, which is the only place a private list has one.
+        Assert.Equal(["bank"], resealed.Tags);
         Assert.True(Assert.Single((await client.GetTaskListByIdAsync(TaskListId))!.Items).IsCompleted);
     }
 

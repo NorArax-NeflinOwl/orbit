@@ -93,6 +93,11 @@ else
                 </Suggestions>
             </TitledDescription>
         </div>
+        @* What the list is about in a word or two, under what it says about itself - see TagsField. *@
+        <div class="field">
+            <TagsField Values="_formModel.Tags" ValuesChanged="values => _formModel.Tags = [.. values]"
+                       Known="_knownListTags" IsReadOnly="@(_isSharedReadOnly || _lockedByUserName is not null)" />
+        </div>
 
         <h2>@T["Items"]</h2>
         @foreach (var item in _formModel.Items)
@@ -225,6 +230,18 @@ else
                             <label>@T["Due time"]<TimeField @bind-Value="item.DueTime" AriaLabel="@(T["Due time"])" />
                             </label>
                         }
+                        @* When it was done, offered only once it is: a day for something not done yet is
+                           not a fact about it, and unticking clears it (see TaskItemFormModel.Tick). Every
+                           kind has one - an appointment or an errand is done at some moment the same as a
+                           checklist line. Editable, because "did it yesterday, ticked it today" is the usual
+                           case. *@
+                        @if (item.IsCompleted)
+                        {
+                            <label>@T["Completed on"]<DateField @bind-Value="item.CompletedDate" AriaLabel="@(T["Completed on"])" />
+                            </label>
+                            <label>@T["Time completed"]<TimeField @bind-Value="item.CompletedTime" AriaLabel="@(T["Time completed"])" />
+                            </label>
+                        }
                         @* Offered for every saved entry, including one this account has nowhere to move -
                            the control saying so is an answer, where leaving it out looked like a setting
                            that had gone missing. *@
@@ -319,7 +336,7 @@ else
                         @if (item.Kind == nameof(TaskItemKind.Location))
                         {
                             <span class="field-break"></span>
-                            <div class="field">
+                            <div class="field editor-item-place">
                                 <label for="@($"item{_formModel.Items.IndexOf(item)}Place")">@T["Location"]</label>
                                 <div class="field-row">
                                     <input id="@($"item{_formModel.Items.IndexOf(item)}Place")" type="text"
@@ -963,7 +980,7 @@ else
     {
         var outcome = await TasksApiClient.UpdateTaskListAsync(taskListId, new UpdateTaskRequest(
             _formModel.Title, ItemsAsSaved(), _formModel.IsGroup, _formModel.IsPrivate,
-            Priority: _formModel.Priority, Description: _formModel.Description));
+            Priority: _formModel.Priority, Description: _formModel.Description, Tags: _formModel.Tags));
         if (outcome.Kind == EditOutcomeKind.Success)
         {
             return true;
@@ -1327,6 +1344,9 @@ else
     /// <summary>Every category this account already uses, offered as suggestions under each entry's box.</summary>
     private IReadOnlyList<string> _knownCategories = [];
 
+    /// <summary>Every tag already on one of this account's lists, for the tags field - see TagsField.</summary>
+    private IReadOnlyList<string> _knownListTags = [];
+
     /// <summary>
     /// What shelf items on this account are filed under. Once its own box on the product fields an
     /// Inventory entry opens; now one half of what the entry's box offers, because an inventory entry
@@ -1427,6 +1447,25 @@ else
                 .Distinct(StringComparer.CurrentCultureIgnoreCase)
                 .OrderBy(category => category, StringComparer.CurrentCultureIgnoreCase)];
 
+            // The same for what kind of thing a product is: the shelves' answers and every entry's own,
+            // since an entry describing a product not on a shelf yet carries its type itself and the
+            // server's list only knows what is already on a shelf. Without the entries' half the box
+            // offered nothing on an account whose products were all still written on lists.
+            _knownProductTypes = [.. _knownProductTypes
+                .Concat(allTaskLists.SelectMany(taskList => taskList.Items)
+                    .Select(item => item.Product?.ProductType ?? string.Empty))
+                .Select(productType => productType.Trim())
+                .Where(productType => productType.Length > 0)
+                .Distinct(StringComparer.CurrentCultureIgnoreCase)
+                .OrderBy(productType => productType, StringComparer.CurrentCultureIgnoreCase)];
+
+            // And the tags already on a list, so tagging this one is picking a word already in use - the
+            // field adds the ones only a colour names. A private list's come too: it was opened above.
+            _knownListTags = [.. allTaskLists
+                .SelectMany(taskList => taskList.AllTags)
+                .Distinct(StringComparer.CurrentCultureIgnoreCase)
+                .OrderBy(tag => tag, StringComparer.CurrentCultureIgnoreCase)];
+
             // Linking is narrower: a list that links back here, however long the chain, would close a
             // loop and the save would refuse it - see TaskListLinkCycle. Left out of the dropdown rather
             // than offered and then rejected, which is how every other rule the server enforces is
@@ -1454,6 +1493,7 @@ else
                     {
                         Title = taskList.Title,
                         Description = taskList.Description,
+                        Tags = [.. taskList.AllTags],
                         IsGroup = taskList.IsGroup,
                         Completion = ParseCompletion(taskList.Completion),
                         IsPrivate = taskList.IsPrivate,
@@ -1469,6 +1509,12 @@ else
                                 DueTime = item.DueDateUtc is { } dueTimeUtc ? TimeOnly.FromDateTime(dueTimeUtc.LocalDateTime) : null,
                                 IsCompleted = item.IsCompleted,
                                 IsFailed = item.IsFailed,
+                                CompletedDate = item.IsCompleted && item.CompletedAtUtc is { } doneUtc
+                                    ? DateOnly.FromDateTime(doneUtc.LocalDateTime)
+                                    : null,
+                                CompletedTime = item.IsCompleted && item.CompletedAtUtc is { } doneAtUtc
+                                    ? TimeOnly.FromDateTime(doneAtUtc.LocalDateTime)
+                                    : null,
                                 WaitsForTaskItemIds = [.. item.AllWaitsForTaskItemIds],
                                 Kind = item.Kind,
                                 Location = item.Location,
@@ -2259,6 +2305,7 @@ else
     private string DescribeKind(string kind) => kind switch
     {
         nameof(TaskItemKind.Calendar) => T["Calendar"],
+        nameof(TaskItemKind.Location) => T["Location"],
         nameof(TaskItemKind.Inventory) => T["Inventory"],
         _ => T["Checklist"]
     };
@@ -2494,8 +2541,20 @@ else
                 item.Colour,
                 AlternativesAsSaved(item),
                 item.ReferencesTaskItemId,
-                RequiredQuantityAsSaved(item)))
+                RequiredQuantityAsSaved(item),
+                ToCompletedAtUtc(item)))
             .ToList();
+
+    /// <summary>
+    /// When the entry was done, as its two boxes say. Null for one that is not done - by its own tick or
+    /// by one of its ways - and for a done one whose day nobody knows, which the server reads as "keep
+    /// what is stored" rather than as a time to invent (see TaskItemRequest.CompletedAtUtc).
+    /// </summary>
+    private static DateTimeOffset? ToCompletedAtUtc(TaskItemFormModel item)
+        => IsCompletedAsSaved(item) && item.CompletedDate is { } day
+            ? new DateTimeOffset(day.ToDateTime(item.CompletedTime ?? TimeOnly.MinValue, DateTimeKind.Local))
+                .ToUniversalTime()
+            : null;
 
     /// <summary>
     /// How much of its product the entry needs, as a save sends it: what its own product form says while
@@ -2606,7 +2665,7 @@ else
                 var newTaskListId = await TasksApiClient.CreateTaskListAsync(new CreateTaskRequest(
                     _formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate,
                     Priority: _formModel.Priority, Description: _formModel.Description,
-                    FolderId: _formModel.FolderId, Completion: CompletionToSave.ToString()));
+                    FolderId: _formModel.FolderId, Completion: CompletionToSave.ToString(), Tags: _formModel.Tags));
                 Logger.LogInformation("Task list {TaskListId} created", newTaskListId);
                 savedTaskListId = newTaskListId;
             }
@@ -2615,7 +2674,7 @@ else
                 var outcome = await TasksApiClient.UpdateTaskListAsync(Id!.Value, new UpdateTaskRequest(
                     _formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate,
                     Priority: _formModel.Priority, Description: _formModel.Description,
-                    Completion: CompletionToSave.ToString()));
+                    Completion: CompletionToSave.ToString(), Tags: _formModel.Tags));
                 if (outcome.Kind == EditOutcomeKind.Locked)
                 {
                     _lockedByUserName = outcome.LockedByUserName;
@@ -2977,6 +3036,9 @@ else
         public Guid? FolderId { get; set; }
 
         public List<TaskItemFormModel> Items { get; set; } = [];
+
+        /// <summary>The words it is tagged with - see TaskDto.Tags. Always sent, since this form has a box for them.</summary>
+        public List<string> Tags { get; set; } = [];
     }
 
     /// <summary>One way of getting an entry done, as the form edits it - see TaskItemFormModel.Alternatives.</summary>
@@ -2998,6 +3060,16 @@ else
         public DateOnly? DueDate { get; set; }
         public TimeOnly? DueTime { get; set; }
         public bool IsCompleted { get; set; }
+
+        /// <summary>
+        /// When it was done, as the reader sees and corrects it - see TaskItem.CompletedAtUtc. A day and
+        /// an hour, like the due date above; both empty for an entry that is not done, and for one done
+        /// before the time was kept. Filled in and emptied by <see cref="Tick"/>.
+        /// </summary>
+        public DateOnly? CompletedDate { get; set; }
+
+        /// <inheritdoc cref="CompletedDate"/>
+        public TimeOnly? CompletedTime { get; set; }
 
         /// <summary>How much this entry matters, which is its own answer rather than the list's - see TaskItem.Priority.</summary>
         public string Priority { get; set; } = nameof(ItemPriority.Normal);
@@ -3024,8 +3096,23 @@ else
             get => Ticks.Read(IsCompleted, IsFailed);
             set
             {
+                var wasCompleted = IsCompleted;
                 IsCompleted = value.IsCompleted();
                 IsFailed = value.IsFailed();
+                // Recorded as the box is ticked and cleared as it is unticked - the rule
+                // TaskItemCompletionTime keeps for every other tick. Recorded here rather than left to the
+                // server, which never sees a private list's entries.
+                if (!IsCompleted)
+                {
+                    CompletedDate = null;
+                    CompletedTime = null;
+                }
+                else if (!wasCompleted)
+                {
+                    var now = DateTime.Now;
+                    CompletedDate = DateOnly.FromDateTime(now);
+                    CompletedTime = new TimeOnly(now.Hour, now.Minute);
+                }
             }
         }
 

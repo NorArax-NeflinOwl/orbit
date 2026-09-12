@@ -98,12 +98,17 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
         await _stockedEntryCompletion.CrossOffWhatTheShelfCoversAsync(
             taskList.UserId, identity.Items, cancellationToken);
 
+        // When each entry was done, once everything that can tick one has had its say - see
+        // TaskItem.RecordWhenItWasDone. A private list's entries are sealed and never reach this; the
+        // client that seals them records the time itself.
+        RecordWhenEntriesWereDone(identity.Items, taskList, nowUtc);
+
         // A caller that said nothing about the description keeps the one that is stored. That is what
         // lets a client which has not learned about the field - the phone, an older tab - go on saving
         // lists without erasing what was written somewhere else.
         taskList.Update(
             request.Title, identity.Items, request.IsGroup, request.IsPrivate, request.EncryptedContent, request.Priority,
-            request.Description ?? taskList.Description);
+            request.Description ?? taskList.Description, request.Tags);
 
         // After Update, which rebuilds the items and therefore the derived half of completion. Said
         // only when the caller said it: null is "not provided", and a save from a client that has never
@@ -187,6 +192,22 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
             {
                 item.KeepStepsOf(storedItem);
             }
+        }
+    }
+
+    /// <summary>
+    /// Settles the time each entry was done against the entry as stored: a time sent is kept, none sent
+    /// keeps what an already-done entry had, and a fresh tick is recorded as now. No set of "entries that
+    /// said nothing" is needed for this one, unlike the fields around it: a time belongs only to a ticked
+    /// entry, and a client that knows about it always sends the one it holds.
+    /// </summary>
+    private static void RecordWhenEntriesWereDone(
+        IReadOnlyList<TaskItem> incoming, TaskList stored, DateTimeOffset nowUtc)
+    {
+        var storedById = stored.Items.ToDictionary(item => item.Id);
+        foreach (var item in incoming)
+        {
+            item.RecordWhenItWasDone(storedById.GetValueOrDefault(item.Id), nowUtc);
         }
     }
 

@@ -49,6 +49,9 @@ public sealed partial class DashboardViewModel : ObservableObject
     private readonly LocalNotificationRepository _notifications;
     private readonly IScreenNavigator _navigator;
 
+    /// <summary>The account's tag colours - see LocalTagColourRepository. Null in a test that is not about them.</summary>
+    private readonly LocalTagColourRepository? _tagColours;
+
     [ObservableProperty]
     private TodaySummary _today = TodaySummary.Nothing;
 
@@ -72,8 +75,10 @@ public sealed partial class DashboardViewModel : ObservableObject
         SyncState syncState, UserPermissions permissions, IDashboardPinStore pins,
         IDashboardCardPreferenceStore visibility, SharedLocations sharedLocations,
         LocalNotificationRepository notifications, IScreenNavigator navigator,
-        LocalFolderRepository folders, IChosenFolderStore chosenFolder)
+        LocalFolderRepository folders, IChosenFolderStore chosenFolder,
+        LocalTagColourRepository? tagColours = null)
     {
+        _tagColours = tagColours;
         Folders = new FolderTabs(folders, chosenFolder, translations, FolderPage.Dashboard);
         _notes = notes;
         _taskLists = taskLists;
@@ -213,15 +218,19 @@ public sealed partial class DashboardViewModel : ObservableObject
         var shownTaskLists = taskLists.Where(list => Passes(DashboardCardKind.Tasks, list.IsPinned)).ToList();
         var shownEvents = events.Where(PassesPriority).ToList();
 
+        // The account's tag colours, read from this phone like everything else on the page, for the two
+        // cards whose rows draw tags - see DashboardRow.Tags.
+        var tagColours = _tagColours is null ? null : await _tagColours.ColoursAsync(cancellationToken);
+
         // Gated on whether the card has anything at all, not on what survives its filter - the same
         // rule Orbit.Web settled on, and for the reason its own comment gives: a card narrowed to
         // nothing would take its filter menu off the page with it, so the choice that emptied it could
         // not be undone from the page that made it.
         AddCardIfAnything(
-            DashboardCardKind.Notes, _translations["Notes"], DescribeNotes(shownNotes), shownNotes.Count(CanBeShown),
+            DashboardCardKind.Notes, _translations["Notes"], DescribeNotes(shownNotes, tagColours), shownNotes.Count(CanBeShown),
             notes.Any(CanBeShown));
         AddCardIfAnything(
-            DashboardCardKind.Tasks, _translations["Tasks"], DescribeTaskLists(shownTaskLists), shownTaskLists.Count(CanBeShown),
+            DashboardCardKind.Tasks, _translations["Tasks"], DescribeTaskLists(shownTaskLists, tagColours), shownTaskLists.Count(CanBeShown),
             taskLists.Any(CanBeShown));
         AddCardIfAnything(
             DashboardCardKind.Upcoming, _translations["Upcoming"], DescribeEvents(shownEvents), shownEvents.Count,
@@ -713,7 +722,9 @@ public sealed partial class DashboardViewModel : ObservableObject
     /// it out here would have hidden a note on its own screen and named it on the landing one. Found by
     /// walking the app: the gate was locked and the title was on the dashboard.
     /// </summary>
-    private IReadOnlyList<DashboardRow> DescribeNotes(IReadOnlyList<LocalNote> notes)
+    /// <param name="tagColours">The account's tag colours by key - see LocalTagColourRepository.ColoursAsync. Null draws every tag plain.</param>
+    private IReadOnlyList<DashboardRow> DescribeNotes(
+        IReadOnlyList<LocalNote> notes, IReadOnlyDictionary<string, string>? tagColours)
         => notes
             .Where(CanBeShown)
             .OrderByDescending(note => note.UpdatedAtUtc)
@@ -725,11 +736,18 @@ public sealed partial class DashboardViewModel : ObservableObject
                 // something, which is never for the Normal most notes are.
                 Priority = Tasks.PriorityChoice.For(note.Priority, _translations) is { IsWorthSaying: true } priority
                     ? priority.Name
-                    : string.Empty
+                    : string.Empty,
+                // A private one still locked never gets this far (CanBeShown); a sealed one has its tags
+                // sealed with everything else it says, so there is nothing to draw.
+                Tags = note.IsSealed
+                    ? Screens.Tags.TagChips.None
+                    : Screens.Tags.TagChips.For(note.AllTags, tagColours)
             })
             .ToList();
 
-    private IReadOnlyList<DashboardRow> DescribeTaskLists(IReadOnlyList<LocalTaskList> taskLists)
+    /// <inheritdoc cref="DescribeNotes"/>
+    private IReadOnlyList<DashboardRow> DescribeTaskLists(
+        IReadOnlyList<LocalTaskList> taskLists, IReadOnlyDictionary<string, string>? tagColours)
         => taskLists
             .Where(CanBeShown)
             .OrderByDescending(list => list.IsPinned)
@@ -748,7 +766,11 @@ public sealed partial class DashboardViewModel : ObservableObject
                 // A deadline and an overdue entry both point at the list they sit on
                 // (DailyTaskReminderPushContent, OverdueTaskPushContent), so the row that names that
                 // list is the one that can say so. A list the server has never seen has no address.
-                HasNews = list.ServerId is { } serverId && UnreadNews.About(_unreadUrls, $"/tasks/{serverId}")
+                HasNews = list.ServerId is { } serverId && UnreadNews.About(_unreadUrls, $"/tasks/{serverId}"),
+                // As on the notes card, and for the same reason nothing for a sealed list.
+                Tags = list.IsSealed
+                    ? Screens.Tags.TagChips.None
+                    : Screens.Tags.TagChips.For(list.AllTags, tagColours)
             })
             .ToList();
 

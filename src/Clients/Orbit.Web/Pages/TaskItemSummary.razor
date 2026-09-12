@@ -129,6 +129,27 @@ else
                       AriaLabel="@T.Format("Done: {0}", Written(_item.Description))"
                       OnCycled="TickAsync" />
         }
+        @* When it was done, once it is - the list form's two boxes, on the page that reads the entry,
+           and saved the moment one changes, as the tick is. Not shown before: a day for something not
+           done yet is not a fact about it. A list shared to read says it rather than offering boxes. *@
+        @if (_item.IsCompleted)
+        {
+            <Row Title="@T["Completed on"]">
+                <Trailing>
+                    @if (_isReadOnly)
+                    {
+                        <span class="row-meta">@WhenItWasDone()</span>
+                    }
+                    else
+                    {
+                        <DateField Value="@CompletedDate()" AriaLabel="@(T["Completed on"])"
+                                   ValueChanged="@((DateOnly? day) => CorrectWhenItWasDoneAsync(day, CompletedTime()))" />
+                        <TimeField Value="@CompletedTime()" AriaLabel="@(T["Time completed"])"
+                                   ValueChanged="@((TimeOnly? time) => CorrectWhenItWasDoneAsync(CompletedDate(), time))" />
+                    }
+                </Trailing>
+            </Row>
+        }
     </div>
 
     @* Beside the box that failed rather than at the top of the page: this screen is read by scrolling,
@@ -321,6 +342,47 @@ else
             _restockMessage = TaskItemCompletion.Note ?? _restockMessage;
             // Re-read even after a failure, so a box that did not save goes back to what the server
             // actually holds rather than standing ticked on a page that saved nothing.
+            await RefreshTheEntryAsync();
+        }
+        finally
+        {
+            _isTicking = false;
+        }
+    }
+
+    private DateOnly? CompletedDate()
+        => _item?.CompletedAtUtc is { } doneUtc ? DateOnly.FromDateTime(doneUtc.LocalDateTime) : null;
+
+    private TimeOnly? CompletedTime()
+        => _item?.CompletedAtUtc is { } doneUtc ? TimeOnly.FromDateTime(doneUtc.LocalDateTime) : null;
+
+    /// <summary>The time as words, for a list this reader may not change - or that nobody kept one.</summary>
+    private string WhenItWasDone()
+        => _item?.CompletedAtUtc is { } doneUtc ? doneUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm") : T["Not recorded"];
+
+    /// <summary>
+    /// Corrects when the entry was done - see TaskItemCompletion.SetCompletedAtAsync. Needs a day; an
+    /// hour chosen with no day yet waits for one, since an hour alone is not a time.
+    /// </summary>
+    private async Task CorrectWhenItWasDoneAsync(DateOnly? day, TimeOnly? time)
+    {
+        if (_taskList is null || _item is null || day is not { } chosenDay || _isTicking)
+        {
+            return;
+        }
+
+        _isTicking = true;
+        _tickMessage = null;
+        try
+        {
+            var local = chosenDay.ToDateTime(time ?? TimeOnly.MinValue, DateTimeKind.Local);
+            if (await TaskItemCompletion.SetCompletedAtAsync(_taskList, _item, new DateTimeOffset(local))
+                == TaskItemTickOutcome.SignedOut)
+            {
+                return;
+            }
+
+            _tickMessage = TaskItemCompletion.FailureMessage;
             await RefreshTheEntryAsync();
         }
         finally

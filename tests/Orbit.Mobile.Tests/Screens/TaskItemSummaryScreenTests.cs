@@ -225,11 +225,15 @@ public sealed class TaskItemSummaryScreenTests
         using var context = new ScreenContext();
         var opened = await context.AddEntryAsync("Collect the parcel");
         var screen = await context.OpenAsync(opened);
+        Assert.False(screen.IsCompleted);
 
         await screen.TickCommand.ExecuteAsync(null);
 
         Assert.True(screen.IsCompleted);
         Assert.True((await context.StoredEntryAsync(opened)).IsCompleted);
+        // And when: recorded with the tick, and said on the screen once there is something to say.
+        Assert.NotNull((await context.StoredEntryAsync(opened)).CompletedAtUtc);
+        Assert.NotEqual("Not recorded", screen.CompletedOn);
         Assert.Empty(screen.Status);
     }
 
@@ -377,6 +381,8 @@ public sealed class TaskItemSummaryScreenTests
 
         Assert.False(screen.IsCompleted);
         Assert.False((await context.StoredEntryAsync(opened)).IsCompleted);
+        // A time for being done goes with the tick.
+        Assert.Null((await context.StoredEntryAsync(opened)).CompletedAtUtc);
     }
 
     /// <summary>
@@ -453,6 +459,8 @@ public sealed class TaskItemSummaryScreenTests
 
         Assert.True(screen.IsCompleted);
         Assert.True((await context.StoredEntryAsync(opened)).IsCompleted);
+        // Recorded offline too - the phone keeps the time, not the server.
+        Assert.NotNull((await context.StoredEntryAsync(opened)).CompletedAtUtc);
         Assert.NotEmpty(screen.Status);
     }
 
@@ -595,7 +603,8 @@ public sealed class TaskItemSummaryScreenTests
             var screen = new TaskItemSummaryViewModel(
                 _taskLists, _events, new PlaceSearch(_nominatim.ToHttpClient()),
                 new Translations(new InMemoryLanguageStore()), Navigator,
-                new ChatRepository(_localStore, _clock), _synchronizer, new TasksClient(Server.ToHttpClient()));
+                new ChatRepository(_localStore, _clock), _synchronizer, new TasksClient(Server.ToHttpClient()),
+                _clock);
 
             screen.Open(opened.TaskListLocalId, opened.ItemId);
             await screen.LoadCommand.ExecuteAsync(null);

@@ -95,7 +95,15 @@ public sealed record TaskItemRequest(
     /// How much of its product this entry needs - see <see cref="TaskItemDto.RequiredQuantity"/>. Null
     /// together with a null <see cref="ReferencesTaskItemId"/> keeps what is stored, for the same client.
     /// </summary>
-    decimal? RequiredQuantity = null)
+    decimal? RequiredQuantity = null,
+    /// <summary>
+    /// When this entry was ticked off - see Orbit.Core.Tasks.TaskItem.CompletedAtUtc. Ignored for an entry
+    /// that is not ticked, whose time is always cleared. For a ticked one, <b>null means "not provided"</b>:
+    /// the server keeps the time it already holds for an entry that was already done, and records the
+    /// moment of the save for one that has only just been ticked. That is what a client written before
+    /// this existed sends, so a save from an installed phone neither wipes a recorded time nor moves it.
+    /// </summary>
+    DateTimeOffset? CompletedAtUtc = null)
 {
     /// <summary>Whichever shape the sender used, read as one - see <see cref="LinkedTaskListIds"/>.</summary>
     public IReadOnlyList<Guid> AllLinkedTaskListIds
@@ -143,5 +151,6 @@ public sealed record TaskItemRequest(
             item.Colour,
             item.Alternatives,
             item.ReferencesTaskItemId,
-            item.RequiredQuantity);
+            item.RequiredQuantity,
+            item.CompletedAtUtc);
 }

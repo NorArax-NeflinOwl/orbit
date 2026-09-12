@@ -356,19 +356,8 @@ public partial class ItemCard : ContentView
 		}
 	}
 
-	/// <summary>
-	/// Whether the phone has been asked to animate at all. Android says so by scaling every animation
-	/// to nothing, which is the setting a reader turns on for exactly this kind of thing.
-	/// </summary>
-	private static bool MotionIsWanted =>
-#if ANDROID
-		Android.Provider.Settings.Global.GetFloat(
-			Android.App.Application.Context.ContentResolver,
-			Android.Provider.Settings.Global.AnimatorDurationScale,
-			1f) > 0f;
-#else
-		true;
-#endif
+	/// <summary>Whether the phone has been asked to animate at all - see Motion, which the loading ring asks too.</summary>
+	private static bool MotionIsWanted => Motion.IsWanted;
 
 	private static Brush Look(string key)
 		=> Application.Current?.Resources.TryGetValue(key, out var value) is true && value is Color colour

@@ -19,12 +19,11 @@ public static class OrbitRelease
     public const int Year = 2026;
 
     /// <summary>
-    /// Who the copyright line names. The application's own name for now, standing in for the company's
-    /// - a footer is a statement about who publishes this, and a person's name in that place says
-    /// something narrower than what is meant. The LICENSE file still names the copyright holder, which
-    /// is a legal question rather than a question about a footer.
+    /// Who the copyright line names: the person who publishes Orbit. It named the application itself until
+    /// 2026-09-11, which reads as Orbit claiming a copyright in itself rather than as somebody holding
+    /// one. The LICENSE file names the copyright holder in the legal sense; this is the footer's line.
     /// </summary>
-    public const string PublishedBy = "Orbit";
+    public const string PublishedBy = "Patryk Pudwel";
 
     /// <summary>What the LICENSE file at the root of the repository says, in three words.</summary>
     public const string LicenseName = "All Rights Reserved";

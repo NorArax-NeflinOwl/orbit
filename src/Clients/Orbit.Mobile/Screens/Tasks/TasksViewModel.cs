@@ -119,13 +119,20 @@ public sealed partial class TasksViewModel : ObservableObject
     /// <summary>The cards folded down to their heading - see ToggleCollapsed.</summary>
     private readonly HashSet<Guid> _collapsed;
 
+    /// <summary>The account's tag colours - see LocalTagColourRepository. Null in a test that is not about them.</summary>
+    private readonly LocalTagColourRepository? _tagColours;
+
+    /// <summary>Those colours by tag key, read with the lists - see ShowArrangedLists, which draws from what is held.</summary>
+    private IReadOnlyDictionary<string, string>? _tagColourMap;
+
     public TasksViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, TasksClient tasksClient,
         INetworkStatus networkStatus, ITaskListArrangementStore arrangements, PrivateItemGate privateItems,
         SyncState syncState, IScreenNavigator navigator, Translations translations,
         LocalNotificationRepository notifications, LocalFolderRepository folders, IChosenFolderStore chosenFolder,
-        FolderSynchronizer folderSynchronizer)
+        FolderSynchronizer folderSynchronizer, LocalTagColourRepository? tagColours = null)
     {
+        _tagColours = tagColours;
         _folderSynchronizer = folderSynchronizer;
         _folders = folders;
         Folders = new FolderTabs(folders, chosenFolder, translations, FolderPage.Tasks);
@@ -283,6 +290,8 @@ public sealed partial class TasksViewModel : ObservableObject
 
         _stored = stored;
         _pending = pending;
+        // The account's tag colours, read with the lists so arranging them again asks the store nothing.
+        _tagColourMap = _tagColours is null ? null : await _tagColours.ColoursAsync(cancellationToken);
 
         // Which lists the bell is talking about. Read here rather than per row: one pass over what is
         // unread answers it for every card, and a card asking the database for itself would be one
@@ -434,7 +443,7 @@ public sealed partial class TasksViewModel : ObservableObject
             // and a member filtered off the screen is still where that work sits.
             TaskLists.Add(TaskListRow.From(
                 taskList, _stored, _pending.Contains(taskList.LocalId), _networkStatus, _translations,
-                _privateItems.IsUnlocked, _translations["Private"])
+                _privateItems.IsUnlocked, _translations["Private"], _tagColourMap)
                 with
                 {
                     CanBeMoved = SortOrder == TaskListSortOrder.Manual,

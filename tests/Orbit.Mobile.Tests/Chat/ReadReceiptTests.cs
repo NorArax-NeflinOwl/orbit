@@ -14,9 +14,10 @@ namespace Orbit.Mobile.Tests.Chat;
 public sealed class ReadReceiptTests
 {
     [Fact]
-    public async Task Opening_a_conversation_marks_what_the_other_party_sent_as_read()
+    public async Task Pulling_a_conversation_marks_nothing_read()
     {
-        // Reading is what having the conversation open *is* - there is nothing else for a reader to do.
+        // A sync runs on a timer, and in the background too. Having pulled a message is not having seen
+        // it - see ConversationReadTests for what is.
         using var context = new ChatContext();
         var fromThem = context.OtherIdentity.Encrypt(context.OwnPublicKeyBase64, "did you see this");
         context.Server.AddIncoming(
@@ -24,8 +25,23 @@ public sealed class ReadReceiptTests
 
         await context.Synchronizer.SynchroniseConversationAsync(context.OtherUserId);
 
-        // Asked from their side: the message they sent is now marked.
-        Assert.NotNull(context.Server.ReadUpToUtcForTheOtherParty(context.OwnUserId));
+        Assert.Null(context.Server.ReadUpToUtcForTheOtherParty(context.OwnUserId));
+        Assert.Empty(context.Server.ConversationReadsUpTo);
+    }
+
+    [Fact]
+    public async Task Saying_what_was_seen_marks_what_the_other_party_sent_as_read()
+    {
+        using var context = new ChatContext();
+        var fromThem = context.OtherIdentity.Encrypt(context.OwnPublicKeyBase64, "did you see this");
+        var message = context.Server.AddIncoming(
+            context.OtherUserId, context.OwnUserId, fromThem.CiphertextBase64, fromThem.NonceBase64);
+
+        await context.Synchronizer.MarkConversationReadAsync(context.OtherUserId, message.SentAtUtc);
+
+        // Asked from their side: the message they sent is now marked, and the mark said how far.
+        Assert.Equal(message.SentAtUtc, context.Server.ReadUpToUtcForTheOtherParty(context.OwnUserId));
+        Assert.Equal([message.SentAtUtc], context.Server.ConversationReadsUpTo);
     }
 
     [Fact]

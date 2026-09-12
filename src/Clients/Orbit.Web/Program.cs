@@ -80,6 +80,10 @@ builder.Services.AddHttpClient<InventoryApiClient>(httpClient => httpClient.Base
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<NameSuggestionsApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
+// The colours the account gives its tags, and the one copy of them a page draws from - see TagColourBook.
+builder.Services.AddHttpClient<TagsApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
+    .AddHttpMessageHandler<AuthorizationMessageHandler>();
+builder.Services.AddScoped<TagColourBook>();
 builder.Services.AddHttpClient<FoldersApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<SharesApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
@@ -150,6 +154,9 @@ builder.Services.AddScoped<PresenceService>();
 // Asked by the chat poll before every tick - see PageVisibility for why polling behind thirty other
 // tabs is waste rather than diligence.
 builder.Services.AddScoped<PageVisibility>();
+// Asked by a chat thread what has actually been seen - see ChatReadState for why an open thread no
+// longer counts as a read one.
+builder.Services.AddScoped<ChatSeenProbe>();
 builder.Services.AddScoped<UserPermissionState>();
 builder.Services.AddScoped<ChecklistViewPreference>();
 builder.Services.AddScoped<TaskListArrangement>();

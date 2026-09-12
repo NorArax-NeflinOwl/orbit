@@ -116,12 +116,13 @@ else
                 <Body>
                 @if (NotesToShow.Count == 0)
                 {
-                    <p class="empty-hint">@T["Nothing here matches the filter. Change it above to see the rest."]</p>
+                    <p class="empty-hint empty-list">@T["Nothing here matches the filter. Change it above to see the rest."]</p>
                 }
                 @foreach (var note in NotesToShow)
                 {
                     <Row Title="@note.Title" OnPressed="() => GoToNote(note.Id)">
                         <Trailing>
+                            <TagChips Tags="note.AllTags" />
                             @RenderPriorityBadge(note.Priority)
                             <span class="row-meta">@FormatRelative(note.UpdatedAtUtc)</span>
                         </Trailing>
@@ -148,7 +149,7 @@ else
                 <Body>
                 @if (TaskListsToShow.Count == 0)
                 {
-                    <p class="empty-hint">@T["Nothing here matches the filter. Change it above to see the rest."]</p>
+                    <p class="empty-hint empty-list">@T["Nothing here matches the filter. Change it above to see the rest."]</p>
                 }
                 @foreach (var taskList in TaskListsToShow)
                 {
@@ -157,6 +158,7 @@ else
                     <Row Title="@Written(taskList.Title)" OnPressed="() => GoToTaskList(taskList.Id)"
                          AdditionalClass="@RowClasses(taskList.IsCompleted ? "completed" : null, HasNewsAbout(taskList.Id, "/tasks"))">
                         <Trailing>
+                            <TagChips Tags="taskList.AllTags" />
                             @RenderPriorityBadge(taskList.Priority)
                             @if (taskList.Items.Count > 0)
                             {
@@ -199,7 +201,7 @@ else
                 <Body>
                 @if (UpcomingToShow.Count == 0)
                 {
-                    <p class="empty-hint">@T["Nothing here matches the filter. Change it above to see the rest."]</p>
+                    <p class="empty-hint empty-list">@T["Nothing here matches the filter. Change it above to see the rest."]</p>
                 }
                 @foreach (var entry in UpcomingToShow.Take(6))
                 {
@@ -404,14 +406,14 @@ else
        nothing - is a row of tabs above a blank page. *@
     @if (HasNothingUnderTheOpenTab)
     {
-        <p class="empty-hint">
+        <p class="empty-hint empty-list">
             @(IsReadingWhatIsPrivate ? T["Nothing here is private yet."] : T["This folder is empty."])
         </p>
     }
 
     @if (!CardPreferences.IsAnythingVisible(DashboardParts.Select(part => part.Key)))
     {
-        <p class="empty-hint">@T["Everything here is hidden. The menu at the top right brings it back."]</p>
+        <p class="empty-hint empty-list">@T["Everything here is hidden. The menu at the top right brings it back."]</p>
     }
 }
 

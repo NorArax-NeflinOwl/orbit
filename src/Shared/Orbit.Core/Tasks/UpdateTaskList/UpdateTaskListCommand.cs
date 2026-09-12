@@ -64,5 +64,7 @@ public sealed record UpdateTaskListCommand(
     /// need - see TaskItem.ReferencesTaskItemId and TaskItem.RequiredQuantity. The seventh field to follow
     /// this rule, for the phone builds already installed.
     /// </summary>
-    IReadOnlySet<Guid>? EntriesKeepingTheirReference = null)
+    IReadOnlySet<Guid>? EntriesKeepingTheirReference = null,
+    /// <summary>Null leaves the stored tags alone - see UpdateTaskRequest.Tags. An empty list clears them.</summary>
+    IReadOnlyList<string>? Tags = null)
     : IRequest<EditOutcome>;

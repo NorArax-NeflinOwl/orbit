@@ -25,6 +25,9 @@ public sealed class OrbitLocalDbContext : DbContext
 
     public DbSet<LocalTaskList> TaskLists => Set<LocalTaskList>();
 
+    /// <summary>The account's tag colours as this phone holds them - see LocalTagColour.</summary>
+    public DbSet<LocalTagColour> TagColours => Set<LocalTagColour>();
+
     public DbSet<LocalCalendarEvent> CalendarEvents => Set<LocalCalendarEvent>();
 
     public DbSet<LocalInventory> Inventories => Set<LocalInventory>();
@@ -82,6 +85,10 @@ public sealed class OrbitLocalDbContext : DbContext
             note.Property(entity => entity.CopyBaseLines)
                 .HasConversion(LinesConverter)
                 .Metadata.SetValueComparer(LinesComparer);
+            // Nullable on purpose - see LocalNote.Tags - and JSON in one column like the lines above.
+            note.Property(entity => entity.Tags)
+                .HasConversion(TagsConverter)
+                .Metadata.SetValueComparer(TagsComparer);
         });
 
         modelBuilder.Entity<LocalTaskList>(taskList =>
@@ -96,7 +103,13 @@ public sealed class OrbitLocalDbContext : DbContext
             taskList.Property(entity => entity.CopyBaseLines)
                 .HasConversion(LinesConverter)
                 .Metadata.SetValueComparer(LinesComparer);
+            taskList.Property(entity => entity.Tags)
+                .HasConversion(TagsConverter)
+                .Metadata.SetValueComparer(TagsComparer);
         });
+
+        // One colour per tag, keyed the way the server keys it - see LocalTagColour.
+        modelBuilder.Entity<LocalTagColour>(colour => colour.HasKey(entity => entity.NormalizedTag));
 
         // The server's id is the only id a notification has - nothing on a phone raises one.
         modelBuilder.Entity<LocalNotification>(notification => notification.HasKey(entity => entity.Id));
@@ -234,6 +247,19 @@ public sealed class OrbitLocalDbContext : DbContext
     private static readonly ValueConverter<IReadOnlyList<string>, string> LinesConverter = new(
         lines => JsonSerializer.Serialize(lines, LocalStoreSerializerContext.Default.IReadOnlyListString),
         stored => ReadList(stored, LocalStoreSerializerContext.Default.IReadOnlyListString));
+
+    /// <summary>
+    /// The same as <see cref="LinesComparer"/> for a list that may be null - a note's or a list's tags, where
+    /// null means "not known" (see LocalNote.Tags) and has to compare as a value of its own.
+    /// </summary>
+    private static readonly ValueConverter<IReadOnlyList<string>?, string?> TagsConverter = new(
+        tags => tags == null ? null : JsonSerializer.Serialize(tags, LocalStoreSerializerContext.Default.IReadOnlyListString),
+        stored => stored == null ? null : ReadList(stored, LocalStoreSerializerContext.Default.IReadOnlyListString));
+
+    private static readonly ValueComparer<IReadOnlyList<string>?> TagsComparer = new(
+        (left, right) => left == null ? right == null : right != null && left.SequenceEqual(right),
+        tags => tags == null ? 0 : tags.Aggregate(0, (hash, tag) => HashCode.Combine(hash, tag.GetHashCode())),
+        tags => tags == null ? null : tags.ToList());
 
     /// <summary>Without this a changed snapshot is compared by reference and saved unchanged.</summary>
     private static readonly ValueComparer<IReadOnlyList<string>> LinesComparer = new(

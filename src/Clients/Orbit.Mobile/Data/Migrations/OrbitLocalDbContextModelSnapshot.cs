@@ -400,6 +400,9 @@ namespace Orbit.Mobile.Data.Migrations
                     b.Property<string>("SharedByUserName")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Tags")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -568,6 +571,27 @@ namespace Orbit.Mobile.Data.Migrations
                     b.ToTable("StoreOwners");
                 });
 
+            modelBuilder.Entity("Orbit.Mobile.Data.LocalTagColour", b =>
+                {
+                    b.Property<string>("NormalizedTag")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Colour")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsPending")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Tag")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("NormalizedTag");
+
+                    b.ToTable("TagColours");
+                });
+
             modelBuilder.Entity("Orbit.Mobile.Data.LocalTaskList", b =>
                 {
                     b.Property<Guid>("LocalId")
@@ -658,6 +682,9 @@ namespace Orbit.Mobile.Data.Migrations
 
                     b.Property<string>("Status")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Tags")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Title")

@@ -127,10 +127,8 @@ public sealed class ChatSynchronizer
             var messages = await _chatClient.GetGroupConversationAsync(groupId, cancellationToken);
             var stored = await _chatRepository.StoreGroupMessagesAsync(groupId, messages, cancellationToken);
 
-            // As in the one-to-one conversation above: this screen being open is what "read" means.
-            await _chatClient.MarkGroupConversationAsReadAsync(groupId, cancellationToken);
-            // And the count on its row goes with it, here and now - not at the next refresh.
-            await _chatRepository.MarkGroupReadAsync(groupId, cancellationToken);
+            // Nothing is marked read here, and the count on the group's row stays as it is: a sync runs
+            // on a timer, and pulling a message is not seeing it. See MarkGroupConversationReadAsync.
 
             return new ChatSyncResult(push.Sent, stored, ReachedTheServer: true);
         }
@@ -171,12 +169,9 @@ public sealed class ChatSynchronizer
             var messages = await _chatClient.GetConversationAsync(otherUserId, since, cancellationToken);
             var stored = await _chatRepository.StoreAsync(otherUserId, messages, cancellationToken);
 
-            // Reading is what this screen being open *is*, so it is marked on the way past rather than
-            // by anything the reader has to do. Then asked the other way round, for the reader's own
-            // messages - one round trip each, on a screen that is already talking to the server.
-            await _chatClient.MarkConversationAsReadAsync(otherUserId, cancellationToken);
-            // And the count on their row goes with it, here and now - not at the next refresh.
-            await _chatRepository.MarkReadAsync(otherUserId, cancellationToken);
+            // Asked the other way round, for the reader's own messages, on a screen that is already
+            // talking to the server. Their messages are not marked read here: a sync runs on a timer and
+            // in the background, and pulling a message is not seeing it - see MarkConversationReadAsync.
             var theyReadUpToUtc = await _chatClient.GetReadReceiptAsync(otherUserId, cancellationToken);
 
             return new ChatSyncResult(push.Sent, stored, ReachedTheServer: true, theyReadUpToUtc);
@@ -185,6 +180,51 @@ public sealed class ChatSynchronizer
         {
             _logger.LogInformation("Could not reach the server to pull chat ({Reason})", exception.Message);
             return new ChatSyncResult(push.Sent, 0, push.Sent > 0);
+        }
+    }
+
+    /// <summary>
+    /// Tells the server the reader has seen the other party's messages up to readUpToUtc, and takes the
+    /// count on their row down with it, here and now rather than at the next refresh. Called by the
+    /// conversation screen once a message has actually been on screen with the app in front - see
+    /// ConversationReadState, which decides when that is.
+    ///
+    /// Not queued: false when the server could not be reached, and the screen offers the same mark again
+    /// at its next chance - the next sync, the next scroll, coming back to the app. A mark that never
+    /// goes out leaves a message unread, which the next time it is seen puts right; a queue that outlived
+    /// the screen would be a read receipt sent long after anybody was looking.
+    /// </summary>
+    public async Task<bool> MarkConversationReadAsync(
+        Guid otherUserId, DateTimeOffset readUpToUtc, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _chatClient.MarkConversationAsReadAsync(otherUserId, readUpToUtc, cancellationToken);
+            await _chatRepository.MarkReadAsync(otherUserId, readUpToUtc, cancellationToken);
+            return true;
+        }
+        catch (Exception exception) when (IsWorthRetrying(exception, cancellationToken))
+        {
+            _logger.LogInformation("Could not reach the server to mark a conversation read ({Reason})", exception.Message);
+            return false;
+        }
+    }
+
+    /// <summary>The same for a group, whose row carries a count of its own - see LocalChatGroup.UnreadCount.</summary>
+    public async Task<bool> MarkGroupConversationReadAsync(
+        Guid groupId, DateTimeOffset readUpToUtc, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _chatClient.MarkGroupConversationAsReadAsync(groupId, readUpToUtc, cancellationToken);
+            // And the count on its row goes with it, here and now - not at the next refresh.
+            await _chatRepository.MarkGroupReadAsync(groupId, cancellationToken);
+            return true;
+        }
+        catch (Exception exception) when (IsWorthRetrying(exception, cancellationToken))
+        {
+            _logger.LogInformation("Could not reach the server to mark a group read ({Reason})", exception.Message);
+            return false;
         }
     }
 

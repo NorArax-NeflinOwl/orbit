@@ -693,10 +693,12 @@
         try
         {
             await TasksApiClient.UpdateTaskListAsync(
-                // The list's own priority sent back with it: left out, a tick here put the list back to
-                // Normal - see TaskItemCompletion.SaveAsync, which had the same hole.
+                // The list's priority and tags go back as they are, for the reason TaskItemCompletion.SaveAsync
+                // gives: the endpoint replaces a list wholesale, and leaving them out reset a High list to
+                // Normal and emptied a private list's tags, which live nowhere but in its seal.
                 taskList.Id, new UpdateTaskRequest(
-                    taskList.Title, items, taskList.IsGroup, taskList.IsPrivate, Priority: taskList.Priority));
+                    taskList.Title, items, taskList.IsGroup, taskList.IsPrivate,
+                    Priority: taskList.Priority, Tags: taskList.AllTags));
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {

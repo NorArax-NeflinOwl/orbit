@@ -73,6 +73,17 @@
                            HorizontalTextAlignment="End" VerticalOptions="Center" />
                 </Grid>
 
+                <!-- When it was done, once it is - and not before, when there is no such fact. Corrected in
+                     the entry's form on its list; read here. -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" Padding="0,12" MinimumHeightRequest="46"
+                      IsVisible="{Binding IsCompleted}">
+                    <BoxView Grid.Column="0" Grid.ColumnSpan="2" Style="{StaticResource Hairline}" VerticalOptions="Start" Margin="0,-12,0,0" />
+                    <Label Grid.Column="0" Text="{controls:Translate 'Completed on'}"
+                           Style="{StaticResource FieldLabel}" VerticalOptions="Center" />
+                    <Label Grid.Column="1" Text="{Binding CompletedOn}" LineBreakMode="WordWrap"
+                           HorizontalTextAlignment="End" VerticalOptions="Center" />
+                </Grid>
+
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" Padding="0,12" MinimumHeightRequest="46"
                       IsVisible="{Binding HasAppointmentDescription}">
                     <BoxView Grid.Column="0" Grid.ColumnSpan="2" Style="{StaticResource Hairline}" VerticalOptions="Start" Margin="0,-12,0,0" />

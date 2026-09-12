@@ -26,13 +26,19 @@ public sealed class EverythingSynchronizer
     private readonly PlaceSynchronizer _places;
     private readonly ChatSynchronizer _chat;
     private readonly UserPermissions _permissions;
+    private readonly TagColourSynchronizer? _tagColours;
 
+    /// <param name="tagColours">
+    /// The account's tag colours - see TagColourSynchronizer. Optional only so a test about something else
+    /// need not build one; the app always has one registered.
+    /// </param>
     public EverythingSynchronizer(
         FolderSynchronizer folders, NoteSynchronizer notes, TaskListSynchronizer taskLists,
         CalendarEventSynchronizer calendarEvents, InventorySynchronizer inventories,
         PlaceSynchronizer places, ChatSynchronizer chat,
-        UserPermissions permissions)
+        UserPermissions permissions, TagColourSynchronizer? tagColours = null)
     {
+        _tagColours = tagColours;
         _folders = folders;
         _notes = notes;
         _taskLists = taskLists;
@@ -55,6 +61,13 @@ public sealed class EverythingSynchronizer
         everything = everything.And(await TryAsync(() => _taskLists.SynchroniseAsync(cancellationToken)));
         everything = everything.And(await TryAsync(() => _calendarEvents.SynchroniseAsync(cancellationToken)));
         everything = everything.And(await TryAsync(() => _inventories.SynchroniseAsync(cancellationToken)));
+
+        // After the notes and lists that carry the tags, though nothing depends on the order: a colour
+        // belongs to the word, and a card draws its tags plain until the colours arrive.
+        if (_tagColours is not null)
+        {
+            everything = everything.And(await TryAsync(() => _tagColours.SynchroniseAsync(cancellationToken)));
+        }
 
         // Behind the permission that draws a map at all: a place is a point, and an account that may not
         // be shown a map has nowhere to put one. Refused rather than skipped silently, for the reason

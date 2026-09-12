@@ -30,4 +30,13 @@ public sealed record NoteDto(
     /// rather than none at all, see Orbit.Core.Folders.BuiltInFolder. Only ever the owner's own filing:
     /// a note shared with somebody else carries the owner's folder id, which means nothing to them.
     /// </summary>
-    Guid? FolderId = null);
+    Guid? FolderId = null,
+    /// <summary>
+    /// The words it is tagged with - see Orbit.Core.Notes.Note.Tags. Empty for a private note, whose tags
+    /// are in its sealed payload (SealedNote.Tags). Null from a server written before tags existed.
+    /// </summary>
+    IReadOnlyList<string>? Tags = null)
+{
+    /// <summary>The tags as something to read without a null check - see <see cref="Tags"/>.</summary>
+    public IReadOnlyList<string> AllTags => Tags ?? [];
+}

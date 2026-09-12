@@ -146,8 +146,11 @@
                                                     <!-- The row every list of facts is drawn with - see
                                                          Row, and Orbit.Web's .list-row, which draws
                                                          these rows there too. -->
-                                                    <!-- [name .......... tag] [when]: what it is called,
-                                                         the one tag worth saying about it, and when it
+                                                    <!-- [name .... tags priority] [when]: what it is
+                                                         called, the reader's own tags for it (notes and
+                                                         lists only, in the account's colours, as
+                                                         Orbit.Web's TagChips on the same rows), the
+                                                         priority where it says something, and when it
                                                          last mattered.
 
                                                          The design gives this row three more - a colour
@@ -165,6 +168,8 @@
                                                                   PressedCommandParameter="{Binding .}">
                                                         <controls:Row.Trailing>
                                                             <HorizontalStackLayout Spacing="8">
+                                                                <controls:TagChipsView BindingContext="{Binding Tags}"
+                                                                                       VerticalOptions="Center" />
                                                                 <!-- Only where it says something, as
                                                                      Orbit.Web badges the same rows -
                                                                      see PriorityChoice.IsWorthSaying. -->

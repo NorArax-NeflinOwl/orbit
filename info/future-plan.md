@@ -355,17 +355,50 @@ version, so they aren't mistaken for oversights:
   row per member, and sharing history adds one more row per message per newcomer. Nobody who was never
   given the history can read it, which is the point - this is a member's decision to make, not something
   joining a group grants.
-- **Chat delivery is polling-based** (once a second while a conversation is open), not real-time - no
+- ~~**Chat delivery is polling-based**~~ Stale by 2026-09-11, and struck then. Both clients hold a live
+  connection (SignalR over a WebSocket, `LiveUpdatesConnection`) and hear "your chat changed" the moment
+  a message, an edit, a deletion, a receipt or a group change happens. The page reads straight away.
+  The poll is only a net under it now: 20 seconds while the connection is up, back to 1 second when it
+  drops. See [Live updates](functionality.md#live-updates). What made it look open was that the answer
+  to an announcement had no test. `ChatThreadTests` now drives it through
+  `LiveUpdatesConnection.Announce`, the method the hub's own handlers call. As noticed: (once a second while a conversation is open), not real-time - no
   SignalR or WebSockets. The polling itself has since been made to cost what it should: a group
   conversation polls at all, nothing is polled while the tab is behind others, and the conversation list
   is read every tenth tick rather than every one. Replacing it with a push transport is still open.
-- **"Read" means "the chat was open", not "somebody looked at it".** A message is marked read by the
-  thread that is polling for it (`Chat.razor`), which is a stand-in for the other party actually seeing
-  it. Narrowing the poll so it stops while the tab is behind others made the stand-in closer to the
-  truth than it was, but not equal to it: a thread open in a visible window nobody is sitting at still
-  reports everything as read. A real signal - tab focus and scroll position, pushed to the server rather
-  than inferred from a poll - is still open, and is worth having before read receipts are shown to the
-  *sender* as a promise rather than kept as an unread count for the reader.
+- ~~**"Read" means "the chat was open", not "somebody looked at it".**~~ Done on both clients
+  (2026-09-11): the mark-read routes take an optional `readUpToUtc` - the newest message actually seen -
+  and mark nothing past it, while absent still marks everything for installed phone builds. The web marks
+  only with the tab visible and the window focused, up to the newest message in view; the phone only
+  with the page showing and the app in the foreground, up to the last line the thread shows. See
+  [Functionality — What counts as read](functionality.md#what-counts-as-read).
+
+  What this said before: A message is marked read by the thread that is polling for it (`Chat.razor`),
+  which is a stand-in for the other party actually seeing it. Narrowing the poll so it stops while the
+  tab is behind others made the stand-in closer to the truth than it was, but not equal to it: a thread
+  open in a visible window nobody is sitting at still reports everything as read. A real signal - tab
+  focus and scroll position, pushed to the server rather than inferred from a poll - is still open, and
+  is worth having before read receipts are shown to the *sender* as a promise rather than kept as an
+  unread count for the reader.
+- **The phone's "seen" rests on `CollectionView.Scrolled`, which is not device-verified.** The Android
+  head builds and the decision is covered by view-model tests, but nobody has yet watched a mark leave a
+  real phone. Android's `RecyclerView` reports a scroll after every layout that changes what is visible,
+  so a thread that opens at its newest line should report it; iOS's `UICollectionView` reports only
+  actual offset changes, so a short thread that fits the screen without scrolling may never say what is
+  on it and so never be marked read there. Check on a device before relying on it; if iOS is silent, the
+  page needs a second source for the visible range once it has laid out.
+- ~~**Notifications about a web conversation are still cleared by the open window.**~~ Fixed 2026-09-11:
+  `Chat.razor` now clears them from `MarkWhatHasBeenSeenAsync`, on the signal that marks messages read -
+  tab visible, window focused - and only once the other party's newest message is in view
+  (`ChatReadState.HasSeenTheirNewest`), since an entry does not say which message it was for. The call
+  as the conversation loaded is gone: it ran before the thread was drawn, and (despite this entry) it was
+  the only one, so an entry recorded while the reader sat in the window was never cleared there at all.
+  `GroupConversation.razor` has nothing to change - group messages record no feed entries; the group
+  invitation's `/chat/groups/{id}` entry is settled on arrival by `MainLayout`. As noticed:
+  `Chat.razor`'s `ClearNotificationsForThisConversationAsync` marks the conversation's entries in the
+  notification feed read on load and on every poll, whether or not the new message has been seen. The
+  feed is "tidying, not reading" (the unread badge comes from the conversation, not from the feed), so it
+  is not wrong in the way read receipts were, but a notification can disappear for a message nobody has
+  looked at yet. The same seen signal (`ChatReadState`) could drive it.
 - ~~**Task list cycle validation is server-side only.**~~ Done: the editor's "link to list" dropdown now
   leaves out every list that links back to the one being edited, however long the chain
   (`TaskListLinkCycle`), so a link the save would refuse is never offered. `TaskListLinkValidator` stays
@@ -428,9 +461,11 @@ since been closed; what is left is recorded below with the same honesty about wh
   `WaitForAssertion` is no use for it: it re-checks on a render, and a tick behind a hidden tab renders
   nothing.
 
-  Still out of reach, and named in the class: `OnChatAnnounced`, since `LiveUpdatesConnection` raises
-  its events from inside itself and nothing outside can, so the live-connection half of the pace
-  (`ConnectedPollInterval`) is reasoned about rather than driven.
+  ~~Still out of reach, and named in the class: `OnChatAnnounced`~~ Reached 2026-09-11. The hub's
+  handlers now go through `LiveUpdatesConnection.Announce`, and a test calls it the same way, so the
+  answer to an announcement is driven rather than reasoned about. The slower pace while connected
+  (`ConnectedPollInterval`) still is not: it needs a connection that is really up. As first written:
+  `LiveUpdatesConnection` raised its events from inside itself and nothing outside could.
 - ~~**Nothing runs on a pull request.**~~ Put back, cheaply. The trigger was removed because every
   billed minute counted and a day of ordinary work exhausted the allowance; what changed is that a run
   now costs a fraction of what it did. The android job looks before it builds and does nothing when
@@ -628,6 +663,134 @@ Everything else on the pass - the top bar, the shared card and its footer, the c
 inventory lists, the contacts tabs, the chat menus - is built and needs no schema change.
 
 ## Noticed while working
+
+- **`TaskItem.KeepAlternativesOf` can leave the completion time disagreeing with the tick.** Noticed
+  2026-09-12, merging the round that records when an entry was done into the one that lets it be done any
+  one of several ways. The two save handlers call `RecordWhenItWasDone` after it, so what is stored is
+  always corrected; a later caller that forgets would store a time for an entry that is not done, or
+  none for one that is. What it would take: either stamping inside `KeepAlternativesOf` itself, or a
+  guard in the constructor that refuses the pairing the way `Place` refuses private-with-nothing-sealed.
+
+- **Three group chat tests failed once under the full suite and have not since.** Noticed 2026-09-12:
+  `GroupConversationPagesTests` failed on the first full `dotnet test Orbit.CI.slnf` after the merge,
+  then passed on their own, on a re-run of that assembly, and on two further full runs, with nothing
+  changed in between - so this reads as flakiness under cross-assembly parallelism rather than anything
+  the merge did. Nobody chased the cause. Worth knowing that the last time a test here was flaky
+  (`NoteDetailScreenTests`, 2026-08-31) it was removed and the coverage was lost for a week because
+  nobody owned going back - see "Known scope cuts and rough edges". If these fail again, the thing to
+  look at first is what they share with another assembly's tests rather than the page itself.
+
+- ~~**Opening a conversation on the web still clears its bell entries before anything is seen.**~~ Fixed
+  2026-09-12: `NewsSettler.SettledByThePageItself` names the addresses the layout must leave alone - a
+  one-to-one conversation and nothing else - and `MainLayout` returns on them without settling. A group's
+  path is not one of them, since its entry is an invitation rather than a message, and reaching the group
+  reads it. As noticed: Since
+  2026-09-11 the conversation page itself clears them only once the other person's newest message is in
+  view, in a focused window (`ChatReadState.HasSeenTheirNewest`). `MainLayout` also settles every
+  notification pointing at the page it navigates to, whatever that page is (`NewsSettler.SettleAsync(path)`
+  on each location change). So arriving at `/chat/{userId}` clears the entries at once - behind a
+  window without focus, or with the newest message below the list. What it would take: letting a page
+  opt out of the layout's settle for its own address (the chat pages settle on their own terms), and
+  checking the other callers of `NewsSettler` still clear what they should.
+
+- **The phone's note screen has no way to indent.** The browser's Tab and Shift+Tab (2026-09-11) have no
+  phone counterpart: a soft keyboard has no Tab key, and a hardware keyboard's Tab moves the focus on.
+  Indentation typed as spaces, or written by the browser as tabs, is shown and carried on by Enter, but
+  cannot be added or taken away as a level. What it would take: an indent and an outdent button beside
+  undo/redo over the note's foot, using `NoteSurfaceEdits.Indent`/`Outdent` on the surface
+  `NoteDetailViewModel` already builds - and, for a hardware keyboard, `Keycode.Tab` in
+  `NoteLineKeyPresses` beside the arrows.
+
+- ~~**Enter and Backspace on an empty box follow different rules on the two clients.**~~ Fixed 2026-09-12:
+  the browser's, because the web is the model, and by moving the phone's two edits onto
+  `NoteSurfaceEdits.Enter`/`Backspace` rather than writing the rules a second time -
+  `AddLineAfter`/`MergeIntoTheLineAbove` now work the surface out there and show what comes back. Enter on
+  an empty box ends the list in place, one press at the head of one takes the whole line, Enter at the head
+  of a line with words opens the new line above and leaves the words their box, and Backspace at the head
+  of the first line joins it to the note's name (the surface's line 0 on both clients). Two phone things
+  were kept and are now the shared edit's own: the new line keeps the indentation of the one it came from
+  (`Enter`'s `keepsIndentation`, with `IndentationOf` moved to `Orbit.Core`), because a one-line field
+  cannot open at a column somebody has to type their way to; and the tick-box button still boxes every line
+  it starts, following the caret's line so an ended list turns it off. Where the caret lands is said
+  through `CaretPlaced` like every other edit made off the keyboard. Not yet looked at on a device. As
+  noticed: In the browser
+  (`NoteSurfaceEdits.Enter`/`Backspace`) Enter on an empty box turns it into a plain line in place, and
+  Backspace at the head of an empty box takes the whole line in one press. On the phone
+  (`NoteDetailViewModel.AddLineAfter`/`MergeIntoTheLineAbove`) Enter there leaves the empty box and adds a
+  plain line under it, and Backspace takes the box off first and joins the line on a second press - both
+  written as deliberate there. Neither is broken, but a note behaves differently depending on where it is
+  written. Deciding which rule both follow, and moving the phone's two edits onto `NoteSurfaceEdits` if it
+  is the browser's, would finish what the paste, undo and several-boxes work started.
+
+- **Choosing several boxes on the phone is only in the note's menu.** A long press on a box would be the
+  faster way in, and the one a phone user tries first, but MAUI has no long-press gesture of its own - it
+  needs a platform handler or CommunityToolkit.Maui's `TouchBehavior`, which Orbit.Maui does not
+  reference. The menu entry, the marks and the hint line (`NoteDetailViewModel.IsPickingLines`) stay as
+  they are; only the way in would be added.
+
+- **The phone's multi-line paste rests on an unverified Android detail.** `NoteDetailViewModel.Paste`
+  finds a pasted checklist's lines by the line breaks a one-line `Entry` keeps in its text. Android's
+  single-line `EditText` is believed to keep them (it only draws them as spaces), but no device has
+  confirmed it; if it drops them, a pasted checklist arrives as one line with the marks inside it, as it
+  did before. Check on a device by pasting two lines into a note; if they arrive joined, the paste has to
+  be caught before the field flattens it (a custom `EditText` overriding `onTextContextMenuItem`).
+
+- ~~**The phone's undo and redo buttons are small targets.**~~ Fixed 2026-09-11: they are 44 across
+  (`IconButton.TouchSize`, which leaves every other icon button at 30), level with the 44 tick-box button
+  and touching each other; the drawings stay 18, and the row ends well short of Save. Not yet looked at on
+  a device. As noticed: they are `IconButton`s, 30 across like every
+  icon button in the app, beside the 44 tick-box button - under the 44-48 a thumb is usually given. Worth
+  looking at on a device with the rest of the note's foot rather than on its own.
+
+- ~~**Dragging words across lines in a note is still the browser's own.**~~ Fixed 2026-09-11: a drop on
+  the surface is stopped (`onDrop` in `checklistTextEditor.js`), its point read with
+  `caretPositionFromPoint` (`caretRangeFromPoint` where that is missing), and made in C# as one step:
+  `NoteSurfaceEdits.Drag` for words dragged from the surface itself (a move, a copy with Ctrl/Alt) and
+  `NoteSurfaceEdits.Drop` for text from elsewhere, read like a paste. Whole lines move whole and land
+  between lines; part-lines go in as writing does. Words dragged out to somewhere else are taken away
+  as a cut (`deleteByDrag`). Unit-tested; only a synthetic drop was checked in a browser, not a real
+  mouse drag. As noticed: Since 2026-09-11 every other edit
+  that changes the shape of a note's lines goes through `NoteSurfaceEdits` (see the note editor in
+  `functionality.md`), but `checklistTextEditor.js` lets `insertFromDrop`/`deleteByDrag` through: where a
+  drop lands is not where the selection is, so the selection-based `Replace` would put the words in the
+  wrong place. A drag that spans lines can still glue two lines' elements together, which the next
+  keystroke's `repairStrayText` only partly tidies. What it would take: reading the drop point from the
+  `drop` event (`document.caretPositionFromPoint`), and sending a delete of the dragged selection and an
+  insert at that point to C# as one step.
+
+- ~~**The name-and-description field turns "[]" into a box it cannot keep.**~~ Fixed 2026-09-11:
+  `ChecklistTextEditor.ReadsMarkers` (true by default) says whether typed and pasted markers become
+  boxes; `TitledDescription` passes false, so "[] milk" typed or pasted into a list's or an inventory's
+  name and description stays words - both the typed-marker read and the paste's `readsMarkers` honour it.
+  As noticed: `TitledDescription` is the
+  note's surface (`ChecklistTextEditor`) reused for a task list's or an inventory's name and description,
+  and it stores only text - so a line typed as "[] milk" there loses the "[] " to a box, and the box is
+  dropped on save. Older than the 2026-09-11 note-editor work, which made it no worse for typing. What it
+  would take: a `ChecklistTextEditor` parameter that turns marker reading off, passed by
+  `TitledDescription`, and honoured in `NoteSurfaceEdits.ReadTypedMarker`.
+
+- ~~**The phone's dashboard does not draw tags yet.**~~ Fixed 2026-09-11: `DashboardRow.Tags` carries a
+  note's or list's tags in the account's colours (`DashboardViewModel` reads
+  `LocalTagColourRepository.ColoursAsync` once per build), drawn by `TagChipsView` before the priority on
+  the Notes and Tasks cards' rows, as Orbit.Web's dashboard draws `TagChips`; nothing for something sealed.
+  As noticed: since 2026-09-11 notes and task lists carry tags with
+  an account-wide colour, drawn on the browser's `/notes` and `/tasks` cards and dashboard rows and on the
+  phone's notes and task lists screens (`TagChipsView`, fed by `NoteListItem.Tags` / `TaskListRow.Tags`).
+  The phone's dashboard builds its own rows (`DashboardViewModel`) and was left as it was; handing those rows
+  a `TagChips` the way `NotesViewModel` does - colours from `LocalTagColourRepository.ColoursAsync` - is what
+  it takes.
+
+- ~~**The phone's inventory screen still asks for a product type in a plain box.**~~ Fixed 2026-09-11:
+  `InventoryDetailViewModel` hands the item editor the account's known product types
+  (`InventoryItemEditor.Knowing`) whenever it opens an item - every shelf's and every task entry's on this
+  phone, gathered by `KnownProductTypes`, the rule `TaskListDetailViewModel` now shares - so the form
+  offers the same chips from both screens. As noticed: since 2026-09-11 a task
+  entry's product form offers the account's known product types as chips under the box
+  (`InventoryItemEditor.OfferedProductTypes`, handed over by `TaskListDetailViewModel` through
+  `TaskItemEditor.KnowingProductTypes`). The same form opened from the inventory itself
+  (`InventoryDetailViewModel`) is never handed the list, so there it offers nothing - while the browser's
+  shelf editor offers the shelves' types (`InventoryEditor.razor`). Passing the shelves' and entries'
+  types to `Knowing` when that screen opens an item is all it takes.
 
 - **An entry that is both late and reminded daily says the same thing twice.** Reported by the user on
   2026-09-12, with both notifications side by side: "Sprawdzenie sprzęgła (nie odbija i się blokuje)"
@@ -955,7 +1118,8 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 - **Why the map's Start and Share do nothing on a phone: two of the three causes are ruled out.** Both
   are hidden below 680px as of 2026-09-09 (`.map-panel-start`, `.map-panel-share`), on a report that
-  pressing them achieves nothing there, and the page says so in one line instead. That is a cover, not
+  pressing them achieves nothing there, and the page says so instead - since 2026-09-11 in a "!" beside
+  its name rather than a line under the button. That is a cover, not
   a fix.
 
   **Measured on 2026-09-10** in a browser emulating 375×812, with the hiding rule lifted from the live
@@ -1265,6 +1429,20 @@ its shared controls. What that pass left, all of it now overtaken:
   does nothing.
 
 ## Smaller identified follow-ups
+
+- ~~**The phone's wait does not look like the web's yet.**~~ Fixed 2026-09-11: `OrbitLoading` (Controls) is
+  the icon in its own tile colours inside an accent arc turning over a hairline-coloured track, sized 64 or
+  30 as the web's two, described "Loading…" to a screen reader, turning only while running, visible and
+  on a window, and slowed to a step every quarter second (three seconds a turn) where Android's animations
+  are switched off (`Motion`, which `ItemCard` now shares). It replaced every `ActivityIndicator` and its
+  style. iOS's reduce-motion setting is not read yet, and nothing of it has been seen on a device. As
+  noticed: since 2026-09-11 the web waits with Orbit's icon
+  inside a turning ring (`Components/Loading.razor`, and the boot screen in `wwwroot/index.html`); the
+  phone still draws MAUI's own `ActivityIndicator` wherever it waits (the startup screen, sign-in,
+  register, password reset, the map, the notification feed, an inventory, an invitation, a shared link,
+  Diagnostics - and its style in `Resources/Styles/Styles.xaml`). A matching control would be one
+  `ContentView` holding the app icon with a rotating arc round it, slowed rather than stopped when the
+  system asks for less animation, as the web's is.
 
 - ~~**The phone does not yet describe a product before the shelf exists, and does not ask what to build.**~~
   Both halves done on 2026-09-10, as this said. An Inventory entry on a list with no storage behind it

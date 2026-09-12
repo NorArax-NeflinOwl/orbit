@@ -7,4 +7,10 @@ namespace Orbit.Contracts.Notes;
 /// </summary>
 public sealed record UpdateNoteRequest(
     string Title, IReadOnlyList<NoteContentLineDto> Content, bool IsPrivate = false, EncryptedContentDto? EncryptedContent = null,
-    string Priority = "Normal");
+    string Priority = "Normal",
+    /// <summary>
+    /// The words it is tagged with - see NoteDto.Tags. <b>Null means "not provided"</b> and leaves the
+    /// stored tags alone, which is what a client written before tags existed sends - an installed phone
+    /// saving a note must not untag it. An empty list means "none", and clears them.
+    /// </summary>
+    IReadOnlyList<string>? Tags = null);

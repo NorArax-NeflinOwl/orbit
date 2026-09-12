@@ -52,7 +52,13 @@ else
                 @* What the page is for, behind the same mark every other page's title carries - see
                    PageHeader.Description. This page draws its own heading because the name shares a row
                    with the menu, but the sentence under it was the same kind of sentence. *@
-                <h1>@T["Map"]<FieldHint>@T["Where you are, who you are sharing it with, and who is sharing theirs."]</FieldHint></h1>
+                @* The "!" beside it stands in for Start and the picker on a phone, where neither does
+                   anything yet - see .map-phone-note, and the note in info/future-plan.md about finding
+                   out why. Only while nothing is being recorded, the same as the Start it explains. *@
+                <h1>@T["Map"]<FieldHint>@T["Where you are, who you are sharing it with, and who is sharing theirs."]</FieldHint>@if (_location is null)
+                    {
+                        <span class="map-phone-note"><FieldHint Warns="true">@T["Recording where you are, and sharing it, don't work on a phone yet - open Orbit on a computer for those."]</FieldHint></span>
+                    }</h1>
                 @* Everything that can only be done to a recording that already exists, at the far edge
                    of the name's own row - the same place every other page keeps its menu. Offered
                    rather than hidden while there is nothing to update or stop: what the page can do is
@@ -81,15 +87,11 @@ else
             @if (_location is null)
             {
                 @* Not on a phone: neither this nor the picker below it does anything there, so the page
-                   says so once instead of offering two controls that answer nothing - see
-                   .map-phone-note, and the note in info/future-plan.md about finding out why. Stop is
-                   left alone: a recording started elsewhere has to be endable from wherever somebody
-                   is. *@
+                   says so once, in the "!" beside its name, instead of offering two controls that answer
+                   nothing. Stop is left alone: a recording started elsewhere has to be endable from
+                   wherever somebody is. *@
                 <button type="button" class="btn-primary map-panel-start" disabled="@_isBusy"
                         @onclick="RecordCurrentLocationAsync">@T["Start"]</button>
-                <p class="empty-hint map-phone-note">
-                    @T["Recording where you are, and sharing it, don't work on a phone yet - open Orbit on a computer for those."]
-                </p>
             }
             else
             {
@@ -117,7 +119,7 @@ else
             <h2 class="map-panel-heading">@T["Share where you are"]</h2>
             @if (_contacts.Count == 0)
             {
-                <p class="empty-hint">@T["No contacts to share with yet - start a conversation first."]</p>
+                <p class="empty-hint empty-list">@T["No contacts to share with yet - start a conversation first."]</p>
             }
             else
             {
@@ -358,7 +360,7 @@ else
             }
             @if (_placed.Count == 0)
             {
-                <p class="empty-hint">@T["Nothing in your calendar or your lists says where it happens."]</p>
+                <p class="empty-hint empty-list">@T["Nothing in your calendar or your lists says where it happens."]</p>
             }
             @foreach (var placed in _placed)
             {

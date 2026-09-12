@@ -50,8 +50,7 @@
                 <Label Text="{Binding OwnPositionDescription}" LineBreakMode="WordWrap" FontSize="13" />
                 <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
                        LineBreakMode="WordWrap" FontSize="12" Style="{StaticResource SubtleLabel}" />
-                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
-                                   HeightRequest="14" WidthRequest="14" HorizontalOptions="Start" />
+                <controls:OrbitLoading IsRunning="{Binding IsBusy}" RingSize="30" HorizontalOptions="Start" />
             </VerticalStackLayout>
         </Border>
 

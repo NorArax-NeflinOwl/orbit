@@ -35,6 +35,20 @@ public sealed class ObjectListTests : OrbitTestContext
         Assert.DoesNotContain("Cards", cut.Markup);
     }
 
+    /// <summary>
+    /// The message stands where the list would be, so it is centred there like the list's own contents
+    /// would be - see .empty-list, which is what tells it apart from an .empty-hint that is a note.
+    /// </summary>
+    [Fact]
+    public void The_empty_message_is_drawn_as_the_list_standing_empty()
+    {
+        var cut = RenderComponent<ObjectList>(parameters => parameters
+            .Add(list => list.IsEmpty, true)
+            .Add(list => list.EmptyMessage, "No notes."));
+
+        Assert.Contains("empty-list", cut.Find(".empty-hint").ClassList);
+    }
+
     /// <summary>Loaded and non-empty is everything else - the caller's own content, whatever shape it takes.</summary>
     [Fact]
     public void Loaded_and_not_empty_draws_the_callers_own_content()

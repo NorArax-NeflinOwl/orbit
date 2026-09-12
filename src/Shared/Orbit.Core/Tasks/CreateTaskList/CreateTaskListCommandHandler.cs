@@ -33,12 +33,21 @@ public sealed class CreateTaskListCommandHandler : IRequestHandler<CreateTaskLis
             await _taskRepository.GetHoldingItemsAsync(
                 request.UserId, Guid.Empty, [.. request.Items.Select(item => item.Id)], cancellationToken));
 
+        var nowUtc = DateTimeOffset.UtcNow;
         // Every entry of a new list is stored now for the first time - see TaskItem.CreatedAtUtc.
-        TaskItemReferences.StampCreationTimes(identity.Items, [], DateTimeOffset.UtcNow);
+        TaskItemReferences.StampCreationTimes(identity.Items, [], nowUtc);
+        // Entries can arrive already ticked - a list written offline and pushed whole, or one made from
+        // another. There is nothing stored to keep a time from, so a tick that came without one is
+        // recorded as of now - see TaskItem.RecordWhenItWasDone.
+        foreach (var item in identity.Items)
+        {
+            item.RecordWhenItWasDone(stored: null, nowUtc);
+        }
 
         var taskList = TaskList.Create(
             request.UserId, request.Title, identity.Items, request.IsGroup, request.IsPrivate, request.EncryptedContent,
-            request.Priority, description: request.Description ?? string.Empty, folderId: request.FolderId);
+            request.Priority, description: request.Description ?? string.Empty, folderId: request.FolderId,
+            tags: request.Tags);
         // A list made on the Finished tab begins there - see TaskEditor's new-list defaults.
         taskList.SetCompletion(request.Completion);
 

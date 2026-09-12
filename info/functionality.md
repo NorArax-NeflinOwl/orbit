@@ -391,6 +391,64 @@ security page - so the address is built out of the web client's, which the serve
 not said where its web client is, and a phone that cannot reach the server to ask, both leave the bar
 something to read rather than press - see `HouseAdLink`.
 
+## Tags and their colours
+
+**Notes and task lists carry tags** (2026-09-11): words saying what the item is about, as many as apply,
+under the item's title and description on both clients. The same shape and the same tidying a task entry's
+categories have (`Orbit.Core.Tags.TagNames`): blanks dropped, edges trimmed, a word written twice kept once
+whatever its case. Stored as a JSON list on the item's own row (`OP_NOTES.OP_N_TAGSJSON`,
+`OP_TASKS.OP_T_TAGSJSON`) rather than in tables of their own, because nothing on the server asks for one tag
+of one item - suggestions are gathered by the clients from what they already hold. On the wire they are
+`Tags` on `NoteDto`/`TaskDto` and on the create and update requests, where **null means "not provided"**
+and keeps what is stored: an installed phone that has never heard of tags saves a note or a list without
+untagging it. An empty list clears them.
+
+**A private item's tags are sealed with it**, in `SealedNote.Tags` / `SealedTaskList.Tags`, and the server
+keeps none for it (`Note.Tags` and `TaskList.Tags` are emptied for a private item exactly as a list's
+description is) - a readable tag beside a sealed title would say in the open what the title hides.
+
+**A tag has one colour for the whole account** (`OS_TAGS_COLOURS`, `Orbit.Core.Tags.TagColour`): the colour
+belongs to the word, so colouring "work" on one note colours it on every note and list. Read with
+`GET /api/tags/colours`, set one tag at a time with `PUT /api/tags/colours` (`{ tag, colour }`, "#rrggbb",
+an empty colour taking it away), each answering every colour the account has. Keyed by the tag in lower
+case, so "Work" and "work" share one.
+
+**The privacy decision, stated plainly:** the colour table is the account's own setting, and it is
+**readable on the server**. It names each coloured tag in the clear, so a tag used only on private items
+becomes readable there **once somebody gives it a colour** - even though every item carrying it is sealed.
+Chosen over keeping colours sealed on each client because a colour is meant to follow the tag everywhere,
+across devices, and a per-device sealed colour would be a second answer to keep in step with no server to
+arbitrate. What limits the exposure: a row exists only for a tag somebody chose a colour for (nothing
+writes one by itself, and an uncoloured tag on a private item is never named anywhere readable), the rows
+are deleted with the account, and the colour form says so beside the colour well. Somebody who wants a
+private tag kept unreadable leaves it uncoloured.
+
+**In the browser** the field is `TagsField` - the categories' own word-at-a-time box (`TagField`) under the
+list's title and description (`TaskEditor`) and under a note's writing (`NoteEditor`, which has no separate
+title box), offering the tags this account's notes or lists already carry plus every coloured one, with a
+colour well per tag underneath that saves at once (`TagColourBook`, `PUT /api/tags/colours`). The cards on
+`/notes`, `/tasks` and the dashboard's rows draw them with `TagChips`, beside "Pinned" and "Shared": a wash
+of the tag's colour behind the word and the colour as the outline, the word itself in the page's own text
+colour, so any colour reads in either theme; a colour that is not "#rrggbb" is never written into a style.
+
+**On the phone** the same field is `TagsForm` behind `TagsFieldView` - one line, commas between the words,
+like the phone's categories box - with the tags already in use as chips to tap and a palette of eight
+colours (plus "no colour") per tag; the note screen has it under the writing, a list's screen behind the
+same "Edit" as its name and description. The notes and task lists screens draw a row's tags with
+`TagChipsView`, and so do the dashboard's Notes and Tasks cards (`DashboardRow.Tags`, before the priority,
+as on the web's dashboard). Tags travel on the note or list (`LocalNote.Tags`, `LocalTaskList.Tags` - JSON columns,
+**nullable**: a row held since before tags reads NULL, "not known", and is pushed as null so a queued edit
+cannot empty tags written in a browser since), sealed with a private one. Colours live in `LocalTagColour`
+(local migration `NotesAndListsCarryTagsOnThePhone`): one set here is written here first and marked
+pending, sent straight away when there is a connection and otherwise by the next full sync
+(`TagColourSynchronizer`, part of `EverythingSynchronizer`), which then takes the server's colours for
+everything no longer waiting; one the server refuses is dropped rather than sent for ever. A colour chosen
+in a browser that is not among the phone's eight is still drawn as chosen.
+
+The export archive carries both, defaulted and last as every late field is: `ArchivedNote.Tags`,
+`ArchivedTaskList.Tags`, and `OrbitArchive.TagColours`. An import adds colours only for tags the account
+has not coloured since - an import never overwrites.
+
 ## Folders
 
 Every page made of cards - the dashboard, the notes and the task lists - is read under a **row of
@@ -668,6 +726,30 @@ clears it (`Orbit.Core.Abstractions.TickState`, which both clients cycle through
 thing in a browser and on a phone). A cross rather than a tick, drawn in the colour everything that went
 wrong is drawn in; a note's checklist line carries the same three (`NoteContentLine.IsFailed`).
 
+**A ticked entry remembers when it was ticked** (`OP_TI_COMPLETEDATUTC`, `TaskItem.CompletedAtUtc`,
+2026-09-11) - per entry, not per list: a list is finished when its last entry is, which says nothing
+about when each of the others was. The time is **not shown before** the entry is done, and after it is
+shown and can be corrected - "did it yesterday, ticked it today" is the usual case. In the browser it is
+a day and an hour among the entry's details in the list form (`TaskEditor`) and on the entry's own page
+(`TaskItemSummary`, saved the moment it changes, as the tick is); on the phone it is a pair of pickers in
+the entry's sheet and a line on the entry's screen. Unticking clears it, and so does a cross - a cross is
+not a completion. An entry done one of several ways carries one too: its tick is its ways' (see above),
+so taking a way is what finished it, and both clients stamp the time as they take one.
+
+Who records it: **the client, at the tick** (`Orbit.Core.Tasks.TaskItemCompletionTime`), because a
+private list's entries never reach the server and a phone ticks offline. The time rides in the entry
+itself - `TaskItemDto.CompletedAtUtc`, so in a private list's sealed payload too, and in the phone's local
+copy (its entries are a JSON column, so the local store needed no migration). **The server records it
+only for a tick that arrives without one** (`TaskItem.RecordWhenItWasDone`, from both save handlers): a
+time sent is kept; none sent keeps the time an already-done entry had; a fresh tick with none is stamped
+with the moment of the save. That is how an installed phone that has never heard of the field behaves
+correctly - its save sends null, and null means "not provided" - so it neither wipes a recorded time nor
+moves it. An entry ticked before this existed has none, and says "not recorded" rather than guessing; the
+migration leaves those rows empty. Orbit crossing an entry off itself (a shelf that already holds what an
+errand asks for, a finished restock round) stamps it as it happens (`TaskItem.Complete`). A copy of an
+entry, a duplicated list and the export archive (`ArchivedTaskItem.CompletedAtUtc`, defaulted and last)
+all carry the time the original had.
+
 Why a third state at all: a list with something on it that is never going to happen could only be closed
 by lying about it with a tick or by leaving it open for ever. So **given up on means finished with, and
 not done** (`TaskItem.IsResolved`) - the two are different questions and each place asks the one it
@@ -848,13 +930,83 @@ disagree in.
 - **The writing keeps room under its last line** for the tools and three lines more, and the caret's
   line scrolls clear of them (`.note-editor-page`'s padding and `scroll-padding`): the text used to run
   on underneath the tools.
+- **Several boxes answer together** (`NoteSurfaceEdits.Cycle`, `SelectedChecklistLines`). Lines are
+  selected the way text is - a drag, Shift+click in the words, Shift+arrows - and Shift+click on a box
+  stretches the selection to that box's line. A press on a box inside a selection that covers two or
+  more boxes gives every one of them the pressed box's next answer: the pressed box decides, so a mixed
+  set ends up alike rather than each stepping on. A press outside the selection, or with only a caret,
+  is a single press as before, and pressing a box never moves the caret or drops the selection (its
+  `mousedown` is stopped). Found three ways: the boxes a press will change are ringed while selected
+  (`.note-line-picked`), the bubble over the tools says how many are selected and what a press does
+  (`NoteEditor.SelectionHint`), and every box's tooltip says Shift+click selects several.
+- **Undo and redo are the surface's own** (`NoteSurfaceHistory`, kept by `ChecklistTextEditor`):
+  Ctrl+Z undoes, Ctrl+Y and Ctrl+Shift+Z redo (Cmd on a Mac), and the browser's own Undo/Redo menu
+  entries (`historyUndo`/`historyRedo`) reach the same history. The browser's history is lost here - the
+  page rebuilds the line elements under it - so Ctrl+Z used to do nothing, or undo something invisible.
+  The history keeps whole states, caret included: undo puts the caret back where the step began, redo
+  where it ended. Typed characters on one line join one step until a pause of a second, a space that ends
+  a word, a move to another line, or an edit of another kind; deleting inside a line is its own kind of
+  step. Every change of shape - Enter, a line joined or taken away, a tick, a paste, an indent, a typed
+  `[]` becoming a box (undone back to the brackets first) - is a step of its own. Opening another note
+  or a value set by the page (`SetLinesAsync`) starts the history again. At most 500 steps are kept.
+- **Tab indents, Shift+Tab takes a level away** (`NoteSurfaceEdits.Indent`/`Outdent`; the note sets
+  `ChecklistTextEditor.TakesTab` - the same surface as a form field elsewhere, `TitledDescription`, still
+  lets Tab move on). **One level is a tab character**, stored in the line's text: no separate field, so
+  it survives every place a note's text goes. Both the writing (`.note-line-text`) and the note's own page
+  (`.note-summary-line`, and its checklist rows) keep whitespace (`white-space: pre-wrap`) and draw a tab
+  four characters wide (`tab-size: 4`). Tab puts a level in at the caret, in place of a selection inside
+  one line; over lines, it indents each at its start and keeps them selected. Shift+Tab takes one level
+  from the start of the caret's line - a tab, or up to four spaces for text indented elsewhere - or of
+  each selected line. On a box line the indentation is part of the words, after the box.
+- **A paste goes in at the caret**, in place of a selection, as plain text (`onPaste`, then
+  `NoteSurfaceEdits.Replace` with `readsMarkers`): the browser used to put it at the start of the line.
+  Pasted text with line breaks becomes that many lines. A pasted line starting `[]`/`[ ]` comes in as a
+  box, as a typed one does; `[x]`/`[X]` as a ticked box; and `- ` (or a bare `-`) as a box too, because
+  that is how the surface copies one out - a checklist copied and pasted back is a checklist again. Only
+  a line the paste starts is read like that: pasted into the middle of words, or onto an existing box, a
+  marker is words. `-5` is not a bullet.
 - **Copying lines copies tick boxes as `- ` bullets** (`checklistTextEditor.js`, `onCopy`; a cut the
   same). A tick box is a button with no text, so a checklist pasted into a message arrived as bare lines.
   A selection inside one line is left to the browser - there is no box in it to speak for.
+- **Dragging writing is the surface's own** (`onDrop`, then `NoteSurfaceEdits.Drag`/`Drop`), and one
+  step for undo. The browser's own drag glued two lines' elements together when the words spanned
+  lines. The drop is stopped and its point read from under the pointer (`caretPositionFromPoint`, or
+  `caretRangeFromPoint`). Words dragged within the surface move - or copy, with Ctrl (Alt on a Mac).
+  **Whole lines go whole**, box and tick with them, landing before the line dropped at the head of and
+  after it otherwise; part-lines go in the way typing would, a line keeping its box when its head was
+  dragged. Text dragged in from elsewhere is read the way a paste is. Words dragged out of the surface
+  are taken away the way a cut takes them (`deleteByDrag`). A drop inside the dragged selection, or
+  somewhere no point can be read, does nothing.
+- **Every edit that changes the shape of the lines is decided in C#** (`NoteSurfaceEdits`, reached through
+  `ChecklistTextEditor.Edit`, a synchronous `invokeMethod` from `checklistTextEditor.js`; it and
+  `SurfaceState`/`NoteSurfaceHistory` live in `Orbit.Core/Notes` on Core's `NoteContentLine`, because the
+  phone's note screen uses the same rules - the web converts at its edge with `NoteSurfaceLines`): Enter, Backspace
+  at the head of a line, Delete at its end, typing over a selection that spans lines, a cut, a press on a
+  box, the toolbar's box. The browser reports the lines and the selection as `{ line, offset }` points, and
+  draws the lines and the caret that come back; typing inside one line is still the browser's own. That is
+  where the caret goes, and it is unit-tested there:
+  - **Enter** splits the line and puts the caret at the start of the new one (a checklist line continues
+    as an unticked box; an empty box leaves the list, in place). At the head of a line with words on it the
+    new line opens above, so a tick stays with its words. `keepsIndentation` makes the new line start where
+    the one it came from starts, with the caret after that indentation - off in the browser, on for the
+    phone, whose lines are one field each and where a field cannot open at a column somebody has to type
+    their way to.
+  - **Backspace at the head of a box with words** takes the box and keeps the words; on an **empty box** it
+    takes the whole line and the caret goes to the end of the line above (the start of the next when it
+    was the first). A plain line joins the one above. **Delete** at the end of a line is the mirror.
+  - **Whole lines selected and deleted** go box and all, with the caret where an empty box's deletion puts
+    it; typed over, they leave one plain line for the words.
+  - **An empty line holds a `<br>`**. An empty `<span>` has no line box, so the browser stood the caret -
+    and typed - at the nearest place that had one, the start of the next line. That was the caret landing
+    on the line after a new box, the arrow keys stepping over empty lines and boxes, and a letter typed on
+    a new line jumping to the line below.
 - **The checklist tool types `[]`**, which the surface then turns into a tick box
   (`checklistTextEditor.js`, `CHECKLIST_MARKER`). Typing the same two characters at the head of a line
   does the same thing, so the button is a shortcut into the rule rather than a second way in - which is
-  how the phone has always done it (`NoteDetailPage`, "Type [] for a checkbox").
+  how the phone has always done it (`NoteDetailPage`, "Type [] for a checkbox"). **Not in a list's or an
+  inventory's name and description** (`TitledDescription`, the same surface with
+  `ChecklistTextEditor.ReadsMarkers` off): those store only text, so `[]` typed or pasted there stays
+  words rather than becoming a box the save would drop.
 - **How much it matters, where it is filed and whether it is sealed live in the panel's menu**, above
   Save and Back (`EditorRail`'s `ChildContent`, an `OverflowMenu` that stays open because these are
   settings rather than actions). They used to sit under the writing, which is a form somebody had to
@@ -871,6 +1023,71 @@ disagree in.
   `OnParametersSetAsync` keyed by the note's id, releases the previous note's edit lock on the way, and
   hands the new lines to the writing surface itself (`ChecklistTextEditor.SetLinesAsync`), which owns its
   own content and hears nothing about a changed parameter.
+
+### Writing a note on the phone
+
+`NoteDetailPage` (view) over `NoteDetailViewModel` (decisions, in `Orbit.Mobile`) is a column of one-line
+fields, one per line, because a line can carry a real tick box and no text box can hold a control. The
+name is the first field. Enter starts the next line keeping the indentation, backspace at the head of a
+line joins it to the line above, and a hardware keyboard's arrows walk between lines (`NoteLineKeys`, read
+on Android by `NoteLineKeyPresses`). Nothing is written until Save; leaving asks first when something would
+be lost. Where it follows the browser's editor, it uses the same rules from `Orbit.Core/Notes` - the note
+is handed to them as a `SurfaceState` whose line 0 is the name:
+
+- **Undo and redo are two buttons beside the tick-box button** over the note's foot (a phone has no
+  Ctrl+Z), 44 across like it (`IconButton.TouchSize`; other icon buttons stay 30), dimmed while there is
+  nothing to undo or redo (`CanUndo`/`CanRedo`), absent on a note that cannot be changed. The history is `NoteSurfaceHistory`, so steps are the browser's: characters typed one
+  after another on one line join until a second's pause, a space, another line or another kind of edit;
+  Enter, a joined line, a box put on or taken off, a tick and a typed `[]` becoming a box are each a step.
+  The name is undone like any line. A field reports only what it now says, so what was typed or deleted is
+  worked out from the text before and after (`NoteTextChange`, `NoteLineRow.TextBefore`). An undo changes
+  lines in place where it can (`Show`), so fields keep their place, and tells the page where the caret
+  goes (`CaretPlaced`, a `NoteCaret`) - unless all it put back was a tick, which never moved the caret.
+  Saving keeps the history; reading the note back after changing its priority or privacy keeps it too
+  when nothing on the screen changed; opening a note starts a new one.
+- **A paste is read with the browser's rules** (`NoteSurfaceEdits.Replace` with `readsMarkers`,
+  `ReadPastedLine`). A one-line field keeps a paste's line breaks in its text, so several lines pasted
+  into a line become that many lines at the caret, with the caret at the end of what was pasted - into
+  the name too, which keeps the first line and hands the rest to the note. A pasted line starting
+  `[]`/`[ ]`/`- ` comes in as a box, `[x]`/`[X]` as a ticked one; only a line the paste starts, and not
+  onto a box already there. A paste into the blank start of an indented line counts as starting it and
+  keeps the indentation (the browser's lines carry none). The name never becomes a box. More than one
+  character arriving at once is what marks a single-line paste - a keyboard types one at a time - so
+  `- ` typed key by key stays words, as in the browser; typing `[]`/`[ ]` after a line's indentation
+  still makes a box (`TypedMarkerLength`, the browser's rule). A paste is one undo step.
+- **Several boxes answer one press** (`IsPickingLines`, and Orbit.Core's list-based
+  `NoteSurfaceEdits.Cycle`, which the browser's selection-based one now goes through). A phone has no
+  Shift+click, so "Select boxes" in the note's menu - offered where there are two boxes - puts a mark
+  beside every box (`NoteLineRow.ShowsPickMark`, a `CheckBox` at the line's end, away from the box it is
+  about) and a line over the note saying how many are chosen and what a press does (`PickingHint`), with
+  "Finish selecting" beside it. A press on one of two or more chosen boxes gives every chosen box the
+  pressed box's next answer, as in the browser; they need not be next to each other. A press on a box
+  that is not chosen, or with one chosen, is a single press. The chosen boxes stay chosen after a press;
+  finishing lets them go. One undo step; the choosing itself is not in the history or the note.
+- **Enter and Backspace are the browser's own rules** (`NoteSurfaceEdits.Enter`/`Backspace`, reached by
+  `AddLineAfter`/`MergeIntoTheLineAbove`), so a note breaks the same way wherever it is written: Enter
+  splits the line at the caret and carries what follows down; a checklist goes on as an unticked box, and
+  **an empty box ends the list in place** rather than leaving the box with a plain line under it. At the
+  head of a line with words on it the new line opens above and the words keep their box. Backspace at the
+  head of a box with words takes the box and keeps the words (the one way to undo a box from the keyboard);
+  at the head of an **empty box it takes the whole line in that one press**, where the phone used to ask
+  for two; a plain line joins the one above, which for the first line is the note's name - the surface's
+  first line here as in the browser, so the words go into the name and the caret with them. Each press is
+  one step of the history. Two things are the phone's own: the new line keeps the indentation of the one
+  it came from (`keepsIndentation`, and `NoteSurfaceEdits.IndentationOf`, which the paste and the typed
+  `[]` read too), and the tick-box button in the corner still puts a box on every line it starts - it now
+  follows the line the caret is in, so the empty box that ended a list turns it off instead of boxing the
+  next line anyway.
+- **Enter puts the caret at the start of the new line's words**, after the indentation it takes from the
+  line above (`AddLineAfter` raises `CaretPlaced`; the page used to focus the new field without a column).
+  Not while a note is being read in, so the line an empty note is given does not open the keyboard. A join
+  says where the caret lands the same way (`MergeIntoTheLineAbove` answers only whether the line is gone,
+  which is what tells the page to let go of the field drawing it), so it can land in the note's name or in
+  a ticked line's field. An edit that only took a box off says nothing: the writing did not change, and
+  asking for the caret back would refocus the field the reader is already in. The browser's other caret
+  defects of 2026-09-11 - the caret landing on the line after a new box, arrows stepping over empty lines,
+  a letter jumping to the next line - came from an empty `<span>` having no line box, and a column of one
+  field per line has no such thing; a ticked line's hidden field is opened before the caret is put in it.
 
 ### Sharing notes and task lists
 
@@ -1459,9 +1676,9 @@ of the owner's places as it holds it — an open one readable, a sealed one as e
 `PrivateContentSealer` (`TransferApiClient.OpenPlacesAsync`) before the file is saved. The sealed half
 stays in the file beside the opened words.
 
-- **Asked for, not assumed.** Places is the one box unticked to begin with, and while it is ticked the
-  page says, in the danger colour, that the file is not encrypted and that anyone who gets it can read
-  every place in it, private ones included. Export pressed the way it always was writes no places and
+- **Asked for, not assumed.** Places is the one box unticked to begin with. While it is ticked, a "!"
+  stands beside it (a `FieldHint`, since 2026-09-11 on both clients). It says that the file is not
+  encrypted and that anyone who gets it can read every place in it, private ones included. Export pressed the way it always was writes no places and
   never reaches for the key.
 - **Only your own.** Places somebody handed over are left out, like every other shared thing in the
   export: the share is access, and a readable copy of their place in a file is theirs to make.
@@ -1539,9 +1756,10 @@ through `TaskItemDto.From`, the one mapping that names every field. It is the ot
 **Ticking an entry no longer unseals the list it is on** (2026-09-11). `TaskItemCompletion`, which the
 checklist and the entry's own page both tick through, saved the list back without saying it was
 private. The server took that at its word and stored the title and every entry in the clear. The same
-save left out the list's priority, so a tick put any list back to Normal; the calendar's tick of a
-deadline had that second fault too. Both now send the list back as it is (private, priority), and
-leave the description and the reader's own answer about whether it is finished to "not provided".
+save left out the list's priority, so a tick put any list back to Normal, and its tags, which a private
+list keeps nowhere but inside its own seal; the calendar's tick of a deadline had those faults too. Both
+now send the list back as it is (private, priority, tags), and leave the description and the reader's
+own answer about whether it is finished to "not provided".
 
 **Both clients do all of this**, and to the same bytes: what goes inside the ciphertext is JSON, so the
 payload shapes (`SealedNote`, `SealedTaskList`, `SealedInventory`) live in `Orbit.Contracts` and are
@@ -3094,6 +3312,18 @@ expiry and its notification channel - in the task editor, behind the entry's own
 the kind and the link were for: the row already knows which product it means, so correcting the amount
 should not mean opening the inventory in another tab and finding it again.
 
+**The product type is picked, not only typed.** One answer per product, so it is a single box rather than
+the categories' row of words - but it offers what the account already calls kinds of product the way the
+categories box offers categories: every shelf's product types (`GET /api/suggestions/used-values`, kind
+`InventoryItemProductType`) together with every task entry's own (`TaskItemProduct.ProductType`, read off
+the lists the editor already loads). The entries' half matters because an entry describing something no
+shelf holds yet carries its type itself, and an account whose products were all still written on lists
+was offered nothing. The browser draws it as `SuggestedTextField`; the phone puts the same list as chips
+under its box (`InventoryItemEditor.OfferedProductTypes`, filled by the list screen and by the
+inventory's own screen from this phone's copies of the shelves and lists - `KnownProductTypes` - so it
+works offline). Taking one replaces what is in the box; typing a new
+one is as good an answer.
+
 Saving the list writes the change back to the inventory and then rebuilds that inventory's restock list,
 because a corrected amount can settle an errand or raise one. The list is saved first and the shelf
 second: if the shelf write fails the list is still saved, and the screen says so.
@@ -3174,8 +3404,10 @@ the position always, the words only into a box nobody has written in.
 
 The line along the foot of every page used to be the version numbers and the licence. It answered
 "which build is this" for the few people who ask that, and nothing at all for everybody else - so it now
-reads `© 2026 Orbit · EN / PL · About · Privacy · Security · Docs · Status · All Rights Reserved · Manage cookies`,
-modelled on GitHub's own. Two of those open a dialog rather than a page and are drawn exactly like the
+reads `© 2026 Patryk Pudwel · EN / PL · About · Privacy · Security · Docs · Status · All Rights Reserved · Manage cookies`,
+modelled on GitHub's own. The copyright line names the person who publishes Orbit (`OrbitRelease.PublishedBy`,
+the application's own name until 2026-09-11), and the same line closes the About dialog, the Privacy and
+Licence pages and the phone's About screen. Two of those open a dialog rather than a page and are drawn exactly like the
 links beside them: which of the two a reader is pressing is not a distinction they should have to make.
 
 - **EN / PL** (`LanguagePicker`) - which language Orbit is read in, kept in this browser under
@@ -3610,6 +3842,56 @@ key (`deriveSharedKey`), and that key encrypts/decrypts the message text with a 
 message. `OwnEncryptionKeyProvider` (Blazor) makes sure this key pair exists and is published before
 `Chat.razor` tries to send or receive anything.
 
+### What counts as read
+
+**A message is read once it has been on screen in front of somebody, and only up to the newest such
+message.** Until 2026-09-11 "read" meant "the conversation was open": every poll of an open thread marked
+everything in it, so a window on a second screen, or a phone in a pocket still showing the conversation,
+reported every message as read. Now both clients tell the server how far the reader actually got, and
+the server marks nothing past it.
+
+- **The contract.** `PUT /api/chat/messages/{otherUserId}/read` and `PUT /api/chat/groups/{groupId}/read`
+  take an optional `readUpToUtc` query parameter: the `SentAtUtc` of the newest message seen. Only the
+  other party's messages (a group's copies addressed to the reader) sent at or before it are marked
+  (`MarkConversationAsReadCommand.ReadUpToUtc`, `MarkGroupConversationAsReadCommand.ReadUpToUtc`).
+  **Absent means everything**, which is what the route always did - installed phone builds keep sending
+  the old shape until a rebuilt APK replaces them, and a handler test pins it.
+- **Why a timestamp and not a message id.** "Up to" is an order, and `SentAtUtc` is the order a
+  conversation is kept in, so the repository applies it as one comparison in the statement that marks,
+  with no lookup first. It is exact because it is the server's own value handed back untouched (full
+  precision, `ToString("O")`). And every copy of one group message carries the same `SentAtUtc`, so the
+  cut can never fall between two copies of one message, whichever copy's id a client was holding.
+- **The web** (`Chat.razor`, `GroupConversation.razor`) marks only while the tab is visible **and** the
+  window has focus, up to the newest message whose end is inside the message list. `wwwroot/js/chatSeen.js`
+  only answers those two questions and calls back on scroll, window focus and visibility changes;
+  `ChatReadState` decides - the other party's newest message at or before the one in view, never twice,
+  and again after a mark the server did not accept. `ChatSeenProbe` counts a question it cannot ask as
+  "nothing seen", the opposite of `PageVisibility`: there a wrong answer stops a chat updating, here it
+  would be a read receipt for something nobody saw. Scrolling down to new messages, or focusing a window
+  that already shows them, is what marks them; the poll is only the net under those. **The bell's
+  entries about a one-to-one conversation follow the same signal**: `Chat.razor` clears them
+  (`POST /api/notifications/read-at` for `/chat/{otherUserId}`) only once the other party's newest
+  message has been in view while the window was in front (`ChatReadState.HasSeenTheirNewest`) - an entry
+  does not say which message it was for, so it stays while one of theirs is still below the list.
+  Arriving no longer settles them either: the layout marks read whatever the address bar reaches on every
+  navigation, and since 2026-09-12 it leaves a conversation's own address to the page
+  (`NewsSettler.SettledByThePageItself`), which is the one place that knows whether anything was seen. A
+  group's path is not one of these - a group records no feed entry per message, so what waits there is an
+  invitation, and reaching the group reads it.
+- **The phone** (`ConversationViewModel`, `GroupConversationViewModel`) marks only while the page is
+  showing (`OnAppearing`/`OnDisappearing`) and the app is in the foreground (the window's
+  `Stopped`/`Resumed` - going to the background does not make a page disappear), up to the other
+  party's newest message at or before the last line the thread shows (`CollectionView.Scrolled`,
+  `LastVisibleItemIndex`). `ConversationReadState` (`Orbit.Mobile.Chat`, no MAUI) decides it the same way
+  `ChatReadState` does on the web. **A sync no longer marks anything** - it runs on a timer and in the
+  background, and pulling a message is not seeing it. `ChatSynchronizer.MarkConversationReadAsync` sends
+  the mark; it is not queued, and one that cannot reach the server is not remembered as told, so it goes
+  again at the next chance (the next sync, scroll, or return to the app).
+- **What follows from it.** The unread count on a contact (`ContactDto.UnreadCount`) and the sender's
+  ticks (`GET .../read-receipt`, `ReadByEveryone` in a group) are computed from the same `ReadAtUtc`
+  rows as before, so they now say what was seen rather than what was open. A mark that changes no row
+  is still announced to nobody - see [Live updates](#live-updates).
+
 ### Message forwarding
 
 Any message in a conversation can be forwarded into a different conversation via the "..." menu next to
@@ -3996,9 +4278,9 @@ reader already knows they read it. A **removal from a group** goes to the person
 the people left, because otherwise the group stays in their list and they will write to it.
 
 **An announcement is only made when something actually changed** - which is not a saving but what keeps
-the exchange finite. A window answers an announcement by polling, and a poll marks the conversation read;
-so a read that changed nothing, announced anyway, is news the other window answers by marking read and
-announcing back. Two open windows did exactly that on 2026-09-05 at sixteen requests a second - four
+the exchange finite. A window answers an announcement by polling, and a poll marks read whatever has come
+into view (see [What counts as read](#what-counts-as-read)); so a read that changed nothing, announced
+anyway, is news the other window answers by marking read and announcing back. Two open windows did exactly that on 2026-09-05 at sixteen requests a second - four
 calls each way, 4,332 from one caller in a minute - and the fix is that
 `MarkConversationAsReadCommandHandler` (and its group counterpart) publish only when a row was actually
 marked. A read receipt still travels the moment it exists; a re-read of an already-read conversation says
@@ -4188,10 +4470,12 @@ mark, and a mark means something.
 **The phone draws the same count** since 2026-09-11, on its contact list: `AvatarCircle` puts it at the
 avatar's bottom-left edge by the web's rules (nothing at nought, "9+" above nine), and the row's mark
 lights for it as well as for a request to answer. It is the same `ContactDto.UnreadCount`, kept on
-`LocalContact` so it survives a restart and reads offline, and taken to nought the moment the server has
-been told a conversation was read rather than at the next refresh; a conversation opened with no
-connection keeps its count, because nothing was told. The phone's dashboard rows draw no face to put
-one on, so there the count lights the row's mark instead.
+`LocalContact` so it survives a restart and reads offline, and taken down the moment the server has
+been told what was read rather than at the next refresh - to the number of their messages stored on the
+phone that were sent after what was seen, never above the count it held (`ChatRepository.MarkReadAsync`;
+see [What counts as read](#what-counts-as-read)). A conversation read with no connection keeps its
+count, because nothing was told. The phone's dashboard rows draw no face to put one on, so there the
+count lights the row's mark instead.
 
 **A group says exactly how many of its messages arrived since the reader last had it open**, since
 2026-09-11, on both clients. The server counts it off the reader's own copies - a group message is one
@@ -4202,7 +4486,8 @@ new member would open the group to its whole backlog marked unread; nor does a m
 browser draws it where a person's count goes - on the conversation list with "{0} new" in place of the
 member count, on the dashboard's Groups card, and as the row's mark on the contacts page; the phone keeps it
 on `LocalChatGroup` and draws it on the group's avatar, taking it to nought once the server has been told
-the group was read.
+the group was read - which, since "read" means somebody saw it, is when a message has actually been on
+screen with the app in front rather than when a sync pulled it.
 
 How long that toast stays up, and the minimum quiet gap before the next one, are per-user settings
 (`BannerTiming`, defaulting to 5 seconds each) editable from Options — the poll interval only bounds how

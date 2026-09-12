@@ -38,6 +38,14 @@ public sealed class NoteEntity
     /// <summary>JSON-encoded list of NoteContentLine (text + checklist state per line) - SQLite has no native array/object column type. See CalendarEventEntity.GuestsJson for the same convention.</summary>
     public string ContentJson { get; set; } = "[]";
 
+    /// <summary>
+    /// JSON-encoded list of the note's tags - see Orbit.Core.Notes.Note.Tags. JSON in one column, like
+    /// ContentJson, because nothing on the server ever asks for one tag of one note: suggestions are
+    /// gathered by the clients from what they already hold. "[]" for a note with none, and always for a
+    /// private one, whose tags are sealed.
+    /// </summary>
+    public string TagsJson { get; set; } = "[]";
+
     /// <summary>The user id currently holding the edit lock, if any - see Orbit.Core.Notes.Note.LockedByUserId.</summary>
     public Guid? LockedByUserId { get; set; }
 

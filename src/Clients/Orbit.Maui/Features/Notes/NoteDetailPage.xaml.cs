@@ -54,6 +54,41 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		BindingContext = _viewModel = viewModel;
 		_translations = translations;
 		ChecklistButton.Command = new Command(PutABoxOnThisLine);
+		_viewModel.CaretPlaced += OnCaretPlaced;
+	}
+
+	/// <summary>
+	/// Where to put the caret once a line waiting in <see cref="_toFocus"/> has its field, or null to
+	/// leave it wherever focusing the field puts it.
+	/// </summary>
+	private int? _toFocusAt;
+
+	/// <summary>
+	/// The view model's word on where the caret goes after an edit it made itself - an undo, a typed "[]"
+	/// taken out of a line. The line may be one the edit has only just made, whose field is not built yet;
+	/// that waits for <see cref="OnLineLoaded"/> as a line started by Enter does.
+	/// </summary>
+	private void OnCaretPlaced(object? sender, NoteCaret caret)
+	{
+		if (caret.Line is null)
+		{
+			PutTheCaretIn(TitleField, caret.Offset);
+			return;
+		}
+
+		// A ticked line's field is hidden until it is opened - see PutTheCaretIn.
+		caret.Line.IsBeingWrittenIn = true;
+
+		if (_fields.TryGetValue(caret.Line, out var field))
+		{
+			_toFocus = null;
+			_toFocusAt = null;
+			PutTheCaretIn(field, caret.Offset);
+			return;
+		}
+
+		_toFocus = caret.Line;
+		_toFocusAt = caret.Offset;
 	}
 
 	/// <summary>Typed so the navigator can hand the page its note without casting the binding context.</summary>
@@ -152,12 +187,13 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		// Where the press happened, so whatever follows it moves down onto the new line - Enter in the
 		// middle of a sentence breaks the sentence, as it does in every text field there is.
 		//
-		// The caret is asked for here as well as in Loaded, because the field is usually built while
-		// AddLineAfter is still running - a BindableLayout answers a row being added straight away -
-		// and so it has already loaded by the time there is a row to compare it against. Left to Loaded
-		// alone the ask arrived too late every time, and the only thing that moved the caret was
-		// Android's own answer to the key, which takes it out of the writing altogether.
-		PutTheCaretIn(_viewModel.AddLineAfter(row, field.CursorPosition));
+		// The view model says where the caret goes - the start of the new line's words, after the
+		// indentation it inherits - through CaretPlaced, and OnCaretPlaced honours it at once when the
+		// field is already built and from Loaded when it is not. It is usually built already: a
+		// BindableLayout answers a row being added straight away, while AddLineAfter is still running.
+		// Left to Loaded alone the ask arrived too late every time, and the only thing that moved the
+		// caret was Android's own answer to the key, which takes it out of the writing altogether.
+		_viewModel.AddLineAfter(row, field.CursorPosition);
 	}
 
 	/// <summary>
@@ -187,10 +223,12 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		if (!_fields.TryGetValue(line, out var field))
 		{
 			_toFocus = line;
+			_toFocusAt = null;
 			return;
 		}
 
 		_toFocus = null;
+		_toFocusAt = null;
 		Dispatcher.Dispatch(() => field.Focus());
 	}
 
@@ -235,7 +273,14 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 			return;
 		}
 
-		PutTheCaretIn(_viewModel.Lines.FirstOrDefault() ?? _viewModel.AddLineAfter(null));
+		if (_viewModel.Lines.FirstOrDefault() is { } first)
+		{
+			PutTheCaretIn(first);
+			return;
+		}
+
+		// A line just made puts the caret in itself - see OnLineCompleted.
+		_viewModel.AddLineAfter(null);
 	}
 
 	/// <summary>
@@ -251,10 +296,20 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 
 		_fields[row] = field;
 
-		if (ReferenceEquals(row, _toFocus))
+		if (!ReferenceEquals(row, _toFocus))
 		{
-			PutTheCaretIn(row);
+			return;
 		}
+
+		if (_toFocusAt is { } offset)
+		{
+			_toFocus = null;
+			_toFocusAt = null;
+			PutTheCaretIn(field, offset);
+			return;
+		}
+
+		PutTheCaretIn(row);
 	}
 
 	/// <summary>
@@ -268,11 +323,16 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 
 	/// <summary>
 	/// Backspace with the caret at the head of a line: the line joins the one above it and the caret
-	/// lands where the two met, which is what a text field does everywhere.
+	/// lands where the two met, which is what a text field does everywhere. An empty tick box goes whole
+	/// in this one press, and the line above may be the note's name - the first line of the writing.
 	///
-	/// Nothing to do here when the press took a tick box off instead - see MergeIntoTheLineAbove, which
-	/// answers null for that. The field keeps the caret it already had, which is where the reader left
-	/// it, and the box simply goes.
+	/// Where the caret lands is the view model's word, said through CaretPlaced and honoured by
+	/// OnCaretPlaced, which is how every other edit made off the keyboard says it - it knows about a
+	/// ticked line's hidden field and about the name, and both can be where this press ends.
+	///
+	/// Nothing to do here when the press took a tick box off a line with words on it instead - see
+	/// MergeIntoTheLineAbove, which says the line is still there. The field keeps the caret it already
+	/// had, which is where the reader left it, and the box simply goes.
 	/// </summary>
 	private void JoinTheLineAbove(Entry? field)
 	{
@@ -281,25 +341,11 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 			return;
 		}
 
-		if (_viewModel.MergeIntoTheLineAbove(row) is not { } landing)
+		if (_viewModel.MergeIntoTheLineAbove(row))
 		{
-			return;
+			// The line is gone, and the field that was drawing it goes with it.
+			_fields.Remove(row);
 		}
-
-		_fields.Remove(row);
-
-		// The line it lands in may itself be ticked, and a ticked line's field is hidden until it is
-		// opened - so the caret would have nowhere to go.
-		landing.Line.IsBeingWrittenIn = true;
-
-		if (!_fields.TryGetValue(landing.Line, out var above))
-		{
-			return;
-		}
-
-		// Where the two lines met, so carrying on typing carries on where the reader left off rather
-		// than at the end of what they have just pulled up.
-		PutTheCaretIn(above, landing.Caret);
 	}
 
 	/// <inheritdoc cref="GoToTheLineAboveCommand"/>
@@ -393,6 +439,16 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 				() => Sharing.IsVisible = !Sharing.IsVisible,
 				Sharing.IsVisible,
 				canBeChosen: !_viewModel.IsPrivate));
+
+			// Several boxes changed with one press - the browser selects them with Shift+click, which a
+			// phone has no way to do. Offered only where there are two boxes to choose from.
+			if (_viewModel.CanPickLines || _viewModel.IsPickingLines)
+			{
+				entries.Add(new ScreenMenuEntry(
+					_translations["Select boxes"],
+					ToggleChoosingBoxes,
+					_viewModel.IsPickingLines));
+			}
 		}
 
 		// Somebody else's note is not this reader's to delete: the same press takes it off their own
@@ -434,6 +490,19 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		// over each half is what tells the reader the two are different questions.
 		groups.Add(new ScreenMenuGroup(_translations["Note"], entries));
 		Menu.ShowGroups(groups);
+	}
+
+	/// <summary>The menu's "Select boxes": starts choosing boxes to change together, or stops.</summary>
+	private void ToggleChoosingBoxes()
+	{
+		if (_viewModel.IsPickingLines)
+		{
+			_viewModel.StopPickingLinesCommand.Execute(null);
+		}
+		else
+		{
+			_viewModel.StartPickingLinesCommand.Execute(null);
+		}
 	}
 
 	/// <summary>Asked first, as every delete in Orbit is - and named, so the question says which note.</summary>

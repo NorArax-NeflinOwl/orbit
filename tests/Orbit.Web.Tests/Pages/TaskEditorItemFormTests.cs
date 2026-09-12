@@ -178,6 +178,98 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>
+    /// A list's tags sit under its title and description, in the same word-at-a-time box an entry's
+    /// categories use, and go with the save - always said, since this form has a box for them.
+    /// </summary>
+    [Fact]
+    public void A_lists_tags_are_saved_with_it()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        // The list's own box: no entry is open, so it is the only one on the page.
+        cut.Find(".tag-field-input").Input("work");
+        ClickButtonSaying(cut, "Save");
+
+        Assert.Contains("\"tags\":[\"work\"]", _lastSavedJson);
+    }
+
+    /// <summary>
+    /// When an entry was done is asked only once it is: ticking it records now, puts the day and hour
+    /// among its details to correct, and sends them with the save - which is what carries the time for a
+    /// private list, whose entries the server never sees.
+    /// </summary>
+    [Fact]
+    public void A_ticked_entry_says_when_it_was_done_and_sends_it()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+        Assert.DoesNotContain("Completed on", cut.Find(".editor-item-details").TextContent);
+
+        TickTheOnlyItem(cut);
+
+        Assert.Contains("Completed on", cut.Find(".editor-item-details").TextContent);
+        ClickButtonSaying(cut, "Save");
+        using var saved = JsonDocument.Parse(_lastSavedJson!);
+        Assert.Equal(
+            JsonValueKind.String,
+            saved.RootElement.GetProperty("items")[0].GetProperty("completedAtUtc").ValueKind);
+    }
+
+    /// <summary>
+    /// And the next press, which crosses it out, takes the time away again: a cross is not a completion,
+    /// and nothing shown before an entry is done may linger after it stops being.
+    /// </summary>
+    [Fact]
+    public void An_entry_that_stops_being_done_loses_its_time()
+    {
+        RegisterApiClients(AnItem(isCompleted: true) with
+        {
+            CompletedAtUtc = new DateTimeOffset(2026, 9, 1, 8, 30, 0, TimeSpan.Zero)
+        });
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+        Assert.Contains("Completed on", cut.Find(".editor-item-details").TextContent);
+
+        TickTheOnlyItem(cut);
+
+        Assert.DoesNotContain("Completed on", cut.Find(".editor-item-details").TextContent);
+        ClickButtonSaying(cut, "Save");
+        using var saved = JsonDocument.Parse(_lastSavedJson!);
+        Assert.Equal(
+            JsonValueKind.Null,
+            saved.RootElement.GetProperty("items")[0].GetProperty("completedAtUtc").ValueKind);
+    }
+
+    /// <summary>
+    /// What kind of thing the entry asks for is picked from the kinds this account already uses, the way
+    /// its categories are - and those include what entries say, not only what shelves say. The box used
+    /// to be fed from the shelves alone, so on an account whose products were still written on lists it
+    /// offered nothing and was a plain box.
+    /// </summary>
+    [Fact]
+    public void An_inventory_entrys_product_type_offers_the_types_entries_already_use()
+    {
+        // The panel places itself under its box by measurement (see UsedValueBrowser), which is a call
+        // into the page this fixture has nothing to answer with.
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)) with
+        {
+            Product = new TaskItemProductDto(
+                "Dry goods", null, Quantity: 0, MinimumQuantity: 1, "Piece", ExpiryDate: null, "None",
+                IsCheckedRegularly: false)
+        });
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        cut.Find(".suggested-text-input").Input(string.Empty);
+
+        Assert.Contains(
+            cut.FindAll(".name-suggestion-option"), option => option.TextContent.Trim() == "Dry goods");
+    }
+
+    /// <summary>
     /// A calendar entry can invite people whether the list it is on has been saved yet or not. The
     /// contacts used to be read only alongside an existing list, so a Calendar entry on a brand new one
     /// said there was nobody to invite - which is not the same thing as having no contacts.
@@ -354,9 +446,9 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        cut.Find(".tag-field-input").Input("shopping");
-        cut.Find(".tag-field-add").Click();
-        cut.Find(".tag-field-input").Input("Car");
+        cut.Find(".editor-item-details .tag-field-input").Input("shopping");
+        cut.Find(".editor-item-details .tag-field-add").Click();
+        cut.Find(".editor-item-details .tag-field-input").Input("Car");
         ClickButtonSaying(cut, "Save");
 
         // The second was never added, and is saved all the same.
@@ -370,9 +462,9 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        cut.Find(".tag-field-input").Input("shopping");
-        cut.Find(".tag-field-add").Click();
-        cut.Find(".tag-field-input").Input("Shopping");
+        cut.Find(".editor-item-details .tag-field-input").Input("shopping");
+        cut.Find(".editor-item-details .tag-field-add").Click();
+        cut.Find(".editor-item-details .tag-field-input").Input("Shopping");
         ClickButtonSaying(cut, "Save");
 
         Assert.Contains("\"categories\":[\"shopping\"]", _lastSavedJson);
@@ -388,7 +480,7 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         // Chips rather than a line of text: what is already filed is a set of things, and the box below
         // them is empty and ready for the next one.
         Assert.Equal(["shopping", "car"], cut.FindAll(".tag-chip").Select(chip => chip.TextContent.Replace("✕", string.Empty).Trim()));
-        Assert.Equal(string.Empty, cut.Find(".tag-field-input").GetAttribute("value"));
+        Assert.Equal(string.Empty, cut.Find(".editor-item-details .tag-field-input").GetAttribute("value"));
     }
 
     /// <summary>
@@ -677,8 +769,8 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        cut.Find(".tag-field-input").Input("Dry goods");
-        cut.Find(".tag-field-add").Click();
+        cut.Find(".editor-item-details .tag-field-input").Input("Dry goods");
+        cut.Find(".editor-item-details .tag-field-add").Click();
         ClickButtonSaying(cut, "Save");
 
         Assert.Contains("\"categories\":[\"Dry goods\"]", _lastSavedJson);
@@ -956,8 +1048,8 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        cut.Find(".tag-field-input").Input("Dry goods");
-        cut.Find(".tag-field-add").Click();
+        cut.Find(".editor-item-details .tag-field-input").Input("Dry goods");
+        cut.Find(".editor-item-details .tag-field-add").Click();
         ClickButtonSaying(cut, "Save");
 
         Assert.Contains("\"description\":\"Buy milk\"", _lastSavedJson);

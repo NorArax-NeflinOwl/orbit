@@ -392,11 +392,11 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- Before the button rather than after the file, and only while places are on: they are
-                     the one part of the file that is not sealed. See AccountViewModel.PlacesWarning. -->
-                <Label Text="{Binding PlacesWarning}" IsVisible="{Binding HasPlacesWarning}"
-                       FontSize="12" LineBreakMode="WordWrap"
-                       TextColor="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
+                <!-- A "!" before the button rather than a line of prose, and only while places are on:
+                     they are the one part of the file that is not sealed. See AccountViewModel.PlacesWarning. -->
+                <controls:FieldHint Warns="True" IsVisible="{Binding HasPlacesWarning}"
+                                    Label="{controls:Translate 'Places'}"
+                                    Text="{Binding PlacesWarning}" />
 
                 <Button Text="{controls:Translate 'Export'}" HorizontalOptions="Start"
                         Style="{StaticResource PrimaryButton}"

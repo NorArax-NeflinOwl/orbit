@@ -58,6 +58,9 @@ public sealed partial class GroupConversationViewModel : ObservableObject, IDisp
     /// </summary>
     private bool _statusExplainsTheLastAction;
 
+    /// <inheritdoc cref="ConversationReadState"/>
+    private ConversationReadState _readState = new();
+
 
     [ObservableProperty]
     private string _title = string.Empty;
@@ -116,7 +119,19 @@ public sealed partial class GroupConversationViewModel : ObservableObject, IDisp
     /// </summary>
     public bool CanWrite => _group is { } group && group.Members.Count > 1;
 
-    public void Open(LocalChatGroup group) => Show(group);
+    public void Open(LocalChatGroup group)
+    {
+        // A different group's reading says nothing about this one - see ConversationViewModel.Open.
+        if (_group?.Id != group.Id)
+        {
+            _readState = new ConversationReadState
+            {
+                IsShowing = _readState.IsShowing, IsAppInForeground = _readState.IsAppInForeground
+            };
+        }
+
+        Show(group);
+    }
 
     private void Show(LocalChatGroup group)
     {
@@ -412,6 +427,64 @@ public sealed partial class GroupConversationViewModel : ObservableObject, IDisp
         _navigator.ShowGroups();
     }
 
+    /// <inheritdoc cref="ConversationViewModel.ScreenShownAsync"/>
+    public Task ScreenShownAsync(CancellationToken cancellationToken = default)
+    {
+        _readState.IsShowing = true;
+        return MarkWhatHasBeenSeenAsync(cancellationToken);
+    }
+
+    /// <inheritdoc cref="ConversationViewModel.ScreenHidden"/>
+    public void ScreenHidden() => _readState.IsShowing = false;
+
+    /// <inheritdoc cref="ConversationViewModel.AppWentToBackground"/>
+    public void AppWentToBackground() => _readState.IsAppInForeground = false;
+
+    /// <inheritdoc cref="ConversationViewModel.AppCameToForegroundAsync"/>
+    public Task AppCameToForegroundAsync(CancellationToken cancellationToken = default)
+    {
+        _readState.IsAppInForeground = true;
+        return MarkWhatHasBeenSeenAsync(cancellationToken);
+    }
+
+    /// <inheritdoc cref="ConversationViewModel.ShowedUpToAsync"/>
+    public Task ShowedUpToAsync(int lastVisibleIndex, CancellationToken cancellationToken = default)
+    {
+        _readState.ShowedUpTo(lastVisibleIndex);
+        return MarkWhatHasBeenSeenAsync(cancellationToken);
+    }
+
+    /// <summary>The group's own mark - see ConversationViewModel's, which this mirrors. Never throws.</summary>
+    private async Task MarkWhatHasBeenSeenAsync(CancellationToken cancellationToken)
+    {
+        if (_group is not { } group)
+        {
+            return;
+        }
+
+        var readState = _readState;
+        if (readState.ReadUpToToTell(Messages) is not { } readUpToUtc)
+        {
+            return;
+        }
+
+        try
+        {
+            if (await _synchronizer.MarkGroupConversationReadAsync(group.Id, readUpToUtc, cancellationToken))
+            {
+                readState.Told(readUpToUtc);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            // Refused rather than unreachable - a session that has ended. The next sync says so on screen.
+        }
+        catch (OperationCanceledException)
+        {
+            // The screen went away mid-mark.
+        }
+    }
+
     /// <summary>Who is in the group, and - for an admin - changing it.</summary>
     [RelayCommand]
     private void OpenMembers()
@@ -510,6 +583,9 @@ public sealed partial class GroupConversationViewModel : ObservableObject, IDisp
             {
                 await ShowStoredConversationAsync(cancellationToken);
             }
+
+            // The net under the page's own reports: a mark that could not go out earlier goes now.
+            await MarkWhatHasBeenSeenAsync(cancellationToken);
         }
         catch (Exception exception) when (exception is HttpRequestException or EncryptionKeyLockedException)
         {

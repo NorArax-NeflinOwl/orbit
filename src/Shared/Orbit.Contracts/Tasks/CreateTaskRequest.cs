@@ -27,4 +27,6 @@ public sealed record CreateTaskRequest(
     /// UpdateTaskRequest.Completion. Null is "FromTheEntries", which is where every list started before
     /// a list could be made on the Finished tab and begin there.
     /// </summary>
-    string? Completion = null);
+    string? Completion = null,
+    /// <summary>The words it is tagged with - see TaskDto.Tags. Null and empty both mean none.</summary>
+    IReadOnlyList<string>? Tags = null);

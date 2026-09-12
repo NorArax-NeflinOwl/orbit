@@ -30,6 +30,7 @@ erDiagram
     OS_USERS ||--o{ OS_USERS_PERMISSIONS : "holds"
     OS_USERS ||--o| OS_NOTIFICATIONS_SETTINGS : "configures"
     OS_USERS ||--o{ OS_PUSH_SUBSCRIPTIONS : "registered"
+    OS_USERS ||--o{ OS_TAGS_COLOURS : "colours its tags"
 
     OS_USERS {
         uuid OS_U_ID PK
@@ -43,6 +44,13 @@ erDiagram
         int OS_U_PRIVATEKEYDERIVATIONITERATIONS
         bool OS_U_KEEPSTHIRDPARTIESOUT
         timestamptz OS_U_EMAILVERIFIEDATUTC
+    }
+    OS_TAGS_COLOURS {
+        uuid OS_TC_USERID PK "with the tag - one colour per tag per account"
+        text OS_TC_NORMALIZEDTAG PK "the tag in lower case"
+        text OS_TC_TAG "as last written - readable, even for a tag only private items carry"
+        text OS_TC_COLOUR "hex, as a colour input gives it"
+        timestamptz OS_TC_UPDATEDATUTC
     }
     OS_REFRESH_TOKENS {
         uuid OS_RT_ID PK
@@ -112,6 +120,7 @@ erDiagram
         text OP_N_ENCRYPTEDCIPHERTEXT "set when private"
         text OP_N_ENCRYPTEDNONCE
         text OP_N_CONTENTJSON "null when private"
+        text OP_N_TAGSJSON "JSON list - empty when private, the tags are sealed"
         uuid OP_N_LOCKEDBYUSERID
         timestamptz OP_N_LOCKEXPIRESATUTC
     }
@@ -184,6 +193,7 @@ erDiagram
         bool OP_T_ISCOMPLETED "decides the Finished folder"
         text OP_T_COMPLETION "TaskListCompletion by name - what its owner said, if anything"
         bool OP_T_ISPRIVATE
+        text OP_T_TAGSJSON "JSON list - empty when private, the tags are sealed"
     }
     OP_TASKS_ITEMS {
         uuid OP_TI_ID PK
@@ -193,6 +203,7 @@ erDiagram
         timestamptz OP_TI_DUEDATEUTC
         bool OP_TI_ISCOMPLETED
         bool OP_TI_ISFAILED "crossed out rather than ticked - never both"
+        timestamptz OP_TI_COMPLETEDATUTC "when it was ticked - null unless done"
         text OP_TI_KIND
         text OP_TI_PRIORITY "the entry's own, beside the list's"
         text OP_TI_COLOUR "empty means: drawn in whatever its kind is"

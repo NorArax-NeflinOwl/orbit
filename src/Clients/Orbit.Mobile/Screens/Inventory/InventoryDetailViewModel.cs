@@ -36,6 +36,15 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
     private readonly NameSuggestions _inventoryNameSuggestions;
     private readonly IScreenNavigator _navigator;
 
+    /// <summary>Only for the product types the task entries carry - see KnownProductTypes.</summary>
+    private readonly LocalTaskListRepository _taskLists;
+
+    /// <summary>
+    /// What this account calls kinds of product, offered as chips under an item's product-type box - see
+    /// KnownProductTypes. Read again with the shelf, so a type just typed on it is offered next time.
+    /// </summary>
+    private IReadOnlyList<string> _knownProductTypes = [];
+
     private Guid _localId;
     private IReadOnlyList<InventoryItemRequest> _items = [];
 
@@ -94,8 +103,9 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
         SharePanel share, IScreenNavigator navigator,
         InventoryClient inventoryClient, EditLock editLock, PrivateContentSealer privateContent,
         NameSuggestions nameSuggestions, NameSuggestions inventoryNameSuggestions,
-        INetworkStatus networkStatus, RestockListSettingsPanel restockList)
+        INetworkStatus networkStatus, RestockListSettingsPanel restockList, LocalTaskListRepository taskLists)
     {
+        _taskLists = taskLists;
         _networkStatus = networkStatus;
         RestockList = restockList;
         _inventories = inventories;
@@ -283,7 +293,10 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
     {
         if (row is not null && CanEdit)
         {
-            BeingEdited = InventoryItemEditor.For(row.Item, _translations, _nameSuggestions);
+            // With the kinds of product this account already uses offered under the type box, as the
+            // same form opened from a task entry offers them - see KnownProductTypes.
+            BeingEdited = InventoryItemEditor.For(row.Item, _translations, _nameSuggestions)
+                .Knowing(_knownProductTypes);
         }
     }
 
@@ -474,6 +487,8 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
         _items = inventory.Items;
         _arrivals = inventory.ItemArrivals;
         _usage = inventory.ItemUsage;
+        _knownProductTypes = KnownProductTypes.From(
+            await _inventories.GetAllAsync(cancellationToken), await _taskLists.GetAllAsync(cancellationToken));
         // What this shelf's restock list asks for, and when - see RestockListSettingsPanel.
         await RestockList.ShowFor(inventory.ServerId, cancellationToken);
 

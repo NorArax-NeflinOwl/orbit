@@ -44,9 +44,11 @@ public sealed record NoteListItem(
     bool IsHidden = false, string HiddenTitle = "Private", bool IsCopy = false,
     string Preview = "", string Priority = "", string PriorityValue = "Normal")
 {
+    /// <param name="tagColours">The account's tag colours by key - see LocalTagColourRepository.ColoursAsync. Null draws every tag plain.</param>
     public static NoteListItem From(
         LocalNote note, bool hasUnsentChanges, INetworkStatus networkStatus, bool privateItemsAreUnlocked,
-        Translations translations, DateTimeOffset nowUtc, string hiddenTitle = "Private")
+        Translations translations, DateTimeOffset nowUtc, string hiddenTitle = "Private",
+        IReadOnlyDictionary<string, string>? tagColours = null)
     {
         var refusal = OfflineEditPolicy.Evaluate(note, networkStatus);
         var isHidden = note.IsPrivate && !privateItemsAreUnlocked;
@@ -60,8 +62,15 @@ public sealed record NoteListItem(
             IsCopy: note.CopyOfLocalId is not null,
             Preview: isHidden || note.IsSealed ? string.Empty : FirstLineOf(note),
             Priority: Tasks.PriorityChoice.WorthSaying(note.Priority, translations),
-            PriorityValue: note.Priority);
+            PriorityValue: note.Priority)
+        {
+            // Nothing about a hidden note, whose tags are sealed with everything else it says.
+            Tags = isHidden || note.IsSealed ? Screens.Tags.TagChips.None : Screens.Tags.TagChips.For(note.AllTags, tagColours)
+        };
     }
+
+    /// <summary>The note's tags, in the row with its other marks - see TagChips.</summary>
+    public Screens.Tags.TagChips Tags { get; init; } = Screens.Tags.TagChips.None;
 
     /// <summary>
     /// The first line that says anything. A note often opens with a blank line - the editor keeps one

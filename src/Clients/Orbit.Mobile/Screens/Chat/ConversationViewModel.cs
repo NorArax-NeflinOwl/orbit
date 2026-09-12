@@ -68,6 +68,12 @@ public sealed partial class ConversationViewModel : ObservableObject, IDisposabl
     /// </summary>
     private DateTimeOffset? _theyReadUpToUtc;
 
+    /// <summary>
+    /// What this screen has told the server its reader has seen - see ConversationReadState, which
+    /// decides it. Replaced when another conversation is opened in the same screen.
+    /// </summary>
+    private ConversationReadState _readState = new();
+
     /// <summary>The message waiting for somewhere to be passed on to, if one is.</summary>
     private ReadableChatMessage? _beingForwarded;
     /// <summary>
@@ -201,6 +207,12 @@ public sealed partial class ConversationViewModel : ObservableObject, IDisposabl
     public void Open(LocalContact contact)
     {
         _contact = contact;
+        // What was seen of somebody else's conversation says nothing about this one; whether the screen
+        // and the app are in front carries over, since it is the same screen.
+        _readState = new ConversationReadState
+        {
+            IsShowing = _readState.IsShowing, IsAppInForeground = _readState.IsAppInForeground
+        };
         Title = contact.DisplayName;
         ContactId = contact.UserId;
         PresenceStatus = contact.PresenceStatus;
@@ -635,6 +647,74 @@ public sealed partial class ConversationViewModel : ObservableObject, IDisposabl
         _navigator.ShowContacts();
     }
 
+    /// <summary>The page is on screen - its OnAppearing. What is already showing may be read from now on.</summary>
+    public Task ScreenShownAsync(CancellationToken cancellationToken = default)
+    {
+        _readState.IsShowing = true;
+        return MarkWhatHasBeenSeenAsync(cancellationToken);
+    }
+
+    /// <summary>The page has gone - its OnDisappearing. Nothing is read from a screen nobody can see.</summary>
+    public void ScreenHidden() => _readState.IsShowing = false;
+
+    /// <summary>
+    /// The app has left the foreground with this screen still on top of it. The screen does not
+    /// disappear when that happens, so without this a poll in the background would still be reading.
+    /// </summary>
+    public void AppWentToBackground() => _readState.IsAppInForeground = false;
+
+    /// <summary>Back in front of somebody, with whatever the thread was showing now in front of them.</summary>
+    public Task AppCameToForegroundAsync(CancellationToken cancellationToken = default)
+    {
+        _readState.IsAppInForeground = true;
+        return MarkWhatHasBeenSeenAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The last line the thread shows, as an index into <see cref="Messages"/> - what the page's
+    /// CollectionView reports as it scrolls, and as it lays out new lines at the bottom.
+    /// </summary>
+    public Task ShowedUpToAsync(int lastVisibleIndex, CancellationToken cancellationToken = default)
+    {
+        _readState.ShowedUpTo(lastVisibleIndex);
+        return MarkWhatHasBeenSeenAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Tells the server what has been seen, when ConversationReadState says there is something new to
+    /// tell. Never throws: every caller is the page firing and forgetting, and a mark that did not go
+    /// out is offered again at the next chance, since only an accepted one is remembered.
+    /// </summary>
+    private async Task MarkWhatHasBeenSeenAsync(CancellationToken cancellationToken)
+    {
+        if (_contact is not { } contact)
+        {
+            return;
+        }
+
+        var readState = _readState;
+        if (readState.ReadUpToToTell(Messages) is not { } readUpToUtc)
+        {
+            return;
+        }
+
+        try
+        {
+            if (await _synchronizer.MarkConversationReadAsync(contact.UserId, readUpToUtc, cancellationToken))
+            {
+                readState.Told(readUpToUtc);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            // Refused rather than unreachable - a session that has ended. The next sync says so on screen.
+        }
+        catch (OperationCanceledException)
+        {
+            // The screen went away mid-mark.
+        }
+    }
+
     private async Task ShowStoredConversationAsync(CancellationToken cancellationToken)
     {
         if (_contact?.PublicKeyBase64 is not { } otherPublicKey)
@@ -692,6 +772,9 @@ public sealed partial class ConversationViewModel : ObservableObject, IDisposabl
             {
                 await ShowStoredConversationAsync(cancellationToken);
             }
+
+            // The net under the page's own reports: a mark that could not go out earlier goes now.
+            await MarkWhatHasBeenSeenAsync(cancellationToken);
         }
         catch (Exception exception) when (exception is HttpRequestException or EncryptionKeyLockedException)
         {

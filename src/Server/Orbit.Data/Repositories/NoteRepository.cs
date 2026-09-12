@@ -99,7 +99,8 @@ public sealed class NoteRepository : INoteRepository
             entity.CreatedAtUtc, entity.UpdatedAtUtc,
             entity.LockedByUserId, entity.LockedByUserName, entity.LockExpiresAtUtc, entity.IsPinned,
             Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal,
-            entity.FolderId);
+            entity.FolderId,
+            StoredTags.Read(entity.TagsJson));
 
     private static NoteEntity ToEntity(Note note)
         => new()
@@ -108,6 +109,7 @@ public sealed class NoteRepository : INoteRepository
             UserId = note.UserId,
             Title = note.Title,
             ContentJson = JsonSerializer.Serialize(note.Content),
+            TagsJson = StoredTags.Write(note.Tags),
             IsPrivate = note.IsPrivate,
             IsPinned = note.IsPinned,
             Priority = note.Priority.ToString(),

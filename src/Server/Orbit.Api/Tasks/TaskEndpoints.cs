@@ -84,7 +84,8 @@ public static class TaskEndpoints
                     request.Description, request.FolderId,
                     request.Completion is null
                         ? TaskListCompletion.FromTheEntries
-                        : RequestEnum.Parse<TaskListCompletion>(request.Completion, "completion")),
+                        : RequestEnum.Parse<TaskListCompletion>(request.Completion, "completion"),
+                    request.Tags),
                 cancellationToken);
             return Results.Created($"/api/tasks/{id}", id);
         });
@@ -103,7 +104,8 @@ public static class TaskEndpoints
                     EntriesSayingNothingAboutTheirLook(request.Items),
                     request.Completion is null ? null : RequestEnum.Parse<TaskListCompletion>(request.Completion, "completion"),
                     EntriesKeepingTheirAlternatives: EntriesSayingNothingAboutTheirAlternatives(request.Items),
-                    EntriesKeepingTheirReference: EntriesSayingNothingAboutTheirReference(request.Items)),
+                    EntriesKeepingTheirReference: EntriesSayingNothingAboutTheirReference(request.Items),
+                    Tags: request.Tags),
                 cancellationToken);
             return ToApiResult(outcome);
         });
@@ -490,7 +492,7 @@ public static class TaskEndpoints
                 item.Description, item.DueDateUtc, item.IsCompleted, item.AllLinkedTaskListIds,
                 reminders, subject, item.AllCategories, product, item.Notes, item.IsFailed,
                 item.WaitsForTaskItemIds, priority, item.Colour, alternatives,
-                ToDomainReference(item.ReferencesTaskItemId), item.RequiredQuantity);
+                ToDomainReference(item.ReferencesTaskItemId), item.RequiredQuantity, item.CompletedAtUtc);
         }
 
         // Same override Create applies: a linked entry's completion follows the list it links to, so a
@@ -502,7 +504,8 @@ public static class TaskEndpoints
             reminders, subject, item.AllCategories, product, item.Notes,
             item.AllLinkedTaskListIds.Count == 0 && item.IsFailed,
             item.WaitsForTaskItemIds, priority, item.Colour, alternatives,
-            referencesTaskItemId: ToDomainReference(item.ReferencesTaskItemId), requiredQuantity: item.RequiredQuantity);
+            referencesTaskItemId: ToDomainReference(item.ReferencesTaskItemId), requiredQuantity: item.RequiredQuantity,
+            completedAtUtc: item.CompletedAtUtc);
     }
 
 
@@ -558,7 +561,8 @@ public static class TaskEndpoints
                     [.. item.Alternatives.Select(way => new TaskItemAlternativeDto(
                         way.Description, way.LinkedTaskListId, way.IsDone))],
                     item.ReferencesTaskItemId,
-                    item.RequiredQuantity))
+                    item.RequiredQuantity,
+                    item.CompletedAtUtc))
                 .ToList(),
             taskList.IsCompleted,
             taskList.IsGroup,
@@ -576,7 +580,8 @@ public static class TaskEndpoints
             // The owner's filing, and only theirs - see NoteEndpoints.ToDto, which says why a recipient
             // is told nothing about it.
             taskList.IsShared ? null : taskList.FolderId,
-            taskList.Completion.ToString());
+            taskList.Completion.ToString(),
+            taskList.Tags);
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

@@ -60,16 +60,31 @@ public sealed class ChatRepository
     }
 
     /// <summary>
-    /// Nothing from this person is waiting any more - said the moment the server has been told the
-    /// conversation was read, rather than left for the next refresh of the list, so a count does not
-    /// stand on somebody whose messages are open on the screen. See LocalContact.UnreadCount.
+    /// What is still waiting from this person once the server has been told they were read up to
+    /// readUpToUtc - said at once rather than left for the next refresh of the list, so a count does not
+    /// stand on somebody whose messages have just been seen. See LocalContact.UnreadCount.
+    ///
+    /// Their messages stored here sent after that moment, and never more than the count already held:
+    /// the server's count is the authority, and one of those may already have been read on another
+    /// device. The next refresh of the list brings the server's own answer either way.
     /// </summary>
-    public async Task MarkReadAsync(Guid otherUserId, CancellationToken cancellationToken = default)
+    public async Task MarkReadAsync(Guid otherUserId, DateTimeOffset readUpToUtc, CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        // Compared here rather than in the query: SQLite cannot translate a comparison on a
+        // DateTimeOffset column, and one conversation's timestamps are a small projection.
+        var theirSendTimes = await dbContext.ChatMessages
+            .AsNoTracking()
+            .Where(message => message.OtherUserId == otherUserId && message.GroupId == null
+                && message.SenderUserId == otherUserId)
+            .Select(message => message.SentAtUtc)
+            .ToListAsync(cancellationToken);
+        var stillWaiting = theirSendTimes.Count(sentAtUtc => sentAtUtc > readUpToUtc);
+
         await dbContext.Contacts
-            .Where(contact => contact.UserId == otherUserId)
-            .ExecuteUpdateAsync(contact => contact.SetProperty(row => row.UnreadCount, 0), cancellationToken);
+            .Where(contact => contact.UserId == otherUserId && contact.UnreadCount > stillWaiting)
+            .ExecuteUpdateAsync(contact => contact.SetProperty(row => row.UnreadCount, stillWaiting), cancellationToken);
     }
 
     /// <summary>

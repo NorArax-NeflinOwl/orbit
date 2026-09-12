@@ -240,7 +240,9 @@ public sealed class RestockListRefresh
                     DailyChannel = settings.ReminderChannel,
                     DailyTimeOfDay = settings.RefreshTimeOfDay
                 },
-                item.Subject);
+                item.Subject,
+                // Rebuilt to move its reminder, not re-ticked: when it was done stays when it was done.
+                completedAtUtc: item.CompletedAtUtc);
         }
     }
 

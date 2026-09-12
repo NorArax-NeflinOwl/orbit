@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Core.Inventories;
 using Orbit.Contracts.Inventories;
+using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
@@ -234,6 +235,45 @@ public sealed class InventoryDetailScreenTests
         Assert.Equal("Kitchen", row.Item.Category);
         Assert.Equal(5, row.Item.MinimumQuantity);
         Assert.Equal(DateTime.Today.AddDays(14), row.Item.ExpiryDate!.Value.LocalDateTime.Date);
+    }
+
+    /// <summary>
+    /// The product type is offered as chips here too, as it is on a task entry's product form: every
+    /// shelf's types and every errand's own - see KnownProductTypes. The form opened from the inventory
+    /// used to be handed nothing, so it offered nothing.
+    /// </summary>
+    [Fact]
+    public async Task An_items_product_type_is_offered_from_every_shelf_and_every_errand()
+    {
+        using var context = new ScreenContext();
+        var inventory = await context.AddInventoryAsync(
+            new InventoryItemRequest(Guid.NewGuid(), "Coffee", "Bag", "Kitchen", 1, null, nameof(InventoryUnit.Piece), null, "None"),
+            new InventoryItemRequest(Guid.NewGuid(), "Salt", string.Empty, "Kitchen", 1, null, nameof(InventoryUnit.Piece), null, "None"));
+        await context.AddShelfAsync(
+            "Garage",
+            new InventoryItemRequest(Guid.NewGuid(), "Paint", "Tin", "Garage", 1, null, nameof(InventoryUnit.Piece), null, "None"));
+        await context.AddErrandAsync("Jar");
+        var screen = await context.OpenAsync(inventory.LocalId);
+
+        screen.EditItemCommand.Execute(screen.Items.Single(row => row.Item.Name == "Salt"));
+
+        Assert.Equal(["Bag", "Jar", "Tin"], screen.BeingEdited!.OfferedProductTypes);
+    }
+
+    [Fact]
+    public async Task Picking_an_offered_product_type_fills_the_box_and_is_saved()
+    {
+        using var context = new ScreenContext();
+        var inventory = await context.AddInventoryAsync(
+            new InventoryItemRequest(Guid.NewGuid(), "Salt", string.Empty, "Kitchen", 1, null, nameof(InventoryUnit.Piece), null, "None"));
+        await context.AddErrandAsync("Jar");
+        var screen = await context.OpenAsync(inventory.LocalId);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.ChooseProductTypeCommand.Execute("Jar");
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.Equal("Jar", Assert.Single(screen.Items).Item.ProductType);
     }
 
     /// <summary>
@@ -802,6 +842,7 @@ public sealed class InventoryDetailScreenTests
         private readonly LocalStore _localStore = new();
         private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-27T10:00:00Z"));
         private readonly LocalInventoryRepository _inventories;
+        private readonly LocalTaskListRepository _taskLists;
         private readonly InventorySynchronizer _synchronizer;
         private readonly PrivateContentSealer _privateContent;
 
@@ -810,6 +851,7 @@ public sealed class InventoryDetailScreenTests
             _privateContent = privateContent ?? PrivateContent.WithoutAKey();
             Server = new FakeInventoryServer(_clock);
             _inventories = new LocalInventoryRepository(_localStore, _clock, FixedNetworkStatus.Online, _privateContent);
+            _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online, _privateContent);
             _synchronizer = new InventorySynchronizer(
                 _localStore, new InventoryClient(Server.ToHttpClient()), _clock, new SyncGate(),
                 NullLogger<InventorySynchronizer>.Instance);
@@ -875,6 +917,24 @@ public sealed class InventoryDetailScreenTests
             return inventory;
         }
 
+        /// <summary>Another shelf on the same account, holding these.</summary>
+        public async Task AddShelfAsync(string name, params InventoryItemRequest[] items)
+        {
+            var inventory = await _inventories.CreateAsync(name);
+            await _inventories.UpdateAsync(inventory.LocalId, new InventoryContent(name, items));
+        }
+
+        /// <summary>
+        /// A task list asking for a product no shelf holds yet, which carries its type itself - see
+        /// TaskItemProductDto.
+        /// </summary>
+        public Task AddErrandAsync(string productType)
+            => _taskLists.CreateAsync("Errands", [new TaskItemDto(
+                Guid.NewGuid(), "Something for the shelf", null, false, null, "None", false, "None", new TimeOnly(9, 0),
+                Kind: "Inventory",
+                Product: new TaskItemProductDto(
+                    productType, null, 1, null, nameof(InventoryUnit.Piece), null, "None", false))]);
+
         /// <summary>Whether the phone has a connection, which is what the offline refusal turns on.</summary>
         public FixedNetworkStatus Network { get; } = FixedNetworkStatus.Online;
 
@@ -891,7 +951,8 @@ public sealed class InventoryDetailScreenTests
                 Suggestions.Offering(SuggestionsServer), Suggestions.Offering(SuggestionsServer), Network,
                 new RestockListSettingsPanel(
                     new InventoryClient(Server.ToHttpClient()), new Translations(new InMemoryLanguageStore()),
-                    new ConnectionRequirement(Network, new Translations(new InMemoryLanguageStore()))));
+                    new ConnectionRequirement(Network, new Translations(new InMemoryLanguageStore()))),
+                _taskLists);
 
             screen.Open(localId, productId);
             await screen.LoadCommand.ExecuteAsync(null);

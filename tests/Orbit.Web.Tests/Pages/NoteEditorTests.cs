@@ -414,6 +414,28 @@ public sealed class NoteEditorTests : OrbitTestContext
     }
 
     /// <summary>
+    /// A selection covering several boxes makes a press on one of them answer for all of them, which
+    /// nothing about highlighted text suggests - so the bubble over the tools says so while it lasts, and
+    /// goes when the selection does.
+    /// </summary>
+    [Fact]
+    public async Task Selecting_several_boxes_says_over_the_tools_that_ticking_one_ticks_them_all()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+        var editor = cut.FindComponent<Web.Components.ChecklistTextEditor>();
+
+        await cut.InvokeAsync(() => editor.Instance.OnSelectedTicksChanged(3));
+
+        Assert.Contains("3 selected items - ticking one ticks them all.", cut.Find(".note-tool-bubble").TextContent);
+
+        await cut.InvokeAsync(() => editor.Instance.OnSelectedTicksChanged(0));
+
+        Assert.Empty(cut.FindAll(".note-tool-bubble"));
+    }
+
+    /// <summary>
     /// The row of tools sits over the corner of the writing rather than above it, and three of its four
     /// are drawn for a design that has them rather than for anything they do yet. Each says so when it
     /// is pressed: a greyed-out button explains nothing, and a row of them explains less.

@@ -69,7 +69,7 @@ public static class NoteEndpoints
                 new CreateNoteCommand(
                     GetUserId(user), request.Title, ToDomainContent(request.Content), request.IsPrivate,
                     ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
-                    request.FolderId),
+                    request.FolderId, request.Tags),
                 cancellationToken);
             return Results.Created($"/api/notes/{id}", id);
         });
@@ -80,7 +80,8 @@ public static class NoteEndpoints
             var outcome = await dispatcher.SendAsync(
                 new UpdateNoteCommand(
                     GetUserId(user), id, request.Title, ToDomainContent(request.Content), request.IsPrivate,
-                    ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority")),
+                    ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
+                    request.Tags),
                 cancellationToken);
             return ToApiResult(outcome);
         });
@@ -210,7 +211,8 @@ public static class NoteEndpoints
             // Filing is the owner's own, so a recipient is told nothing about it: the id would name a
             // folder that does not exist on their pages, and a card filed under a tab they cannot see
             // is a card that has vanished.
-            note.IsShared ? null : note.FolderId);
+            note.IsShared ? null : note.FolderId,
+            note.Tags);
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

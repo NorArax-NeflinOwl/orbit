@@ -39,8 +39,14 @@ public sealed class LinkedTaskCompletionResolverRebuildTests
 
             var before = property.GetValue(original);
             var after = property.GetValue(resolved);
+            // A list of words is the same list when it holds the same words - the rebuild tidies it into
+            // a new one, and comparing the two by reference would fail on a field that survived.
+            var survived = before is System.Collections.IEnumerable beforeWords and not string
+                && after is System.Collections.IEnumerable afterWords
+                    ? beforeWords.Cast<object?>().SequenceEqual(afterWords.Cast<object?>())
+                    : Equals(before, after);
             Assert.True(
-                Equals(before, after),
+                survived,
                 $"TaskList.{property.Name} was {before ?? "null"} and came back {after ?? "null"} - " +
                 "LinkedTaskCompletionResolver rebuilds the list and this field was left out of that rebuild.");
             unchecked_.Add(property.Name);
@@ -111,6 +117,33 @@ public sealed class LinkedTaskCompletionResolverRebuildTests
             resolved.Items.Select(item => (item.Id, item.Description, item.DueDateUtc)));
     }
 
+    /// <summary>
+    /// The resolver rebuilds an entry too - one standing for other lists, whose tick it works out afresh -
+    /// and that rebuild named the tick, the links and the steps and nothing else. Such an entry came back
+    /// from every read unfiled, undescribed, uncoloured and at Normal priority, and the next save from a
+    /// browser (which sends back what it read) wrote that over what was stored.
+    /// </summary>
+    [Fact]
+    public void An_entry_standing_for_other_lists_keeps_everything_it_says()
+    {
+        var userId = Guid.NewGuid();
+        var kitchen = TaskList.Create(userId, "Kitchen", [TaskItem.Create("Paint", null, false)]);
+        var original = TaskItem.Create(
+            "The flat is ready", null, false, linkedTaskListIds: [kitchen.Id], categories: ["flat"],
+            notes: "Before the landlord comes", priority: ItemPriority.High, colour: "#aa3355");
+        var flat = TaskList.Create(userId, "Flat", [original]);
+
+        var resolved = new LinkedTaskCompletionResolver().ResolveAll([flat, kitchen])
+            .Single(taskList => taskList.Id == flat.Id)
+            .Items.Single();
+
+        Assert.Equal(["flat"], resolved.Categories);
+        Assert.Equal("Before the landlord comes", resolved.Notes);
+        Assert.Equal(ItemPriority.High, resolved.Priority);
+        Assert.Equal("#aa3355", resolved.Colour);
+        Assert.Equal([kitchen.Id], resolved.LinkedTaskListIds);
+    }
+
     private static TaskList ATaskListWithEveryFieldSet()
     {
         var taskList = TaskList.FromPersistence(
@@ -123,7 +156,7 @@ public sealed class LinkedTaskCompletionResolverRebuildTests
             lockExpiresAtUtc: new DateTimeOffset(2026, 3, 3, 0, 0, 0, TimeSpan.Zero),
             ItemPriority.High, isPinned: true, linkedInventoryId: Guid.NewGuid(),
             description: "What this list is for", folderId: Guid.NewGuid(),
-            completion: TaskListCompletion.Finished);
+            completion: TaskListCompletion.Finished, tags: ["home", "weekly"]);
         taskList.SetAccessContext(isShared: true, sharedByUserName: "anna", ShareAccessLevel.ReadOnly);
         // Every field set to something other than its default, or the walk below compares two defaults
         // and passes on a field the rebuild drops - which is how Description and IsSharedWithOthers both

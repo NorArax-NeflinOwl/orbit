@@ -572,6 +572,74 @@ public sealed partial class TaskItemEditor : ObservableObject
     /// <inheritdoc cref="Inventory.InventoryItemEditor.Suggestions"/>
     public NameSuggestions? Suggestions { get; private init; }
 
+    private IReadOnlyList<string> _knownProductTypes = [];
+
+    /// <summary>
+    /// Whether the entry is done, which is the only time it has a time for being done - see
+    /// Orbit.Core.Tasks.TaskItem.CompletedAtUtc. The tick is the list's to change rather than this
+    /// form's, so it holds still while the form is open: the pickers below are drawn for a done entry and
+    /// never for one still to do.
+    /// </summary>
+    public bool IsDone => _item.IsCompleted;
+
+    /// <summary>
+    /// A done entry whose time was never kept - one ticked before Orbit kept it. The pickers still open
+    /// (on today), and are only sent once somebody changes them: a time made up by opening a form is not
+    /// when anything was done. See <see cref="ToDto"/>.
+    /// </summary>
+    public bool IsCompletionTimeUnknown => IsDone && _item.CompletedAtUtc is null && !_completionTimeChosen;
+
+    /// <summary>The day it was done, as the picker holds it - local, like the due date's.</summary>
+    [ObservableProperty]
+    private DateTime _completedOn = DateTime.Today;
+
+    /// <summary>The hour it was done, as the picker holds it.</summary>
+    [ObservableProperty]
+    private TimeSpan _completedAt;
+
+    /// <summary>Whether there is a time to send: the entry had one, or somebody set one here.</summary>
+    private bool _completionTimeChosen;
+
+    partial void OnCompletedOnChanged(DateTime value) => ChoseACompletionTime();
+
+    partial void OnCompletedAtChanged(TimeSpan value) => ChoseACompletionTime();
+
+    private void ChoseACompletionTime()
+    {
+        _completionTimeChosen = true;
+        OnPropertyChanged(nameof(IsCompletionTimeUnknown));
+    }
+
+    /// <summary>The two pickers as the one time the entry carries, in UTC for the reason the due date gives.</summary>
+    private DateTimeOffset? CompletedAtUtcAsChosen()
+    {
+        if (!_item.IsCompleted)
+        {
+            return null;
+        }
+
+        if (!_completionTimeChosen)
+        {
+            return _item.CompletedAtUtc;
+        }
+
+        var local = CompletedOn.Date + CompletedAt;
+        return new DateTimeOffset(local, TimeZoneInfo.Local.GetUtcOffset(local)).ToUniversalTime();
+    }
+
+    /// <summary>
+    /// Hands the product forms this entry can show what the account already calls kinds of product - see
+    /// InventoryItemEditor.OfferedProductTypes. Remembered as well as passed on, because the form for a
+    /// product the shelf has not got yet can appear later, when the kind is changed to Inventory.
+    /// </summary>
+    public TaskItemEditor KnowingProductTypes(IReadOnlyList<string> productTypes)
+    {
+        _knownProductTypes = productTypes;
+        ProductWanted?.Knowing(productTypes);
+        Shelf?.Product.Knowing(productTypes);
+        return this;
+    }
+
     /// <param name="entriesOnTheList">
     /// Everything else on the list this entry is on, which is what it can be made to wait for. Handed in
     /// like the lists above it: which entries are on the list is the screen's knowledge. Left empty by a
@@ -650,8 +718,18 @@ public sealed partial class TaskItemEditor : ObservableObject
             HasDailyReminderTime = !item.RemindDaily || item.DailyReminderTimeOfDay != default,
             DailyReminderTime = item.DailyReminderTimeOfDay == default
                 ? DefaultReminderTime
-                : item.DailyReminderTimeOfDay.ToTimeSpan()
+                : item.DailyReminderTimeOfDay.ToTimeSpan(),
+            // Opened on the time it was done, or on now for a done entry nobody kept one for - which is
+            // not sent unless it is changed, see CompletedAtUtcAsChosen.
+            CompletedOn = (item.CompletedAtUtc?.LocalDateTime ?? DateTime.Now).Date,
+            CompletedAt = (item.CompletedAtUtc?.LocalDateTime ?? DateTime.Now) is var completedLocal
+                ? new TimeSpan(completedLocal.Hour, completedLocal.Minute, 0)
+                : TimeSpan.Zero
         };
+
+        // After the initialiser, whose assignments count as changes: what decides whether a time is sent
+        // is whether the entry already had one, not whether the pickers were given a starting value.
+        editor._completionTimeChosen = item.IsCompleted && item.CompletedAtUtc is not null;
 
         // What it already stands for, in the order the entry names them. Set after the initialiser
         // because the collection is the editor's own rather than something assigned to it.
@@ -793,7 +871,9 @@ public sealed partial class TaskItemEditor : ObservableObject
             // than passed through: the phone can show every step there is, because a step is always an
             // entry of the list this form was opened from. A step whose entry has gone is already absent
             // from WaitsFor - see Build - and the server drops such an id anyway (TaskListSteps).
-            WaitsForTaskItemIds = [.. WaitsFor.Select(step => step.Id)]
+            WaitsForTaskItemIds = [.. WaitsFor.Select(step => step.Id)],
+            // When it was done, for a done entry - see CompletedAtUtcAsChosen.
+            CompletedAtUtc = CompletedAtUtcAsChosen()
         };
 
     partial void OnDescriptionChanged(string value)
@@ -841,6 +921,7 @@ public sealed partial class TaskItemEditor : ObservableObject
         if (value == nameof(TaskItemKind.Inventory))
         {
             Shelf ??= ShelfForSomethingNew?.Invoke();
+            Shelf?.Product.Knowing(_knownProductTypes);
         }
         else if (Shelf is { Product.IsSomethingNew: true })
         {

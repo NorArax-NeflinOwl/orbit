@@ -1,4 +1,6 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens;
 using Orbit.Contracts.Inventories;
@@ -76,6 +78,70 @@ public sealed partial class InventoryItemEditor : ObservableObject
 
     [ObservableProperty]
     private string _productType = string.Empty;
+
+    /// <summary>
+    /// What this account already calls kinds of product, offered under the box as it is typed into -
+    /// the phone's half of Orbit.Web's SuggestedTextField. Still one answer: taking one replaces what is
+    /// in the box rather than adding to it, and typing something nobody has used before is as good an
+    /// answer as picking. Empty until the screen hands the known ones over - see <see cref="Knowing"/>.
+    /// </summary>
+    public ObservableCollection<string> OfferedProductTypes { get; } = [];
+
+    /// <inheritdoc cref="OfferedProductTypes"/>
+    public bool HasOfferedProductTypes => OfferedProductTypes.Count > 0;
+
+    /// <summary>How many are offered at once - the number Orbit.Web's panel stops at (UsedValueBrowser.Most).</summary>
+    private const int MostProductTypesOffered = 12;
+
+    private IReadOnlyList<string> _knownProductTypes = [];
+
+    /// <summary>
+    /// Hands over what this account already calls kinds of product. Offered straight away only while
+    /// the box is empty: a product opened on a type it already has is not being typed into, and a row
+    /// of near-misses under it would read as a question nobody asked.
+    /// </summary>
+    public InventoryItemEditor Knowing(IReadOnlyList<string> productTypes)
+    {
+        _knownProductTypes = productTypes;
+        if (ProductType.Trim().Length == 0)
+        {
+            OfferProductTypes();
+        }
+
+        return this;
+    }
+
+    [RelayCommand]
+    private void ChooseProductType(string? productType)
+    {
+        if (productType is not { Length: > 0 })
+        {
+            return;
+        }
+
+        ProductType = productType;
+        // Taken, so the rest go - the box holds its answer, and the panel on the web closes the same way.
+        OfferedProductTypes.Clear();
+        OnPropertyChanged(nameof(HasOfferedProductTypes));
+    }
+
+    partial void OnProductTypeChanged(string value) => OfferProductTypes();
+
+    /// <summary>The rule SuggestedTextField.OfferedNow applies: anything containing what is typed, but not what is typed itself.</summary>
+    private void OfferProductTypes()
+    {
+        var typed = ProductType.Trim();
+        OfferedProductTypes.Clear();
+        foreach (var productType in _knownProductTypes
+            .Where(known => !string.Equals(known, typed, StringComparison.CurrentCultureIgnoreCase))
+            .Where(known => typed.Length == 0 || known.Contains(typed, StringComparison.CurrentCultureIgnoreCase))
+            .Take(MostProductTypesOffered))
+        {
+            OfferedProductTypes.Add(productType);
+        }
+
+        OnPropertyChanged(nameof(HasOfferedProductTypes));
+    }
 
     /// <summary>
     /// What it is filed under, as many as apply, on one line and separated by commas - the same box

@@ -934,6 +934,13 @@ public static class PolishTranslations
         ["The colour Orbit highlights things in. Kept on this device, like the theme."] =
             "Kolor, którym Orbit wyróżnia elementy. Zapamiętywany na tym urządzeniu, tak jak motyw.",
         ["No colour"] = "Bez koloru",
+        ["Tags"] = "Tagi",
+        ["Add a tag"] = "Dodaj tag",
+        ["Tags, separated by commas"] = "Tagi, rozdzielone przecinkami",
+        ["Colour of {0}"] = "Kolor tagu {0}",
+        ["That colour could not be saved."] = "Nie udało się zapisać tego koloru.",
+        ["A tag's colour is kept for your whole account, readable on the server - even for a tag only private notes and lists carry."] =
+            "Kolor tagu obowiązuje na całym koncie i jest zapisany na serwerze w czytelnej postaci - także dla tagu, który noszą tylko prywatne notatki i listy.",
         ["Brown"] = "Brązowy",
         ["Violet"] = "Fioletowy",
         // For a colour an event carries that the palette does not offer - set in a browser, or left
@@ -1022,6 +1029,9 @@ public static class PolishTranslations
         ["Every"] = "Co",
         ["Custom"] = "Własne",
         ["Completed"] = "Ukończone",
+        ["Completed on"] = "Data ukończenia",
+        ["Time completed"] = "Godzina ukończenia",
+        ["Not recorded"] = "Nie zapisano",
         ["Connected"] = "Połączone",
         ["Verified"] = "Potwierdzony",
         ["Not verified"] = "Niepotwierdzony",
@@ -1088,6 +1098,20 @@ public static class PolishTranslations
         ["Table"] = "Tabela",
         ["Attachment"] = "Załącznik",
         ["{0}: not implemented yet."] = "{0}: jeszcze niezaimplementowane.",
+        // Several boxes selected in a note's writing - see NoteSurfaceEdits.Cycle. The first is the
+        // bubble over the tools while they are selected, the second each box's own tooltip.
+        ["{0} selected items - ticking one ticks them all."] = "Zaznaczone pozycje: {0} - odhaczenie jednej odhacza wszystkie.",
+        ["Shift+click to select several lines - ticking one selected box then ticks them all."] = "Shift+klik zaznacza kilka linii - odhaczenie jednego zaznaczonego pola odhacza wtedy wszystkie.",
+        // The phone's note screen has no Ctrl+Z, so undo and redo are two buttons beside its tick box.
+        ["Undo"] = "Cofnij",
+        ["Redo"] = "Ponów",
+        // Several boxes chosen on the phone's note screen, where there is no Shift+click: an entry in the
+        // note's menu, a mark beside each box, and a line over the note saying what a press will do.
+        ["Select boxes"] = "Zaznacz pola",
+        ["Select this line"] = "Zaznacz tę linię",
+        ["Select the boxes to change together, then press one of them."] = "Zaznacz pola, które mają zmienić się razem, a potem naciśnij jedno z nich.",
+        ["{0} selected - pressing one of their boxes sets them all."] = "Zaznaczone: {0} - naciśnięcie jednego z tych pól ustawia wszystkie.",
+        ["Finish selecting"] = "Zakończ zaznaczanie",
         ["This note was shared by"] = "Tę notatkę udostępnił",
         ["Add item"] = "Dodaj pozycję",
         ["Item description"] = "Opis pozycji",

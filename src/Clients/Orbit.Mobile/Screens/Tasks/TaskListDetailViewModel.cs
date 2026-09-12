@@ -145,6 +145,12 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     [ObservableProperty]
     private string _listsBehindTheEntryQuestion = string.Empty;
 
+    /// <summary>
+    /// What the list is tagged with, and the colours of those tags - see TagsForm. Beside the name and the
+    /// description, behind the same "Edit"; a colour is saved there and then, for the whole account.
+    /// </summary>
+    public Orbit.Mobile.Screens.Tags.TagsForm Tags { get; }
+
     public TaskListDetailViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, Translations translations,
         TimeProvider timeProvider, SharePanel share, IScreenNavigator navigator,
@@ -152,8 +158,14 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         INetworkStatus networkStatus, StockCheckPanel stockCheck,
         EntryAppointment appointments, ShelfCorrection shelfCorrection, IPlacePicker placePicker,
         PrivateContentSealer privateContent, NameSuggestions nameSuggestions,
-        NameSuggestions titleSuggestions, IChecklistReadingStore reading, LocalFolderRepository folders)
+        NameSuggestions titleSuggestions, IChecklistReadingStore reading, LocalFolderRepository folders,
+        LocalTagColourRepository? tagColours = null, TagColourSynchronizer? tagColourSynchronizer = null)
     {
+        // Saved as the name is: when the reader is done with the box, or taps a tag already in use.
+        Tags = new Orbit.Mobile.Screens.Tags.TagsForm(translations, tagColours, tagColourSynchronizer)
+        {
+            Save = SaveListCommand
+        };
         _folders = folders;
         _reading = reading;
         _taskLists = taskLists;
@@ -335,7 +347,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
                 () => ShelfForSomethingNew(row.Item.Product),
                 // What this entry can be made to wait for: everything else on the list it is on. See
                 // TaskItemEditor.WaitableEntries, and TaskListSteps for what waiting then means.
-                _items);
+                _items)
+                .KnowingProductTypes(_knownProductTypes);
 
             // What a picked name is the name of, as this phone already holds it - see
             // TaskItemEditor.TakeOnAsync. Both answered from the local database, so a name picked with
@@ -543,6 +556,11 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         }
 
         _shelfProducts = byProductId;
+
+        // What this account calls kinds of product, for the box on an errand's product form - see
+        // KnownProductTypes, which the inventory's own screen asks too.
+        _knownProductTypes = Inventory.KnownProductTypes.From(shelves, await _taskLists.GetAllAsync(cancellationToken));
+
         _theListsOwnShelf = _linkedInventoryId is { } inventoryId
             ? shelves.FirstOrDefault(inventory => inventory.ServerId == inventoryId)
             : null;
@@ -593,6 +611,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     /// <summary>The server's id for that inventory, as the list carries it.</summary>
     private Guid? _linkedInventoryId;
+
+    /// <summary>What this account calls kinds of product - see ShowWhatItsErrandsAreAboutAsync.</summary>
+    private IReadOnlyList<string> _knownProductTypes = [];
 
     /// <summary>
     /// Every list other than this one that is asking for the same product, by that product's id. Worked
@@ -1000,9 +1021,18 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         [
             .. row.Item.AllAlternatives.Select((way, position) => position == index ? way with { IsDone = !way.IsDone } : way)
         ];
+        var isDoneNow = ways.Any(way => way.IsDone);
         return SaveAsync(
             [.. _items.Select(item => item.Id == row.Id
-                ? item with { Alternatives = ways, IsCompleted = ways.Any(way => way.IsDone) }
+                ? item with
+                {
+                    Alternatives = ways,
+                    IsCompleted = isDoneNow,
+                    // Taking a way is what finished the entry, so it is when the entry was done -
+                    // stamped here, offline included, like any other tick. See TaskItemCompletionTime.
+                    CompletedAtUtc = Orbit.Core.Tasks.TaskItemCompletionTime.After(
+                        item.IsCompleted, item.CompletedAtUtc, isDoneNow, _timeProvider.GetUtcNow())
+                }
                 : item)],
             cancellationToken);
     }
@@ -1031,7 +1061,15 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         return SaveAsync(
             _items
                 .Select(item => item.Id == row.Id
-                    ? item with { IsCompleted = next.IsCompleted(), IsFailed = next.IsFailed() }
+                    ? item with
+                    {
+                        IsCompleted = next.IsCompleted(),
+                        IsFailed = next.IsFailed(),
+                        // Recorded on the phone, as the tick happens and whether or not there is a
+                        // connection - see TaskItemCompletionTime.
+                        CompletedAtUtc = TaskItemCompletionTime.After(
+                            item.IsCompleted, item.CompletedAtUtc, next.IsCompleted(), _timeProvider.GetUtcNow())
+                    }
                     : item)
                 .ToList(),
             cancellationToken);
@@ -1150,7 +1188,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         try
         {
             outcome = await _taskLists.UpdateAsync(
-                _localId, new TaskListContent(Title, items, IsGroup, _priority, IsPrivate, Description, _completion),
+                _localId, new TaskListContent(Title, items, IsGroup, _priority, IsPrivate, Description, _completion, Tags.ToSave),
                 cancellationToken);
         }
         catch (EncryptionKeyLockedException)
@@ -1239,6 +1277,12 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         // and the server on every pull, so the box and the row agree by construction.
         IsFinished = taskList.IsCompleted;
         _isShowingWhatIsStored = false;
+        // Its tags, with the ones this account's lists already carry on offer - private ones included,
+        // since the store opens them here. Null tags are "not known", and stay unsaid until touched.
+        await Tags.ShowAsync(
+            taskList.Tags,
+            (await _taskLists.GetAllAsync(cancellationToken)).SelectMany(stored => stored.AllTags),
+            cancellationToken);
         await ShowWhereItCanGoAsync(cancellationToken);
         await ShowWhatItCanBeTiedToAsync(cancellationToken);
         // Both before the rows are built below: a row asks these two what it points at - see ReferencesFor.
@@ -1519,7 +1563,12 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
 
-    partial void OnIsReadOnlyChanged(bool value) => OnPropertyChanged(nameof(CanEdit));
+    partial void OnIsReadOnlyChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanEdit));
+        // The tags box answers to the same rule as the name beside it.
+        Tags.IsReadOnly = value;
+    }
 
     partial void OnNewItemDescriptionChanged(string value)
     {

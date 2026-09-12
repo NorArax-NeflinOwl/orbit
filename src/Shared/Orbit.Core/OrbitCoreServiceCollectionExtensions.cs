@@ -185,6 +185,13 @@ public static class OrbitCoreServiceCollectionExtensions
         // how the calling user relates to a note (owner vs. shared-with, and at what access level).
         services.AddScoped<NoteAccessResolver>();
         services.AddScoped<IRequestHandler<CreateNoteCommand, Guid>, CreateNoteCommandHandler>();
+        // The colour each of an account's tags is drawn in - see Orbit.Core.Tags.TagColour.
+        services.AddScoped<
+            IRequestHandler<Orbit.Core.Tags.GetTagColours.GetTagColoursQuery, IReadOnlyList<Orbit.Core.Tags.TagColour>>,
+            Orbit.Core.Tags.GetTagColours.GetTagColoursQueryHandler>();
+        services.AddScoped<
+            IRequestHandler<Orbit.Core.Tags.SetTagColour.SetTagColourCommand, IReadOnlyList<Orbit.Core.Tags.TagColour>>,
+            Orbit.Core.Tags.SetTagColour.SetTagColourCommandHandler>();
         services.AddScoped<IRequestHandler<DuplicateNoteCommand, Guid?>, DuplicateNoteCommandHandler>();
         services.AddScoped<IRequestHandler<UpdateNoteCommand, EditOutcome>, UpdateNoteCommandHandler>();
         services.AddScoped<IRequestHandler<DeleteNoteCommand, bool>, DeleteNoteCommandHandler>();

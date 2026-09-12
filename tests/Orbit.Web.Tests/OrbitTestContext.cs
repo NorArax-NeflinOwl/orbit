@@ -53,6 +53,17 @@ public abstract class OrbitTestContext : TestContext
             }),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<TaskEntryPlaces>.Instance));
         Services.AddSingleton(SuggestingNothing());
+        // Every card and editor that draws a tag asks the account's colours - see TagColourBook. None by
+        // default; a test about colours registers a client that answers some.
+        Services.AddSingleton(new TagsApiClient(new HttpClient(new StubHttpMessageHandler(_ =>
+            new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent("[]", System.Text.Encoding.UTF8, "application/json")
+            }))
+        {
+            BaseAddress = new Uri("https://example.test/")
+        }));
+        Services.AddScoped<TagColourBook>();
         // Empty, which is what every page sees unless the map sent somebody to it - the same reason
         // Translations is here. A test about the handover puts a place in it first.
         Services.AddSingleton(new ChosenPlace());

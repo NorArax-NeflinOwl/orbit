@@ -53,14 +53,18 @@ public sealed partial class NotesViewModel : ObservableObject
     private string _message = string.Empty;
 
 
+    /// <summary>The account's tag colours - see LocalTagColourRepository. Null in a test that is not about them.</summary>
+    private readonly LocalTagColourRepository? _tagColours;
+
     public NotesViewModel(
         LocalNoteRepository notes, NoteSynchronizer synchronizer, NotesClient notesClient,
         INetworkStatus networkStatus,
         Translations translations, PrivateItemGate privateItems,
         SyncState syncState, IScreenNavigator navigator, TimeProvider clock,
         IListArrangementStore arrangements, LocalFolderRepository folders, IChosenFolderStore chosenFolder,
-        FolderSynchronizer folderSynchronizer)
+        FolderSynchronizer folderSynchronizer, LocalTagColourRepository? tagColours = null)
     {
+        _tagColours = tagColours;
         _folderSynchronizer = folderSynchronizer;
         Folders = new FolderTabs(folders, chosenFolder, translations, FolderPage.Notes);
         _clock = clock;
@@ -240,11 +244,13 @@ public sealed partial class NotesViewModel : ObservableObject
 
         OnPropertyChanged(nameof(ChosenFolderName));
 
+        // The account's tag colours, read from this phone like everything else on the screen.
+        var tagColours = _tagColours is null ? null : await _tagColours.ColoursAsync(cancellationToken);
         var rows = stored
             .Where(note => Folders.Holds(placements[note.LocalId]))
             .Select(note => NoteListItem.From(
                 note, pending.Contains(note.LocalId), _networkStatus, _privateItems.IsUnlocked,
-                _translations, _clock.GetUtcNow(), _translations["Private"]));
+                _translations, _clock.GetUtcNow(), _translations["Private"], tagColours));
 
         Notes.Clear();
         foreach (var row in ListArrangements.Apply(rows, Arrangement, Describe))

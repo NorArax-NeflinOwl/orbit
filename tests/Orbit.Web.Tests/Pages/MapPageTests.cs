@@ -62,6 +62,21 @@ public sealed class MapPageTests : OrbitTestContext
     }
 
     /// <summary>
+    /// What a phone cannot do yet is a "!" beside the page's name rather than a line under Start - the
+    /// stylesheet shows it only on a narrow screen, which a test renderer has no width for.
+    /// </summary>
+    [Fact]
+    public void Nothing_recorded_yet_warns_beside_the_name_that_a_phone_cannot_record()
+    {
+        GrantLocations();
+        var cut = RenderComponent<MapPage>();
+
+        Assert.Equal("!", cut.Find("h1 .map-phone-note .field-hint-mark.warns").TextContent);
+        Assert.Contains("don't work on a phone yet", cut.Find("h1 .map-phone-note .field-hint-bubble").TextContent);
+        Assert.Empty(cut.FindAll(".map-panel-actions .map-phone-note"));
+    }
+
+    /// <summary>
     /// Once a recording exists, Stop takes Start's own place rather than staying buried in the menu -
     /// the button used to just grey out, with no way back to it except through Stop recording there.
     /// </summary>

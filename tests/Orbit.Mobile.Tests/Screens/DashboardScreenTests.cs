@@ -15,6 +15,7 @@ using Orbit.Mobile.Localization;
 using Orbit.Mobile.Location;
 using Orbit.Mobile.Security;
 using Orbit.Mobile.Screens.Dashboard;
+using Orbit.Mobile.Screens.Tags;
 using System.Net;
 using Orbit.Core.Permissions;
 using Orbit.Mobile.Permissions;
@@ -306,6 +307,42 @@ public sealed class DashboardScreenTests
         await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(BuiltInFolder.Private));
 
         Assert.Equal("Private", Assert.Single(Assert.Single(screen.Cards).Rows).Title);
+    }
+
+    /// <summary>
+    /// A note's and a list's tags on their rows here, in the colours the account gave them - the same
+    /// TagChips Orbit.Web's dashboard draws on these rows. A tag nobody coloured is drawn plain.
+    /// </summary>
+    [Fact]
+    public async Task A_note_and_a_list_show_their_tags_in_the_accounts_colours()
+    {
+        using var context = new DashboardContext();
+        await context.TagAsync(await context.AddNoteAsync("Shopping"), "Work", "home");
+        await context.TagAsync(await context.AddTaskListAsync("Errands"), "Work");
+        await context.TagColours.SetAsync("Work", "#aa3355");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var note = Assert.Single(screen.Cards.Single(card => card.Kind == DashboardCardKind.Notes).Rows);
+        Assert.Equal([new TagChip("Work", "#aa3355"), new TagChip("home", string.Empty)], note.Tags.Chips);
+        var list = Assert.Single(screen.Cards.Single(card => card.Kind == DashboardCardKind.Tasks).Rows);
+        Assert.Equal([new TagChip("Work", "#aa3355")], list.Tags.Chips);
+    }
+
+    /// <summary>A sealed note's tags are sealed with it, so its row says nothing about them.</summary>
+    [Fact]
+    public async Task A_note_this_device_cannot_open_shows_no_tags()
+    {
+        using var context = new DashboardContext();
+        await context.TagAsync(await context.AddSealedNoteAsync(), "Passport");
+        await context.PrivateItems.TryUnlockAsync();
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(BuiltInFolder.Private));
+
+        Assert.False(Assert.Single(Assert.Single(screen.Cards).Rows).Tags.HasAny);
     }
 
     /// <summary>
@@ -1369,7 +1406,27 @@ public sealed class DashboardScreenTests
             => new(_notes, _taskLists, _calendarEvents, _inventories, _places, _chat, _clock, new Translations(new InMemoryLanguageStore()),
                 PrivateItems, _synchronizer, _syncState, _permissions,
                 Pins, Visibility, SharedPositions(), Notifications, Navigator,
-                Folders, ChosenFolders);
+                Folders, ChosenFolders, TagColours);
+
+        /// <summary>The account's tag colours on this phone - see LocalTagColourRepository.</summary>
+        public LocalTagColourRepository TagColours => new(_localStore);
+
+        /// <summary>Gives a note or a list these tags, as its own screen's tags field does.</summary>
+        public async Task TagAsync(Guid localId, params string[] tags)
+        {
+            await using var dbContext = _localStore.CreateDbContext();
+            if (dbContext.Notes.FirstOrDefault(note => note.LocalId == localId) is { } note)
+            {
+                note.Tags = tags;
+            }
+
+            if (dbContext.TaskLists.FirstOrDefault(list => list.LocalId == localId) is { } taskList)
+            {
+                taskList.Tags = tags;
+            }
+
+            await dbContext.SaveChangesAsync();
+        }
 
         /// <summary>
         /// An unread notification pointing somewhere, which is how everything on this page learns that
