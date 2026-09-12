@@ -12,9 +12,9 @@ namespace Orbit.Core.Tasks.StockCheck;
 /// Each line adds what it asks for rather than a flat one: an entry that says how little is too little
 /// (TaskItemProduct.MinimumQuantity) adds that minimum, and one that says nothing adds one, which is the
 /// rule above. Flour named by two recipes wanting two and three needs five, and a third recipe that only
-/// names it makes six. Once entries stand for a shelf item, that item's minimum is what they handed
-/// over when it was built, so it is counted once for all of them rather than again per line - which is
-/// what lets the shelf, this check and the restock errands read one number.
+/// names it makes six. An entry standing for a shelf item still counts what it asks for itself: that
+/// item's minimum is never read below what every list asks for together (InventoryItem.Usage), so it is
+/// no longer one list's answer. An entry that never said how much falls back to it, once for all of them.
 ///
 /// This is the only place the rule lives: generating a shelf, the stock check and the shortfalls it
 /// raises all ask here, so they cannot come to count the same list two ways.
@@ -129,18 +129,26 @@ public static class StockRequirementCounter
     }
 
     /// <summary>
-    /// How much one entry adds to what its name calls for: its own minimum, or one where it says none.
+    /// How much one entry adds to what its name calls for: what the entry itself asks for, and one where
+    /// it says nothing, which is the counting rule above.
     ///
-    /// An entry standing for a shelf item has no minimum of its own any more - it handed it to that
-    /// item, whose minimum is the sum of every entry it was built from (see
-    /// GenerateInventoryFromTaskListCommandHandler, which asks this counter for it).
-    /// So the item's minimum is added once, by the first entry pointing at it, and the rest add nothing:
-    /// counting it again per line would ask for five twice. An item with no minimum was left to the
-    /// counting rule, and its entries are counted one by one as they always were.
+    /// The entry's own amount comes first, whether or not a shelf item answers it - see
+    /// TaskItem.RequiredQuantity. A shelf item's minimum stopped being one list's answer the day it began
+    /// being read as never lower than what every list asks for together (InventoryItem.Usage): counting
+    /// that here told a single list it needed everything all of them do.
+    ///
+    /// An entry stored before entries carried an amount of their own handed its minimum to the shelf item
+    /// when that item was built, so for those the item's minimum is still the answer for all of them
+    /// together - added once, by the first entry pointing at it, with the rest adding nothing.
     /// </summary>
     private static decimal RequiredBy(
         TaskItem item, IReadOnlyDictionary<Guid, decimal> minimumsByShelfItemId, ISet<Guid> shelfItemsCounted)
     {
+        if (item.RequiredQuantity is { } asksFor)
+        {
+            return asksFor;
+        }
+
         if (item.LinkedInventoryItemId is { } shelfItemId
             && minimumsByShelfItemId.TryGetValue(shelfItemId, out var minimum))
         {

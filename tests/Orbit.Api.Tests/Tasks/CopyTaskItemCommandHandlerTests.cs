@@ -115,6 +115,27 @@ public sealed class CopyTaskItemCommandHandlerTests
         Assert.Null(copy.LinkedCalendarEventId);
     }
 
+    /// <summary>
+    /// The ways an entry can be got done are words it says, so they travel with a copy - except one that
+    /// is another list, which is a reference like the appointment and the lists the entry stands for.
+    /// </summary>
+    [Fact]
+    public async Task The_copy_keeps_the_ways_it_can()
+    {
+        var item = TaskItem.Create(
+            "Sauce", dueDateUtc: null, isCompleted: false,
+            alternatives: [new("Buy a ready one"), new("Make it", Guid.NewGuid())]);
+        var (sharedList, _) = await ASharedListHoldingAsync(item);
+        var myOwnList = TaskList.Create(RecipientUserId, "Mine", []);
+        await _taskLists.AddAsync(myOwnList, CancellationToken.None);
+
+        await new CopyTaskItemCommandHandler(Resolver, _taskLists).HandleAsync(
+            new CopyTaskItemCommand(RecipientUserId, sharedList.Id, item.Id, myOwnList.Id), CancellationToken.None);
+
+        var copy = Assert.Single((await _taskLists.GetByIdAsync(RecipientUserId, myOwnList.Id, CancellationToken.None))!.Items);
+        Assert.Equal("Buy a ready one", Assert.Single(copy.Alternatives).Description);
+    }
+
     /// <summary>Nothing is copied onto a list this reader has no say over.</summary>
     [Fact]
     public async Task Copying_into_a_list_that_is_not_this_readers_to_edit_says_nothing_is_there()

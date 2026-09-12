@@ -2436,11 +2436,13 @@ A group list can be pointed at an inventory (`PUT /api/tasks/{id}/inventory`), a
 (`StockRequirementCounter`). That is what makes a checklist a bill of materials without asking anybody
 to type a number beside every line. **Each line adds its own minimum** where it says one
 (`TaskItemProduct.MinimumQuantity`) and one where it does not (2026-09-11), so two recipes wanting two
-and three kilos of flour need five, and a third that only names it makes six. Entries that already stand
-for a shelf item count that item's minimum once between them - it is the sum they handed over when the
-shelf was built - so the check, the shelf and the restock errands read the same number
-(`StockRequirementCounter.RequiredBy`). A line with a due date in the future is not counted - that work has
-not come round, and counting it would raise a restock errand early. `POST /api/tasks/{id}/stock-check/shortfalls`
+and three kilos of flour need five, and a third that only names it makes six. **An entry standing for a
+shelf item counts what it asks for itself** (`TaskItem.RequiredQuantity`, 2026-09-12): that item's own
+minimum is never read below what every list asks for together (`InventoryItem.Usage`), so counting it
+here told one list it needed everything all of them do. An entry stored before entries carried an amount
+handed its minimum to the shelf item when the shelf was built, and those still count it once between
+them (`StockRequirementCounter.RequiredBy`). A line with a due date in the future is not counted -
+that work has not come round, and counting it would raise a restock errand early. `POST /api/tasks/{id}/stock-check/shortfalls`
 puts what is short onto the inventory's standing restock list, where the daily reminder brings it up;
 names already waiting are left alone. The panel carries a menu of its own: whether it is in the way at
 all, and what order it lists things in - its own order, A to Z, Z to A, or shortfalls first, which is
