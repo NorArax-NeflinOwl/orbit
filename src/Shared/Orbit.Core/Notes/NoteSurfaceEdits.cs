@@ -20,8 +20,15 @@ public static partial class NoteSurfaceEdits
     /// Enter: the line is split at the caret and the caret goes to the start of the new line. A
     /// checklist line carries on as a checklist - unticked - and an empty one leaves the list instead,
     /// so pressing Enter twice ends a list rather than piling up empty boxes.
+    ///
+    /// With <paramref name="keepsIndentation"/> the new line starts where the line it came from starts
+    /// (see <see cref="IndentationOf"/>) and the caret goes after that indentation, to the start of the
+    /// line's words - so a list written with tabs stays a list when a line is added to the middle of it.
+    /// The phone asks for it: its lines are one field each, and a field cannot be told to open at a
+    /// column somebody has to type their way to. The browser does not, because a surface where every
+    /// line is visible at once shows what it inherited and Tab is right there to change it.
     /// </summary>
-    public static SurfaceState Enter(SurfaceState state)
+    public static SurfaceState Enter(SurfaceState state, bool keepsIndentation = false)
     {
         var cleared = DeleteSelection(state.Normalized(), forReplacement: true);
         var caret = cleared.Caret;
@@ -36,17 +43,27 @@ public static partial class NoteSurfaceEdits
 
         // At the head of a line with something on it, the new line opens above and the words stay
         // where they are - with their tick. Splitting there instead would hand the words to a fresh,
-        // unticked line and leave the tick behind on an empty one.
+        // unticked line and leave the tick behind on an empty one. Nothing is carried down, so there
+        // is nothing for indentation to be carried onto either.
         if (caret.Offset == 0 && line.Text.Length > 0)
         {
             lines.Insert(caret.Line, Unticked(line with { Text = string.Empty }));
             return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line + 1, 0));
         }
 
+        var indentation = keepsIndentation ? IndentationOf(line.Text) : string.Empty;
         lines[caret.Line] = line with { Text = line.Text[..caret.Offset] };
-        lines.Insert(caret.Line + 1, Unticked(line with { Text = line.Text[caret.Offset..] }));
-        return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line + 1, 0));
+        lines.Insert(caret.Line + 1, Unticked(line with { Text = indentation + line.Text[caret.Offset..] }));
+        return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line + 1, indentation.Length));
     }
+
+    /// <summary>
+    /// The whitespace a line starts with - every tab and space of it, however many levels that is. Tabs
+    /// and spaces both: a note written on a keyboard indents with one and a note written in a browser
+    /// with the other, and what a line starts with is not an opinion about which of them counts.
+    /// </summary>
+    public static string IndentationOf(string text)
+        => text[..(text.Length - text.TrimStart('\t', ' ').Length)];
 
     /// <summary>
     /// Backspace. Only at the head of a line, or over a selection that spans lines - inside a line the

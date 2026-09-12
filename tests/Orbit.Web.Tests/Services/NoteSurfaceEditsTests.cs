@@ -57,6 +57,30 @@ public sealed class NoteSurfaceEditsTests
         Assert.Equal(new SurfacePoint(1, 0), after.Caret);
     }
 
+    /// <summary>
+    /// What the phone asks for, and the browser does not: the new line starts where the line it came
+    /// from starts, and the caret goes after that indentation to the start of the words - a field that
+    /// is one line cannot be told to open at a column somebody has to type their way to.
+    /// </summary>
+    [Fact]
+    public void Enter_can_keep_the_indentation_of_the_line_it_came_from()
+    {
+        var after = NoteSurfaceEdits.Enter(At(0, 5, Text("\tmilkbread")), keepsIndentation: true);
+
+        Assert.Equal([Text("\tmilk"), Text("\tbread")], after.Lines);
+        Assert.Equal(new SurfacePoint(1, 1), after.Caret);
+    }
+
+    /// <summary>At the end of an indented line it is the indentation alone that carries down.</summary>
+    [Fact]
+    public void Enter_at_the_end_of_an_indented_line_starts_an_indented_one()
+    {
+        var after = NoteSurfaceEdits.Enter(At(0, 6, Box("\t\tmilk")), keepsIndentation: true);
+
+        Assert.Equal([Box("\t\tmilk"), Box("\t\t")], after.Lines);
+        Assert.Equal(new SurfacePoint(1, 2), after.Caret);
+    }
+
     [Fact]
     public void Enter_on_an_empty_checklist_line_leaves_the_list()
     {

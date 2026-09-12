@@ -178,6 +178,7 @@ public sealed partial class NoteDetailScreenTests
 
         var added = screen.AddLineAfter(screen.Lines[2]);
 
+        Assert.NotNull(added);
         Assert.True(added.IsChecklistItem);
         Assert.True(added.ShowsPickMark);
     }

@@ -323,11 +323,16 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 
 	/// <summary>
 	/// Backspace with the caret at the head of a line: the line joins the one above it and the caret
-	/// lands where the two met, which is what a text field does everywhere.
+	/// lands where the two met, which is what a text field does everywhere. An empty tick box goes whole
+	/// in this one press, and the line above may be the note's name - the first line of the writing.
 	///
-	/// Nothing to do here when the press took a tick box off instead - see MergeIntoTheLineAbove, which
-	/// answers null for that. The field keeps the caret it already had, which is where the reader left
-	/// it, and the box simply goes.
+	/// Where the caret lands is the view model's word, said through CaretPlaced and honoured by
+	/// OnCaretPlaced, which is how every other edit made off the keyboard says it - it knows about a
+	/// ticked line's hidden field and about the name, and both can be where this press ends.
+	///
+	/// Nothing to do here when the press took a tick box off a line with words on it instead - see
+	/// MergeIntoTheLineAbove, which says the line is still there. The field keeps the caret it already
+	/// had, which is where the reader left it, and the box simply goes.
 	/// </summary>
 	private void JoinTheLineAbove(Entry? field)
 	{
@@ -336,25 +341,11 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 			return;
 		}
 
-		if (_viewModel.MergeIntoTheLineAbove(row) is not { } landing)
+		if (_viewModel.MergeIntoTheLineAbove(row))
 		{
-			return;
+			// The line is gone, and the field that was drawing it goes with it.
+			_fields.Remove(row);
 		}
-
-		_fields.Remove(row);
-
-		// The line it lands in may itself be ticked, and a ticked line's field is hidden until it is
-		// opened - so the caret would have nowhere to go.
-		landing.Line.IsBeingWrittenIn = true;
-
-		if (!_fields.TryGetValue(landing.Line, out var above))
-		{
-			return;
-		}
-
-		// Where the two lines met, so carrying on typing carries on where the reader left off rather
-		// than at the end of what they have just pulled up.
-		PutTheCaretIn(above, landing.Caret);
 	}
 
 	/// <inheritdoc cref="GoToTheLineAboveCommand"/>

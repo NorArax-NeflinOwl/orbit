@@ -218,120 +218,131 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         => CanEdit ? WriteAsync(cancellationToken) : Task.CompletedTask;
 
     /// <summary>
-    /// A new line under the one being written in, which is what Enter does on a surface like this.
+    /// Enter: the browser's own rule, worked out on the surface by Orbit.Core's
+    /// <see cref="NoteSurfaceEdits.Enter"/> rather than here, so a note breaks the same way wherever it
+    /// is written. The line is split at <paramref name="caret"/> and **whatever follows it moves down
+    /// onto the new line** - Enter in the middle of a sentence breaks the sentence, which is what it
+    /// does in every text field there is. Pass the length of the line (or leave it out) for a press at
+    /// the end, where there is nothing to carry down. At the head of a line with words on it the new
+    /// line opens above instead and the words stay where they are, with their box.
     ///
-    /// <paramref name="caret"/> is where in that line the press happened, and **whatever follows it
-    /// moves down onto the new line** - Enter in the middle of a sentence breaks the sentence, which is
-    /// what it does in every text field there is. Pass the length of the line (or leave it out) for a
-    /// press at the end, where there is nothing to carry down.
+    /// The new line keeps the indentation of the one it came from - a list stays a list when a line is
+    /// added to the middle of it - and carries its box, unticked, so a checklist goes on being a
+    /// checklist. **An empty box ends the list in place**: Enter on it turns that line into a plain one
+    /// rather than leaving the box and starting another under it, which is the browser's rule and was
+    /// the last thing the two clients disagreed about.
     ///
-    /// The new line inherits the indentation of the line above - a list stays a list when a line is
-    /// added to the middle of it, which is what an editor doing anything else gets wrong first. It is
-    /// tickable when the checklist button is on, and also when it is carrying the tail of a line that
-    /// was itself tickable: a checklist continues as a checklist until a line is left empty.
+    /// Answers the line the caret ends up in - the new one, or the line the box was taken off.
     /// </summary>
-    public NoteLineRow AddLineAfter(NoteLineRow? row, int caret = int.MaxValue)
+    public NoteLineRow? AddLineAfter(NoteLineRow? row, int caret = int.MaxValue)
     {
         var above = row ?? Lines.LastOrDefault();
-        var fresh = new NoteLineRow();
-        var isBeingReadIn = _applying > 0;
         var pressedAt = above is null
             ? new SurfacePoint(0, Title.Length)
             : new SurfacePoint(Lines.IndexOf(above) + 1, Math.Clamp(caret, 0, above.Text.Length));
 
-        Edit(SurfaceEditKind.Reshaping, pressedAt, () =>
+        var before = Surface(pressedAt);
+        var after = NoteSurfaceEdits.Enter(before, keepsIndentation: true);
+
+        // The line Enter started, if it started one: the line the caret went to, unless the press was at
+        // the head of a line with words on it - there the new line opens above and the caret stays with
+        // the words, which keep their own box.
+        var startedALine = after.Lines.Count > before.Lines.Count
+            && !(pressedAt.Offset == 0 && before.Lines[pressedAt.Line].Text.Length > 0);
+        if (startedALine && IsWritingAChecklist)
         {
-            if (above is not null)
+            // The button in the corner is a switch: while it is on, every line started begins with a box.
+            var lines = after.Lines.ToList();
+            lines[after.Caret.Line] = lines[after.Caret.Line] with
             {
-                // Read before the line is cut: a press at the very start leaves nothing above to take the
-                // indentation from, and the new line is still the same line's continuation.
-                var indentation = IndentationOf(above.Text);
-                var at = pressedAt.Offset;
-                var carried = above.Text[at..];
-
-                above.Text = above.Text[..at];
-                fresh.Text = indentation + carried;
-
-                // A checklist goes on being a checklist - but an empty line ends it, which is how a reader
-                // stops one without reaching for the button in the corner.
-                fresh.IsChecklistItem = IsWritingAChecklist
-                    || (above.IsChecklistItem && (above.Text.Length > 0 || carried.Length > 0));
-            }
-            else
-            {
-                fresh.IsChecklistItem = IsWritingAChecklist;
-            }
-
-            Lines.Insert(above is null ? Lines.Count : Lines.IndexOf(above) + 1, fresh);
-            Watch(fresh);
-            return new SurfacePoint(Lines.IndexOf(fresh) + 1, IndentationOf(fresh.Text).Length);
-        });
-
-        // The caret goes into the new line at the start of its words - after the indentation it took
-        // from the line above, so the next character typed lands where the line's writing starts rather
-        // than wherever focusing the field leaves it. Not while a note is being read in: the line made
-        // for an empty note must not open the keyboard over a note somebody only opened.
-        if (!isBeingReadIn)
-        {
-            PlaceCaret(new SurfacePoint(Lines.IndexOf(fresh) + 1, IndentationOf(fresh.Text).Length));
+                IsChecklistItem = true,
+                IsChecked = false,
+                IsFailed = false
+            };
+            after = after with { Lines = lines };
         }
 
-        return fresh;
+        // The caret goes into the new line at the start of its words - after the indentation it took
+        // from the line above - so the next character typed lands where the line's writing starts
+        // rather than wherever focusing the field leaves it.
+        Apply(before, after, SurfaceEditKind.Reshaping);
+
+        // And the switch follows the line the caret is in, so the empty box that ended the list turns it
+        // off rather than putting a box on the very next line started.
+        if (_applying == 0)
+        {
+            IsWritingAChecklist = after.Lines[after.Caret.Line].IsChecklistItem;
+        }
+
+        return LineAt(after.Caret.Line);
     }
 
     /// <summary>
-    /// The leading whitespace of a line, which the next one starts with. Tabs and spaces both: a note
-    /// written on a keyboard indents with one, a note written in a browser with the other, and the
-    /// editor should not have an opinion about which of them counts.
-    /// </summary>
-    private static string IndentationOf(string text)
-        => text[..(text.Length - text.TrimStart('\t', ' ').Length)];
-
-    /// <summary>
-    /// Backspace at the very start of a line: the line joins the one above it, exactly as it would in
-    /// any text field, and the caret lands where the two meet. Returns where that is, or null when the
-    /// press means nothing - or when it meant something other than a merge, which is the tick box.
+    /// Backspace at the very start of a line, the browser's rule again - Orbit.Core's
+    /// <see cref="NoteSurfaceEdits.Backspace"/>. A plain line joins the one above it, exactly as it
+    /// would in any text field, and the caret lands where the two meet; the line above may be the note's
+    /// name, which is the surface's first line here as it is in the browser.
     ///
-    /// **A line with a tick box loses the box first.** Backspace at the head of one takes it off and
-    /// leaves the words where they are; only a second press joins what is left to the line above. It is
-    /// the one way to undo a box from the keyboard, and it stops a reader who typed "[]" by accident
-    /// from having to reach for the button in the corner to undo it - which is what the design does.
+    /// **A line with a tick box and words on it loses the box first.** Backspace at the head of one
+    /// takes it off and leaves the words where they are; only a second press joins what is left to the
+    /// line above. It is the one way to undo a box from the keyboard, and it stops a reader who typed
+    /// "[]" by accident from having to reach for the button in the corner to undo it. **An empty box has
+    /// no words to keep and goes whole, in one press** - the browser's rule, where the phone used to ask
+    /// for two.
+    ///
+    /// Answers whether the line is gone, so the page can let go of the field that was drawing it. Where
+    /// the caret lands is said through <see cref="CaretPlaced"/>, as every other edit made here says it.
     /// </summary>
-    public (NoteLineRow Line, int Caret)? MergeIntoTheLineAbove(NoteLineRow? row)
+    public bool MergeIntoTheLineAbove(NoteLineRow? row)
     {
         if (row is null || Lines.IndexOf(row) is var index && index < 0)
         {
-            return null;
+            return false;
         }
 
         var head = new SurfacePoint(index + 1, 0);
-
-        if (row.IsChecklistItem)
+        var before = Surface(head);
+        if (NoteSurfaceEdits.Backspace(before) is not { } after)
         {
-            Edit(SurfaceEditKind.Reshaping, head, () =>
-            {
-                row.IsChecklistItem = false;
-                row.IsChecked = false;
-                return head;
-            });
-            return null;
+            return false;
         }
 
-        if (index == 0)
+        Apply(before, after, SurfaceEditKind.Reshaping);
+        return Lines.IndexOf(row) < 0;
+    }
+
+    /// <summary>The row drawing a line of the surface, or null for line 0 - the note's name, which has no row.</summary>
+    private NoteLineRow? LineAt(int line)
+        => line >= 1 && line <= Lines.Count ? Lines[line - 1] : null;
+
+    /// <summary>
+    /// Makes the screen say what an edit worked out by Orbit.Core left, as one step of the history, and
+    /// puts the caret where that edit put it.
+    ///
+    /// The caret is only placed when the writing itself changed. An edit that only put a box on a line
+    /// or took one off leaves the field's own caret alone, where the reader has it - asking for it back
+    /// would refocus the field the reader is already in, which on Android is how a caret ends up at the
+    /// end of a line nobody moved it to. While a note is being read in there is no step and no caret at
+    /// all: the line made for an empty note must not open the keyboard over a note somebody only opened.
+    /// </summary>
+    private void Apply(SurfaceState before, SurfaceState after, SurfaceEditKind kind)
+    {
+        var isBeingReadIn = _applying > 0;
+        var writingChanged = !after.Lines.Select(line => line.Text)
+            .SequenceEqual(before.Lines.Select(line => line.Text));
+
+        Show(after);
+
+        if (isBeingReadIn)
         {
-            return null;
+            return;
         }
 
-        var above = Lines[index - 1];
-        var caret = above.Text.Length;
-        Edit(SurfaceEditKind.Reshaping, head, () =>
+        Record(before, after.Caret, kind);
+        if (writingChanged)
         {
-            above.Text += row.Text;
-            row.PropertyChanged -= WhenALineChanges;
-            Lines.RemoveAt(index);
-            return new SurfacePoint(index, caret);
-        });
-        return (above, caret);
+            PlaceCaret(after.Caret);
+        }
     }
 
     /// <summary>
@@ -713,7 +724,7 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     /// </summary>
     private void ReadTypedMarker(NoteLineRow row, int line, NoteTextChange change)
     {
-        var indentation = IndentationOf(row.Text);
+        var indentation = NoteSurfaceEdits.IndentationOf(row.Text);
         var rest = row.Text[indentation.Length..];
 
         // The browser's rule, from Orbit.Core: "[]" or "[ ]" - a phone keyboard puts a space inside the
@@ -818,7 +829,7 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             return false;
         }
 
-        var indentation = IndentationOf(row.Text);
+        var indentation = NoteSurfaceEdits.IndentationOf(row.Text);
         var rest = row.Text[indentation.Length..];
         if (NoteSurfaceEdits.ReadPastedLine(rest) is not { IsChecklistItem: true } box)
         {

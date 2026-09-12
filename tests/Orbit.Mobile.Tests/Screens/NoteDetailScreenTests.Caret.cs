@@ -74,12 +74,37 @@ public sealed partial class NoteDetailScreenTests
         using var context = new ScreenContext();
         var note = await context.AddNoteAsync("Shopping", "milk", "bread");
         var screen = await context.OpenAsync(note.LocalId);
+        var carets = new List<NoteCaret>();
+        screen.CaretPlaced += (_, caret) => carets.Add(caret);
 
-        var landing = screen.MergeIntoTheLineAbove(screen.Lines[1]);
+        var joined = screen.MergeIntoTheLineAbove(screen.Lines[1]);
 
-        Assert.NotNull(landing);
-        Assert.Same(screen.Lines[0], landing.Value.Line);
-        Assert.Equal("milk".Length, landing.Value.Caret);
+        Assert.True(joined);
         Assert.Single(screen.Lines);
+        var caret = Assert.Single(carets);
+        Assert.Same(screen.Lines[0], caret.Line);
+        Assert.Equal("milk".Length, caret.Offset);
+    }
+
+    /// <summary>
+    /// Enter on an empty box ends the list where it stands - the line becomes a plain one and no line is
+    /// started under it, which is the browser's rule (NoteSurfaceEdits.Enter). Nothing that was written
+    /// changed, so the caret is left where the reader has it rather than being asked for again: asking
+    /// would refocus the field it is already in.
+    /// </summary>
+    [Fact]
+    public async Task Enter_on_an_empty_box_leaves_the_caret_where_it_is()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk", string.Empty);
+        var screen = await context.OpenAsync(note.LocalId);
+        screen.Lines[1].IsChecklistItem = true;
+        var carets = new List<NoteCaret>();
+        screen.CaretPlaced += (_, caret) => carets.Add(caret);
+
+        var landed = screen.AddLineAfter(screen.Lines[1], caret: 0);
+
+        Assert.Same(screen.Lines[1], landed);
+        Assert.Empty(carets);
     }
 }

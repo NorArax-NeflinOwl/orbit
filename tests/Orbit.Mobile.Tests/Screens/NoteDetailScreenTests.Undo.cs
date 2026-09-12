@@ -92,6 +92,8 @@ public sealed partial class NoteDetailScreenTests
         var caret = Assert.Single(carets);
         Assert.Same(screen.Lines[0], caret.Line);
         Assert.Equal(4, caret.Offset);
+        // One press, one step - there is nothing left behind it to undo.
+        Assert.False(screen.CanUndo);
     }
 
     [Fact]
@@ -105,6 +107,7 @@ public sealed partial class NoteDetailScreenTests
         screen.UndoCommand.Execute(null);
 
         Assert.Equal(["milk", "bread"], screen.Lines.Select(line => line.Text));
+        Assert.False(screen.CanUndo);
 
         screen.RedoCommand.Execute(null);
         Assert.Equal(["milkbread"], screen.Lines.Select(line => line.Text));
