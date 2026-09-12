@@ -185,6 +185,13 @@ public static class OrbitCoreServiceCollectionExtensions
         // how the calling user relates to a note (owner vs. shared-with, and at what access level).
         services.AddScoped<NoteAccessResolver>();
         services.AddScoped<IRequestHandler<CreateNoteCommand, Guid>, CreateNoteCommandHandler>();
+        // The colour each of an account's tags is drawn in - see Orbit.Core.Tags.TagColour.
+        services.AddScoped<
+            IRequestHandler<Orbit.Core.Tags.GetTagColours.GetTagColoursQuery, IReadOnlyList<Orbit.Core.Tags.TagColour>>,
+            Orbit.Core.Tags.GetTagColours.GetTagColoursQueryHandler>();
+        services.AddScoped<
+            IRequestHandler<Orbit.Core.Tags.SetTagColour.SetTagColourCommand, IReadOnlyList<Orbit.Core.Tags.TagColour>>,
+            Orbit.Core.Tags.SetTagColour.SetTagColourCommandHandler>();
         services.AddScoped<IRequestHandler<DuplicateNoteCommand, Guid?>, DuplicateNoteCommandHandler>();
         services.AddScoped<IRequestHandler<UpdateNoteCommand, EditOutcome>, UpdateNoteCommandHandler>();
         services.AddScoped<IRequestHandler<DeleteNoteCommand, bool>, DeleteNoteCommandHandler>();
@@ -320,7 +327,7 @@ public static class OrbitCoreServiceCollectionExtensions
         // Group chat: the group itself, its membership, and the fan-out that keeps group messages
         // encrypted under the same pairwise keys one-to-one chat uses.
         services.AddScoped<IRequestHandler<CreateChatGroupCommand, Guid>, CreateChatGroupCommandHandler>();
-        services.AddScoped<IRequestHandler<GetChatGroupsQuery, IReadOnlyList<ChatGroup>>, GetChatGroupsQueryHandler>();
+        services.AddScoped<IRequestHandler<GetChatGroupsQuery, IReadOnlyList<ChatGroupListing>>, GetChatGroupsQueryHandler>();
         services.AddScoped<IRequestHandler<AddChatGroupMemberCommand, bool>, AddChatGroupMemberCommandHandler>();
         services.AddScoped<IRequestHandler<RemoveChatGroupMemberCommand, bool>, RemoveChatGroupMemberCommandHandler>();
         services.AddScoped<IRequestHandler<ChangeChatGroupMemberRoleCommand, bool>, ChangeChatGroupMemberRoleCommandHandler>();
@@ -390,6 +397,8 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<StockedEntryCompletion>();
         services.AddScoped<RestockListRefresh>();
         services.AddScoped<ProductEntryPlacement>();
+        // What the task lists ask of each shelf item, recounted as lists are saved - see ShelfUsage.
+        services.AddScoped<ShelfUsage>();
 
         // How an inventory's restock list is built and when it comes round, plus the manual rebuild.
         services.AddScoped<IRequestHandler<GetRestockListSettingsQuery, RestockListSettings?>, GetRestockListSettingsQueryHandler>();

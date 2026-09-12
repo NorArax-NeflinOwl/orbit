@@ -16,8 +16,7 @@
         <ScrollView Grid.Row="1">
             <VerticalStackLayout Padding="20,18,20,28" Spacing="14">
 
-                <ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
-                                   HorizontalOptions="Center" />
+                <controls:OrbitLoading IsRunning="{Binding IsLoading}" HorizontalOptions="Center" />
 
                 <!-- Kind first, then the thing's own name in the display face - the shape the link
                      screen beside this one opens with, and the shape a note opens with. -->

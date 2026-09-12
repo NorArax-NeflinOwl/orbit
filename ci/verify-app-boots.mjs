@@ -50,7 +50,7 @@ try {
     await fail(`${url} could not be loaded at all: ${error.message}`);
 }
 
-// index.html ships #app holding the start screen (`.app-boot` - the mark, the name and a spinner);
+// index.html ships #app holding the start screen (`.app-boot` - the icon in a turning ring, and the name);
 // Blazor replaces that content once it has started. Waiting for it to go is the difference between
 // "the server answered" and "the app runs".
 //

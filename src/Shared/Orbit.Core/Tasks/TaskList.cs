@@ -25,6 +25,12 @@ public sealed class TaskList
     /// </summary>
     public string Description { get; private set; } = string.Empty;
 
+    /// <summary>
+    /// The words this list is tagged with - see Orbit.Core.Notes.Note.Tags, which is the same field on the
+    /// other kind of card and says why a private list keeps none readable here.
+    /// </summary>
+    public IReadOnlyList<string> Tags { get; private set; } = [];
+
     /// <summary>Empty for a private list - its real items are inside <see cref="EncryptedContent"/>.</summary>
     public IReadOnlyList<TaskItem> Items { get; private set; }
 
@@ -150,17 +156,20 @@ public sealed class TaskList
     public static TaskList Create(
         Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup = false,
         bool isPrivate = false, EncryptedPayload? encryptedContent = null, ItemPriority priority = ItemPriority.Normal,
-        bool isPinned = false, string description = "", Guid? folderId = null)
+        bool isPinned = false, string description = "", Guid? folderId = null, IReadOnlyList<string>? tags = null)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         StoredTextLimits.OrRefuse(title, StoredTextLimits.Title, "task list's title");
         StoredTextLimits.OrRefuse(description, StoredTextLimits.EventDescription, "task list's description");
+        var tidyTags = Orbit.Core.Tags.TagNames.Tidy(tags);
+        Orbit.Core.Tags.TagNames.OrRefuse(tidyTags, "task list's tag");
         var now = DateTimeOffset.UtcNow;
         return new TaskList(
             Guid.NewGuid(), userId, title, items, isGroup, isPrivate, encryptedContent, priority, isPinned, now, now,
             lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null)
         {
             Description = description,
+            Tags = isPrivate ? [] : tidyTags,
             FolderId = folderId
         };
     }
@@ -176,12 +185,14 @@ public sealed class TaskList
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc,
         ItemPriority priority, bool isPinned, Guid? linkedInventoryId = null, string description = "",
-        Guid? folderId = null, TaskListCompletion completion = TaskListCompletion.FromTheEntries)
+        Guid? folderId = null, TaskListCompletion completion = TaskListCompletion.FromTheEntries,
+        IReadOnlyList<string>? tags = null)
     {
         var taskList = new TaskList(id, userId, title, items, isGroup, isPrivate, encryptedContent, priority, isPinned,
             createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc);
         taskList.LinkedInventoryId = linkedInventoryId;
         taskList.Description = description;
+        taskList.Tags = Orbit.Core.Tags.TagNames.Tidy(tags);
         taskList.FolderId = folderId;
         taskList.Completion = completion;
         return taskList;
@@ -214,7 +225,7 @@ public sealed class TaskList
     /// </summary>
     public void Update(
         string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent,
-        ItemPriority priority, string description = "")
+        ItemPriority priority, string description = "", IReadOnlyList<string>? tags = null)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         StoredTextLimits.OrRefuse(title, StoredTextLimits.Title, "task list's title");
@@ -222,6 +233,19 @@ public sealed class TaskList
         (Title, Items, IsPrivate, EncryptedContent) = ReadableOrSealed(title, items, isPrivate, encryptedContent);
         // Sealed alongside the title, so a private list keeps nothing readable here either.
         Description = isPrivate ? string.Empty : description;
+        // Null is "not provided" and keeps what is stored - see UpdateTaskRequest.Tags - and a private list
+        // keeps none readable, for the reason the description above gives.
+        if (tags is not null)
+        {
+            var tidyTags = Orbit.Core.Tags.TagNames.Tidy(tags);
+            Orbit.Core.Tags.TagNames.OrRefuse(tidyTags, "task list's tag");
+            Tags = tidyTags;
+        }
+
+        if (isPrivate)
+        {
+            Tags = [];
+        }
         IsGroup = isGroup;
         // Nothing to assign: IsCompleted asks the items itself now - see the property.
         Priority = priority;

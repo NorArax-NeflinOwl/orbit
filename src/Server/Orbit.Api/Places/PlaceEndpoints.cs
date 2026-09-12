@@ -69,7 +69,8 @@ public static class PlaceEndpoints
                 new CreatePlaceCommand(
                     GetUserId(user), request.Name, request.Description, ToDomain(request.Where),
                     request.Colour, RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
-                    request.TaskListIds, request.IsPrivate, ToDomain(request.EncryptedContent)),
+                    request.TaskListIds, request.IsPrivate, ToDomain(request.EncryptedContent),
+                    request.SourceTaskItemId),
                 cancellationToken);
             return Results.Created($"/api/places/{id}", id);
         });
@@ -82,7 +83,8 @@ public static class PlaceEndpoints
                 new UpdatePlaceCommand(
                     GetUserId(user), id, request.Name, request.Description, ToDomain(request.Where),
                     request.Colour, RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
-                    request.TaskListIds, request.IsPrivate, ToDomain(request.EncryptedContent)),
+                    request.TaskListIds, request.IsPrivate, ToDomain(request.EncryptedContent),
+                    request.SourceTaskItemId),
                 cancellationToken);
             return saved ? Results.NoContent() : Results.NotFound();
         });

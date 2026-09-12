@@ -45,7 +45,7 @@
 <ObjectList IsLoading="_notes is null" IsEmpty="_notes is { Count: 0 }" EmptyMessage="@T["No notes."]">
     @if (_notes is { Count: > 0 } && VisibleNotes.Count == 0)
     {
-        <p class="empty-hint">@T["Nothing in this folder."]</p>
+        <p class="empty-hint empty-list">@T["Nothing in this folder."]</p>
     }
     <div class="item-card-list">
         @foreach (var note in Ordered(VisibleNotes))
@@ -94,6 +94,8 @@
                     {
                         <span class="card-badge card-badge-pinned">@T["Pinned"]</span>
                     }
+                    @* The reader's own words for it, in the colours they gave them - see TagChips. *@
+                    <TagChips Tags="note.AllTags" />
                 </Tags>
                 <Extras>
                     @* When, in as few words as it takes. "Created" is gone: a note is read by when it

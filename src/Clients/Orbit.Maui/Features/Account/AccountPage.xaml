@@ -392,11 +392,11 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- Before the button rather than after the file, and only while places are on: they are
-                     the one part of the file that is not sealed. See AccountViewModel.PlacesWarning. -->
-                <Label Text="{Binding PlacesWarning}" IsVisible="{Binding HasPlacesWarning}"
-                       FontSize="12" LineBreakMode="WordWrap"
-                       TextColor="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
+                <!-- A "!" before the button rather than a line of prose, and only while places are on:
+                     they are the one part of the file that is not sealed. See AccountViewModel.PlacesWarning. -->
+                <controls:FieldHint Warns="True" IsVisible="{Binding HasPlacesWarning}"
+                                    Label="{controls:Translate 'Places'}"
+                                    Text="{Binding PlacesWarning}" />
 
                 <Button Text="{controls:Translate 'Export'}" HorizontalOptions="Start"
                         Style="{StaticResource PrimaryButton}"
@@ -464,6 +464,39 @@
                            TextColor="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
                 </VerticalStackLayout>
             </Border>
+
+            <!-- How Orbit behaves on this device rather than how it looks - Orbit.Web's Options,
+                 Preferences. First, which kinds of entry a name picked from the suggestions fills in and
+                 makes the same thing as what it names; see EntryFilling. -->
+            <VerticalStackLayout Spacing="10" IsVisible="{Binding IsShowingPreferences}">
+                <Label Text="{controls:Translate 'Filled in from a name you already use'}" Style="{StaticResource SectionHeading}" />
+                <Label Text="{controls:Translate 'Picking a name you already use for a task entry fills in everything that thing says, and makes the entry the same thing rather than a new one. Choose which kinds of entry this is done for on this device.'}"
+                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                <Border Style="{StaticResource SettingsCard}">
+                    <VerticalStackLayout Spacing="0">
+                        <controls:SettingRow Title="{controls:Translate 'Checklist'}">
+                            <controls:SettingRow.Trailing>
+                                <Switch IsToggled="{Binding FillsChecklist}" SemanticProperties.Description="{controls:Translate 'Checklist'}" />
+                            </controls:SettingRow.Trailing>
+                        </controls:SettingRow>
+                        <controls:SettingRow Title="{controls:Translate 'Calendar'}">
+                            <controls:SettingRow.Trailing>
+                                <Switch IsToggled="{Binding FillsCalendar}" SemanticProperties.Description="{controls:Translate 'Calendar'}" />
+                            </controls:SettingRow.Trailing>
+                        </controls:SettingRow>
+                        <controls:SettingRow Title="{controls:Translate 'Location'}">
+                            <controls:SettingRow.Trailing>
+                                <Switch IsToggled="{Binding FillsLocation}" SemanticProperties.Description="{controls:Translate 'Location'}" />
+                            </controls:SettingRow.Trailing>
+                        </controls:SettingRow>
+                        <controls:SettingRow Title="{controls:Translate 'Inventory'}">
+                            <controls:SettingRow.Trailing>
+                                <Switch IsToggled="{Binding FillsInventory}" SemanticProperties.Description="{controls:Translate 'Inventory'}" />
+                            </controls:SettingRow.Trailing>
+                        </controls:SettingRow>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
 
             <!-- The same list Orbit.Web puts under Options, Permissions, and the same wording: what each
                  part of Orbit is, whether it is unlocked, and what it needs first when it is not. -->

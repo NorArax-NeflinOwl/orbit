@@ -22,6 +22,22 @@
              suggestions exist for: the same thing gets typed twenty ways onto one shelf. -->
         <controls:NameSuggestionChips BindingContext="{Binding Suggestions}" IsVisible="{Binding ShowsName}" />
         <Entry Placeholder="{controls:Translate 'Product type'}" Text="{Binding ProductType}" />
+        <!-- What this account already calls kinds of product, under the box - Orbit.Web's panel of used
+             values, as chips: tapping one fills the box, and typing something new is as good an answer.
+             One type per product, so a chip replaces what is there rather than adding to it. See
+             InventoryItemEditor.OfferedProductTypes. -->
+        <FlexLayout Wrap="Wrap" Direction="Row" IsVisible="{Binding HasOfferedProductTypes}"
+                    BindableLayout.ItemsSource="{Binding OfferedProductTypes}">
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="x:String">
+                    <Button Text="{Binding .}" FontSize="12" Padding="12,4" Margin="0,0,8,4"
+                            Style="{StaticResource SecondaryButton}"
+                            SemanticProperties.Description="{controls:Translate 'Product type'}"
+                            Command="{Binding Source={RelativeSource AncestorType={x:Type controls:ShelfProductFields}}, Path=BindingContext.ChooseProductTypeCommand, x:DataType=controls:ShelfProductFields}"
+                            CommandParameter="{Binding .}" />
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </FlexLayout>
         <!-- Left out on a task entry as well, which has a categories box of its own that stands for this
              one - see InventoryItemEditor.ShowsCategories. -->
         <Entry Placeholder="{controls:Translate 'Categories, separated by commas'}" Text="{Binding Categories}"

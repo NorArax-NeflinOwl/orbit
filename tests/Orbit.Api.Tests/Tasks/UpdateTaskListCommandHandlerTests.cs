@@ -24,6 +24,114 @@ public sealed class UpdateTaskListCommandHandlerTests
                 new InMemoryInventoryRepository(), new InMemoryInventoryItemRepository()),
             new InventoryTestContext().ProductEntryPlacement);
 
+    /// <summary>
+    /// An entry ticked in this save, with no time sent, is recorded as done now - which is what an
+    /// installed phone that has never heard of the field sends when somebody ticks something on it.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_ticked_without_a_time_is_recorded_as_done_now()
+    {
+        var repository = new InMemoryTaskRepository();
+        var handler = CreateHandler(repository);
+        var userId = Guid.NewGuid();
+        var stored = TaskItem.Create("Buy milk", null, false);
+        var taskList = TaskList.Create(userId, "Errands", [stored]);
+        await repository.AddAsync(taskList, CancellationToken.None);
+        var before = DateTimeOffset.UtcNow;
+
+        await handler.HandleAsync(
+            new UpdateTaskListCommand(
+                userId, taskList.Id, "Errands",
+                [TaskItem.FromPersistence(stored.Id, "Buy milk", null, true, null, TaskItemReminders.Default)],
+                IsGroup: false, IsPrivate: false, EncryptedContent: null),
+            CancellationToken.None);
+
+        var saved = Assert.Single((await repository.GetByIdAsync(userId, taskList.Id, CancellationToken.None))!.Items);
+        Assert.NotNull(saved.CompletedAtUtc);
+        Assert.InRange(saved.CompletedAtUtc!.Value, before, DateTimeOffset.UtcNow);
+    }
+
+    /// <summary>
+    /// And a save from that same phone later - about something else, the tick handed back as it came -
+    /// neither wipes the time nor moves it to the moment of the second save.
+    /// </summary>
+    [Fact]
+    public async Task A_save_that_says_nothing_about_the_time_keeps_the_one_recorded()
+    {
+        var repository = new InMemoryTaskRepository();
+        var handler = CreateHandler(repository);
+        var userId = Guid.NewGuid();
+        var doneAt = new DateTimeOffset(2026, 9, 1, 8, 30, 0, TimeSpan.Zero);
+        var stored = TaskItem.FromPersistence(
+            Guid.NewGuid(), "Buy milk", null, true, null, TaskItemReminders.Default, completedAtUtc: doneAt);
+        var taskList = TaskList.Create(userId, "Errands", [stored]);
+        await repository.AddAsync(taskList, CancellationToken.None);
+
+        await handler.HandleAsync(
+            new UpdateTaskListCommand(
+                userId, taskList.Id, "Errands renamed",
+                [TaskItem.FromPersistence(stored.Id, "Buy milk", null, true, null, TaskItemReminders.Default)],
+                IsGroup: false, IsPrivate: false, EncryptedContent: null),
+            CancellationToken.None);
+
+        var saved = Assert.Single((await repository.GetByIdAsync(userId, taskList.Id, CancellationToken.None))!.Items);
+        Assert.Equal(doneAt, saved.CompletedAtUtc);
+    }
+
+    /// <summary>A time that was sent is taken at its word: it can be corrected, and this is how.</summary>
+    [Fact]
+    public async Task A_time_that_was_sent_replaces_the_one_recorded()
+    {
+        var repository = new InMemoryTaskRepository();
+        var handler = CreateHandler(repository);
+        var userId = Guid.NewGuid();
+        var stored = TaskItem.FromPersistence(
+            Guid.NewGuid(), "Buy milk", null, true, null, TaskItemReminders.Default,
+            completedAtUtc: new DateTimeOffset(2026, 9, 1, 8, 30, 0, TimeSpan.Zero));
+        var taskList = TaskList.Create(userId, "Errands", [stored]);
+        await repository.AddAsync(taskList, CancellationToken.None);
+        var corrected = new DateTimeOffset(2026, 8, 31, 18, 0, 0, TimeSpan.Zero);
+
+        await handler.HandleAsync(
+            new UpdateTaskListCommand(
+                userId, taskList.Id, "Errands",
+                [TaskItem.FromPersistence(stored.Id, "Buy milk", null, true, null, TaskItemReminders.Default, completedAtUtc: corrected)],
+                IsGroup: false, IsPrivate: false, EncryptedContent: null),
+            CancellationToken.None);
+
+        var saved = Assert.Single((await repository.GetByIdAsync(userId, taskList.Id, CancellationToken.None))!.Items);
+        Assert.Equal(corrected, saved.CompletedAtUtc);
+    }
+
+    /// <summary>Taking the tick back takes the time with it - and so does a cross, which is not a completion.</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task An_entry_that_is_no_longer_done_has_no_time(bool crossedOut)
+    {
+        var repository = new InMemoryTaskRepository();
+        var handler = CreateHandler(repository);
+        var userId = Guid.NewGuid();
+        var doneAt = new DateTimeOffset(2026, 9, 1, 8, 30, 0, TimeSpan.Zero);
+        var stored = TaskItem.FromPersistence(
+            Guid.NewGuid(), "Buy milk", null, true, null, TaskItemReminders.Default, completedAtUtc: doneAt);
+        var taskList = TaskList.Create(userId, "Errands", [stored]);
+        await repository.AddAsync(taskList, CancellationToken.None);
+
+        await handler.HandleAsync(
+            new UpdateTaskListCommand(
+                userId, taskList.Id, "Errands",
+                // The time still sent, as a client holding a stale copy would send it.
+                [TaskItem.FromPersistence(
+                    stored.Id, "Buy milk", null, false, null, TaskItemReminders.Default, isFailed: crossedOut,
+                    completedAtUtc: doneAt)],
+                IsGroup: false, IsPrivate: false, EncryptedContent: null),
+            CancellationToken.None);
+
+        var saved = Assert.Single((await repository.GetByIdAsync(userId, taskList.Id, CancellationToken.None))!.Items);
+        Assert.Null(saved.CompletedAtUtc);
+    }
+
     [Fact]
     public async Task HandleAsync_updates_a_task_list_owned_by_the_requesting_user()
     {

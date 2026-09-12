@@ -66,8 +66,9 @@ public sealed record TaskListRow(
     public static TaskListRow From(
         LocalTaskList taskList, IReadOnlyList<LocalTaskList> everyList, bool hasUnsentChanges,
         INetworkStatus networkStatus, Translations translations, bool privateItemsAreUnlocked = true,
-        string hiddenTitle = "Private")
+        string hiddenTitle = "Private", IReadOnlyDictionary<string, string>? tagColours = null)
     {
+        var isHidden = taskList.IsPrivate && !privateItemsAreUnlocked;
         var itemCount = taskList.Items.Count;
         var completedCount = taskList.Items.Count(item => item.IsCompleted);
         var refusal = OfflineEditPolicy.Evaluate(taskList, networkStatus);
@@ -85,9 +86,16 @@ public sealed record TaskListRow(
             IsHidden: taskList.IsPrivate && !privateItemsAreUnlocked, HiddenTitle: hiddenTitle,
             IsCopy: taskList.CopyOfLocalId is not null, IsSharedWithMe: taskList.IsShared)
         {
-            HasPriority = PriorityChoice.For(taskList.Priority, translations).IsWorthSaying
+            HasPriority = PriorityChoice.For(taskList.Priority, translations).IsWorthSaying,
+            // Nothing about a hidden list, whose tags are sealed with everything else it says.
+            Tags = isHidden || taskList.IsSealed
+                ? Screens.Tags.TagChips.None
+                : Screens.Tags.TagChips.For(taskList.AllTags, tagColours)
         };
     }
+
+    /// <summary>The list's tags, in the row with its other marks - see TagChips.</summary>
+    public Screens.Tags.TagChips Tags { get; init; } = Screens.Tags.TagChips.None;
 
     public bool IsEditable => Refusal is OfflineEditRefusal.None;
 

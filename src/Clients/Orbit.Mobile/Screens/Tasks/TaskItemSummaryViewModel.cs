@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Location;
@@ -34,6 +35,10 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
     private readonly TaskListSynchronizer _synchronizer;
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
+    private readonly TasksClient _tasksClient;
+
+    /// <summary>What a tick is stamped with - see Orbit.Core.Tasks.TaskItemCompletionTime.</summary>
+    private readonly TimeProvider _timeProvider;
 
     private Guid _taskListLocalId;
     private Guid _itemId;
@@ -41,7 +46,7 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
     public TaskItemSummaryViewModel(
         LocalTaskListRepository taskLists, LocalCalendarEventRepository calendarEvents, PlaceSearch places,
         Translations translations, IScreenNavigator navigator, ChatRepository contacts,
-        TaskListSynchronizer synchronizer)
+        TaskListSynchronizer synchronizer, TasksClient tasksClient, TimeProvider timeProvider)
     {
         _taskLists = taskLists;
         _calendarEvents = calendarEvents;
@@ -50,7 +55,16 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
         _synchronizer = synchronizer;
         _translations = translations;
         _navigator = navigator;
+        _tasksClient = tasksClient;
+        _timeProvider = timeProvider;
     }
+
+    /// <summary>
+    /// When the entry was done, in the reader's own format - shown only once it is done (see
+    /// <see cref="IsCompleted"/>), and "not recorded" for one ticked before Orbit kept the time.
+    /// </summary>
+    [ObservableProperty]
+    private string _completedOn = string.Empty;
 
     /// <summary>What the entry says, which is the screen's own title.</summary>
     [ObservableProperty]
@@ -145,6 +159,7 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
         Description = item.Description;
         IsCompleted = item.IsCompleted;
         IsFailed = item.IsFailed;
+        CompletedOn = DescribeCompletion(item.CompletedAtUtc);
         When = item.DueDateUtc is { } due
             ? due.LocalDateTime.ToString("g", _translations.DisplayCulture)
             : _translations["No date set"];
@@ -221,6 +236,11 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
                     ?? _translations["Somebody else"]));
     }
 
+    private string DescribeCompletion(DateTimeOffset? completedAtUtc)
+        => completedAtUtc is { } doneUtc
+            ? doneUtc.LocalDateTime.ToString("g", _translations.DisplayCulture)
+            : _translations["Not recorded"];
+
     partial void OnAppointmentDescriptionChanged(string value) => OnPropertyChanged(nameof(HasAppointmentDescription));
 
     partial void OnGuestsChanged(string value) => OnPropertyChanged(nameof(HasGuests));
@@ -256,6 +276,16 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
             return;
         }
 
+        // An entry done by ways (see TaskItem.Alternatives) has no tick of its own either: it is done
+        // when one way is, and a way is taken on the list's screen, which offers them. Named here the
+        // way a linked entry names its lists.
+        if (item.AllAlternatives.Count > 0)
+        {
+            Status = _translations.Format(
+                "Done as soon as any one of these is: {0}.", await NameTheWaysAsync(item, cancellationToken));
+            return;
+        }
+
         // One press moves to the next of the three answers - nothing, done, given up on. See TickState,
         // which is the same cycle the list screen and the browser follow.
         var next = Ticks.Read(item.IsCompleted, item.IsFailed).Next();
@@ -269,9 +299,17 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
             return;
         }
 
+        var completedAtUtc = Orbit.Core.Tasks.TaskItemCompletionTime.After(
+            item.IsCompleted, item.CompletedAtUtc, next.IsCompleted(), _timeProvider.GetUtcNow());
         var items = taskList.Items
             .Select(candidate => candidate.Id == _itemId
-                ? candidate with { IsCompleted = next.IsCompleted(), IsFailed = next.IsFailed() }
+                ? candidate with
+                {
+                    IsCompleted = next.IsCompleted(),
+                    IsFailed = next.IsFailed(),
+                    // Stamped here, offline included - see TaskItemCompletionTime.
+                    CompletedAtUtc = completedAtUtc
+                }
                 : candidate)
             .ToList();
 
@@ -282,6 +320,7 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
 
         IsCompleted = next.IsCompleted();
         IsFailed = next.IsFailed();
+        CompletedOn = DescribeCompletion(completedAtUtc);
         await SynchroniseAsync(cancellationToken);
     }
 
@@ -359,6 +398,85 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
     }
 
     /// <summary>
+    /// The other lists this entry could be moved to, by the rule the list's own entry form keeps (see
+    /// TaskListDetailViewModel.MoveTargetsForTheEntry): any other list the server knows about, except one
+    /// the entry stands for - an entry cannot link to the list it belongs to, and the server refuses that
+    /// move, so it is left out rather than offered and then refused.
+    /// </summary>
+    public async Task<IReadOnlyList<TaskListChoice>> MoveTargetsAsync(CancellationToken cancellationToken = default)
+    {
+        if (await _taskLists.FindAsync(_taskListLocalId, cancellationToken) is not { } taskList
+            || taskList.Items.FirstOrDefault(candidate => candidate.Id == _itemId) is not { } item)
+        {
+            return [];
+        }
+
+        return [.. (await _taskLists.GetAllAsync(cancellationToken))
+            .Where(other => other.LocalId != _taskListLocalId
+                && other.ServerId is { } serverId
+                && !item.AllLinkedTaskListIds.Contains(serverId))
+            .Select(other => new TaskListChoice(other.ServerId, other.Title))];
+    }
+
+    /// <summary>
+    /// Moves this entry to another list and opens it there - "Move to" in this screen's menu, and the
+    /// same move the list's own entry form makes (TaskListDetailViewModel.MoveItemAsync). Moving is a
+    /// change to two lists, which only the server can make: whatever this phone still holds goes out
+    /// first, so the server rearranges what the phone last said, then the move is asked for, then both
+    /// lists come back as the server now has them.
+    /// </summary>
+    [RelayCommand]
+    private async Task MoveAsync(TaskListChoice? target, CancellationToken cancellationToken)
+    {
+        Status = string.Empty;
+        if (target?.ServerId is not { } targetServerId)
+        {
+            return;
+        }
+
+        WriteOutcome outcome;
+        try
+        {
+            // A list the server has not been told about yet has no id to move anything out of.
+            if (!(await _synchronizer.SynchroniseAsync(cancellationToken)).ReachedTheServer
+                || await _taskLists.FindAsync(_taskListLocalId, cancellationToken) is not { ServerId: { } sourceServerId })
+            {
+                Status = _translations[NeedsAConnection];
+                return;
+            }
+
+            outcome = await _tasksClient.MoveItemAsync(sourceServerId, _itemId, targetServerId, cancellationToken);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            Status = _translations[NeedsAConnection];
+            return;
+        }
+
+        if (outcome is not WriteOutcome.Applied)
+        {
+            // A rule about the entry itself is not worth trying again - see WriteOutcome.Rejected.
+            Status = outcome is WriteOutcome.Rejected
+                ? _translations["That move isn't allowed."]
+                : _translations["Couldn't move it. Try again."];
+            return;
+        }
+
+        await SynchroniseAsync(cancellationToken);
+        if ((await _taskLists.GetAllAsync(cancellationToken)).FirstOrDefault(list => list.ServerId == targetServerId)
+            is not { } arrivedOn)
+        {
+            _navigator.ShowCalendar();
+            return;
+        }
+
+        _navigator.ShowTaskItem(arrivedOn.LocalId, _itemId);
+    }
+
+    /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
+    private const string NeedsAConnection = "Moving an entry needs a connection.";
+
+    /// <summary>
     /// Takes this entry off its list - the entry menu's "Delete item", and the same removal the list's
     /// own row menu makes (TaskListDetailViewModel.RemoveItem). The appointment the entry raised stays
     /// in the calendar, as it does there: the event is the reader's to delete, not a side effect of
@@ -414,6 +532,22 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
                 taskLists.FirstOrDefault(candidate => candidate.ServerId == linkedServerId) is { } named
                     ? named.Title
                     : _translations["another list"]));
+    }
+
+    /// <summary>
+    /// The ways this entry is done by, named and joined: a way's own words, or its list's title when it
+    /// says nothing else - "another list" for one this phone has not got, as above.
+    /// </summary>
+    private async Task<string> NameTheWaysAsync(
+        Orbit.Contracts.Tasks.TaskItemDto item, CancellationToken cancellationToken)
+    {
+        var taskLists = await _taskLists.GetAllAsync(cancellationToken);
+        return string.Join(
+            ", ",
+            item.AllAlternatives.Select(way =>
+                way.Description.Length > 0 ? _translations.Written(way.Description)
+                : taskLists.FirstOrDefault(candidate => candidate.ServerId == way.LinkedTaskListId) is { } named ? named.Title
+                : _translations["another list"]));
     }
 
     /// <summary>

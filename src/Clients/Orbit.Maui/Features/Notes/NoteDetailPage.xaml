@@ -25,6 +25,16 @@
             <!-- Why this note cannot be changed, which is the answer to every press that does nothing. -->
             <Label Text="{Binding ReadOnlyReason}" IsVisible="{Binding IsReadOnly}"
                    LineBreakMode="WordWrap" Style="{StaticResource ItemCardFooter}" />
+
+            <!-- While boxes are being chosen to change together: how many are, what a press on one of
+                 them will do, and the way out - see NoteDetailViewModel.IsPickingLines. Over the note
+                 rather than beside the boxes, where it would push the writing about. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding IsPickingLines}">
+                <Label Grid.Column="0" Text="{Binding PickingHint}" LineBreakMode="WordWrap"
+                       Style="{StaticResource ItemCardFooter}" VerticalOptions="Center" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Finish selecting'}"
+                        Command="{Binding StopPickingLinesCommand}" VerticalOptions="Center" />
+            </Grid>
         </VerticalStackLayout>
 
         <!-- Opened from the note's own menu rather than standing at the foot of every note: sharing is
@@ -58,7 +68,7 @@
                 <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Lines}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="screens:NoteLineRow">
-                            <Grid ColumnDefinitions="Auto,*">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
                                 <controls:CheckCircle Grid.Column="0" Diameter="19" Margin="0,9,8,0"
                                                       VerticalOptions="Start" IsVisible="{Binding IsChecklistItem}"
                                                       IsChecked="{Binding IsChecked}"
@@ -96,6 +106,14 @@
                                             CommandParameter="{Binding .}" />
                                     </Label.GestureRecognizers>
                                 </Label>
+
+                                <!-- The mark that chooses a box to change together with the others,
+                                     beside every box while boxes are being chosen and nowhere else. At
+                                     the line's end, away from the box it is about, so choosing a line
+                                     is never mistaken for ticking it. -->
+                                <CheckBox Grid.Column="2" IsChecked="{Binding IsPicked}"
+                                          IsVisible="{Binding ShowsPickMark}" VerticalOptions="Start"
+                                          SemanticProperties.Description="{controls:Translate 'Select this line'}" />
                             </Grid>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
@@ -111,6 +129,11 @@
 
                      The hairline runs between the two so the line reads as a foot rather than as another
                      line of the note. -->
+                <!-- What the note is about in a word or two, under the writing rather than in it - see
+                     TagsForm. Saved with the note, by the button in the corner; a colour is saved there
+                     and then, for the whole account. -->
+                <controls:TagsFieldView BindingContext="{Binding Tags}" Margin="0,20,0,0" />
+
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="0,24,0,0">
                     <Label Grid.Column="0" Text="{Binding Footnote}"
                            Style="{StaticResource ItemCardFooter}" VerticalOptions="Center" />
@@ -142,6 +165,24 @@
                       IsOn="{Binding IsWritingAChecklist}"
                       Data="M4,5 H20 M4,5 V19 H20 V5 M8,12 L11,15 L16,9"
                       Description="{controls:Translate 'Checklist item'}" />
+
+        <!-- Undo and redo, beside the tick-box button: a phone has no Ctrl+Z, and these are the writing's
+             own tools as the tick box is. Dimmed while there is nothing to undo or redo - see
+             NoteDetailViewModel.CanUndo. 44 across, the tick-box button's own size and the thumb target
+             the phone's style gives every other control (see IconButton.TouchSize) - they were 30, the
+             icon buttons' size in a card's head, which is a target for a pointer rather than a thumb.
+             Level with the tick-box button (the same 72 up), 8 to its right, and touching each other
+             rather than spaced: the drawings stay 18, so two 44 targets side by side still read as two
+             glyphs a little apart, and the row ends well short of Save in the other corner. -->
+        <HorizontalStackLayout Grid.Row="1" Spacing="0" HorizontalOptions="Start" VerticalOptions="End"
+                               Margin="70,0,0,72" IsVisible="{Binding CanEdit}">
+            <controls:IconButton Data="M7,4 L3,8 L7,12 M3,8 H12 A4.5,4.5 0 0 1 12,17 H8" TouchSize="44"
+                                 Command="{Binding UndoCommand}" IsEnabledForPress="{Binding CanUndo}"
+                                 Description="{controls:Translate 'Undo'}" />
+            <controls:IconButton Data="M13,4 L17,8 L13,12 M17,8 H8 A4.5,4.5 0 0 0 8,17 H12" TouchSize="44"
+                                 Command="{Binding RedoCommand}" IsEnabledForPress="{Binding CanRedo}"
+                                 Description="{controls:Translate 'Redo'}" />
+        </HorizontalStackLayout>
 
         <controls:NavigationBar Grid.Row="0" />
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"

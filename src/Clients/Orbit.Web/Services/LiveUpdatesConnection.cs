@@ -158,11 +158,34 @@ public sealed class LiveUpdatesConnection : IAsyncDisposable
         return connection;
     }
 
+    /// <summary>
+    /// Hands one announcement to whoever is listening - what the hub's own handlers call when the server
+    /// sends it. Public so a test can deliver an announcement the way the server does without standing up
+    /// a hub: what a page does on hearing one is the part worth pinning, and until this existed it could
+    /// only be reasoned about. An announcement this build does not know is ignored, the same as the hub
+    /// ignores a message nobody subscribed to.
+    /// </summary>
+    public void Announce(string message, Guid? aboutUserId = null)
+    {
+        if (message == LiveUpdateMessages.ChatChanged)
+        {
+            ChatChanged?.Invoke();
+        }
+        else if (message == LiveUpdateMessages.NotificationsChanged)
+        {
+            NotificationsChanged?.Invoke();
+        }
+        else if (message == LiveUpdateMessages.PresenceChanged && aboutUserId is { } userId)
+        {
+            PresenceChanged?.Invoke(userId);
+        }
+    }
+
     private void SubscribeToAnnouncements(HubConnection connection)
     {
-        connection.On(LiveUpdateMessages.ChatChanged, () => ChatChanged?.Invoke());
-        connection.On(LiveUpdateMessages.NotificationsChanged, () => NotificationsChanged?.Invoke());
-        connection.On<Guid>(LiveUpdateMessages.PresenceChanged, userId => PresenceChanged?.Invoke(userId));
+        connection.On(LiveUpdateMessages.ChatChanged, () => Announce(LiveUpdateMessages.ChatChanged));
+        connection.On(LiveUpdateMessages.NotificationsChanged, () => Announce(LiveUpdateMessages.NotificationsChanged));
+        connection.On<Guid>(LiveUpdateMessages.PresenceChanged, userId => Announce(LiveUpdateMessages.PresenceChanged, userId));
     }
 
     /// <summary>

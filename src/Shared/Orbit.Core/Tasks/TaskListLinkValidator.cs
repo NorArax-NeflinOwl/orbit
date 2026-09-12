@@ -23,7 +23,9 @@ public sealed class TaskListLinkValidator
     /// </summary>
     public async Task ValidateAsync(Guid userId, Guid? taskListId, IReadOnlyList<TaskItem> items, CancellationToken cancellationToken)
     {
-        var linkedListIds = items.SelectMany(item => item.LinkedTaskListIds).Distinct().ToList();
+        // The lists an entry is done any one way of too: a way pointing back at its own list is a loop the
+        // resolver would have to give up on, exactly like a link doing the same.
+        var linkedListIds = items.SelectMany(item => item.TaskListIdsItPointsAt).Distinct().ToList();
         if (linkedListIds.Count == 0)
         {
             return;
@@ -75,7 +77,7 @@ public sealed class TaskListLinkValidator
                 continue;
             }
 
-            foreach (var linkedId in currentList.Items.SelectMany(item => item.LinkedTaskListIds))
+            foreach (var linkedId in currentList.Items.SelectMany(item => item.TaskListIdsItPointsAt))
             {
                 toVisit.Enqueue(linkedId);
             }

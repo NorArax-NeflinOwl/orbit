@@ -147,7 +147,9 @@ public sealed class TaskListSynchronizer
             // it would otherwise be lost.
             new CreateTaskRequest(taskList.Title, ToRequests(taskList.Items), taskList.IsGroup, taskList.IsPrivate,
                 taskList.EncryptedContent, taskList.Priority, taskList.Description,
-                await ServerFolderIdAsync(dbContext, taskList.FolderId, cancellationToken)),
+                await ServerFolderIdAsync(dbContext, taskList.FolderId, cancellationToken),
+                // Null for a list held since before tags - see LocalTaskList.Tags.
+                Tags: taskList.Tags),
             cancellationToken);
         taskList.LastSyncedAtUtc = _timeProvider.GetUtcNow();
         return SendResult.Sent;
@@ -169,7 +171,9 @@ public sealed class TaskListSynchronizer
                 taskList.EncryptedContent, taskList.Priority, taskList.Description,
                 // Said for the same reason: null keeps what is stored, which was right while this phone
                 // had no box for it and would now keep an answer the reader has changed here.
-                taskList.Completion),
+                taskList.Completion,
+                // The tags as this phone holds them, null ("not known") included - see LocalTaskList.Tags.
+                taskList.Tags),
             cancellationToken);
 
         if (outcome is not WriteOutcome.Applied)
@@ -254,6 +258,8 @@ public sealed class TaskListSynchronizer
                 : null;
         taskList.Title = incoming.Title;
         taskList.Description = incoming.Description;
+        // As the server said it, null included - see NoteSynchronizer, which does the same for a note.
+        taskList.Tags = incoming.Tags;
         taskList.Items = incoming.Items;
         taskList.IsCompleted = incoming.IsCompleted;
         taskList.Completion = incoming.Completion;
@@ -329,5 +335,15 @@ public sealed class TaskListSynchronizer
             // alone. Sending them as they arrived is what makes that rule unnecessary rather than
             // relied upon, the same way the product above travels untouched.
             item.Priority,
-            item.Colour)).ToList();
+            item.Colour,
+            // The ways it is done by, as the local copy holds them - which this phone now writes as well
+            // as reads (see TaskItemEditor.Ways). Always a list, for the reason the steps above are one.
+            item.AllAlternatives,
+            // What it is the same thing as, and how much it needs, as the local copy holds them - which
+            // this phone now writes when a name is picked for what it names (see TaskItemEditor.TakeOn).
+            item.ReferencesTaskItemId,
+            item.RequiredQuantity,
+            // When it was done, as this phone recorded it at the tick - offline included. The server
+            // keeps a time it is sent, and records one itself only for a tick that arrives without.
+            item.CompletedAtUtc)).ToList();
 }

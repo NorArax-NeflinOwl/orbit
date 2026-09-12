@@ -36,4 +36,13 @@ public sealed record TaskDto(
     /// IsCompleted above is the answer either way; this is the half a checkbox is bound to, and the half
     /// that says whether a list with every entry ticked off is finished or only looks it.
     /// </summary>
-    string Completion = "FromTheEntries");
+    string Completion = "FromTheEntries",
+    /// <summary>
+    /// The words it is tagged with - see Orbit.Core.Tasks.TaskList.Tags. Empty for a private list, whose
+    /// tags are in its sealed payload (SealedTaskList.Tags). Null from a server written before tags existed.
+    /// </summary>
+    IReadOnlyList<string>? Tags = null)
+{
+    /// <summary>The tags as something to read without a null check - see <see cref="Tags"/>.</summary>
+    public IReadOnlyList<string> AllTags => Tags ?? [];
+}

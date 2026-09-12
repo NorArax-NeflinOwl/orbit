@@ -165,12 +165,19 @@ public sealed class ChatMessageRepository : IChatMessageRepository
     }
 
     public async Task<bool> MarkConversationAsReadAsync(
-        Guid readerUserId, Guid otherUserId, DateTimeOffset readAtUtc, CancellationToken cancellationToken)
+        Guid readerUserId, Guid otherUserId, DateTimeOffset readAtUtc, DateTimeOffset? readUpToUtc,
+        CancellationToken cancellationToken)
     {
-        var unreadEntities = await _dbContext.ChatMessages
+        var query = _dbContext.ChatMessages
             .Where(message =>
-                message.SenderUserId == otherUserId && message.RecipientUserId == readerUserId && message.ReadAtUtc == null)
-            .ToListAsync(cancellationToken);
+                message.SenderUserId == otherUserId && message.RecipientUserId == readerUserId && message.ReadAtUtc == null);
+
+        if (readUpToUtc is not null)
+        {
+            query = query.Where(message => message.SentAtUtc <= readUpToUtc.Value);
+        }
+
+        var unreadEntities = await query.ToListAsync(cancellationToken);
 
         if (unreadEntities.Count == 0)
         {
@@ -238,6 +245,26 @@ public sealed class ChatMessageRepository : IChatMessageRepository
 
         return counts.ToDictionary(entry => entry.SenderUserId, entry => entry.Count);
     }
+    public async Task<IReadOnlyDictionary<Guid, int>> GetGroupUnreadCountsAsync(
+        Guid readerUserId, CancellationToken cancellationToken)
+    {
+        // The reader's own copies only - a sender gets none of their own post, so it never counts. A
+        // deleted message is left out too: it is not there to be read, and "exactly how many arrived" is
+        // the number of messages somebody can still open.
+        var counts = await _dbContext.ChatMessages
+            .AsNoTracking()
+            .Where(message =>
+                message.RecipientUserId == readerUserId
+                && message.ReadAtUtc == null
+                && message.GroupId != null
+                && !message.IsSharedHistory
+                && message.DeletedAtUtc == null)
+            .GroupBy(message => message.GroupId!.Value)
+            .Select(byGroup => new { GroupId = byGroup.Key, Count = byGroup.Count() })
+            .ToListAsync(cancellationToken);
+
+        return counts.ToDictionary(entry => entry.GroupId, entry => entry.Count);
+    }
     public async Task<IReadOnlyList<ChatMessage>> GetGroupMessageCopiesAsync(
         Guid groupMessageId, CancellationToken cancellationToken)
     {
@@ -249,13 +276,21 @@ public sealed class ChatMessageRepository : IChatMessageRepository
         return entities.Select(ToDomain).ToList();
     }
     public async Task<bool> MarkGroupConversationAsReadAsync(
-        Guid readerUserId, Guid groupId, DateTimeOffset readAtUtc, CancellationToken cancellationToken)
+        Guid readerUserId, Guid groupId, DateTimeOffset readAtUtc, DateTimeOffset? readUpToUtc,
+        CancellationToken cancellationToken)
     {
+        var query = _dbContext.ChatMessages
+            .Where(message =>
+                message.GroupId == groupId && message.RecipientUserId == readerUserId && message.ReadAtUtc == null);
+
+        if (readUpToUtc is not null)
+        {
+            query = query.Where(message => message.SentAtUtc <= readUpToUtc.Value);
+        }
+
         // The row count is the answer: ExecuteUpdate hands back how many it touched, which is exactly
         // "was there anything to read" without a second query for it.
-        var marked = await _dbContext.ChatMessages
-            .Where(message =>
-                message.GroupId == groupId && message.RecipientUserId == readerUserId && message.ReadAtUtc == null)
+        var marked = await query
             .ExecuteUpdateAsync(update => update.SetProperty(message => message.ReadAtUtc, readAtUtc), cancellationToken);
 
         return marked > 0;

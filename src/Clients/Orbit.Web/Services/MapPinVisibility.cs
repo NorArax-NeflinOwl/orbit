@@ -62,6 +62,15 @@ public sealed class MapPinVisibility
     /// </summary>
     public DateTime? PastPlacesFrom { get; private set; }
 
+    /// <summary>
+    /// Whether the places a task list's Location entries made are left out - off the list of kept places
+    /// and off the map alike. Shown unless the reader said otherwise, like every group here: they are the
+    /// reader's own places, made from their own lists, and a map that silently dropped them would read as
+    /// having lost them. Kept beside the eye rather than being one, because it narrows a list the eye has
+    /// already let through - the same relation the past filter has to the plans.
+    /// </summary>
+    public bool HidesPlacesFromTasks { get; private set; }
+
     public async Task InitializeAsync()
     {
         foreach (var group in Enum.GetValues<PinGroup>())
@@ -69,6 +78,7 @@ public sealed class MapPinVisibility
             _shown[group] = await ReadAsync(group) != "false";
         }
 
+        HidesPlacesFromTasks = await ReadAsync(PlacesFromTasksKey) == "true";
         ShowsPastPlaces = await ReadAsync(PastKey) == "true";
         // A day that will not parse is read as "all of it", which is the answer a browser that has
         // never been asked gives - a stored value nobody can read must not leave the option stuck.
@@ -85,6 +95,13 @@ public sealed class MapPinVisibility
         PastPlacesFrom = from;
         await WriteAsync(PastKey, isShown ? "true" : "false");
         await WriteAsync(PastFromKey, from?.ToString("yyyy-MM-dd"));
+    }
+
+    /// <inheritdoc cref="HidesPlacesFromTasks"/>
+    public async Task SetPlacesFromTasksHiddenAsync(bool isHidden)
+    {
+        HidesPlacesFromTasks = isHidden;
+        await WriteAsync(PlacesFromTasksKey, isHidden ? "true" : "false");
     }
 
     public async Task SetShownAsync(PinGroup group, bool isShown)
@@ -132,4 +149,6 @@ public sealed class MapPinVisibility
     private const string PastKey = "orbit-map-past";
 
     private const string PastFromKey = "orbit-map-past-from";
+
+    private const string PlacesFromTasksKey = "orbit-map-hide-places-from-tasks";
 }

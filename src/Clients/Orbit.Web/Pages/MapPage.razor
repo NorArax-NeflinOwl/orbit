@@ -52,7 +52,13 @@ else
                 @* What the page is for, behind the same mark every other page's title carries - see
                    PageHeader.Description. This page draws its own heading because the name shares a row
                    with the menu, but the sentence under it was the same kind of sentence. *@
-                <h1>@T["Map"]<FieldHint>@T["Where you are, who you are sharing it with, and who is sharing theirs."]</FieldHint></h1>
+                @* The "!" beside it stands in for Start and the picker on a phone, where neither does
+                   anything yet - see .map-phone-note, and the note in info/future-plan.md about finding
+                   out why. Only while nothing is being recorded, the same as the Start it explains. *@
+                <h1>@T["Map"]<FieldHint>@T["Where you are, who you are sharing it with, and who is sharing theirs."]</FieldHint>@if (_location is null)
+                    {
+                        <span class="map-phone-note"><FieldHint Warns="true">@T["Recording where you are, and sharing it, don't work on a phone yet - open Orbit on a computer for those."]</FieldHint></span>
+                    }</h1>
                 @* Everything that can only be done to a recording that already exists, at the far edge
                    of the name's own row - the same place every other page keeps its menu. Offered
                    rather than hidden while there is nothing to update or stop: what the page can do is
@@ -81,15 +87,11 @@ else
             @if (_location is null)
             {
                 @* Not on a phone: neither this nor the picker below it does anything there, so the page
-                   says so once instead of offering two controls that answer nothing - see
-                   .map-phone-note, and the note in info/future-plan.md about finding out why. Stop is
-                   left alone: a recording started elsewhere has to be endable from wherever somebody
-                   is. *@
+                   says so once, in the "!" beside its name, instead of offering two controls that answer
+                   nothing. Stop is left alone: a recording started elsewhere has to be endable from
+                   wherever somebody is. *@
                 <button type="button" class="btn-primary map-panel-start" disabled="@_isBusy"
                         @onclick="RecordCurrentLocationAsync">@T["Start"]</button>
-                <p class="empty-hint map-phone-note">
-                    @T["Recording where you are, and sharing it, don't work on a phone yet - open Orbit on a computer for those."]
-                </p>
             }
             else
             {
@@ -117,7 +119,7 @@ else
             <h2 class="map-panel-heading">@T["Share where you are"]</h2>
             @if (_contacts.Count == 0)
             {
-                <p class="empty-hint">@T["No contacts to share with yet - start a conversation first."]</p>
+                <p class="empty-hint empty-list">@T["No contacts to share with yet - start a conversation first."]</p>
             }
             else
             {
@@ -245,9 +247,24 @@ else
                 @RenderPanelPin(MapPanelPins.PanelList.YourPlaces)
                 <h2 class="map-panel-heading">@T["Places you keep"]</h2>
                 @RenderPinToggle(MapPinVisibility.PinGroup.YourPlaces, T["Show these on the map"], T["Hide these from the map"])
+                @* The places a task list's Location entries keep can be left out, list and pins alike -
+                   the same ✓ the page's own menu marks the past with. See TaskEntryPlaces. *@
+                <OverflowMenu>
+                    <button type="button" class="avatar-dropdown-item @(MapPins.HidesPlacesFromTasks ? "chosen" : "")"
+                            @onclick="HideOrShowPlacesFromTasksAsync">
+                        <span class="card-filter-mark">@(MapPins.HidesPlacesFromTasks ? "✓" : "")</span>
+                        @T["Hide places from tasks"]
+                    </button>
+                </OverflowMenu>
             </div>
-            @foreach (var place in _places)
+            @foreach (var (place, startsGroup) in PlacesAsListed)
             {
+                @* A place a task list's entry made sits under that list's name, the reader's own above
+                   them all - see PlacesAsListed. *@
+                @if (startsGroup is { } listTitle)
+                {
+                    <h3 class="map-panel-subheading">@listTitle</h3>
+                }
                 <div class="map-share-row map-share-row-opens" role="button" tabindex="0"
                      @onclick="() => FocusOnPlaceOnTheMapAsync(place)"
                      @onkeydown="args => FocusOnPlaceOnTheMapOnEnterOrSpaceAsync(args, place)">
@@ -343,7 +360,7 @@ else
             }
             @if (_placed.Count == 0)
             {
-                <p class="empty-hint">@T["Nothing in your calendar or your lists says where it happens."]</p>
+                <p class="empty-hint empty-list">@T["Nothing in your calendar or your lists says where it happens."]</p>
             }
             @foreach (var placed in _placed)
             {
@@ -1228,7 +1245,7 @@ else
         // and the eye on this list's own heading.
         if (MapPins.IsShown(MapPinVisibility.PinGroup.YourPlaces))
         {
-            points.AddRange(_places.Select(place => (object)new
+            points.AddRange(PlacesAsListed.Select(listed => listed.Place).Select(place => (object)new
             {
                 key = PlaceMapKey(place.Id),
                 latitude = place.Where.Latitude,
@@ -1240,7 +1257,9 @@ else
                 canPlan = true,
                 planEventLabel = T["An event here"],
                 planTaskListLabel = T["A task list here"],
-                routeLabel = RouteLabel
+                routeLabel = RouteLabel,
+                // The way back to the list whose entry made this place - see OnPinOpenTask.
+                openTaskLabel = IsFromATask(place) ? T["Go to the task"] : null
             }));
         }
 
@@ -1306,6 +1325,75 @@ else
 
     /// <summary>The key its pin is drawn under - see MapPoints, and FocusOnPlaceOnTheMapAsync.</summary>
     private static string PlaceMapKey(Guid placeId) => $"place:{placeId}";
+
+    /// <summary>
+    /// The kept places in the order the panel lists them: the reader's own first, then the ones their task
+    /// lists' Location entries made, grouped under the list each came from - the first of each group
+    /// carrying that list's name. Those are left out altogether while the reader has hidden them (see
+    /// MapPinVisibility.HidesPlacesFromTasks), and the map draws exactly what is listed.
+    /// </summary>
+    private IEnumerable<(PlaceDto Place, string? StartsGroup)> PlacesAsListed
+    {
+        get
+        {
+            foreach (var place in _places.Where(place => !IsFromATask(place)))
+            {
+                yield return (place, null);
+            }
+
+            if (MapPins.HidesPlacesFromTasks)
+            {
+                yield break;
+            }
+
+            var byList = _places
+                .Where(IsFromATask)
+                .GroupBy(place => place.TaskListIds[0])
+                .OrderBy(group => TitleOfList(group.Key), StringComparer.CurrentCultureIgnoreCase);
+            foreach (var group in byList)
+            {
+                var heading = TitleOfList(group.Key);
+                foreach (var (place, index) in group.Select((place, index) => (place, index)))
+                {
+                    yield return (place, index == 0 ? heading : null);
+                }
+            }
+        }
+    }
+
+    /// <summary>A place a task list's Location entry made, rather than one kept by hand - see TaskEntryPlaces.</summary>
+    private static bool IsFromATask(PlaceDto place) => place.SourceTaskItemId is not null && place.TaskListIds.Count > 0;
+
+    /// <summary>
+    /// What a list is called, or "Another list" for one this page cannot see - a list deleted since. Its
+    /// own key rather than the sentence-middle "another list", which Polish puts in another case.
+    /// </summary>
+    private string TitleOfList(Guid taskListId)
+        => _taskLists.FirstOrDefault(taskList => taskList.Id == taskListId)?.Title is { Length: > 0 } title
+            ? title
+            : T["Another list"];
+
+    private async Task HideOrShowPlacesFromTasksAsync()
+    {
+        await MapPins.SetPlacesFromTasksHiddenAsync(!MapPins.HidesPlacesFromTasks);
+        // The map draws what the list shows - see ShowOrHidePastPlacesAsync, which does the same.
+        _ = RefreshMapMarkersAsync();
+    }
+
+    /// <summary>
+    /// "Go to the task" in the popup of a place a task list's entry made: the list it came from, at its
+    /// reading depth, the way every other press on a list opens it.
+    /// </summary>
+    [JSInvokable]
+    public Task OnPinOpenTask(string key)
+    {
+        if (_places.FirstOrDefault(place => PlaceMapKey(place.Id) == key) is { TaskListIds: [var taskListId, ..] })
+        {
+            NavigationManager.NavigateTo($"/tasks/{taskListId}");
+        }
+
+        return Task.CompletedTask;
+    }
 
     /// <summary>
     /// A place this page was sent to look at - the dashboard's own card, where pressing a row means

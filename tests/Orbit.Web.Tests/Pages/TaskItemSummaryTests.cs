@@ -58,6 +58,35 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
     /// Everywhere this entry leads, in the panel every other screen keeps its actions in - and the
     /// form, which this page offered no way to reach at all.
     /// </summary>
+    /// <summary>
+    /// When the entry was done is a fact about a done entry only: absent before the tick, and there to
+    /// read and correct after it.
+    /// </summary>
+    [Fact]
+    public void An_entry_not_done_yet_says_nothing_about_when_it_was()
+    {
+        RegisterClients(Item("Dentist", DateTimeOffset.UtcNow.AddDays(1), location: "Przychodnia"));
+
+        var cut = Render();
+
+        Assert.DoesNotContain("Completed on", cut.Markup);
+    }
+
+    /// <inheritdoc cref="An_entry_not_done_yet_says_nothing_about_when_it_was"/>
+    [Fact]
+    public void A_done_entry_says_when_it_was_done()
+    {
+        RegisterClients(Item("Dentist", DateTimeOffset.UtcNow.AddDays(1), location: "Przychodnia") with
+        {
+            IsCompleted = true,
+            CompletedAtUtc = new DateTimeOffset(2026, 9, 1, 8, 30, 0, TimeSpan.Zero)
+        });
+
+        var cut = Render();
+
+        Assert.Contains("Completed on", cut.Markup);
+    }
+
     [Fact]
     public void Every_way_out_is_offered_in_the_panel()
     {

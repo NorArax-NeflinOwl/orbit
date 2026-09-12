@@ -1,0 +1,27 @@
+@using Orbit.Web.Services
+@implements IDisposable
+@inject TagColourBook TagColourBook
+
+@* A note's or a task list's tags on its card, each in the colour the account gave it - see TagColourBook.
+   Drawn as the card's other marks are (card-badge), so they sit in the same row as "Pinned" and "Shared";
+   a tag nobody gave a colour is drawn plain. *@
+@foreach (var tag in Tags)
+{
+    var colour = TagColourBook.ColourOf(tag);
+    <span class="card-badge card-badge-tag @(colour is null ? null : "card-badge-tag-coloured")"
+          style="@(colour is null ? null : $"--tag-colour: {colour}")">@tag</span>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<string> Tags { get; set; } = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        TagColourBook.Changed += Redraw;
+        await TagColourBook.LoadAsync();
+    }
+
+    private void Redraw() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => TagColourBook.Changed -= Redraw;
+}

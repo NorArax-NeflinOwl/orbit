@@ -33,7 +33,7 @@ public sealed class MarkGroupConversationAsReadCommandHandler
         }
 
         var anythingWasUnread = await _chatMessageRepository.MarkGroupConversationAsReadAsync(
-            request.ReaderUserId, request.GroupId, DateTimeOffset.UtcNow, cancellationToken);
+            request.ReaderUserId, request.GroupId, DateTimeOffset.UtcNow, request.ReadUpToUtc, cancellationToken);
 
         // Everyone else in the group, who are the ones showing receipts for what they sent - and only
         // when something was actually read. A read that did not happen, announced, is news the other

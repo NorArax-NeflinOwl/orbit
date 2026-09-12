@@ -23,7 +23,7 @@
                  the bar's own arrow is. -->
             <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
                    FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
-            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />
+            <controls:OrbitLoading IsRunning="{Binding IsBusy}" RingSize="30" HorizontalOptions="Start" />
 
             <Label Text="{controls:Translate 'Nothing here yet.'}" IsVisible="{Binding HasNothing}"
                    Style="{StaticResource EmptyHint}" Margin="0,20,0,0" />

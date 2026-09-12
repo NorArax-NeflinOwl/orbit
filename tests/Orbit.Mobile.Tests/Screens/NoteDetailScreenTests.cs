@@ -18,7 +18,7 @@ namespace Orbit.Mobile.Tests.Screens;
 /// The screen a note opens into, which until now did not exist: tapping a note on the list did nothing
 /// at all, so the phone could list notes and never read one.
 /// </summary>
-public sealed class NoteDetailScreenTests
+public sealed partial class NoteDetailScreenTests
 {
     [Fact]
     public async Task A_note_opens_showing_what_it_says()
@@ -43,7 +43,7 @@ public sealed class NoteDetailScreenTests
         var note = await context.AddNoteAsync("Shopping", "milk");
         var screen = await context.OpenAsync(note.LocalId);
 
-        screen.AddLineAfter(screen.Lines[0]).Text = "eggs";
+        screen.AddLineAfter(screen.Lines[0])!.Text = "eggs";
         await screen.SaveLinesCommand.ExecuteAsync(null);
 
         Assert.Equal(["milk", "eggs"], screen.Lines.Select(line => line.Text));
@@ -61,7 +61,7 @@ public sealed class NoteDetailScreenTests
         var note = await context.AddNoteAsync("Shopping", "\t\tmilk");
         var screen = await context.OpenAsync(note.LocalId);
 
-        Assert.Equal("\t\t", screen.AddLineAfter(screen.Lines[0]).Text);
+        Assert.Equal("\t\t", screen.AddLineAfter(screen.Lines[0])!.Text);
     }
 
     /// <summary>
@@ -252,6 +252,7 @@ public sealed class NoteDetailScreenTests
         screen.ToggleChecklistCommand.Execute(screen.Lines[0]);
         var next = screen.AddLineAfter(screen.Lines[0]);
 
+        Assert.NotNull(next);
         Assert.True(next.IsChecklistItem);
         Assert.False(next.IsChecked);
     }
@@ -289,7 +290,8 @@ public sealed class NoteDetailScreenTests
     /// <summary>
     /// Backspace at the head of a line joins it to the one above, which is how a line is got rid of on
     /// a surface with no per-line menu - and what any text field does. The caret lands where the two
-    /// met rather than at the end of what was pulled up.
+    /// met rather than at the end of what was pulled up, and the line that went says so, because the
+    /// page has a field drawing it to let go of.
     /// </summary>
     [Fact]
     public async Task Backspace_at_the_head_of_a_line_joins_it_to_the_one_above()
@@ -297,17 +299,20 @@ public sealed class NoteDetailScreenTests
         using var context = new ScreenContext();
         var note = await context.AddNoteAsync("Shopping", "milk", "bread");
         var screen = await context.OpenAsync(note.LocalId);
+        var carets = new List<NoteCaret>();
+        screen.CaretPlaced += (_, caret) => carets.Add(caret);
 
-        var landing = screen.MergeIntoTheLineAbove(screen.Lines[1]);
+        Assert.True(screen.MergeIntoTheLineAbove(screen.Lines[1]));
 
         Assert.Equal(["milkbread"], screen.Lines.Select(line => line.Text));
-        Assert.Equal(4, landing!.Value.Caret);
+        Assert.Equal(new NoteCaret(screen.Lines[0], "milk".Length), Assert.Single(carets));
     }
 
     /// <summary>
-    /// A line with a tick box loses the box first, and only a second press joins it upwards. It is the
-    /// one way to undo a box from the keyboard - a reader who typed "[]" by accident would otherwise
-    /// have to reach for the button in the corner.
+    /// A line with a tick box and words on it loses the box first, and only a second press joins it
+    /// upwards. It is the one way to undo a box from the keyboard - a reader who typed "[]" by accident
+    /// would otherwise have to reach for the button in the corner. The browser does exactly this, and
+    /// leaves the caret alone while it does: nothing that was written changed.
     /// </summary>
     [Fact]
     public async Task Backspace_at_the_head_of_a_tickable_line_takes_the_box_off_before_it_joins_anything()
@@ -317,16 +322,46 @@ public sealed class NoteDetailScreenTests
         var screen = await context.OpenAsync(note.LocalId);
         screen.Lines[1].IsChecklistItem = true;
         screen.Lines[1].IsChecked = true;
+        var carets = new List<NoteCaret>();
+        screen.CaretPlaced += (_, caret) => carets.Add(caret);
 
-        Assert.Null(screen.MergeIntoTheLineAbove(screen.Lines[1]));
+        Assert.False(screen.MergeIntoTheLineAbove(screen.Lines[1]));
 
         Assert.False(screen.Lines[1].IsChecklistItem);
         Assert.False(screen.Lines[1].IsChecked);
         Assert.Equal(["milk", "bread"], screen.Lines.Select(line => line.Text));
+        Assert.Empty(carets);
 
         // And now it joins, as any plain line does.
-        Assert.NotNull(screen.MergeIntoTheLineAbove(screen.Lines[1]));
+        Assert.True(screen.MergeIntoTheLineAbove(screen.Lines[1]));
         Assert.Equal(["milkbread"], screen.Lines.Select(line => line.Text));
+    }
+
+    /// <summary>
+    /// An empty box has no words to keep, so the whole line goes in one press - the browser's rule,
+    /// where the phone used to take the box off first and ask for a second press to be rid of the line
+    /// it had left behind. The caret lands at the end of the line above, as it does after any join.
+    /// </summary>
+    [Fact]
+    public async Task Backspace_at_the_head_of_an_empty_box_takes_the_whole_line_in_one_press()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk", string.Empty);
+        var screen = await context.OpenAsync(note.LocalId);
+        screen.Lines[1].IsChecklistItem = true;
+        var carets = new List<NoteCaret>();
+        screen.CaretPlaced += (_, caret) => carets.Add(caret);
+
+        Assert.True(screen.MergeIntoTheLineAbove(screen.Lines[1]));
+
+        Assert.Equal(["milk"], screen.Lines.Select(line => line.Text));
+        Assert.Equal(new NoteCaret(screen.Lines[0], "milk".Length), Assert.Single(carets));
+
+        // One press, one step: the undo gives the empty box back rather than the line without its box.
+        screen.UndoCommand.Execute(null);
+        Assert.Equal(["milk", string.Empty], screen.Lines.Select(line => line.Text));
+        Assert.True(screen.Lines[1].IsChecklistItem);
+        Assert.False(screen.CanUndo);
     }
 
     /// <summary>
@@ -381,7 +416,9 @@ public sealed class NoteDetailScreenTests
 
     /// <summary>
     /// A checklist goes on being a checklist without the button in the corner being touched - and an
-    /// empty line ends it, which is how a reader stops one.
+    /// empty box ends it, **in place**: Enter on one turns that line into a plain one rather than
+    /// leaving the box and starting another under it. The browser's rule, which the phone now goes
+    /// through Orbit.Core for (NoteSurfaceEdits.Enter), and one step of the history either way.
     /// </summary>
     [Fact]
     public async Task A_tickable_line_starts_another_until_one_is_left_empty()
@@ -392,23 +429,43 @@ public sealed class NoteDetailScreenTests
         screen.Lines[0].IsChecklistItem = true;
 
         var second = screen.AddLineAfter(screen.Lines[0]);
+        Assert.NotNull(second);
         Assert.True(second.IsChecklistItem);
 
-        // Enter on the empty one it just made: nothing on either side of the caret, so the list ends.
+        // Enter on the empty one it just made: nothing on either side of the caret, so the list ends
+        // where it stands - the same line, without its box, and no third line under it.
         var third = screen.AddLineAfter(second);
-        Assert.False(third.IsChecklistItem);
+
+        Assert.Same(second, third);
+        Assert.False(second.IsChecklistItem);
+        Assert.Equal(2, screen.Lines.Count);
+        Assert.False(screen.IsWritingAChecklist);
+
+        // And that was one step: the undo gives the empty box back.
+        screen.UndoCommand.Execute(null);
+        Assert.Equal(2, screen.Lines.Count);
+        Assert.True(screen.Lines[1].IsChecklistItem);
     }
 
-    /// <summary>And it means nothing on the first line, which has nothing above it to join.</summary>
+    /// <summary>
+    /// The line above the first one is the note's name - it is the surface's first line here as it is in
+    /// the browser - so the same press joins the words to the name and takes the caret up into it.
+    /// </summary>
     [Fact]
-    public async Task Backspace_on_the_first_line_does_nothing()
+    public async Task Backspace_on_the_first_line_joins_it_to_the_notes_name()
     {
         using var context = new ScreenContext();
         var note = await context.AddNoteAsync("Shopping", "milk", "bread");
         var screen = await context.OpenAsync(note.LocalId);
+        var carets = new List<NoteCaret>();
+        screen.CaretPlaced += (_, caret) => carets.Add(caret);
 
-        Assert.Null(screen.MergeIntoTheLineAbove(screen.Lines[0]));
-        Assert.Equal(["milk", "bread"], screen.Lines.Select(line => line.Text));
+        Assert.True(screen.MergeIntoTheLineAbove(screen.Lines[0]));
+
+        Assert.Equal("Shoppingmilk", screen.Title);
+        Assert.Equal(["bread"], screen.Lines.Select(line => line.Text));
+        // Null for the line is the name, which has no row of its own - see NoteCaret.
+        Assert.Equal(new NoteCaret(null, "Shopping".Length), Assert.Single(carets));
     }
 
     /// <summary>
@@ -663,7 +720,7 @@ public sealed class NoteDetailScreenTests
         var copy = Assert.Single(await context.Notes.GetCopiesOfAsync(note.LocalId));
 
         var copyScreen = await context.OpenAsync(copy.LocalId);
-        copyScreen.AddLineAfter(copyScreen.Lines[^1]).Text = "bread";
+        copyScreen.AddLineAfter(copyScreen.Lines[^1])!.Text = "bread";
         await copyScreen.SaveLinesCommand.ExecuteAsync(null);
 
         Assert.False(copyScreen.IsReadOnly);
@@ -757,6 +814,9 @@ public sealed class NoteDetailScreenTests
 
         /// <summary>Whether the phone has a connection, which is what the offline refusal turns on.</summary>
         public FixedNetworkStatus Network { get; } = FixedNetworkStatus.Online;
+
+        /// <summary>The screen's clock - moved on by the tests about which typing joins one undo step.</summary>
+        public FakeTimeProvider Clock => _clock;
 
         /// <summary>
         /// A note somebody else shared in, which is the one kind the offline policy refuses - see

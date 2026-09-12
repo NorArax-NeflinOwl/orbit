@@ -122,8 +122,8 @@ little as possible:
    (`ci/verify-app-boots.mjs`). These are not the same check: nginx falls back to `index.html` for every
    path, so a client that dies on startup still answers `200`. Only loading it in a browser and waiting
    for the start screen inside `#app` to be replaced tells the two apart - `.app-boot` is what the check
-   waits to disappear, since the screen shown before Blazor starts is now a real one (the mark, the name
-   and a spinner) rather than the bare word "Loading…".
+   waits to disappear, since the screen shown before Blazor starts is now a real one (Orbit's icon inside
+   a turning ring, and the name) rather than the bare word "Loading…".
 5. **After deploying**, both revisions must report `Healthy`, and the **deployed URL must boot** - same
    script, three attempts, against the real ingress. Container Apps reports `Healthy` when nginx is
    serving, which it does whether or not the app inside the page runs.
@@ -180,9 +180,12 @@ each; leaving the page and opening a group each stop the loop; and an account th
 is explained rather than opened as an empty thread. Each was checked by removing the behaviour from
 `Chat.razor` and watching its own test go red.
 
-What it deliberately leaves out: `OnChatAnnounced`, because `LiveUpdatesConnection` raises its events
-from inside itself and nothing outside can; and the encryption, which is checked in a real browser by
-`ci/verify-browser-crypto.mjs`.
+An announcement over the live connection is delivered with `LiveUpdatesConnection.Announce`, the same
+method the hub's handlers call. The page must read at once on hearing one, without waiting for a tick,
+and must read nothing while the tab is behind others.
+
+What it deliberately leaves out: the slower pace while connected, which needs a connection that is
+really up, and the encryption, which is checked in a real browser by `ci/verify-browser-crypto.mjs`.
 
 ### The diagrams
 

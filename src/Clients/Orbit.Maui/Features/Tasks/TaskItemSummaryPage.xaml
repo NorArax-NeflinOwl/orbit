@@ -24,8 +24,8 @@
                  done and offer nothing, so the one screen about this entry was the one place it could
                  not be finished - a reader who opened it to see when something was due had to go back
                  to the list to cross it off. Orbit.Web's own entry page ticks it the same way now.
-                 The menu under the name leads to the list, and makes a copy of the entry or takes it off
-                 the list - see TaskItemSummaryPage.ShowEntryMenu. -->
+                 The menu under the name leads to the list, and makes a copy of the entry, moves it to
+                 another list or takes it off this one - see TaskItemSummaryPage.ShowEntryMenu. -->
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
                 <controls:CheckCircle Grid.Column="0" Diameter="26" Margin="0,6,0,0"
                                       VerticalOptions="Start" IsChecked="{Binding IsCompleted}"
@@ -70,6 +70,17 @@
                     <Label Grid.Column="0" Text="{controls:Translate 'Where'}"
                            Style="{StaticResource FieldLabel}" VerticalOptions="Center" />
                     <Label Grid.Column="1" Text="{Binding Where}" LineBreakMode="WordWrap"
+                           HorizontalTextAlignment="End" VerticalOptions="Center" />
+                </Grid>
+
+                <!-- When it was done, once it is - and not before, when there is no such fact. Corrected in
+                     the entry's form on its list; read here. -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" Padding="0,12" MinimumHeightRequest="46"
+                      IsVisible="{Binding IsCompleted}">
+                    <BoxView Grid.Column="0" Grid.ColumnSpan="2" Style="{StaticResource Hairline}" VerticalOptions="Start" Margin="0,-12,0,0" />
+                    <Label Grid.Column="0" Text="{controls:Translate 'Completed on'}"
+                           Style="{StaticResource FieldLabel}" VerticalOptions="Center" />
+                    <Label Grid.Column="1" Text="{Binding CompletedOn}" LineBreakMode="WordWrap"
                            HorizontalTextAlignment="End" VerticalOptions="Center" />
                 </Grid>
 

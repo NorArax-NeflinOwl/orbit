@@ -330,6 +330,21 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.Contains("Admin", FindColumn(cut, "Groups").TextContent);
     }
 
+    /// <summary>
+    /// How many messages arrived in a group since the reader last had it open, on its avatar - the same
+    /// badge Recent chats puts on a person, from ChatGroupDto.UnreadCount.
+    /// </summary>
+    [Fact]
+    public void A_group_with_messages_waiting_says_how_many_on_its_row()
+    {
+        RegisterChatApiClient([], [Group("Cooking club", 3) with { UnreadCount = 3 }, Group("Neighbours", 2)]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        var badge = Assert.Single(FindColumn(cut, "Groups").QuerySelectorAll(".notif-badge"));
+        Assert.Equal("3", badge.TextContent.Trim());
+    }
+
     [Fact]
     public void An_account_in_no_groups_gets_no_groups_column()
     {

@@ -1,0 +1,662 @@
+using System.Text.RegularExpressions;
+using Orbit.Core.Abstractions;
+
+namespace Orbit.Core.Notes;
+
+/// <summary>
+/// What each edit that changes the shape of a note's writing does to it - a new line, a merged one, a
+/// line taken away, a tick. Worked out here, on a <see cref="SurfaceState"/>, rather than in the browser
+/// on the document itself, which is where it used to be done and where the caret bugs came from: a line
+/// rebuilt in place and the caret handed to the element it replaced, a new line the caret was put in
+/// before it had anywhere to stand. The browser now reports what is on the surface and draws what comes
+/// back - see checklistTextEditor.js - and ordinary typing inside one line is still left to it.
+///
+/// A method answering null means "not this edit's business": the browser's own handling of the key is
+/// right, and it is let through.
+/// </summary>
+public static partial class NoteSurfaceEdits
+{
+    /// <summary>
+    /// Enter: the line is split at the caret and the caret goes to the start of the new line. A
+    /// checklist line carries on as a checklist - unticked - and an empty one leaves the list instead,
+    /// so pressing Enter twice ends a list rather than piling up empty boxes.
+    ///
+    /// With <paramref name="keepsIndentation"/> the new line starts where the line it came from starts
+    /// (see <see cref="IndentationOf"/>) and the caret goes after that indentation, to the start of the
+    /// line's words - so a list written with tabs stays a list when a line is added to the middle of it.
+    /// The phone asks for it: its lines are one field each, and a field cannot be told to open at a
+    /// column somebody has to type their way to. The browser does not, because a surface where every
+    /// line is visible at once shows what it inherited and Tab is right there to change it.
+    /// </summary>
+    public static SurfaceState Enter(SurfaceState state, bool keepsIndentation = false)
+    {
+        var cleared = DeleteSelection(state.Normalized(), forReplacement: true);
+        var caret = cleared.Caret;
+        var lines = cleared.Lines.ToList();
+        var line = lines[caret.Line];
+
+        if (line.IsChecklistItem && line.Text.Length == 0)
+        {
+            lines[caret.Line] = SurfaceState.EmptyLine;
+            return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, 0));
+        }
+
+        // At the head of a line with something on it, the new line opens above and the words stay
+        // where they are - with their tick. Splitting there instead would hand the words to a fresh,
+        // unticked line and leave the tick behind on an empty one. Nothing is carried down, so there
+        // is nothing for indentation to be carried onto either.
+        if (caret.Offset == 0 && line.Text.Length > 0)
+        {
+            lines.Insert(caret.Line, Unticked(line with { Text = string.Empty }));
+            return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line + 1, 0));
+        }
+
+        var indentation = keepsIndentation ? IndentationOf(line.Text) : string.Empty;
+        lines[caret.Line] = line with { Text = line.Text[..caret.Offset] };
+        lines.Insert(caret.Line + 1, Unticked(line with { Text = indentation + line.Text[caret.Offset..] }));
+        return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line + 1, indentation.Length));
+    }
+
+    /// <summary>
+    /// The whitespace a line starts with - every tab and space of it, however many levels that is. Tabs
+    /// and spaces both: a note written on a keyboard indents with one and a note written in a browser
+    /// with the other, and what a line starts with is not an opinion about which of them counts.
+    /// </summary>
+    public static string IndentationOf(string text)
+        => text[..(text.Length - text.TrimStart('\t', ' ').Length)];
+
+    /// <summary>
+    /// Backspace. Only at the head of a line, or over a selection that spans lines - inside a line the
+    /// browser's own delete is right.
+    ///
+    /// At the head of a checklist line with words on it the box goes first and the words stay, the
+    /// familiar "outdent before delete"; an empty checklist line has nothing to keep and goes whole, the
+    /// caret to the end of the line above it. A plain line joins the one above.
+    /// </summary>
+    public static SurfaceState? Backspace(SurfaceState state)
+    {
+        state = state.Normalized();
+        if (!state.IsCollapsed)
+        {
+            return SpansLines(state) ? DeleteSelection(state, forReplacement: false) : null;
+        }
+
+        var caret = state.Caret;
+        if (caret.Offset > 0)
+        {
+            return null;
+        }
+
+        var lines = state.Lines.ToList();
+        var line = lines[caret.Line];
+        if (line.IsChecklistItem)
+        {
+            if (line.Text.Length == 0)
+            {
+                return RemoveLine(lines, caret.Line);
+            }
+
+            lines[caret.Line] = Plain(line.Text);
+            return SurfaceState.CaretAt(lines, caret);
+        }
+
+        if (caret.Line == 0)
+        {
+            // Nothing above the first line to join. Answered rather than let through, so the browser
+            // does not go looking for something outside the lines to delete.
+            return state;
+        }
+
+        var previous = lines[caret.Line - 1];
+        lines[caret.Line - 1] = previous with { Text = previous.Text + line.Text };
+        lines.RemoveAt(caret.Line);
+        return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line - 1, previous.Text.Length));
+    }
+
+    /// <summary>
+    /// Delete, the mirror of <see cref="Backspace"/>: only at the end of a line, where the line below
+    /// joins this one. An empty line is taken away instead, so the line below keeps its own box.
+    /// </summary>
+    public static SurfaceState? Delete(SurfaceState state)
+    {
+        state = state.Normalized();
+        if (!state.IsCollapsed)
+        {
+            return SpansLines(state) ? DeleteSelection(state, forReplacement: false) : null;
+        }
+
+        var caret = state.Caret;
+        var lines = state.Lines.ToList();
+        var line = lines[caret.Line];
+        if (caret.Offset < line.Text.Length)
+        {
+            return null;
+        }
+
+        if (caret.Line == lines.Count - 1)
+        {
+            return state;
+        }
+
+        if (line.Text.Length == 0)
+        {
+            lines.RemoveAt(caret.Line);
+            return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, 0));
+        }
+
+        lines[caret.Line] = line with { Text = line.Text + lines[caret.Line + 1].Text };
+        lines.RemoveAt(caret.Line + 1);
+        return SurfaceState.CaretAt(lines, caret);
+    }
+
+    /// <summary>
+    /// Takes the selection away. Whole lines are taken whole - box and all - and the caret goes to the
+    /// end of the line above them, or to the start of the one below when they were the first; that is
+    /// where somebody who deleted a line expects to go on writing. A selection that starts or ends part
+    /// way through a line joins what is left of the two ends into the first one.
+    ///
+    /// forReplacement is for an edit that goes on to write something where the selection was - typing
+    /// over it, a paste, Enter. Whole lines then leave one empty line behind to write on, rather than
+    /// sending the words to the end of the line above.
+    /// </summary>
+    public static SurfaceState DeleteSelection(SurfaceState state, bool forReplacement = false)
+    {
+        state = state.Normalized();
+        if (state.IsCollapsed)
+        {
+            return state;
+        }
+
+        var (start, end) = (state.Start, state.End);
+        var lines = state.Lines.ToList();
+        if (CoversWholeLines(state) is { } last)
+        {
+            lines.RemoveRange(start.Line, last - start.Line + 1);
+            if (forReplacement)
+            {
+                lines.Insert(start.Line, SurfaceState.EmptyLine);
+                return SurfaceState.CaretAt(lines, new SurfacePoint(start.Line, 0));
+            }
+
+            return CaretAfterRemoval(lines, start.Line);
+        }
+
+        var first = lines[start.Line];
+        var tail = lines[end.Line].Text[end.Offset..];
+        lines.RemoveRange(start.Line + 1, end.Line - start.Line);
+        lines[start.Line] = first with { Text = first.Text[..start.Offset] + tail };
+        return SurfaceState.CaretAt(lines, start);
+    }
+
+    /// <summary>
+    /// Writes text where the selection is. Used for typing over a selection that spans lines, which the
+    /// browser would do by gluing the lines' elements together and losing their boxes, and for a paste,
+    /// which the browser put at the start of the line rather than at the caret. Text with line breaks in
+    /// it becomes that many lines, the caret at the end of what was written.
+    ///
+    /// With readsMarkers - a paste - a line of it that starts the way a typed checklist line starts
+    /// ("[]", "[ ]") becomes a box, and so do the two ways a box is written out: "[x]" ticked, and the
+    /// "- " bullet this surface copies one as (see onCopy in checklistTextEditor.js), so a checklist
+    /// copied out and pasted back is a checklist again. Only a line the paste starts is read that way:
+    /// words pasted into the middle of a line, or onto a box that is already there, are words.
+    /// </summary>
+    public static SurfaceState Replace(SurfaceState state, string text, bool readsMarkers)
+    {
+        var cleared = DeleteSelection(state.Normalized(), forReplacement: true);
+        var caret = cleared.Caret;
+        var lines = cleared.Lines.ToList();
+        var line = lines[caret.Line];
+        var before = line.Text[..caret.Offset];
+        var after = line.Text[caret.Offset..];
+        var written = LinesOf(text);
+        var startsALine = readsMarkers && caret.Offset == 0 && !line.IsChecklistItem;
+
+        if (written.Count == 1)
+        {
+            if (startsALine && Read(written[0]) is { IsChecklistItem: true } box)
+            {
+                lines[caret.Line] = box with { Text = box.Text + after };
+                return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, box.Text.Length));
+            }
+
+            lines[caret.Line] = line with { Text = before + written[0] + after };
+            return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, caret.Offset + written[0].Length));
+        }
+
+        var replacement = new List<NoteContentLine>
+        {
+            startsALine ? Read(written[0]) : line with { Text = before + written[0] }
+        };
+        replacement.AddRange(written.Skip(1).SkipLast(1).Select(pasted => readsMarkers ? Read(pasted) : Plain(pasted)));
+        var last = readsMarkers ? Read(written[^1]) : Plain(written[^1]);
+        replacement.Add(last with { Text = last.Text + after });
+
+        lines.RemoveAt(caret.Line);
+        lines.InsertRange(caret.Line, replacement);
+        return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line + replacement.Count - 1, last.Text.Length));
+    }
+
+    /// <summary>A pasted line read the way <see cref="Replace"/> describes.</summary>
+    private static NoteContentLine Read(string pasted)
+    {
+        var tick = PastedTick().Match(pasted);
+        if (tick.Success)
+        {
+            var isTicked = tick.Groups["mark"].Value is "x" or "X";
+            return new NoteContentLine(pasted[tick.Length..], IsChecklistItem: true, IsChecked: isTicked);
+        }
+
+        var bullet = PastedBullet().Match(pasted);
+        return bullet.Success
+            ? new NoteContentLine(pasted[bullet.Length..], IsChecklistItem: true, IsChecked: false)
+            : Plain(pasted);
+    }
+
+    /// <summary>The typed marker, plus "[x]" for a box that arrives already ticked.</summary>
+    [GeneratedRegex(@"^\[(?<mark>[ \txX]?)\][ \t]?")]
+    private static partial Regex PastedTick();
+
+    /// <summary>"- " as this surface copies a box out - a bare "-" too, which is an empty one.</summary>
+    [GeneratedRegex(@"^-(?:[ \t]|$)")]
+    private static partial Regex PastedBullet();
+
+    /// <summary>
+    /// One line of pasted text read the way <see cref="Replace"/> reads a line a paste starts: "[]",
+    /// "[ ]" and "- " make a box, "[x]" a ticked one, anything else is words. For the phone, whose fields
+    /// report only the text a paste left behind rather than the paste itself - see NoteDetailViewModel.
+    /// </summary>
+    public static NoteContentLine ReadPastedLine(string pasted) => Read(pasted);
+
+    /// <summary>
+    /// How many characters of <paramref name="text"/> are the typed checklist mark it starts with - "[]"
+    /// or "[ ]" and one space after either, the rule <see cref="ReadTypedMarker"/> follows - or 0 when it
+    /// starts with none. For the phone, which reads the mark after a line's indentation.
+    /// </summary>
+    public static int TypedMarkerLength(string text)
+    {
+        var marker = TypedTick().Match(text);
+        return marker.Success ? marker.Length : 0;
+    }
+
+    /// <summary>
+    /// After something was typed: a plain line that now starts "[]" (or "[ ]") becomes a tick box, and
+    /// the marker is eaten. The phone's note screen has had exactly this rule and no toolbar at all -
+    /// see NoteDetailPage. The caret stays where it was in the words, which is two characters further
+    /// left now the marker has gone.
+    /// </summary>
+    public static SurfaceState? ReadTypedMarker(SurfaceState state)
+    {
+        state = state.Normalized();
+        if (!state.IsCollapsed)
+        {
+            return null;
+        }
+
+        var caret = state.Caret;
+        var line = state.Lines[caret.Line];
+        var marker = TypedTick().Match(line.Text);
+        if (line.IsChecklistItem || !marker.Success)
+        {
+            return null;
+        }
+
+        var lines = state.Lines.ToList();
+        lines[caret.Line] = new NoteContentLine(line.Text[marker.Length..], IsChecklistItem: true, IsChecked: false);
+        return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, Math.Max(0, caret.Offset - marker.Length)));
+    }
+
+    /// <summary>
+    /// The toolbar's tick box: an empty plain line becomes a checklist line, and anything else gets a new
+    /// checklist line under it - the caret in the box's line either way, ready for its words.
+    /// </summary>
+    public static SurfaceState StartChecklistItem(SurfaceState state)
+    {
+        state = state.Normalized();
+        var caret = state.Caret;
+        var lines = state.Lines.ToList();
+        var line = lines[caret.Line];
+        var unticked = new NoteContentLine(string.Empty, IsChecklistItem: true, IsChecked: false);
+
+        if (!line.IsChecklistItem && line.Text.Length == 0)
+        {
+            lines[caret.Line] = unticked;
+            return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, 0));
+        }
+
+        lines.Insert(caret.Line + 1, unticked);
+        return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line + 1, 0));
+    }
+
+    /// <summary>
+    /// One level of indentation: a tab character, not spaces. It is stored in the line's text as it is -
+    /// there is no separate indentation field - so it reads the same wherever the text goes: the writing
+    /// surface and the note's own page both keep whitespace (white-space: pre-wrap) and draw a tab four
+    /// characters wide (tab-size), and a note copied out carries a tab any editor reads as one level.
+    /// On a checklist line it is part of the words, so it indents them after the box.
+    /// </summary>
+    public const string Indentation = "\t";
+
+    /// <summary>
+    /// How many leading spaces Shift+Tab takes away when a line was indented with spaces rather than a
+    /// tab - text pasted from elsewhere usually is.
+    /// </summary>
+    public const int SpacesPerIndentation = 4;
+
+    /// <summary>
+    /// Tab: a level of indentation at the caret, in place of a selection inside one line. Over a
+    /// selection that spans lines, every line it covers is indented at its start instead - what a code
+    /// editor does, and the only reading of "indent these" that does not throw the lines away. The lines
+    /// stay selected, so a second Tab indents them again.
+    /// </summary>
+    public static SurfaceState Indent(SurfaceState state)
+    {
+        state = state.Normalized();
+        if (!SpansLines(state))
+        {
+            return Replace(state, Indentation, readsMarkers: false);
+        }
+
+        var (first, last) = state.SelectedLines;
+        var lines = state.Lines.ToList();
+        for (var index = first; index <= last; index++)
+        {
+            lines[index] = lines[index] with { Text = Indentation + lines[index].Text };
+        }
+
+        // A point at the head of a line stays there, so the new level is inside the selection.
+        SurfacePoint Shifted(SurfacePoint point)
+            => point.Line >= first && point.Line <= last && point.Offset > 0
+                ? point with { Offset = point.Offset + Indentation.Length }
+                : point;
+
+        return new SurfaceState(lines, Shifted(state.Anchor), Shifted(state.Focus));
+    }
+
+    /// <summary>
+    /// Shift+Tab: one level less at the start of the caret's line - wherever in the line the caret is -
+    /// or of every line a selection covers. A level is a tab, or up to <see cref="SpacesPerIndentation"/>
+    /// spaces; a line with neither is left alone.
+    /// </summary>
+    public static SurfaceState Outdent(SurfaceState state)
+    {
+        state = state.Normalized();
+        var (first, last) = state.SelectedLines;
+        var lines = state.Lines.ToList();
+        var removed = new int[lines.Count];
+        for (var index = first; index <= last; index++)
+        {
+            removed[index] = LeadingIndentationLength(lines[index].Text);
+            lines[index] = lines[index] with { Text = lines[index].Text[removed[index]..] };
+        }
+
+        SurfacePoint Shifted(SurfacePoint point)
+            => point with { Offset = Math.Max(0, point.Offset - removed[point.Line]) };
+
+        return new SurfaceState(lines, Shifted(state.Anchor), Shifted(state.Focus));
+    }
+
+    private static int LeadingIndentationLength(string text)
+    {
+        if (text.StartsWith(Indentation, StringComparison.Ordinal))
+        {
+            return Indentation.Length;
+        }
+
+        var spaces = 0;
+        while (spaces < SpacesPerIndentation && spaces < text.Length && text[spaces] == ' ')
+        {
+            spaces++;
+        }
+
+        return spaces;
+    }
+
+    /// <summary>
+    /// A press on a line's box: the next of its three answers (see <see cref="Ticks.Next"/>). When the
+    /// line is one of several checklist lines inside the selection (see
+    /// <see cref="SelectedChecklistLines"/>), every one of them takes that same answer - the pressed line
+    /// decides, so a mixed set ends up all alike rather than each stepping on from where it was. A box
+    /// outside the selection answers only for itself. The selection stays as it was - pressing a box is
+    /// not moving the caret - so a second press carries on with the same lines.
+    /// </summary>
+    public static SurfaceState? Cycle(SurfaceState state, int pressedLine)
+    {
+        state = state.Normalized();
+        return Cycle(state.Lines, pressedLine, SelectedChecklistLines(state)) is { } lines
+            ? state with { Lines = lines }
+            : null;
+    }
+
+    /// <summary>
+    /// The same press, for boxes chosen some other way than by a selection of text - the phone marks
+    /// them one at a time, and they need not stand next to each other. <paramref name="together"/> are
+    /// the chosen lines: when the pressed line is one of two or more chosen boxes, every chosen box takes
+    /// the pressed box's next answer, and otherwise the pressed box answers alone. Null when the pressed
+    /// line has no box.
+    /// </summary>
+    public static IReadOnlyList<NoteContentLine>? Cycle(
+        IReadOnlyList<NoteContentLine> lines, int pressedLine, IReadOnlyCollection<int> together)
+    {
+        if (pressedLine < 0 || pressedLine >= lines.Count || !lines[pressedLine].IsChecklistItem)
+        {
+            return null;
+        }
+
+        var pressed = lines[pressedLine];
+        var next = Ticks.Read(pressed.IsChecked, pressed.IsFailed).Next();
+        var chosen = together.Where(index => index >= 0 && index < lines.Count && lines[index].IsChecklistItem).ToList();
+        IEnumerable<int> answering = chosen.Count >= 2 && chosen.Contains(pressedLine) ? chosen : [pressedLine];
+
+        var result = lines.ToList();
+        foreach (var index in answering)
+        {
+            result[index] = result[index] with { IsChecked = next.IsCompleted(), IsFailed = next.IsFailed() };
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// The checklist lines a selection covers, when there are at least two of them - which is when a
+    /// press on one of their boxes answers for all of them, and when the surface rings those boxes to
+    /// say so. One box on its own is just a line with the caret in it, and a collapsed caret selects
+    /// nothing.
+    /// </summary>
+    public static IReadOnlyList<int> SelectedChecklistLines(SurfaceState state)
+    {
+        state = state.Normalized();
+        if (state.IsCollapsed)
+        {
+            return [];
+        }
+
+        var (first, last) = state.SelectedLines;
+        var checklist = Enumerable.Range(first, last - first + 1)
+            .Where(index => state.Lines[index].IsChecklistItem)
+            .ToList();
+        return checklist.Count >= 2 ? checklist : [];
+    }
+
+    /// <summary>
+    /// A drag of the selection, dropped at <paramref name="to"/>: the selected writing is taken away and
+    /// put in there - or, with <paramref name="copies"/>, put in there and left where it was too - as one
+    /// edit, so one Ctrl+Z puts it all back. The browser's own drag glued two lines' elements together
+    /// when the selection spanned lines; this keeps every line a line.
+    ///
+    /// Whole lines (the rule <see cref="DeleteSelection"/> takes whole) go whole, box and tick and all,
+    /// and land between lines: before the line dropped on when the drop is at its head, after it
+    /// otherwise - a line dropped into the middle of a sentence has no better place to go. Anything
+    /// else goes in at the point as writing does: the first line joins the words before the point and
+    /// the words after the point join the last. A line of the selection keeps its box when its head was
+    /// selected. The moved writing is selected afterwards, which is what the browser does with a drop.
+    ///
+    /// Null when there is nothing to move, or the drop is inside the selection itself - there is
+    /// nowhere for it to go.
+    /// </summary>
+    public static SurfaceState? Drag(SurfaceState state, SurfacePoint to, bool copies)
+    {
+        state = state.Normalized();
+        to = SurfaceState.CaretAt(state.Lines, to).Normalized().Caret;
+        var (start, end) = (state.Start, state.End);
+        if (state.IsCollapsed || (to.CompareTo(start) >= 0 && to.CompareTo(end) <= 0))
+        {
+            return null;
+        }
+
+        var wholeLinesTo = CoversWholeLines(state);
+        var moved = wholeLinesTo is { } last
+            ? state.Lines.Skip(start.Line).Take(last - start.Line + 1).ToList()
+            : SelectedFragment(state);
+
+        var lines = copies ? state.Lines.ToList() : DeleteSelection(state).Lines.ToList();
+        var at = copies ? to : WhereAfterRemoval(state, to, wholeLinesTo);
+        return wholeLinesTo is null ? InsertFragment(lines, at, moved) : InsertLines(lines, at, moved);
+    }
+
+    /// <summary>
+    /// Text dragged in from somewhere else - another page, another program - dropped at
+    /// <paramref name="to"/>. Read the way a paste is (see <see cref="Replace"/>), and selected afterwards
+    /// the way a drop is.
+    /// </summary>
+    public static SurfaceState Drop(SurfaceState state, SurfacePoint to, string text, bool readsMarkers)
+    {
+        var at = SurfaceState.CaretAt(state.Normalized().Lines, to).Normalized();
+        var after = Replace(at, text, readsMarkers);
+        return new SurfaceState(after.Lines, at.Caret, after.Caret);
+    }
+
+    /// <summary>
+    /// The selection as lines of its own, for a selection that does not take whole lines: the tail of the
+    /// first line, every line between, and the head of the last. The first keeps its box only when it was
+    /// selected from its head; the others always were. A selection ending at the head of a line brings
+    /// the line break and nothing of that line.
+    /// </summary>
+    private static List<NoteContentLine> SelectedFragment(SurfaceState state)
+    {
+        var (start, end) = (state.Start, state.End);
+        var first = state.Lines[start.Line];
+        if (start.Line == end.Line)
+        {
+            return [Plain(first.Text[start.Offset..end.Offset])];
+        }
+
+        var fragment = new List<NoteContentLine>
+        {
+            start.Offset == 0 ? first : Plain(first.Text[start.Offset..])
+        };
+        fragment.AddRange(state.Lines.Skip(start.Line + 1).Take(end.Line - start.Line - 1));
+        var lastLine = state.Lines[end.Line];
+        fragment.Add(end.Offset == 0 ? SurfaceState.EmptyLine : lastLine with { Text = lastLine.Text[..end.Offset] });
+        return fragment;
+    }
+
+    /// <summary>
+    /// Where a point after the selection stands once <see cref="DeleteSelection"/> has taken the selection
+    /// away. A point before it does not move.
+    /// </summary>
+    private static SurfacePoint WhereAfterRemoval(SurfaceState state, SurfacePoint point, int? wholeLinesTo)
+    {
+        var (start, end) = (state.Start, state.End);
+        if (point.CompareTo(start) < 0)
+        {
+            return point;
+        }
+
+        if (wholeLinesTo is { } last)
+        {
+            return point with { Line = point.Line - (last - start.Line + 1) };
+        }
+
+        return point.Line == end.Line
+            ? new SurfacePoint(start.Line, start.Offset + point.Offset - end.Offset)
+            : point with { Line = point.Line - (end.Line - start.Line) };
+    }
+
+    /// <summary>Whole lines put in between lines - see <see cref="Drag"/> for which side of the line dropped on.</summary>
+    private static SurfaceState InsertLines(List<NoteContentLine> lines, SurfacePoint at, List<NoteContentLine> moved)
+    {
+        var index = at.Offset == 0 ? at.Line : at.Line + 1;
+        lines.InsertRange(index, moved);
+        return new SurfaceState(lines, new SurfacePoint(index, 0), new SurfacePoint(index + moved.Count - 1, moved[^1].Text.Length));
+    }
+
+    /// <summary>
+    /// Part-lines put in at a point as writing is. At the head of a plain line the first of them brings
+    /// its own box; anywhere else it joins the line it lands in and takes that line's box.
+    /// </summary>
+    private static SurfaceState InsertFragment(List<NoteContentLine> lines, SurfacePoint at, List<NoteContentLine> moved)
+    {
+        var line = lines[at.Line];
+        var before = line.Text[..at.Offset];
+        var after = line.Text[at.Offset..];
+        if (moved.Count == 1)
+        {
+            lines[at.Line] = line with { Text = before + moved[0].Text + after };
+            return new SurfaceState(lines, at, at with { Offset = at.Offset + moved[0].Text.Length });
+        }
+
+        var replacement = new List<NoteContentLine>
+        {
+            at.Offset == 0 && !line.IsChecklistItem ? moved[0] : line with { Text = before + moved[0].Text }
+        };
+        replacement.AddRange(moved.Skip(1).SkipLast(1));
+        replacement.Add(moved[^1] with { Text = moved[^1].Text + after });
+
+        lines.RemoveAt(at.Line);
+        lines.InsertRange(at.Line, replacement);
+        return new SurfaceState(lines, at, new SurfacePoint(at.Line + moved.Count - 1, moved[^1].Text.Length));
+    }
+
+    private static bool SpansLines(SurfaceState state) => state.Start.Line != state.End.Line;
+
+    /// <summary>
+    /// The last line a multi-line selection takes whole, when it takes whole lines: it starts at the head
+    /// of one and ends at the head of a later one, or at the end of the last. Null for a selection that
+    /// begins or ends inside words.
+    /// </summary>
+    private static int? CoversWholeLines(SurfaceState state)
+    {
+        var (start, end) = (state.Start, state.End);
+        if (start.Line == end.Line || start.Offset != 0)
+        {
+            return null;
+        }
+
+        if (end.Offset == 0)
+        {
+            return end.Line - 1;
+        }
+
+        return end.Offset == state.Lines[end.Line].Text.Length ? end.Line : null;
+    }
+
+    private static SurfaceState RemoveLine(List<NoteContentLine> lines, int index)
+    {
+        lines.RemoveAt(index);
+        return CaretAfterRemoval(lines, index);
+    }
+
+    /// <summary>The end of the line above what went, or the start of the first line when nothing was above it.</summary>
+    private static SurfaceState CaretAfterRemoval(List<NoteContentLine> lines, int removedAt)
+    {
+        if (lines.Count == 0)
+        {
+            lines.Add(SurfaceState.EmptyLine);
+        }
+
+        return removedAt > 0
+            ? SurfaceState.CaretAt(lines, new SurfacePoint(removedAt - 1, lines[removedAt - 1].Text.Length))
+            : SurfaceState.CaretAt(lines, new SurfacePoint(0, 0));
+    }
+
+    private static IReadOnlyList<string> LinesOf(string text)
+        => text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+
+    private static NoteContentLine Plain(string text) => new(text, IsChecklistItem: false, IsChecked: false);
+
+    private static NoteContentLine Unticked(NoteContentLine line) => line with { IsChecked = false, IsFailed = false };
+
+    /// <summary>What typing at the head of a line turns into a box - the rule the phone has always had.</summary>
+    [GeneratedRegex(@"^\[[ \t]?\][ \t]?")]
+    private static partial Regex TypedTick();
+}

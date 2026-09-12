@@ -1,5 +1,6 @@
 using Orbit.Core;
 using Orbit.Core.Abstractions;
+using Orbit.Core.Tags;
 
 namespace Orbit.Core.Notes;
 
@@ -49,6 +50,14 @@ public sealed class Note
 
     /// <summary>How much this note matters, for sorting and for filtering a crowded page. See <see cref="ItemPriority"/>.</summary>
     public ItemPriority Priority { get; private set; }
+
+    /// <summary>
+    /// The words this note is tagged with, in the order they were given - see <see cref="TagNames"/> for
+    /// how they are tidied, and <see cref="TagColour"/> for the colour each is drawn in. Empty for a
+    /// private note: its tags are sealed with the rest of it, since a readable tag beside a sealed title
+    /// would say in the open what the title was sealed to hide.
+    /// </summary>
+    public IReadOnlyList<string> Tags { get; private set; } = [];
 
     /// <summary>
     /// The folder its owner filed it under, or null for one they have not filed anywhere - which is not
@@ -113,17 +122,20 @@ public sealed class Note
     public static Note Create(
         Guid userId, string title, IReadOnlyList<NoteContentLine> content, bool isPrivate = false,
         EncryptedPayload? encryptedContent = null, bool isPinned = false, ItemPriority priority = ItemPriority.Normal,
-        Guid? folderId = null)
+        Guid? folderId = null, IReadOnlyList<string>? tags = null)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         EnsureSomethingToRead(title, content, isPrivate);
         StoredTextLimits.OrRefuse(title, StoredTextLimits.Title, "note's title");
+        var tidyTags = TagNames.Tidy(tags);
+        TagNames.OrRefuse(tidyTags, "note's tag");
         var now = DateTimeOffset.UtcNow;
         return new Note(
             Guid.NewGuid(), userId, title, content, isPrivate, encryptedContent, now, now,
             lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null, isPinned, priority)
         {
-            FolderId = folderId
+            FolderId = folderId,
+            Tags = isPrivate ? [] : tidyTags
         };
     }
 
@@ -132,11 +144,12 @@ public sealed class Note
         Guid id, Guid userId, string title, IReadOnlyList<NoteContentLine> content, bool isPrivate, EncryptedPayload? encryptedContent,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc, bool isPinned = false,
-        ItemPriority priority = ItemPriority.Normal, Guid? folderId = null)
+        ItemPriority priority = ItemPriority.Normal, Guid? folderId = null, IReadOnlyList<string>? tags = null)
         => new(id, userId, title, content, isPrivate, encryptedContent, createdAtUtc, updatedAtUtc,
             lockedByUserId, lockedByUserName, lockExpiresAtUtc, isPinned, priority)
         {
-            FolderId = folderId
+            FolderId = folderId,
+            Tags = TagNames.Tidy(tags)
         };
 
     /// <summary>
@@ -192,14 +205,31 @@ public sealed class Note
     /// side had exactly this shape and three callers that left the priority out, and a list marked High
     /// dropped back to Normal every time the inventory appended an errand to it.
     /// </summary>
+    /// <param name="tags">
+    /// The one parameter with a default, because its default resets nothing: null means "not provided"
+    /// and keeps the stored tags, which is what a client written before tags existed sends.
+    /// </param>
     public void Update(
         string title, IReadOnlyList<NoteContentLine> content, bool isPrivate, EncryptedPayload? encryptedContent,
-        ItemPriority priority)
+        ItemPriority priority, IReadOnlyList<string>? tags = null)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         EnsureSomethingToRead(title, content, isPrivate);
         StoredTextLimits.OrRefuse(title, StoredTextLimits.Title, "note's title");
         (Title, Content, IsPrivate, EncryptedContent) = ReadableOrSealed(title, content, isPrivate, encryptedContent);
+        if (tags is not null)
+        {
+            var tidyTags = TagNames.Tidy(tags);
+            TagNames.OrRefuse(tidyTags, "note's tag");
+            Tags = tidyTags;
+        }
+
+        // Sealed with the title, so a private note keeps no readable tag here - see Tags.
+        if (IsPrivate)
+        {
+            Tags = [];
+        }
+
         Priority = priority;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }

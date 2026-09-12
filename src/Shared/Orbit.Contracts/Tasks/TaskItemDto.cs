@@ -80,8 +80,72 @@ public sealed record TaskItemDto(
     /// takes. Null means "not provided" like Priority above; an empty string means "no colour of its
     /// own", which every screen reads as "whatever this kind is drawn in".
     /// </summary>
-    string? Colour = null)
+    string? Colour = null,
+    /// <summary>
+    /// The ways this entry can be got done, any one of which is enough - see
+    /// Orbit.Core.Tasks.TaskItem.Alternatives. Null or empty for an ordinary entry. While it holds any,
+    /// <see cref="IsCompleted"/> is theirs rather than the entry's own: true exactly when one is done.
+    /// </summary>
+    IReadOnlyList<TaskItemAlternativeDto>? Alternatives = null,
+    /// <summary>
+    /// The entry this one is the same thing as - see Orbit.Core.Tasks.TaskItem.ReferencesTaskItemId.
+    /// Always the group's source. Null for an entry of its own.
+    /// </summary>
+    Guid? ReferencesTaskItemId = null,
+    /// <summary>How much of its product this entry needs - see Orbit.Core.Tasks.TaskItem.RequiredQuantity.</summary>
+    decimal? RequiredQuantity = null,
+    /// <summary>
+    /// When this entry was ticked off - see Orbit.Core.Tasks.TaskItem.CompletedAtUtc. Null for an entry
+    /// that is not done, and for one ticked before the time was kept. Sealed with the rest of the entry
+    /// on a private list, which is the only place such a list keeps it.
+    /// </summary>
+    DateTimeOffset? CompletedAtUtc = null)
 {
+    /// <summary>The ways as something to read without a null check - see <see cref="Alternatives"/>.</summary>
+    public IReadOnlyList<TaskItemAlternativeDto> AllAlternatives => Alternatives ?? [];
+
+    /// <summary>
+    /// An entry as a save sends it, kept where no server reads it - inside a private list's sealed payload
+    /// (see Orbit.Web's TasksApiClient.SealIfPrivateAsync), where every field has to travel or it is gone.
+    ///
+    /// The other half of <see cref="TaskItemRequest.From"/>, and here for the same reason: the sealing used
+    /// to list the fields by hand, and every one added after it was written - the kind, the place, both
+    /// links, the categories, the product, the description, the cross, the steps, the look - was silently
+    /// dropped from every private list saved in a browser. One mapping means a field added later is carried.
+    /// </summary>
+    /// <param name="id">The entry's id - its own, or one minted for an entry that has never been saved.</param>
+    public static TaskItemDto From(TaskItemRequest item, Guid id)
+        => new(
+            id,
+            item.Description,
+            item.DueDateUtc,
+            item.IsCompleted,
+            // Written into the new field only: the single one carries just the first list, and a private
+            // list would quietly lose the rest.
+            LinkedTaskListId: null,
+            item.OverdueNotificationChannel,
+            item.RemindDaily,
+            item.DailyReminderNotificationChannel,
+            item.DailyReminderTimeOfDay,
+            item.Kind,
+            item.Location,
+            item.LinkedCalendarEventId,
+            item.LinkedInventoryItemId,
+            item.AllLinkedTaskListIds,
+            item.Categories,
+            item.Product,
+            item.Notes,
+            item.IsFailed,
+            item.WaitsForTaskItemIds,
+            item.Priority,
+            item.Colour,
+            item.Alternatives,
+            item.ReferencesTaskItemId,
+            item.RequiredQuantity,
+            // Nobody else keeps a private entry's time - the server never sees the entry - so it is
+            // sealed as the client holds it, and cleared for one that is not done.
+            item.IsCompleted ? item.CompletedAtUtc : null);
+
     /// <summary>
     /// Whichever shape the sender used, read as one. Needed on the way in as well as the way out: a
     /// client written before an entry could name several lists sends only the single field.

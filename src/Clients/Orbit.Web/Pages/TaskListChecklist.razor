@@ -206,6 +206,10 @@ else
                         <button type="button" class="btn-secondary" @onclick="() => _waitingOn = null">@T["OK"]</button>
                     </div>
                 }
+                @if (_askedAboutWays == entry.Item.Id)
+                {
+                    @WaysAsked(entry.Section.TaskList, entry.Item)
+                }
             }
         </div>
     }
@@ -268,7 +272,12 @@ else
                                 }
                             </span>
                         }
-                        @if (item.AllLinkedTaskListIds.Count > 0)
+                        @* An entry done by ways says which way it was done, or which it can be. *@
+                        @if (item.AllAlternatives.Count > 0)
+                        {
+                            <span class="row-meta">@WaysSummary(item)</span>
+                        }
+                        else if (item.AllLinkedTaskListIds.Count > 0)
                         {
                             @* Every list it stands for, named: "follows Kitchen, Bathroom" says what
                                the row is waiting on, where "follows another list" says only that it is
@@ -311,6 +320,10 @@ else
                             }
                             <button type="button" class="btn-secondary" @onclick="() => _askedAbout = null">@T["No"]</button>
                         </div>
+                    }
+                    @if (_askedAboutWays == item.Id)
+                    {
+                        @WaysAsked(section.TaskList, item)
                     }
                 }
             }
@@ -575,9 +588,67 @@ else
     private void AskAboutTheListsBehind(TaskItemDto item)
         => _askedAbout = item.AllLinkedTaskListIds.Count > 0 ? item.Id : null;
 
+    /// <summary>The entry whose ways are being offered right now, if any - see WaysAsked.</summary>
+    private Guid? _askedAboutWays;
+
+    /// <summary>
+    /// What a press on an entry done by ways answers with, under its row for the reason the lists above
+    /// are: it is about this line. A line of its own is taken, or taken back, right here; a way that is a
+    /// list is done on that list, so it offers to go there. See TaskItem.Alternatives.
+    /// </summary>
+    private RenderFragment WaysAsked(TaskDto taskList, TaskItemDto item) =>
+        @<div class="check-row-asks">
+            <span>@T["Done as soon as any one of these is:"]</span>
+            @foreach (var (way, index) in item.AllAlternatives.Select((way, index) => (way, index)))
+            {
+                if (way.LinkedTaskListId is { } wayListId)
+                {
+                    <button type="button" class="btn-secondary"
+                            @onclick="() => GoToLinkedList(wayListId)">@T.Format("Open {0}", WayTitle(way))</button>
+                }
+                else
+                {
+                    <button type="button" class="btn-secondary @(way.IsDone ? "chosen" : "")"
+                            aria-pressed="@(way.IsDone ? "true" : "false")"
+                            @onclick="() => TakeWayAsync(taskList, item, index, !way.IsDone)">@Written(way.Description)</button>
+                }
+            }
+            <button type="button" class="btn-secondary" @onclick="() => _askedAboutWays = null">@T["Cancel"]</button>
+        </div>;
+
+    /// <summary>What a way is called: its own words, or its list's title when it says nothing else.</summary>
+    private string WayTitle(TaskItemAlternativeDto way)
+        => way.Description.Length > 0
+            ? Written(way.Description)
+            : way.LinkedTaskListId is { } wayListId ? LinkedTaskListTitle(wayListId) : string.Empty;
+
+    /// <summary>What an entry done by ways says beside it: the way it was done, or the ones it can be.</summary>
+    private string WaysSummary(TaskItemDto item)
+        => item.AllAlternatives.FirstOrDefault(way => way.IsDone) is { } taken
+            ? T.Format("done: {0}", WayTitle(taken))
+            : T.Format("any one of: {0}", string.Join(", ", item.AllAlternatives.Select(WayTitle)));
+
+    /// <summary>
+    /// Takes one of an entry's ways, or takes it back, and reads the list again - the entry's own tick
+    /// follows from its ways on the server, the way a linked entry's follows its lists.
+    /// </summary>
+    private async Task TakeWayAsync(TaskDto taskList, TaskItemDto item, int wayIndex, bool isDone)
+    {
+        _askedAboutWays = null;
+        _errorMessage = null;
+        if (await TaskItemCompletion.TakeWayAsync(taskList, item, wayIndex, isDone) == TaskItemTickOutcome.SignedOut)
+        {
+            return;
+        }
+
+        _errorMessage = TaskItemCompletion.FailureMessage;
+        await LoadAsync();
+    }
+
     private void GoToLinkedList(Guid linkedTaskListId)
     {
         _askedAbout = null;
+        _askedAboutWays = null;
         Logger.LogInformation("User opened linked task list {LinkedTaskListId} from a checklist", linkedTaskListId);
         NavigationManager.NavigateTo($"/tasks/{linkedTaskListId}");
     }
@@ -782,6 +853,13 @@ else
     /// </summary>
     private Task PressAsync(TaskDto taskList, TaskItemDto item, TickState state)
     {
+        // An entry done by ways is not ticked either: the press offers the ways - see WaysAsked.
+        if (item.AllAlternatives.Count > 0)
+        {
+            _askedAboutWays = item.Id;
+            return Task.CompletedTask;
+        }
+
         if (item.AllLinkedTaskListIds.Count > 0)
         {
             AskAboutTheListsBehind(item);

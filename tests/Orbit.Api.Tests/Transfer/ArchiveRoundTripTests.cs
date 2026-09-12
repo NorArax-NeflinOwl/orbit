@@ -98,6 +98,63 @@ public sealed class ArchiveRoundTripTests
         Assert.Equal(["shopping", "weekly"], Assert.Single(taskList.Items).Categories);
     }
 
+    /// <summary>
+    /// And when it was done: an archive that brought the tick back without its time would put every
+    /// finished entry at "not recorded" - or, worse, at the moment of the import.
+    /// </summary>
+    [Fact]
+    public async Task When_an_entry_was_done_comes_back_with_it()
+    {
+        var source = new ArchiveTestContext();
+        var doneAt = new DateTimeOffset(2026, 9, 1, 8, 30, 0, TimeSpan.Zero);
+        await source.AddDoneTaskListAsync("Errands", "Buy milk", doneAt);
+        var archive = await source.ExportAsync();
+
+        var destination = new ArchiveTestContext();
+        await destination.ImportAsync(archive);
+
+        var entry = Assert.Single(Assert.Single(await destination.OwnTaskListsAsync()).Items);
+        Assert.True(entry.IsCompleted);
+        Assert.Equal(doneAt, entry.CompletedAtUtc);
+    }
+
+    /// <summary>
+    /// Tags come back on what carried them, and the colours the account gave them come back with them - a
+    /// file that restored the words but not their colours would restore every card plain.
+    /// </summary>
+    [Fact]
+    public async Task Tags_and_their_colours_come_back()
+    {
+        var source = new ArchiveTestContext();
+        await source.AddTaggedTaskListAsync("Errands", ["work", "weekly"]);
+        await source.ColourTagAsync("work", "#aa3355");
+        var archive = await source.ExportAsync();
+
+        var destination = new ArchiveTestContext();
+        await destination.ImportAsync(archive);
+
+        Assert.Equal(["work", "weekly"], Assert.Single(await destination.OwnTaskListsAsync()).Tags);
+        Assert.Equal(new Orbit.Core.Tags.TagColour("work", "#aa3355"), Assert.Single(await destination.TagColoursAsync()));
+    }
+
+    /// <summary>
+    /// And an import never overwrites: a tag this account has coloured since the file was written keeps
+    /// the colour chosen here.
+    /// </summary>
+    [Fact]
+    public async Task An_imported_colour_does_not_replace_one_chosen_since()
+    {
+        var source = new ArchiveTestContext();
+        await source.ColourTagAsync("work", "#aa3355");
+        var archive = await source.ExportAsync();
+
+        var destination = new ArchiveTestContext();
+        await destination.ColourTagAsync("Work", "#113355");
+        await destination.ImportAsync(archive);
+
+        Assert.Equal("#113355", Assert.Single(await destination.TagColoursAsync()).Colour);
+    }
+
     [Fact]
     public async Task A_link_between_two_task_lists_is_rebuilt_against_the_new_ones()
     {
@@ -402,6 +459,7 @@ public sealed class ArchiveRoundTripTests
         private readonly InMemoryInventoryRepository _inventoryRepository = new();
         private readonly InMemoryInventoryItemRepository _inventoryItemRepository = new();
         private readonly InMemoryPlaceRepository _placeRepository = new();
+        private readonly InMemoryTagColourRepository _tagColourRepository = new();
 
         private Guid UserId { get; } = Guid.NewGuid();
 
@@ -447,6 +505,27 @@ public sealed class ArchiveRoundTripTests
             return taskList.Id;
         }
 
+        /// <summary>An empty list tagged with <paramref name="tags"/>.</summary>
+        public async Task AddTaggedTaskListAsync(string title, IReadOnlyList<string> tags)
+            => await _taskRepository.AddAsync(TaskList.Create(UserId, title, [], tags: tags), CancellationToken.None);
+
+        public Task ColourTagAsync(string tag, string colour)
+            => _tagColourRepository.SetAsync(UserId, tag, colour, CancellationToken.None);
+
+        public Task<IReadOnlyList<Orbit.Core.Tags.TagColour>> TagColoursAsync()
+            => _tagColourRepository.GetAllAsync(UserId, CancellationToken.None);
+
+        /// <summary>A list of one entry that is done, and was done at <paramref name="doneAtUtc"/>.</summary>
+        public async Task<Guid> AddDoneTaskListAsync(string title, string description, DateTimeOffset doneAtUtc)
+        {
+            var taskList = TaskList.Create(
+                UserId, title,
+                [TaskItem.FromPersistence(
+                    Guid.NewGuid(), description, null, true, null, TaskItemReminders.Default, completedAtUtc: doneAtUtc)]);
+            await _taskRepository.AddAsync(taskList, CancellationToken.None);
+            return taskList.Id;
+        }
+
         public async Task<Guid> AddPrivateTaskListAsync(string ciphertext, string nonce)
         {
             var taskList = TaskList.Create(
@@ -487,13 +566,13 @@ public sealed class ArchiveRoundTripTests
         public Task<OrbitArchive> ExportAsync()
             => new ExportArchiveQueryHandler(
                     _noteRepository, _taskRepository, _calendarEventRepository, _inventoryRepository, _inventoryItemRepository,
-                    _placeRepository)
+                    _placeRepository, _tagColourRepository)
                 .HandleAsync(new ExportArchiveQuery(UserId), CancellationToken.None);
 
         public Task<ImportArchiveResult> ImportAsync(OrbitArchive archive)
             => new ImportArchiveCommandHandler(
                     _noteRepository, _taskRepository, _calendarEventRepository, _inventoryRepository, _inventoryItemRepository,
-                    _placeRepository)
+                    _placeRepository, _tagColourRepository)
                 .HandleAsync(new ImportArchiveCommand(UserId, archive), CancellationToken.None);
 
         public Task<IReadOnlyList<Note>> OwnNotesAsync() => _noteRepository.GetAllAsync(UserId, updatedSinceUtc: null, CancellationToken.None);

@@ -82,8 +82,15 @@ Orbit.Web's entry page together - the user's decision, since adding them to one 
 made the two answer different questions. A copy goes straight under the entry, made the way
 `DuplicateTaskListCommandHandler` copies entries (everything but the appointment, which one entry
 raises), and opens; a removal asks first, leaves the appointment in the calendar as the list's own
-row menu does, and lands on the list. Still not built: the note field, and "Move to another list…",
-which needs a list picker the design does not draw.
+row menu does, and lands on the list. **"Move to another list…" is in the menu too, since the same
+day**: a second menu of the other lists, by the rule the list's own entry form has always kept for its
+picker (any other list the server knows, except one the entry stands for), and the same move - what the
+phone holds goes out first, the server moves the entry, both lists come back - after which the entry opens
+on the list it went to. Still not built: the note field. **An entry done by ways (2026-09-11) is answered
+here with its ways named rather than offered** ("Done as soon as any one of these is: …"), the way an
+entry standing for lists names them. Orbit.Web's entry page lets the reader take a way, while this screen
+leaves that to the list screen's sheet, since the circle on this screen is a single press and the design
+draws no row for a choice.
 
 ***Walked on the device on 2026-09-09***, and it reads as drawn. Getting to it used to be the awkward
 part: it opened from the calendar only for a deadline that `IsSomewhere`
@@ -210,10 +217,14 @@ about them is under "Screens already built" below.
 - ~~**Enter splits the line at the caret.**~~ ***Done 2026-09-09.*** `AddLineAfter` takes the caret now
   and carries whatever follows it down onto the new line. A checklist goes on being a checklist without
   the button in the corner being touched, and an empty line ends it - which is the design's own rule and
-  is how a reader stops one.
+  is how a reader stops one. ***Since 2026-09-12*** the press is worked out by `NoteSurfaceEdits.Enter`,
+  the browser's own rule, so an empty box ends the list *in place* rather than leaving the box behind.
 - ~~**Backspace at the head of a checklist line takes the box off first.**~~ ***Done 2026-09-09.***
-  `MergeIntoTheLineAbove` answers null for that press and takes the box off instead; only a second
-  press joins the line upwards. It is the one way to undo a box from the keyboard.
+  `MergeIntoTheLineAbove` takes the box off instead of joining, and only a second press joins the line
+  upwards. It is the one way to undo a box from the keyboard. ***Since 2026-09-12*** that is the browser's
+  rule, `NoteSurfaceEdits.Backspace`, and it holds for a box with words on it; an **empty** box has
+  nothing to keep and goes whole in one press. The press answers whether the line is gone rather than
+  where the caret lands, which `CaretPlaced` says.
 - ~~**Arrow up and arrow down move between lines**, keeping the column.~~ ***Done 2026-09-10, walked on
   the device.*** The
   same Android key hook backspace already owned, which is named `NoteLineKeyPresses` now that it reads

@@ -773,6 +773,13 @@
         }
 
         var path = new Uri(location, UriKind.Absolute).AbsolutePath;
+        // Except where arriving is not reading: a conversation clears its own entries once the other
+        // party's newest message has been seen - see NewsSettler.SettledByThePageItself.
+        if (NewsSettler.SettledByThePageItself(path))
+        {
+            return;
+        }
+
         // Not just this exact path: a page can settle a notification pointing at the page it sits under,
         // which is how opening a task list's deep editor clears a reminder about the list - see
         // NotificationFeedState.UnreadUrlsSettledBy. A page that stands for a second address settles

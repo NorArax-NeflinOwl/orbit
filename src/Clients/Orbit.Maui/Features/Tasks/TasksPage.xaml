@@ -142,6 +142,8 @@
                                             IsVisible="{Binding HasBadges}" VerticalOptions="Center">
                                         <Label Text="{Binding State}" Style="{StaticResource FilterChipLabel}" />
                                     </Border>
+                                    <!-- The reader's own words for it, in the colours they gave them. -->
+                                    <controls:TagChipsView BindingContext="{Binding Tags}" VerticalOptions="Center" />
                                 </HorizontalStackLayout>
                             </controls:ItemCard.Tags>
 

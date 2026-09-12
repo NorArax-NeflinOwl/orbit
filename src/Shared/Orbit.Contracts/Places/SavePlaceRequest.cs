@@ -22,6 +22,12 @@ namespace Orbit.Contracts.Places;
 /// is true, and the three readable fields above are then ignored: the server refuses a private place
 /// that arrives with nothing sealed in it.
 /// </param>
+/// <param name="SourceTaskItemId">
+/// The task entry this place is made from - see Orbit.Core.Places.Place.SourceTaskItemId. The one
+/// exception to "nothing here is not provided": on a change, null leaves the entry a place answers to
+/// alone, because the phone knows nothing of it and sends none, and editing a place there must not cut it
+/// loose from its entry.
+/// </param>
 public sealed record SavePlaceRequest(
     string Name,
     EventLocationDto Where,
@@ -30,4 +36,5 @@ public sealed record SavePlaceRequest(
     string Priority = "Normal",
     IReadOnlyList<Guid>? TaskListIds = null,
     bool IsPrivate = true,
-    EncryptedContentDto? EncryptedContent = null);
+    EncryptedContentDto? EncryptedContent = null,
+    Guid? SourceTaskItemId = null);

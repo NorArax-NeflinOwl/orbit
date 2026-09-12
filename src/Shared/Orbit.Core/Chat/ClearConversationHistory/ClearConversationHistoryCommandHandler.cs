@@ -35,7 +35,7 @@ public sealed class ClearConversationHistoryCommandHandler : IRequestHandler<Cle
         // read what was in it, and leaving a count of unread messages behind would say there is
         // something waiting on a screen that now shows nothing.
         await _chatMessageRepository.MarkConversationAsReadAsync(
-            request.UserId, request.OtherUserId, clearedAtUtc, cancellationToken);
+            request.UserId, request.OtherUserId, clearedAtUtc, readUpToUtc: null, cancellationToken);
 
         // This account only, which means its other devices. The other party hears nothing, because as
         // far as their conversation is concerned nothing happened.

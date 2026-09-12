@@ -13,4 +13,6 @@ public sealed record CreateNoteRequest(
     /// Orbit.Core.Folders.BuiltInFolder. Only on the way in: moving an existing note is its own request
     /// (MoveToFolderRequest), for the reason that one gives.
     /// </summary>
-    Guid? FolderId = null);
+    Guid? FolderId = null,
+    /// <summary>The words it is tagged with - see NoteDto.Tags. Null and empty both mean none.</summary>
+    IReadOnlyList<string>? Tags = null);

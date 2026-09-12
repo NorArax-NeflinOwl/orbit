@@ -128,12 +128,17 @@ public static class ChatEndpoints
             return approved ? Results.NoContent() : Results.NotFound();
         });
 
-        // Called by the recipient's chat window on every poll tick while it's open - see Chat.razor's
-        // SyncReadStateAsync for the (currently coarse) definition of "read" this drives.
+        // Called by the recipient's conversation when a message has actually been seen - the window in
+        // front and the message scrolled into view (see ChatReadState on the web, ConversationReadState
+        // on the phone). readUpToUtc is the SentAtUtc of the newest message seen, and only messages up to
+        // it are marked. Optional: without it everything is marked, which is what every build installed
+        // before it existed still asks for - see MarkConversationAsReadCommand.
         chat.MapPut("/messages/{otherUserId:guid}/read", async (
-            Guid otherUserId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+            Guid otherUserId, DateTimeOffset? readUpToUtc, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
         {
-            await dispatcher.SendAsync(new MarkConversationAsReadCommand(GetUserId(user), otherUserId), cancellationToken);
+            await dispatcher.SendAsync(
+                new MarkConversationAsReadCommand(GetUserId(user), otherUserId, readUpToUtc), cancellationToken);
             return Results.NoContent();
         });
 
@@ -165,7 +170,7 @@ public static class ChatEndpoints
         {
             var callerId = GetUserId(user);
             var groups = await dispatcher.SendAsync(new GetChatGroupsQuery(callerId), cancellationToken);
-            return Results.Ok(groups.Select(group => ToDto(group, callerId)));
+            return Results.Ok(groups.Select(listing => ToDto(listing.Group, callerId, listing.UnreadCount)));
         });
 
         groups.MapPost("/{groupId:guid}/members", async (
@@ -247,12 +252,13 @@ public static class ChatEndpoints
         });
 
         // Marks everything addressed to this reader in the group as read - the group counterpart of the
-        // one-to-one route above.
+        // one-to-one route above, with the same optional readUpToUtc.
         groups.MapPut("/{groupId:guid}/read", async (
-            Guid groupId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+            Guid groupId, DateTimeOffset? readUpToUtc, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
         {
             var marked = await dispatcher.SendAsync(
-                new MarkGroupConversationAsReadCommand(GetUserId(user), groupId), cancellationToken);
+                new MarkGroupConversationAsReadCommand(GetUserId(user), groupId, readUpToUtc), cancellationToken);
             return marked ? Results.NoContent() : Results.NotFound();
         });
 
@@ -341,14 +347,19 @@ public static class ChatEndpoints
             announcement.Id, announcement.JoinedUserId, announcement.AddedByUserId, announcement.HistoryShared,
             announcement.AnnouncedAtUtc);
 
-    private static ChatGroupDto ToDto(ChatGroup group, Guid callerUserId)
+    /// <param name="unreadCount">
+    /// How many of its messages the caller has not read - known where the list of groups is read, and
+    /// nought wherever a single group is answered on its own.
+    /// </param>
+    private static ChatGroupDto ToDto(ChatGroup group, Guid callerUserId, int unreadCount = 0)
         => new(
             group.Id, group.Name, group.CreatedByUserId, group.CreatedAtUtc,
             group.FindMember(callerUserId)?.Role.ToString() ?? ChatGroupRole.Member.ToString(),
             group.Members.Select(member => new ChatGroupMemberDto(member.UserId, member.Role.ToString(), member.JoinedAtUtc)).ToList(),
             group.LastMessageAtUtc,
             // The caller's own membership, not the group's - archiving is one member's view of it.
-            group.FindMember(callerUserId)?.IsArchived ?? false);
+            group.FindMember(callerUserId)?.IsArchived ?? false,
+            unreadCount);
 
     private static Guid GetUserId(ClaimsPrincipal user)
     {

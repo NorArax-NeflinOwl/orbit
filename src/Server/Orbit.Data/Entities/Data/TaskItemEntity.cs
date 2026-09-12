@@ -48,6 +48,13 @@ public sealed class TaskItemEntity
     public bool IsFailed { get; set; }
 
     /// <summary>
+    /// When this entry was ticked off - see Orbit.Core.Tasks.TaskItem.CompletedAtUtc. Null for one that is
+    /// not done, and for every entry ticked before this column existed: the time was not kept then, and
+    /// the migration leaves those empty rather than inventing one.
+    /// </summary>
+    public DateTimeOffset? CompletedAtUtc { get; set; }
+
+    /// <summary>
     /// The lists this entry references instead of being independently completable - see
     /// <see cref="Orbit.Core.Tasks.LinkedTaskCompletionResolver"/>. Empty for an ordinary entry.
     /// </summary>
@@ -58,6 +65,25 @@ public sealed class TaskItemEntity
     /// Empty for an ordinary entry, which is nearly all of them.
     /// </summary>
     public List<TaskItemStepEntity> Steps { get; set; } = [];
+
+    /// <summary>
+    /// The ways this entry can be got done, any one of which is enough - see
+    /// Orbit.Core.Tasks.TaskItem.Alternatives. Empty for an ordinary entry, which is nearly all of them.
+    /// </summary>
+    public List<TaskItemAlternativeEntity> Alternatives { get; set; } = [];
+
+    /// <summary>When this entry was first stored - see Orbit.Core.Tasks.TaskItem.CreatedAtUtc. Null for rows written before it was kept.</summary>
+    public DateTimeOffset? CreatedAtUtc { get; set; }
+
+    /// <summary>
+    /// The entry this one is the same thing as - see Orbit.Core.Tasks.TaskItem.ReferencesTaskItemId. No
+    /// foreign key: the source may be on another list, and when it goes, TaskItemReferences hands its
+    /// role on before the row does.
+    /// </summary>
+    public Guid? ReferencesTaskItemId { get; set; }
+
+    /// <summary>How much of its product this entry needs - see Orbit.Core.Tasks.TaskItem.RequiredQuantity.</summary>
+    public decimal? RequiredQuantity { get; set; }
 
     /// <summary>What this entry is filed under - see Orbit.Core.Tasks.TaskItem.Categories. Empty for one nobody has filed.</summary>
     public List<TaskItemCategoryEntity> Categories { get; set; } = [];

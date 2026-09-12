@@ -45,9 +45,41 @@ public sealed class GetNameSuggestionsQueryHandler
 
         var found = await _nameSuggestionRepository.FindAsync(
             request.UserId, request.Kind, typed, MinimumSimilarity, Limit, cancellationToken);
+        if (request.Kind == NameSuggestionKind.TaskItemDescription)
+        {
+            found = await WithTheirSourcesAsync(request.UserId, found, cancellationToken);
+        }
 
-        // What was already typed is not a suggestion. Offering it back is the one result guaranteed to
-        // be useless, and it is the one most likely to come first.
-        return [.. found.Where(suggestion => !string.Equals(suggestion.Name, typed, StringComparison.CurrentCultureIgnoreCase))];
+        // What was already typed is not a suggestion - offering it back is the one result guaranteed to be
+        // useless - unless it is the name of something the entry can be made the same thing as. Then it
+        // is the most useful one: somebody typed the whole name and now says which thing they meant.
+        return [.. found.Where(suggestion =>
+            suggestion.Sources.Count > 0
+            || !string.Equals(suggestion.Name, typed, StringComparison.CurrentCultureIgnoreCase))];
+    }
+
+    /// <summary>A few things of one name at most: past that the list stops being readable at a glance.</summary>
+    private const int MostSourcesPerName = 3;
+
+    /// <summary>
+    /// What each name is the name of, for a task entry to be made the same thing as - see
+    /// NameSuggestion.Sources. Only a task entry's field asks: nothing else can be a reference.
+    /// </summary>
+    private async Task<IReadOnlyList<NameSuggestion>> WithTheirSourcesAsync(
+        Guid userId, IReadOnlyList<NameSuggestion> found, CancellationToken cancellationToken)
+    {
+        if (found.Count == 0)
+        {
+            return found;
+        }
+
+        var sources = await _nameSuggestionRepository.FindSourcesAsync(
+            userId, [.. found.Select(suggestion => suggestion.Name)], cancellationToken);
+        return [.. found.Select(suggestion => suggestion with
+        {
+            Sources = [.. sources
+                .Where(source => string.Equals(source.Name, suggestion.Name, StringComparison.CurrentCultureIgnoreCase))
+                .Take(MostSourcesPerName)]
+        })];
     }
 }

@@ -1,4 +1,5 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.Inventories;
 using Orbit.Core.Sync;
 
 namespace Orbit.Core.Tasks.DeleteTaskList;
@@ -8,14 +9,17 @@ public sealed class DeleteTaskListCommandHandler : IRequestHandler<DeleteTaskLis
     private readonly ITaskRepository _taskRepository;
     private readonly ITaskListShareRepository _taskListShareRepository;
     private readonly ISyncTombstoneRepository _syncTombstoneRepository;
+    private readonly ShelfUsage? _shelfUsage;
 
+    /// <param name="shelfUsage">Recounts what the deleted lists' shelf items are asked for - see ShelfUsage. Optional for the reason CreateTaskListCommandHandler gives.</param>
     public DeleteTaskListCommandHandler(
         ITaskRepository taskRepository, ITaskListShareRepository taskListShareRepository,
-        ISyncTombstoneRepository syncTombstoneRepository)
+        ISyncTombstoneRepository syncTombstoneRepository, ShelfUsage? shelfUsage = null)
     {
         _taskRepository = taskRepository;
         _taskListShareRepository = taskListShareRepository;
         _syncTombstoneRepository = syncTombstoneRepository;
+        _shelfUsage = shelfUsage;
     }
 
     /// <summary>
@@ -53,6 +57,21 @@ public sealed class DeleteTaskListCommandHandler : IRequestHandler<DeleteTaskLis
             ? await EverythingGatheredByAsync(request.UserId, taskList, cancellationToken)
             : [];
 
+        // Worked out before anything goes, too: an entry on these lists may be the source other entries
+        // point at, and the member created first takes its place - see TaskItemReferences.
+        var changedByReferences = await new TaskItemReferences(_taskRepository).SettleAsync(
+            request.UserId, saved: null, new Dictionary<Guid, Guid?>(), new HashSet<Guid>(),
+            new HashSet<Guid>([request.Id, .. gathered]), cancellationToken);
+        // And which shelf items the lists going away asked for, whose count drops once they have gone.
+        var shelfItemsAskedFor = new HashSet<Guid>(ShelfUsage.ShelfItemsOf([taskList]));
+        foreach (var gatheredId in gathered)
+        {
+            if (await _taskRepository.GetByIdAsync(request.UserId, gatheredId, cancellationToken) is { } gatheredList)
+            {
+                shelfItemsAskedFor.UnionWith(ShelfUsage.ShelfItemsOf([gatheredList]));
+            }
+        }
+
         await _taskRepository.DeleteAsync(request.UserId, request.Id, cancellationToken);
         await RecordTombstoneAsync(request.UserId, request.Id, cancellationToken);
 
@@ -60,6 +79,16 @@ public sealed class DeleteTaskListCommandHandler : IRequestHandler<DeleteTaskLis
         {
             await _taskRepository.DeleteAsync(request.UserId, gatheredId, cancellationToken);
             await RecordTombstoneAsync(request.UserId, gatheredId, cancellationToken);
+        }
+
+        if (changedByReferences.Count > 0)
+        {
+            await _taskRepository.UpdateManyAsync(changedByReferences, cancellationToken);
+        }
+
+        if (_shelfUsage is not null)
+        {
+            await _shelfUsage.RecountAsync(request.UserId, shelfItemsAskedFor, cancellationToken);
         }
 
         return true;

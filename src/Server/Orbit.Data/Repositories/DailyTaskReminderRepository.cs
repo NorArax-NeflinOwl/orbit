@@ -26,7 +26,10 @@ public sealed class DailyTaskReminderRepository : IDailyTaskReminderRepository
             // reopened by ReopenAsync when its reminder fires. The *list* is a different matter - a
             // list somebody closed is not owed any more, so it stops asking. Saying "no more of this"
             // and then being reminded of it every morning is the app arguing with the reader.
+            // An entry done by ways that include a list is left out with the linked ones: its stored tick
+            // cannot know that list is finished - see TaskItemAlternativeEntity.IsDone.
             where item.RemindDaily && !task.IsCompleted && !item.LinkedTaskLists.Any()
+                && !item.Alternatives.Any(way => way.LinkedTaskListId != null)
                 && item.DailyReminderNotificationChannel != "None"
             select new
             {

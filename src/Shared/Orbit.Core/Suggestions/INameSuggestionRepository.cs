@@ -13,4 +13,14 @@ public interface INameSuggestionRepository
     Task<IReadOnlyList<NameSuggestion>> FindAsync(
         Guid userId, NameSuggestionKind kind, string typed, double minimumSimilarity, int limit,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The task entries and shelf items of the reader's that are called one of <paramref name="names"/>,
+    /// case aside - what a suggested name can be the name of (see <see cref="NameSuggestion.Sources"/>).
+    /// Shelf items first, then one per reference group of entries; an entry that already stands for one of
+    /// those shelf items is that shelf item and is not offered twice. Private lists and inventories are
+    /// left out for the reason FindAsync leaves them out.
+    /// </summary>
+    Task<IReadOnlyList<NameSuggestionSource>> FindSourcesAsync(
+        Guid userId, IReadOnlyList<string> names, CancellationToken cancellationToken);
 }

@@ -36,11 +36,23 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
     private readonly NameSuggestions _inventoryNameSuggestions;
     private readonly IScreenNavigator _navigator;
 
+    /// <summary>Only for the product types the task entries carry - see KnownProductTypes.</summary>
+    private readonly LocalTaskListRepository _taskLists;
+
+    /// <summary>
+    /// What this account calls kinds of product, offered as chips under an item's product-type box - see
+    /// KnownProductTypes. Read again with the shelf, so a type just typed on it is offered next time.
+    /// </summary>
+    private IReadOnlyList<string> _knownProductTypes = [];
+
     private Guid _localId;
     private IReadOnlyList<InventoryItemRequest> _items = [];
 
     /// <summary>When each batch arrived, by its id - see LocalInventory.ItemArrivals.</summary>
     private IReadOnlyDictionary<Guid, DateTimeOffset> _arrivals = new Dictionary<Guid, DateTimeOffset>();
+
+    /// <summary>What the task lists ask of each product here - see LocalInventory.ItemUsage.</summary>
+    private IReadOnlyDictionary<Guid, decimal> _usage = new Dictionary<Guid, decimal>();
 
     /// <summary>What is on screen has been narrowed down to - see <see cref="InventoryItemFilter"/>.</summary>
     private readonly InventoryItemFilter _filter = new();
@@ -91,8 +103,9 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
         SharePanel share, IScreenNavigator navigator,
         InventoryClient inventoryClient, EditLock editLock, PrivateContentSealer privateContent,
         NameSuggestions nameSuggestions, NameSuggestions inventoryNameSuggestions,
-        INetworkStatus networkStatus, RestockListSettingsPanel restockList)
+        INetworkStatus networkStatus, RestockListSettingsPanel restockList, LocalTaskListRepository taskLists)
     {
+        _taskLists = taskLists;
         _networkStatus = networkStatus;
         RestockList = restockList;
         _inventories = inventories;
@@ -280,7 +293,10 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
     {
         if (row is not null && CanEdit)
         {
-            BeingEdited = InventoryItemEditor.For(row.Item, _translations, _nameSuggestions);
+            // With the kinds of product this account already uses offered under the type box, as the
+            // same form opened from a task entry offers them - see KnownProductTypes.
+            BeingEdited = InventoryItemEditor.For(row.Item, _translations, _nameSuggestions)
+                .Knowing(_knownProductTypes);
         }
     }
 
@@ -470,6 +486,9 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
         HasHistory = (await _inventories.GetHistoryOfAsync(_localId, cancellationToken)).Count > 0;
         _items = inventory.Items;
         _arrivals = inventory.ItemArrivals;
+        _usage = inventory.ItemUsage;
+        _knownProductTypes = KnownProductTypes.From(
+            await _inventories.GetAllAsync(cancellationToken), await _taskLists.GetAllAsync(cancellationToken));
         // What this shelf's restock list asks for, and when - see RestockListSettingsPanel.
         await RestockList.ShowFor(inventory.ServerId, cancellationToken);
 
@@ -556,7 +575,7 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
         Items.Clear();
         foreach (var item in _items.Where(_filter.Matches))
         {
-            Items.Add(InventoryItemRow.From(item, _translations, _pointedAtProductId, ArrivalOf(item)));
+            Items.Add(InventoryItemRow.From(item, _translations, _pointedAtProductId, ArrivalOf(item), UsageOf(item)));
         }
 
         OnPropertyChanged(nameof(PointedAtRow));
@@ -571,6 +590,10 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
     /// </summary>
     private DateTimeOffset? ArrivalOf(InventoryItemRequest item)
         => item.Id is { } id && _arrivals.TryGetValue(id, out var arrived) ? arrived : null;
+
+    /// <summary>How much of this product the task lists ask for - see LocalInventory.ItemUsage.</summary>
+    private decimal UsageOf(InventoryItemRequest item)
+        => item.Id is { } id && _usage.TryGetValue(id, out var asked) ? asked : 0;
 
     partial void OnChosenProductTypeChanged(string? value)
     {

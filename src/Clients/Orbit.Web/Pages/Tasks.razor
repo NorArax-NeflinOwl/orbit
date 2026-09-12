@@ -148,15 +148,15 @@
            "no lists are new" in a tab holding no lists at all blames a chip nobody pressed. *@
         @if (TaskListsInTheOpenFolder.Count == 0)
         {
-            <p class="empty-hint">@T["Nothing is in this folder yet."]</p>
+            <p class="empty-hint empty-list">@T["Nothing is in this folder yet."]</p>
         }
         else if (_itemFilter.IsActive)
         {
-            <p class="empty-hint">@T["Nothing on any list matches that."]</p>
+            <p class="empty-hint empty-list">@T["Nothing on any list matches that."]</p>
         }
         else
         {
-            <p class="empty-hint">@T.Format("No lists are {0}.", DescribeFilter(_filter).ToLowerInvariant())</p>
+            <p class="empty-hint empty-list">@T.Format("No lists are {0}.", DescribeFilter(_filter).ToLowerInvariant())</p>
         }
     }
 
@@ -222,6 +222,8 @@
                         {
                             <span class="card-badge card-badge-pinned">@T["Pinned"]</span>
                         }
+                        @* The reader's own words for it, in the colours they gave them - see TagChips. *@
+                        <TagChips Tags="taskList.AllTags" />
                     </Tags>
                     @* How far along, always at the end of the tag row - see ItemCard. *@
                     <Extras>
@@ -374,7 +376,7 @@
                 }
                 @if (taskList.Items.Count == 0)
                 {
-                    <p class="empty-hint">@T["No items on this list."]</p>
+                    <p class="empty-hint empty-list">@T["No items on this list."]</p>
                 }
                     </Body>
                 </ItemCard>

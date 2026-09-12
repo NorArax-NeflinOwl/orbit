@@ -80,19 +80,21 @@ public sealed class NotesApiClient
         var content = await _privateContentSealer.OpenAsync<SealedNote>(encryptedContent, cancellationToken);
         return content is null
             ? note with { Title = Translated(UnreadableNoteTitle) }
-            : note with { Title = content.Title, Content = content.Content };
+            // The tags too: a private note keeps them nowhere else - see SealedNote.Tags.
+            : note with { Title = content.Title, Content = content.Content, Tags = content.Tags ?? [] };
     }
 
     /// <summary>
     /// Seals a private note's title and content and empties the readable fields, so what leaves this
     /// browser matches what the server is allowed to hold. Left alone when the note isn't private.
     /// </summary>
-    private async Task<(string Title, IReadOnlyList<NoteContentLineDto> Content, EncryptedContentDto? EncryptedContent)> SealIfPrivateAsync(
-        string title, IReadOnlyList<NoteContentLineDto> content, bool isPrivate, CancellationToken cancellationToken)
+    private async Task<(string Title, IReadOnlyList<NoteContentLineDto> Content, IReadOnlyList<string>? Tags, EncryptedContentDto? EncryptedContent)> SealIfPrivateAsync(
+        string title, IReadOnlyList<NoteContentLineDto> content, IReadOnlyList<string>? tags, bool isPrivate,
+        CancellationToken cancellationToken)
     {
         if (!isPrivate)
         {
-            return (title, content, null);
+            return (title, content, tags, null);
         }
 
         if (_privateContentSealer is null)
@@ -100,15 +102,17 @@ public sealed class NotesApiClient
             throw new InvalidOperationException("This NotesApiClient was built without a PrivateContentSealer, so it can't save a private note.");
         }
 
-        var encryptedContent = await _privateContentSealer.SealAsync(new SealedNote(title, content), cancellationToken);
-        return (string.Empty, [], encryptedContent);
+        // The tags are sealed with the rest and sent as none: the server keeps no readable tag for a
+        // private note, and a word it would throw away is better never sent - see Note.Tags.
+        var encryptedContent = await _privateContentSealer.SealAsync(new SealedNote(title, content, tags), cancellationToken);
+        return (string.Empty, [], [], encryptedContent);
     }
 
     public async Task<Guid> CreateNoteAsync(CreateNoteRequest request, CancellationToken cancellationToken = default)
     {
-        var (title, content, encryptedContent) = await SealIfPrivateAsync(
-            request.Title, request.Content, request.IsPrivate, cancellationToken);
-        request = request with { Title = title, Content = content, EncryptedContent = encryptedContent };
+        var (title, content, tags, encryptedContent) = await SealIfPrivateAsync(
+            request.Title, request.Content, request.Tags, request.IsPrivate, cancellationToken);
+        request = request with { Title = title, Content = content, Tags = tags, EncryptedContent = encryptedContent };
 
         try
         {
@@ -134,9 +138,9 @@ public sealed class NotesApiClient
     /// </summary>
     public async Task<EditOutcome> UpdateNoteAsync(Guid id, UpdateNoteRequest request, CancellationToken cancellationToken = default)
     {
-        var (title, content, encryptedContent) = await SealIfPrivateAsync(
-            request.Title, request.Content, request.IsPrivate, cancellationToken);
-        request = request with { Title = title, Content = content, EncryptedContent = encryptedContent };
+        var (title, content, tags, encryptedContent) = await SealIfPrivateAsync(
+            request.Title, request.Content, request.Tags, request.IsPrivate, cancellationToken);
+        request = request with { Title = title, Content = content, Tags = tags, EncryptedContent = encryptedContent };
 
         try
         {

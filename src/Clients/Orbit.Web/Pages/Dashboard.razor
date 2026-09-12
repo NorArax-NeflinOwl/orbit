@@ -116,12 +116,13 @@ else
                 <Body>
                 @if (NotesToShow.Count == 0)
                 {
-                    <p class="empty-hint">@T["Nothing here matches the filter. Change it above to see the rest."]</p>
+                    <p class="empty-hint empty-list">@T["Nothing here matches the filter. Change it above to see the rest."]</p>
                 }
                 @foreach (var note in NotesToShow)
                 {
                     <Row Title="@note.Title" OnPressed="() => GoToNote(note.Id)">
                         <Trailing>
+                            <TagChips Tags="note.AllTags" />
                             @RenderPriorityBadge(note.Priority)
                             <span class="row-meta">@FormatRelative(note.UpdatedAtUtc)</span>
                         </Trailing>
@@ -148,7 +149,7 @@ else
                 <Body>
                 @if (TaskListsToShow.Count == 0)
                 {
-                    <p class="empty-hint">@T["Nothing here matches the filter. Change it above to see the rest."]</p>
+                    <p class="empty-hint empty-list">@T["Nothing here matches the filter. Change it above to see the rest."]</p>
                 }
                 @foreach (var taskList in TaskListsToShow)
                 {
@@ -157,6 +158,7 @@ else
                     <Row Title="@Written(taskList.Title)" OnPressed="() => GoToTaskList(taskList.Id)"
                          AdditionalClass="@RowClasses(taskList.IsCompleted ? "completed" : null, HasNewsAbout(taskList.Id, "/tasks"))">
                         <Trailing>
+                            <TagChips Tags="taskList.AllTags" />
                             @RenderPriorityBadge(taskList.Priority)
                             @if (taskList.Items.Count > 0)
                             {
@@ -199,7 +201,7 @@ else
                 <Body>
                 @if (UpcomingToShow.Count == 0)
                 {
-                    <p class="empty-hint">@T["Nothing here matches the filter. Change it above to see the rest."]</p>
+                    <p class="empty-hint empty-list">@T["Nothing here matches the filter. Change it above to see the rest."]</p>
                 }
                 @foreach (var entry in UpcomingToShow.Take(6))
                 {
@@ -294,7 +296,7 @@ else
         @if (_groups.Count > 0 && ShowsCard("groups"))
         {
                         <ItemCard Name="@(T["Groups"])" OnNameSelected='() => NavigationManager.NavigateTo("/chat/groups")'
-                      HasUnseenAction="@_groups.Any(group => HasNewsAbout(group.Id, "/chat/groups"))"
+                      HasUnseenAction="@_groups.Any(group => group.UnreadCount > 0 || HasNewsAbout(group.Id, "/chat/groups"))"
                       ExtraClass="@(DashboardPins.IsPinned("groups") ? "item-card-pinned" : null)">
                 <Pin>
                     <PinButton IsPinned='DashboardPins.IsPinned("groups")' OnPinnedChanged='pinned => SetCardPinnedAsync("groups", pinned)' />
@@ -308,9 +310,11 @@ else
                     @* An invitation to a group points at that group (see ChatGroupInvitationPushContent),
                        so the row it is about can say so rather than leaving the card to say it over all
                        of them. *@
+                    @* And how many messages arrived since the reader last had it open, on its avatar as
+                       Recent chats puts a person's - see ChatGroupDto.UnreadCount. *@
                     <Row Title="@group.Name" OnPressed="() => GoToGroup(group.Id)"
-                         AdditionalClass="@RowClasses(null, HasNewsAbout(group.Id, "/chat/groups"))">
-                        <Leading><span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(group.Id)">@AvatarHelper.GetInitials(group.Name)</span></Leading>
+                         AdditionalClass="@RowClasses(group.UnreadCount > 0 ? "unread" : null, group.UnreadCount > 0 || HasNewsAbout(group.Id, "/chat/groups"))">
+                        <Leading><span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(group.Id)">@AvatarHelper.GetInitials(group.Name)<UnreadBadge Count="group.UnreadCount" /></span></Leading>
                         <Trailing>
                             @if (group.OwnRole == AdminRole)
                             {
@@ -402,14 +406,14 @@ else
        nothing - is a row of tabs above a blank page. *@
     @if (HasNothingUnderTheOpenTab)
     {
-        <p class="empty-hint">
+        <p class="empty-hint empty-list">
             @(IsReadingWhatIsPrivate ? T["Nothing here is private yet."] : T["This folder is empty."])
         </p>
     }
 
     @if (!CardPreferences.IsAnythingVisible(DashboardParts.Select(part => part.Key)))
     {
-        <p class="empty-hint">@T["Everything here is hidden. The menu at the top right brings it back."]</p>
+        <p class="empty-hint empty-list">@T["Everything here is hidden. The menu at the top right brings it back."]</p>
     }
 }
 

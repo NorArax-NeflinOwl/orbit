@@ -124,6 +124,8 @@ internal sealed class FakeNotesServer : HttpMessageHandler
         _notes[created.Id] = created with
         {
             Content = body.Content, IsPrivate = body.IsPrivate, Priority = body.Priority,
+            // As Note.Create keeps them: tidied, and none for a private note, whose tags are sealed.
+            Tags = body.IsPrivate ? [] : Orbit.Core.Tags.TagNames.Tidy(body.Tags),
             // Stored as the real endpoint stores it: a private note's words are only here, so a fake
             // that dropped it would answer the next pull with an empty note and look like data loss.
             EncryptedContent = body.EncryptedContent
@@ -149,6 +151,12 @@ internal sealed class FakeNotesServer : HttpMessageHandler
             // Stored by the real endpoint, and a fake that dropped it would hide the very thing this
             // was written for: an update that carried no priority looked exactly like one that did.
             Priority = body.Priority,
+            // As Note.Update keeps them: null is "not provided" and keeps what is stored, and a private
+            // note keeps none readable. A fake that wrote the null through would let a phone that never
+            // sends tags pass here, and the real server would answer it with the ones it kept.
+            Tags = body.IsPrivate
+                ? []
+                : body.Tags is null ? existing.Tags : Orbit.Core.Tags.TagNames.Tidy(body.Tags),
             UpdatedAtUtc = _timeProvider.GetUtcNow()
         };
 

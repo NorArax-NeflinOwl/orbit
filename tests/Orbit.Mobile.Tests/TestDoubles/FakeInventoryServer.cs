@@ -64,12 +64,14 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
         return row;
     }
 
-    public void AddItem(Guid inventoryId, string name, decimal quantity, bool isCheckedRegularly = false)
+    /// <param name="usage">What the task lists ask of it, which the server counts - see InventoryItem.Usage.</param>
+    public void AddItem(
+        Guid inventoryId, string name, decimal quantity, bool isCheckedRegularly = false, decimal usage = 0)
     {
         var now = _timeProvider.GetUtcNow();
         _items[inventoryId].Add(new InventoryItemDto(
             Guid.NewGuid(), name, "Piece", "General", quantity, null, nameof(InventoryUnit.Piece), null, "None",
-            false, false, now, now, isCheckedRegularly));
+            false, false, now, now, isCheckedRegularly, Categories: null, Usage: usage));
     }
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)

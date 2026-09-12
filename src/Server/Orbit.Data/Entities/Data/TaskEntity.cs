@@ -14,6 +14,9 @@ public sealed class TaskEntity
     /// <summary>What it is about, under its name. Empty for one nobody described.</summary>
     public string Description { get; set; } = string.Empty;
 
+    /// <summary>JSON-encoded list of the list's tags - see NoteEntity.TagsJson, the same column on a note.</summary>
+    public string TagsJson { get; set; } = "[]";
+
     /// <summary>Whether this task list is readable only by its owner - see Orbit.Core's IsPrivate.</summary>
     public bool IsPrivate { get; set; }
 

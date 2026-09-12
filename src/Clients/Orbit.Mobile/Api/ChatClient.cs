@@ -107,12 +107,15 @@ public sealed class ChatClient
     }
 
     /// <summary>
-    /// Marks everything the other party has sent as read, as of now. Called while their conversation is
-    /// actually in front of somebody - that is the whole definition of "read" Orbit has.
+    /// Marks what the other party has sent as read, up to and including the message sent at readUpToUtc -
+    /// the newest one that has actually been on screen (see ConversationReadState). Always given: the
+    /// server's "everything" without it is for builds installed before it existed.
     /// </summary>
-    public async Task MarkConversationAsReadAsync(Guid otherUserId, CancellationToken cancellationToken = default)
+    public async Task MarkConversationAsReadAsync(
+        Guid otherUserId, DateTimeOffset readUpToUtc, CancellationToken cancellationToken = default)
     {
-        using var response = await _httpClient.PutAsync($"api/chat/messages/{otherUserId}/read", content: null, cancellationToken);
+        using var response = await _httpClient.PutAsync(
+            $"api/chat/messages/{otherUserId}/read?readUpToUtc={ReadUpTo(readUpToUtc)}", content: null, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
 
@@ -121,11 +124,20 @@ public sealed class ChatClient
     /// leaving its own, so a person reading on their phone stayed unread to the rest of the group and
     /// the badge on the conversation never cleared.
     /// </summary>
-    public async Task MarkGroupConversationAsReadAsync(Guid groupId, CancellationToken cancellationToken = default)
+    public async Task MarkGroupConversationAsReadAsync(
+        Guid groupId, DateTimeOffset readUpToUtc, CancellationToken cancellationToken = default)
     {
-        using var response = await _httpClient.PutAsync($"api/chat/groups/{groupId}/read", content: null, cancellationToken);
+        using var response = await _httpClient.PutAsync(
+            $"api/chat/groups/{groupId}/read?readUpToUtc={ReadUpTo(readUpToUtc)}", content: null, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
+
+    /// <summary>
+    /// The server's own SentAtUtc, handed back at full precision - it compares it to the stored value
+    /// exactly, so a rounded one could leave the very message that was seen unread.
+    /// </summary>
+    private static string ReadUpTo(DateTimeOffset readUpToUtc)
+        => Uri.EscapeDataString(readUpToUtc.UtcDateTime.ToString("O"));
 
     /// <summary>
     /// How far the other party has read: the send-time of the newest message of the caller's that they

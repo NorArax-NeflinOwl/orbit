@@ -66,17 +66,18 @@ public interface IChatMessageRepository
     Task<IReadOnlyList<ChatMessage>> GetGroupMessageCopiesAsync(Guid groupMessageId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Marks every not-yet-read message that otherUserId sent to readerUserId as read as of readAtUtc.
-    /// A no-op for messages already marked read, so it's safe to call on every poll tick rather than
-    /// only once.
+    /// Marks every not-yet-read message that otherUserId sent to readerUserId as read as of readAtUtc,
+    /// and answers whether anything actually changed. A no-op for messages already marked read, so it's
+    /// safe to call on every poll tick rather than only once. The answer matters: telling the other side
+    /// about a read that did not happen is what makes two open windows announce at each other for as
+    /// long as they are both open - see MarkConversationAsReadCommandHandler.
+    ///
+    /// readUpToUtc limits it to messages sent at or before that moment - the newest one the reader has
+    /// actually seen (see MarkConversationAsReadCommand.ReadUpToUtc). Null marks all of them.
     /// </summary>
-    /// <summary>
-    /// Marks everything the other party sent this reader as read, and answers whether anything actually
-    /// changed. The answer matters: telling the other side about a read that did not happen is what
-    /// makes two open windows announce at each other for as long as they are both open - see
-    /// MarkConversationAsReadCommandHandler.
-    /// </summary>
-    Task<bool> MarkConversationAsReadAsync(Guid readerUserId, Guid otherUserId, DateTimeOffset readAtUtc, CancellationToken cancellationToken);
+    Task<bool> MarkConversationAsReadAsync(
+        Guid readerUserId, Guid otherUserId, DateTimeOffset readAtUtc, DateTimeOffset? readUpToUtc,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// The latest SentAtUtc among senderUserId's messages to recipientUserId that recipientUserId has
@@ -91,13 +92,26 @@ public interface IChatMessageRepository
     /// </summary>
     Task<IReadOnlyDictionary<Guid, int>> GetUnreadCountsBySenderAsync(Guid readerUserId, CancellationToken cancellationToken);
     /// <summary>
+    /// How many messages each group has waiting unread for this reader, keyed by group - the group
+    /// counterpart of <see cref="GetUnreadCountsBySenderAsync"/>, in one query for the same reason. A
+    /// group message is one copy per member, and the reader's own copy is the one whose read mark counts;
+    /// the sender gets no copy, so their own posts never count against them.
+    ///
+    /// Copies re-encrypted for a later joiner (ChatMessage.IsSharedHistory) are left out by every
+    /// implementation: history handed to somebody new is the past they were shown, not messages that
+    /// arrived while they were away, and counting it would greet them with the whole backlog as unread.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, int>> GetGroupUnreadCountsAsync(Guid readerUserId, CancellationToken cancellationToken);
+    /// <summary>
     /// Marks every copy addressed to readerUserId in this group as read, and answers whether anything
     /// actually changed. The group counterpart of <see cref="MarkConversationAsReadAsync"/>, and a no-op
     /// for copies already marked, so it is safe to call on every poll tick rather than only once - the
-    /// answer is what keeps a no-op from being announced to the rest of the group as news.
+    /// answer is what keeps a no-op from being announced to the rest of the group as news. readUpToUtc
+    /// limits it the same way, and null again means all of them.
     /// </summary>
     Task<bool> MarkGroupConversationAsReadAsync(
-        Guid readerUserId, Guid groupId, DateTimeOffset readAtUtc, CancellationToken cancellationToken);
+        Guid readerUserId, Guid groupId, DateTimeOffset readAtUtc, DateTimeOffset? readUpToUtc,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Who each of these group messages reached and which of them have read it, keyed by GroupMessageId.

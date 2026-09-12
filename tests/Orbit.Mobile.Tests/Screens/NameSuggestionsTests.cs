@@ -51,6 +51,33 @@ public sealed class NameSuggestionsTests
     }
 
     /// <summary>
+    /// A name that is the name of something is offered once per thing, saying where it is, while a field
+    /// can take that on - and tapped, it hands the thing over rather than the words. See NameSuggestions.Picks.
+    /// </summary>
+    [Fact]
+    public async Task A_name_of_something_is_offered_as_that_thing()
+    {
+        using var server = new FakeSuggestionsServer();
+        var source = new NameSuggestionSourceDto("TaskItem", Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Burger", "Checklist");
+        server.Names.Add(new NameSuggestionDto("Sauce", 0.6, [source]));
+        var suggestions = Suggestions.Offering(server);
+        NameSuggestionOffer? taken = null;
+        suggestions.TakesSource = offer =>
+        {
+            taken = offer;
+            return Task.CompletedTask;
+        };
+
+        suggestions.ShowFor("Sau");
+
+        await WaitUntil(() => suggestions.Picks.Count > 0);
+        Assert.Empty(suggestions.Names);
+        Assert.Contains("Burger", Assert.Single(suggestions.Picks).Label);
+        suggestions.ChooseSourceCommand.Execute(suggestions.Picks[0]);
+        Assert.Equal(source, taken!.Source);
+    }
+
+    /// <summary>
     /// Suggestions are about what somebody is typing, not about what is already saved: opening an item
     /// to change its expiry date must not offer completions of its own name, nor warn that it is a
     /// duplicate of itself.

@@ -30,6 +30,7 @@ erDiagram
     OS_USERS ||--o{ OS_USERS_PERMISSIONS : "holds"
     OS_USERS ||--o| OS_NOTIFICATIONS_SETTINGS : "configures"
     OS_USERS ||--o{ OS_PUSH_SUBSCRIPTIONS : "registered"
+    OS_USERS ||--o{ OS_TAGS_COLOURS : "colours its tags"
 
     OS_USERS {
         uuid OS_U_ID PK
@@ -43,6 +44,13 @@ erDiagram
         int OS_U_PRIVATEKEYDERIVATIONITERATIONS
         bool OS_U_KEEPSTHIRDPARTIESOUT
         timestamptz OS_U_EMAILVERIFIEDATUTC
+    }
+    OS_TAGS_COLOURS {
+        uuid OS_TC_USERID PK "with the tag - one colour per tag per account"
+        text OS_TC_NORMALIZEDTAG PK "the tag in lower case"
+        text OS_TC_TAG "as last written - readable, even for a tag only private items carry"
+        text OS_TC_COLOUR "hex, as a colour input gives it"
+        timestamptz OS_TC_UPDATEDATUTC
     }
     OS_REFRESH_TOKENS {
         uuid OS_RT_ID PK
@@ -112,6 +120,7 @@ erDiagram
         text OP_N_ENCRYPTEDCIPHERTEXT "set when private"
         text OP_N_ENCRYPTEDNONCE
         text OP_N_CONTENTJSON "null when private"
+        text OP_N_TAGSJSON "JSON list - empty when private, the tags are sealed"
         uuid OP_N_LOCKEDBYUSERID
         timestamptz OP_N_LOCKEXPIRESATUTC
     }
@@ -169,6 +178,7 @@ erDiagram
     OP_TASKS_ITEMS ||--o{ OP_TASKS_PRODUCT_CATEGORIES : "product tagged"
     OP_TASKS_ITEMS ||--o{ OL_TASKS_ITEMS : "links to lists"
     OP_TASKS_ITEMS ||--o{ OL_TASKS_STEPS : "waits for entries"
+    OP_TASKS_ITEMS ||--o{ OP_TASKS_ALTERNATIVES : "done any one of these ways"
     OP_TASKS ||--o{ OL_TASKS_ITEMS : "linked from items"
     OP_INVENTORIES ||--o{ OP_INVENTORIES_ITEMS : contains
     OP_INVENTORIES_ITEMS ||--o{ OP_INVENTORIES_CATEGORIES : "tagged"
@@ -183,6 +193,7 @@ erDiagram
         bool OP_T_ISCOMPLETED "decides the Finished folder"
         text OP_T_COMPLETION "TaskListCompletion by name - what its owner said, if anything"
         bool OP_T_ISPRIVATE
+        text OP_T_TAGSJSON "JSON list - empty when private, the tags are sealed"
     }
     OP_TASKS_ITEMS {
         uuid OP_TI_ID PK
@@ -192,12 +203,23 @@ erDiagram
         timestamptz OP_TI_DUEDATEUTC
         bool OP_TI_ISCOMPLETED
         bool OP_TI_ISFAILED "crossed out rather than ticked - never both"
+        timestamptz OP_TI_COMPLETEDATUTC "when it was ticked - null unless done"
         text OP_TI_KIND
         text OP_TI_PRIORITY "the entry's own, beside the list's"
         text OP_TI_COLOUR "empty means: drawn in whatever its kind is"
         uuid OP_TI_LINKEDCALENDAREVENTID
         uuid OP_TI_LINKEDINVENTORYITEMID
         bool OP_TI_REMINDDAILY
+        timestamptz OP_TI_CREATEDATUTC "kept by id across saves; decides a reference group's heir"
+        uuid OP_TI_REFERENCESTASKITEMID "the group's source entry, on any list; no FK"
+        numeric OP_TI_REQUIREDQUANTITY "the entry's own minimum - the one detail a group does not share"
+    }
+    OP_TASKS_ALTERNATIVES {
+        uuid OP_TA_TASKITEMID PK
+        int OP_TA_POSITION PK "two ways may say the same words"
+        text OP_TA_DESCRIPTION
+        uuid OP_TA_LINKEDTASKLISTID "null = a line ticked by hand; no FK"
+        bool OP_TA_ISDONE "a line's own tick; always false for a list, which is read from the list"
     }
     OL_TASKS_STEPS {
         uuid OL_TS_TASKITEMID PK "the entry that waits"
@@ -210,6 +232,7 @@ erDiagram
         text OP_II_NAME
         numeric OP_II_QUANTITY
         numeric OP_II_MINIMUMQUANTITY
+        numeric OP_II_USAGE "what the lists ask for, recounted by ShelfUsage; the minimum is never read below it"
         text OP_II_UNIT
         date OP_II_EXPIRYDATE
         bool OP_II_ISCHECKEDREGULARLY
@@ -261,6 +284,7 @@ erDiagram
         float OP_P_LONGITUDE "0 when sealed"
         text OP_P_COLOUR "empty = whatever a place is drawn in"
         text OP_P_PRIORITY "ItemPriority by name"
+        uuid OP_P_SOURCETASKITEMID "the Location entry that made it, or null - readable, no FK"
     }
     OL_PLACES_TASKS {
         uuid OL_PT_PLACEID PK

@@ -1121,6 +1121,91 @@ public sealed class TaskListDetailScreenTests
     /// lost to the shelf "Generate inventory" would later build. The entry keeps it (TaskItem.Product)
     /// until then, exactly as it does in a browser.
     /// </summary>
+    /// <summary>
+    /// A tick records when, on the phone and as it happens - the server never sees a private list's
+    /// entries, and a phone ticks offline. The next press crosses the entry out, and a cross is not a
+    /// completion: the time goes.
+    /// </summary>
+    [Fact]
+    public async Task A_tick_records_when_and_a_cross_clears_it()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        await AddAsync(screen, "Bread");
+
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items[0]);
+        Assert.NotNull(screen.Items[0].Item.CompletedAtUtc);
+
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items[0]);
+        Assert.True(screen.Items[0].Item.IsFailed);
+        Assert.Null(screen.Items[0].Item.CompletedAtUtc);
+    }
+
+    /// <summary>
+    /// The entry's sheet shows the time only once the entry is done, and correcting it there is what the
+    /// save sends - "did it yesterday, ticked it today".
+    /// </summary>
+    [Fact]
+    public async Task When_a_done_entry_was_done_is_corrected_in_its_sheet()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        await AddAsync(screen, "Bread");
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        Assert.False(screen.BeingEdited!.IsDone);
+        screen.CancelItemEditCommand.Execute(null);
+
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items[0]);
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        var editor = screen.BeingEdited!;
+        Assert.True(editor.IsDone);
+        Assert.False(editor.IsCompletionTimeUnknown);
+        editor.CompletedOn = new DateTime(2026, 9, 1);
+        editor.CompletedAt = new TimeSpan(8, 30, 0);
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        var chosen = new DateTime(2026, 9, 1, 8, 30, 0);
+        Assert.Equal(
+            new DateTimeOffset(chosen, TimeZoneInfo.Local.GetUtcOffset(chosen)),
+            screen.Items[0].Item.CompletedAtUtc);
+    }
+
+    /// <summary>
+    /// What kind of thing an errand asks for is picked from the kinds this account already uses rather
+    /// than typed afresh every time - the phone's half of the web's panel of used values. Another list's
+    /// entry counts: an account whose products are still written on lists has no shelf to learn them
+    /// from. Picking one replaces what is in the box - a product has one type.
+    /// </summary>
+    [Fact]
+    public async Task An_errands_product_type_offers_the_types_other_entries_already_use()
+    {
+        using var context = new ScreenContext();
+        var shopping = context.OpenTaskList("Shopping");
+        await AddAsync(shopping, "Coffee");
+        shopping.EditItemCommand.Execute(shopping.Items[0]);
+        shopping.BeingEdited!.Kind = nameof(TaskItemKind.Inventory);
+        shopping.BeingEdited.ProductWanted!.ProductType = "Ground coffee";
+        await shopping.SaveItemCommand.ExecuteAsync(null);
+
+        var pantry = context.OpenTaskList("Pantry");
+        await AddAsync(pantry, "Tea");
+        pantry.EditItemCommand.Execute(pantry.Items[0]);
+        pantry.BeingEdited!.Kind = nameof(TaskItemKind.Inventory);
+        var wanted = pantry.BeingEdited.ProductWanted!;
+
+        Assert.Contains("Ground coffee", wanted.OfferedProductTypes);
+
+        wanted.ProductType = "leaves";
+        Assert.False(wanted.HasOfferedProductTypes);
+
+        wanted.ProductType = "gro";
+        Assert.Equal(["Ground coffee"], wanted.OfferedProductTypes);
+
+        wanted.ChooseProductTypeCommand.Execute("Ground coffee");
+        Assert.Equal("Ground coffee", wanted.ProductType);
+        Assert.False(wanted.HasOfferedProductTypes);
+    }
+
     [Fact]
     public async Task An_errand_on_a_list_with_no_shelf_says_what_it_asks_for()
     {
@@ -1866,6 +1951,164 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// An entry can be done any one of several ways, set in its form: a line of its own and another list
+    /// both reach the server. While it has ways it is not offered lists to stand for - "any one of these"
+    /// and "every one of these" are two different entries. See TaskItem.Alternatives.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_can_be_given_ways_in_its_form_and_they_reach_the_server()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Homemade sauce");
+        var screen = await ABurgerWithASauceAsync(context);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        var editor = screen.BeingEdited!;
+        editor.AddAWayCommand.Execute(null);
+        editor.Ways[0].Description = "Buy a ready one";
+        editor.AddAListWayCommand.Execute(editor.WayListsLeft.Single(choice => choice.Name == "Homemade sauce"));
+
+        Assert.False(editor.CanStandForLists);
+
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+
+        var ways = Assert.Single(context.Server.TaskLists.Single(list => list.Title == "Burger").Items).AllAlternatives;
+        Assert.Equal(2, ways.Count);
+        Assert.Equal("Buy a ready one", ways[0].Description);
+        Assert.NotNull(ways[1].LinkedTaskListId);
+    }
+
+    /// <summary>
+    /// Pressing such an entry's box offers its ways rather than ticking it, and taking a line of its own is
+    /// what makes the entry done - the question Orbit.Web asks under the same row.
+    /// </summary>
+    [Fact]
+    public async Task Pressing_an_entry_done_by_ways_offers_them_and_taking_a_line_ticks_it()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Homemade sauce");
+        var screen = await ABurgerWithASauceAsync(context);
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        var editor = screen.BeingEdited!;
+        editor.AddAWayCommand.Execute(null);
+        editor.Ways[0].Description = "Buy a ready one";
+        editor.AddAListWayCommand.Execute(editor.WayListsLeft.Single(choice => choice.Name == "Homemade sauce"));
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items.Single());
+
+        Assert.True(screen.IsAskingAboutTheWays);
+        Assert.Equal(["Buy a ready one", "Open Homemade sauce"], screen.WaysOffered);
+        Assert.False(screen.Items.Single().IsCompleted);
+
+        await screen.AnswerTheWaysCommand.ExecuteAsync(0);
+
+        Assert.False(screen.IsAskingAboutTheWays);
+        Assert.True(screen.Items.Single().IsCompleted);
+    }
+
+    /// <summary>
+    /// A name picked for what it names makes the entry the same thing: the form says so, and the save
+    /// carries the pointer - the server fills in what its group shares. See TaskItemEditor.TakeOnAsync.
+    /// </summary>
+    [Fact]
+    public async Task A_name_picked_for_what_it_names_makes_the_entry_the_same_thing()
+    {
+        using var context = new ScreenContext();
+        var screen = await ABurgerWithASauceAsync(context);
+        var sourceId = Guid.NewGuid();
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        var editor = screen.BeingEdited!;
+
+        await editor.TakeOnAsync(new Orbit.Mobile.Screens.Suggestions.NameSuggestionOffer(
+            "Sauce",
+            new Orbit.Contracts.Suggestions.NameSuggestionSourceDto("TaskItem", sourceId, sourceId, Guid.NewGuid(), "Pasta", "Checklist"),
+            "Sauce · in Pasta"));
+
+        Assert.True(editor.IsAReference);
+        Assert.Contains("Pasta", editor.ReferenceNote);
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+
+        Assert.Equal(
+            sourceId, Assert.Single(context.Server.TaskLists.Single(list => list.Title == "Burger").Items).ReferencesTaskItemId);
+    }
+
+    /// <summary>
+    /// And the form shows what that thing is at once, read from this phone's own copy of the list it is
+    /// on - the type included, since the reader types a name before choosing one. A form left empty
+    /// until the next sync looked like the pick had not taken, and the reader filled it in again by
+    /// hand. See TaskItemEditor.TakeOnWhatItSaysAsync.
+    /// </summary>
+    [Fact]
+    public async Task A_name_picked_for_what_it_names_fills_the_form_in_from_this_phones_own_copy()
+    {
+        using var context = new ScreenContext();
+        var pasta = context.OpenTaskList("Pasta");
+        pasta.NewItemDescription = "Sauce";
+        await pasta.AddItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+        await context.SayWhatTheEntriesAreAsync(nameof(TaskItemKind.Location), "The one from the deli", "shopping");
+        var onThePastaList = context.Server.TaskLists.Single(list => list.Title == "Pasta");
+        var sauce = onThePastaList.Items.Single();
+
+        var burger = context.OpenTaskList("Burger");
+        burger.NewItemDescription = "Sauce";
+        await burger.AddItemCommand.ExecuteAsync(null);
+        burger.EditItemCommand.Execute(burger.Items.Single());
+        await burger.BeingEdited!.TakeOnAsync(new Orbit.Mobile.Screens.Suggestions.NameSuggestionOffer(
+            "Sauce",
+            new Orbit.Contracts.Suggestions.NameSuggestionSourceDto(
+                "TaskItem", sauce.Id, sauce.Id, onThePastaList.Id, "Pasta", nameof(TaskItemKind.Location)),
+            "Sauce · in Pasta"));
+
+        Assert.Equal(nameof(TaskItemKind.Location), burger.BeingEdited.Kind);
+        Assert.Equal("The one from the deli", burger.BeingEdited.Notes);
+        Assert.Equal("shopping", burger.BeingEdited.Categories);
+    }
+
+    /// <summary>
+    /// A name that is a product on a shelf makes the entry that product's errand, and the product's own
+    /// form opens with it - the amounts are there to correct straight away. Read from this phone's copy
+    /// of the shelf, the same place an errand that already names a row reads it from.
+    /// </summary>
+    [Fact]
+    public async Task A_name_picked_for_a_product_opens_that_products_form()
+    {
+        using var context = new ScreenContext();
+        var shelf = context.Inventories.AddInventory("Kitchen");
+        context.Inventories.AddItem(shelf.Id, "Sauce", 2);
+        await context.ShelfSynchronizer.SynchroniseAsync();
+        var onTheShelf = context.Inventories.ItemsIn(shelf.Id).Single();
+
+        var burger = context.OpenTaskList("Burger");
+        burger.NewItemDescription = "Sauce";
+        await burger.AddItemCommand.ExecuteAsync(null);
+        burger.EditItemCommand.Execute(burger.Items.Single());
+        await burger.BeingEdited!.TakeOnAsync(new Orbit.Mobile.Screens.Suggestions.NameSuggestionOffer(
+            "Sauce",
+            new Orbit.Contracts.Suggestions.NameSuggestionSourceDto(
+                "InventoryItem", onTheShelf.Id, onTheShelf.Id, shelf.Id, "Kitchen", "Inventory"),
+            "Sauce in Kitchen"));
+
+        Assert.True(burger.BeingEdited.IsShelfEntry);
+        Assert.Equal("Kitchen", burger.BeingEdited.Shelf!.InventoryName);
+        Assert.False(burger.BeingEdited.IsDescribingSomethingNew);
+    }
+
+    /// <summary>A list called Burger with one entry, Sauce, that has reached the server.</summary>
+    private static async Task<TaskListDetailViewModel> ABurgerWithASauceAsync(ScreenContext context)
+    {
+        var screen = context.OpenTaskList("Burger");
+        screen.NewItemDescription = "Sauce";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+        return screen;
+    }
+
+    /// <summary>
     /// An entry standing for another list is done when that list is, so its box cannot be ticked here.
     /// The press is taken rather than refused: it names the list and offers to go there, which is the
     /// question Orbit.Web asks under the same row. Pressed and silently ignored, the phone looked broken.
@@ -2460,6 +2703,24 @@ public sealed class TaskListDetailScreenTests
     /// <summary>A phone with a local store and a server it can sometimes reach, and no MAUI in sight.</summary>
     private sealed class ScreenContext : IDisposable
     {
+        /// <summary>
+        /// Says what the open list's entries are - the details a reference group shares - as a list
+        /// arriving from the server would say them. Written onto the stored list rather than typed into
+        /// the form: what those fields do has its own tests, and this is only somewhere for a picked
+        /// name to point.
+        /// </summary>
+        public async Task SayWhatTheEntriesAreAsync(string kind, string notes, params string[] categories)
+        {
+            var stored = await _taskLists.FindAsync(_openedListId);
+            await _taskLists.UpdateAsync(
+                _openedListId,
+                new TaskListContent(
+                    stored!.Title,
+                    [.. stored.Items.Select(item => item with { Kind = kind, Notes = notes, Categories = categories })],
+                    stored.IsGroup,
+                    stored.Priority));
+        }
+
         private readonly LocalStore _localStore = new();
         /// <summary>The list OpenTaskList last made, so a helper can reach it behind the screen.</summary>
         private Guid _openedListId;

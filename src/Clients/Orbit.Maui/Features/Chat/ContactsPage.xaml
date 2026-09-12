@@ -125,7 +125,9 @@
                                      clickable, so the double tap that activates a control does nothing
                                      to it. See ItemCard, which does the same over its whole card. -->
                                 <Grid>
-                                    <controls:PersonRow SubjectId="{Binding Id}" Name="{Binding Name}" />
+                                    <controls:PersonRow SubjectId="{Binding Id}" Name="{Binding Name}"
+                                                        UnreadCount="{Binding UnreadCount}"
+                                                        HasUnseenAction="{Binding HasSomethingWaiting}" />
                                     <Button BackgroundColor="Transparent" BorderWidth="0" Padding="0"
                                             MinimumHeightRequest="0" MinimumWidthRequest="0"
                                             SemanticProperties.Description="{Binding Name}"

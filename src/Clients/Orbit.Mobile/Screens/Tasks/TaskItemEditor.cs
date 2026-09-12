@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens;
 using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Suggestions;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Tasks;
 using Orbit.Core.Notifications;
@@ -225,7 +226,198 @@ public sealed partial class TaskItemEditor : ObservableObject
     {
         OnPropertyChanged(nameof(IsALinkToOtherLists));
         OnPropertyChanged(nameof(LinkableTaskListsLeft));
+        OnPropertyChanged(nameof(CanHaveWays));
     }
+
+    /// <summary>
+    /// The ways this entry can be got done, any one of which is enough - see TaskItem.Alternatives and
+    /// TaskItemWay. Offered while it stands for no list, and the lists only while it has no ways: "any one
+    /// of these" and "every one of these" are two different entries. Orbit.Web draws the same pair.
+    /// </summary>
+    public ObservableCollection<TaskItemWay> Ways { get; } = [];
+
+    public bool HasWays => Ways.Count > 0;
+
+    /// <summary>Whether the ways are offered at all - not on an entry that stands for lists.</summary>
+    public bool CanHaveWays => !IsALinkToOtherLists;
+
+    /// <summary>Whether lists to stand for are offered: not while the entry has ways, nor with nothing to point at.</summary>
+    public bool CanStandForLists => CanBeLinked && !HasWays;
+
+    /// <summary>What the "or a list" picker offers: the lists this entry could point at that are not a way already.</summary>
+    public IReadOnlyList<TaskListChoice> WayListsLeft
+        => [.. LinkableTaskLists.Where(choice =>
+            choice.ServerId is not null && Ways.All(way => way.ListServerId != choice.ServerId))];
+
+    /// <summary>A new line of its own, blank, for the reader to type into. One left blank is not saved.</summary>
+    [RelayCommand]
+    private void AddAWay()
+    {
+        Ways.Add(new TaskItemWay(string.Empty, listServerId: null, listName: null, isDone: false));
+        SayWhatItIsDoneBy();
+    }
+
+    /// <summary>
+    /// A list as one of the ways. A command rather than the picker's bound value, for the reason LinkTo is
+    /// one - see TaskListDetailPage.OnWayListPicked.
+    /// </summary>
+    [RelayCommand]
+    private void AddAListWay(TaskListChoice? chosen)
+    {
+        if (chosen?.ServerId is not { } listServerId || Ways.Any(way => way.ListServerId == listServerId))
+        {
+            return;
+        }
+
+        Ways.Add(new TaskItemWay(string.Empty, listServerId, chosen.Name, isDone: false));
+        SayWhatItIsDoneBy();
+    }
+
+    [RelayCommand]
+    private void RemoveWay(TaskItemWay? way)
+    {
+        if (way is not null && Ways.Remove(way))
+        {
+            SayWhatItIsDoneBy();
+        }
+    }
+
+    private void SayWhatItIsDoneBy()
+    {
+        OnPropertyChanged(nameof(HasWays));
+        OnPropertyChanged(nameof(CanStandForLists));
+        OnPropertyChanged(nameof(WayListsLeft));
+    }
+
+    /// <summary>The ways as they are saved: none on an entry standing for lists, and none left blank.</summary>
+    private IReadOnlyList<TaskItemAlternativeDto> WaysAsSaved()
+        => IsALinkToOtherLists
+            ? []
+            : [.. Ways
+                .Where(way => way.IsAList || way.Description.Trim().Length > 0)
+                .Select(way => new TaskItemAlternativeDto(way.Description.Trim(), way.ListServerId, way.IsDone))];
+
+    /// <summary>
+    /// An entry done by ways is done when one is. Said here as well as on the server, because a private
+    /// list is sealed on this phone and nothing works it out for it afterwards.
+    /// </summary>
+    private bool IsCompletedAsSaved()
+        => WaysAsSaved() is { Count: > 0 } ways ? ways.Any(way => way.IsDone) : _item.IsCompleted;
+
+    /// <summary>
+    /// What this entry is the same thing as, when a name picked in this sitting made it so - see
+    /// TaskItem.ReferencesTaskItemId. The empty id is "Make it separate". Null leaves what it already was.
+    /// </summary>
+    private Guid? _pickedReference;
+
+    /// <summary>The shelf item a picked name was the name of, which makes this entry that product's errand.</summary>
+    private Guid? _pickedShelfItemId;
+
+    /// <summary>
+    /// Said under the entry while it is the same thing as another - the phone's '!', beside the web's.
+    /// Empty for an entry of its own.
+    /// </summary>
+    [ObservableProperty]
+    private string _referenceNote = string.Empty;
+
+    public bool HasReferenceNote => ReferenceNote.Length > 0;
+
+    public bool IsAReference => (_pickedReference ?? _item.ReferencesTaskItemId) is { } referenced && referenced != Guid.Empty;
+
+    /// <summary>
+    /// A name picked for what it is the name of: the entry takes the name and becomes the same thing. What
+    /// that thing says is read off this phone's own copy and shown at once, the way Orbit.Web's editor
+    /// reads it off the server - a picked name that left the form empty until the next sync looked like
+    /// the pick had not taken. The save still carries only the words and the pointer: the server is what
+    /// keeps a group in step (see Orbit.Core.Tasks.TaskItemReferences), and it fills in what this phone
+    /// cannot show - the priority and the colour - from the group itself. A product on a shelf makes the
+    /// entry that product's errand, the link a shelf already knows.
+    /// </summary>
+    public async Task TakeOnAsync(NameSuggestionOffer offer)
+    {
+        Description = offer.Name;
+        if (offer.Source.Kind == nameof(NameSuggestionSourceKind.InventoryItem))
+        {
+            Kind = nameof(TaskItemKind.Inventory);
+            PointAtTheProduct(offer.Source.Id);
+        }
+        else
+        {
+            _pickedReference = offer.Source.Id;
+            await TakeOnWhatItSaysAsync(offer.Source);
+        }
+
+        ReferenceNote = _translations.Format(
+            "The same thing as \"{0}\" in {1}: changing what it is changes it there too. Its date, tick and amount stay its own.",
+            offer.Name, offer.Source.ContainerName);
+        OnPropertyChanged(nameof(IsAReference));
+    }
+
+    /// <summary>
+    /// The details a reference group shares, off the entry the picked name is the name of - the fields
+    /// Orbit.Core.Tasks.TaskItem.TakeSharedDetailsFrom passes round, less the two this form does not
+    /// draw. Nothing happens for an entry this phone has not got: the pointer is saved either way.
+    /// </summary>
+    private async Task TakeOnWhatItSaysAsync(NameSuggestionSourceDto source)
+    {
+        if (EntryTheNameIsOf is null
+            || await EntryTheNameIsOf(source.ContainerId, source.ItemId) is not { } found)
+        {
+            return;
+        }
+
+        Kind = found.Kind;
+        Location = found.Location ?? string.Empty;
+        Notes = found.AllNotes;
+        Categories = CategoryText.Join(found.AllCategories);
+        if (found.LinkedInventoryItemId is { } productId)
+        {
+            PointAtTheProduct(productId);
+        }
+    }
+
+    /// <summary>
+    /// Makes the entry the errand about one product, and shows that product's own form where this phone
+    /// has the shelf it sits on - so the amounts are there to correct straight away rather than after a
+    /// save and a reopen. Without the shelf the link is still made, and the form says there is nothing
+    /// to edit (see <see cref="HasNoProductToEdit"/>) until the inventory arrives.
+    /// </summary>
+    private void PointAtTheProduct(Guid productId)
+    {
+        _pickedShelfItemId = productId;
+        if (ProductTheNameIsOf?.Invoke(productId) is not { } onTheShelf)
+        {
+            return;
+        }
+
+        Shelf = onTheShelf;
+        OnPropertyChanged(nameof(Shelf));
+        SayWhatTheFormShows();
+    }
+
+    /// <summary>
+    /// One entry on another of this account's lists, by the list and the entry a picked name names -
+    /// see Orbit.Contracts.Suggestions.NameSuggestionSourceDto. Handed in rather than reached for, the
+    /// way the lists and the channels are, and answered from this phone's own database.
+    /// </summary>
+    public Func<Guid, Guid, Task<TaskItemDto?>>? EntryTheNameIsOf { private get; set; }
+
+    /// <summary>
+    /// One product on one of this account's shelves, ready to edit - the same form
+    /// <see cref="Shelf"/> is opened on. Null for a shelf this phone has not got.
+    /// </summary>
+    public Func<Guid, TaskItemShelfProduct?>? ProductTheNameIsOf { private get; set; }
+
+    /// <summary>"Make it separate": the entry stops being the same thing as the others and keeps what it says.</summary>
+    [RelayCommand]
+    private void MakeItsOwn()
+    {
+        _pickedReference = Guid.Empty;
+        ReferenceNote = string.Empty;
+        OnPropertyChanged(nameof(IsAReference));
+    }
+
+    partial void OnReferenceNoteChanged(string value) => OnPropertyChanged(nameof(HasReferenceNote));
 
     /// <summary>
     /// The other entries of this same list, which this one can be made to wait for - "hang the door"
@@ -380,6 +572,74 @@ public sealed partial class TaskItemEditor : ObservableObject
     /// <inheritdoc cref="Inventory.InventoryItemEditor.Suggestions"/>
     public NameSuggestions? Suggestions { get; private init; }
 
+    private IReadOnlyList<string> _knownProductTypes = [];
+
+    /// <summary>
+    /// Whether the entry is done, which is the only time it has a time for being done - see
+    /// Orbit.Core.Tasks.TaskItem.CompletedAtUtc. The tick is the list's to change rather than this
+    /// form's, so it holds still while the form is open: the pickers below are drawn for a done entry and
+    /// never for one still to do.
+    /// </summary>
+    public bool IsDone => _item.IsCompleted;
+
+    /// <summary>
+    /// A done entry whose time was never kept - one ticked before Orbit kept it. The pickers still open
+    /// (on today), and are only sent once somebody changes them: a time made up by opening a form is not
+    /// when anything was done. See <see cref="ToDto"/>.
+    /// </summary>
+    public bool IsCompletionTimeUnknown => IsDone && _item.CompletedAtUtc is null && !_completionTimeChosen;
+
+    /// <summary>The day it was done, as the picker holds it - local, like the due date's.</summary>
+    [ObservableProperty]
+    private DateTime _completedOn = DateTime.Today;
+
+    /// <summary>The hour it was done, as the picker holds it.</summary>
+    [ObservableProperty]
+    private TimeSpan _completedAt;
+
+    /// <summary>Whether there is a time to send: the entry had one, or somebody set one here.</summary>
+    private bool _completionTimeChosen;
+
+    partial void OnCompletedOnChanged(DateTime value) => ChoseACompletionTime();
+
+    partial void OnCompletedAtChanged(TimeSpan value) => ChoseACompletionTime();
+
+    private void ChoseACompletionTime()
+    {
+        _completionTimeChosen = true;
+        OnPropertyChanged(nameof(IsCompletionTimeUnknown));
+    }
+
+    /// <summary>The two pickers as the one time the entry carries, in UTC for the reason the due date gives.</summary>
+    private DateTimeOffset? CompletedAtUtcAsChosen()
+    {
+        if (!_item.IsCompleted)
+        {
+            return null;
+        }
+
+        if (!_completionTimeChosen)
+        {
+            return _item.CompletedAtUtc;
+        }
+
+        var local = CompletedOn.Date + CompletedAt;
+        return new DateTimeOffset(local, TimeZoneInfo.Local.GetUtcOffset(local)).ToUniversalTime();
+    }
+
+    /// <summary>
+    /// Hands the product forms this entry can show what the account already calls kinds of product - see
+    /// InventoryItemEditor.OfferedProductTypes. Remembered as well as passed on, because the form for a
+    /// product the shelf has not got yet can appear later, when the kind is changed to Inventory.
+    /// </summary>
+    public TaskItemEditor KnowingProductTypes(IReadOnlyList<string> productTypes)
+    {
+        _knownProductTypes = productTypes;
+        ProductWanted?.Knowing(productTypes);
+        Shelf?.Product.Knowing(productTypes);
+        return this;
+    }
+
     /// <param name="entriesOnTheList">
     /// Everything else on the list this entry is on, which is what it can be made to wait for. Handed in
     /// like the lists above it: which entries are on the list is the screen's knowledge. Left empty by a
@@ -399,6 +659,8 @@ public sealed partial class TaskItemEditor : ObservableObject
             suggestions.Offers(NameSuggestionKind.TaskItemDescription);
             suggestions.StartsAt(editor.Description);
             suggestions.Takes = description => editor.Description = description;
+            // A name picked for what it names - see TakeOn, and the Preferences tab for which kinds.
+            suggestions.TakesSource = editor.TakeOnAsync;
         }
 
         return editor;
@@ -456,8 +718,18 @@ public sealed partial class TaskItemEditor : ObservableObject
             HasDailyReminderTime = !item.RemindDaily || item.DailyReminderTimeOfDay != default,
             DailyReminderTime = item.DailyReminderTimeOfDay == default
                 ? DefaultReminderTime
-                : item.DailyReminderTimeOfDay.ToTimeSpan()
+                : item.DailyReminderTimeOfDay.ToTimeSpan(),
+            // Opened on the time it was done, or on now for a done entry nobody kept one for - which is
+            // not sent unless it is changed, see CompletedAtUtcAsChosen.
+            CompletedOn = (item.CompletedAtUtc?.LocalDateTime ?? DateTime.Now).Date,
+            CompletedAt = (item.CompletedAtUtc?.LocalDateTime ?? DateTime.Now) is var completedLocal
+                ? new TimeSpan(completedLocal.Hour, completedLocal.Minute, 0)
+                : TimeSpan.Zero
         };
+
+        // After the initialiser, whose assignments count as changes: what decides whether a time is sent
+        // is whether the entry already had one, not whether the pickers were given a starting value.
+        editor._completionTimeChosen = item.IsCompleted && item.CompletedAtUtc is not null;
 
         // What it already stands for, in the order the entry names them. Set after the initialiser
         // because the collection is the editor's own rather than something assigned to it.
@@ -466,6 +738,27 @@ public sealed partial class TaskItemEditor : ObservableObject
             .OfType<TaskListChoice>())
         {
             editor.LinkedTaskLists.Add(linked);
+        }
+
+        // And the ways it is done by, in the order the entry names them. A way whose list this phone has
+        // not got keeps its place and is named "another list": it is still one of the ways.
+        foreach (var way in item.AllAlternatives)
+        {
+            editor.Ways.Add(new TaskItemWay(
+                way.Description,
+                way.LinkedTaskListId,
+                way.LinkedTaskListId is { } wayListId
+                    ? lists.FirstOrDefault(choice => choice.ServerId == wayListId)?.Name ?? editor._translations["another list"]
+                    : null,
+                way.IsDone));
+        }
+
+        // An entry read back as the same thing as another says so, though not which - that is on the
+        // server's side of the pointer, and the words say enough to recognise it.
+        if (item.ReferencesTaskItemId is not null)
+        {
+            editor.ReferenceNote = translations[
+                "The same thing as entries on other lists: changing what it is changes it there too. Its date, tick and amount stay its own."];
         }
 
         // And what it already waits for, in the order the entry names them. A step naming an entry that
@@ -528,6 +821,16 @@ public sealed partial class TaskItemEditor : ObservableObject
             // phone would quietly drop the rest of an entry standing for several.
             LinkedTaskListId = null,
             LinkedTaskListIds = [.. LinkedTaskLists.Select(linked => linked.ServerId!.Value)],
+            // The ways as this form now says them, and the tick they give the entry - see WaysAsSaved.
+            Alternatives = WaysAsSaved(),
+            IsCompleted = IsCompletedAsSaved(),
+            // What it is the same thing as, when a name picked here said so - see TakeOn - and otherwise
+            // what it already was.
+            ReferencesTaskItemId = _pickedReference ?? _item.ReferencesTaskItemId,
+            LinkedInventoryItemId = _pickedShelfItemId ?? _item.LinkedInventoryItemId,
+            // Left to the product while one is sent - the server takes the entry's minimum off it, one
+            // answer rather than two - and otherwise as the entry already had it.
+            RequiredQuantity = IsAskingForSomethingNoShelfHasYet || IsDescribingSomethingNew ? null : _item.RequiredQuantity,
             Description = Description.Trim(),
             // Always a string, never null, now that there is a box: an empty one means "cleared", which
             // is what emptying it has to mean - null would leave whatever the server holds.
@@ -568,7 +871,9 @@ public sealed partial class TaskItemEditor : ObservableObject
             // than passed through: the phone can show every step there is, because a step is always an
             // entry of the list this form was opened from. A step whose entry has gone is already absent
             // from WaitsFor - see Build - and the server drops such an id anyway (TaskListSteps).
-            WaitsForTaskItemIds = [.. WaitsFor.Select(step => step.Id)]
+            WaitsForTaskItemIds = [.. WaitsFor.Select(step => step.Id)],
+            // When it was done, for a done entry - see CompletedAtUtcAsChosen.
+            CompletedAtUtc = CompletedAtUtcAsChosen()
         };
 
     partial void OnDescriptionChanged(string value)
@@ -616,6 +921,7 @@ public sealed partial class TaskItemEditor : ObservableObject
         if (value == nameof(TaskItemKind.Inventory))
         {
             Shelf ??= ShelfForSomethingNew?.Invoke();
+            Shelf?.Product.Knowing(_knownProductTypes);
         }
         else if (Shelf is { Product.IsSomethingNew: true })
         {

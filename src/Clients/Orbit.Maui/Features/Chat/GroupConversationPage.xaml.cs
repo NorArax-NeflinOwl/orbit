@@ -71,11 +71,24 @@ public partial class GroupConversationPage : ContentPage
 	/// <summary>Typed so the navigator can hand the page its group without casting the binding context.</summary>
 	public GroupConversationViewModel ViewModel => _viewModel;
 
+	/// <summary>The window this page is showing in - see ConversationPage, which does the same.</summary>
+	private Window? _window;
+
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
 		_viewModel.StartPolling();
+
+		// Going to the background does not make a page disappear, so the window is what says it.
+		_window = Window;
+		if (_window is not null)
+		{
+			_window.Stopped += OnAppStopped;
+			_window.Resumed += OnAppResumed;
+		}
+
+		_ = _viewModel.ScreenShownAsync();
 	}
 
 	/// <summary>
@@ -85,6 +98,22 @@ public partial class GroupConversationPage : ContentPage
 	protected override void OnDisappearing()
 	{
 		base.OnDisappearing();
+		_viewModel.ScreenHidden();
+		if (_window is not null)
+		{
+			_window.Stopped -= OnAppStopped;
+			_window.Resumed -= OnAppResumed;
+			_window = null;
+		}
+
 		_viewModel.StopPolling();
 	}
+
+	private void OnAppStopped(object? sender, EventArgs e) => _viewModel.AppWentToBackground();
+
+	private void OnAppResumed(object? sender, EventArgs e) => _ = _viewModel.AppCameToForegroundAsync();
+
+	/// <summary>The last line on screen - see ConversationPage.OnThreadScrolled.</summary>
+	private void OnThreadScrolled(object? sender, ItemsViewScrolledEventArgs e)
+		=> _ = _viewModel.ShowedUpToAsync(e.LastVisibleItemIndex);
 }

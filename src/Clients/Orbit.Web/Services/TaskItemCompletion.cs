@@ -5,6 +5,7 @@ using Microsoft.JSInterop;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Inventories;
+using Orbit.Core.Tasks;
 
 namespace Orbit.Web.Services;
 
@@ -95,6 +96,39 @@ public sealed class TaskItemCompletion(
     }
 
     /// <summary>
+    /// Takes one of an entry's ways, or takes it back - see TaskItem.Alternatives. The same whole-list
+    /// save a tick is, with that way's answer changed. The entry's own tick follows from its ways, and is
+    /// said here too because a private list is sealed as it is sent and nothing works it out afterwards.
+    /// A way that is a list is left as it is: that list answers for it.
+    /// </summary>
+    public Task<TaskItemTickOutcome> TakeWayAsync(
+        TaskDto taskList, TaskItemDto item, int wayIndex, bool isDone, CancellationToken cancellationToken = default)
+    {
+        FailureMessage = null;
+        Note = null;
+        List<TaskItemAlternativeDto> ways =
+        [
+            .. item.AllAlternatives.Select((way, index) =>
+                index == wayIndex && way.LinkedTaskListId is null ? way with { IsDone = isDone } : way)
+        ];
+        var isDoneNow = ways.Any(way => way.IsDone);
+        return SaveAsync(
+            taskList,
+            [.. taskList.Items.Select(existingItem => existingItem.Id == item.Id
+                ? TaskItemRequest.From(existingItem) with
+                {
+                    Alternatives = ways,
+                    IsCompleted = isDoneNow,
+                    // Taking a way is what finished the entry, so it is when the entry was done -
+                    // recorded here for the same reason a tick's time is, see TaskItemCompletionTime.
+                    CompletedAtUtc = TaskItemCompletionTime.After(
+                        existingItem.IsCompleted, existingItem.CompletedAtUtc, isDoneNow, DateTimeOffset.UtcNow)
+                }
+                : TaskItemRequest.From(existingItem))],
+            cancellationToken);
+    }
+
+    /// <summary>
     /// Takes this entry off its list - the entry page's "Delete item". The same whole-list save a tick
     /// is, with the entry left out. An appointment the entry raised stays in the calendar, as it does
     /// when the entry is removed in the list's own form: the event is the reader's to delete, not a side
@@ -139,6 +173,26 @@ public sealed class TaskItemCompletion(
         return await SaveAsync(taskList, items, cancellationToken) == TaskItemTickOutcome.Ticked ? copyId : null;
     }
 
+    /// <summary>
+    /// Corrects when a finished entry was done - the entry page's date and time, which are offered only
+    /// once the entry is ticked. The same whole-list save a tick is, with that one entry's time changed;
+    /// an entry that is not done has no time to correct, and asking changes nothing.
+    /// </summary>
+    public Task<TaskItemTickOutcome> SetCompletedAtAsync(
+        TaskDto taskList, TaskItemDto item, DateTimeOffset completedAtUtc, CancellationToken cancellationToken = default)
+    {
+        FailureMessage = null;
+        Note = null;
+        return SaveAsync(
+            taskList,
+            [
+                .. taskList.Items.Select(existingItem => existingItem.Id == item.Id && existingItem.IsCompleted
+                    ? TaskItemRequest.From(existingItem) with { CompletedAtUtc = completedAtUtc.ToUniversalTime() }
+                    : TaskItemRequest.From(existingItem))
+            ],
+            cancellationToken);
+    }
+
     /// <summary>Every entry as it already is, with one entry's answer changed.</summary>
     private static List<TaskItemRequest> TicksChanged(
         TaskDto taskList, TaskItemDto item, TickState state, int toggledIndex)
@@ -152,11 +206,18 @@ public sealed class TaskItemCompletion(
                     ? index == toggledIndex
                     : existingItem.Id == item.Id;
 
-                return TaskItemRequest.From(existingItem) with
-                {
-                    IsCompleted = isTheOneBeingTicked ? state.IsCompleted() : existingItem.IsCompleted,
-                    IsFailed = isTheOneBeingTicked ? state.IsFailed() : existingItem.IsFailed
-                };
+                return isTheOneBeingTicked
+                    ? TaskItemRequest.From(existingItem) with
+                    {
+                        IsCompleted = state.IsCompleted(),
+                        IsFailed = state.IsFailed(),
+                        // Recorded here rather than left to the server, which never sees a private
+                        // list's entries - see TaskItemCompletionTime.
+                        CompletedAtUtc = TaskItemCompletionTime.After(
+                            existingItem.IsCompleted, existingItem.CompletedAtUtc, state.IsCompleted(),
+                            DateTimeOffset.UtcNow)
+                    }
+                    : TaskItemRequest.From(existingItem);
             })
             .ToList();
     }
@@ -171,7 +232,17 @@ public sealed class TaskItemCompletion(
         try
         {
             var outcome = await tasksApiClient.UpdateTaskListAsync(
-                taskList.Id, new UpdateTaskRequest(taskList.Title, items, taskList.IsGroup), cancellationToken);
+                taskList.Id,
+                // Everything about the list as it already is, not only its entries: the endpoint replaces a
+                // list wholesale, and a request that left IsPrivate out saved a private list back in the
+                // clear - its title and every entry readable on the server - while one that left Priority
+                // out put every list back to Normal on a tick, and one that left the tags out emptied
+                // them. The description and the reader's answer about whether it is finished say "not
+                // provided" by being null, and keep what is stored.
+                new UpdateTaskRequest(
+                    taskList.Title, items, taskList.IsGroup, taskList.IsPrivate,
+                    Priority: taskList.Priority, Tags: taskList.AllTags),
+                cancellationToken);
             if (outcome.Kind == EditOutcomeKind.Locked)
             {
                 FailureMessage = translations.Format(

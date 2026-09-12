@@ -25,13 +25,15 @@ public sealed record InventoryItemRow(
 {
     public static InventoryItemRow From(
         InventoryItemRequest item, Translations translations, Guid? pointedAtProductId = null,
-        DateTimeOffset? arrivedAtUtc = null)
+        DateTimeOffset? arrivedAtUtc = null, decimal usage = 0)
         => new(
             item,
-            Describe(item, translations),
+            Describe(item, translations, usage),
             Measure(item.Quantity, item.Unit, translations),
-            // The same test Orbit.Web's editor makes: a minimum that is set and not met.
-            item.MinimumQuantity is { } minimum && item.Quantity < minimum,
+            // The same test Orbit.Web's editor makes, against the level the shelf is actually kept at:
+            // never below what the task lists ask for - see KeptAt.
+            KeptAt(item, usage) is { } minimum && item.Quantity < minimum,
+
             item.ExpiryDate is { } expiry
                 ? translations.Format("Expires {0}", expiry.LocalDateTime.ToString("d", translations.DisplayCulture))
                 : string.Empty,
@@ -65,15 +67,24 @@ public sealed record InventoryItemRow(
 
     public bool HasArrived => Arrived.Length > 0;
 
-    private static string Describe(InventoryItemRequest item, Translations translations)
+    private static string Describe(InventoryItemRequest item, Translations translations, decimal usage)
     {
         var kind = string.Join(
             " · ", item.AllCategories.Prepend(item.ProductType).Where(part => part.Length > 0));
 
-        return item.MinimumQuantity is { } minimum
+        return KeptAt(item, usage) is { } minimum
             ? $"{kind} · {translations.Format("Minimum: {0}", Measure(minimum, item.Unit, translations))}"
             : kind;
     }
+
+    /// <summary>
+    /// The level this row is kept at: the minimum somebody set, never lower than what the reader's task
+    /// lists ask for - see LocalInventory.ItemUsage and Orbit.Core.Inventories.InventoryItem.EffectiveMinimum,
+    /// which is the same rule on the server. Null when neither says anything.
+    /// </summary>
+    private static decimal? KeptAt(InventoryItemRequest item, decimal usage)
+        => usage > 0 ? Math.Max(item.MinimumQuantity ?? 0, usage) : item.MinimumQuantity;
+
 
     private static string Measure(decimal amount, string unit, Translations translations)
         => InventoryUnitChoice.ShortFormOf(unit, translations) is { Length: > 0 } shortForm

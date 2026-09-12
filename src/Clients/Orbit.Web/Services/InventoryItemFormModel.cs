@@ -35,6 +35,15 @@ public sealed class InventoryItemFormModel
     /// <summary>Asked for every round, whatever the count says - see InventoryItem.BelongsOnTheRestockList.</summary>
     public bool IsCheckedRegularly { get; set; }
 
+    /// <summary>
+    /// How much of this the reader's task lists ask for - see InventoryItem.Usage. Read, never written: the
+    /// server counts it. The minimum is never kept lower than this.
+    /// </summary>
+    public decimal Usage { get; set; }
+
+    /// <summary>The level this is kept at - the minimum, never lower than <see cref="Usage"/>. See InventoryItem.EffectiveMinimum.</summary>
+    public decimal? EffectiveMinimum => Usage > 0 ? Math.Max(MinimumQuantity ?? 0, Usage) : MinimumQuantity;
+
     public static InventoryItemFormModel FromDto(InventoryItemDto item)
         => new()
         {
@@ -50,7 +59,8 @@ public sealed class InventoryItemFormModel
             Unit = InventoryUnitOption.For(item.Unit).Value,
             ExpiryDate = item.ExpiryDate,
             ExpiryNotificationChannel = item.ExpiryNotificationChannel,
-            IsCheckedRegularly = item.IsCheckedRegularly
+            IsCheckedRegularly = item.IsCheckedRegularly,
+            Usage = item.Usage
         };
 
     /// <summary>
@@ -92,6 +102,6 @@ public sealed class InventoryItemFormModel
             IsCheckedRegularly = product.IsCheckedRegularly
         };
 
-    /// <summary>Whether the shelf says there is less of this than somebody asked to keep.</summary>
-    public bool IsBelowMinimum => MinimumQuantity is { } minimum && Quantity < minimum;
+    /// <summary>Whether the shelf says there is less of this than it is kept at.</summary>
+    public bool IsBelowMinimum => EffectiveMinimum is { } minimum && Quantity < minimum;
 }

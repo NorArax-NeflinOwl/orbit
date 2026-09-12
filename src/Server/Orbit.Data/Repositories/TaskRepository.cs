@@ -25,6 +25,7 @@ public sealed class TaskRepository : ITaskRepository
             .Include(task => task.Items).ThenInclude(item => item.Categories)
             .Include(task => task.Items).ThenInclude(item => item.ProductCategories)
             .Include(task => task.Items).ThenInclude(item => item.Steps)
+            .Include(task => task.Items).ThenInclude(item => item.Alternatives)
             .Where(task => task.UserId == userId);
 
         // Narrowed in the database when the caller only wants what changed. A client catching up asks
@@ -50,6 +51,7 @@ public sealed class TaskRepository : ITaskRepository
             .Include(task => task.Items).ThenInclude(item => item.Categories)
             .Include(task => task.Items).ThenInclude(item => item.ProductCategories)
             .Include(task => task.Items).ThenInclude(item => item.Steps)
+            .Include(task => task.Items).ThenInclude(item => item.Alternatives)
             .FirstOrDefaultAsync(task => task.Id == id && task.UserId == userId, cancellationToken);
 
         return entity is null ? null : ToDomain(entity);
@@ -69,6 +71,7 @@ public sealed class TaskRepository : ITaskRepository
             .Include(task => task.Items).ThenInclude(item => item.Categories)
             .Include(task => task.Items).ThenInclude(item => item.ProductCategories)
             .Include(task => task.Items).ThenInclude(item => item.Steps)
+            .Include(task => task.Items).ThenInclude(item => item.Alternatives)
             .Where(task => task.UserId == userId
                 && task.Id != exceptListId
                 && task.Items.Any(item => itemIds.Contains(item.Id)))
@@ -110,6 +113,7 @@ public sealed class TaskRepository : ITaskRepository
         var entity = await _dbContext.Tasks.FirstAsync(task => task.Id == taskList.Id, cancellationToken);
         entity.Title = taskList.Title;
         entity.Description = taskList.Description;
+        entity.TagsJson = StoredTags.Write(taskList.Tags);
         entity.IsCompleted = taskList.IsCompleted;
         entity.Completion = taskList.Completion.ToString();
         entity.IsGroup = taskList.IsGroup;
@@ -140,6 +144,7 @@ public sealed class TaskRepository : ITaskRepository
             .Include(item => item.Categories)
             .Include(item => item.ProductCategories)
             .Include(item => item.Steps)
+            .Include(item => item.Alternatives)
             .Where(item => item.TaskId == taskList.Id)
             .ToListAsync(cancellationToken);
         _dbContext.RemoveRange(existingItems);
@@ -203,7 +208,8 @@ public sealed class TaskRepository : ITaskRepository
             entity.LockExpiresAtUtc,
             Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal,
             entity.IsPinned, entity.LinkedInventoryId, entity.Description, entity.FolderId,
-            Enum.TryParse<TaskListCompletion>(entity.Completion, out var completion) ? completion : TaskListCompletion.FromTheEntries);
+            Enum.TryParse<TaskListCompletion>(entity.Completion, out var completion) ? completion : TaskListCompletion.FromTheEntries,
+            StoredTags.Read(entity.TagsJson));
 
     private static TaskItem ToItemDomain(TaskItemEntity entity)
         => TaskItem.FromPersistence(
@@ -228,7 +234,13 @@ public sealed class TaskRepository : ITaskRepository
             // Anything unreadable falls back to Normal, the way every other stored-by-name enum here
             // does: a row must not throw while being read.
             Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal,
-            entity.Colour);
+            entity.Colour,
+            [.. entity.Alternatives.OrderBy(way => way.Position)
+                .Select(way => new TaskItemAlternative(way.Description, way.LinkedTaskListId, way.IsDone))],
+            entity.CreatedAtUtc,
+            entity.ReferencesTaskItemId,
+            entity.RequiredQuantity,
+            entity.CompletedAtUtc);
 
     /// <summary>
     /// What the entry asks for, when it asks for anything - see TaskItemEntity.ProductType for why the
@@ -257,6 +269,7 @@ public sealed class TaskRepository : ITaskRepository
             UserId = taskList.UserId,
             Title = taskList.Title,
             Description = taskList.Description,
+            TagsJson = StoredTags.Write(taskList.Tags),
             IsCompleted = taskList.IsCompleted,
             Completion = taskList.Completion.ToString(),
             IsGroup = taskList.IsGroup,
@@ -286,6 +299,9 @@ public sealed class TaskRepository : ITaskRepository
             DueDateUtc = item.DueDateUtc,
             IsCompleted = item.IsCompleted,
             IsFailed = item.IsFailed,
+            CreatedAtUtc = item.CreatedAtUtc,
+            ReferencesTaskItemId = item.ReferencesTaskItemId,
+            RequiredQuantity = item.RequiredQuantity,
             LinkedTaskLists = [.. item.LinkedTaskListIds.Select((linkedId, linkPosition) =>
                 new TaskItemTaskListLinkEntity
                 {
@@ -300,6 +316,17 @@ public sealed class TaskRepository : ITaskRepository
                     WaitsForTaskItemId = waitsFor,
                     Position = stepPosition
                 })],
+            Alternatives = [.. item.Alternatives.Select((way, wayPosition) =>
+                new TaskItemAlternativeEntity
+                {
+                    TaskItemId = item.Id,
+                    Position = wayPosition,
+                    Description = way.Description,
+                    LinkedTaskListId = way.LinkedTaskListId,
+                    // A way that is a list is answered by the list on every read, never by a stored
+                    // flag - see TaskItemAlternativeEntity.IsDone.
+                    IsDone = !way.IsAList && way.IsDone
+                })],
             OverdueNotificationChannel = item.OverdueNotificationChannel.ToString(),
             RemindDaily = item.RemindDaily,
             DailyReminderNotificationChannel = item.DailyReminderNotificationChannel.ToString(),
@@ -308,6 +335,7 @@ public sealed class TaskRepository : ITaskRepository
             Location = item.Location,
             Priority = item.Priority.ToString(),
             Colour = item.Colour,
+            CompletedAtUtc = item.CompletedAtUtc,
             LinkedCalendarEventId = item.LinkedCalendarEventId,
             LinkedInventoryItemId = item.LinkedInventoryItemId,
             // All of them or none of them - see TaskItemEntity.ProductType. An entry that describes

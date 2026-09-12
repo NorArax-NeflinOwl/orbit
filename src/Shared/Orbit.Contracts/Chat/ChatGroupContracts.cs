@@ -12,7 +12,12 @@ public sealed record ChatGroupDto(
     Guid Id, string Name, Guid CreatedByUserId, DateTimeOffset CreatedAtUtc, string OwnRole,
     IReadOnlyList<ChatGroupMemberDto> Members, DateTimeOffset LastMessageAtUtc = default,
     /// <summary>Put away by the reader asking - per member, so it says nothing about anybody else.</summary>
-    bool IsArchived = false);
+    bool IsArchived = false,
+    /// <summary>
+    /// How many of this group's messages the reader asking has not read yet - everything that arrived
+    /// since they last had the group open. The group counterpart of ContactDto.UnreadCount.
+    /// </summary>
+    int UnreadCount = 0);
 
 public sealed record ChatGroupMemberDto(Guid UserId, string Role, DateTimeOffset JoinedAtUtc);
 

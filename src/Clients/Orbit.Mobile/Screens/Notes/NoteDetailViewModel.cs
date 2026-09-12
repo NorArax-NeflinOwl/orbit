@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Notes;
 using Orbit.Core.Folders;
+using Orbit.Core.Notes;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
@@ -37,6 +38,34 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     private readonly TimeProvider _timeProvider;
 
     private Guid _localId;
+
+    /// <summary>
+    /// Undo and redo for the writing - the same history Orbit.Web's editor keeps (see
+    /// Orbit.Core.Notes.NoteSurfaceHistory), of whole states of the note with the caret in them. The
+    /// note's name is the surface's first line, as it is in the browser, so an undo reaches it too.
+    ///
+    /// A phone has no Ctrl+Z, so the two are buttons beside the tick-box button over the note's foot.
+    /// </summary>
+    private readonly NoteSurfaceHistory _history =
+        new(SurfaceState.CaretAt([SurfaceState.EmptyLine, SurfaceState.EmptyLine], new SurfacePoint(0, 0)));
+
+    /// <summary>Which note <see cref="_history"/> is the history of, so another note opened here starts its own.</summary>
+    private Guid _historyOf;
+
+    /// <summary>
+    /// Above zero while this view model is changing the lines itself - an undo, a line split by Enter, a
+    /// note being read in. A line's text changing then is not somebody typing, and neither the history
+    /// nor the reading of a typed "[]" may take it for that.
+    /// </summary>
+    private int _applying;
+
+    /// <summary>
+    /// Says where the caret belongs after an edit the screen made rather than the keyboard - see
+    /// <see cref="NoteCaret"/>. Raised for an undo or redo that changed words (one that only put a tick
+    /// back leaves the caret alone, as pressing the box did) and after a typed "[]" is taken out of a
+    /// line, whose field is rewritten under the caret.
+    /// </summary>
+    public event EventHandler<NoteCaret>? CaretPlaced;
 
     /// <summary>
     /// The left half of the editor's foot, as the design draws it: whose note this is when it is not the
@@ -88,11 +117,19 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     [ObservableProperty]
     private bool _isSharedWithMe;
 
+    /// <summary>
+    /// What the note is tagged with, and the colours of those tags - see TagsForm. Saved with the note; a
+    /// colour is saved there and then, for the whole account.
+    /// </summary>
+    public Orbit.Mobile.Screens.Tags.TagsForm Tags { get; }
+
     public NoteDetailViewModel(
         LocalNoteRepository notes, NoteSynchronizer synchronizer, NotesClient notesClient, EditLock editLock,
         Translations translations, PrivateContentSealer privateContent, SharePanel share, IScreenNavigator navigator,
-        LocalFolderRepository folders, TimeProvider timeProvider)
+        LocalFolderRepository folders, TimeProvider timeProvider,
+        LocalTagColourRepository? tagColours = null, TagColourSynchronizer? tagColourSynchronizer = null)
     {
+        Tags = new Orbit.Mobile.Screens.Tags.TagsForm(translations, tagColours, tagColourSynchronizer);
         _timeProvider = timeProvider;
         _folders = folders;
         _notes = notes;
@@ -104,6 +141,8 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         Share = share;
         _navigator = navigator;
         _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
+        // A chosen line that goes - joined, undone - is no longer chosen, and the count has to say so.
+        Lines.CollectionChanged += (_, _) => SayWhatIsPicked();
 
         Priorities = Tasks.PriorityChoice.All(translations);
         _chosenPriority = Tasks.PriorityChoice.For(nameof(Orbit.Core.Abstractions.ItemPriority.Normal), translations);
@@ -179,91 +218,131 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         => CanEdit ? WriteAsync(cancellationToken) : Task.CompletedTask;
 
     /// <summary>
-    /// A new line under the one being written in, which is what Enter does on a surface like this.
+    /// Enter: the browser's own rule, worked out on the surface by Orbit.Core's
+    /// <see cref="NoteSurfaceEdits.Enter"/> rather than here, so a note breaks the same way wherever it
+    /// is written. The line is split at <paramref name="caret"/> and **whatever follows it moves down
+    /// onto the new line** - Enter in the middle of a sentence breaks the sentence, which is what it
+    /// does in every text field there is. Pass the length of the line (or leave it out) for a press at
+    /// the end, where there is nothing to carry down. At the head of a line with words on it the new
+    /// line opens above instead and the words stay where they are, with their box.
     ///
-    /// <paramref name="caret"/> is where in that line the press happened, and **whatever follows it
-    /// moves down onto the new line** - Enter in the middle of a sentence breaks the sentence, which is
-    /// what it does in every text field there is. Pass the length of the line (or leave it out) for a
-    /// press at the end, where there is nothing to carry down.
+    /// The new line keeps the indentation of the one it came from - a list stays a list when a line is
+    /// added to the middle of it - and carries its box, unticked, so a checklist goes on being a
+    /// checklist. **An empty box ends the list in place**: Enter on it turns that line into a plain one
+    /// rather than leaving the box and starting another under it, which is the browser's rule and was
+    /// the last thing the two clients disagreed about.
     ///
-    /// The new line inherits the indentation of the line above - a list stays a list when a line is
-    /// added to the middle of it, which is what an editor doing anything else gets wrong first. It is
-    /// tickable when the checklist button is on, and also when it is carrying the tail of a line that
-    /// was itself tickable: a checklist continues as a checklist until a line is left empty.
+    /// Answers the line the caret ends up in - the new one, or the line the box was taken off.
     /// </summary>
-    public NoteLineRow AddLineAfter(NoteLineRow? row, int caret = int.MaxValue)
+    public NoteLineRow? AddLineAfter(NoteLineRow? row, int caret = int.MaxValue)
     {
         var above = row ?? Lines.LastOrDefault();
-        var fresh = new NoteLineRow();
+        var pressedAt = above is null
+            ? new SurfacePoint(0, Title.Length)
+            : new SurfacePoint(Lines.IndexOf(above) + 1, Math.Clamp(caret, 0, above.Text.Length));
 
-        if (above is not null)
+        var before = Surface(pressedAt);
+        var after = NoteSurfaceEdits.Enter(before, keepsIndentation: true);
+
+        // The line Enter started, if it started one: the line the caret went to, unless the press was at
+        // the head of a line with words on it - there the new line opens above and the caret stays with
+        // the words, which keep their own box.
+        var startedALine = after.Lines.Count > before.Lines.Count
+            && !(pressedAt.Offset == 0 && before.Lines[pressedAt.Line].Text.Length > 0);
+        if (startedALine && IsWritingAChecklist)
         {
-            // Read before the line is cut: a press at the very start leaves nothing above to take the
-            // indentation from, and the new line is still the same line's continuation.
-            var indentation = IndentationOf(above.Text);
-            var at = Math.Clamp(caret, 0, above.Text.Length);
-            var carried = above.Text[at..];
-
-            above.Text = above.Text[..at];
-            fresh.Text = indentation + carried;
-
-            // A checklist goes on being a checklist - but an empty line ends it, which is how a reader
-            // stops one without reaching for the button in the corner.
-            fresh.IsChecklistItem = IsWritingAChecklist
-                || (above.IsChecklistItem && (above.Text.Length > 0 || carried.Length > 0));
+            // The button in the corner is a switch: while it is on, every line started begins with a box.
+            var lines = after.Lines.ToList();
+            lines[after.Caret.Line] = lines[after.Caret.Line] with
+            {
+                IsChecklistItem = true,
+                IsChecked = false,
+                IsFailed = false
+            };
+            after = after with { Lines = lines };
         }
-        else
+
+        // The caret goes into the new line at the start of its words - after the indentation it took
+        // from the line above - so the next character typed lands where the line's writing starts
+        // rather than wherever focusing the field leaves it.
+        Apply(before, after, SurfaceEditKind.Reshaping);
+
+        // And the switch follows the line the caret is in, so the empty box that ended the list turns it
+        // off rather than putting a box on the very next line started.
+        if (_applying == 0)
         {
-            fresh.IsChecklistItem = IsWritingAChecklist;
+            IsWritingAChecklist = after.Lines[after.Caret.Line].IsChecklistItem;
         }
 
-        Lines.Insert(above is null ? Lines.Count : Lines.IndexOf(above) + 1, fresh);
-        Watch(fresh);
-        return fresh;
+        return LineAt(after.Caret.Line);
     }
 
     /// <summary>
-    /// The leading whitespace of a line, which the next one starts with. Tabs and spaces both: a note
-    /// written on a keyboard indents with one, a note written in a browser with the other, and the
-    /// editor should not have an opinion about which of them counts.
-    /// </summary>
-    private static string IndentationOf(string text)
-        => text[..(text.Length - text.TrimStart('\t', ' ').Length)];
-
-    /// <summary>
-    /// Backspace at the very start of a line: the line joins the one above it, exactly as it would in
-    /// any text field, and the caret lands where the two meet. Returns where that is, or null when the
-    /// press means nothing - or when it meant something other than a merge, which is the tick box.
+    /// Backspace at the very start of a line, the browser's rule again - Orbit.Core's
+    /// <see cref="NoteSurfaceEdits.Backspace"/>. A plain line joins the one above it, exactly as it
+    /// would in any text field, and the caret lands where the two meet; the line above may be the note's
+    /// name, which is the surface's first line here as it is in the browser.
     ///
-    /// **A line with a tick box loses the box first.** Backspace at the head of one takes it off and
-    /// leaves the words where they are; only a second press joins what is left to the line above. It is
-    /// the one way to undo a box from the keyboard, and it stops a reader who typed "[]" by accident
-    /// from having to reach for the button in the corner to undo it - which is what the design does.
+    /// **A line with a tick box and words on it loses the box first.** Backspace at the head of one
+    /// takes it off and leaves the words where they are; only a second press joins what is left to the
+    /// line above. It is the one way to undo a box from the keyboard, and it stops a reader who typed
+    /// "[]" by accident from having to reach for the button in the corner to undo it. **An empty box has
+    /// no words to keep and goes whole, in one press** - the browser's rule, where the phone used to ask
+    /// for two.
+    ///
+    /// Answers whether the line is gone, so the page can let go of the field that was drawing it. Where
+    /// the caret lands is said through <see cref="CaretPlaced"/>, as every other edit made here says it.
     /// </summary>
-    public (NoteLineRow Line, int Caret)? MergeIntoTheLineAbove(NoteLineRow? row)
+    public bool MergeIntoTheLineAbove(NoteLineRow? row)
     {
         if (row is null || Lines.IndexOf(row) is var index && index < 0)
         {
-            return null;
+            return false;
         }
 
-        if (row.IsChecklistItem)
+        var head = new SurfacePoint(index + 1, 0);
+        var before = Surface(head);
+        if (NoteSurfaceEdits.Backspace(before) is not { } after)
         {
-            row.IsChecklistItem = false;
-            row.IsChecked = false;
-            return null;
+            return false;
         }
 
-        if (index == 0)
+        Apply(before, after, SurfaceEditKind.Reshaping);
+        return Lines.IndexOf(row) < 0;
+    }
+
+    /// <summary>The row drawing a line of the surface, or null for line 0 - the note's name, which has no row.</summary>
+    private NoteLineRow? LineAt(int line)
+        => line >= 1 && line <= Lines.Count ? Lines[line - 1] : null;
+
+    /// <summary>
+    /// Makes the screen say what an edit worked out by Orbit.Core left, as one step of the history, and
+    /// puts the caret where that edit put it.
+    ///
+    /// The caret is only placed when the writing itself changed. An edit that only put a box on a line
+    /// or took one off leaves the field's own caret alone, where the reader has it - asking for it back
+    /// would refocus the field the reader is already in, which on Android is how a caret ends up at the
+    /// end of a line nobody moved it to. While a note is being read in there is no step and no caret at
+    /// all: the line made for an empty note must not open the keyboard over a note somebody only opened.
+    /// </summary>
+    private void Apply(SurfaceState before, SurfaceState after, SurfaceEditKind kind)
+    {
+        var isBeingReadIn = _applying > 0;
+        var writingChanged = !after.Lines.Select(line => line.Text)
+            .SequenceEqual(before.Lines.Select(line => line.Text));
+
+        Show(after);
+
+        if (isBeingReadIn)
         {
-            return null;
+            return;
         }
 
-        var above = Lines[index - 1];
-        var caret = above.Text.Length;
-        above.Text += row.Text;
-        Lines.RemoveAt(index);
-        return (above, caret);
+        Record(before, after.Caret, kind);
+        if (writingChanged)
+        {
+            PlaceCaret(after.Caret);
+        }
     }
 
     /// <summary>
@@ -309,14 +388,20 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             return;
         }
 
-        row.IsChecklistItem = !row.IsChecklistItem;
-        row.IsChecked = false;
+        var at = new SurfacePoint(Lines.IndexOf(row) + 1, row.Text.Length);
+        Edit(SurfaceEditKind.Reshaping, at, () =>
+        {
+            row.IsChecklistItem = !row.IsChecklistItem;
+            row.IsChecked = false;
+            return at;
+        });
         IsWritingAChecklist = row.IsChecklistItem;
     }
 
     /// <summary>
     /// Moves a line to the next of the three answers - nothing, done, given up on - which is the same
-    /// cycle the browser's own box follows. See <see cref="NoteLineRow.Press"/> and TickState.
+    /// cycle the browser's own box follows - Orbit.Core's NoteSurfaceEdits.Cycle, which both clients
+    /// press a box with. See TickState.
     ///
     /// Ticked in place and **not** written down: a tick is a change to the note like any other on this
     /// screen, and the note is written by Save and by nothing else - see <see cref="CloseAsync"/>. It
@@ -331,7 +416,28 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             return;
         }
 
-        row.Press();
+        // While boxes are being chosen, a press on one of two or more chosen boxes answers for all of
+        // them, each taking the pressed box's next answer - Orbit.Core's rule, the browser's too. Any
+        // other press answers only for its own box.
+        var pressed = Lines.IndexOf(row);
+        IReadOnlyList<int> together = IsPickingLines ? PickedLines() : [];
+
+        // A step of its own in the history, and one that does not move the caret: pressing a box is not
+        // writing, so undoing it leaves the caret where the reader has it.
+        var caret = _history.Current.Caret;
+        Edit(SurfaceEditKind.Ticking, caret, () =>
+        {
+            if (NoteSurfaceEdits.Cycle([.. Lines.Select(line => line.ToLine())], pressed, together) is { } ticked)
+            {
+                for (var index = 0; index < ticked.Count; index++)
+                {
+                    Lines[index].IsChecked = ticked[index].IsChecked;
+                    Lines[index].IsFailed = ticked[index].IsFailed;
+                }
+            }
+
+            return caret;
+        });
     }
 
     /// <summary>Renaming saves the whole note, because the API's update takes the whole note.</summary>
@@ -386,7 +492,7 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         {
             var outcome = await _notes.UpdateAsync(
                 _localId,
-                new NoteContent(Title.Trim(), [.. Lines.Select(line => line.ToDto())], _priority, IsPrivate),
+                new NoteContent(Title.Trim(), [.. Lines.Select(line => line.ToDto())], _priority, IsPrivate, Tags.ToSave),
                 cancellationToken);
             if (outcome.WasRefused())
             {
@@ -430,7 +536,17 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             return;
         }
 
-        Title = note.Title;
+        // Read in, not typed - see _applying.
+        _applying++;
+        try
+        {
+            Title = note.Title;
+        }
+        finally
+        {
+            _applying--;
+        }
+
         IsSharedWithMe = note.IsShared;
         var lastChanged = LastChanged.Describe(note.UpdatedAtUtc, _timeProvider.GetUtcNow(), _translations);
         Footnote = note is { IsShared: true, SharedByUserName: { Length: > 0 } sharedBy }
@@ -442,6 +558,12 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         ChosenPriority = Tasks.PriorityChoice.For(note.Priority, _translations);
         IsPrivate = note.IsPrivate;
         _isShowingWhatIsStored = false;
+        // Its tags, with the ones this account's notes already carry on offer - private ones included,
+        // since the store opens them here. Null tags are "not known", and stay unsaid until touched.
+        await Tags.ShowAsync(
+            note.Tags,
+            (await _notes.GetAllAsync(cancellationToken)).SelectMany(stored => stored.AllTags),
+            cancellationToken);
 
         // Only a note the server knows about can be offered: a share names it by its server id, and one
         // still waiting in the outbox has none. A private note is offered to nobody - the server holds
@@ -467,28 +589,55 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     /// </summary>
     private void ShowTheLines(IReadOnlyList<NoteContentLineDto> content)
     {
-        foreach (var line in Lines)
+        _applying++;
+        try
         {
-            line.PropertyChanged -= WhenALineChanges;
-        }
+            foreach (var line in Lines)
+            {
+                line.PropertyChanged -= WhenALineChanges;
+            }
 
-        Lines.Clear();
-        foreach (var line in content)
-        {
-            var row = NoteLineRow.From(line);
-            Lines.Add(row);
-            Watch(row);
-        }
+            Lines.Clear();
+            foreach (var line in content)
+            {
+                var row = NoteLineRow.From(line);
+                Lines.Add(row);
+                Watch(row);
+            }
 
-        // A note with nothing in it still needs somewhere to put the caret. The store keeps one empty
-        // line for exactly this - see NoteListItem.EmptyContent - but a note whose last line was
-        // deleted has none, and a surface with no lines at all cannot be written in.
-        if (Lines.Count == 0)
+            // A note with nothing in it still needs somewhere to put the caret. The store keeps one empty
+            // line for exactly this - see NoteListItem.EmptyContent - but a note whose last line was
+            // deleted has none, and a surface with no lines at all cannot be written in.
+            if (Lines.Count == 0)
+            {
+                AddLineAfter(null);
+            }
+        }
+        finally
         {
-            AddLineAfter(null);
+            _applying--;
         }
 
         RememberWhatIsWrittenDown();
+        StartTheHistoryOver();
+    }
+
+    /// <summary>
+    /// The history begins with the note as it was read in - unless this is the same note read back after
+    /// a save, saying what the history already says. Changing how much a note matters or sealing it
+    /// writes the note and reads it back, and that should not throw away the reader's undo.
+    /// </summary>
+    private void StartTheHistoryOver()
+    {
+        var shown = Surface(new SurfacePoint(0, 0));
+        if (_historyOf == _localId && shown.Lines.SequenceEqual(_history.Current.Lines))
+        {
+            return;
+        }
+
+        _history.Reset(shown);
+        _historyOf = _localId;
+        SayWhatCanBeUndone();
     }
 
     /// <summary>
@@ -525,40 +674,190 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     /// is now carried by the line itself - see NoteContentLineDto, which is the same shape Orbit.Web's
     /// editor writes and reads.
     /// </summary>
-    private void Watch(NoteLineRow row) => row.PropertyChanged += WhenALineChanges;
+    private void Watch(NoteLineRow row)
+    {
+        // A line that arrives while boxes are being chosen can be chosen too, once it has a box.
+        row.OffersPicking = IsPickingLines;
+        row.PropertyChanged += WhenALineChanges;
+    }
 
     private void WhenALineChanges(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
-        if (args.PropertyName != nameof(NoteLineRow.Text) || sender is not NoteLineRow row)
+        if (args.PropertyName is nameof(NoteLineRow.IsPicked) or nameof(NoteLineRow.IsChecklistItem))
+        {
+            SayWhatIsPicked();
+        }
+
+        if (_applying > 0
+            || args.PropertyName != nameof(NoteLineRow.Text)
+            || sender is not NoteLineRow row
+            || Lines.IndexOf(row) is var index && index < 0)
         {
             return;
         }
 
-        var indentation = IndentationOf(row.Text);
-        var rest = row.Text[indentation.Length..];
+        // The surface's line: the note's name is line 0, so the first line of writing is line 1.
+        var line = index + 1;
+        var change = NoteTextChange.Between(row.TextBefore, row.Text);
 
-        foreach (var mark in ChecklistMarks)
+        if (IsSeveralLines(change.Inserted))
         {
-            if (!rest.StartsWith(mark, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            row.IsChecklistItem = true;
-            // TrimStart of one space only: "[] " and "[]" both mean the same thing, and anything the
-            // reader typed beyond that is theirs.
-            var written = rest[mark.Length..];
-            row.Text = indentation + (written.StartsWith(' ') ? written[1..] : written);
-            IsWritingAChecklist = true;
+            Paste(line, change);
             return;
         }
+
+        if (ReadPastedMarker(row, line, change))
+        {
+            return;
+        }
+
+        RecordTyping(line, change);
+        ReadTypedMarker(row, line, change);
     }
 
     /// <summary>
-    /// What the reader can type to ask for a tick box. Both spellings, because a phone keyboard puts a
-    /// space inside the brackets as readily as not.
+    /// A line that now starts with "[]" (or "[ ]") after its indentation becomes a tick box, and the mark
+    /// is taken back out. A step of its own in the history, as in the browser, so the first undo after it
+    /// gives back the brackets rather than the whole word. The caret stays where it was in the words,
+    /// which is further left now the mark has gone - and is put there, because the field's text is
+    /// rewritten under it.
     /// </summary>
-    private static readonly string[] ChecklistMarks = ["[]", "[ ]"];
+    private void ReadTypedMarker(NoteLineRow row, int line, NoteTextChange change)
+    {
+        var indentation = NoteSurfaceEdits.IndentationOf(row.Text);
+        var rest = row.Text[indentation.Length..];
+
+        // The browser's rule, from Orbit.Core: "[]" or "[ ]" - a phone keyboard puts a space inside the
+        // brackets as readily as not - and one space after either, since "[] " and "[]" mean the same
+        // thing and anything the reader typed beyond that is theirs.
+        var eaten = NoteSurfaceEdits.TypedMarkerLength(rest);
+        if (eaten == 0)
+        {
+            return;
+        }
+        var typedTo = change.Start + change.Inserted.Length;
+        var caret = new SurfacePoint(line, Math.Max(indentation.Length, typedTo - eaten));
+
+        Edit(SurfaceEditKind.Reshaping, new SurfacePoint(line, typedTo), () =>
+        {
+            row.IsChecklistItem = true;
+            row.Text = indentation + rest[eaten..];
+            return caret;
+        });
+        IsWritingAChecklist = true;
+        PlaceCaret(caret);
+    }
+
+    /// <summary>
+    /// Whether text that came into a field at once has a line break in it - a paste, since a one-line
+    /// field's own Enter never puts one there (it raises Completed instead - see NoteDetailPage).
+    /// </summary>
+    private static bool IsSeveralLines(string inserted) => inserted.AsSpan().IndexOfAny('\n', '\r') >= 0;
+
+    private static bool IsBlank(string text) => text.All(character => character is ' ' or '\t');
+
+    /// <summary>
+    /// A paste of several lines into one field: it becomes that many lines, at the caret, read the way
+    /// the browser reads a paste (NoteSurfaceEdits.Replace with readsMarkers) - a line starting "[]",
+    /// "[ ]" or "- " comes in as a box and "[x]" as a ticked one, the caret goes to the end of what was
+    /// pasted, and all of it is one step of the history. A one-line field keeps a paste's line breaks in
+    /// its text rather than acting on them, so this is where they are found and taken out.
+    ///
+    /// Two differences from the browser, both about what the phone has and the browser has not. A paste
+    /// into the blank start of an indented line - where Enter leaves the caret on a line of a list -
+    /// counts as starting that line, and the line keeps its indentation. And the note's name never
+    /// becomes a box: it is the surface's first line, and there is no box beside it to draw.
+    /// </summary>
+    private void Paste(int line, NoteTextChange change)
+    {
+        var current = _history.Current;
+        if (line >= current.Lines.Count)
+        {
+            RecordTyping(line, change);
+            return;
+        }
+
+        var at = new SurfacePoint(line, change.Start + change.Removed);
+        var before = current with { Anchor = at, Focus = at };
+
+        var old = current.Lines[line];
+        var lead = old.Text[..change.Start];
+        var indented = line > 0 && lead.Length > 0 && IsBlank(lead);
+        var lines = current.Lines.ToList();
+        if (indented)
+        {
+            lines[line] = old with { Text = old.Text[change.Start..] };
+        }
+
+        var replacedFrom = new SurfacePoint(line, indented ? 0 : change.Start);
+        var replacedTo = replacedFrom with { Offset = replacedFrom.Offset + change.Removed };
+        var pasted = NoteSurfaceEdits.Replace(new SurfaceState(lines, replacedFrom, replacedTo), change.Inserted, readsMarkers: true);
+
+        var result = pasted.Lines.ToList();
+        if (indented)
+        {
+            result[line] = result[line] with { Text = lead + result[line].Text };
+        }
+
+        if (result[0].IsChecklistItem)
+        {
+            result[0] = NoteContentLine.PlainText(result[0].Text);
+        }
+
+        var after = pasted with { Lines = result };
+        Show(after);
+        Record(before, after.Caret, SurfaceEditKind.Pasting);
+        PlaceCaret(after.Caret);
+    }
+
+    /// <summary>
+    /// One line pasted at the head of a line that starts the way a box is written - "[]", "[ ]", "- ",
+    /// or "[x]" for a ticked one - becomes that box, as a pasted line does in the browser, in one step of
+    /// the history.
+    ///
+    /// More than one character arriving at once is what tells a paste from typing: a keyboard types one
+    /// at a time. A word taken from the keyboard's suggestions arrives whole too, but no word starts with
+    /// a mark. So typing "- " a key at a time stays words, as it does in the browser - a dash starts a
+    /// line of prose as often as a list - and only the typed "[]" makes a box as it is typed (see
+    /// <see cref="ReadTypedMarker"/>). Pasted after other words, or onto a line that is already a box, a
+    /// mark is words.
+    /// </summary>
+    private bool ReadPastedMarker(NoteLineRow row, int line, NoteTextChange change)
+    {
+        if (change.Inserted.Length < 2 || row.IsChecklistItem || !IsBlank(row.Text[..change.Start]))
+        {
+            return false;
+        }
+
+        var indentation = NoteSurfaceEdits.IndentationOf(row.Text);
+        var rest = row.Text[indentation.Length..];
+        if (NoteSurfaceEdits.ReadPastedLine(rest) is not { IsChecklistItem: true } box)
+        {
+            return false;
+        }
+
+        var at = new SurfacePoint(line, change.Start + change.Removed);
+        var before = _history.Current with { Anchor = at, Focus = at };
+        var eaten = rest.Length - box.Text.Length;
+        var caret = new SurfacePoint(line, Math.Max(indentation.Length, change.Start + change.Inserted.Length - eaten));
+
+        _applying++;
+        try
+        {
+            row.IsChecklistItem = true;
+            row.IsChecked = box.IsChecked;
+            row.Text = indentation + box.Text;
+        }
+        finally
+        {
+            _applying--;
+        }
+
+        Record(before, caret, SurfaceEditKind.Pasting);
+        IsWritingAChecklist = true;
+        PlaceCaret(caret);
+        return true;
+    }
 
     private async Task ShowWhetherItCanBeChangedAsync(LocalNote note, CancellationToken cancellationToken)
     {
@@ -686,7 +985,266 @@ public sealed partial class NoteDetailViewModel : ObservableObject
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
 
-    partial void OnIsReadOnlyChanged(bool value) => OnPropertyChanged(nameof(CanEdit));
+    /// <summary>Whether the undo button has anything to do - never on a note that cannot be changed.</summary>
+    public bool CanUndo => CanEdit && _history.CanUndo;
+
+    /// <inheritdoc cref="CanUndo"/>
+    public bool CanRedo => CanEdit && _history.CanRedo;
+
+    /// <summary>
+    /// Puts the note back as it was before the last step - see <see cref="_history"/> for what a step is.
+    /// Nothing is written down: undo is a change to the screen like typing is, and Save still decides.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanUndo))]
+    private void Undo() => PutBack(_history.Undo());
+
+    /// <summary>Puts back the step last undone.</summary>
+    [RelayCommand(CanExecute = nameof(CanRedo))]
+    private void Redo() => PutBack(_history.Redo());
+
+    private void PutBack(SurfaceState? state)
+    {
+        if (state is null)
+        {
+            return;
+        }
+
+        var wordsChanged = !Surface(state.Caret).Lines.Select(line => line.Text)
+            .SequenceEqual(state.Lines.Select(line => line.Text));
+
+        Show(state);
+        SayWhatCanBeUndone();
+
+        if (wordsChanged)
+        {
+            PlaceCaret(state.Caret);
+        }
+    }
+
+    /// <summary>
+    /// The note as the surface Orbit.Core decides edits on: its name first, then its lines - the shape
+    /// Orbit.Web's editor has, where the name is the first line of the writing.
+    /// </summary>
+    private SurfaceState Surface(SurfacePoint caret)
+        => SurfaceState.CaretAt([NoteContentLine.PlainText(Title), .. Lines.Select(line => line.ToLine())], caret).Normalized();
+
+    /// <summary>
+    /// Makes the screen say what <paramref name="state"/> says. Lines that already say it are left alone,
+    /// and lines in the middle that changed are changed in place, so every field that can stay does -
+    /// with its caret and its keyboard - and only lines that came or went are built or taken away.
+    /// </summary>
+    private void Show(SurfaceState state)
+    {
+        IReadOnlyList<NoteContentLine> wanted = state.Lines.Count > 1 ? [.. state.Lines.Skip(1)] : [SurfaceState.EmptyLine];
+
+        _applying++;
+        try
+        {
+            Title = state.Lines[0].Text;
+
+            var same = 0;
+            while (same < Lines.Count && same < wanted.Count && Lines[same].ToLine() == wanted[same])
+            {
+                same++;
+            }
+
+            var sameAtTheEnd = 0;
+            while (sameAtTheEnd < Lines.Count - same
+                && sameAtTheEnd < wanted.Count - same
+                && Lines[Lines.Count - 1 - sameAtTheEnd].ToLine() == wanted[wanted.Count - 1 - sameAtTheEnd])
+            {
+                sameAtTheEnd++;
+            }
+
+            var shownBetween = Lines.Count - same - sameAtTheEnd;
+            var wantedBetween = wanted.Count - same - sameAtTheEnd;
+            var changedInPlace = Math.Min(shownBetween, wantedBetween);
+
+            for (var offset = 0; offset < changedInPlace; offset++)
+            {
+                Lines[same + offset].Take(wanted[same + offset]);
+            }
+
+            for (var gone = changedInPlace; gone < shownBetween; gone++)
+            {
+                Lines[same + changedInPlace].PropertyChanged -= WhenALineChanges;
+                Lines.RemoveAt(same + changedInPlace);
+            }
+
+            for (var added = changedInPlace; added < wantedBetween; added++)
+            {
+                var row = NoteLineRow.From(wanted[same + added]);
+                Lines.Insert(same + added, row);
+                Watch(row);
+            }
+        }
+        finally
+        {
+            _applying--;
+        }
+    }
+
+    /// <summary>Asks the page to put the caret at a point of the surface - see <see cref="CaretPlaced"/>.</summary>
+    private void PlaceCaret(SurfacePoint point)
+    {
+        if (point.Line > Lines.Count)
+        {
+            return;
+        }
+
+        CaretPlaced?.Invoke(this, new NoteCaret(point.Line == 0 ? null : Lines[point.Line - 1], point.Offset));
+    }
+
+    /// <summary>
+    /// Makes an edit to the lines and records it as one step of <paramref name="kind"/>. The caret points
+    /// are where undoing it and redoing it put the caret back. Inside another edit, or while a note is
+    /// being read in, it only makes the change - the outer one is the step.
+    /// </summary>
+    private void Edit(SurfaceEditKind kind, SurfacePoint caretBefore, Func<SurfacePoint> change)
+    {
+        if (_applying > 0)
+        {
+            change();
+            return;
+        }
+
+        var before = Surface(caretBefore);
+        SurfacePoint caretAfter;
+        _applying++;
+        try
+        {
+            caretAfter = change();
+        }
+        finally
+        {
+            _applying--;
+        }
+
+        Record(before, caretAfter, kind);
+    }
+
+    private void Record(SurfaceState before, SurfacePoint caretAfter, SurfaceEditKind kind, string? typed = null)
+    {
+        _history.Record(before, Surface(caretAfter), kind, Now(), typed);
+        SayWhatCanBeUndone();
+    }
+
+    /// <summary>
+    /// Characters typed into a line, or taken out of it, which the field has already done. Recorded on
+    /// what the history last knew - the line as it was - with the caret where the change began, so that
+    /// characters typed one after another join one step the way NoteSurfaceHistory joins them.
+    /// </summary>
+    private void RecordTyping(int line, NoteTextChange change)
+    {
+        var at = new SurfacePoint(line, change.Start + change.Removed);
+        var before = _history.Current with { Anchor = at, Focus = at };
+        var kind = change.Inserted.Length == 0 ? SurfaceEditKind.Erasing : SurfaceEditKind.Typing;
+        Record(before, new SurfacePoint(line, change.Start + change.Inserted.Length), kind, change.Inserted);
+    }
+
+    /// <summary>
+    /// The note's name is the first line of the writing, so typing in it is typing like any other - and
+    /// several lines pasted into it leave the first as the name and the rest as the note's first lines.
+    /// </summary>
+    partial void OnTitleChanged(string? oldValue, string newValue)
+    {
+        if (_applying > 0)
+        {
+            return;
+        }
+
+        var change = NoteTextChange.Between(oldValue ?? string.Empty, newValue);
+        if (IsSeveralLines(change.Inserted))
+        {
+            Paste(0, change);
+            return;
+        }
+
+        RecordTyping(0, change);
+    }
+
+    /// <summary>A clock that only goes forward, in milliseconds - which is all the history asks of one.</summary>
+    private double Now() => _timeProvider.GetTimestamp() * 1000d / _timeProvider.TimestampFrequency;
+
+    private void SayWhatCanBeUndone()
+    {
+        OnPropertyChanged(nameof(CanUndo));
+        OnPropertyChanged(nameof(CanRedo));
+        UndoCommand.NotifyCanExecuteChanged();
+        RedoCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// Whether boxes are being chosen to change together with one press. The browser chooses them with
+    /// Shift+click, which a phone has no way to do, so here "Select boxes" in the note's menu turns this
+    /// on: a mark stands beside every box (NoteLineRow.ShowsPickMark), and a press on one of two or more
+    /// chosen boxes gives every chosen box that box's next answer - see ToggleChecked. The chosen boxes
+    /// stay chosen after a press, as the browser's selection does, so a second press carries on with them.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isPickingLines;
+
+    /// <summary>Whether there is anything to choose: two boxes, on a note that can be changed.</summary>
+    public bool CanPickLines => CanEdit && Lines.Count(line => line.IsChecklistItem) >= 2;
+
+    /// <summary>
+    /// The line over the note while boxes are being chosen: how many are, and what a press on one of them
+    /// does - the phone's counterpart of the bubble over the browser's tools.
+    /// </summary>
+    public string PickingHint
+        => PickedLines() is { Count: >= 2 } picked
+            ? _translations.Format("{0} selected - pressing one of their boxes sets them all.", picked.Count)
+            : _translations["Select the boxes to change together, then press one of them."];
+
+    [RelayCommand(CanExecute = nameof(CanPickLines))]
+    private void StartPickingLines() => IsPickingLines = true;
+
+    /// <summary>Stops choosing and lets every chosen box go.</summary>
+    [RelayCommand]
+    private void StopPickingLines() => IsPickingLines = false;
+
+    /// <summary>The chosen boxes, as their places among the lines.</summary>
+    private IReadOnlyList<int> PickedLines()
+        => [.. Lines.Select((line, index) => (line, index))
+            .Where(candidate => candidate.line is { IsPicked: true, IsChecklistItem: true })
+            .Select(candidate => candidate.index)];
+
+    partial void OnIsPickingLinesChanged(bool value)
+    {
+        foreach (var line in Lines)
+        {
+            line.OffersPicking = value;
+            if (!value)
+            {
+                line.IsPicked = false;
+            }
+        }
+
+        SayWhatIsPicked();
+    }
+
+    private void SayWhatIsPicked()
+    {
+        OnPropertyChanged(nameof(PickingHint));
+        OnPropertyChanged(nameof(CanPickLines));
+        StartPickingLinesCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnIsReadOnlyChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanEdit));
+        // The tags box answers to the same rule as every other field here.
+        Tags.IsReadOnly = value;
+        SayWhatCanBeUndone();
+
+        // Nothing to change together on a note that cannot be changed.
+        if (value)
+        {
+            IsPickingLines = false;
+        }
+
+        SayWhatIsPicked();
+    }
 
     /// <summary>
     /// Whether anything was ever copied from this - what puts its history within reach. Hidden until

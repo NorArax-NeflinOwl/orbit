@@ -171,7 +171,7 @@ public sealed class RestockListRefresh
             }
 
             var errand = TaskItem.Create(
-                RestockTaskNaming.EntryFor(product.Name, product.MinimumQuantity, product.Unit),
+                RestockTaskNaming.EntryFor(product.Name, product.EffectiveMinimum, product.Unit),
                 dueDateUtc: null, isCompleted: false,
                 subject: new TaskItemSubject(TaskItemKind.Inventory, linkedInventoryItemId: product.Id));
             added.Add(errand);
@@ -240,7 +240,9 @@ public sealed class RestockListRefresh
                     DailyChannel = settings.ReminderChannel,
                     DailyTimeOfDay = settings.RefreshTimeOfDay
                 },
-                item.Subject);
+                item.Subject,
+                // Rebuilt to move its reminder, not re-ticked: when it was done stays when it was done.
+                completedAtUtc: item.CompletedAtUtc);
         }
     }
 

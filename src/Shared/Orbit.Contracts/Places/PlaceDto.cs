@@ -39,6 +39,10 @@ namespace Orbit.Contracts.Places;
 /// The sealed name, description and point of a private place - see SealedPlace. Null for an open one,
 /// whose three readable fields above carry the same thing in the clear.
 /// </param>
+/// <param name="SourceTaskItemId">
+/// The task entry this place was made from, or null for one kept by hand - see
+/// Orbit.Core.Places.Place.SourceTaskItemId. Readable even when the place is sealed.
+/// </param>
 public sealed record PlaceDto(
     Guid Id,
     string Name,
@@ -55,4 +59,5 @@ public sealed record PlaceDto(
     Guid? OriginalOwnerUserId = null,
     bool IsSharedWithOthers = false,
     bool IsPrivate = false,
-    EncryptedContentDto? EncryptedContent = null);
+    EncryptedContentDto? EncryptedContent = null,
+    Guid? SourceTaskItemId = null);

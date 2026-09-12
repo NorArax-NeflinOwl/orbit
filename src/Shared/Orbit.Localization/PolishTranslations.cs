@@ -196,6 +196,36 @@ public static class PolishTranslations
         ["Point at this place on the map so the calendar knows where it is - a name on its own stays as words."] = "Wskaż to miejsce na mapie, żeby kalendarz wiedział, gdzie jest - sama nazwa zostaje słowami.",
         ["Stands for these lists"] = "Odpowiada za listy",
         ["Add another…"] = "Dodaj kolejną…",
+        // An entry done any one of several ways - see TaskItem.Alternatives.
+        ["Ways to get it done"] = "Sposoby wykonania",
+        ["Any one of them is enough: a line ticked here, or a list finished."] =
+            "Wystarczy jeden: linijka odhaczona tutaj albo ukończona lista.",
+        ["A way of doing it"] = "Sposób wykonania",
+        ["Done this way"] = "Zrobione tym sposobem",
+        ["Add a way"] = "Dodaj sposób",
+        ["Or a list"] = "Albo lista",
+        ["Or a list…"] = "Albo lista…",
+        ["Completed - done when any one of its ways is"] = "Zrobione - gdy zrobiony jest dowolny ze sposobów",
+        ["Done as soon as any one of these is:"] = "Zrobione, gdy zrobione jest dowolne z:",
+        ["Done as soon as any one of these is: {0}."] = "Zrobione, gdy zrobione jest dowolne z: {0}.",
+        // A name picked for what it is the name of - see TaskItem.ReferencesTaskItemId and the Preferences tab.
+        ["Filled in from a name you already use"] = "Uzupełnianie z nazwy, której już używasz",
+        ["Picking a name you already use for a task entry fills in everything that thing says, and makes the entry the same thing rather than a new one. Choose which kinds of entry this is done for on this device."] =
+            "Wybranie nazwy, której już używasz, dla pozycji zadania uzupełnia wszystko, co mówi ta rzecz, i robi z pozycji tę samą rzecz zamiast nowej. Wybierz, dla jakich rodzajów pozycji ma się to dziać na tym urządzeniu.",
+        ["The same thing as \"{0}\" in {1}: changing what it is changes it there too. Its date, tick and amount stay its own."] =
+            "To samo co „{0}” w: {1}. Zmiana tego, czym jest, zmienia to także tam. Termin, odhaczenie i ilość zostają jej własne.",
+        ["The same thing as entries on other lists: changing what it is changes it there too. Its date, tick and amount stay its own."] =
+            "To samo co pozycje na innych listach. Zmiana tego, czym jest, zmienia to także tam. Termin, odhaczenie i ilość zostają jej własne.",
+        ["Make it separate"] = "Rozdziel",
+        ["Use this one"] = "Użyj tego",
+        ["This entry needs"] = "Ta pozycja potrzebuje",
+        ["How much of it this entry asks for. The shelf's minimum never drops below what all your lists ask for together."] =
+            "Ile tego potrzebuje ta pozycja. Minimum w magazynie nigdy nie spada poniżej tego, czego potrzebują razem wszystkie Twoje listy.",
+        ["Your lists ask for {0} of this, so it is never kept below that."] =
+            "Twoje listy potrzebują tego {0}, więc stan nigdy nie jest utrzymywany poniżej tej wartości.",
+        ["Open {0}"] = "Otwórz: {0}",
+        ["done: {0}"] = "zrobione: {0}",
+        ["any one of: {0}"] = "dowolne z: {0}",
         ["Completion follows the linked lists, so it can't be ticked by hand."] = "Ukończenie idzie za powiązanymi listami, więc nie da się go zaznaczyć ręcznie.",
         ["Delete chat history"] = "Usuń historię czatu",
         ["Leave and delete chat history"] = "Opuść grupę i usuń historię",
@@ -804,6 +834,10 @@ public static class PolishTranslations
         ["Show places already past"] = "Pokaż miejsca już minione",
         // The eye on a map panel's heading, and the day to show the past from - see MapPinVisibility.
         ["Show these on the map"] = "Pokaż je na mapie",
+        // The places task lists' Location entries keep - see TaskEntryPlaces and the map's own list.
+        ["Hide places from tasks"] = "Ukryj miejsca z zadań",
+        ["Go to the task"] = "Przejdź do zadania",
+        ["Another list"] = "Inna lista",
         ["Hide these from the map"] = "Ukryj je z mapy",
         ["Show from"] = "Pokazuj od",
         ["Leave it empty for everything that has been and gone."] = "Zostaw puste, aby pokazać wszystko, co już minęło.",
@@ -900,6 +934,13 @@ public static class PolishTranslations
         ["The colour Orbit highlights things in. Kept on this device, like the theme."] =
             "Kolor, którym Orbit wyróżnia elementy. Zapamiętywany na tym urządzeniu, tak jak motyw.",
         ["No colour"] = "Bez koloru",
+        ["Tags"] = "Tagi",
+        ["Add a tag"] = "Dodaj tag",
+        ["Tags, separated by commas"] = "Tagi, rozdzielone przecinkami",
+        ["Colour of {0}"] = "Kolor tagu {0}",
+        ["That colour could not be saved."] = "Nie udało się zapisać tego koloru.",
+        ["A tag's colour is kept for your whole account, readable on the server - even for a tag only private notes and lists carry."] =
+            "Kolor tagu obowiązuje na całym koncie i jest zapisany na serwerze w czytelnej postaci - także dla tagu, który noszą tylko prywatne notatki i listy.",
         ["Brown"] = "Brązowy",
         ["Violet"] = "Fioletowy",
         // For a colour an event carries that the palette does not offer - set in a browser, or left
@@ -988,6 +1029,9 @@ public static class PolishTranslations
         ["Every"] = "Co",
         ["Custom"] = "Własne",
         ["Completed"] = "Ukończone",
+        ["Completed on"] = "Data ukończenia",
+        ["Time completed"] = "Godzina ukończenia",
+        ["Not recorded"] = "Nie zapisano",
         ["Connected"] = "Połączone",
         ["Verified"] = "Potwierdzony",
         ["Not verified"] = "Niepotwierdzony",
@@ -1054,6 +1098,20 @@ public static class PolishTranslations
         ["Table"] = "Tabela",
         ["Attachment"] = "Załącznik",
         ["{0}: not implemented yet."] = "{0}: jeszcze niezaimplementowane.",
+        // Several boxes selected in a note's writing - see NoteSurfaceEdits.Cycle. The first is the
+        // bubble over the tools while they are selected, the second each box's own tooltip.
+        ["{0} selected items - ticking one ticks them all."] = "Zaznaczone pozycje: {0} - odhaczenie jednej odhacza wszystkie.",
+        ["Shift+click to select several lines - ticking one selected box then ticks them all."] = "Shift+klik zaznacza kilka linii - odhaczenie jednego zaznaczonego pola odhacza wtedy wszystkie.",
+        // The phone's note screen has no Ctrl+Z, so undo and redo are two buttons beside its tick box.
+        ["Undo"] = "Cofnij",
+        ["Redo"] = "Ponów",
+        // Several boxes chosen on the phone's note screen, where there is no Shift+click: an entry in the
+        // note's menu, a mark beside each box, and a line over the note saying what a press will do.
+        ["Select boxes"] = "Zaznacz pola",
+        ["Select this line"] = "Zaznacz tę linię",
+        ["Select the boxes to change together, then press one of them."] = "Zaznacz pola, które mają zmienić się razem, a potem naciśnij jedno z nich.",
+        ["{0} selected - pressing one of their boxes sets them all."] = "Zaznaczone: {0} - naciśnięcie jednego z tych pól ustawia wszystkie.",
+        ["Finish selecting"] = "Zakończ zaznaczanie",
         ["This note was shared by"] = "Tę notatkę udostępnił",
         ["Add item"] = "Dodaj pozycję",
         ["Item description"] = "Opis pozycji",
@@ -1712,6 +1770,7 @@ public static class PolishTranslations
         ["Moved to {0}."] = "Przeniesiono do: {0}.",
         ["Couldn't move it. Try again."] = "Nie udało się przenieść. Spróbuj ponownie.",
         ["That move isn't allowed."] = "Takie przeniesienie nie jest dozwolone.",
+        ["Moving an entry needs a connection."] = "Przeniesienie pozycji wymaga połączenia.",
         ["Shared with you - read-only until you're back online"] =
             "Udostępnione Tobie — tylko do odczytu, dopóki nie wrócisz online",
         ["Shared with others - read-only until you're back online"] =

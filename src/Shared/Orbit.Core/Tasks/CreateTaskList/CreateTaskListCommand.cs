@@ -10,5 +10,7 @@ public sealed record CreateTaskListCommand(
     /// <summary>Where to file it, or null for the built-in folder - see Orbit.Core.Folders.BuiltInFolder.</summary>
     Guid? FolderId = null,
     /// <summary>What the reader has said about it being finished - see TaskListCompletion.</summary>
-    TaskListCompletion Completion = TaskListCompletion.FromTheEntries)
+    TaskListCompletion Completion = TaskListCompletion.FromTheEntries,
+    /// <summary>The words it is tagged with - see TaskList.Tags.</summary>
+    IReadOnlyList<string>? Tags = null)
     : IRequest<Guid>;

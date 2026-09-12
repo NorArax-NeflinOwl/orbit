@@ -58,6 +58,31 @@ public sealed class UnchangedWhenNotProvidedTests
         Assert.Equal("Na sobotę", (await tasks.GetByIdAsync(UserId, id, CancellationToken.None))!.Description);
     }
 
+    /// <summary>
+    /// The ways an entry is done by follow the same rule. The phone builds already installed save lists
+    /// without knowing ways exist, and such a save keeps them - and the tick they give the entry.
+    /// </summary>
+    [Fact]
+    public async Task A_save_that_says_nothing_about_an_entrys_ways_keeps_them()
+    {
+        var tasks = new InMemoryTaskRepository();
+        var sauce = TaskItem.Create("Sauce", null, false, alternatives: [new("Buy a ready one", IsDone: true)]);
+        var taskList = TaskList.Create(UserId, "Burger", [sauce]);
+        await tasks.AddAsync(taskList, CancellationToken.None);
+
+        await ATaskListHandler(tasks).HandleAsync(
+            new UpdateTaskListCommand(
+                UserId, taskList.Id, "Burger",
+                [TaskItem.FromPersistence(sauce.Id, "Sauce", null, isCompleted: false, linkedTaskListIds: null, reminders: null)],
+                IsGroup: false, IsPrivate: false, EncryptedContent: null,
+                EntriesKeepingTheirAlternatives: new HashSet<Guid> { sauce.Id }),
+            CancellationToken.None);
+
+        var saved = Assert.Single((await tasks.GetByIdAsync(UserId, taskList.Id, CancellationToken.None))!.Items);
+        Assert.Equal("Buy a ready one", Assert.Single(saved.Alternatives).Description);
+        Assert.True(saved.IsCompleted);
+    }
+
     /// <summary>An empty string is somebody clearing it, which is not the same as not mentioning it.</summary>
     [Fact]
     public async Task A_save_that_sends_an_empty_description_clears_it()

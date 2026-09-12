@@ -22,7 +22,7 @@ public sealed class MarkConversationAsReadCommandHandler : IRequestHandler<MarkC
     public async Task<bool> HandleAsync(MarkConversationAsReadCommand request, CancellationToken cancellationToken)
     {
         var anythingWasUnread = await _chatMessageRepository.MarkConversationAsReadAsync(
-            request.ReaderUserId, request.OtherUserId, DateTimeOffset.UtcNow, cancellationToken);
+            request.ReaderUserId, request.OtherUserId, DateTimeOffset.UtcNow, request.ReadUpToUtc, cancellationToken);
 
         // The read receipt is the other party's news, not the reader's - without this the tick that
         // says "seen" would be the one thing still waiting on a poll.

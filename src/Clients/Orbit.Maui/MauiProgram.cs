@@ -160,6 +160,8 @@ public static class MauiProgram
 		services.AddSingleton<LocalInventoryRepository>();
 		// Nothing to seal, so this one needs no key - see LocalPlaceRepository.
 		services.AddSingleton<LocalPlaceRepository>();
+		// The account's tag colours as this phone holds them - see LocalTagColour.
+		services.AddSingleton<LocalTagColourRepository>();
 
 		// Transient, not singleton: both take a typed HttpClient, and holding one for the life of the app
 		// pins the handler underneath it forever - which is the thing IHttpClientFactory exists to rotate.
@@ -173,6 +175,7 @@ public static class MauiProgram
 		services.AddTransient<PendingCalendarLinkResolver>();
 		services.AddTransient<InventorySynchronizer>();
 		services.AddTransient<PlaceSynchronizer>();
+		services.AddTransient<TagColourSynchronizer>();
 		services.AddSingleton<ChatRepository>();
 		services.AddTransient<LocalStoreReset>();
 		// The steps every way in shares once the server has accepted somebody - see SignInCompletion.
@@ -215,6 +218,9 @@ public static class MauiProgram
 		// this account may hand something off to Google, and neither should cost its own round trip.
 		services.AddSingleton<IGoogleExtrasStore, PreferencesGoogleExtrasStore>();
 		services.AddSingleton<Orbit.Mobile.Google.GoogleExtras>();
+		// Which kinds of entry a picked name fills in - see EntryFilling and the account's Preferences tab.
+		services.AddSingleton<Orbit.Mobile.Screens.Suggestions.IEntryFillingStore, PreferencesEntryFillingStore>();
+		services.AddSingleton<Orbit.Mobile.Screens.Suggestions.EntryFilling>();
 		services.AddSingleton<Orbit.Mobile.Google.GoogleIntegrationAccess>();
 		// One heartbeat for the app, started and stopped with the window - see PresenceReporter.
 		// One banner for the app, so a push arriving while somebody is looking at it is not silently
@@ -322,6 +328,9 @@ public static class MauiProgram
 		services.AddHttpClient<PlacesClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<SuggestionsClient>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+		// The account's tag colours - see TagColourSynchronizer, which is the one thing that calls it.
+		services.AddHttpClient<TagsClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 
 		// Talks to Google rather than to Orbit, so it gets no base address and no authorization handler -

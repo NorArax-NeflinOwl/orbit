@@ -26,6 +26,7 @@
 @inject NotificationFeedState NotificationFeedState
 @inject NewsSettler NewsSettler
 @inject PageVisibility PageVisibility
+@inject ChatSeenProbe ChatSeen
 @inject PanelPreferences Panels
 @inject NotificationsApiClient NotificationsApiClient
 @inject UsersApiClient UsersApiClient
@@ -222,7 +223,7 @@ else
                                 <div class="chat-day-separator"><span>@FormatDaySeparatorLabel(messageDate)</span></div>
                             }
 
-                            <div class="chat-bubble-row @(message.SenderUserId == _ownUserId ? "own" : "theirs")">
+                            <div class="chat-bubble-row @(message.SenderUserId == _ownUserId ? "own" : "theirs")" data-message-id="@message.Id">
                                 @if (_editingMessageId == message.Id)
                                 {
                                     <div class="chat-bubble-edit" @onclick:stopPropagation="true">
@@ -479,6 +480,12 @@ else
     private DotNetObjectReference<Chat>? _scrollObserverReference;
 
     private bool _isScrollObserverAttached;
+
+    /// <summary>What this conversation has told the server its reader has seen - replaced whenever another conversation opens.</summary>
+    private ChatReadState _readState = new();
+
+    /// <summary>This page's own key for the listeners chatSeen.js keeps - see ChatSeenProbe.ObserveAsync.</summary>
+    private readonly string _seenObserverKey = Guid.NewGuid().ToString("N");
 
     /// <summary>Which message's "..." dropdown ("Edit" and/or "Forward") is open, if any.</summary>
     private Guid? _openMessageMenuId;
@@ -742,6 +749,7 @@ else
         _forwardErrorMessage = null;
         _forwardErrorMessageForMessageId = null;
         _otherPartyReadUpToUtc = null;
+        _readState = new ChatReadState();
         _conversationAccess = null;
         _draftMessage = string.Empty;
         _isJumpToNewestVisible = false;
@@ -767,7 +775,6 @@ else
             await LoadConversationAccessAsync();
             await LoadNewMessagesAsync();
             await SyncReadStateAsync();
-            await ClearNotificationsForThisConversationAsync();
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -832,6 +839,11 @@ else
 
         _scrollToNewestOnNextRender = false;
         await ScrollMessageListToBottomAsync();
+
+        // The newest message has just been brought on screen - on opening the conversation, or because
+        // one arrived while the reader was following along. The loading code asked before it was drawn,
+        // when it could not have been seen yet.
+        await MarkWhatHasBeenSeenQuietlyAsync();
     }
 
     /// <summary>
@@ -879,6 +891,7 @@ else
         {
             await JSRuntime.InvokeVoidAsync("OrbitChatScroll.observeScroll", _messageListElement, _scrollObserverReference);
             _isScrollObserverAttached = true;
+            await ChatSeen.ObserveAsync(_seenObserverKey, _messageListElement, _scrollObserverReference);
         }
         catch (JSException exception)
         {
@@ -1326,31 +1339,87 @@ else
     }
 
     /// <summary>
-    /// Treats "this chat window is open and actively polling" as "read" - a coarse stand-in for the
-    /// other party's messages actually being seen. Skipping polls behind other tabs made it less coarse
-    /// than it was, but a thread open in a visible window nobody is sitting at still reports everything
-    /// as read.
-    /// TODO: replace with real on-screen visibility tracking (tab focus / scroll position) once the
-    /// chat has a way to push that signal to the server instead of relying on this poll loop.
+    /// Both directions of read state on one poll: tells the server what this reader has seen of the
+    /// other party's messages, and asks how far the other party has read this reader's.
     /// </summary>
     private async Task SyncReadStateAsync()
     {
-        await ChatApiClient.MarkConversationAsReadAsync(UserId);
+        await MarkWhatHasBeenSeenAsync();
         _otherPartyReadUpToUtc = await ChatApiClient.GetReadReceiptAsync(UserId);
     }
 
     /// <summary>
-    /// Clears the notifications about this conversation while its window is open. Arriving here already
-    /// clears whatever was waiting (see MainLayout's own navigation handling), but a message that lands
-    /// while the reader is sitting in the window records a fresh entry that nothing would clear - so the
-    /// badge counts up beside a conversation being read as it happens.
+    /// Marks read what has actually been seen - on screen while the window is in front of somebody -
+    /// and nothing after it. See ChatReadState, which makes the decision; this only gathers what it
+    /// needs and passes the answer on. Most calls send nothing at all, because nothing new was seen.
+    /// The bell's entries about the conversation follow the same signal - see
+    /// ClearNotificationsForThisConversationAsync.
+    ///
+    /// The conversation and its read state are captured first: a reader who switches conversations
+    /// while the question is out must not have the answer applied to the one they switched to.
+    /// </summary>
+    private async Task MarkWhatHasBeenSeenAsync()
+    {
+        var otherUserId = UserId;
+        var readState = _readState;
+        var newestSeen = await ChatSeen.NewestMessageSeenAsync(_messageListElement);
+        if (otherUserId != _loadedUserId)
+        {
+            return;
+        }
+
+        if (readState.ReadUpToToTell(newestSeen, _messages, _ownUserId) is { } readUpToUtc)
+        {
+            await ChatApiClient.MarkConversationAsReadAsync(otherUserId, readUpToUtc);
+            readState.Told(readUpToUtc);
+        }
+
+        if (ChatReadState.HasSeenTheirNewest(newestSeen, _messages, _ownUserId))
+        {
+            await ClearNotificationsForThisConversationAsync(otherUserId);
+        }
+    }
+
+    /// <summary>
+    /// The same, from somewhere a failure has nobody to report to - a render or a browser event. The
+    /// poll catches its own; here a failed mark is logged and tried again on the next chance, since
+    /// ChatReadState only believes what the server accepted.
+    /// </summary>
+    private async Task MarkWhatHasBeenSeenQuietlyAsync()
+    {
+        try
+        {
+            await MarkWhatHasBeenSeenAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't mark the conversation with {OtherUserId} as read", UserId);
+        }
+    }
+
+    /// <summary>
+    /// Called from chatSeen.js when what is in front of the reader may have changed: the list scrolled,
+    /// the window got focus, the tab came to the front. Public and [JSInvokable] only because JS
+    /// interop requires it.
+    /// </summary>
+    [JSInvokable]
+    public Task OnThreadSeenMayHaveChanged() => InvokeAsync(MarkWhatHasBeenSeenQuietlyAsync);
+
+    /// <summary>
+    /// Clears the notifications about this conversation once the other party's newest message has been
+    /// seen (ChatReadState.HasSeenTheirNewest) - the signal that marks messages read, rather than the
+    /// window being open. Arriving here already clears whatever was waiting (see MainLayout's own
+    /// navigation handling), but a message that lands while the reader is sitting in the window records a
+    /// fresh entry that nothing else would clear - so the badge counted up beside a conversation being
+    /// read as it happened. Until 2026-09-11 this ran once as the conversation loaded, before anything in
+    /// it had been drawn, let alone seen.
     ///
     /// Skipped unless something is actually unread for this route, so a poll every second doesn't become
     /// a request every second.
     /// </summary>
-    private async Task ClearNotificationsForThisConversationAsync()
+    private async Task ClearNotificationsForThisConversationAsync(Guid otherUserId)
     {
-        var conversationUrl = $"/chat/{UserId}";
+        var conversationUrl = $"/chat/{otherUserId}";
         if (!NotificationFeedState.HasUnreadFor(conversationUrl))
         {
             return;
@@ -1726,6 +1795,12 @@ else
     private int UnreadFrom(ContactDto contact) => contact.UserId == UserId ? 0 : contact.UnreadCount;
 
     /// <summary>
+    /// The same for a group: how many of its messages arrived since this reader last had it open - see
+    /// ChatGroupDto.UnreadCount. The group on screen is nought, for the reason UnreadFrom gives.
+    /// </summary>
+    private int UnreadIn(ChatGroupDto group) => group.Id == GroupId ? 0 : group.UnreadCount;
+
+    /// <summary>
     /// Everything this reader can open, as one list - see ConversationList. Sorted by when something
     /// last happened, people and groups against each other: that is the order somebody scanning for a
     /// conversation looks in, and it is what they expect of a list that holds both. Groups used to
@@ -1744,8 +1819,10 @@ else
             .Concat(_matchingGroups.Select(group => (
                 When: group.LastMessageAtUtc,
                 Conversation: new Conversation(
-                    group.Id, group.Name, IsGroup: true, UnreadCount: 0, Presence: null,
-                    T.Format("{0} members", group.Members.Count)))))
+                    group.Id, group.Name, IsGroup: true, UnreadIn(group), Presence: null,
+                    UnreadIn(group) > 0
+                        ? T.Format("{0} new", UnreadIn(group))
+                        : T.Format("{0} members", group.Members.Count)))))
             .OrderByDescending(row => row.When)
             .Select(row => row.Conversation)
     ];
@@ -1880,6 +1957,7 @@ else
         }
 
         _isScrollObserverAttached = false;
+        await ChatSeen.UnobserveAsync(_seenObserverKey);
         try
         {
             await JSRuntime.InvokeVoidAsync("OrbitChatScroll.unobserveScroll", _messageListElement);

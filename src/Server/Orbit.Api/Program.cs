@@ -27,6 +27,7 @@ using Orbit.Api.Notifications;
 using Orbit.Api.PushNotifications;
 using Orbit.Api.RateLimiting;
 using Orbit.Api.Suggestions;
+using Orbit.Api.Tags;
 using Orbit.Api.Tasks;
 using Orbit.Api.Transfer;
 using Orbit.Api.Users;
@@ -404,6 +405,7 @@ try
     app.MapSuggestionEndpoints();
     app.MapPushNotificationEndpoints();
     app.MapNotificationEndpoints();
+    app.MapTagEndpoints();
     app.MapConfigEndpoints();
     app.MapDiagnosticLogEndpoints();
     app.MapPublicShareEndpoints();

@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Orbit.Contracts.Notes;
 using Orbit.Core.Abstractions;
+using Orbit.Core.Notes;
 
 namespace Orbit.Mobile.Screens.Notes;
 
@@ -40,16 +41,41 @@ public sealed partial class NoteLineRow : ObservableObject
 
     public NoteContentLineDto ToDto() => new(Text, IsChecklistItem, IsChecked, IsFailed);
 
+    /// <summary>The same line as the surface Orbit.Core decides edits on - see Orbit.Core.Notes.SurfaceState.</summary>
+    public static NoteLineRow From(NoteContentLine line)
+        => new()
+        {
+            Text = line.Text,
+            IsChecklistItem = line.IsChecklistItem,
+            IsChecked = line.IsChecked,
+            IsFailed = line.IsFailed
+        };
+
+    /// <inheritdoc cref="From(NoteContentLine)"/>
+    public NoteContentLine ToLine() => new(Text, IsChecklistItem, IsChecked, IsFailed);
+
+    /// <summary>
+    /// Becomes <paramref name="line"/> in place - what an undo does to a line that is still there, so the
+    /// field drawing it stays the same field and nothing on the screen is rebuilt.
+    /// </summary>
+    public void Take(NoteContentLine line)
+    {
+        Text = line.Text;
+        IsChecklistItem = line.IsChecklistItem;
+        IsChecked = line.IsChecked;
+        IsFailed = line.IsFailed;
+    }
+
+    /// <summary>
+    /// What the line said before its last change. A field on the phone reports only what it says now, so
+    /// this is how the note screen tells what was typed, deleted or pasted - see NoteTextChange.
+    /// </summary>
+    public string TextBefore { get; private set; } = string.Empty;
+
+    partial void OnTextChanged(string? oldValue, string newValue) => TextBefore = oldValue ?? string.Empty;
+
     /// <summary>What the box says, as the three answers there are - see TickState.</summary>
     public TickState Tick => Ticks.Read(IsChecked, IsFailed);
-
-    /// <summary>What one press makes of it: nothing, done, given up on, nothing again.</summary>
-    public void Press()
-    {
-        var next = Tick.Next();
-        IsChecked = next.IsCompleted();
-        IsFailed = next.IsFailed();
-    }
 
     /// <summary>What the tick box shows: empty, ticked, or nothing at all for prose.</summary>
     public string CompletionMark => !IsChecklistItem ? string.Empty : IsChecked ? "☑" : "☐";
@@ -90,6 +116,26 @@ public sealed partial class NoteLineRow : ObservableObject
 
     partial void OnIsBeingWrittenInChanged(bool value) => SayHowItIsDrawn();
 
+    /// <summary>
+    /// Chosen to change together with the other chosen boxes - see NoteDetailViewModel.IsPickingLines.
+    /// A fact about the screen, not the note: it is never saved, and an undo does not bring it back.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isPicked;
+
+    /// <summary>
+    /// Whether the note is choosing boxes to change together, which puts a mark to choose one with beside
+    /// every box. Set on every line by the view model, so a line that gains a box while it is choosing
+    /// shows the mark at once.
+    /// </summary>
+    [ObservableProperty]
+    private bool _offersPicking;
+
+    /// <summary>The mark that chooses this line, shown only on a line with a box while boxes are being chosen.</summary>
+    public bool ShowsPickMark => OffersPicking && IsChecklistItem;
+
+    partial void OnOffersPickingChanged(bool value) => OnPropertyChanged(nameof(ShowsPickMark));
+
     private void SayHowItIsDrawn()
     {
         OnPropertyChanged(nameof(CompletionMark));
@@ -97,5 +143,6 @@ public sealed partial class NoteLineRow : ObservableObject
         OnPropertyChanged(nameof(IsOpenForWriting));
         OnPropertyChanged(nameof(IsStruckThrough));
         OnPropertyChanged(nameof(Tick));
+        OnPropertyChanged(nameof(ShowsPickMark));
     }
 }

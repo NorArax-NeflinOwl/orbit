@@ -9,6 +9,7 @@ using Orbit.Core.Chat.DeleteMessage;
 using Orbit.Core.Chat.Groups;
 using Orbit.Core.Chat.Groups.ManageChatGroupMembers;
 using Orbit.Core.Chat.Groups.EditGroupMessage;
+using Orbit.Core.Chat.Groups.GetChatGroups;
 using Orbit.Core.Chat.Groups.GetGroupConversation;
 using Orbit.Core.Chat.Groups.GetGroupMessageReceipts;
 using Orbit.Core.Chat.Groups.MarkGroupConversationAsRead;
@@ -445,6 +446,70 @@ public sealed class GroupMessagingTests
         Assert.Empty(await context.ReceiptsAsync(context.OutsiderId, groupMessageId));
     }
 
+    /// <summary>
+    /// Exactly how many messages arrived since the member last had the group open - the group
+    /// counterpart of ContactDto.UnreadCount, counted off the member's own copies.
+    /// </summary>
+    [Fact]
+    public async Task A_member_is_told_exactly_how_many_group_messages_arrived_since_they_last_read()
+    {
+        var context = new GroupMessagingTestContext();
+        await context.SendAsync(context.AdminId, [context.MemberId, context.SecondMemberId]);
+        await context.SendAsync(context.AdminId, [context.MemberId, context.SecondMemberId]);
+
+        Assert.Equal(2, await context.UnreadCountAsync(context.MemberId));
+        // The sender gets no copy of their own post, so nothing of theirs is waiting for them.
+        Assert.Equal(0, await context.UnreadCountAsync(context.AdminId));
+    }
+
+    [Fact]
+    public async Task Reading_the_group_empties_the_readers_count_and_nobody_elses()
+    {
+        var context = new GroupMessagingTestContext();
+        await context.SendAsync(context.AdminId, [context.MemberId, context.SecondMemberId]);
+
+        await context.MarkReadAsync(context.MemberId);
+        Assert.Equal(0, await context.UnreadCountAsync(context.MemberId));
+        Assert.Equal(1, await context.UnreadCountAsync(context.SecondMemberId));
+
+        // And what arrives afterwards counts again, from nought.
+        await context.SendAsync(context.SecondMemberId, [context.AdminId, context.MemberId]);
+        Assert.Equal(1, await context.UnreadCountAsync(context.MemberId));
+    }
+
+    /// <summary>
+    /// History handed to somebody who joined later is the past they were shown, not messages that
+    /// arrived while they were away - counted, it would greet a new member with the whole backlog.
+    /// </summary>
+    [Fact]
+    public async Task History_handed_to_a_new_member_is_not_counted_as_waiting_for_them()
+    {
+        var context = new GroupMessagingTestContext();
+        await context.SendAsync(context.AdminId, [context.MemberId, context.SecondMemberId]);
+        var original = context.MessageRepository.All[0];
+        await context.MessageRepository.AddAsync(
+            ChatMessage.CreateSharedHistoryCopy(original, context.OutsiderId, "cipher-for-the-newcomer", "nonce"),
+            CancellationToken.None);
+
+        var counts = await context.MessageRepository.GetGroupUnreadCountsAsync(context.OutsiderId, CancellationToken.None);
+
+        Assert.False(counts.ContainsKey(context.GroupId));
+    }
+
+    /// <summary>A message taken back is not there to be read, so it no longer counts as arrived.</summary>
+    [Fact]
+    public async Task A_deleted_group_message_no_longer_counts_as_waiting()
+    {
+        var context = new GroupMessagingTestContext();
+        await context.SendAsync(context.AdminId, [context.MemberId, context.SecondMemberId]);
+        await context.SendAsync(context.AdminId, [context.MemberId, context.SecondMemberId]);
+        var first = context.MessageRepository.All.First(message => message.RecipientUserId == context.MemberId);
+
+        await context.DeleteAsync(context.AdminId, first.Id);
+
+        Assert.Equal(1, await context.UnreadCountAsync(context.MemberId));
+    }
+
     /// <summary>A group of three, wired the way DI wires the real thing.</summary>
     private sealed class GroupMessagingTestContext
     {
@@ -494,6 +559,13 @@ public sealed class GroupMessagingTests
                     new SilentLiveUpdatePublisher())
                 .HandleAsync(new AddChatGroupMemberCommand(actorId, GroupId, userId), CancellationToken.None);
 
+
+        /// <summary>What this caller's list of groups says is waiting in this group.</summary>
+        public async Task<int> UnreadCountAsync(Guid callerId)
+            => (await new GetChatGroupsQueryHandler(GroupRepository, MessageRepository)
+                    .HandleAsync(new GetChatGroupsQuery(callerId), CancellationToken.None))
+                .Single(listing => listing.Group.Id == GroupId)
+                .UnreadCount;
 
         public Task MarkReadAsync(Guid readerId)
             => new MarkGroupConversationAsReadCommandHandler(GroupRepository, MessageRepository, new SilentLiveUpdatePublisher())

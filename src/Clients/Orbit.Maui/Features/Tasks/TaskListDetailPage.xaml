@@ -21,7 +21,9 @@
              screen is the entries and nothing else at rest - this was three fields and a switch above
              them, which is a form for the reader who is changing the list and clutter for the ninety-
              nine who are ticking something off it. -->
-        <controls:TitledDescription Grid.Row="0" x:Name="ListFields" IsVisible="False"
+        <!-- The tags ride with the name and the description, behind the same "Edit" - see TagsForm. -->
+        <VerticalStackLayout Grid.Row="0" x:Name="ListFields" IsVisible="False" Spacing="10">
+        <controls:TitledDescription
                                     Title="{Binding Title, Mode=TwoWay}" TitleLabel="{controls:Translate 'Title'}"
                                     TitlePlaceholder="{controls:Translate 'Untitled'}"
                                     SaveTitleCommand="{Binding SaveListCommand}"
@@ -34,6 +36,8 @@
             </controls:TitledDescription.Suggestions>
 
         </controls:TitledDescription>
+        <controls:TagsFieldView BindingContext="{Binding Tags}" />
+        </VerticalStackLayout>
 
         <VerticalStackLayout Grid.Row="1" Spacing="4">
             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
@@ -176,6 +180,16 @@
                 <Entry Placeholder="{controls:Translate 'Checklist item'}" Text="{Binding Description}" />
                 <!-- Errands this account has already written, offered as this one is typed. -->
                 <controls:NameSuggestionChips BindingContext="{Binding Suggestions}" />
+                <!-- The phone's '!': this entry is the same thing as another rather than a new one with the
+                     same words - see TaskItemEditor.TakeOn. What its group shares arrives with the next
+                     sync, once the server has filled it in. -->
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding HasReferenceNote}">
+                    <Label Grid.Column="0" Text="{Binding ReferenceNote}" FontSize="12" LineBreakMode="WordWrap"
+                           TextColor="{DynamicResource Accent}" VerticalOptions="Center" />
+                    <Button Grid.Column="1" Text="{controls:Translate 'Make it separate'}" FontSize="12" Padding="12,4"
+                            Style="{StaticResource SecondaryButton}" IsVisible="{Binding IsAReference}"
+                            Command="{Binding MakeItsOwnCommand}" />
+                </Grid>
 
                 <!-- What the entry is about, as many as apply, on one line - the same box the browser
                      offers and the same rule behind it, see CategoryText. Kept for every kind: an
@@ -202,15 +216,16 @@
                 <!-- Where the entry is, shown for the two kinds that have anywhere to be: an appointment,
                      and a Location entry, which is a place and nothing more - see CanSayWhereItHappens.
                      Outside the event form below, because a Location entry has one of these and none of
-                     the rest. -->
-                <VerticalStackLayout Spacing="10" IsVisible="{Binding CanSayWhereItHappens}">
+                     the rest. The way to the map sits on the box's own line, as the web's pin does: on a
+                     line of its own under the box it read as the next field rather than part of this one. -->
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding CanSayWhereItHappens}">
                     <Entry Placeholder="{controls:Translate 'Where this happens'}" Text="{Binding Location}" />
                     <!-- Typing an address is one way; pointing at it is the other, and the one that
                          works when nobody knows what the street is called. -->
-                    <Button Text="{controls:Translate 'Show map'}" FontSize="13" HorizontalOptions="Start"
-                            Style="{StaticResource LinkButton}"
+                    <Button Grid.Column="1" Text="{controls:Translate 'Show map'}" FontSize="13"
+                            VerticalOptions="Center" Style="{StaticResource LinkButton}"
                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ShowMapCommand, x:DataType=tasks:TaskListDetailPage}" />
-                </VerticalStackLayout>
+                </Grid>
 
                 <!-- A Calendar entry is the appointment rather than a pointer at one, so this is the
                      event's own form - the same fields Orbit.Web's task editor shows. Saving the entry
@@ -284,6 +299,21 @@
                 <DatePicker Date="{Binding DueDate}" IsVisible="{Binding HasDueDate}" Format="{controls:DatePattern}"
                         SemanticProperties.Description="{controls:Translate 'Due date'}" />
 
+                <!-- When it was done, for a done entry only - a day for something not done yet is not a
+                     fact about it, and unticking clears it. Editable, because "did it yesterday, ticked it
+                     today" is the usual case. See TaskItemEditor.IsDone. -->
+                <VerticalStackLayout Spacing="6" IsVisible="{Binding IsDone}">
+                    <Label Text="{controls:Translate 'Completed on'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <DatePicker Date="{Binding CompletedOn}" Format="{controls:DatePattern}"
+                                    SemanticProperties.Description="{controls:Translate 'Completed on'}" />
+                        <TimePicker Grid.Column="1" Time="{Binding CompletedAt}"
+                                    SemanticProperties.Description="{controls:Translate 'Time completed'}" />
+                    </Grid>
+                    <Label Text="{controls:Translate 'Not recorded'}" IsVisible="{Binding IsCompletionTimeUnknown}"
+                           FontSize="12" Style="{StaticResource SubtleLabel}" />
+                </VerticalStackLayout>
+
                 <Label Text="{controls:Translate 'When it is overdue'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
                 <Picker ItemsSource="{Binding Channels}"
                         SelectedItem="{Binding ChosenOverdueNotificationChannel}"
@@ -325,7 +355,7 @@
             <!-- What this entry stands for. A group list gathers other lists through entries pointing
                  at them, so without this a group made on the phone gathered nothing. Inside the form,
                  unlike moving: it is a fact about the entry, and it is saved with it. -->
-            <VerticalStackLayout Spacing="4" IsVisible="{Binding BeingEdited.CanBeLinked}">
+            <VerticalStackLayout Spacing="4" IsVisible="{Binding BeingEdited.CanStandForLists}">
                 <Label Text="{controls:Translate 'Link to list'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
                 <!-- The picker says what to add next rather than what is already there: one entry may
                      stand for several lists, and choosing adds one and clears the picker. -->
@@ -352,6 +382,41 @@
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
+            </VerticalStackLayout>
+
+            <!-- The ways this entry can be got done, any one of which is enough - "the sauce": buy a
+                 ready one, or make it from a list of its own. Offered while it stands for no list, and
+                 the lists above hide while it has ways; Orbit.Web draws the same pair. -->
+            <VerticalStackLayout Spacing="4" IsVisible="{Binding BeingEdited.CanHaveWays}">
+                <Label Text="{controls:Translate 'Ways to get it done'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding BeingEdited.Ways}" Spacing="2">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="screens:TaskItemWay">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding IsDone}" IsVisible="{Binding IsALine}"
+                                          SemanticProperties.Description="{controls:Translate 'Done this way'}" />
+                                <Entry Grid.Column="1" Text="{Binding Description}" IsVisible="{Binding IsALine}"
+                                       Placeholder="{controls:Translate 'A way of doing it'}" />
+                                <Label Grid.Column="1" Text="{Binding ListName}" IsVisible="{Binding IsAList}"
+                                       VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                                <Button Grid.Column="2" Text="✕" FontSize="14" WidthRequest="44" Padding="0"
+                                        BackgroundColor="Transparent" BorderWidth="0"
+                                        SemanticProperties.Description="{controls:Translate 'Remove'}"
+                                        TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
+                                        Command="{Binding ViewModel.BeingEdited.RemoveWayCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=tasks:TaskListDetailPage}"
+                                        CommandParameter="{Binding .}" />
+                            </Grid>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+                <Button Text="{controls:Translate 'Add a way'}" HorizontalOptions="Start"
+                        FontSize="12" Padding="12,6" Style="{StaticResource SecondaryButton}"
+                        Command="{Binding BeingEdited.AddAWayCommand}" />
+                <!-- The same picker the lists above use, and settled the same way - see OnWayListPicked. -->
+                <Picker Title="{controls:Translate 'Or a list…'}" ItemsSource="{Binding BeingEdited.WayListsLeft}"
+                        ItemDisplayBinding="{Binding Name, x:DataType=screens:TaskListChoice}"
+                        SelectedIndexChanged="OnWayListPicked"
+                        SemanticProperties.Description="{controls:Translate 'Or a list'}" />
             </VerticalStackLayout>
 
             <!-- The order the work on this list has to be done in - "hang the door" after "fit the
