@@ -170,6 +170,22 @@ internal sealed class InMemoryChatMessageRepository : IChatMessageRepository
 
         return Task.FromResult(counts);
     }
+    /// <summary>The same rule as the real repository: the reader's own unread copies, not history, not deleted.</summary>
+    public Task<IReadOnlyDictionary<Guid, int>> GetGroupUnreadCountsAsync(
+        Guid readerUserId, CancellationToken cancellationToken)
+    {
+        IReadOnlyDictionary<Guid, int> counts = _messages
+            .Where(message =>
+                message.RecipientUserId == readerUserId
+                && message.GroupId is not null
+                && !_readAtUtcByMessageId.ContainsKey(message.Id)
+                && !message.IsSharedHistory
+                && !message.IsDeleted)
+            .GroupBy(message => message.GroupId!.Value)
+            .ToDictionary(byGroup => byGroup.Key, byGroup => byGroup.Count());
+
+        return Task.FromResult(counts);
+    }
     public Task<IReadOnlyList<ChatMessage>> GetGroupMessageCopiesAsync(
         Guid groupMessageId, CancellationToken cancellationToken)
         => Task.FromResult<IReadOnlyList<ChatMessage>>(

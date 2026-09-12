@@ -82,6 +82,42 @@ public sealed class GetNameSuggestionsQueryHandlerTests
         Assert.True(found.Similarity >= GetNameSuggestionsQueryHandler.DuplicateSimilarity);
     }
 
+    /// <summary>
+    /// A task entry's name says what it is the name of, so the entry can be made the same thing - see
+    /// NameSuggestion.Sources. Only that field asks: nothing else can be a reference.
+    /// </summary>
+    [Fact]
+    public async Task A_name_on_a_task_entry_says_what_it_is_the_name_of()
+    {
+        _repository.Add(NameSuggestionKind.TaskItemDescription, "Sauce");
+        _repository.Add(NameSuggestionKind.InventoryItemName, "Sauce");
+        var source = new NameSuggestionSource(
+            "Sauce", NameSuggestionSourceKind.TaskItem, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Burger", "Checklist");
+        _repository.AddSource(source);
+
+        var forAnEntry = await AskAsync(NameSuggestionKind.TaskItemDescription, "Sau");
+        var forAProduct = await AskAsync(NameSuggestionKind.InventoryItemName, "Sau");
+
+        Assert.Equal(source, Assert.Single(Assert.Single(forAnEntry).Sources));
+        Assert.Empty(Assert.Single(forAProduct).Sources);
+    }
+
+    /// <summary>
+    /// Somebody who typed the whole name still has to say which thing they meant, so the name that matches
+    /// exactly stays on offer while it is the name of something.
+    /// </summary>
+    [Fact]
+    public async Task The_whole_name_typed_is_still_offered_while_it_is_the_name_of_something()
+    {
+        _repository.Add(NameSuggestionKind.TaskItemDescription, "Sauce");
+        _repository.AddSource(new NameSuggestionSource(
+            "Sauce", NameSuggestionSourceKind.TaskItem, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Burger", "Checklist"));
+
+        var suggestions = await AskAsync(NameSuggestionKind.TaskItemDescription, "Sauce");
+
+        Assert.Equal("Sauce", Assert.Single(suggestions).Name);
+    }
+
     private async Task<IReadOnlyList<NameSuggestion>> AskAsync(NameSuggestionKind kind, string typed)
         => await new GetNameSuggestionsQueryHandler(_repository)
             .HandleAsync(new GetNameSuggestionsQuery(_userId, kind, typed), CancellationToken.None);

@@ -470,7 +470,10 @@ internal sealed class FakeTasksServer : HttpMessageHandler
     {
         var storedById = (stored ?? []).Where(item => item.Id != Guid.Empty).ToDictionary(item => item.Id);
         return InTheOrderTheyCanBeDone(items.Select(item => new TaskItemDto(
-            item.Id ?? Guid.NewGuid(), item.Description, item.DueDateUtc, item.IsCompleted,
+            item.Id ?? Guid.NewGuid(), item.Description, item.DueDateUtc,
+            // An entry done by ways is done when one is, whatever was sent for it - TaskItem's own rule.
+            // A way that is a list is not worked out here: no test asks this fake to resolve lists.
+            IsDone(item, storedById),
             // Whichever shape the client sent, answered in both - what the real endpoint does, so a
             // client reading only the old field still works against this fake. See TaskEndpoints.ToDto.
             item.AllLinkedTaskListIds.Count > 0 ? item.AllLinkedTaskListIds[0] : null,
@@ -521,17 +524,43 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             Colour: item is { Priority: null, Colour: null }
                 ? storedById.GetValueOrDefault(item.Id ?? Guid.Empty)?.Colour
                 : item.Colour ?? string.Empty,
+            Alternatives: WaysOf(item, storedById),
+            // Null keeps what is stored, the empty id says "none" - the real endpoint's rule for both.
+            ReferencesTaskItemId: item.ReferencesTaskItemId is { } referenced
+                ? referenced == Guid.Empty ? null : referenced
+                : item.Id is { } holder && storedById.TryGetValue(holder, out var held) ? held.ReferencesTaskItemId : null,
+            RequiredQuantity: item.RequiredQuantity
+                ?? (item.Id is { } needer && storedById.TryGetValue(needer, out var needs) ? needs.RequiredQuantity : null),
             // When it was done, by TaskItem.RecordWhenItWasDone's rule: a time sent is kept, none sent
             // keeps what an already-done entry had, a fresh tick is recorded as now, and an entry that is
             // not done has none. A fake that wrote the null through would let a phone that never records
-            // the time pass here, and the real server would answer it with one.
-            CompletedAtUtc: !item.IsCompleted
+            // the time pass here, and the real server would answer it with one. Read off the tick as this
+            // fake settles it, so an entry done one of its ways carries a time too.
+            CompletedAtUtc: !IsDone(item, storedById)
                 ? null
                 : item.CompletedAtUtc
                     ?? (storedById.GetValueOrDefault(item.Id ?? Guid.Empty) is { IsCompleted: true } wasDone
                         ? wasDone.CompletedAtUtc
                         : nowUtc))).ToList());
     }
+
+    /// <summary>
+    /// Whether the entry counts as done once its ways have had their say - the answer TaskItem settles in
+    /// its constructor, and the one both the tick and the time it carries are read off.
+    /// </summary>
+    private static bool IsDone(TaskItemRequest item, IReadOnlyDictionary<Guid, TaskItemDto> storedById)
+        => WaysOf(item, storedById) is { Count: > 0 } ways ? ways.Any(way => way.IsDone) : item.IsCompleted;
+
+    /// <summary>
+    /// The ways an entry is done by, as the real endpoint answers them: none on an entry standing for
+    /// lists, and null - "nothing to say" - keeps what is stored, the rule the notes above follow.
+    /// </summary>
+    private static IReadOnlyList<TaskItemAlternativeDto> WaysOf(
+        TaskItemRequest item, IReadOnlyDictionary<Guid, TaskItemDto> storedById)
+        => item.AllLinkedTaskListIds.Count > 0
+            ? []
+            : item.Alternatives
+                ?? (item.Id is { } id && storedById.TryGetValue(id, out var stored) ? stored.AllAlternatives : []);
 
     /// <summary>
     /// The rule the real server keeps about the order work is done in, kept here too: a step that is

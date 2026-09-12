@@ -86,6 +86,11 @@ public sealed class CopyTaskItemCommandHandler : IRequestHandler<CopyTaskItemCom
             item.Product,
             item.Notes,
             item.IsFailed,
+            // The ways it can be got done are words the entry says, so they travel; one of them that is
+            // another list is a reference, and a copy carries none of those. So does how much of its
+            // product it needs, which is the entry's own answer rather than a pointer at anything.
+            alternatives: [.. item.Alternatives.Where(way => !way.IsAList)],
+            requiredQuantity: item.RequiredQuantity,
             // A copy of something done was done when the original was - the copy is of the entry,
             // not a new tick.
             completedAtUtc: item.CompletedAtUtc);

@@ -2647,6 +2647,14 @@ input.note-editor-title {
     font-size: 11.5px;
 }
 
+/* Where the thing a name is the name of lives - "in Burger" - which tells two things of one name apart.
+   Quieter than the name itself: it answers "which one", not "what". See NameSuggestions.Offered. */
+.name-suggestion-source {
+    margin-left: 6px;
+    color: var(--text-tertiary);
+    font-size: 12px;
+}
+
 /* A line in a group thread that nobody wrote - somebody joined, and possibly arrived holding the
    history (see GroupConversation.razor). Centred and unbubbled so it reads as the conversation telling
    you something rather than as a message from a person. */
@@ -4701,6 +4709,15 @@ input.note-editor-title {
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--text-tertiary);
+}
+
+/* The name of the task list a run of kept places came from - one step quieter than the panel's own
+   heading, since it sits inside it. See MapPage.PlacesAsListed. */
+.map-panel-subheading {
+    margin: 10px 0 2px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
 }
 
 /* Outlined the way the page's own plus is - it is the same kind of control, one row down. */
@@ -7283,6 +7300,48 @@ span.calendar-task-chip {
     border: 1px solid var(--border);
     border-radius: 999px;
     font-size: 13px;
+}
+
+/* An entry's ways, one to a line under their label - see TaskEditor's "Ways to get it done". */
+.entry-ways {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+}
+
+.entry-way {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.entry-way-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* A way that is a list reads as the list chips above do, since it is the same kind of thing. */
+.entry-way-list {
+    flex: 1 1 auto;
+    padding: 3px 10px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 13px;
+}
+
+.entry-way-add {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+/* The way that was taken, among the ones offered - see TaskListChecklist.WaysAsked and the entry's page. */
+.btn-secondary.chosen {
+    border-color: var(--accent);
+    color: var(--accent);
 }
 
 /* The restock section's two switches each govern what sits under them: the first the whole section, the

@@ -269,6 +269,36 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         Assert.EndsWith($"/tasks/{kitchen.Id}", navigationManager.Uri);
     }
 
+    /// <summary>
+    /// An entry done any one of several ways is not ticked here either: the press offers its ways. A way
+    /// that is a list offers to go there; taking a line of its own saves that line done, which is what
+    /// makes the entry done. See TaskItem.Alternatives.
+    /// </summary>
+    [Fact]
+    public void Pressing_an_entry_done_by_ways_offers_them_and_taking_a_line_saves_it()
+    {
+        var homemade = TaskList("Homemade sauce", Item("Mayonnaise"));
+        var burger = TaskList(
+            "Burger", Item("Sauce") with { Alternatives = [new("Buy a ready one"), new("", homemade.Id)] });
+        RegisterTasksApiClient([burger, homemade]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, burger.Id));
+        Assert.Contains("any one of: Buy a ready one, Homemade sauce", cut.Markup);
+
+        cut.FindAll(".tick-box").First().Click();
+
+        Assert.Contains("Done as soon as any one of these is:", cut.Markup);
+        Assert.Contains(cut.FindAll(".check-row-asks button"), button => button.TextContent.Trim() == "Open Homemade sauce");
+        Assert.DoesNotContain(_requests, request => request.Method == HttpMethod.Put);
+
+        cut.FindAll(".check-row-asks button").First(button => button.TextContent.Trim() == "Buy a ready one").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains(_requests, request => request.Method == HttpMethod.Put));
+        var saved = _requestBodies[_requests.FindIndex(request => request.Method == HttpMethod.Put)];
+        Assert.Contains("\"description\":\"Buy a ready one\",\"linkedTaskListId\":null,\"isDone\":true", saved);
+        Assert.Contains("\"isCompleted\":true", saved);
+    }
+
     [Fact]
     public void A_read_only_share_renders_every_item_as_look_but_do_not_touch()
     {

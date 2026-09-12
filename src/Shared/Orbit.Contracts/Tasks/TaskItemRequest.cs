@@ -80,6 +80,23 @@ public sealed record TaskItemRequest(
     /// <inheritdoc cref="TaskItemDto.Colour"/>
     string? Colour = null,
     /// <summary>
+    /// The ways this entry can be got done - see <see cref="TaskItemDto.Alternatives"/>. <b>Null means
+    /// "not provided"</b> and leaves the stored ways alone, which is what a client written before ways
+    /// existed sends; an empty list means "none", and clears them.
+    /// </summary>
+    IReadOnlyList<TaskItemAlternativeDto>? Alternatives = null,
+    /// <summary>
+    /// The entry this one is the same thing as - see <see cref="TaskItemDto.ReferencesTaskItemId"/>.
+    /// <b>Null means "not provided"</b> and keeps what is stored, which is what a client written before
+    /// references existed sends; <see cref="Guid.Empty"/> means "none", and makes the entry one of its own.
+    /// </summary>
+    Guid? ReferencesTaskItemId = null,
+    /// <summary>
+    /// How much of its product this entry needs - see <see cref="TaskItemDto.RequiredQuantity"/>. Null
+    /// together with a null <see cref="ReferencesTaskItemId"/> keeps what is stored, for the same client.
+    /// </summary>
+    decimal? RequiredQuantity = null,
+    /// <summary>
     /// When this entry was ticked off - see Orbit.Core.Tasks.TaskItem.CompletedAtUtc. Ignored for an entry
     /// that is not ticked, whose time is always cleared. For a ticked one, <b>null means "not provided"</b>:
     /// the server keeps the time it already holds for an entry that was already done, and records the
@@ -132,28 +149,8 @@ public sealed record TaskItemRequest(
             // As they came, null included, for the reason Notes above gives.
             item.Priority,
             item.Colour,
+            item.Alternatives,
+            item.ReferencesTaskItemId,
+            item.RequiredQuantity,
             item.CompletedAtUtc);
-
-    /// <summary>
-    /// This entry as a private list seals it: every field it carries, under the id it is known by. The
-    /// sealed half is the only place a private list's entries are kept at all - the server stores no item
-    /// rows for one - so a field left out here is a field a private list loses on every save.
-    ///
-    /// The mirror of <see cref="From"/>, and here for the same reason: the browser built its sealed
-    /// entry by hand from the fields entries had when private lists were written, and every field added
-    /// since - kind, place, the two links, categories, product, description, the cross, steps, priority
-    /// and colour - came back blank from a private list after its first save in a browser.
-    /// </summary>
-    public TaskItemDto AsEntry(Guid id)
-        => new(
-            id, Description, DueDateUtc, IsCompleted,
-            // The new field only: the single one carries just the first list, and a private list would
-            // lose the rest of an entry standing for several.
-            LinkedTaskListId: null,
-            OverdueNotificationChannel, RemindDaily, DailyReminderNotificationChannel, DailyReminderTimeOfDay,
-            Kind, Location, LinkedCalendarEventId, LinkedInventoryItemId, AllLinkedTaskListIds,
-            Categories, Product, Notes, IsFailed, WaitsForTaskItemIds, Priority, Colour,
-            // Nobody else keeps a private entry's time - the server never sees the entry - so it is
-            // sealed as the client holds it, and cleared for one that is not done.
-            IsCompleted ? CompletedAtUtc : null);
 }

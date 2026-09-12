@@ -96,6 +96,32 @@ else
                 </Trailing>
             </Row>
         }
+        else if (_item.AllAlternatives.Count > 0)
+        {
+            @* No box of its own either: an entry done by ways is done when one is (see
+               TaskItem.Alternatives). A line of its own is taken or taken back here, and a way that is a
+               list offers to go there - the same the checklist offers under the row. *@
+            <Row Title="@T["Done"]">
+                <Trailing>
+                    <span class="row-meta">@T["Done as soon as any one of these is:"]</span>
+                    @foreach (var (way, index) in _item.AllAlternatives.Select((way, index) => (way, index)))
+                    {
+                        if (way.LinkedTaskListId is { } wayListId)
+                        {
+                            <button type="button" class="row-meta-opens"
+                                    @onclick="() => GoToLinkedList(wayListId)">@WayTitle(way)</button>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn-secondary @(way.IsDone ? "chosen" : "")"
+                                    aria-pressed="@(way.IsDone ? "true" : "false")"
+                                    disabled="@(_isTicking || _isReadOnly)"
+                                    @onclick="() => TakeWayAsync(index, !way.IsDone)">@Written(way.Description)</button>
+                        }
+                    }
+                </Trailing>
+            </Row>
+        }
         else
         {
             <CheckRow Title="@T["Done"]" State="@Ticks.Read(_item.IsCompleted, _item.IsFailed)"
@@ -366,6 +392,44 @@ else
     }
 
     /// <summary>
+    /// Takes one of this entry's ways, or takes it back - what the checklist does under the row, from the
+    /// entry's own page. See TaskItemCompletion.TakeWayAsync.
+    /// </summary>
+    private async Task TakeWayAsync(int wayIndex, bool isDone)
+    {
+        if (_taskList is null || _item is null || _isTicking)
+        {
+            return;
+        }
+
+        _isTicking = true;
+        _tickMessage = null;
+        try
+        {
+            if (await TaskItemCompletion.TakeWayAsync(_taskList, _item, wayIndex, isDone) == TaskItemTickOutcome.SignedOut)
+            {
+                return;
+            }
+
+            _tickMessage = TaskItemCompletion.FailureMessage;
+            // Re-read for the reason TickAsync does: what stands on the page is what the server holds.
+            await RefreshTheEntryAsync();
+        }
+        finally
+        {
+            _isTicking = false;
+        }
+    }
+
+    /// <summary>What a way is called: its own words, or its list's title when it says nothing else.</summary>
+    private string WayTitle(TaskItemAlternativeDto way)
+        => way.Description.Length > 0
+            ? Written(way.Description)
+            : _listsBehindTheEntry.FirstOrDefault(named => named.Id == way.LinkedTaskListId) is { } named
+                ? Written(named.Title)
+                : T["another list"];
+
+    /// <summary>
     /// A second entry saying the same, straight under this one - see TaskItemCompletion.DuplicateAsync -
     /// and then that entry's own page, so the reader is looking at what they just made.
     /// </summary>
@@ -431,7 +495,9 @@ else
     private async Task NameTheListsBehindTheEntryAsync()
     {
         _listsBehindTheEntry = [];
-        if (_item is null || !TaskItemCompletion.IsTickedElsewhere(_item))
+        // A way that is a list is named the same way, so an entry done by ways asks too.
+        if (_item is null
+            || !TaskItemCompletion.IsTickedElsewhere(_item) && !_item.AllAlternatives.Any(way => way.LinkedTaskListId is not null))
         {
             return;
         }
@@ -440,7 +506,8 @@ else
         {
             var taskLists = await TasksApiClient.GetTaskListsAsync();
             _listsBehindTheEntry =
-                [.. taskLists.Where(candidate => _item.AllLinkedTaskListIds.Contains(candidate.Id))];
+                [.. taskLists.Where(candidate => _item.AllLinkedTaskListIds.Contains(candidate.Id)
+                    || _item.AllAlternatives.Any(way => way.LinkedTaskListId == candidate.Id))];
         }
         catch (HttpRequestException exception)
         {

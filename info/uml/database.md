@@ -178,6 +178,7 @@ erDiagram
     OP_TASKS_ITEMS ||--o{ OP_TASKS_PRODUCT_CATEGORIES : "product tagged"
     OP_TASKS_ITEMS ||--o{ OL_TASKS_ITEMS : "links to lists"
     OP_TASKS_ITEMS ||--o{ OL_TASKS_STEPS : "waits for entries"
+    OP_TASKS_ITEMS ||--o{ OP_TASKS_ALTERNATIVES : "done any one of these ways"
     OP_TASKS ||--o{ OL_TASKS_ITEMS : "linked from items"
     OP_INVENTORIES ||--o{ OP_INVENTORIES_ITEMS : contains
     OP_INVENTORIES_ITEMS ||--o{ OP_INVENTORIES_CATEGORIES : "tagged"
@@ -209,6 +210,16 @@ erDiagram
         uuid OP_TI_LINKEDCALENDAREVENTID
         uuid OP_TI_LINKEDINVENTORYITEMID
         bool OP_TI_REMINDDAILY
+        timestamptz OP_TI_CREATEDATUTC "kept by id across saves; decides a reference group's heir"
+        uuid OP_TI_REFERENCESTASKITEMID "the group's source entry, on any list; no FK"
+        numeric OP_TI_REQUIREDQUANTITY "the entry's own minimum - the one detail a group does not share"
+    }
+    OP_TASKS_ALTERNATIVES {
+        uuid OP_TA_TASKITEMID PK
+        int OP_TA_POSITION PK "two ways may say the same words"
+        text OP_TA_DESCRIPTION
+        uuid OP_TA_LINKEDTASKLISTID "null = a line ticked by hand; no FK"
+        bool OP_TA_ISDONE "a line's own tick; always false for a list, which is read from the list"
     }
     OL_TASKS_STEPS {
         uuid OL_TS_TASKITEMID PK "the entry that waits"
@@ -221,6 +232,7 @@ erDiagram
         text OP_II_NAME
         numeric OP_II_QUANTITY
         numeric OP_II_MINIMUMQUANTITY
+        numeric OP_II_USAGE "what the lists ask for, recounted by ShelfUsage; the minimum is never read below it"
         text OP_II_UNIT
         date OP_II_EXPIRYDATE
         bool OP_II_ISCHECKEDREGULARLY
@@ -272,6 +284,7 @@ erDiagram
         float OP_P_LONGITUDE "0 when sealed"
         text OP_P_COLOUR "empty = whatever a place is drawn in"
         text OP_P_PRIORITY "ItemPriority by name"
+        uuid OP_P_SOURCETASKITEMID "the Location entry that made it, or null - readable, no FK"
     }
     OL_PLACES_TASKS {
         uuid OL_PT_PLACEID PK

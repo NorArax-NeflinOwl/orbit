@@ -17,6 +17,7 @@ namespace Orbit.Mobile.Data;
 [JsonSerializable(typeof(IReadOnlyList<InventoryItemRequest>))]
 // When each batch on a shelf arrived, by its id - see LocalInventory.ItemArrivals.
 [JsonSerializable(typeof(IReadOnlyDictionary<Guid, DateTimeOffset>))]
+[JsonSerializable(typeof(IReadOnlyDictionary<Guid, decimal>))]
 [JsonSerializable(typeof(IReadOnlyList<LocalChatGroupMember>))]
 // What a copy was taken from, already rendered as lines - see ICopyableForEditing.CopyBaseLines.
 [JsonSerializable(typeof(IReadOnlyList<string>))]

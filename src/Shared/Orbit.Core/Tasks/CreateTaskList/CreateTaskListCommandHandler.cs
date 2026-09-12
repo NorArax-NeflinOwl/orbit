@@ -1,4 +1,5 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.Inventories;
 
 namespace Orbit.Core.Tasks.CreateTaskList;
 
@@ -6,11 +7,18 @@ public sealed class CreateTaskListCommandHandler : IRequestHandler<CreateTaskLis
 {
     private readonly ITaskRepository _taskRepository;
     private readonly TaskListLinkValidator _taskListLinkValidator;
+    private readonly ShelfUsage? _shelfUsage;
 
-    public CreateTaskListCommandHandler(ITaskRepository taskRepository, TaskListLinkValidator taskListLinkValidator)
+    /// <param name="shelfUsage">
+    /// Recounts what the shelf items the new list's entries stand for are asked for - see ShelfUsage. Optional
+    /// so a test about something else need not build one; the application always has it.
+    /// </param>
+    public CreateTaskListCommandHandler(
+        ITaskRepository taskRepository, TaskListLinkValidator taskListLinkValidator, ShelfUsage? shelfUsage = null)
     {
         _taskRepository = taskRepository;
         _taskListLinkValidator = taskListLinkValidator;
+        _shelfUsage = shelfUsage;
     }
 
     public async Task<Guid> HandleAsync(CreateTaskListCommand request, CancellationToken cancellationToken)
@@ -25,10 +33,12 @@ public sealed class CreateTaskListCommandHandler : IRequestHandler<CreateTaskLis
             await _taskRepository.GetHoldingItemsAsync(
                 request.UserId, Guid.Empty, [.. request.Items.Select(item => item.Id)], cancellationToken));
 
+        var nowUtc = DateTimeOffset.UtcNow;
+        // Every entry of a new list is stored now for the first time - see TaskItem.CreatedAtUtc.
+        TaskItemReferences.StampCreationTimes(identity.Items, [], nowUtc);
         // Entries can arrive already ticked - a list written offline and pushed whole, or one made from
         // another. There is nothing stored to keep a time from, so a tick that came without one is
         // recorded as of now - see TaskItem.RecordWhenItWasDone.
-        var nowUtc = DateTimeOffset.UtcNow;
         foreach (var item in identity.Items)
         {
             item.RecordWhenItWasDone(stored: null, nowUtc);
@@ -41,14 +51,31 @@ public sealed class CreateTaskListCommandHandler : IRequestHandler<CreateTaskLis
         // A list made on the Finished tab begins there - see TaskEditor's new-list defaults.
         taskList.SetCompletion(request.Completion);
 
-        if (identity.ListsToSaveToo.Count > 0)
+        // An entry made as a reference joins its group - see TaskItemReferences - and what it says is
+        // passed on to the rest of that group. The same precedence the update keeps for renamed lists.
+        var changedByReferences = await new TaskItemReferences(_taskRepository).SettleAsync(
+            request.UserId, taskList, new Dictionary<Guid, Guid?>(), new HashSet<Guid>(), new HashSet<Guid>(),
+            cancellationToken);
+        IReadOnlyList<TaskList> alsoSaved =
+        [
+            .. changedByReferences.Where(changed => identity.ListsToSaveToo.All(renamed => renamed.Id != changed.Id)),
+            .. identity.ListsToSaveToo
+        ];
+
+        if (alsoSaved.Count > 0)
         {
             await _taskRepository.AddAsync(taskList, cancellationToken);
-            await _taskRepository.UpdateManyAsync(identity.ListsToSaveToo, cancellationToken);
+            await _taskRepository.UpdateManyAsync(alsoSaved, cancellationToken);
         }
         else
         {
             await _taskRepository.AddAsync(taskList, cancellationToken);
+        }
+
+        if (_shelfUsage is not null)
+        {
+            await _shelfUsage.RecountAsync(
+                request.UserId, ShelfUsage.ShelfItemsOf([taskList, .. alsoSaved]), cancellationToken);
         }
 
         return taskList.Id;

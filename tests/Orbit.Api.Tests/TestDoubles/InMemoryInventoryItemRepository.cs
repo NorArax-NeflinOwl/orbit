@@ -18,6 +18,9 @@ internal sealed class InMemoryInventoryItemRepository : IInventoryItemRepository
     public Task<InventoryItem?> GetByIdAsync(Guid inventoryId, Guid id, CancellationToken cancellationToken)
         => Task.FromResult(_items.FirstOrDefault(item => item.Id == id && item.InventoryId == inventoryId));
 
+    public Task<IReadOnlyList<InventoryItem>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<InventoryItem>>([.. _items.Where(item => ids.Contains(item.Id))]);
+
     public Task AddAsync(InventoryItem item, CancellationToken cancellationToken)
     {
         _items.Add(item);

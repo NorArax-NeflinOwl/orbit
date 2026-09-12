@@ -90,6 +90,7 @@ public sealed class ChatSynchronizer
                     Name = group.Name,
                     OwnRole = group.OwnRole,
                     IsArchived = group.IsArchived,
+                    UnreadCount = group.UnreadCount,
                     CreatedAtUtc = group.CreatedAtUtc,
                     Members = group.Members
                         .Select(member => new LocalChatGroupMember(
@@ -126,8 +127,9 @@ public sealed class ChatSynchronizer
             var messages = await _chatClient.GetGroupConversationAsync(groupId, cancellationToken);
             var stored = await _chatRepository.StoreGroupMessagesAsync(groupId, messages, cancellationToken);
 
-            // Nothing is marked read here: a sync runs on a timer, and pulling a message is not seeing it.
-            // See MarkGroupConversationReadAsync.
+            // Nothing is marked read here, and the count on the group's row stays as it is: a sync runs
+            // on a timer, and pulling a message is not seeing it. See MarkGroupConversationReadAsync.
+
             return new ChatSyncResult(push.Sent, stored, ReachedTheServer: true);
         }
         catch (Exception exception) when (IsWorthRetrying(exception, cancellationToken))
@@ -208,13 +210,15 @@ public sealed class ChatSynchronizer
         }
     }
 
-    /// <summary>The same for a group - there is no count on a group's row to take down.</summary>
+    /// <summary>The same for a group, whose row carries a count of its own - see LocalChatGroup.UnreadCount.</summary>
     public async Task<bool> MarkGroupConversationReadAsync(
         Guid groupId, DateTimeOffset readUpToUtc, CancellationToken cancellationToken = default)
     {
         try
         {
             await _chatClient.MarkGroupConversationAsReadAsync(groupId, readUpToUtc, cancellationToken);
+            // And the count on its row goes with it, here and now - not at the next refresh.
+            await _chatRepository.MarkGroupReadAsync(groupId, cancellationToken);
             return true;
         }
         catch (Exception exception) when (IsWorthRetrying(exception, cancellationToken))

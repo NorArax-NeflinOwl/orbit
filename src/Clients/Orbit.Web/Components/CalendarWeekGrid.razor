@@ -2,6 +2,7 @@
 @using Orbit.Contracts.Calendar
 @using Orbit.Web.Services
 @inject Translations T
+@inject TimeProvider TimeProvider
 
 @* A week as seven timelines rather than seven boxes of chips. It used to be a month grid with one row
    in it, which put everything happening on a Tuesday in a list ordered by nothing a reader can see - so
@@ -16,7 +17,7 @@
         <span class="calendar-week-grid-gutter"></span>
         @foreach (var day in Timeline.Days)
         {
-            <button type="button" class="calendar-week-grid-day-name @(day.Date == DateOnly.FromDateTime(DateTime.Today) ? "today" : null)"
+            <button type="button" class="calendar-week-grid-day-name @(day.Date == DateOnly.FromDateTime(TimeProvider.GetLocalNow().Date) ? "today" : null)"
                     @onclick="() => DaySelectedAsync(day.Date)">
                 <span class="calendar-week-grid-weekday">@day.Date.ToString("ddd", T.DisplayCulture)</span>
                 <span class="calendar-week-grid-daynumber">@day.Date.Day</span>

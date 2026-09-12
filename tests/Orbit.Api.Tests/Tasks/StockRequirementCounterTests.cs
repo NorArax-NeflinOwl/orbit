@@ -214,6 +214,29 @@ public sealed class StockRequirementCounterTests
         Assert.Equal(3, requirement.Missing);
     }
 
+    /// <summary>
+    /// An entry that says how much of it this list needs asks for that, whether or not a shelf item
+    /// answers it - see TaskItem.RequiredQuantity. The shelf item's own minimum is never read below what
+    /// every list asks for together (InventoryItem.Usage), so counting that instead told one list it
+    /// needed everything all of them do.
+    /// </summary>
+    [Fact]
+    public void An_entry_that_says_how_much_it_needs_asks_for_that()
+    {
+        var flour = Stocked("Mąka", quantity: 4, minimumQuantity: 12);
+
+        var check = StockRequirementCounter.Count([Needing(flour, 2), Needing(flour, 3)], [flour], Now);
+
+        Assert.Equal(5, Assert.Single(check.Requirements).Required);
+    }
+
+    /// <summary>An errand standing for a shelf item and saying how much of it this list needs.</summary>
+    private static TaskItem Needing(InventoryItem shelfItem, decimal amount)
+        => TaskItem.Create(
+            shelfItem.Name, dueDateUtc: null, isCompleted: false,
+            subject: new TaskItemSubject(TaskItemKind.Inventory, linkedInventoryItemId: shelfItem.Id),
+            requiredQuantity: amount);
+
     /// <summary>A shelf item with no minimum was left to the counting rule, so its entries count one by one.</summary>
     [Fact]
     public void Entries_standing_for_a_shelf_item_with_no_minimum_are_counted_one_by_one()

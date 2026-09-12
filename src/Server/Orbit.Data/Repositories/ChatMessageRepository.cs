@@ -245,6 +245,26 @@ public sealed class ChatMessageRepository : IChatMessageRepository
 
         return counts.ToDictionary(entry => entry.SenderUserId, entry => entry.Count);
     }
+    public async Task<IReadOnlyDictionary<Guid, int>> GetGroupUnreadCountsAsync(
+        Guid readerUserId, CancellationToken cancellationToken)
+    {
+        // The reader's own copies only - a sender gets none of their own post, so it never counts. A
+        // deleted message is left out too: it is not there to be read, and "exactly how many arrived" is
+        // the number of messages somebody can still open.
+        var counts = await _dbContext.ChatMessages
+            .AsNoTracking()
+            .Where(message =>
+                message.RecipientUserId == readerUserId
+                && message.ReadAtUtc == null
+                && message.GroupId != null
+                && !message.IsSharedHistory
+                && message.DeletedAtUtc == null)
+            .GroupBy(message => message.GroupId!.Value)
+            .Select(byGroup => new { GroupId = byGroup.Key, Count = byGroup.Count() })
+            .ToListAsync(cancellationToken);
+
+        return counts.ToDictionary(entry => entry.GroupId, entry => entry.Count);
+    }
     public async Task<IReadOnlyList<ChatMessage>> GetGroupMessageCopiesAsync(
         Guid groupMessageId, CancellationToken cancellationToken)
     {

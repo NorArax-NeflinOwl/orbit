@@ -638,6 +638,88 @@ its own source mid-selection). It offers the other entries of the open list - ne
 one that has not been saved, a step being named by id - and its saves now write the field rather than
 passing through whatever arrived.
 
+**An entry can be done any one of several ways** (2026-09-11, `OP_TASKS_ALTERNATIVES`,
+`TaskItem.Alternatives`, `TaskItemAlternative`). The example that asked for it: a burger recipe whose
+sauce can be bought ready or made from a list of its own. **Ways to get it done** lists the choices. Each
+way is either a line of its own, ticked by hand ("Buy a ready one"), or another list ("Homemade sauce"),
+which is done when that list is. The entry is **done as soon as any one way is**. So a one-errand
+alternative needs no list made for it, which is what "Stands for these lists" would have needed.
+
+- **The opposite of Stands for these lists.** That field is "every one of these", and this is "any one
+  of these". An entry has one or the other, so each form hides whichever the entry is not using. If both
+  arrive, the links win and the ways are dropped, in `TaskItem`'s constructor.
+- **Its tick belongs to its ways.** A tick sent for the entry itself is ignored while it has ways. A way
+  that is a list is never taken on a client's word: `LinkedTaskCompletionResolver` works it out on every
+  read, and it is stored as not done. `TaskListLinkValidator` checks a way's list the way it checks a link:
+  it must exist, must not be the entry's own list, and must not close a loop.
+- **Rebuilds keep everything.** Resolving an entry now keeps every field it carries. The resolver used
+  to rebuild a linked entry from its id, words, date and reminders alone, so a read handed it back
+  without its notes, kind, colour or priority.
+- **Pressing its box offers the ways.** The checklist's rows (web) and the list screen's sheet (phone)
+  let the reader take a line or take it back, or go to a way's list. The web entry page offers the same.
+  The phone's entry screen names the ways and sends the reader to the list screen to take one. The row
+  says which way it was done, or which ways it can be.
+- **Both forms edit them**, the web editor in the entry's checklist panel and the phone's entry form. On
+  the web only a checklist entry offers them; a way left blank is not saved. A private list seals them
+  with its entries (`TasksApiClient.SealIfPrivateAsync`).
+- **Not sending them keeps them.** A request that says nothing about an entry's ways leaves the stored
+  ones alone (`UpdateTaskListCommand.EntriesKeepingTheirAlternatives`, the sixth field to follow that
+  rule). Phone builds already installed save lists without knowing ways exist.
+- **Reminders.** An entry whose ways include a list gets no daily or overdue reminder, the same as a
+  linked entry, because its stored tick cannot know that list is finished.
+
+**A name picked from the suggestions makes the entry the same thing, not a new one** (2026-09-11,
+`TaskItem.ReferencesTaskItemId`, `TaskItemReferences`, `NameSuggestion.Sources`). The name is typed first
+and the type chosen second, so a name the reader already uses says what it is the name of. An entry on
+another list or a product on a shelf is offered once per thing, with where it is ("Sauce · in Burger").
+Picking one fills in everything that thing says, and it creates only a reference to it. The row says so
+with a '!' and a bubble, which has **Make it separate**. It works for every kind of entry, and with no
+storage at all.
+
+- **What a reference group shares.** Kind, place, categories, notes, priority, colour, and the product
+  it asks for or the shelf item it stands for. Each entry keeps its own date, tick, ways, reminders,
+  appointment, and **how much it needs** (`TaskItem.RequiredQuantity`). A recipe may need two of what
+  another needs five of.
+- **How the group stays in step.** Every member stores the shared details itself, so reading, syncing
+  and drawing a list are unchanged. A save of any member passes them on to the rest of its group, on
+  every list. One exception: a member that has only just joined takes on what the group says. A phone
+  that picked the name knows only its words until the list comes back, and must not empty the group.
+- **The pointer.** It always names the group's **source**, never a member that points further on, and
+  one naming nothing is an entry of its own again. When the source is deleted, the member **created
+  first** takes its place (`TaskItem.CreatedAtUtc`, kept by id across saves) and the rest point at it.
+- **Shelf items.** Picking a shelf item makes the entry that product's errand, through the link a shelf
+  already knew (`LinkedInventoryItemId`).
+- **What the form shows straight away.** Both clients fill the fields in as the name is picked rather
+  than waiting for the save to come back: the browser reads the thing off the server, the phone off its
+  own copy of that list or shelf (`LocalTaskListRepository.FindEntryAsync`, `TaskItemEditor.TakeOnAsync`),
+  so a pick made with no connection is not an empty form. The two fields the phone's form does not draw,
+  priority and colour, arrive from the group when the save lands.
+- **What is left out.** Private lists take no part, because the server holds none of their entries.
+  Notes and events are still offered as words only.
+- **Old phones.** A request that says nothing about the reference or the amount keeps what is stored
+  (`EntriesKeepingTheirReference`), so phone builds already installed do not cut entries loose.
+
+**Preferences** is a new tab in Options, and on the phone's account screen. Its first setting,
+**Filled in from a name you already use**, has one switch per kind of entry. It says which kinds a
+picked name fills in. Every kind is on until somebody switches one off. A kind switched off takes the
+name's words and nothing more. The setting is kept per device (`DevicePreferences.KindsFilledFromSuggestions`,
+`EntryFilling`).
+
+**A shelf item's minimum is never lower than what the lists ask for** (`InventoryItem.Usage`,
+`ShelfUsage`, `OP_II_USAGE`). Usage is the sum of every entry's own amount on every list that stands
+for the item, one for an entry that says nothing. Every occurrence counts, ticked or not, as the user
+asked. It is a stored count, recounted from scratch for the items a list's save, creation or deletion
+may have moved. The minimum someone typed stays as typed. The level the shelf is kept at is the higher
+of that and Usage (`InventoryItem.EffectiveMinimum`), which is what every restock reads. The inventory
+editor shows the count beside **Min**, as a warning while the typed minimum is below it. Usage is not
+shown as a number of its own anywhere else. The phone keeps the same count beside its copy of the
+shelf (`LocalInventory.ItemUsage`, filled by the sync the way the arrival dates are), so a product its
+lists ask more of than its typed minimum reads as running low there too (`InventoryItemRow.KeptAt`).
+
+**The phone** offers the same picks under the entry's name as chips. After a pick it shows the '!' note
+and **Make it separate**. It sets only the words and the pointer; the group's details arrive with the
+next sync, once the server has filled them in. The web fills them in on screen at once.
+
 **An entry's own box has three answers too** (`OP_TI_ISFAILED`, `Orbit.Core.Tasks.TaskItem.IsFailed`,
 2026-09-09): nothing, **done**, and **given up on** - one press moves to the next, and the third press
 clears it (`Orbit.Core.Abstractions.TickState`, which both clients cycle through so a box means the same
@@ -651,7 +733,8 @@ shown and can be corrected - "did it yesterday, ticked it today" is the usual ca
 a day and an hour among the entry's details in the list form (`TaskEditor`) and on the entry's own page
 (`TaskItemSummary`, saved the moment it changes, as the tick is); on the phone it is a pair of pickers in
 the entry's sheet and a line on the entry's screen. Unticking clears it, and so does a cross - a cross is
-not a completion.
+not a completion. An entry done one of several ways carries one too: its tick is its ways' (see above),
+so taking a way is what finished it, and both clients stamp the time as they take one.
 
 Who records it: **the client, at the tick** (`Orbit.Core.Tasks.TaskItemCompletionTime`), because a
 private list's entries never reach the server and a phone ticks offline. The time rides in the entry
@@ -1563,6 +1646,24 @@ that hands the point to a map app. Behind the three dots: **Edit**, **Duplicate*
 same, for two entrances to one building — and **Delete**, which asks first, because forgetting a place is
 the one thing on that panel that cannot be undone.
 
+**A task list's Location entry keeps a place of its own** (2026-09-11, web, `TaskEntryPlaces`,
+`Place.SourceTaskItemId`). Saving a list in the web editor makes a place for every Location entry that
+says where. The place is named for the entry and belongs to that list. Its point is the one picked on
+the map; failing that, the point it already had if the address has not changed; failing that, the
+address looked up in Nominatim. An address Nominatim cannot find makes no place until a later save
+does. The next save changes the place rather than making a second, and an entry that is removed, or no
+longer a Location entry, takes its place away with it. The place is sealed when the list is and open
+when it is not: an open list's address already sits readable on the server, and sealing a place needs a
+key the browser may not hold. All of this is best effort after the list is saved, so a place that could
+not be made never turns a save that worked into an error. The phone does not make these places yet; it
+shows and edits them like any other place, and an edit there leaves the link to the entry alone, because
+a save that does not name an entry keeps the one it had.
+
+On the map, **Places you keep** lists the places kept by hand first, then these, under the name of the
+list each came from. The list's own menu has **Hide places from tasks** (✓ while on, remembered by the
+browser), which leaves them out of the list and off the map together. Their pins' popups add **Go to
+the task**, which opens the list.
+
 ### Taking places out in a file
 
 **Places can be exported, and they are the one part of the file written out decrypted** (2026-09-11,
@@ -1642,13 +1743,23 @@ those), and anything sealed before that is given an id derived from the list and
 as it is opened, so an address stays the same across reads and reloads rather than being invented
 afresh each time.
 
-**And everything else an entry says goes into the seal with it** - which until 2026-09-11 it did not in
-a browser. `SealIfPrivateAsync` built the sealed entry by hand from the nine fields entries had when
-private lists were written, so every field added since - kind, place, the two links, categories,
-product, description, the cross, steps, priority and colour - came back blank after a private list's
-first save in a browser. It seals `TaskItemRequest.AsEntry` now, the mirror of `TaskItemRequest.From`,
-so a field added to an entry is sealed by the same mapping that sends it. The phone always sealed the
-whole `TaskItemDto`.
+**A private list saved in a browser keeps every field of every entry** (2026-09-11). Until now it
+kept only some. `SealIfPrivateAsync` listed the fields by hand: the id, the words, the date, the tick,
+the reminders and the lists an entry stands for. Every field added after that list was written was
+dropped from every private list saved on the web, because the server keeps nothing readable for such a
+list. The lost fields were the kind (an appointment came back as a checklist line), the place, the
+calendar and shelf links, the categories, the product, the description, the cross, the steps, the
+priority and the colour. The phone seals the whole entry and always kept them. The browser now seals
+through `TaskItemDto.From`, the one mapping that names every field. It is the other half of
+`TaskItemRequest.From`, so a field added later is carried by both.
+
+**Ticking an entry no longer unseals the list it is on** (2026-09-11). `TaskItemCompletion`, which the
+checklist and the entry's own page both tick through, saved the list back without saying it was
+private. The server took that at its word and stored the title and every entry in the clear. The same
+save left out the list's priority, so a tick put any list back to Normal, and its tags, which a private
+list keeps nowhere but inside its own seal; the calendar's tick of a deadline had those faults too. Both
+now send the list back as it is (private, priority, tags), and leave the description and the reader's
+own answer about whether it is finished to "not provided".
 
 **Both clients do all of this**, and to the same bytes: what goes inside the ciphertext is JSON, so the
 payload shapes (`SealedNote`, `SealedTaskList`, `SealedInventory`) live in `Orbit.Contracts` and are
@@ -2441,8 +2552,10 @@ item** asks first, takes the entry off its list and lands on that list; the appo
 stays in the calendar, as it does when the entry is removed in the list's own form. Both are the same
 whole-list save a tick is (`TaskItemCompletion` on the web, `TaskItemSummaryViewModel.SaveItemsAsync` on
 the phone), and neither is offered on the web for a list shared to read; the phone offers them and says
-the store's refusal under the entry, as it does for a tick. Moving an entry to another list is still
-done in the list's own form.
+the store's refusal under the entry, as it does for a tick. Moving an entry to another list is done in
+the list's own form on both clients, and on the phone from the entry's own screen as well ("Move to", a
+second menu of the other lists): only the server can make that change to two lists, so it needs a
+connection and says so without one.
 
 **When it happens is read off the appointment, not off the entry.** A calendar entry's day and hour live
 on the event the editor writes them into, so the entry's own `DueDateUtc` is empty for exactly the
@@ -2548,11 +2661,13 @@ A group list can be pointed at an inventory (`PUT /api/tasks/{id}/inventory`), a
 (`StockRequirementCounter`). That is what makes a checklist a bill of materials without asking anybody
 to type a number beside every line. **Each line adds its own minimum** where it says one
 (`TaskItemProduct.MinimumQuantity`) and one where it does not (2026-09-11), so two recipes wanting two
-and three kilos of flour need five, and a third that only names it makes six. Entries that already stand
-for a shelf item count that item's minimum once between them - it is the sum they handed over when the
-shelf was built - so the check, the shelf and the restock errands read the same number
-(`StockRequirementCounter.RequiredBy`). A line with a due date in the future is not counted - that work has
-not come round, and counting it would raise a restock errand early. `POST /api/tasks/{id}/stock-check/shortfalls`
+and three kilos of flour need five, and a third that only names it makes six. **An entry standing for a
+shelf item counts what it asks for itself** (`TaskItem.RequiredQuantity`, 2026-09-12): that item's own
+minimum is never read below what every list asks for together (`InventoryItem.Usage`), so counting it
+here told one list it needed everything all of them do. An entry stored before entries carried an amount
+handed its minimum to the shelf item when the shelf was built, and those still count it once between
+them (`StockRequirementCounter.RequiredBy`). A line with a due date in the future is not counted -
+that work has not come round, and counting it would raise a restock errand early. `POST /api/tasks/{id}/stock-check/shortfalls`
 puts what is short onto the inventory's standing restock list, where the daily reminder brings it up;
 names already waiting are left alone. The panel carries a menu of its own: whether it is in the way at
 all, and what order it lists things in - its own order, A to Z, Z to A, or shortfalls first, which is
@@ -4359,8 +4474,20 @@ lights for it as well as for a request to answer. It is the same `ContactDto.Unr
 been told what was read rather than at the next refresh - to the number of their messages stored on the
 phone that were sent after what was seen, never above the count it held (`ChatRepository.MarkReadAsync`;
 see [What counts as read](#what-counts-as-read)). A conversation read with no connection keeps its
-count, because nothing was told. Groups carry no count on either client, and the
-phone's dashboard rows draw no face to put one on.
+count, because nothing was told. The phone's dashboard rows draw no face to put one on, so there the
+count lights the row's mark instead.
+
+**A group says exactly how many of its messages arrived since the reader last had it open**, since
+2026-09-11, on both clients. The server counts it off the reader's own copies - a group message is one
+sealed copy per member, each with its own read mark, and the sender gets none of their own - in one query
+for every group at once (`IChatMessageRepository.GetGroupUnreadCountsAsync`), and sends it on the list of
+groups as `ChatGroupDto.UnreadCount`. History re-sealed for somebody who joined later does not count, or a
+new member would open the group to its whole backlog marked unread; nor does a message since deleted. The
+browser draws it where a person's count goes - on the conversation list with "{0} new" in place of the
+member count, on the dashboard's Groups card, and as the row's mark on the contacts page; the phone keeps it
+on `LocalChatGroup` and draws it on the group's avatar, taking it to nought once the server has been told
+the group was read - which, since "read" means somebody saw it, is when a message has actually been on
+screen with the app in front rather than when a sync pulled it.
 
 How long that toast stays up, and the minimum quiet gap before the next one, are per-user settings
 (`BannerTiming`, defaulting to 5 seconds each) editable from Options — the poll interval only bounds how

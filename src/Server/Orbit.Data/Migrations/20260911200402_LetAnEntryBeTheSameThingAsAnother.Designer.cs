@@ -12,8 +12,8 @@ using Orbit.Data;
 namespace Orbit.Data.Migrations
 {
     [DbContext(typeof(OrbitDbContext))]
-    [Migration("20260911161451_AnEntryRemembersWhenItWasDone")]
-    partial class AnEntryRemembersWhenItWasDone
+    [Migration("20260911200402_LetAnEntryBeTheSameThingAsAnother")]
+    partial class LetAnEntryBeTheSameThingAsAnother
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -1242,6 +1242,10 @@ namespace Orbit.Data.Migrations
                         .HasDefaultValue("Normal")
                         .HasColumnName("OP_P_PRIORITY");
 
+                    b.Property<Guid?>("SourceTaskItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_P_SOURCETASKITEMID");
+
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("OP_P_UPDATEDATUTC");
@@ -1683,6 +1687,37 @@ namespace Orbit.Data.Migrations
                     b.ToTable("OP_TASKS");
                 });
 
+            modelBuilder.Entity("Orbit.Data.Entities.TaskItemAlternativeEntity", b =>
+                {
+                    b.Property<Guid>("TaskItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_TA_TASKITEMID");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("OP_TA_POSITION");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("OP_TA_DESCRIPTION");
+
+                    b.Property<bool>("IsDone")
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_TA_ISDONE");
+
+                    b.Property<Guid?>("LinkedTaskListId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_TA_LINKEDTASKLISTID");
+
+                    b.HasKey("TaskItemId", "Position");
+
+                    b.HasIndex("LinkedTaskListId");
+
+                    b.ToTable("OP_TASKS_ALTERNATIVES");
+                });
+
             modelBuilder.Entity("Orbit.Data.Entities.TaskItemCategoryEntity", b =>
                 {
                     b.Property<Guid>("TaskItemId")
@@ -1720,9 +1755,9 @@ namespace Orbit.Data.Migrations
                         .HasDefaultValue("")
                         .HasColumnName("OP_TI_COLOUR");
 
-                    b.Property<DateTimeOffset?>("CompletedAtUtc")
+                    b.Property<DateTimeOffset?>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("OP_TI_COMPLETEDATUTC");
+                        .HasColumnName("OP_TI_CREATEDATUTC");
 
                     b.Property<string>("DailyReminderNotificationChannel")
                         .IsRequired()
@@ -1830,9 +1865,17 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("OP_TI_PRODUCTUNIT");
 
+                    b.Property<Guid?>("ReferencesTaskItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_TI_REFERENCESTASKITEMID");
+
                     b.Property<bool>("RemindDaily")
                         .HasColumnType("boolean")
                         .HasColumnName("OP_TI_REMINDDAILY");
+
+                    b.Property<decimal?>("RequiredQuantity")
+                        .HasColumnType("numeric")
+                        .HasColumnName("OP_TI_REQUIREDQUANTITY");
 
                     b.Property<Guid>("TaskId")
                         .HasColumnType("uuid")
@@ -1845,6 +1888,8 @@ namespace Orbit.Data.Migrations
 
                     NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Description"), "gin");
                     NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Description"), new[] { "gin_trgm_ops" });
+
+                    b.HasIndex("ReferencesTaskItemId");
 
                     b.HasIndex("TaskId");
 
@@ -2197,6 +2242,15 @@ namespace Orbit.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Orbit.Data.Entities.TaskItemAlternativeEntity", b =>
+                {
+                    b.HasOne("Orbit.Data.Entities.TaskItemEntity", null)
+                        .WithMany("Alternatives")
+                        .HasForeignKey("TaskItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Orbit.Data.Entities.TaskItemCategoryEntity", b =>
                 {
                     b.HasOne("Orbit.Data.Entities.TaskItemEntity", null)
@@ -2264,6 +2318,8 @@ namespace Orbit.Data.Migrations
 
             modelBuilder.Entity("Orbit.Data.Entities.TaskItemEntity", b =>
                 {
+                    b.Navigation("Alternatives");
+
                     b.Navigation("Categories");
 
                     b.Navigation("LinkedTaskLists");

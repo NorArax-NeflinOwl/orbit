@@ -11,6 +11,7 @@
 @using Orbit.Web.Services
 @inject ThemeService ThemeService
 @inject AccentColorService AccentColorService
+@inject TimeProvider TimeProvider
 @inject Translations T
 @inject PushNotificationManager PushNotificationManager
 @inject NotificationsApiClient NotificationsApiClient
@@ -490,6 +491,32 @@
         </div>
     }
 
+    @if (_activeTab == OptionsTab.Preferences)
+    {
+        @* How Orbit behaves rather than how it looks - kept on this device like the theme. The first of
+           these is what a name picked from the suggestions under a task entry does: see
+           DevicePreferences.KindsFilledFromSuggestions. *@
+        <div class="options-section">
+            <h2 class="options-heading">@T["Filled in from a name you already use"]<FieldHint>@T["Picking a name you already use for a task entry fills in everything that thing says, and makes the entry the same thing rather than a new one. Choose which kinds of entry this is done for on this device."]</FieldHint></h2>
+            <div class="options-card">
+                @foreach (var kind in DevicePreferences.EntryKinds)
+                {
+                    <div class="options-row">
+                        <div>
+                            <div class="options-row-title">@T[kind]</div>
+                        </div>
+                        <button type="button" class="switch @(DevicePreferences.KindsFilledFromSuggestions.Contains(kind) ? "on" : "")"
+                                role="switch" aria-label="@T[kind]"
+                                aria-checked="@DevicePreferences.KindsFilledFromSuggestions.Contains(kind)"
+                                @onclick="() => ToggleKindFilledFromSuggestionsAsync(kind)">
+                            <span class="switch-knob"></span>
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
     @if (_activeTab == OptionsTab.Permissions)
     {
         <div class="options-section">
@@ -650,14 +677,19 @@
 </div>
 
 @code {
-    /// <summary>The four groups this page is divided into - see the tab bar above for why it is divided at all.</summary>
+    /// <summary>The groups this page is divided into - see the tab bar above for why it is divided at all.</summary>
     private enum OptionsTab
     {
         Account,
         Appearance,
+        Preferences,
         Permissions,
         Debug
     }
+
+    /// <summary>One kind of entry switched in or out of what a picked name fills in - see DevicePreferences.KindsFilledFromSuggestions.</summary>
+    private Task ToggleKindFilledFromSuggestionsAsync(string kind)
+        => DevicePreferences.SetKindFilledFromSuggestionsAsync(kind, !DevicePreferences.KindsFilledFromSuggestions.Contains(kind));
 
     private OptionsTab _activeTab = OptionsTab.Account;
 
@@ -694,6 +726,7 @@
     {
         OptionsTab.Account => T["Account"],
         OptionsTab.Appearance => T["Appearance"],
+        OptionsTab.Preferences => T["Preferences"],
         OptionsTab.Permissions => T["Permissions"],
         _ => T["Debug"]
     };
@@ -830,7 +863,7 @@
             var json = JsonSerializer.Serialize(archive, new JsonSerializerOptions { WriteIndented = true });
             await using var downloadModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/fileDownload.js");
             await downloadModule.InvokeVoidAsync(
-                "downloadText", $"orbit-export-{DateTimeOffset.Now:yyyy-MM-dd}.json", "application/json", json);
+                "downloadText", $"orbit-export-{TimeProvider.GetLocalNow():yyyy-MM-dd}.json", "application/json", json);
 
             _transferMessage = T.Format(
                 "Exported {0} notes, {1} task lists, {2} events, {3} inventories and {4} places.",

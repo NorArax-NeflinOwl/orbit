@@ -25,6 +25,7 @@
 @inject ILogger<Dashboard> Logger
 @inject UserPermissionState Permissions
 @inject Translations T
+@inject TimeProvider TimeProvider
 @inject DashboardPinService DashboardPins
 @inject DashboardCardPreferences CardPreferences
 @inject NotificationFeedState NotificationFeed
@@ -73,7 +74,7 @@ else
            a day is the calendar. A button rather than a link so it reads as one thing to press. *@
         <button type="button" class="today-strip today-strip-button" title="@(T["Open the calendar"])"
                 @onclick="GoToCalendar">
-            <span class="today-strip-date">@DateTime.Today.ToString("dddd, d MMMM", T.DisplayCulture)</span>
+            <span class="today-strip-date">@TimeProvider.GetLocalNow().ToString("dddd, d MMMM", T.DisplayCulture)</span>
             @* Both counts read "done of all" rather than "how many are left". A bare number answered
                "how much is there" and never "how far through it am I", which is the question somebody
                glancing at a day actually has - and a day whose work is finished says 3/3 rather than
@@ -295,7 +296,7 @@ else
         @if (_groups.Count > 0 && ShowsCard("groups"))
         {
                         <ItemCard Name="@(T["Groups"])" OnNameSelected='() => NavigationManager.NavigateTo("/chat/groups")'
-                      HasUnseenAction="@_groups.Any(group => HasNewsAbout(group.Id, "/chat/groups"))"
+                      HasUnseenAction="@_groups.Any(group => group.UnreadCount > 0 || HasNewsAbout(group.Id, "/chat/groups"))"
                       ExtraClass="@(DashboardPins.IsPinned("groups") ? "item-card-pinned" : null)">
                 <Pin>
                     <PinButton IsPinned='DashboardPins.IsPinned("groups")' OnPinnedChanged='pinned => SetCardPinnedAsync("groups", pinned)' />
@@ -309,9 +310,11 @@ else
                     @* An invitation to a group points at that group (see ChatGroupInvitationPushContent),
                        so the row it is about can say so rather than leaving the card to say it over all
                        of them. *@
+                    @* And how many messages arrived since the reader last had it open, on its avatar as
+                       Recent chats puts a person's - see ChatGroupDto.UnreadCount. *@
                     <Row Title="@group.Name" OnPressed="() => GoToGroup(group.Id)"
-                         AdditionalClass="@RowClasses(null, HasNewsAbout(group.Id, "/chat/groups"))">
-                        <Leading><span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(group.Id)">@AvatarHelper.GetInitials(group.Name)</span></Leading>
+                         AdditionalClass="@RowClasses(group.UnreadCount > 0 ? "unread" : null, group.UnreadCount > 0 || HasNewsAbout(group.Id, "/chat/groups"))">
+                        <Leading><span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(group.Id)">@AvatarHelper.GetInitials(group.Name)<UnreadBadge Count="group.UnreadCount" /></span></Leading>
                         <Trailing>
                             @if (group.OwnRole == AdminRole)
                             {
@@ -535,7 +538,7 @@ else
     /// </summary>
     private IEnumerable<UpcomingEntry> Upcoming()
     {
-        var nowUtc = DateTimeOffset.UtcNow;
+        var nowUtc = TimeProvider.GetUtcNow();
         var entries = (_events ?? [])
             .Where(IsStillToDo)
             .Select(calendarEvent => NextOccurrenceOf(calendarEvent, nowUtc))
@@ -792,7 +795,7 @@ else
     private IEnumerable<TaskItemDto> EntriesDueToday => (_taskLists ?? [])
         .Where(taskList => !ClosedWithWorkLeft(taskList))
         .SelectMany(taskList => taskList.Items)
-        .Where(item => item.DueDateUtc is { } due && due.ToLocalTime().Date == DateTime.Today);
+        .Where(item => item.DueDateUtc is { } due && due.ToLocalTime().Date == TimeProvider.GetLocalNow().Date);
 
     /// <summary>
     /// Whether the reader has closed this list over entries that are still open. Both clients ask it
@@ -808,10 +811,10 @@ else
     /// "done" is the clock's answer: one that has ended is one nobody has to get to any more.
     /// </summary>
     private int EventsOverTodayCount
-        => EventsToday.Count(calendarEvent => calendarEvent.Details.EndUtc.ToLocalTime() <= DateTime.Now);
+        => EventsToday.Count(calendarEvent => calendarEvent.Details.EndUtc <= TimeProvider.GetUtcNow());
 
     private IEnumerable<CalendarEventDto> EventsToday => (_events ?? [])
-        .Where(calendarEvent => calendarEvent.Details.StartUtc.ToLocalTime().Date == DateTime.Today);
+        .Where(calendarEvent => calendarEvent.Details.StartUtc.ToLocalTime().Date == TimeProvider.GetLocalNow().Date);
 
     /// <summary>
     /// How many conversations somebody else has started and this reader has not answered yet. Zero for
@@ -965,7 +968,7 @@ else
     private string FormatRelative(DateTimeOffset valueUtc)
     {
         var value = valueUtc.ToLocalTime();
-        var now = DateTimeOffset.Now;
+        var now = TimeProvider.GetLocalNow();
         var diff = now - value;
 
         if (diff < TimeSpan.FromMinutes(1))
@@ -995,7 +998,7 @@ else
     private string FormatEventMeta(CalendarEventDetailsDto details)
     {
         var start = details.StartUtc.ToLocalTime();
-        var today = DateTime.Today;
+        var today = TimeProvider.GetLocalNow().Date;
         var dayLabel = start.Date == today ? T["Today"]
             : start.Date == today.AddDays(1) ? T["Tomorrow"]
             : start.ToString("ddd d", T.DisplayCulture);
@@ -1112,7 +1115,7 @@ else
     private void GoToCalendar()
     {
         Logger.LogInformation("User clicked today's summary on the dashboard");
-        NavigationManager.NavigateTo($"/calendar?view=day&on={DateTime.Today:yyyy-MM-dd}");
+        NavigationManager.NavigateTo($"/calendar?view=day&on={TimeProvider.GetLocalNow():yyyy-MM-dd}");
     }
 
     /// <summary>

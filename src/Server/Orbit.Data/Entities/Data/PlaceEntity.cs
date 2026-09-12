@@ -47,6 +47,13 @@ public sealed class PlaceEntity
     /// <summary>The task lists it belongs to, owned by the place and deleted with it.</summary>
     public List<PlaceTaskListLinkEntity> TaskLists { get; set; } = [];
 
+    /// <summary>
+    /// The task entry this place was made from, or null for one kept by hand. No foreign key, like the
+    /// list links: an entry lives inside its list's items, and a place outliving it is deleted by the
+    /// client that saw the entry go - see Orbit.Core.Places.Place.SourceTaskItemId.
+    /// </summary>
+    public Guid? SourceTaskItemId { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }

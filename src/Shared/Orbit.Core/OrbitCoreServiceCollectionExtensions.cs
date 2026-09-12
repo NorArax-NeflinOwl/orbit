@@ -327,7 +327,7 @@ public static class OrbitCoreServiceCollectionExtensions
         // Group chat: the group itself, its membership, and the fan-out that keeps group messages
         // encrypted under the same pairwise keys one-to-one chat uses.
         services.AddScoped<IRequestHandler<CreateChatGroupCommand, Guid>, CreateChatGroupCommandHandler>();
-        services.AddScoped<IRequestHandler<GetChatGroupsQuery, IReadOnlyList<ChatGroup>>, GetChatGroupsQueryHandler>();
+        services.AddScoped<IRequestHandler<GetChatGroupsQuery, IReadOnlyList<ChatGroupListing>>, GetChatGroupsQueryHandler>();
         services.AddScoped<IRequestHandler<AddChatGroupMemberCommand, bool>, AddChatGroupMemberCommandHandler>();
         services.AddScoped<IRequestHandler<RemoveChatGroupMemberCommand, bool>, RemoveChatGroupMemberCommandHandler>();
         services.AddScoped<IRequestHandler<ChangeChatGroupMemberRoleCommand, bool>, ChangeChatGroupMemberRoleCommandHandler>();
@@ -397,6 +397,8 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<StockedEntryCompletion>();
         services.AddScoped<RestockListRefresh>();
         services.AddScoped<ProductEntryPlacement>();
+        // What the task lists ask of each shelf item, recounted as lists are saved - see ShelfUsage.
+        services.AddScoped<ShelfUsage>();
 
         // How an inventory's restock list is built and when it comes round, plus the manual rebuild.
         services.AddScoped<IRequestHandler<GetRestockListSettingsQuery, RestockListSettings?>, GetRestockListSettingsQueryHandler>();

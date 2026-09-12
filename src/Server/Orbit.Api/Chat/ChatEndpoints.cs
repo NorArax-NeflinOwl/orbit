@@ -170,7 +170,7 @@ public static class ChatEndpoints
         {
             var callerId = GetUserId(user);
             var groups = await dispatcher.SendAsync(new GetChatGroupsQuery(callerId), cancellationToken);
-            return Results.Ok(groups.Select(group => ToDto(group, callerId)));
+            return Results.Ok(groups.Select(listing => ToDto(listing.Group, callerId, listing.UnreadCount)));
         });
 
         groups.MapPost("/{groupId:guid}/members", async (
@@ -347,14 +347,19 @@ public static class ChatEndpoints
             announcement.Id, announcement.JoinedUserId, announcement.AddedByUserId, announcement.HistoryShared,
             announcement.AnnouncedAtUtc);
 
-    private static ChatGroupDto ToDto(ChatGroup group, Guid callerUserId)
+    /// <param name="unreadCount">
+    /// How many of its messages the caller has not read - known where the list of groups is read, and
+    /// nought wherever a single group is answered on its own.
+    /// </param>
+    private static ChatGroupDto ToDto(ChatGroup group, Guid callerUserId, int unreadCount = 0)
         => new(
             group.Id, group.Name, group.CreatedByUserId, group.CreatedAtUtc,
             group.FindMember(callerUserId)?.Role.ToString() ?? ChatGroupRole.Member.ToString(),
             group.Members.Select(member => new ChatGroupMemberDto(member.UserId, member.Role.ToString(), member.JoinedAtUtc)).ToList(),
             group.LastMessageAtUtc,
             // The caller's own membership, not the group's - archiving is one member's view of it.
-            group.FindMember(callerUserId)?.IsArchived ?? false);
+            group.FindMember(callerUserId)?.IsArchived ?? false,
+            unreadCount);
 
     private static Guid GetUserId(ClaimsPrincipal user)
     {

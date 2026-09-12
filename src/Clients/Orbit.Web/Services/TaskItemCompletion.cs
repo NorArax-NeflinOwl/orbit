@@ -96,6 +96,39 @@ public sealed class TaskItemCompletion(
     }
 
     /// <summary>
+    /// Takes one of an entry's ways, or takes it back - see TaskItem.Alternatives. The same whole-list
+    /// save a tick is, with that way's answer changed. The entry's own tick follows from its ways, and is
+    /// said here too because a private list is sealed as it is sent and nothing works it out afterwards.
+    /// A way that is a list is left as it is: that list answers for it.
+    /// </summary>
+    public Task<TaskItemTickOutcome> TakeWayAsync(
+        TaskDto taskList, TaskItemDto item, int wayIndex, bool isDone, CancellationToken cancellationToken = default)
+    {
+        FailureMessage = null;
+        Note = null;
+        List<TaskItemAlternativeDto> ways =
+        [
+            .. item.AllAlternatives.Select((way, index) =>
+                index == wayIndex && way.LinkedTaskListId is null ? way with { IsDone = isDone } : way)
+        ];
+        var isDoneNow = ways.Any(way => way.IsDone);
+        return SaveAsync(
+            taskList,
+            [.. taskList.Items.Select(existingItem => existingItem.Id == item.Id
+                ? TaskItemRequest.From(existingItem) with
+                {
+                    Alternatives = ways,
+                    IsCompleted = isDoneNow,
+                    // Taking a way is what finished the entry, so it is when the entry was done -
+                    // recorded here for the same reason a tick's time is, see TaskItemCompletionTime.
+                    CompletedAtUtc = TaskItemCompletionTime.After(
+                        existingItem.IsCompleted, existingItem.CompletedAtUtc, isDoneNow, DateTimeOffset.UtcNow)
+                }
+                : TaskItemRequest.From(existingItem))],
+            cancellationToken);
+    }
+
+    /// <summary>
     /// Takes this entry off its list - the entry page's "Delete item". The same whole-list save a tick
     /// is, with the entry left out. An appointment the entry raised stays in the calendar, as it does
     /// when the entry is removed in the list's own form: the event is the reader's to delete, not a side
@@ -198,13 +231,14 @@ public sealed class TaskItemCompletion(
     {
         try
         {
-            // Everything about the list that is not its entries goes back as it is. The endpoint replaces
-            // a list wholesale, and a request carrying only the title, the entries and the group flag was
-            // read as "not private, Normal priority": a tick put a private list back in the clear, entries
-            // and all, and a High one back to Normal. The description and the reader's answer about
-            // completion are left null, which keeps them.
             var outcome = await tasksApiClient.UpdateTaskListAsync(
                 taskList.Id,
+                // Everything about the list as it already is, not only its entries: the endpoint replaces a
+                // list wholesale, and a request that left IsPrivate out saved a private list back in the
+                // clear - its title and every entry readable on the server - while one that left Priority
+                // out put every list back to Normal on a tick, and one that left the tags out emptied
+                // them. The description and the reader's answer about whether it is finished say "not
+                // provided" by being null, and keep what is stored.
                 new UpdateTaskRequest(
                     taskList.Title, items, taskList.IsGroup, taskList.IsPrivate,
                     Priority: taskList.Priority, Tags: taskList.AllTags),

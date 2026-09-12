@@ -35,7 +35,10 @@
 @inject NavigationTrail NavigationTrail
 @inject ILogger<TaskEditor> Logger
 @inject Translations T
+@inject TimeProvider TimeProvider
 @inject ChosenPlace ChosenPlace
+@inject TaskEntryPlaces EntryPlaces
+@inject DevicePreferences DevicePreferences
 
 <PageTitle>@(IsNewTaskList ? T["New task list"] : T["Edit task list"])</PageTitle>
 
@@ -112,15 +115,19 @@ else
                     @* Three answers, as everywhere else an entry is ticked: nothing, done, given up on
                        - see TickBox. A linked entry's box is drawn and refuses the press: its answer
                        follows the lists it stands for. *@
-                    @if (!item.IsALinkToOtherLists)
+                    @if (!item.IsALinkToOtherLists && !item.HasAlternatives)
                     {
                         <TickBox State="@item.Tick" AriaLabel="@(T["Completed"])"
                                  StateChanged="state => item.Tick = state" />
                     }
                     else
                     {
+                        @* An entry done by ways refuses it the same way: its answer is whichever way
+                           was taken - see the ways below. *@
                         <TickBox State="@item.Tick" IsDisabled="true"
-                                 AriaLabel="@(T["Completed - follows the linked list, can't be set by hand"])" />
+                                 AriaLabel="@(item.HasAlternatives
+                                     ? T["Completed - done when any one of its ways is"]
+                                     : T["Completed - follows the linked list, can't be set by hand"])" />
                     }
                     @* Reassigned on every row, so it holds the last one by the time the loop ends - which
                        is the row Add item just appended, and the one the cursor belongs in. *@
@@ -135,7 +142,20 @@ else
                            placeholder="@(T["Item description"])" value="@item.Description"
                            @oninput="args => item.Description = args.Value?.ToString() ?? string.Empty" />
                     <NameSuggestions Kind="NameSuggestionKind.TaskItemDescription" Value="@item.Description"
-                                     OnChosen="chosen => item.Description = chosen" />
+                                     OnChosen="chosen => item.Description = chosen"
+                                     OnSourceChosen="pick => TakeOnWhatItNamesAsync(item, pick)"
+                                     SourceKinds="DevicePreferences.KindsFilledFromSuggestions" />
+                    @* Said beside the entry rather than left to be noticed: this entry is not a new thing
+                       with the same words but the same thing as another - see TaskItem.ReferencesTaskItemId. *@
+                    @if (item.IsAReference)
+                    {
+                        <FieldHint Warns="true">
+                            @(item.ReferenceContainer is { } container
+                                ? T.Format("The same thing as \"{0}\" in {1}: changing what it is changes it there too. Its date, tick and amount stay its own.", item.ReferenceName ?? item.Description, container)
+                                : T["The same thing as entries on other lists: changing what it is changes it there too. Its date, tick and amount stay its own."])
+                            <button type="button" class="btn-secondary" @onclick="item.MakeItsOwn">@T["Make it separate"]</button>
+                        </FieldHint>
+                    }
                     <span class="editor-item-aside">
                         @* What the row reports rather than what it sets: when this is due, if anything,
                            and what kind of entry it is. Everything editable now waits behind the toggle,
@@ -398,6 +418,15 @@ else
                                                  ShowsName="@(product.Product.Id is not null)" ShowsAmounts="true"
                                                  ShowsCategories="false"
                                                  KnownProductTypes="_knownProductTypes" />
+                                @* The shelf's minimum is the shelf's; how much this entry needs is the
+                                   entry's own - see TaskItem.RequiredQuantity - and what every list
+                                   asks for together is the floor the shelf's minimum never drops below. *@
+                                @if (product.Product.Id is not null)
+                                {
+                                    <label>@T["This entry needs"]<FieldHint>@T["How much of it this entry asks for. The shelf's minimum never drops below what all your lists ask for together."]</FieldHint>
+                                        <InputNumber TValue="decimal?" @bind-Value="item.RequiredQuantity" step="0.01" />
+                                    </label>
+                                }
                                 <span class="field-break"></span>
                                 <span class="field-with-note">
                                     <span class="editor-item-tags-label">@T["Inventory"]</span>
@@ -432,17 +461,20 @@ else
                             @* An entry can stand for several lists - "the flat is ready" is the kitchen
                                and the bathroom and the hall. Written as one step rather than three
                                entries saying the same thing, and done only when all of them are. *@
-                            <span class="field-break"></span>
-                            <label>@T["Stands for these lists"]
-                                <select value="" @onchange="args => LinkToTheList(item, args.Value)"
-                                        aria-label="@(T["Stands for these lists"])">
-                                    <option value="">@(item.IsALinkToOtherLists ? T["Add another…"] : T["None"])</option>
-                                    @foreach (var linkableTaskList in LinkableListsFor(item))
-                                    {
-                                        <option value="@linkableTaskList.Id">@Written(linkableTaskList.Title)</option>
-                                    }
-                                </select>
-                            </label>
+                            @if (!item.HasAlternatives)
+                            {
+                                <span class="field-break"></span>
+                                <label>@T["Stands for these lists"]
+                                    <select value="" @onchange="args => LinkToTheList(item, args.Value)"
+                                            aria-label="@(T["Stands for these lists"])">
+                                        <option value="">@(item.IsALinkToOtherLists ? T["Add another…"] : T["None"])</option>
+                                        @foreach (var linkableTaskList in LinkableListsFor(item))
+                                        {
+                                            <option value="@linkableTaskList.Id">@Written(linkableTaskList.Title)</option>
+                                        }
+                                    </select>
+                                </label>
+                            }
                             @if (item.IsALinkToOtherLists)
                             {
                                 <span class="field-break"></span>
@@ -457,6 +489,51 @@ else
                                         </li>
                                     }
                                 </ul>
+                            }
+                            @* Or done any one of several ways - "the sauce": buy a ready one, or make it
+                               from a list of its own. The other half of the lists above, so an entry has
+                               one or the other: ways are offered while it stands for no list, and the
+                               lists while it has no ways. A way is a line ticked here, or another list. *@
+                            @if (!item.IsALinkToOtherLists)
+                            {
+                                <span class="field-break"></span>
+                                <div class="entry-ways">
+                                    <span class="field-with-note">
+                                        <span class="editor-item-tags-label">@T["Ways to get it done"]</span>
+                                        <FieldHint>@T["Any one of them is enough: a line ticked here, or a list finished."]</FieldHint>
+                                    </span>
+                                    @foreach (var way in item.Alternatives)
+                                    {
+                                        <div class="entry-way">
+                                            @if (way.LinkedTaskListId is { } wayListId)
+                                            {
+                                                <span class="entry-way-list">@Written(TitleOfTaskList(wayListId))</span>
+                                            }
+                                            else
+                                            {
+                                                <input type="checkbox" checked="@way.IsDone" aria-label="@(T["Done this way"])"
+                                                       @onchange="args => TakeWay(item, way, args.Value is true)" />
+                                                <input type="text" class="entry-way-text" value="@way.Description"
+                                                       placeholder="@(T["A way of doing it"])" aria-label="@(T["A way of doing it"])"
+                                                       @oninput="args => way.Description = args.Value?.ToString() ?? string.Empty" />
+                                            }
+                                            <button type="button" class="icon-btn" title="@(T["Remove"])" aria-label="@(T["Remove"])"
+                                                    @onclick="() => RemoveWay(item, way)">✕</button>
+                                        </div>
+                                    }
+                                    <div class="entry-way-add">
+                                        <button type="button" class="btn-secondary"
+                                                @onclick="() => item.Alternatives.Add(new TaskItemAlternativeFormModel())">@T["Add a way"]</button>
+                                        <select value="" @onchange="args => AddAListWay(item, args.Value)"
+                                                aria-label="@(T["Or a list"])">
+                                            <option value="">@T["Or a list…"]</option>
+                                            @foreach (var wayList in WayListsFor(item))
+                                            {
+                                                <option value="@wayList.Id">@Written(wayList.Title)</option>
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
                             }
                             <label>@T["Overdue notification"]<select @bind="item.OverdueNotificationChannel">
                                     @foreach (var option in NotificationChannelOption.All)
@@ -1014,6 +1091,110 @@ else
         => item.LinkedTaskListIds.Remove(taskListId);
 
     /// <summary>
+    /// A name picked for what it is the name of: the entry takes on everything that thing says and becomes
+    /// the same thing, rather than a new one with the same words - see TaskItem.ReferencesTaskItemId. A
+    /// product on a shelf makes the entry that product's errand, the link a shelf already knows; an entry
+    /// on a list makes this one a member of that entry's group. Its own date, tick and amount stay its own.
+    /// </summary>
+    private async Task TakeOnWhatItNamesAsync(TaskItemFormModel item, NameSuggestionPick pick)
+    {
+        item.Description = pick.Name;
+        item.ReferenceName = pick.Name;
+        item.ReferenceContainer = pick.Source.ContainerName;
+        if (pick.Source.Kind == nameof(NameSuggestionSourceKind.InventoryItem))
+        {
+            item.Kind = nameof(TaskItemKind.Inventory);
+            item.LinkedInventoryItemId = pick.Source.Id;
+            await ShowTheShelfItemAsync(item, pick.Source);
+            return;
+        }
+
+        item.ReferencesTaskItemId = pick.Source.Id;
+        try
+        {
+            if ((await TasksApiClient.GetTaskListByIdAsync(pick.Source.ContainerId))?.Items
+                    .FirstOrDefault(entry => entry.Id == pick.Source.ItemId) is { } found)
+            {
+                TakeOnWhatItSays(item, found);
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or JsonException)
+        {
+            // Still the same thing: the server passes the details on when this is saved.
+            Logger.LogWarning(exception, "Couldn't read the entry a picked name was the name of ({TaskItemId})", pick.Source.ItemId);
+        }
+    }
+
+    /// <summary>The details a reference group shares, copied off one of its members - see TaskItem.TakeSharedDetailsFrom.</summary>
+    private static void TakeOnWhatItSays(TaskItemFormModel item, TaskItemDto found)
+    {
+        item.Kind = found.Kind;
+        item.Location = found.Location;
+        item.Categories = [.. found.AllCategories];
+        item.Notes = found.AllNotes;
+        item.Priority = found.Priority ?? nameof(ItemPriority.Normal);
+        item.Colour = found.Colour ?? string.Empty;
+        item.LinkedInventoryItemId = found.LinkedInventoryItemId;
+        if (found.Product is { } product)
+        {
+            // Everything about the product but how much of it this entry needs, which is its own.
+            var needs = item.Product.MinimumQuantity;
+            item.Product = InventoryItemFormModel.FromTaskItemProduct(product);
+            item.Product.MinimumQuantity = needs;
+        }
+    }
+
+    /// <summary>
+    /// The shelf item a picked name is the name of, read into the form the way a linked errand's is - see
+    /// ShelfPicker.ChooseProduct - so what it says is on screen at once rather than after the save.
+    /// </summary>
+    private async Task ShowTheShelfItemAsync(TaskItemFormModel item, Orbit.Contracts.Suggestions.NameSuggestionSourceDto source)
+    {
+        try
+        {
+            var shelf = await InventoryApiClient.GetInventoryItemsAsync(source.ContainerId) ?? [];
+            _shelves.RememberShelf(source.ContainerId, shelf);
+            if (shelf.FirstOrDefault(product => product.Id == source.Id) is { } onTheShelf)
+            {
+                _shelves.ChooseProduct(item, source.ContainerId, onTheShelf, source.ContainerName);
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or JsonException)
+        {
+            Logger.LogWarning(exception, "Couldn't read the shelf a picked name was on ({InventoryId})", source.ContainerId);
+        }
+    }
+
+    /// <summary>
+    /// The lists that could still be one of this entry's ways: the lists it could stand for, less the
+    /// ones already a way - the same universe, since a way that is a list is checked the way a link is.
+    /// </summary>
+    private IReadOnlyList<TaskDto> WayListsFor(TaskItemFormModel item)
+        => [.. _linkableTaskLists.Where(candidate => item.Alternatives.All(way => way.LinkedTaskListId != candidate.Id))];
+
+    private static void AddAListWay(TaskItemFormModel item, object? chosenValue)
+    {
+        if (Guid.TryParse(chosenValue?.ToString(), out var taskListId)
+            && item.Alternatives.All(way => way.LinkedTaskListId != taskListId))
+        {
+            item.Alternatives.Add(new TaskItemAlternativeFormModel { LinkedTaskListId = taskListId });
+        }
+    }
+
+    /// <summary>Takes a way or takes it back, and the entry's box follows - it is theirs while it has any.</summary>
+    private static void TakeWay(TaskItemFormModel item, TaskItemAlternativeFormModel way, bool isDone)
+    {
+        way.IsDone = isDone;
+        item.IsCompleted = item.Alternatives.Any(candidate => candidate.IsDone);
+    }
+
+    private static void RemoveWay(TaskItemFormModel item, TaskItemAlternativeFormModel way)
+    {
+        item.Alternatives.Remove(way);
+        item.IsCompleted = item.HasAlternatives ? item.Alternatives.Any(candidate => candidate.IsDone) : item.IsCompleted;
+    }
+
+    /// <summary>
     /// What the colour well opens on for an entry that has no colour of its own - the same blue every
     /// other screen falls back to for one (see CalendarDayGrid.EventColor). Only what the control shows:
     /// nothing is stored until somebody actually picks.
@@ -1321,6 +1502,7 @@ else
                         Items = taskList.Items
                             .Select(item => new TaskItemFormModel
                             {
+                                Event = new EventFormModel(TimeProvider) { Color = TaskItemFormModel.AppointmentColor },
                                 Id = item.Id,
                                 Description = item.Description,
                                 DueDate = item.DueDateUtc is { } dueDateUtc ? DateOnly.FromDateTime(dueDateUtc.LocalDateTime) : null,
@@ -1339,6 +1521,14 @@ else
                                 LinkedInventoryItemId = item.LinkedInventoryItemId,
                                 LinkedCalendarEventId = item.LinkedCalendarEventId?.ToString() ?? string.Empty,
                                 LinkedTaskListIds = [.. item.AllLinkedTaskListIds],
+                                Alternatives = [.. item.AllAlternatives.Select(way => new TaskItemAlternativeFormModel
+                                {
+                                    Description = way.Description,
+                                    LinkedTaskListId = way.LinkedTaskListId,
+                                    IsDone = way.IsDone
+                                })],
+                                ReferencesTaskItemId = item.ReferencesTaskItemId,
+                                RequiredQuantity = item.RequiredQuantity,
                                 Categories = [.. CategoriesOf(item)],
                                 Notes = item.AllNotes,
                                 // Both may be absent from an entry stored before they existed, and both
@@ -1443,6 +1633,7 @@ else
 
         var entry = new TaskItemFormModel
         {
+            Event = new EventFormModel(TimeProvider) { Color = TaskItemFormModel.AppointmentColor },
             Kind = nameof(TaskItemKind.Location),
             Location = place.Address,
             // Kept even though a Location entry stores only the name: changing the type to Calendar
@@ -1680,7 +1871,7 @@ else
             // how the place went missing once already: each save then sent whatever the incomplete
             // copy held, and an entry whose event had a place had it erased by somebody editing
             // something else entirely.
-            item.Event = EventFormModel.FromDto(details);
+            item.Event = EventFormModel.FromDto(details, TimeProvider);
 
             // An appointment made before the entry had a description of its own carries the answer on
             // the event. The one box has to open showing it rather than blank, or the next save would
@@ -2184,7 +2375,11 @@ else
 
     private void AddItem()
     {
-        var item = new TaskItemFormModel();
+        // Its appointment, should it become one, starts now by the page's clock - see EventFormModel.
+        var item = new TaskItemFormModel
+        {
+            Event = new EventFormModel(TimeProvider) { Color = TaskItemFormModel.AppointmentColor }
+        };
         _formModel.Items.Add(item);
         _expandedItem = item;
         _isWaitingToFocusTheNewItem = true;
@@ -2321,7 +2516,7 @@ else
                 item.Description,
                 item.Id,
                 ToDueDateUtc(item),
-                item.IsCompleted,
+                IsCompletedAsSaved(item),
                 // The old single field goes out empty: this client speaks the new one, and sending both
                 // would make the server pick between two answers.
                 LinkedTaskListId: null,
@@ -2344,19 +2539,51 @@ else
                 // TaskItemDto.Priority.
                 item.Priority,
                 item.Colour,
+                AlternativesAsSaved(item),
+                item.ReferencesTaskItemId,
+                RequiredQuantityAsSaved(item),
                 ToCompletedAtUtc(item)))
             .ToList();
 
     /// <summary>
-    /// When the entry was done, as its two boxes say. Null for one that is not done, and for a done one
-    /// whose day nobody knows - which the server reads as "keep what is stored" rather than as a time to
-    /// invent (see TaskItemRequest.CompletedAtUtc).
+    /// When the entry was done, as its two boxes say. Null for one that is not done - by its own tick or
+    /// by one of its ways - and for a done one whose day nobody knows, which the server reads as "keep
+    /// what is stored" rather than as a time to invent (see TaskItemRequest.CompletedAtUtc).
     /// </summary>
     private static DateTimeOffset? ToCompletedAtUtc(TaskItemFormModel item)
-        => item.IsCompleted && item.CompletedDate is { } day
+        => IsCompletedAsSaved(item) && item.CompletedDate is { } day
             ? new DateTimeOffset(day.ToDateTime(item.CompletedTime ?? TimeOnly.MinValue, DateTimeKind.Local))
                 .ToUniversalTime()
             : null;
+
+    /// <summary>
+    /// How much of its product the entry needs, as a save sends it: what its own product form says while
+    /// no shelf item answers it, and the box beside the shelf's fields once one does - see
+    /// TaskItem.RequiredQuantity, which the server keeps as one answer.
+    /// </summary>
+    private static decimal? RequiredQuantityAsSaved(TaskItemFormModel item)
+        => item.Kind == nameof(TaskItemKind.Inventory) && item.LinkedInventoryItemId is null
+            ? item.Product.MinimumQuantity
+            : item.RequiredQuantity;
+
+    /// <summary>
+    /// The ways an entry is saved with. Only a checklist entry that stands for no list offers them (see
+    /// the form), so any other sends none and loses what it had once its kind changes - the way a kind
+    /// drops every field it no longer has. A way left blank is not a way.
+    /// </summary>
+    private static IReadOnlyList<TaskItemAlternativeDto> AlternativesAsSaved(TaskItemFormModel item)
+        => item.Kind != nameof(TaskItemKind.Checklist) || item.IsALinkToOtherLists
+            ? []
+            : [.. item.Alternatives
+                .Where(way => way.LinkedTaskListId is not null || way.Description.Trim().Length > 0)
+                .Select(way => new TaskItemAlternativeDto(way.Description.Trim(), way.LinkedTaskListId, way.IsDone))];
+
+    /// <summary>
+    /// An entry done by ways is done when one is. Said here as well as on the server, because a private
+    /// list is sealed as it is sent and nothing works it out for it afterwards.
+    /// </summary>
+    private static bool IsCompletedAsSaved(TaskItemFormModel item)
+        => AlternativesAsSaved(item) is { Count: > 0 } ways ? ways.Any(way => way.IsDone) : item.IsCompleted;
 
     /// <summary>
     /// What an entry asks for, as the save sends it - only for an inventory entry that does not already
@@ -2379,6 +2606,19 @@ else
         return item.Product.ToTaskItemProduct();
     }
 
+    /// <summary>
+    /// The Location entries that say where in words, as the list was just saved with them - what their
+    /// kept places are made from. See TaskEntryPlaces.
+    /// </summary>
+    private IReadOnlyList<EntryWithAPlace> EntriesWithAPlace()
+        => [.. _formModel.Items
+            .Where(item => item.Kind == nameof(TaskItemKind.Location)
+                && item.Id is not null
+                && item.Location.Trim().Length > 0)
+            .Select(item => new EntryWithAPlace(
+                item.Id!.Value, item.Description, item.Location, item.LocationLatitude, item.LocationLongitude,
+                item.Colour, item.Priority))];
+
     /// <summary>The folder the list was in when it was read, so a save knows whether it has been moved.</summary>
     private Guid? _savedFolderId;
 
@@ -2400,7 +2640,19 @@ else
             return;
         }
 
+        // A Location entry is about to keep a place, which answers to it by id - so one added in this
+        // sitting is named here, the way the phone names its own entries, rather than by the save. The
+        // server keeps an id a client gives an entry (see TaskItemIdentity).
+        foreach (var newLocationEntry in _formModel.Items.Where(item =>
+                     item.Id is null && item.Kind == nameof(TaskItemKind.Location)))
+        {
+            newLocationEntry.Id = Guid.NewGuid();
+        }
+
         var items = ItemsAsSaved();
+
+        // Which list was written, once one has been - what the entries' places are kept against below.
+        Guid? savedTaskListId = null;
 
         // Blocks the button for the duration of the save (see the button above), so a second click or a
         // double Enter-press can't fire this again while the first request is still in flight and create
@@ -2415,6 +2667,7 @@ else
                     Priority: _formModel.Priority, Description: _formModel.Description,
                     FolderId: _formModel.FolderId, Completion: CompletionToSave.ToString(), Tags: _formModel.Tags));
                 Logger.LogInformation("Task list {TaskListId} created", newTaskListId);
+                savedTaskListId = newTaskListId;
             }
             else
             {
@@ -2444,6 +2697,7 @@ else
                 }
 
                 Logger.LogInformation("Task list {TaskListId} updated", Id);
+                savedTaskListId = Id.Value;
 
                 // Filing travels separately from the list itself - see MoveToFolderRequest - so it is
                 // sent only when it actually changed.
@@ -2491,6 +2745,13 @@ else
         finally
         {
             _isSaving = false;
+        }
+
+        // The list is saved; each Location entry now keeps a place of its own on the map, and one whose
+        // entry went loses it. Best effort - see TaskEntryPlaces.
+        if (savedTaskListId is { } keptAgainst)
+        {
+            await EntryPlaces.KeepAsync(keptAgainst, _formModel.IsPrivate, EntriesWithAPlace());
         }
 
         // Without this form left behind it: Back after saving a new list would open the form again, one
@@ -2780,6 +3041,17 @@ else
         public List<string> Tags { get; set; } = [];
     }
 
+    /// <summary>One way of getting an entry done, as the form edits it - see TaskItemFormModel.Alternatives.</summary>
+    private sealed class TaskItemAlternativeFormModel
+    {
+        public string Description { get; set; } = string.Empty;
+
+        /// <summary>The list this way is, or null for a line ticked in the form.</summary>
+        public Guid? LinkedTaskListId { get; set; }
+
+        public bool IsDone { get; set; }
+    }
+
     private sealed class TaskItemFormModel
     {
         /// <summary>Null for an item added in this editing session that hasn't been saved yet - "Move to another list" only applies once an item actually has a persisted id to move.</summary>
@@ -2899,6 +3171,41 @@ else
         public bool IsALinkToOtherLists => LinkedTaskListIds.Count > 0;
 
         /// <summary>
+        /// The ways this entry can be got done, any one of which is enough - see TaskItem.Alternatives.
+        /// Empty for ordinary work. Offered only on a checklist entry that stands for no list: "any one
+        /// of these" and "every one of these" are two different entries.
+        /// </summary>
+        public List<TaskItemAlternativeFormModel> Alternatives { get; set; } = [];
+
+        /// <summary>Whether this entry is done by one of its ways rather than by a tick of its own.</summary>
+        public bool HasAlternatives => Alternatives.Count > 0;
+
+        /// <summary>
+        /// The entry this one is the same thing as - see TaskItem.ReferencesTaskItemId. The empty id once
+        /// somebody asked for it to be separate, which is how the wire says "none" (null keeps what is stored).
+        /// </summary>
+        public Guid? ReferencesTaskItemId { get; set; }
+
+        /// <summary>What it was made the same thing as in this sitting, named in the '!' beside it. Null for one read back.</summary>
+        public string? ReferenceName { get; set; }
+
+        /// <summary>The list or inventory that thing is on, named in the same '!'.</summary>
+        public string? ReferenceContainer { get; set; }
+
+        public bool IsAReference => ReferencesTaskItemId is { } referenced && referenced != Guid.Empty;
+
+        /// <summary>How much of its product this entry needs - see TaskItem.RequiredQuantity.</summary>
+        public decimal? RequiredQuantity { get; set; }
+
+        /// <summary>"Make it separate": the entry stops being the same thing as the others and keeps what it says.</summary>
+        public void MakeItsOwn()
+        {
+            ReferencesTaskItemId = Guid.Empty;
+            ReferenceName = null;
+            ReferenceContainer = null;
+        }
+
+        /// <summary>
         /// What this entry is about, as many as apply - see TaskItem.Categories. Held for every kind:
         /// an appointment is about something the same way an errand is.
         /// </summary>
@@ -2935,7 +3242,13 @@ else
         /// different things; kept even while the kind says otherwise, so switching back and forth in
         /// one sitting does not lose what was typed.
         /// </summary>
-        public EventFormModel Event { get; set; } = new() { Color = "#7c6cf0" };
+        public EventFormModel Event { get; set; } = new() { Color = AppointmentColor };
+
+        /// <summary>
+        /// The colour an entry's appointment starts in. Named because the page replaces the model above
+        /// with one on its own clock wherever it makes an entry, and must start it in the same colour.
+        /// </summary>
+        public const string AppointmentColor = "#7c6cf0";
 
         /// <summary>
         /// What this entry is about, in as many words as it takes - see Orbit.Core.Tasks.TaskItem.Notes

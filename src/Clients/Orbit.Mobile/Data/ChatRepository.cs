@@ -87,6 +87,18 @@ public sealed class ChatRepository
             .ExecuteUpdateAsync(contact => contact.SetProperty(row => row.UnreadCount, stillWaiting), cancellationToken);
     }
 
+    /// <summary>
+    /// The group counterpart of <see cref="MarkReadAsync"/>: nothing in this group is waiting any more,
+    /// said once the server has been told it was read. See LocalChatGroup.UnreadCount.
+    /// </summary>
+    public async Task MarkGroupReadAsync(Guid groupId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await dbContext.ChatGroups
+            .Where(group => group.Id == groupId)
+            .ExecuteUpdateAsync(group => group.SetProperty(row => row.UnreadCount, 0), cancellationToken);
+    }
+
     /// <summary>The groups this phone knows about, newest first.</summary>
     public async Task<IReadOnlyList<LocalChatGroup>> GetGroupsAsync(CancellationToken cancellationToken = default)
     {

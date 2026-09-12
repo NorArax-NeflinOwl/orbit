@@ -89,78 +89,108 @@ public sealed class PrivateTaskListItemIdTests : OrbitTestContext
     }
 
     /// <summary>
-    /// Everything an entry says comes back out of the seal, not only what entries said when private lists
-    /// were written. The sealed entry was built by hand from those nine fields, so a private list saved
-    /// in a browser came back with every entry a plain, unfiled, uncoloured checklist line - its place,
-    /// categories, description and priority gone.
+    /// The ways an entry is done by are sealed with it. A private list keeps nothing readable on the
+    /// server, so a field left out of the sealed payload is simply gone on the next read - which is what
+    /// happens to every field this client does not name there.
     /// </summary>
     [Fact]
-    public async Task Everything_an_entry_says_survives_being_sealed()
+    public async Task An_entrys_ways_survive_being_sealed()
     {
         var client = ClientThatSealsAndOpens();
 
         await client.CreateTaskListAsync(
-            new CreateTaskRequest(
-                "Bank things",
-                [
-                    Entry("Visit the branch") with
-                    {
-                        Kind = "Location",
-                        Location = "Długa 4",
-                        Categories = ["bank"],
-                        Notes = "Bring the passport",
-                        Priority = "High",
-                        Colour = "#aa3355"
-                    }
-                ],
+            new CreateTaskRequest("Burger", [Entry("Sauce") with { Alternatives = [new("Buy a ready one", IsDone: true)] }],
                 IsGroup: false, IsPrivate: true, EncryptedContent: null));
-        var entry = Assert.Single((await client.GetTaskListByIdAsync(TaskListId))!.Items);
+        var opened = await client.GetTaskListByIdAsync(TaskListId);
 
-        Assert.Equal("Location", entry.Kind);
-        Assert.Equal("Długa 4", entry.Location);
-        Assert.Equal(["bank"], entry.AllCategories);
-        Assert.Equal("Bring the passport", entry.Notes);
-        Assert.Equal("High", entry.Priority);
-        Assert.Equal("#aa3355", entry.Colour);
+        var way = Assert.Single(Assert.Single(opened!.Items).AllAlternatives);
+        Assert.Equal("Buy a ready one", way.Description);
+        Assert.True(way.IsDone);
     }
 
     /// <summary>
-    /// Ticking an entry of a private list keeps it private, at its priority, with its tags. The tick used
-    /// to send the list back with nothing but its title, entries and group flag - which the update endpoint
-    /// reads as "not private, Normal priority" - so the moment an entry on a private list was ticked in a
-    /// browser, the list was saved in the clear, entries and all, at Normal.
+    /// Every field an entry is saved with comes back from a private list. The sealing used to name only
+    /// some of them, so a private list saved in a browser came back with every entry a plain line: its kind,
+    /// its place, both links, what it is filed under, the product it asks for, its description, its cross,
+    /// its steps, its priority and its colour all gone. The phone seals the whole entry and always kept them.
     /// </summary>
     [Fact]
-    public async Task Ticking_an_entry_of_a_private_list_keeps_it_private_with_its_priority_and_tags()
+    public async Task Every_field_of_an_entry_survives_being_sealed()
     {
-        // The tick also asks the page things this fixture has no page for; only the sealing is under test.
-        JSInterop.Mode = JSRuntimeMode.Loose;
         var client = ClientThatSealsAndOpens();
-        await client.CreateTaskListAsync(
-            new CreateTaskRequest("Bank things", [Entry("Change the card") with { Id = Guid.NewGuid() }],
-                IsGroup: false, IsPrivate: true, EncryptedContent: null, Priority: "High", Tags: ["bank"]));
-        // The server holds the priority readably, beside the seal - which this stub does not keep.
-        var opened = (await client.GetTaskListByIdAsync(TaskListId))! with { Priority = "High" };
-        var ticking = new TaskItemCompletion(
-            client, Services.GetRequiredService<NavigationManager>(), JSInterop.JSRuntime,
-            new Translations(new StubJSRuntime()), NullLogger<TaskItemCompletion>.Instance);
+        var eventId = Guid.NewGuid();
+        var shelfItemId = Guid.NewGuid();
+        var firstStep = Guid.NewGuid();
+        var product = new TaskItemProductDto(
+            "Dry goods", ["Baking"], 2, 5, "Kilogram", new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero),
+            "Push", IsCheckedRegularly: true);
 
-        await ticking.TickAsync(opened, opened.Items[0], TickState.Completed);
+        await client.CreateTaskListAsync(new CreateTaskRequest(
+            "Bank things",
+            [
+                Entry("Open the account") with { Id = firstStep },
+                Entry("Meet the adviser") with
+                {
+                    Kind = "Calendar", Location = "Długa 4", LinkedCalendarEventId = eventId,
+                    Categories = ["bank"], Notes = "Bring the passport", IsFailed = true,
+                    WaitsForTaskItemIds = [firstStep], Priority = "High", Colour = "#cc4a3f"
+                },
+                Entry("Flour") with { Kind = "Inventory", Product = product },
+                Entry("Coins") with { Kind = "Inventory", LinkedInventoryItemId = shelfItemId }
+            ],
+            IsGroup: false, IsPrivate: true, EncryptedContent: null));
+        var opened = (await client.GetTaskListByIdAsync(TaskListId))!.Items;
 
-        var sent = Assert.Single(_updates);
-        Assert.True(sent.IsPrivate);
-        Assert.Equal("High", sent.Priority);
-        // Nothing readable left the browser: the entries went into the seal, and so did the tag.
-        Assert.Empty(sent.Items);
-        Assert.Equal(string.Empty, sent.Title);
-        var resealed = JsonSerializer.Deserialize<SealedTaskList>(
-            (string)JSInterop.Invocations["encryptForSelf"].Last().Arguments[1]!)!;
-        Assert.Equal(["bank"], resealed.Tags);
-        Assert.True(Assert.Single(resealed.Items).IsCompleted);
+        var meeting = opened[1];
+        Assert.Equal("Calendar", meeting.Kind);
+        Assert.Equal("Długa 4", meeting.Location);
+        Assert.Equal(eventId, meeting.LinkedCalendarEventId);
+        Assert.Equal(["bank"], meeting.AllCategories);
+        Assert.Equal("Bring the passport", meeting.Notes);
+        Assert.True(meeting.IsFailed);
+        Assert.Equal([firstStep], meeting.AllWaitsForTaskItemIds);
+        Assert.Equal("High", meeting.Priority);
+        Assert.Equal("#cc4a3f", meeting.Colour);
+        Assert.Equal(product, opened[2].Product! with { Categories = product.Categories });
+        Assert.Equal(["Baking"], opened[2].Product!.AllCategories);
+        Assert.Equal(shelfItemId, opened[3].LinkedInventoryItemId);
     }
 
-    /// <summary>Every update the client sent, as the server would have read it.</summary>
-    private readonly List<UpdateTaskRequest> _updates = [];
+    /// <summary>
+    /// Ticking an entry of a private list - from the checklist or the entry's own page, both through
+    /// TaskItemCompletion - saves the list sealed, as it was. It used to leave IsPrivate out of the save,
+    /// which the server took as "this list is not private" and stored its title and entries in the clear;
+    /// it left the priority out, which put every list it touched back to Normal; and it left the tags out,
+    /// which emptied them, since a private list keeps them nowhere but in its seal.
+    /// </summary>
+    [Fact]
+    public async Task Ticking_an_entry_of_a_private_list_keeps_it_sealed_and_as_it_was()
+    {
+        var client = ClientThatSealsAndOpens();
+        await client.CreateTaskListAsync(new CreateTaskRequest(
+            "Bank things", [Entry("Change the card")], IsGroup: false, IsPrivate: true, EncryptedContent: null,
+            Tags: ["bank"]));
+        var opened = (await client.GetTaskListByIdAsync(TaskListId))!;
+        var completion = new TaskItemCompletion(
+            client, Services.GetRequiredService<NavigationManager>(), JSInterop.JSRuntime,
+            Services.GetRequiredService<Translations>(), NullLogger<TaskItemCompletion>.Instance);
+
+        await completion.TickAsync(opened, Assert.Single(opened.Items), TickState.Completed);
+
+        var sent = JsonDocument.Parse(_lastUpdateJson!).RootElement;
+        Assert.True(sent.GetProperty("isPrivate").GetBoolean());
+        Assert.Equal(string.Empty, sent.GetProperty("title").GetString());
+        Assert.Equal(0, sent.GetProperty("items").GetArrayLength());
+        Assert.Equal("High", sent.GetProperty("priority").GetString());
+        var resealed = JsonSerializer.Deserialize<SealedTaskList>(
+            (string)JSInterop.Invocations["encryptForSelf"].Last().Arguments[1]!)!;
+        // The tag went back into the seal, which is the only place a private list has one.
+        Assert.Equal(["bank"], resealed.Tags);
+        Assert.True(Assert.Single((await client.GetTaskListByIdAsync(TaskListId))!.Items).IsCompleted);
+    }
+
+    /// <summary>What the last save of the list sent, as it went out - see Answer.</summary>
+    private string? _lastUpdateJson;
 
     private static TaskItemRequest Entry(string description)
         => new(description, Id: null, DueDateUtc: null, IsCompleted: false, LinkedTaskListId: null,
@@ -215,16 +245,6 @@ public sealed class PrivateTaskListItemIdTests : OrbitTestContext
     /// </summary>
     private HttpResponseMessage Answer(HttpRequestMessage request)
     {
-        // A list's own update - not the key provider's, which puts this browser's public key first.
-        if (request.Method == HttpMethod.Put && request.RequestUri!.AbsolutePath.Contains("/api/tasks/"))
-        {
-            _updates.Add(JsonSerializer.Deserialize<UpdateTaskRequest>(
-                request.Content!.ReadAsStringAsync().GetAwaiter().GetResult(),
-                new JsonSerializerOptions(JsonSerializerDefaults.Web))!);
-            TheSealedPayloadIs((string)JSInterop.Invocations["encryptForSelf"].Last().Arguments[1]!);
-            return new HttpResponseMessage(HttpStatusCode.NoContent);
-        }
-
         if (request.Method == HttpMethod.Post)
         {
             // Whatever the client sealed is what "encryptForSelf" was handed - read it back off the
@@ -233,10 +253,25 @@ public sealed class PrivateTaskListItemIdTests : OrbitTestContext
             return Json(JsonSerializer.Serialize(TaskListId));
         }
 
+        if (request.Method == HttpMethod.Put)
+        {
+            // A save of the list: what went out is kept for the test to read, and what was sealed - if
+            // anything was - becomes what the next read opens, the way the server keeps the new payload.
+            _lastUpdateJson = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            if (JSInterop.Invocations["encryptForSelf"].Count > 0)
+            {
+                TheSealedPayloadIs((string)JSInterop.Invocations["encryptForSelf"].Last().Arguments[1]!);
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        }
+
+        // The list's own priority is High, so a save that forgot it would be seen putting it back to Normal.
         return Json(JsonSerializer.Serialize(new TaskDto(
             TaskListId, string.Empty, [], IsCompleted: false, IsGroup: false, IsPrivate: true,
             new EncryptedContentDto("sealed", "nonce"), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
-            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null)));
+            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null,
+            Priority: "High")));
     }
 
     /// <summary>
@@ -246,14 +281,15 @@ public sealed class PrivateTaskListItemIdTests : OrbitTestContext
     /// </summary>
     private void TheSealedPayloadIs(string plainText)
     {
+        // The sealer imports the module afresh for every call, and planning it again answers that import
+        // with this new module - so it has to answer everything the sealer asks of it, sealing included,
+        // or a second save (a tick after a create) finds nothing planned.
         var crypto = JSInterop.SetupModule("./js/e2eeChat.js");
-        crypto.Setup<string?>("decryptForSelf", _ => true).SetResult(plainText);
-        // Planned again with it: setting the module up afresh is what makes the new answer win, and it
-        // leaves the sealing half unanswered - which a test that seals twice (create, then tick) needs.
         crypto.Setup<bool>("hasOwnPrivateKey", _ => true).SetResult(true);
         crypto.Setup<string>("ensureOwnPublicKey", _ => true).SetResult("a-public-key");
         crypto.Setup<PrivateContentSealer.SealedContent>("encryptForSelf", _ => true)
             .SetResult(new PrivateContentSealer.SealedContent("sealed", "nonce"));
+        crypto.Setup<string?>("decryptForSelf", _ => true).SetResult(plainText);
     }
 
     private static HttpResponseMessage Json(string body)

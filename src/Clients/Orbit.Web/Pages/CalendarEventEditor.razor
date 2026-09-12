@@ -26,6 +26,7 @@
 @inject NavigationTrail NavigationTrail
 @inject ChosenPlace ChosenPlace
 @inject ILogger<CalendarEventEditor> Logger
+@inject TimeProvider TimeProvider
 @inject Translations T
 
 <PageTitle>@(IsNewEvent ? T["New event"] : T["Edit event"])</PageTitle>
@@ -309,6 +310,10 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        // A new event starts now by the page's clock rather than the machine's. Before the first await,
+        // which is before the first render, so the form never shows the other one.
+        _formModel = new EventFormModel(TimeProvider);
+
         try
         {
             _hasGoogleExtras = await GoogleIntegrationAccess.IsAvailableAsync();
@@ -356,7 +361,7 @@ else
                 var calendarEvent = await CalendarApiClient.GetCalendarEventByIdAsync(eventId);
                 if (calendarEvent is not null)
                 {
-                    _formModel = EventFormModel.FromDto(calendarEvent.Details);
+                    _formModel = EventFormModel.FromDto(calendarEvent.Details, TimeProvider);
                     _title = calendarEvent.Details.Title;
                     _savedDetails = calendarEvent.Details;
                     _isShared = calendarEvent.IsShared;

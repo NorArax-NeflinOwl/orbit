@@ -27,6 +27,31 @@ public abstract class OrbitTestContext : TestContext
     protected OrbitTestContext()
     {
         Services.AddSingleton(new Translations(new StubJSRuntime()));
+        // The machine's own clock, because most tests build their data from the real "now". A test about
+        // a page whose answer changes with the hour registers a FakeTimeProvider over this one.
+        Services.AddSingleton(TimeProvider.System);
+        // What this browser keeps about itself - the task editor asks which kinds of entry a picked name
+        // fills in. Nothing stored, so every kind: a fresh browser. A test about a setting registers its own.
+        Services.AddSingleton(new DevicePreferences(new StubJSRuntime()));
+        // The places a task list's Location entries keep, which every task editor save now asks about.
+        // Nobody keeps any here and nothing is found for any address, so a save makes none - a test that
+        // is about those places registers its own over this.
+        Services.AddScoped(_ => new TaskEntryPlaces(
+            new PlacesApiClient(new HttpClient(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("[]", Encoding.UTF8, "application/json")
+            }))
+            {
+                BaseAddress = new Uri("https://example.test/")
+            }),
+            new GeocodingApiClient(new HttpClient(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("[]", Encoding.UTF8, "application/json")
+            }))
+            {
+                BaseAddress = new Uri("https://geocode.test/")
+            }),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<TaskEntryPlaces>.Instance));
         Services.AddSingleton(SuggestingNothing());
         // Every card and editor that draws a tag asks the account's colours - see TagColourBook. None by
         // default; a test about colours registers a client that answers some.

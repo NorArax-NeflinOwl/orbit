@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Chat;
 using Orbit.Contracts.Inventories;
@@ -327,6 +328,21 @@ public sealed class DashboardTests : OrbitTestContext
         var cut = RenderComponent<Dashboard>();
 
         Assert.Contains("Admin", FindColumn(cut, "Groups").TextContent);
+    }
+
+    /// <summary>
+    /// How many messages arrived in a group since the reader last had it open, on its avatar - the same
+    /// badge Recent chats puts on a person, from ChatGroupDto.UnreadCount.
+    /// </summary>
+    [Fact]
+    public void A_group_with_messages_waiting_says_how_many_on_its_row()
+    {
+        RegisterChatApiClient([], [Group("Cooking club", 3) with { UnreadCount = 3 }, Group("Neighbours", 2)]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        var badge = Assert.Single(FindColumn(cut, "Groups").QuerySelectorAll(".notif-badge"));
+        Assert.Equal("3", badge.TextContent.Trim());
     }
 
     [Fact]
@@ -1210,10 +1226,10 @@ public sealed class DashboardTests : OrbitTestContext
     /// is one nobody has to get to any more.
     ///
     /// Both appointments are anchored to the ends of today rather than to "three hours either side of
-    /// now", which is what this used to say: the page reads the machine's own clock (DateTime.Today,
-    /// DateTime.Now - it takes no TimeProvider), so after nine in the evening the later one fell on
-    /// tomorrow and the count read 1/1. A test that fails for the last three hours of every day is a
-    /// broken build somebody has to be told to ignore.
+    /// now", which is what this used to say: when it was written the page read the machine's own clock,
+    /// so after nine in the evening the later one fell on tomorrow and the count read 1/1. The page asks
+    /// the registered TimeProvider since 2026-09-11, and the evening itself is pinned by the test below
+    /// rather than stepped round.
     /// </summary>
     [Fact]
     public void An_appointment_that_has_ended_counts_as_one_that_is_behind_the_reader()
@@ -1231,6 +1247,36 @@ public sealed class DashboardTests : OrbitTestContext
 
         Assert.Equal("1/2", TodayStat(cut, "events today"));
     }
+
+    /// <summary>
+    /// The hour the test above used to fail in, said outright: ten at night, with one appointment behind
+    /// the reader and one still ahead of them at eleven. The page asks the registered clock what "now" and
+    /// "today" are, so a test can say it is evening instead of waiting for it to be.
+    /// </summary>
+    [Fact]
+    public void Late_in_the_evening_an_appointment_still_to_come_counts_as_today()
+    {
+        var evening = new DateTime(2026, 9, 11, 22, 0, 0);
+        // Handed in UTC, which is what FakeTimeProvider expects: given an offset it keeps it, and its own
+        // GetLocalNow then adds the local offset a second time - ten at night came out as midnight.
+        var clock = new FakeTimeProvider(AtLocal(evening).ToUniversalTime());
+        clock.SetLocalTimeZone(TimeZoneInfo.Local);
+        Services.AddSingleton<TimeProvider>(clock);
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterCalendarApiClient([
+            Event("Standup", AtLocal(evening.AddHours(-2))),
+            Event("Late call", AtLocal(evening.AddHours(1)))]);
+        RegisterTasksApiClient([]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Equal("1/2", TodayStat(cut, "events today"));
+    }
+
+    /// <summary>A wall-clock time on this machine, as the instant it is.</summary>
+    private static DateTimeOffset AtLocal(DateTime localTime)
+        => new(localTime, TimeZoneInfo.Local.GetUtcOffset(localTime));
 
     /// <summary>What one of the strip's counts reads, by the words beside it.</summary>
     private static string TodayStat(IRenderedComponent<Dashboard> cut, string named)

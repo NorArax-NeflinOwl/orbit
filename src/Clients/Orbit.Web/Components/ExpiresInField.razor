@@ -1,6 +1,7 @@
 @using Orbit.Core.Inventories
 @using Orbit.Web.Services
 @inject Translations T
+@inject TimeProvider TimeProvider
 
 @* How long something keeps, rather than the day it stops keeping.
 
@@ -52,7 +53,7 @@
     /// <summary>Reads a stored date back as a length - see ExpiryPeriod, which both clients count by.</summary>
     private void ReadTheBoxesFrom(DateTimeOffset? value)
     {
-        var period = ExpiryPeriod.For(value, DateTime.Today);
+        var period = ExpiryPeriod.For(value, TimeProvider.GetLocalNow().Date);
         _amount = period.Amount;
         _unit = period.Unit.ToString();
     }
@@ -73,7 +74,7 @@
     private async Task WriteTheDateAsync()
     {
         var unit = Enum.TryParse<ExpiryUnit>(_unit, out var parsed) ? parsed : ExpiryUnit.None;
-        var expiresOn = new ExpiryPeriod(_amount, unit).On(DateTime.Today);
+        var expiresOn = new ExpiryPeriod(_amount, unit).On(TimeProvider.GetLocalNow().Date);
 
         _lastSeenValue = expiresOn;
         Value = expiresOn;

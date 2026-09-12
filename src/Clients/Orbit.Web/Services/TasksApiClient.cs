@@ -245,16 +245,19 @@ public sealed class TasksApiClient
             throw new InvalidOperationException("This TasksApiClient was built without a PrivateContentSealer, so it can't save a private list.");
         }
 
-        // Every field the entry carries - see TaskItemRequest.AsEntry, which exists because this line
-        // used to list them by hand and had stopped at the ones entries had when it was written.
+        // Every field of every entry, through the one mapping that names them all - see TaskItemDto.From.
+        // A private list keeps nothing readable on the server, so a field left out here is simply gone on
+        // the next read; this used to list them by hand and lost everything added since.
         var sealedItems = items
-            // The entry's own id, sealed with it. It used to be Guid.Empty for every entry, which made a
-            // private list's entries indistinguishable from one another: nothing points at one
-            // server-side (a private list stores no item rows at all), but the *client* does - an entry's
-            // own page is addressed by id, so pressing the third entry on a private list opened the
-            // first. A new entry gets one minted here, since a request carries no id for something that
-            // has never been saved. See TaskItemRequest.Id.
-            .Select(item => item.AsEntry(item.Id ?? Guid.NewGuid()))
+            .Select(item => TaskItemDto.From(
+                item,
+                // The entry's own id, sealed with it. It used to be Guid.Empty for every entry, which
+                // made a private list's entries indistinguishable from one another: nothing points at
+                // one server-side (a private list stores no item rows at all), but the *client* does -
+                // an entry's own page is addressed by id, so pressing the third entry on a private list
+                // opened the first. A new entry gets one minted here, since a request carries no id for
+                // something that has never been saved. See TaskItemRequest.Id.
+                item.Id ?? Guid.NewGuid()))
             .ToList();
         // The tags are sealed with the rest and sent as none - see NotesApiClient.SealIfPrivateAsync.
         var encryptedContent = await _privateContentSealer.SealAsync(new SealedTaskList(title, sealedItems, tags), cancellationToken);

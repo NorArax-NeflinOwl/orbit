@@ -51,6 +51,9 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
     /// <summary>When each batch arrived, by its id - see LocalInventory.ItemArrivals.</summary>
     private IReadOnlyDictionary<Guid, DateTimeOffset> _arrivals = new Dictionary<Guid, DateTimeOffset>();
 
+    /// <summary>What the task lists ask of each product here - see LocalInventory.ItemUsage.</summary>
+    private IReadOnlyDictionary<Guid, decimal> _usage = new Dictionary<Guid, decimal>();
+
     /// <summary>What is on screen has been narrowed down to - see <see cref="InventoryItemFilter"/>.</summary>
     private readonly InventoryItemFilter _filter = new();
 
@@ -483,6 +486,7 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
         HasHistory = (await _inventories.GetHistoryOfAsync(_localId, cancellationToken)).Count > 0;
         _items = inventory.Items;
         _arrivals = inventory.ItemArrivals;
+        _usage = inventory.ItemUsage;
         _knownProductTypes = KnownProductTypes.From(
             await _inventories.GetAllAsync(cancellationToken), await _taskLists.GetAllAsync(cancellationToken));
         // What this shelf's restock list asks for, and when - see RestockListSettingsPanel.
@@ -571,7 +575,7 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
         Items.Clear();
         foreach (var item in _items.Where(_filter.Matches))
         {
-            Items.Add(InventoryItemRow.From(item, _translations, _pointedAtProductId, ArrivalOf(item)));
+            Items.Add(InventoryItemRow.From(item, _translations, _pointedAtProductId, ArrivalOf(item), UsageOf(item)));
         }
 
         OnPropertyChanged(nameof(PointedAtRow));
@@ -586,6 +590,10 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
     /// </summary>
     private DateTimeOffset? ArrivalOf(InventoryItemRequest item)
         => item.Id is { } id && _arrivals.TryGetValue(id, out var arrived) ? arrived : null;
+
+    /// <summary>How much of this product the task lists ask for - see LocalInventory.ItemUsage.</summary>
+    private decimal UsageOf(InventoryItemRequest item)
+        => item.Id is { } id && _usage.TryGetValue(id, out var asked) ? asked : 0;
 
     partial void OnChosenProductTypeChanged(string? value)
     {

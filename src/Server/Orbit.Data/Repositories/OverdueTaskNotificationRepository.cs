@@ -28,7 +28,10 @@ public sealed class OverdueTaskNotificationRepository : IOverdueTaskNotification
             // See TaskList.IsCompleted, which is what OP_T_ISCOMPLETED stores.
             // Neither ticked nor crossed out: an entry somebody gave up on is finished with, and
             // being reminded of it every morning would be the app arguing with the reader.
+            // An entry done by ways that include a list is left out with the linked ones, for the reason
+            // DailyTaskReminderRepository gives.
             where !item.IsCompleted && !item.IsFailed && !task.IsCompleted && item.DueDateUtc != null && !item.LinkedTaskLists.Any()
+                && !item.Alternatives.Any(way => way.LinkedTaskListId != null)
                 && item.OverdueNotificationChannel != "None"
             select new
             {

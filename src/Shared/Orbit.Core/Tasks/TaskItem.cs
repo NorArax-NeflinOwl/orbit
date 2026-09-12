@@ -53,7 +53,9 @@ public sealed class TaskItem
     /// Only ever set on a completed entry: the constructor drops one given to an entry that is not, and
     /// taking the tick back - <see cref="Reopen"/>, or <see cref="TaskListSteps"/> refusing it - clears
     /// it. A cross is not a completion and carries none. Recorded by <see cref="RecordWhenItWasDone"/>
-    /// on a save, and by <see cref="Complete"/> when Orbit crosses an entry off itself.
+    /// on a save, and by <see cref="Complete"/> when Orbit crosses an entry off itself. An entry done
+    /// one of several ways carries one too: its tick is the ways', and when it was done is when the way
+    /// that was taken was.
     /// </summary>
     public DateTimeOffset? CompletedAtUtc { get; private set; }
 
@@ -94,6 +96,59 @@ public sealed class TaskItem
 
     /// <summary>Whether anything has to happen before this entry can be crossed off.</summary>
     public bool WaitsForAnything => WaitsForTaskItemIds.Count > 0;
+
+    /// <summary>
+    /// The ways this entry can be got done, any one of which is enough - "the sauce": buy a ready one,
+    /// or make it from a list of its own. Empty for an ordinary entry, which is nearly all of them.
+    ///
+    /// The other half of <see cref="LinkedTaskListIds"/>, and kept apart from it on purpose: that is one
+    /// step that is every one of its lists, this is one step that is any one of its ways. And a way can
+    /// be a line of its own, so an alternative that is a single errand needs no list made for it. An
+    /// entry has one or the other, never both - see the constructor.
+    ///
+    /// While it has any, the entry's tick is theirs: it is done exactly when one of them is. A way that
+    /// is a list is done when that list is, worked out on every read - see
+    /// <see cref="LinkedTaskCompletionResolver"/>.
+    /// </summary>
+    public IReadOnlyList<TaskItemAlternative> Alternatives { get; private set; }
+
+    /// <summary>Whether this entry is done any one of several ways rather than by a tick of its own.</summary>
+    public bool HasAlternatives => Alternatives.Count > 0;
+
+    /// <summary>
+    /// Every other list this entry points at, as a list it stands for or as a way of doing it - what
+    /// <see cref="TaskListLinkValidator"/> checks, since a way can close a loop as surely as a link can.
+    /// </summary>
+    public IEnumerable<Guid> TaskListIdsItPointsAt
+        => LinkedTaskListIds
+            .Concat(Alternatives.Where(way => way.IsAList).Select(way => way.LinkedTaskListId!.Value))
+            .Distinct();
+
+    /// <summary>
+    /// When this entry was first stored - what decides which member of a reference group takes over when
+    /// the entry the others point at is deleted (see <see cref="TaskItemReferences"/>). Kept by id across
+    /// every save, since a save replaces the rows wholesale. Null for an entry stored before it was
+    /// recorded, which then counts as the newest.
+    /// </summary>
+    public DateTimeOffset? CreatedAtUtc { get; private set; }
+
+    /// <summary>
+    /// The entry this one is the same thing as, when it is one - picked from the name suggestions, so
+    /// "Sauce" on the burger list and "Sauce" on the pasta list are one object rather than two. The entry
+    /// pointed at is the group's source. Every member keeps the shared details itself, and a save of any
+    /// member passes them on to the rest - see <see cref="TaskItemReferences"/>. Always the source, never a
+    /// member that points further on. Null for an entry of its own.
+    /// </summary>
+    public Guid? ReferencesTaskItemId { get; private set; }
+
+    /// <summary>
+    /// How much of its product this entry needs - its own minimum, and the one product detail a reference
+    /// group does not share: two recipes asking for the same sauce may need different amounts. Kept when
+    /// the entry comes to stand for a shelf item and <see cref="Product"/> is dropped; a shelf item's
+    /// minimum can never fall below these added up (see Orbit.Core.Inventories.InventoryItem.Usage). Null
+    /// reads as one, the counting rule's answer for a line that says nothing.
+    /// </summary>
+    public decimal? RequiredQuantity { get; private set; }
 
     /// <summary>What this entry is and what it stands for - see <see cref="TaskItemSubject"/>.</summary>
     public TaskItemSubject Subject { get; private set; }
@@ -185,7 +240,10 @@ public sealed class TaskItem
         TaskItemReminders? reminders, TaskItemSubject? subject, IReadOnlyList<string>? categories,
         TaskItemProduct? product, string? notes, bool isFailed = false,
         IReadOnlyList<Guid>? waitsForTaskItemIds = null,
-        ItemPriority priority = ItemPriority.Normal, string? colour = null, DateTimeOffset? completedAtUtc = null)
+        ItemPriority priority = ItemPriority.Normal, string? colour = null,
+        IReadOnlyList<TaskItemAlternative>? alternatives = null,
+        DateTimeOffset? createdAtUtc = null, Guid? referencesTaskItemId = null, decimal? requiredQuantity = null,
+        DateTimeOffset? completedAtUtc = null)
     {
         Id = id;
         Description = description;
@@ -193,16 +251,27 @@ public sealed class TaskItem
         Priority = priority;
         Colour = (colour ?? string.Empty).Trim();
         DueDateUtc = dueDateUtc;
-        IsCompleted = isCompleted;
-        // Three states out of two flags, settled in the one place every entry is built: a tick wins over
-        // a cross, so nothing downstream has to decide what an entry claiming both would mean. A linked
-        // entry has neither of its own - its completion follows the lists it stands for.
-        IsFailed = isFailed && !isCompleted;
-        // A time for being done belongs to something that is done - see CompletedAtUtc.
-        CompletedAtUtc = isCompleted ? completedAtUtc : null;
         // Distinct and in order: naming the same list twice is one link written twice, not two steps,
         // and it would make the entry look like it stands for more work than it does.
         LinkedTaskListIds = linkedTaskListIds is null ? [] : [.. linkedTaskListIds.Distinct()];
+        // One or the other: an entry standing for lists is done when all of them are and one with ways
+        // when any is, and nothing sensible is meant by both at once. The links were here first and
+        // win; the ways are dropped rather than refused, the way a product on the wrong kind of entry
+        // is. A way with neither words nor a list is nothing to choose between, and goes too.
+        Alternatives = LinkedTaskListIds.Count > 0 || alternatives is null
+            ? []
+            : [.. alternatives
+                .Select(way => way with { Description = (way.Description ?? string.Empty).Trim() })
+                .Where(way => way.Description.Length > 0 || way.IsAList)];
+        // While it has ways, its tick is theirs.
+        IsCompleted = Alternatives.Count > 0 ? Alternatives.Any(way => way.IsDone) : isCompleted;
+        // Three states out of two flags, settled in the one place every entry is built: a tick wins over
+        // a cross, so nothing downstream has to decide what an entry claiming both would mean. A linked
+        // entry has neither of its own - its completion follows the lists it stands for.
+        IsFailed = isFailed && !IsCompleted;
+        // A time for being done belongs to something that is done - see CompletedAtUtc. Read off the
+        // tick as settled just above, so an entry done one of its ways keeps the time too.
+        CompletedAtUtc = IsCompleted ? completedAtUtc : null;
         // The same rule, and one more: an entry cannot wait for itself, which is a step that could
         // never be taken rather than an ordering anybody meant.
         WaitsForTaskItemIds = waitsForTaskItemIds is null
@@ -221,6 +290,16 @@ public sealed class TaskItem
             // show two chips meaning the same thing.
             ? product is null ? null : product with { Categories = TidyCategories(product.Categories) }
             : null;
+        CreatedAtUtc = createdAtUtc;
+        // Never itself: an entry pointing at its own id is an entry of its own.
+        ReferencesTaskItemId = referencesTaskItemId == id ? null : referencesTaskItemId;
+        // The entry's own minimum, which the product it describes also says while there is one - one
+        // answer in two places, so the explicit one wins and the product is told.
+        RequiredQuantity = requiredQuantity ?? product?.MinimumQuantity;
+        if (Product is not null && Product.MinimumQuantity != RequiredQuantity)
+        {
+            Product = Product with { MinimumQuantity = RequiredQuantity };
+        }
     }
 
     /// <summary>
@@ -247,14 +326,19 @@ public sealed class TaskItem
     /// </summary>
     public void Reopen()
     {
-        if (!IsALinkToOtherLists)
+        if (IsALinkToOtherLists)
         {
-            IsCompleted = false;
-            // A cross is a way of being finished with something, so bringing the entry back as work
-            // clears it too - a reopened entry nobody has answered yet is neither done nor given up on.
-            IsFailed = false;
-            CompletedAtUtc = null;
+            return;
         }
+
+        // An entry done one of several ways comes back with none of them taken: the ways stay, since
+        // they are what the entry is, and the choice is made again.
+        Alternatives = [.. Alternatives.Select(way => way with { IsDone = false })];
+        IsCompleted = false;
+        // A cross is a way of being finished with something, so bringing the entry back as work
+        // clears it too - a reopened entry nobody has answered yet is neither done nor given up on.
+        IsFailed = false;
+        CompletedAtUtc = null;
     }
 
     /// <summary>
@@ -262,11 +346,11 @@ public sealed class TaskItem
     /// work is done - an inventory that turns out to hold what the entry asks for.
     ///
     /// A linked entry is left alone for the same reason <see cref="Reopen"/> leaves it: its completion
-    /// follows the list it points at.
+    /// follows the list it points at. So is one done by ways, since nothing here says which way it was.
     /// </summary>
     public void Complete()
     {
-        if (!IsALinkToOtherLists)
+        if (!IsALinkToOtherLists && !HasAlternatives)
         {
             // Stamped as it happens, and only when it does: completing something already done moves
             // nothing, least of all when it was done.
@@ -296,6 +380,78 @@ public sealed class TaskItem
         }
 
         CompletedAtUtc ??= stored is { IsCompleted: true } ? stored.CompletedAtUtc : nowUtc;
+    }
+
+    /// <summary>
+    /// Keeps the ways this entry is already done by, for a caller that said nothing about them - the
+    /// sixth field to follow this rule (see UpdateTaskListCommand.EntriesKeepingTheirAlternatives). The
+    /// tick follows them back: a client that knows nothing of ways cannot have meant its own tick on an
+    /// entry whose tick is theirs.
+    /// </summary>
+    public void KeepAlternativesOf(TaskItem stored)
+    {
+        if (IsALinkToOtherLists)
+        {
+            return;
+        }
+
+        Alternatives = stored.Alternatives;
+        if (HasAlternatives)
+        {
+            IsCompleted = Alternatives.Any(way => way.IsDone);
+            IsFailed = IsFailed && !IsCompleted;
+        }
+    }
+
+    /// <summary>
+    /// Keeps what this entry is the same thing as, and how much of it it needs, for a caller that said
+    /// nothing about either - the seventh field to follow this rule (see
+    /// UpdateTaskListCommand.EntriesKeepingTheirReference). A minimum the product it describes still
+    /// carries is taken at its word, since that is the one an older client can say.
+    /// </summary>
+    public void KeepReferenceOf(TaskItem stored)
+    {
+        ReferencesTaskItemId = stored.ReferencesTaskItemId;
+        RequiredQuantity ??= stored.RequiredQuantity;
+        if (Product is not null)
+        {
+            Product = Product with { MinimumQuantity = RequiredQuantity };
+        }
+    }
+
+    /// <summary>When this entry was first stored - see <see cref="CreatedAtUtc"/> and TaskItemReferences.StampCreationTimes.</summary>
+    internal void StampCreation(DateTimeOffset? createdAtUtc) => CreatedAtUtc = createdAtUtc;
+
+    /// <summary>Points this entry at its group's source, or at nothing - see TaskItemReferences.</summary>
+    internal void PointReferenceAt(Guid? sourceId) => ReferencesTaskItemId = sourceId == Id ? null : sourceId;
+
+    /// <summary>
+    /// Takes on the details a reference group shares from another member of it: what kind of entry it is
+    /// and where, what it is filed under, what it says, how much it matters, what colour it is drawn in,
+    /// and the shelf item or the product it asks for. Its own date, tick, ways, reminders, appointment and
+    /// minimum stay its own. Answers whether anything changed, so a list nobody touched is not saved again.
+    /// See TaskItemReferences.
+    /// </summary>
+    internal bool TakeSharedDetailsFrom(TaskItem other)
+    {
+        var subject = new TaskItemSubject(other.Kind, other.Location, LinkedCalendarEventId, other.LinkedInventoryItemId);
+        var product = subject.Kind == TaskItemKind.Inventory && subject.LinkedInventoryItemId is null && other.Product is not null
+            ? other.Product with { MinimumQuantity = RequiredQuantity }
+            : null;
+        var changed = subject != Subject
+            || !Categories.SequenceEqual(other.Categories)
+            || Notes != other.Notes
+            || Priority != other.Priority
+            || Colour != other.Colour
+            || !Equals(product, Product);
+
+        Subject = subject;
+        Categories = other.Categories;
+        Notes = other.Notes;
+        Priority = other.Priority;
+        Colour = other.Colour;
+        Product = product;
+        return changed;
     }
 
     /// <summary>
@@ -363,7 +519,10 @@ public sealed class TaskItem
         TaskItemReminders? reminders = null, TaskItemSubject? subject = null, IReadOnlyList<string>? categories = null,
         TaskItemProduct? product = null, string? notes = null, bool isFailed = false,
         IReadOnlyList<Guid>? waitsForTaskItemIds = null,
-        ItemPriority priority = ItemPriority.Normal, string? colour = null, DateTimeOffset? completedAtUtc = null)
+        ItemPriority priority = ItemPriority.Normal, string? colour = null,
+        IReadOnlyList<TaskItemAlternative>? alternatives = null,
+        Guid? referencesTaskItemId = null, decimal? requiredQuantity = null,
+        DateTimeOffset? completedAtUtc = null)
     {
         // Here rather than in the constructor, which FromPersistence also uses: a row already stored
         // fits by definition, and rejecting one on the way back out would make an old entry unreadable
@@ -387,12 +546,20 @@ public sealed class TaskItem
         }
 
         StoredTextLimits.OrRefuse(colour ?? string.Empty, StoredTextLimits.Color, "task entry's colour");
+        foreach (var way in alternatives ?? [])
+        {
+            StoredTextLimits.OrRefuse(way.Description ?? string.Empty, StoredTextLimits.TaskDescription, "way of doing a task entry");
+        }
 
         var standsOnItsOwn = linkedTaskListIds is null || linkedTaskListIds.Count == 0;
+        // A way that is a list is done when that list is, whatever the client says - the same override
+        // standsOnItsOwn applies to the entry's own tick.
+        var ways = alternatives?.Select(way => way.IsAList ? way with { IsDone = false } : way).ToList();
         return new TaskItem(
             Guid.NewGuid(), description, dueDateUtc, standsOnItsOwn && isCompleted, linkedTaskListIds,
             reminders, subject, categories, product, notes, standsOnItsOwn && isFailed, waitsForTaskItemIds,
-            priority, colour, completedAtUtc);
+            priority, colour, ways, DateTimeOffset.UtcNow, referencesTaskItemId, requiredQuantity,
+            completedAtUtc);
     }
 
     /// <summary>
@@ -404,7 +571,22 @@ public sealed class TaskItem
         => new(
             Guid.NewGuid(), Description, DueDateUtc, IsCompleted, LinkedTaskListIds,
             Reminders, Subject, Categories, Product, Notes, IsFailed, WaitsForTaskItemIds, Priority, Colour,
-            CompletedAtUtc);
+            Alternatives, CreatedAtUtc, ReferencesTaskItemId, RequiredQuantity, CompletedAtUtc);
+
+    /// <summary>
+    /// This entry with its completion worked out from the lists it points at: every one of them for an
+    /// entry standing for lists, and each way that is a list for an entry done by ways. Everything else
+    /// it carries comes along. The resolver used to rebuild a linked entry from its id, words, date and
+    /// reminders alone, so a read handed back a linked entry without its notes, kind, colour or priority.
+    /// </summary>
+    internal TaskItem ResolvedAgainst(Func<Guid, bool> isListDone)
+        => new(
+            Id, Description, DueDateUtc,
+            IsALinkToOtherLists ? LinkedTaskListIds.All(isListDone) : IsCompleted,
+            LinkedTaskListIds, Reminders, Subject, Categories, Product, Notes, IsFailed, WaitsForTaskItemIds,
+            Priority, Colour,
+            [.. Alternatives.Select(way => way.IsAList ? way with { IsDone = isListDone(way.LinkedTaskListId!.Value) } : way)],
+            CreatedAtUtc, ReferencesTaskItemId, RequiredQuantity, CompletedAtUtc);
 
     /// <summary>
     /// Rebuilds a checklist entry from already-known values, bypassing the completion override above -
@@ -416,10 +598,14 @@ public sealed class TaskItem
         TaskItemReminders? reminders, TaskItemSubject? subject = null, IReadOnlyList<string>? categories = null,
         TaskItemProduct? product = null, string? notes = null, bool isFailed = false,
         IReadOnlyList<Guid>? waitsForTaskItemIds = null,
-        ItemPriority priority = ItemPriority.Normal, string? colour = null, DateTimeOffset? completedAtUtc = null)
+        ItemPriority priority = ItemPriority.Normal, string? colour = null,
+        IReadOnlyList<TaskItemAlternative>? alternatives = null,
+        DateTimeOffset? createdAtUtc = null, Guid? referencesTaskItemId = null, decimal? requiredQuantity = null,
+        DateTimeOffset? completedAtUtc = null)
         => new(
             id, description, dueDateUtc, isCompleted, linkedTaskListIds, reminders, subject, categories, product,
-            notes, isFailed, waitsForTaskItemIds, priority, colour, completedAtUtc);
+            notes, isFailed, waitsForTaskItemIds, priority, colour, alternatives,
+            createdAtUtc, referencesTaskItemId, requiredQuantity, completedAtUtc);
 
     /// <summary>
     /// Takes the tick back off an entry that may not carry one yet, because something it waits for is

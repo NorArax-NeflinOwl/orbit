@@ -15,4 +15,6 @@ public sealed record UpdatePlaceCommand(
     IReadOnlyList<Guid>? TaskListIds = null,
     /// <inheritdoc cref="CreatePlace.CreatePlaceCommand.IsPrivate"/>
     bool IsPrivate = true,
-    EncryptedPayload? EncryptedContent = null) : IRequest<bool>;
+    EncryptedPayload? EncryptedContent = null,
+    /// <summary>Null leaves whatever entry the place answers to alone - see Place.Update.</summary>
+    Guid? SourceTaskItemId = null) : IRequest<bool>;

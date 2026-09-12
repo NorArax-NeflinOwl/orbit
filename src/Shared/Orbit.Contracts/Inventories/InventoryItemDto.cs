@@ -29,7 +29,13 @@ public sealed record InventoryItemDto(
     /// Everything it is filed under, in order - see Orbit.Core.Inventories.InventoryItem.Categories.
     /// Always sent; <see cref="Category"/> above repeats the first of them for older clients.
     /// </summary>
-    IReadOnlyList<string>? Categories = null)
+    IReadOnlyList<string>? Categories = null,
+    /// <summary>
+    /// How much of this the reader's task lists ask for, added up - see
+    /// Orbit.Core.Inventories.InventoryItem.Usage. The minimum is never read as lower than this, so a form
+    /// offering the minimum offers nothing below it. Zero when nothing asks for it.
+    /// </summary>
+    decimal Usage = 0)
 {
     /// <summary>Whichever shape the sender used, read as one - the same helper TaskItemDto carries.</summary>
     public IReadOnlyList<string> AllCategories

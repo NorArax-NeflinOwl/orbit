@@ -36,8 +36,8 @@ public partial class AvatarCircle : ContentView
 		nameof(Status), typeof(string), typeof(AvatarCircle), string.Empty, propertyChanged: OnStatusChanged);
 
 	/// <summary>
-	/// How many messages are waiting from this person - ContactDto.UnreadCount. Nought draws nothing,
-	/// which is what a group and a conversation with nothing new get.
+	/// How many messages are waiting from this person or in this group - ContactDto.UnreadCount and
+	/// ChatGroupDto.UnreadCount. Nought draws nothing, which is what a conversation with nothing new gets.
 	/// </summary>
 	public static readonly BindableProperty UnreadCountProperty = BindableProperty.Create(
 		nameof(UnreadCount), typeof(int), typeof(AvatarCircle), 0, propertyChanged: OnUnreadCountChanged);

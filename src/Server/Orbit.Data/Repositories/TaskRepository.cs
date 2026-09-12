@@ -25,6 +25,7 @@ public sealed class TaskRepository : ITaskRepository
             .Include(task => task.Items).ThenInclude(item => item.Categories)
             .Include(task => task.Items).ThenInclude(item => item.ProductCategories)
             .Include(task => task.Items).ThenInclude(item => item.Steps)
+            .Include(task => task.Items).ThenInclude(item => item.Alternatives)
             .Where(task => task.UserId == userId);
 
         // Narrowed in the database when the caller only wants what changed. A client catching up asks
@@ -50,6 +51,7 @@ public sealed class TaskRepository : ITaskRepository
             .Include(task => task.Items).ThenInclude(item => item.Categories)
             .Include(task => task.Items).ThenInclude(item => item.ProductCategories)
             .Include(task => task.Items).ThenInclude(item => item.Steps)
+            .Include(task => task.Items).ThenInclude(item => item.Alternatives)
             .FirstOrDefaultAsync(task => task.Id == id && task.UserId == userId, cancellationToken);
 
         return entity is null ? null : ToDomain(entity);
@@ -69,6 +71,7 @@ public sealed class TaskRepository : ITaskRepository
             .Include(task => task.Items).ThenInclude(item => item.Categories)
             .Include(task => task.Items).ThenInclude(item => item.ProductCategories)
             .Include(task => task.Items).ThenInclude(item => item.Steps)
+            .Include(task => task.Items).ThenInclude(item => item.Alternatives)
             .Where(task => task.UserId == userId
                 && task.Id != exceptListId
                 && task.Items.Any(item => itemIds.Contains(item.Id)))
@@ -141,6 +144,7 @@ public sealed class TaskRepository : ITaskRepository
             .Include(item => item.Categories)
             .Include(item => item.ProductCategories)
             .Include(item => item.Steps)
+            .Include(item => item.Alternatives)
             .Where(item => item.TaskId == taskList.Id)
             .ToListAsync(cancellationToken);
         _dbContext.RemoveRange(existingItems);
@@ -231,6 +235,11 @@ public sealed class TaskRepository : ITaskRepository
             // does: a row must not throw while being read.
             Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal,
             entity.Colour,
+            [.. entity.Alternatives.OrderBy(way => way.Position)
+                .Select(way => new TaskItemAlternative(way.Description, way.LinkedTaskListId, way.IsDone))],
+            entity.CreatedAtUtc,
+            entity.ReferencesTaskItemId,
+            entity.RequiredQuantity,
             entity.CompletedAtUtc);
 
     /// <summary>
@@ -290,6 +299,9 @@ public sealed class TaskRepository : ITaskRepository
             DueDateUtc = item.DueDateUtc,
             IsCompleted = item.IsCompleted,
             IsFailed = item.IsFailed,
+            CreatedAtUtc = item.CreatedAtUtc,
+            ReferencesTaskItemId = item.ReferencesTaskItemId,
+            RequiredQuantity = item.RequiredQuantity,
             LinkedTaskLists = [.. item.LinkedTaskListIds.Select((linkedId, linkPosition) =>
                 new TaskItemTaskListLinkEntity
                 {
@@ -303,6 +315,17 @@ public sealed class TaskRepository : ITaskRepository
                     TaskItemId = item.Id,
                     WaitsForTaskItemId = waitsFor,
                     Position = stepPosition
+                })],
+            Alternatives = [.. item.Alternatives.Select((way, wayPosition) =>
+                new TaskItemAlternativeEntity
+                {
+                    TaskItemId = item.Id,
+                    Position = wayPosition,
+                    Description = way.Description,
+                    LinkedTaskListId = way.LinkedTaskListId,
+                    // A way that is a list is answered by the list on every read, never by a stored
+                    // flag - see TaskItemAlternativeEntity.IsDone.
+                    IsDone = !way.IsAList && way.IsDone
                 })],
             OverdueNotificationChannel = item.OverdueNotificationChannel.ToString(),
             RemindDaily = item.RemindDaily,

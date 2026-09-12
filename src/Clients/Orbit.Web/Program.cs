@@ -91,6 +91,8 @@ builder.Services.AddHttpClient<SharesApiClient>(httpClient => httpClient.BaseAdd
 // The places this account keeps on the map - see Orbit.Core.Places.Place.
 builder.Services.AddHttpClient<PlacesApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
+// The place each Location entry of a task list keeps, made and kept in step when the list is saved.
+builder.Services.AddScoped<TaskEntryPlaces>();
 builder.Services.AddHttpClient<CalendarApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<AuthApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
@@ -180,6 +182,10 @@ builder.Services.AddScoped<AdAudience>();
 builder.Services.AddSingleton<DevicePreferences>();
 // Singleton so every page reads the same choice - MainLayout initialises it and re-renders on Changed.
 builder.Services.AddSingleton<Translations>();
+// What "now" and "today" are, asked of this rather than of the machine by every page that has an answer
+// that changes at midnight - so a test can say what day it is instead of hoping. DashboardTests failed for
+// the last three hours of every day while the dashboard read DateTime.Today itself.
+builder.Services.AddSingleton(TimeProvider.System);
 // Shared unread state so the avatar badge, the nav-section badges, and Chat's contact avatars all read
 // the same poll (MainLayout owns it) instead of each fetching their own.
 builder.Services.AddScoped<NotificationFeedState>();

@@ -39,6 +39,16 @@ public sealed class LocalInventory : ISharedState, ICopyableForEditing
     public IReadOnlyDictionary<Guid, DateTimeOffset> ItemArrivals { get; set; }
         = new Dictionary<Guid, DateTimeOffset>();
 
+    /// <summary>
+    /// How much of each product on this shelf the reader's task lists ask for, by its id - see
+    /// Orbit.Core.Inventories.InventoryItem.Usage. Kept beside the items for the reason the arrivals above
+    /// are: it is the server's count rather than part of what a save sends, and a phone answering it
+    /// itself would be answering with a guess. A row nothing asks for is missing from here, which reads
+    /// as none - and the level a row is kept at is never below what is here (InventoryItemRow.KeptAt).
+    /// </summary>
+    public IReadOnlyDictionary<Guid, decimal> ItemUsage { get; set; } = new Dictionary<Guid, decimal>();
+
+
     public bool IsPrivate { get; set; }
 
     /// <inheritdoc cref="LocalNote.EncryptedCiphertext"/>

@@ -83,6 +83,30 @@ public sealed class LocalTaskListRepository : ICopyReviewStore
         return taskList;
     }
 
+    /// <summary>
+    /// One entry on another of this account's lists, by the ids a picked name carries - see
+    /// Orbit.Contracts.Suggestions.NameSuggestionSourceDto. This phone's own copy answers it, so a name
+    /// picked for what it is the name of fills the form in with no connection at all. Nothing comes back
+    /// for a list this phone has not pulled, or an entry no longer on it, and the details then arrive
+    /// with the next sync instead - the server passes them on to the whole group when the save lands.
+    /// </summary>
+    /// <param name="listServerId">The server's id for the list it is on, which is what a suggestion names.</param>
+    public async Task<TaskItemDto?> FindEntryAsync(
+        Guid listServerId, Guid entryId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var taskList = await dbContext.TaskLists.AsNoTracking()
+            .FirstOrDefaultAsync(candidate => candidate.ServerId == listServerId, cancellationToken);
+
+        if (taskList is null)
+        {
+            return null;
+        }
+
+        await OpenPrivateContentAsync([taskList], cancellationToken);
+        return taskList.Items.FirstOrDefault(entry => entry.Id == entryId);
+    }
+
     /// <inheritdoc cref="LocalNoteRepository.OpenPrivateContentAsync"/>
     private async Task OpenPrivateContentAsync(IReadOnlyList<LocalTaskList> taskLists, CancellationToken cancellationToken)
     {

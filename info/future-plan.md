@@ -776,6 +776,22 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   shelf editor offers the shelves' types (`InventoryEditor.razor`). Passing the shelves' and entries'
   types to `Knowing` when that screen opens an item is all it takes.
 
+- **An entry that is both late and reminded daily says the same thing twice.** Reported by the user on
+  2026-09-12, with both notifications side by side: "Sprawdzenie sprzęgła (nie odbija i się blokuje)"
+  from the list "Samochód" arrived as a daily reminder at 09:00 and as an overdue notice at 09:01.
+  Nothing is misconfigured - the entry has a due date and "remind daily", and each notification is right
+  on its own. The two schedulers simply do not know about each other: `DailyTaskReminderScheduler` sends
+  one a day per entry once its time of day is reached, `OverdueTaskNotificationScheduler` sends one per
+  entry the first time its due date has passed, and each keeps its own record of what it has sent
+  (`IDailyTaskReminderRepository.HasBeenSentAsync`, by day; `IOverdueTaskNotificationRepository.HasBeenNotifiedAsync`,
+  once ever). `TaskItemReminders` holds all four settings together, but only as storage - no rule reads
+  them as one answer. The two background services also run on their own intervals, which is why the pair
+  lands a minute apart rather than at once, reading as two separate things having happened. What it would
+  take: deciding which one speaks for a late entry - the plainest answer being that the overdue notice
+  stands in for that day's daily reminder, so the entry says it once - and then a rule in one scheduler
+  that can see the other's record for the same entry and day. The answer is a product decision before it
+  is a change: somebody may want the daily reminder to keep coming *because* the entry is late.
+
 - ~~**Only the web's members page asks who takes over a group.**~~ Fixed 2026-09-11: the roster's
   question is `GroupLeaveConfirmation`, which the archive's "Leave and delete chat history" opens too, and
   the phone asks the same question (`GroupLeaveQuestion`, `GroupLeaveDialog`) from the group's own screen
@@ -947,7 +963,18 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   `ReturnTo.Link(..., "/tasks")`, as every other page that opens something now does - would make it step
   back.
 
-- **Orbit.Web's pages read the machine's clock directly** - `DateTime.Today` and `DateTime.Now`, in
+- ~~**Orbit.Web's pages read the machine's clock directly**~~ Done on 2026-09-11, after PR #279 merged:
+  `Program.cs` registers `TimeProvider.System`, and every page and component that asked the machine what
+  day or time it is asks that instead - the calendar and its two grids, the date box, the expiry box,
+  chat's day dividers, the dashboard, the map, the notes list, the export's file name, the layout's
+  banner and advert pacing. `EventFormModel` and `OrbitAuthenticationStateProvider` take one as an
+  optional parameter (the editors and DI hand theirs over; the many tests that build the latter by hand
+  need not), and `Calendar.razor` sets its opening day from it in `OnInitialized`. `OrbitTestContext`
+  registers the system clock, so existing tests are unchanged, and a test that needs the hour registers
+  a `FakeTimeProvider` over it - `DashboardTests.Late_in_the_evening_an_appointment_still_to_come_counts_as_today`
+  is the evening the old test used to fail in, pinned. What follows is the entry as it stood.
+
+  `DateTime.Today` and `DateTime.Now`, in
   eighteen places across the pages and components, with no `TimeProvider` injected anywhere in that
   client. It is why `DashboardTests.An_appointment_that_has_ended_counts_as_one_that_is_behind_the_reader`
   failed for the last three hours of every day until 2026-09-10 (an event "three hours from now" is
@@ -1067,6 +1094,11 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   Orbit can hold. The alternatives worth weighing when somebody wants this: an optional link from an
   entry to a `Place` (one point, one owner, and the entry borrows it), or leaving Location as prose and
   letting the entry offer "keep this as a place" once. Needs a decision before any of it is built.
+  **Done 2026-09-11, the user's choice:** the link runs the other way. Saving a list on the web makes a
+  place for each Location entry (`TaskEntryPlaces`), and the place names its entry
+  (`Place.SourceTaskItemId`). The point is still stored once, on the place. On the map these places are
+  grouped under their list, can be hidden, and open their list from the pin. The phone does not make
+  them yet - see functionality.md, "A task list's Location entry keeps a place of its own".
 
 - **Why the map's Start and Share do nothing on a phone: two of the three causes are ruled out.** Both
   are hidden below 680px as of 2026-09-09 (`.map-panel-start`, `.map-panel-share`), on a report that
@@ -1206,15 +1238,17 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   deliberate trade for letting `orbit-web` scale to zero again; `FloodStop` is what stands in front of
   that path instead. A WAF in front of both is what would make the two surfaces equal, and is the
   expensive half below.
-- **There is still no autoscaling and no WAF.** Both apps are `max-replicas 1` with no scale rules at
-  0.25 vCPU and 0.5 GiB, and nothing sits in front of `orbit-web`. The edge limits refuse a flood rather
-  than absorbing it, which is the cheap half of the problem; the expensive half is unchanged.
-- **`max-replicas` is still 1 on both Container Apps.** Nothing in the code assumes otherwise any more -
-  the live update hub, the privacy choice cache and the rate limiter each count across instances now -
-  but raising it is a deliberate act and a cost decision, and it has not been taken. Two things to know
-  before it is: `orbit-web` currently scales to zero when idle and will stop doing so once anybody holds
-  a live update connection open, and nothing above has ever run on more than one replica, so the first
-  time it does is the first real test of all three.
+- **There is still no WAF.** Nothing sits in front of `orbit-web`, and both apps run at 0.25 vCPU and
+  0.5 GiB. The edge limits refuse a flood rather than absorbing it, which is the cheap half of the
+  problem; the expensive half is unchanged. ~~No autoscaling~~ - see the next entry.
+- ~~**`max-replicas` is still 1 on both Container Apps.**~~ Settled on 2026-09-11 by the user: autoscaling
+  exists and is **off by default**, one button away. `.github/workflows/autoscale.yml` turns it on (both
+  apps up to `max-replicas 3`, a new replica past 30 concurrent HTTP requests by default) or off (back to
+  1), and touches nothing else - `min-replicas` stays as it was, also the user's call. See
+  [azure-setup.md, Scaling](azure-setup.md#scaling). **Not yet run on Azure**: the workflow can only be
+  started from `main`, so its first use waits for this to reach it. Nothing above has ever run on more
+  than one replica, so the first time it is on is the first real test of the live updates, the privacy
+  choice cache and the rate limiter counting across instances.
 - **Nothing enforces that work reaches `main` only through `Coding`.** `guard-main.yml` closes stray
   pull requests, but a direct push to `main` deploys before any workflow can run. Real branch
   protection needs GitHub Pro on a private repository.

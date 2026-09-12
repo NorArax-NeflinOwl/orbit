@@ -218,6 +218,9 @@ public static class MauiProgram
 		// this account may hand something off to Google, and neither should cost its own round trip.
 		services.AddSingleton<IGoogleExtrasStore, PreferencesGoogleExtrasStore>();
 		services.AddSingleton<Orbit.Mobile.Google.GoogleExtras>();
+		// Which kinds of entry a picked name fills in - see EntryFilling and the account's Preferences tab.
+		services.AddSingleton<Orbit.Mobile.Screens.Suggestions.IEntryFillingStore, PreferencesEntryFillingStore>();
+		services.AddSingleton<Orbit.Mobile.Screens.Suggestions.EntryFilling>();
 		services.AddSingleton<Orbit.Mobile.Google.GoogleIntegrationAccess>();
 		// One heartbeat for the app, started and stopped with the window - see PresenceReporter.
 		// One banner for the app, so a push arriving while somebody is looking at it is not silently
