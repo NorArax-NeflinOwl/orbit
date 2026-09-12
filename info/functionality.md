@@ -631,6 +631,11 @@ storage at all.
   first** takes its place (`TaskItem.CreatedAtUtc`, kept by id across saves) and the rest point at it.
 - **Shelf items.** Picking a shelf item makes the entry that product's errand, through the link a shelf
   already knew (`LinkedInventoryItemId`).
+- **What the form shows straight away.** Both clients fill the fields in as the name is picked rather
+  than waiting for the save to come back: the browser reads the thing off the server, the phone off its
+  own copy of that list or shelf (`LocalTaskListRepository.FindEntryAsync`, `TaskItemEditor.TakeOnAsync`),
+  so a pick made with no connection is not an empty form. The two fields the phone's form does not draw,
+  priority and colour, arrive from the group when the save lands.
 - **What is left out.** Private lists take no part, because the server holds none of their entries.
   Notes and events are still offered as words only.
 - **Old phones.** A request that says nothing about the reference or the amount keeps what is stored

@@ -337,6 +337,12 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
                 // TaskItemEditor.WaitableEntries, and TaskListSteps for what waiting then means.
                 _items);
 
+            // What a picked name is the name of, as this phone already holds it - see
+            // TaskItemEditor.TakeOnAsync. Both answered from the local database, so a name picked with
+            // no connection fills the form in at once instead of waiting for the next sync.
+            BeingEdited.EntryTheNameIsOf = (listId, entryId) => _taskLists.FindEntryAsync(listId, entryId);
+            BeingEdited.ProductTheNameIsOf = ShelfProductById;
+
             // Where the entry can go depends on what it stands for, and that changes while the form is
             // open - see MoveTargetsForTheEntry.
             BeingEdited.PropertyChanged += (_, changed) =>
@@ -548,10 +554,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// </summary>
     private TaskItemShelfProduct? ShelfProductFor(TaskItemDto item)
     {
-        if (item.LinkedInventoryItemId is { } productId && _shelfProducts.TryGetValue(productId, out var found))
+        if (item.LinkedInventoryItemId is { } productId && ShelfProductById(productId) is { } found)
         {
-            return TaskItemShelfProduct.For(
-                found.InventoryLocalId, found.InventoryName, found.Product, _translations);
+            return found;
         }
 
         // Nothing on the shelf answers to this entry yet, and the list says which shelf it is measured
@@ -559,6 +564,16 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         // Orbit.Web's editor offers the same two cases through the same fields.
         return item.Kind == nameof(TaskItemKind.Inventory) ? ShelfForSomethingNew(item.Product) : null;
     }
+
+    /// <summary>
+    /// One product of this account's, by its id, ready to edit - or null when this phone has not got the
+    /// shelf it sits on. What an errand already names is read through here, and so is what a picked name
+    /// turns out to be the name of.
+    /// </summary>
+    private TaskItemShelfProduct? ShelfProductById(Guid productId)
+        => _shelfProducts.TryGetValue(productId, out var found)
+            ? TaskItemShelfProduct.For(found.InventoryLocalId, found.InventoryName, found.Product, _translations)
+            : null;
 
     /// <summary>
     /// A form for a product the list's own shelf has not got yet, or null when it is measured against

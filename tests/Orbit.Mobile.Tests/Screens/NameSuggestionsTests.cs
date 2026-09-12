@@ -62,7 +62,11 @@ public sealed class NameSuggestionsTests
         server.Names.Add(new NameSuggestionDto("Sauce", 0.6, [source]));
         var suggestions = Suggestions.Offering(server);
         NameSuggestionOffer? taken = null;
-        suggestions.TakesSource = offer => taken = offer;
+        suggestions.TakesSource = offer =>
+        {
+            taken = offer;
+            return Task.CompletedTask;
+        };
 
         suggestions.ShowFor("Sau");
 

@@ -61,8 +61,13 @@ public sealed partial class NameSuggestions : ObservableObject
     /// </summary>
     public ObservableCollection<NameSuggestionOffer> Picks { get; } = [];
 
-    /// <summary>Where a name picked for what it names goes - see Orbit.Core.Tasks.TaskItem.ReferencesTaskItemId.</summary>
-    public Action<NameSuggestionOffer>? TakesSource { get; set; }
+    /// <summary>
+    /// Where a name picked for what it names goes - see Orbit.Core.Tasks.TaskItem.ReferencesTaskItemId.
+    /// Awaited rather than called and forgotten: what was picked is read from this phone's own database
+    /// before the form shows it (see TaskItemEditor.TakeOnAsync), and a press that returned before that
+    /// finished would leave the chips gone and the fields not yet filled.
+    /// </summary>
+    public Func<NameSuggestionOffer, Task>? TakesSource { get; set; }
 
     /// <summary>
     /// Said out loud rather than left to be spotted: what is being typed is a name the reader already
@@ -148,7 +153,7 @@ public sealed partial class NameSuggestions : ObservableObject
     }
 
     [RelayCommand]
-    private void ChooseSource(NameSuggestionOffer? offer)
+    private async Task ChooseSourceAsync(NameSuggestionOffer? offer)
     {
         if (offer is null)
         {
@@ -158,7 +163,10 @@ public sealed partial class NameSuggestions : ObservableObject
         _lastLookedUp = offer.Name;
         Cancel();
         Show([]);
-        TakesSource?.Invoke(offer);
+        if (TakesSource is { } takes)
+        {
+            await takes(offer);
+        }
     }
 
     private async Task LookUpAsync(string wanted, CancellationToken cancellationToken)

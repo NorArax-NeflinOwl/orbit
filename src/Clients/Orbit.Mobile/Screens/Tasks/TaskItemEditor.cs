@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens;
 using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Suggestions;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Tasks;
 using Orbit.Core.Notifications;
@@ -324,22 +325,26 @@ public sealed partial class TaskItemEditor : ObservableObject
     public bool IsAReference => (_pickedReference ?? _item.ReferencesTaskItemId) is { } referenced && referenced != Guid.Empty;
 
     /// <summary>
-    /// A name picked for what it is the name of: the entry takes the name and becomes the same thing. Only
-    /// the words and the pointer are set here - the server fills in everything the group shares when this
-    /// is saved (see Orbit.Core.Tasks.TaskItemReferences), and the list comes back carrying it. A product
-    /// on a shelf makes the entry that product's errand, the link a shelf already knows.
+    /// A name picked for what it is the name of: the entry takes the name and becomes the same thing. What
+    /// that thing says is read off this phone's own copy and shown at once, the way Orbit.Web's editor
+    /// reads it off the server - a picked name that left the form empty until the next sync looked like
+    /// the pick had not taken. The save still carries only the words and the pointer: the server is what
+    /// keeps a group in step (see Orbit.Core.Tasks.TaskItemReferences), and it fills in what this phone
+    /// cannot show - the priority and the colour - from the group itself. A product on a shelf makes the
+    /// entry that product's errand, the link a shelf already knows.
     /// </summary>
-    public void TakeOn(NameSuggestionOffer offer)
+    public async Task TakeOnAsync(NameSuggestionOffer offer)
     {
         Description = offer.Name;
         if (offer.Source.Kind == nameof(NameSuggestionSourceKind.InventoryItem))
         {
             Kind = nameof(TaskItemKind.Inventory);
-            _pickedShelfItemId = offer.Source.Id;
+            PointAtTheProduct(offer.Source.Id);
         }
         else
         {
             _pickedReference = offer.Source.Id;
+            await TakeOnWhatItSaysAsync(offer.Source);
         }
 
         ReferenceNote = _translations.Format(
@@ -347,6 +352,61 @@ public sealed partial class TaskItemEditor : ObservableObject
             offer.Name, offer.Source.ContainerName);
         OnPropertyChanged(nameof(IsAReference));
     }
+
+    /// <summary>
+    /// The details a reference group shares, off the entry the picked name is the name of - the fields
+    /// Orbit.Core.Tasks.TaskItem.TakeSharedDetailsFrom passes round, less the two this form does not
+    /// draw. Nothing happens for an entry this phone has not got: the pointer is saved either way.
+    /// </summary>
+    private async Task TakeOnWhatItSaysAsync(NameSuggestionSourceDto source)
+    {
+        if (EntryTheNameIsOf is null
+            || await EntryTheNameIsOf(source.ContainerId, source.ItemId) is not { } found)
+        {
+            return;
+        }
+
+        Kind = found.Kind;
+        Location = found.Location ?? string.Empty;
+        Notes = found.AllNotes;
+        Categories = CategoryText.Join(found.AllCategories);
+        if (found.LinkedInventoryItemId is { } productId)
+        {
+            PointAtTheProduct(productId);
+        }
+    }
+
+    /// <summary>
+    /// Makes the entry the errand about one product, and shows that product's own form where this phone
+    /// has the shelf it sits on - so the amounts are there to correct straight away rather than after a
+    /// save and a reopen. Without the shelf the link is still made, and the form says there is nothing
+    /// to edit (see <see cref="HasNoProductToEdit"/>) until the inventory arrives.
+    /// </summary>
+    private void PointAtTheProduct(Guid productId)
+    {
+        _pickedShelfItemId = productId;
+        if (ProductTheNameIsOf?.Invoke(productId) is not { } onTheShelf)
+        {
+            return;
+        }
+
+        Shelf = onTheShelf;
+        OnPropertyChanged(nameof(Shelf));
+        SayWhatTheFormShows();
+    }
+
+    /// <summary>
+    /// One entry on another of this account's lists, by the list and the entry a picked name names -
+    /// see Orbit.Contracts.Suggestions.NameSuggestionSourceDto. Handed in rather than reached for, the
+    /// way the lists and the channels are, and answered from this phone's own database.
+    /// </summary>
+    public Func<Guid, Guid, Task<TaskItemDto?>>? EntryTheNameIsOf { private get; set; }
+
+    /// <summary>
+    /// One product on one of this account's shelves, ready to edit - the same form
+    /// <see cref="Shelf"/> is opened on. Null for a shelf this phone has not got.
+    /// </summary>
+    public Func<Guid, TaskItemShelfProduct?>? ProductTheNameIsOf { private get; set; }
 
     /// <summary>"Make it separate": the entry stops being the same thing as the others and keeps what it says.</summary>
     [RelayCommand]
@@ -532,7 +592,7 @@ public sealed partial class TaskItemEditor : ObservableObject
             suggestions.StartsAt(editor.Description);
             suggestions.Takes = description => editor.Description = description;
             // A name picked for what it names - see TakeOn, and the Preferences tab for which kinds.
-            suggestions.TakesSource = editor.TakeOn;
+            suggestions.TakesSource = editor.TakeOnAsync;
         }
 
         return editor;
