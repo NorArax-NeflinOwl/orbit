@@ -629,6 +629,22 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **An entry that is both late and reminded daily says the same thing twice.** Reported by the user on
+  2026-09-12, with both notifications side by side: "Sprawdzenie sprzęgła (nie odbija i się blokuje)"
+  from the list "Samochód" arrived as a daily reminder at 09:00 and as an overdue notice at 09:01.
+  Nothing is misconfigured - the entry has a due date and "remind daily", and each notification is right
+  on its own. The two schedulers simply do not know about each other: `DailyTaskReminderScheduler` sends
+  one a day per entry once its time of day is reached, `OverdueTaskNotificationScheduler` sends one per
+  entry the first time its due date has passed, and each keeps its own record of what it has sent
+  (`IDailyTaskReminderRepository.HasBeenSentAsync`, by day; `IOverdueTaskNotificationRepository.HasBeenNotifiedAsync`,
+  once ever). `TaskItemReminders` holds all four settings together, but only as storage - no rule reads
+  them as one answer. The two background services also run on their own intervals, which is why the pair
+  lands a minute apart rather than at once, reading as two separate things having happened. What it would
+  take: deciding which one speaks for a late entry - the plainest answer being that the overdue notice
+  stands in for that day's daily reminder, so the entry says it once - and then a rule in one scheduler
+  that can see the other's record for the same entry and day. The answer is a product decision before it
+  is a change: somebody may want the daily reminder to keep coming *because* the entry is late.
+
 - ~~**Only the web's members page asks who takes over a group.**~~ Fixed 2026-09-11: the roster's
   question is `GroupLeaveConfirmation`, which the archive's "Leave and delete chat history" opens too, and
   the phone asks the same question (`GroupLeaveQuestion`, `GroupLeaveDialog`) from the group's own screen
