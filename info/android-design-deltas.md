@@ -210,10 +210,14 @@ about them is under "Screens already built" below.
 - ~~**Enter splits the line at the caret.**~~ ***Done 2026-09-09.*** `AddLineAfter` takes the caret now
   and carries whatever follows it down onto the new line. A checklist goes on being a checklist without
   the button in the corner being touched, and an empty line ends it - which is the design's own rule and
-  is how a reader stops one.
+  is how a reader stops one. ***Since 2026-09-12*** the press is worked out by `NoteSurfaceEdits.Enter`,
+  the browser's own rule, so an empty box ends the list *in place* rather than leaving the box behind.
 - ~~**Backspace at the head of a checklist line takes the box off first.**~~ ***Done 2026-09-09.***
-  `MergeIntoTheLineAbove` answers null for that press and takes the box off instead; only a second
-  press joins the line upwards. It is the one way to undo a box from the keyboard.
+  `MergeIntoTheLineAbove` takes the box off instead of joining, and only a second press joins the line
+  upwards. It is the one way to undo a box from the keyboard. ***Since 2026-09-12*** that is the browser's
+  rule, `NoteSurfaceEdits.Backspace`, and it holds for a box with words on it; an **empty** box has
+  nothing to keep and goes whole in one press. The press answers whether the line is gone rather than
+  where the caret lands, which `CaretPlaced` says.
 - ~~**Arrow up and arrow down move between lines**, keeping the column.~~ ***Done 2026-09-10, walked on
   the device.*** The
   same Android key hook backspace already owned, which is named `NoteLineKeyPresses` now that it reads

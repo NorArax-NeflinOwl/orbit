@@ -903,8 +903,11 @@ disagree in.
   draws the lines and the caret that come back; typing inside one line is still the browser's own. That is
   where the caret goes, and it is unit-tested there:
   - **Enter** splits the line and puts the caret at the start of the new one (a checklist line continues
-    as an unticked box; an empty box leaves the list). At the head of a line with words on it the new line
-    opens above, so a tick stays with its words.
+    as an unticked box; an empty box leaves the list, in place). At the head of a line with words on it the
+    new line opens above, so a tick stays with its words. `keepsIndentation` makes the new line start where
+    the one it came from starts, with the caret after that indentation - off in the browser, on for the
+    phone, whose lines are one field each and where a field cannot open at a column somebody has to type
+    their way to.
   - **Backspace at the head of a box with words** takes the box and keeps the words; on an **empty box** it
     takes the whole line and the caret goes to the end of the line above (the start of the next when it
     was the first). A plain line joins the one above. **Delete** at the end of a line is the mirror.
@@ -943,10 +946,10 @@ disagree in.
 `NoteDetailPage` (view) over `NoteDetailViewModel` (decisions, in `Orbit.Mobile`) is a column of one-line
 fields, one per line, because a line can carry a real tick box and no text box can hold a control. The
 name is the first field. Enter starts the next line keeping the indentation, backspace at the head of a
-line takes its box off and then joins it to the line above, and a hardware keyboard's arrows walk between
-lines (`NoteLineKeys`, read on Android by `NoteLineKeyPresses`). Nothing is written until Save; leaving
-asks first when something would be lost. Where it follows the browser's editor, it uses the same rules
-from `Orbit.Core/Notes` - the note is handed to them as a `SurfaceState` whose line 0 is the name:
+line joins it to the line above, and a hardware keyboard's arrows walk between lines (`NoteLineKeys`, read
+on Android by `NoteLineKeyPresses`). Nothing is written until Save; leaving asks first when something would
+be lost. Where it follows the browser's editor, it uses the same rules from `Orbit.Core/Notes` - the note
+is handed to them as a `SurfaceState` whose line 0 is the name:
 
 - **Undo and redo are two buttons beside the tick-box button** over the note's foot (a phone has no
   Ctrl+Z), 44 across like it (`IconButton.TouchSize`; other icon buttons stay 30), dimmed while there is
@@ -978,13 +981,30 @@ from `Orbit.Core/Notes` - the note is handed to them as a `SurfaceState` whose l
   pressed box's next answer, as in the browser; they need not be next to each other. A press on a box
   that is not chosen, or with one chosen, is a single press. The chosen boxes stay chosen after a press;
   finishing lets them go. One undo step; the choosing itself is not in the history or the note.
+- **Enter and Backspace are the browser's own rules** (`NoteSurfaceEdits.Enter`/`Backspace`, reached by
+  `AddLineAfter`/`MergeIntoTheLineAbove`), so a note breaks the same way wherever it is written: Enter
+  splits the line at the caret and carries what follows down; a checklist goes on as an unticked box, and
+  **an empty box ends the list in place** rather than leaving the box with a plain line under it. At the
+  head of a line with words on it the new line opens above and the words keep their box. Backspace at the
+  head of a box with words takes the box and keeps the words (the one way to undo a box from the keyboard);
+  at the head of an **empty box it takes the whole line in that one press**, where the phone used to ask
+  for two; a plain line joins the one above, which for the first line is the note's name - the surface's
+  first line here as in the browser, so the words go into the name and the caret with them. Each press is
+  one step of the history. Two things are the phone's own: the new line keeps the indentation of the one
+  it came from (`keepsIndentation`, and `NoteSurfaceEdits.IndentationOf`, which the paste and the typed
+  `[]` read too), and the tick-box button in the corner still puts a box on every line it starts - it now
+  follows the line the caret is in, so the empty box that ended a list turns it off instead of boxing the
+  next line anyway.
 - **Enter puts the caret at the start of the new line's words**, after the indentation it takes from the
   line above (`AddLineAfter` raises `CaretPlaced`; the page used to focus the new field without a column).
-  Not while a note is being read in, so the line an empty note is given does not open the keyboard. The
-  browser's other caret defects of 2026-09-11 - the caret landing on the line after a new box, arrows
-  stepping over empty lines, a letter jumping to the next line - came from an empty `<span>` having no
-  line box, and a column of one field per line has no such thing; a ticked line's hidden field is opened
-  before the caret is put in it.
+  Not while a note is being read in, so the line an empty note is given does not open the keyboard. A join
+  says where the caret lands the same way (`MergeIntoTheLineAbove` answers only whether the line is gone,
+  which is what tells the page to let go of the field drawing it), so it can land in the note's name or in
+  a ticked line's field. An edit that only took a box off says nothing: the writing did not change, and
+  asking for the caret back would refocus the field the reader is already in. The browser's other caret
+  defects of 2026-09-11 - the caret landing on the line after a new box, arrows stepping over empty lines,
+  a letter jumping to the next line - came from an empty `<span>` having no line box, and a column of one
+  field per line has no such thing; a ticked line's hidden field is opened before the caret is put in it.
 
 ### Sharing notes and task lists
 

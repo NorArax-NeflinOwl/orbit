@@ -685,7 +685,19 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   `NoteDetailViewModel` already builds - and, for a hardware keyboard, `Keycode.Tab` in
   `NoteLineKeyPresses` beside the arrows.
 
-- **Enter and Backspace on an empty box follow different rules on the two clients.** In the browser
+- ~~**Enter and Backspace on an empty box follow different rules on the two clients.**~~ Fixed 2026-09-12:
+  the browser's, because the web is the model, and by moving the phone's two edits onto
+  `NoteSurfaceEdits.Enter`/`Backspace` rather than writing the rules a second time -
+  `AddLineAfter`/`MergeIntoTheLineAbove` now work the surface out there and show what comes back. Enter on
+  an empty box ends the list in place, one press at the head of one takes the whole line, Enter at the head
+  of a line with words opens the new line above and leaves the words their box, and Backspace at the head
+  of the first line joins it to the note's name (the surface's line 0 on both clients). Two phone things
+  were kept and are now the shared edit's own: the new line keeps the indentation of the one it came from
+  (`Enter`'s `keepsIndentation`, with `IndentationOf` moved to `Orbit.Core`), because a one-line field
+  cannot open at a column somebody has to type their way to; and the tick-box button still boxes every line
+  it starts, following the caret's line so an ended list turns it off. Where the caret lands is said
+  through `CaretPlaced` like every other edit made off the keyboard. Not yet looked at on a device. As
+  noticed: In the browser
   (`NoteSurfaceEdits.Enter`/`Backspace`) Enter on an empty box turns it into a plain line in place, and
   Backspace at the head of an empty box takes the whole line in one press. On the phone
   (`NoteDetailViewModel.AddLineAfter`/`MergeIntoTheLineAbove`) Enter there leaves the empty box and adds a
