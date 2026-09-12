@@ -101,7 +101,9 @@ public static class TaskEndpoints
                     EntriesSayingNothingAboutTheirNotes(request.Items),
                     EntriesSayingNothingAboutTheirSteps(request.Items),
                     EntriesSayingNothingAboutTheirLook(request.Items),
-                    request.Completion is null ? null : RequestEnum.Parse<TaskListCompletion>(request.Completion, "completion")),
+                    request.Completion is null ? null : RequestEnum.Parse<TaskListCompletion>(request.Completion, "completion"),
+                    EntriesKeepingTheirAlternatives: EntriesSayingNothingAboutTheirAlternatives(request.Items),
+                    EntriesKeepingTheirReference: EntriesSayingNothingAboutTheirReference(request.Items)),
                 cancellationToken);
             return ToApiResult(outcome);
         });
@@ -384,6 +386,48 @@ public static class TaskEndpoints
             .Select(item => item.Id!.Value)
             .ToHashSet();
 
+    /// <summary>
+    /// The entries that said nothing about the ways they are done by - the sixth field to follow this
+    /// rule, and the phone is again the reason. An entry sending an empty list means "none" and is not
+    /// in here. See UpdateTaskListCommand.EntriesKeepingTheirAlternatives.
+    /// </summary>
+    private static IReadOnlySet<Guid> EntriesSayingNothingAboutTheirAlternatives(IReadOnlyList<TaskItemRequest> items)
+        => items
+            .Where(item => item.Alternatives is null && item.Id is not null)
+            .Select(item => item.Id!.Value)
+            .ToHashSet();
+
+    /// <summary>
+    /// The entries that said nothing about what they are the same thing as, nor how much they need - the
+    /// seventh rule of its kind. A client knows about both or neither, so both have to be silent. See
+    /// UpdateTaskListCommand.EntriesKeepingTheirReference.
+    /// </summary>
+    private static IReadOnlySet<Guid> EntriesSayingNothingAboutTheirReference(IReadOnlyList<TaskItemRequest> items)
+        => items
+            .Where(item => item is { ReferencesTaskItemId: null, RequiredQuantity: null, Id: not null })
+            .Select(item => item.Id!.Value)
+            .ToHashSet();
+
+    /// <summary>What an entry says it is the same thing as. The empty id is "none" on the wire - see TaskItemRequest.</summary>
+    private static Guid? ToDomainReference(Guid? referencesTaskItemId)
+        => referencesTaskItemId is { } id && id != Guid.Empty ? id : null;
+
+    /// <summary>
+    /// The ways an entry was sent with, as the domain holds them. A way that is a list is never taken on
+    /// a client's word - see TaskItemAlternative - and a way's words are held to an entry's own limit
+    /// here as well as in TaskItem.Create, because an entry that already has an id is rebuilt past it.
+    /// </summary>
+    private static IReadOnlyList<TaskItemAlternative>? ToDomainAlternatives(IReadOnlyList<TaskItemAlternativeDto>? alternatives)
+        => alternatives?
+            .Select(way =>
+            {
+                Orbit.Core.StoredTextLimits.OrRefuse(
+                    way.Description ?? string.Empty, Orbit.Core.StoredTextLimits.TaskDescription, "way of doing a task entry");
+                return new TaskItemAlternative(
+                    way.Description ?? string.Empty, way.LinkedTaskListId, way.LinkedTaskListId is null && way.IsDone);
+            })
+            .ToList();
+
     private static TaskItemProduct? ToDomainProduct(TaskItemProductDto? product)
         => product is null
             ? null
@@ -439,22 +483,26 @@ public static class TaskEndpoints
         var priority = item.Priority is null
             ? ItemPriority.Normal
             : RequestEnum.Parse<ItemPriority>(item.Priority, "priority");
+        var alternatives = ToDomainAlternatives(item.Alternatives);
         if (item.Id is not { } existingId)
         {
             return TaskItem.Create(
                 item.Description, item.DueDateUtc, item.IsCompleted, item.AllLinkedTaskListIds,
                 reminders, subject, item.AllCategories, product, item.Notes, item.IsFailed,
-                item.WaitsForTaskItemIds, priority, item.Colour);
+                item.WaitsForTaskItemIds, priority, item.Colour, alternatives,
+                ToDomainReference(item.ReferencesTaskItemId), item.RequiredQuantity);
         }
 
         // Same override Create applies: a linked entry's completion follows the list it links to, so a
         // value sent for it is ignored rather than briefly believed - see LinkedTaskCompletionResolver.
+        // One done by ways takes its tick from them in the constructor, whatever was sent for it.
         return TaskItem.FromPersistence(
             existingId, item.Description, item.DueDateUtc,
             item.AllLinkedTaskListIds.Count == 0 && item.IsCompleted, item.AllLinkedTaskListIds,
             reminders, subject, item.AllCategories, product, item.Notes,
             item.AllLinkedTaskListIds.Count == 0 && item.IsFailed,
-            item.WaitsForTaskItemIds, priority, item.Colour);
+            item.WaitsForTaskItemIds, priority, item.Colour, alternatives,
+            referencesTaskItemId: ToDomainReference(item.ReferencesTaskItemId), requiredQuantity: item.RequiredQuantity);
     }
 
 
@@ -506,7 +554,11 @@ public static class TaskEndpoints
                     item.IsFailed,
                     item.WaitsForTaskItemIds,
                     item.Priority.ToString(),
-                    item.Colour))
+                    item.Colour,
+                    [.. item.Alternatives.Select(way => new TaskItemAlternativeDto(
+                        way.Description, way.LinkedTaskListId, way.IsDone))],
+                    item.ReferencesTaskItemId,
+                    item.RequiredQuantity))
                 .ToList(),
             taskList.IsCompleted,
             taskList.IsGroup,

@@ -41,6 +41,22 @@ public sealed class InventoryItemRepository : IInventoryItemRepository
         return entity is null ? null : ToDomain(entity);
     }
 
+    public async Task<IReadOnlyList<InventoryItem>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
+    {
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        var entities = await _dbContext.InventoryItems
+            .AsNoTracking()
+            .Include(item => item.Categories)
+            .Where(item => ids.Contains(item.Id))
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(ToDomain).ToList();
+    }
+
     public async Task AddAsync(InventoryItem item, CancellationToken cancellationToken)
     {
         _dbContext.InventoryItems.Add(ToEntity(item));
@@ -68,6 +84,7 @@ public sealed class InventoryItemRepository : IInventoryItemRepository
         entity.Categories.AddRange(ToCategoryEntities(item));
         entity.Quantity = item.Quantity;
         entity.MinimumQuantity = item.MinimumQuantity;
+        entity.Usage = item.Usage;
         entity.Unit = item.Unit.ToString();
         entity.ExpiryDate = item.ExpiryDate;
         entity.ExpiryNotificationChannel = item.ExpiryNotificationChannel.ToString();
@@ -148,7 +165,7 @@ public sealed class InventoryItemRepository : IInventoryItemRepository
             Enum.Parse<InventoryUnit>(entity.Unit, ignoreCase: true), entity.ExpiryDate,
             Enum.Parse<NotificationChannel>(entity.ExpiryNotificationChannel, ignoreCase: true),
             entity.PendingRestockTaskListId, entity.PendingRestockTaskItemId, entity.Position, entity.CreatedAtUtc,
-            entity.UpdatedAtUtc, entity.IsCheckedRegularly);
+            entity.UpdatedAtUtc, entity.IsCheckedRegularly, entity.Usage);
 
     private static InventoryItemEntity ToEntity(InventoryItem item)
         => new()
@@ -160,6 +177,7 @@ public sealed class InventoryItemRepository : IInventoryItemRepository
             Categories = ToCategoryEntities(item),
             Quantity = item.Quantity,
             MinimumQuantity = item.MinimumQuantity,
+            Usage = item.Usage,
             IsCheckedRegularly = item.IsCheckedRegularly,
             Unit = item.Unit.ToString(),
             ExpiryDate = item.ExpiryDate,

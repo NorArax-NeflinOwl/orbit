@@ -30,6 +30,28 @@ public abstract class OrbitTestContext : TestContext
         // The machine's own clock, because most tests build their data from the real "now". A test about
         // a page whose answer changes with the hour registers a FakeTimeProvider over this one.
         Services.AddSingleton(TimeProvider.System);
+        // What this browser keeps about itself - the task editor asks which kinds of entry a picked name
+        // fills in. Nothing stored, so every kind: a fresh browser. A test about a setting registers its own.
+        Services.AddSingleton(new DevicePreferences(new StubJSRuntime()));
+        // The places a task list's Location entries keep, which every task editor save now asks about.
+        // Nobody keeps any here and nothing is found for any address, so a save makes none - a test that
+        // is about those places registers its own over this.
+        Services.AddScoped(_ => new TaskEntryPlaces(
+            new PlacesApiClient(new HttpClient(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("[]", Encoding.UTF8, "application/json")
+            }))
+            {
+                BaseAddress = new Uri("https://example.test/")
+            }),
+            new GeocodingApiClient(new HttpClient(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("[]", Encoding.UTF8, "application/json")
+            }))
+            {
+                BaseAddress = new Uri("https://geocode.test/")
+            }),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<TaskEntryPlaces>.Instance));
         Services.AddSingleton(SuggestingNothing());
         // Empty, which is what every page sees unless the map sent somebody to it - the same reason
         // Translations is here. A test about the handover puts a place in it first.

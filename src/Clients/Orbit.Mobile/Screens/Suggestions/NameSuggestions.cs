@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Orbit.Contracts.Suggestions;
 using Orbit.Core.Suggestions;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Localization;
@@ -33,19 +34,40 @@ public sealed partial class NameSuggestions : ObservableObject
 
     private readonly SuggestionsClient _suggestions;
     private readonly Translations _translations;
+    private readonly EntryFilling? _entryFilling;
 
     private NameSuggestionKind _kind;
     private string _lastLookedUp = string.Empty;
     private CancellationTokenSource? _pending;
 
-    public NameSuggestions(SuggestionsClient suggestions, Translations translations)
+    /// <param name="entryFilling">
+    /// Which kinds of entry a pick may be the same thing as - see EntryFilling. Optional so a screen with no
+    /// such field need not be handed one; without it every kind is offered.
+    /// </param>
+    public NameSuggestions(SuggestionsClient suggestions, Translations translations, EntryFilling? entryFilling = null)
     {
         _suggestions = suggestions;
         _translations = translations;
+        _entryFilling = entryFilling;
     }
 
-    /// <summary>The names on offer, from the newest lookup only.</summary>
+    /// <summary>The names on offer for their words alone, from the newest lookup only.</summary>
     public ObservableCollection<string> Names { get; } = [];
+
+    /// <summary>
+    /// The names on offer for what they are the name of - an entry on another list, a product on a shelf -
+    /// once per thing, saying where it is. Only while a field can take that on (see <see cref="TakesSource"/>),
+    /// and only for the kinds this device fills in. Orbit.Web's NameSuggestions offers the same.
+    /// </summary>
+    public ObservableCollection<NameSuggestionOffer> Picks { get; } = [];
+
+    /// <summary>
+    /// Where a name picked for what it names goes - see Orbit.Core.Tasks.TaskItem.ReferencesTaskItemId.
+    /// Awaited rather than called and forgotten: what was picked is read from this phone's own database
+    /// before the form shows it (see TaskItemEditor.TakeOnAsync), and a press that returned before that
+    /// finished would leave the chips gone and the fields not yet filled.
+    /// </summary>
+    public Func<NameSuggestionOffer, Task>? TakesSource { get; set; }
 
     /// <summary>
     /// Said out loud rather than left to be spotted: what is being typed is a name the reader already
@@ -54,7 +76,7 @@ public sealed partial class NameSuggestions : ObservableObject
     [ObservableProperty]
     private string _duplicateWarning = string.Empty;
 
-    public bool HasAny => Names.Count > 0;
+    public bool HasAny => Names.Count > 0 || Picks.Count > 0;
 
     public bool HasDuplicateWarning => DuplicateWarning.Length > 0;
 
@@ -130,6 +152,23 @@ public sealed partial class NameSuggestions : ObservableObject
         Takes?.Invoke(name);
     }
 
+    [RelayCommand]
+    private async Task ChooseSourceAsync(NameSuggestionOffer? offer)
+    {
+        if (offer is null)
+        {
+            return;
+        }
+
+        _lastLookedUp = offer.Name;
+        Cancel();
+        Show([]);
+        if (TakesSource is { } takes)
+        {
+            await takes(offer);
+        }
+    }
+
     private async Task LookUpAsync(string wanted, CancellationToken cancellationToken)
     {
         try
@@ -147,7 +186,14 @@ public sealed partial class NameSuggestions : ObservableObject
             return;
         }
 
-        Show([.. found.Select(suggestion => suggestion.Name)]);
+        List<NameSuggestionOffer> picks = TakesSource is null
+            ? []
+            : [.. found.SelectMany(suggestion => suggestion.AllSources
+                .Where(source => _entryFilling?.Fills(source.EntryKind) ?? true)
+                .Select(source => new NameSuggestionOffer(
+                    suggestion.Name, source,
+                    $"{suggestion.Name} · {_translations.Format("in {0}", source.ContainerName)}")))];
+        Show([.. found.Select(suggestion => suggestion.Name).Where(name => picks.All(pick => pick.Name != name))], picks);
         DuplicateWarning = found.FirstOrDefault(suggestion => suggestion.Similarity >= DuplicateSimilarity) is { } duplicate
             ? _translations.Format("You already have \"{0}\".", duplicate.Name)
             : string.Empty;
@@ -160,7 +206,7 @@ public sealed partial class NameSuggestions : ObservableObject
         _pending = null;
     }
 
-    private void Show(IReadOnlyList<string> names)
+    private void Show(IReadOnlyList<string> names, IReadOnlyList<NameSuggestionOffer>? picks = null)
     {
         Names.Clear();
         foreach (var name in names)
@@ -168,7 +214,13 @@ public sealed partial class NameSuggestions : ObservableObject
             Names.Add(name);
         }
 
-        if (names.Count == 0)
+        Picks.Clear();
+        foreach (var pick in picks ?? [])
+        {
+            Picks.Add(pick);
+        }
+
+        if (names.Count == 0 && Picks.Count == 0)
         {
             DuplicateWarning = string.Empty;
         }
@@ -178,3 +230,9 @@ public sealed partial class NameSuggestions : ObservableObject
 
     partial void OnDuplicateWarningChanged(string value) => OnPropertyChanged(nameof(HasDuplicateWarning));
 }
+
+/// <summary>
+/// One name on offer for what it is the name of - see <see cref="NameSuggestions.Picks"/>.
+/// </summary>
+/// <param name="Label">What the chip says: the name, and where the thing it names is.</param>
+public sealed record NameSuggestionOffer(string Name, NameSuggestionSourceDto Source, string Label);

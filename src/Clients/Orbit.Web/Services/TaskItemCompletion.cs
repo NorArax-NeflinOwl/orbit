@@ -95,6 +95,30 @@ public sealed class TaskItemCompletion(
     }
 
     /// <summary>
+    /// Takes one of an entry's ways, or takes it back - see TaskItem.Alternatives. The same whole-list
+    /// save a tick is, with that way's answer changed. The entry's own tick follows from its ways, and is
+    /// said here too because a private list is sealed as it is sent and nothing works it out afterwards.
+    /// A way that is a list is left as it is: that list answers for it.
+    /// </summary>
+    public Task<TaskItemTickOutcome> TakeWayAsync(
+        TaskDto taskList, TaskItemDto item, int wayIndex, bool isDone, CancellationToken cancellationToken = default)
+    {
+        FailureMessage = null;
+        Note = null;
+        List<TaskItemAlternativeDto> ways =
+        [
+            .. item.AllAlternatives.Select((way, index) =>
+                index == wayIndex && way.LinkedTaskListId is null ? way with { IsDone = isDone } : way)
+        ];
+        return SaveAsync(
+            taskList,
+            [.. taskList.Items.Select(existingItem => existingItem.Id == item.Id
+                ? TaskItemRequest.From(existingItem) with { Alternatives = ways, IsCompleted = ways.Any(way => way.IsDone) }
+                : TaskItemRequest.From(existingItem))],
+            cancellationToken);
+    }
+
+    /// <summary>
     /// Takes this entry off its list - the entry page's "Delete item". The same whole-list save a tick
     /// is, with the entry left out. An appointment the entry raised stays in the calendar, as it does
     /// when the entry is removed in the list's own form: the event is the reader's to delete, not a side
@@ -171,7 +195,15 @@ public sealed class TaskItemCompletion(
         try
         {
             var outcome = await tasksApiClient.UpdateTaskListAsync(
-                taskList.Id, new UpdateTaskRequest(taskList.Title, items, taskList.IsGroup), cancellationToken);
+                taskList.Id,
+                // Everything about the list as it already is, not only its entries: the endpoint replaces a
+                // list wholesale, and a request that left IsPrivate out saved a private list back in the
+                // clear - its title and every entry readable on the server - while one that left Priority
+                // out put every list back to Normal on a tick. The description and the reader's answer
+                // about whether it is finished say "not provided" by being null, and keep what is stored.
+                new UpdateTaskRequest(
+                    taskList.Title, items, taskList.IsGroup, taskList.IsPrivate, Priority: taskList.Priority),
+                cancellationToken);
             if (outcome.Kind == EditOutcomeKind.Locked)
             {
                 FailureMessage = translations.Format(

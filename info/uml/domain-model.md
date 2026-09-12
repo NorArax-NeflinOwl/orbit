@@ -71,6 +71,7 @@ classDiagram
         +EventLocation Where
         +ItemPriority Priority
         +IReadOnlyList~Guid~ TaskListIds
+        +Guid? SourceTaskItemId
         +bool IsShared
         +ShareAccessLevel AccessLevel
     }
@@ -101,8 +102,17 @@ classDiagram
         +bool IsFailed
         +bool IsResolved
         +IReadOnlyList~Guid~ LinkedTaskListIds
+        +IReadOnlyList~TaskItemAlternative~ Alternatives
         +IReadOnlyList~Guid~ WaitsForTaskItemIds
         +IReadOnlyList~string~ Categories
+        +Guid? ReferencesTaskItemId
+        +decimal? RequiredQuantity
+        +DateTimeOffset? CreatedAtUtc
+    }
+    class TaskItemAlternative {
+        +string Description
+        +Guid? LinkedTaskListId
+        +bool IsDone
     }
     class TaskItemSubject {
         +who, where and what
@@ -134,6 +144,8 @@ classDiagram
         +string Name
         +decimal Quantity
         +decimal? MinimumQuantity
+        +decimal Usage
+        +decimal? EffectiveMinimum
         +InventoryUnit Unit
         +DateTimeOffset? ExpiryDate
         +bool IsCheckedRegularly
@@ -171,6 +183,9 @@ classDiagram
     TaskItem "1" *-- "0..1" TaskItemProduct
     TaskItem "1" *-- "1" TaskItemReminders
     TaskItem "0..*" --> "0..*" TaskList : links to
+    TaskItem "1" *-- "0..*" TaskItemAlternative : done any one way
+    TaskItemAlternative "0..*" --> "0..1" TaskList : is
+    TaskItem "0..*" --> "0..1" TaskItem : references its group's source
     TaskList "0..1" --> "0..1" Inventory : measured against
     CalendarEvent "1" *-- "1" CalendarEventDetails
     CalendarEventDetails "1" *-- "0..1" EventRecurrence
@@ -224,7 +239,11 @@ Most modules are independent. Two are not, and both are deliberate:
   `PendingRestockTaskResolver` exist to keep the two ends agreeing.
 - **A task item links to other task lists** (`TaskItem.LinkedTaskListIds`), so completing an item can
   depend on lists elsewhere — `LinkedTaskCompletionResolver` is what decides whether that counts as
-  done, and `TaskListLinkValidator` is what stops a link being made into a cycle.
+  done, and `TaskListLinkValidator` is what stops a link being made into a cycle. The rule is "every
+  list". An entry can instead have **ways** (`TaskItem.Alternatives`), and then the rule is "any one":
+  each way is a line ticked by hand or another list, and the entry is done when one way is. The same
+  resolver works out a list way, and the same validator checks it for cycles. An entry has links or
+  ways, never both.
 
 ## The dispatcher
 

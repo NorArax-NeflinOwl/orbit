@@ -464,7 +464,10 @@ internal sealed class FakeTasksServer : HttpMessageHandler
     {
         var storedById = (stored ?? []).Where(item => item.Id != Guid.Empty).ToDictionary(item => item.Id);
         return InTheOrderTheyCanBeDone(items.Select(item => new TaskItemDto(
-            item.Id ?? Guid.NewGuid(), item.Description, item.DueDateUtc, item.IsCompleted,
+            item.Id ?? Guid.NewGuid(), item.Description, item.DueDateUtc,
+            // An entry done by ways is done when one is, whatever was sent for it - TaskItem's own rule.
+            // A way that is a list is not worked out here: no test asks this fake to resolve lists.
+            WaysOf(item, storedById) is { Count: > 0 } ways ? ways.Any(way => way.IsDone) : item.IsCompleted,
             // Whichever shape the client sent, answered in both - what the real endpoint does, so a
             // client reading only the old field still works against this fake. See TaskEndpoints.ToDto.
             item.AllLinkedTaskListIds.Count > 0 ? item.AllLinkedTaskListIds[0] : null,
@@ -505,8 +508,26 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             WaitsForTaskItemIds: item.WaitsForTaskItemIds
                 ?? (item.Id is { } waiting && storedById.TryGetValue(waiting, out var asStored)
                     ? asStored.AllWaitsForTaskItemIds
-                    : []))).ToList());
+                    : []),
+            Alternatives: WaysOf(item, storedById),
+            // Null keeps what is stored, the empty id says "none" - the real endpoint's rule for both.
+            ReferencesTaskItemId: item.ReferencesTaskItemId is { } referenced
+                ? referenced == Guid.Empty ? null : referenced
+                : item.Id is { } holder && storedById.TryGetValue(holder, out var held) ? held.ReferencesTaskItemId : null,
+            RequiredQuantity: item.RequiredQuantity
+                ?? (item.Id is { } needer && storedById.TryGetValue(needer, out var needs) ? needs.RequiredQuantity : null))).ToList());
     }
+
+    /// <summary>
+    /// The ways an entry is done by, as the real endpoint answers them: none on an entry standing for
+    /// lists, and null - "nothing to say" - keeps what is stored, the rule the notes above follow.
+    /// </summary>
+    private static IReadOnlyList<TaskItemAlternativeDto> WaysOf(
+        TaskItemRequest item, IReadOnlyDictionary<Guid, TaskItemDto> storedById)
+        => item.AllLinkedTaskListIds.Count > 0
+            ? []
+            : item.Alternatives
+                ?? (item.Id is { } id && storedById.TryGetValue(id, out var stored) ? stored.AllAlternatives : []);
 
     /// <summary>
     /// The rule the real server keeps about the order work is done in, kept here too: a step that is

@@ -25,6 +25,12 @@ public sealed partial class AccountViewModel : ObservableObject
 {
     private readonly AccountClient _accountClient;
     private readonly GoogleExtras _googleExtras;
+
+    /// <summary>
+    /// Which kinds of entry a picked name fills in - see EntryFilling. Optional so a test about something
+    /// else need not build one; the application always has it, and without it every kind reads as on.
+    /// </summary>
+    private readonly Orbit.Mobile.Screens.Suggestions.EntryFilling? _entryFilling;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
     private readonly SessionStore _sessionStore;
     private readonly Translations _translations;
@@ -175,8 +181,10 @@ public sealed partial class AccountViewModel : ObservableObject
         UserPermissions permissions, IThemeStore themes, IAccentColorStore accents, TransferClient transfer,
         LocalStoreReset localStore,
         Notifications.NotificationSettingsViewModel notifications, IScreenNavigator navigator,
-        GoogleAccountLink googleLink, GoogleExtras googleExtras)
+        GoogleAccountLink googleLink, GoogleExtras googleExtras,
+        Orbit.Mobile.Screens.Suggestions.EntryFilling? entryFilling = null)
     {
+        _entryFilling = entryFilling;
         _accountClient = accountClient;
         _encryptionKeyProvider = encryptionKeyProvider;
         Connection = connection;
@@ -269,6 +277,48 @@ public sealed partial class AccountViewModel : ObservableObject
     public bool IsShowingAccount => Tab is AccountTab.Account;
 
     public bool IsShowingAppearance => Tab is AccountTab.Appearance;
+
+    public bool IsShowingPreferences => Tab is AccountTab.Preferences;
+
+    // One switch per kind of entry on the Preferences tab - whether a name picked from the suggestions
+    // fills that kind in and makes it the same thing as what it names. See EntryFilling.
+
+    public bool FillsChecklist
+    {
+        get => Fills(nameof(Orbit.Core.Tasks.TaskItemKind.Checklist));
+        set => SetFills(nameof(Orbit.Core.Tasks.TaskItemKind.Checklist), value);
+    }
+
+    public bool FillsCalendar
+    {
+        get => Fills(nameof(Orbit.Core.Tasks.TaskItemKind.Calendar));
+        set => SetFills(nameof(Orbit.Core.Tasks.TaskItemKind.Calendar), value);
+    }
+
+    public bool FillsLocation
+    {
+        get => Fills(nameof(Orbit.Core.Tasks.TaskItemKind.Location));
+        set => SetFills(nameof(Orbit.Core.Tasks.TaskItemKind.Location), value);
+    }
+
+    public bool FillsInventory
+    {
+        get => Fills(nameof(Orbit.Core.Tasks.TaskItemKind.Inventory));
+        set => SetFills(nameof(Orbit.Core.Tasks.TaskItemKind.Inventory), value);
+    }
+
+    private bool Fills(string kind) => _entryFilling?.Fills(kind) ?? true;
+
+    private void SetFills(string kind, bool fills, [System.Runtime.CompilerServices.CallerMemberName] string? property = null)
+    {
+        if (_entryFilling is null || _entryFilling.Fills(kind) == fills)
+        {
+            return;
+        }
+
+        _entryFilling.SetFills(kind, fills);
+        OnPropertyChanged(property);
+    }
 
     public bool IsShowingPermissions => Tab is AccountTab.Permissions;
 
@@ -934,6 +984,7 @@ public sealed partial class AccountViewModel : ObservableObject
         OnPropertyChanged(nameof(Tabs));
         OnPropertyChanged(nameof(IsShowingAccount));
         OnPropertyChanged(nameof(IsShowingAppearance));
+        OnPropertyChanged(nameof(IsShowingPreferences));
         OnPropertyChanged(nameof(IsShowingPermissions));
         OnPropertyChanged(nameof(IsShowingDebug));
     }

@@ -170,6 +170,12 @@ else
                                 <label>
                                     @T["Min"]<FieldHint>@T["Restock once the amount drops below this"]</FieldHint>
                                     <InputNumber TValue="decimal?" @bind-Value="item.MinimumQuantity" step="0.01" />
+                                    @* What the task lists ask for, which the minimum is never kept below - see
+                                       InventoryItem.Usage. Said as a warning while the typed minimum is lower. *@
+                                    @if (item.Usage > 0)
+                                    {
+                                        <FieldHint Warns="@((item.MinimumQuantity ?? 0) < item.Usage)">@T.Format("Your lists ask for {0} of this, so it is never kept below that.", item.Usage.ToString("0.##"))</FieldHint>
+                                    }
                                 </label>
                                 @* The unit reads on the row it qualifies - "2" and "2 kg" are different
                                    amounts - but it is set behind the toggle with the rest of the fields,

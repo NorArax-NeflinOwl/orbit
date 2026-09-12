@@ -30,12 +30,21 @@
         @* Each option carries an id so the field can point at the highlighted one through
            aria-activedescendant: the focus stays in the box while the arrows move down the list, so
            that attribute is the only thing telling a screen reader what is currently on offer. *@
-        @for (var index = 0; index < _suggestions.Count; index++)
+        @* A name that is the name of something - an entry on another list, a product on a shelf - is
+           offered once per thing, saying where each is, so the reader picks which one they meant. See
+           OnSourceChosen. *@
+        @for (var index = 0; index < Offered.Count; index++)
         {
-            var suggestion = _suggestions[index];
+            var offered = Offered[index];
             <button type="button" id="@($"{_panelId}-{index}")" class="name-suggestion-option"
                     role="option" aria-selected="false"
-                    @onclick="() => ChooseAsync(suggestion)">@suggestion.Name</button>
+                    @onclick="() => ChooseAsync(offered)">
+                @offered.Suggestion.Name
+                @if (offered.Source is { } source)
+                {
+                    <span class="name-suggestion-source">@T.Format("in {0}", source.ContainerName)</span>
+                }
+            </button>
         }
     </div>
 }
@@ -49,6 +58,35 @@
 
     /// <summary>Raised when one of the offered names is picked, so the field can take it.</summary>
     [Parameter] public EventCallback<string> OnChosen { get; set; }
+
+    /// <summary>
+    /// Raised when a name is picked for what it is the name of - see NameSuggestionPick. Only a field that
+    /// can take that on says so: without it, a name is offered for its words alone, the way it always was.
+    /// </summary>
+    [Parameter] public EventCallback<NameSuggestionPick> OnSourceChosen { get; set; }
+
+    /// <summary>
+    /// Which kinds of entry a pick may be the same thing as, by name - DevicePreferences.KindsFilledFromSuggestions.
+    /// A thing of a kind left out is offered as its words only. Null lets every kind through.
+    /// </summary>
+    [Parameter] public IReadOnlySet<string>? SourceKinds { get; set; }
+
+    /// <summary>One line of the list: a name, and the thing it is the name of when it is offered for that.</summary>
+    private sealed record Offer(NameSuggestionDto Suggestion, NameSuggestionSourceDto? Source);
+
+    /// <summary>
+    /// What the list shows, one line per thing a name is the name of - or one for the name alone, when it
+    /// names nothing this field can be made the same thing as.
+    /// </summary>
+    private IReadOnlyList<Offer> Offered
+        => [.. _suggestions.SelectMany(suggestion => SourcesOffered(suggestion) is { Count: > 0 } sources
+            ? sources.Select(source => new Offer(suggestion, source))
+            : new[] { new Offer(suggestion, null) })];
+
+    private IReadOnlyList<NameSuggestionSourceDto> SourcesOffered(NameSuggestionDto suggestion)
+        => OnSourceChosen.HasDelegate
+            ? [.. suggestion.AllSources.Where(source => SourceKinds?.Contains(source.EntryKind) ?? true)]
+            : [];
 
     /// <summary>
     /// How long to wait after the last keystroke. Long enough that typing a word is one lookup rather
@@ -228,13 +266,19 @@
         });
     }
 
-    private async Task ChooseAsync(NameSuggestionDto suggestion)
+    private async Task ChooseAsync(Offer offered)
     {
         // Cleared before the callback: the field is about to hold exactly what was offered, and offering
         // it again under itself reads as the suggestion not having been taken.
         _suggestions = [];
-        _lastLookedUp = suggestion.Name.Trim();
-        await OnChosen.InvokeAsync(suggestion.Name);
+        _lastLookedUp = offered.Suggestion.Name.Trim();
+        if (offered.Source is { } source)
+        {
+            await OnSourceChosen.InvokeAsync(new NameSuggestionPick(offered.Suggestion.Name, source));
+            return;
+        }
+
+        await OnChosen.InvokeAsync(offered.Suggestion.Name);
     }
 
     public async ValueTask DisposeAsync()

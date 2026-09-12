@@ -74,8 +74,29 @@ public sealed class DevicePreferences
     /// </summary>
     public bool AllowAdsForDebugger { get; private set; }
 
+    /// <summary>The kinds of task entry there are, in the order the editor's kind picker lists them.</summary>
+    public static readonly IReadOnlyList<string> EntryKinds =
+    [
+        nameof(Orbit.Core.Tasks.TaskItemKind.Checklist),
+        nameof(Orbit.Core.Tasks.TaskItemKind.Calendar),
+        nameof(Orbit.Core.Tasks.TaskItemKind.Location),
+        nameof(Orbit.Core.Tasks.TaskItemKind.Inventory)
+    ];
+
+    /// <summary>
+    /// Which kinds of task entry a picked name suggestion fills in and makes the same thing as what it
+    /// names - see Orbit.Core.Tasks.TaskItem.ReferencesTaskItemId. Every kind until somebody says
+    /// otherwise, which is the user's rule; a kind left out still takes the name's words and nothing else.
+    /// Per device like the rest of this class, and chosen on Options' Preferences tab.
+    /// </summary>
+    public IReadOnlySet<string> KindsFilledFromSuggestions { get; private set; } = new HashSet<string>(EntryKinds);
+
     public async Task InitializeAsync()
     {
+        // Nothing stored means every kind; an empty string is somebody having switched every one off.
+        KindsFilledFromSuggestions = await ReadAsync(StorageKeys.KindsFilledFromSuggestions) is { } storedKinds
+            ? storedKinds.Split(',', StringSplitOptions.RemoveEmptyEntries).Where(EntryKinds.Contains).ToHashSet()
+            : new HashSet<string>(EntryKinds);
         AllowLocation = await ReadAsync(StorageKeys.AllowLocation) == "true";
         // Anything but an explicit "false" leaves them on: a browser that has never been asked, and one
         // whose storage cannot be read at all, both mean "nobody turned these off".
@@ -121,6 +142,23 @@ public sealed class DevicePreferences
         return WriteAsync(StorageKeys.AllowAdsForDebugger, allowAds ? "true" : "false");
     }
 
+    /// <summary>Switches one kind of entry in or out of <see cref="KindsFilledFromSuggestions"/>.</summary>
+    public Task SetKindFilledFromSuggestionsAsync(string kind, bool isFilled)
+    {
+        var kinds = new HashSet<string>(KindsFilledFromSuggestions);
+        if (isFilled)
+        {
+            kinds.Add(kind);
+        }
+        else
+        {
+            kinds.Remove(kind);
+        }
+
+        KindsFilledFromSuggestions = kinds;
+        return WriteAsync(StorageKeys.KindsFilledFromSuggestions, string.Join(',', EntryKinds.Where(kinds.Contains)));
+    }
+
     /// <summary>
     /// Reading a preference must never stop a page loading. A browser with storage blocked outright
     /// (private windows in some browsers, embedded webviews) throws here, and the right answer then is
@@ -161,6 +199,7 @@ public sealed class DevicePreferences
         public const string DiagnosticsMode = "orbit-diagnostics-mode";
         public const string MinimumLogLevel = "orbit-minimum-log-level";
         public const string AllowAdsForDebugger = "orbit-allow-ads-for-debugger";
+        public const string KindsFilledFromSuggestions = "orbit-kinds-filled-from-suggestions";
     }
 }
 

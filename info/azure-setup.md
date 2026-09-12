@@ -300,23 +300,44 @@ exercise in re-pointing `ConnectionStrings__Orbit` at the new server once it's r
 |---|---|---|
 | Target port | `8080` (matches `ASPNETCORE_URLS` in [its Dockerfile](../src/Server/Orbit.Api/Dockerfile)) | `80` (Container Apps terminates TLS itself before forwarding plain HTTP - see [nginx.azure.conf](../src/Clients/Orbit.Web/nginx.azure.conf)'s header comment) |
 | Traffic | Internal only | External |
-| Scale | `min-replicas 1`, `max-replicas 1` (no longer required to stay at exactly 1 for database-safety reasons now that it's PostgreSQL, not SQLite - see [History](#sqlite-and-azure-files) - but hasn't been revisited since) | `min-replicas 0`, `max-replicas 1` - scales to zero when idle, meaning a cold start (a few seconds) on the first request after a quiet period |
+| Scale | `min-replicas 1`, `max-replicas 1` while autoscaling is off (the default), `3` while it is on - see [Scaling](#scaling) below | `min-replicas 0`, `max-replicas 1` while autoscaling is off, `3` while it is on - scales to zero when idle either way, meaning a cold start (a few seconds) on the first request after a quiet period |
 
 ```bash
 az containerapp ingress show -n orbit-api -g Orbit
 az containerapp ingress show -n orbit-web -g Orbit
 ```
 
-**Raising `max-replicas` on `orbit-api` needs a backplane at the same time.** The live-update hub (see
-[Functionality — Live updates](functionality.md#live-updates)) keeps its registry of who is connected in
-the process's own memory. With two replicas, an announcement raised on one reaches only the clients
-connected to that one; everybody else hears nothing and falls back to their slow poll. Nothing errors,
-nothing appears in a log, and the only symptom is that the app is slower for some people than for others.
-Scaling out means adding Azure SignalR Service or a Redis backplane in the same change.
+#### Scaling
 
-**`orbit-web` will stop scaling to zero.** A client holding a WebSocket open is not idle, so the
-scale-to-zero rule above no longer fires while anybody has Orbit open. The cold start goes away with it;
-the cost does not.
+**Autoscaling is off by default, and one button away.** `.github/workflows/autoscale.yml` ("Turn
+autoscaling on or off" in the Actions tab, run from `main`) takes one choice:
+
+- **off** - `max-replicas 1` on both apps, which is how they have always run.
+- **on** - `max-replicas 3` on both, with an HTTP rule named `http-concurrency` that starts another replica
+  once one is carrying more than the given number of concurrent requests (30 unless you say otherwise).
+
+It touches nothing else: not the image, not `min-replicas` (orbit-web still scales to zero when idle,
+orbit-api keeps its one warm replica), not CPU or memory. Off is a ceiling of one rather than "no rule",
+because an app with no rule of its own still gets Container Apps' default HTTP rule and would scale all
+the same. Each run makes a new revision of both apps - scale settings live on the revision template - and
+logs the resulting `properties.template.scale` of each, so the run is the record of what changed. The
+deploy never touches scale settings, so whatever was chosen last survives every release. By hand, the same
+two commands are:
+
+```bash
+az containerapp update -n orbit-api -g Orbit --max-replicas 3 --scale-rule-name http-concurrency --scale-rule-type http --scale-rule-http-concurrency 30
+az containerapp update -n orbit-api -g Orbit --max-replicas 1
+```
+
+**Several replicas of `orbit-api` need no backplane of their own any more.** The live-update hub, the
+privacy choice cache and the rate limiter each count across instances through PostgreSQL (see
+[Functionality — Live updates](functionality.md#live-updates) and `info/uml/deployment.md`). What nobody
+has done yet is watch them do it: the first time autoscaling is on and a second replica starts is the first
+real test of all three, so look at the live updates and the rate limits that day.
+
+**`orbit-web` will stop scaling to zero while anybody has Orbit open.** A client holding a WebSocket open
+is not idle, so the scale-to-zero rule above no longer fires. That is true with autoscaling off as well;
+turning it on only adds replicas above the first.
 
 ### 6. Let a release record itself as the newest build
 

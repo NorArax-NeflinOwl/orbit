@@ -105,6 +105,9 @@ namespace Orbit.Mobile.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("UnreadCount")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("Id");
 
                     b.ToTable("ChatGroups");
@@ -287,6 +290,10 @@ namespace Orbit.Mobile.Data.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("ItemArrivals")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ItemUsage")
                         .IsRequired()
                         .HasColumnType("TEXT");
 

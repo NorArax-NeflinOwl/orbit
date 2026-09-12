@@ -90,6 +90,7 @@ public sealed class ChatSynchronizer
                     Name = group.Name,
                     OwnRole = group.OwnRole,
                     IsArchived = group.IsArchived,
+                    UnreadCount = group.UnreadCount,
                     CreatedAtUtc = group.CreatedAtUtc,
                     Members = group.Members
                         .Select(member => new LocalChatGroupMember(
@@ -128,6 +129,8 @@ public sealed class ChatSynchronizer
 
             // As in the one-to-one conversation above: this screen being open is what "read" means.
             await _chatClient.MarkGroupConversationAsReadAsync(groupId, cancellationToken);
+            // And the count on its row goes with it, here and now - not at the next refresh.
+            await _chatRepository.MarkGroupReadAsync(groupId, cancellationToken);
 
             return new ChatSyncResult(push.Sent, stored, ReachedTheServer: true);
         }

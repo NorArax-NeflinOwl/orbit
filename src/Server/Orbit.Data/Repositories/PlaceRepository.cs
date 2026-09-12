@@ -70,6 +70,7 @@ public sealed class PlaceRepository : IPlaceRepository
         entity.Longitude = place.Where.Longitude;
         entity.Colour = place.Colour;
         entity.Priority = place.Priority.ToString();
+        entity.SourceTaskItemId = place.SourceTaskItemId;
         entity.UpdatedAtUtc = place.UpdatedAtUtc;
 
         _dbContext.RemoveRange(entity.TaskLists);
@@ -103,7 +104,8 @@ public sealed class PlaceRepository : IPlaceRepository
             entity.IsPrivate,
             entity.EncryptedCiphertext is { } ciphertext && entity.EncryptedNonce is { } nonce
                 ? new EncryptedPayload(ciphertext, nonce)
-                : null);
+                : null,
+            entity.SourceTaskItemId);
 
     private static PlaceEntity ToEntity(Place place)
         => new()
@@ -121,6 +123,7 @@ public sealed class PlaceRepository : IPlaceRepository
             EncryptedCiphertext = place.EncryptedContent?.Ciphertext,
             EncryptedNonce = place.EncryptedContent?.Nonce,
             TaskLists = [.. LinksOf(place)],
+            SourceTaskItemId = place.SourceTaskItemId,
             CreatedAtUtc = place.CreatedAtUtc,
             UpdatedAtUtc = place.UpdatedAtUtc
         };

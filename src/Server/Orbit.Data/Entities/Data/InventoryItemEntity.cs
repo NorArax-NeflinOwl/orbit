@@ -19,6 +19,12 @@ public sealed class InventoryItemEntity
     public decimal Quantity { get; set; }
     public decimal? MinimumQuantity { get; set; }
 
+    /// <summary>
+    /// How much of this the owner's task lists ask for, added up - see Orbit.Core.Inventories.InventoryItem.Usage.
+    /// Kept by ShelfUsage rather than typed, and never below zero; the minimum is never read as lower than it.
+    /// </summary>
+    public decimal Usage { get; set; }
+
     /// <summary>Looked at every round rather than only when low - see InventoryItem.IsCheckedRegularly.</summary>
     public bool IsCheckedRegularly { get; set; }
 

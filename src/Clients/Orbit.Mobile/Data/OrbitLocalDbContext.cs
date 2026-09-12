@@ -130,6 +130,10 @@ public sealed class OrbitLocalDbContext : DbContext
             inventory.Property(entity => entity.ItemArrivals)
                 .HasConversion(ArrivalsConverter)
                 .Metadata.SetValueComparer(ArrivalsComparer);
+            inventory.Property(entity => entity.ItemUsage)
+                .HasConversion(UsageConverter)
+                .Metadata.SetValueComparer(UsageComparer);
+
             inventory.Property(entity => entity.CopyBaseLines)
                 .HasConversion(LinesConverter)
                 .Metadata.SetValueComparer(LinesComparer);
@@ -282,6 +286,26 @@ public sealed class OrbitLocalDbContext : DbContext
             : JsonSerializer.Deserialize(
                 stored, LocalStoreSerializerContext.Default.IReadOnlyDictionaryGuidDateTimeOffset)
                 ?? new Dictionary<Guid, DateTimeOffset>();
+
+    /// <summary>What the task lists ask of each product, beside the items - see LocalInventory.ItemUsage.</summary>
+    private static readonly ValueConverter<IReadOnlyDictionary<Guid, decimal>, string> UsageConverter = new(
+        usage => JsonSerializer.Serialize(
+            usage, LocalStoreSerializerContext.Default.IReadOnlyDictionaryGuidDecimal),
+        stored => ReadUsage(stored));
+
+    private static readonly ValueComparer<IReadOnlyDictionary<Guid, decimal>> UsageComparer = new(
+        (left, right) => left!.Count == right!.Count && !left.Except(right).Any(),
+        usage => usage.Aggregate(0, (hash, asked) => HashCode.Combine(hash, asked.GetHashCode())),
+        usage => usage.ToDictionary(asked => asked.Key, asked => asked.Value));
+
+    /// <inheritdoc cref="ReadList"/>
+    private static IReadOnlyDictionary<Guid, decimal> ReadUsage(string stored)
+        => stored.Length == 0
+            ? new Dictionary<Guid, decimal>()
+            : JsonSerializer.Deserialize(
+                stored, LocalStoreSerializerContext.Default.IReadOnlyDictionaryGuidDecimal)
+                ?? new Dictionary<Guid, decimal>();
+
 
     /// <summary>Without this an edited item list is compared by reference and saved unchanged.</summary>
     private static readonly ValueComparer<IReadOnlyList<InventoryItemRequest>> InventoryItemsComparer = new(

@@ -213,6 +213,9 @@ public sealed class OrbitDbContext : DbContext
             entity.Property(item => item.Priority).IsRequired().HasMaxLength(20)
                 .HasDefaultValue(nameof(Orbit.Core.Abstractions.ItemPriority.Normal));
             entity.Property(item => item.Colour).IsRequired().HasMaxLength(StoredTextLimits.Color).HasDefaultValue(string.Empty);
+            // Asked of a whole account whenever a group's source goes and an heir is looked for - see
+            // Orbit.Core.Tasks.TaskItemReferences.
+            entity.HasIndex(item => item.ReferencesTaskItemId);
 
             // The lists this entry stands for. Owned by the entry and deleted with it, like the entries
             // themselves are owned by their list.
@@ -240,6 +243,21 @@ public sealed class OrbitDbContext : DbContext
                 .WithOne()
                 .HasForeignKey(step => step.TaskItemId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // The ways it can be got done, owned the same way.
+            entity.HasMany(item => item.Alternatives)
+                .WithOne()
+                .HasForeignKey(way => way.TaskItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TaskItemAlternativeEntity>(entity =>
+        {
+            // Position rather than the words as half the key: two ways may say the same thing.
+            entity.HasKey(way => new { way.TaskItemId, way.Position });
+            entity.Property(way => way.Description).IsRequired().HasMaxLength(StoredTextLimits.TaskDescription);
+            // No foreign key to the list a way is, for the reason the links below have none.
+            entity.HasIndex(way => way.LinkedTaskListId);
         });
 
         modelBuilder.Entity<TaskItemCategoryEntity>(entity =>

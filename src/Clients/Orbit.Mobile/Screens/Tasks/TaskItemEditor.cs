@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens;
 using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Suggestions;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Tasks;
 using Orbit.Core.Notifications;
@@ -225,7 +226,198 @@ public sealed partial class TaskItemEditor : ObservableObject
     {
         OnPropertyChanged(nameof(IsALinkToOtherLists));
         OnPropertyChanged(nameof(LinkableTaskListsLeft));
+        OnPropertyChanged(nameof(CanHaveWays));
     }
+
+    /// <summary>
+    /// The ways this entry can be got done, any one of which is enough - see TaskItem.Alternatives and
+    /// TaskItemWay. Offered while it stands for no list, and the lists only while it has no ways: "any one
+    /// of these" and "every one of these" are two different entries. Orbit.Web draws the same pair.
+    /// </summary>
+    public ObservableCollection<TaskItemWay> Ways { get; } = [];
+
+    public bool HasWays => Ways.Count > 0;
+
+    /// <summary>Whether the ways are offered at all - not on an entry that stands for lists.</summary>
+    public bool CanHaveWays => !IsALinkToOtherLists;
+
+    /// <summary>Whether lists to stand for are offered: not while the entry has ways, nor with nothing to point at.</summary>
+    public bool CanStandForLists => CanBeLinked && !HasWays;
+
+    /// <summary>What the "or a list" picker offers: the lists this entry could point at that are not a way already.</summary>
+    public IReadOnlyList<TaskListChoice> WayListsLeft
+        => [.. LinkableTaskLists.Where(choice =>
+            choice.ServerId is not null && Ways.All(way => way.ListServerId != choice.ServerId))];
+
+    /// <summary>A new line of its own, blank, for the reader to type into. One left blank is not saved.</summary>
+    [RelayCommand]
+    private void AddAWay()
+    {
+        Ways.Add(new TaskItemWay(string.Empty, listServerId: null, listName: null, isDone: false));
+        SayWhatItIsDoneBy();
+    }
+
+    /// <summary>
+    /// A list as one of the ways. A command rather than the picker's bound value, for the reason LinkTo is
+    /// one - see TaskListDetailPage.OnWayListPicked.
+    /// </summary>
+    [RelayCommand]
+    private void AddAListWay(TaskListChoice? chosen)
+    {
+        if (chosen?.ServerId is not { } listServerId || Ways.Any(way => way.ListServerId == listServerId))
+        {
+            return;
+        }
+
+        Ways.Add(new TaskItemWay(string.Empty, listServerId, chosen.Name, isDone: false));
+        SayWhatItIsDoneBy();
+    }
+
+    [RelayCommand]
+    private void RemoveWay(TaskItemWay? way)
+    {
+        if (way is not null && Ways.Remove(way))
+        {
+            SayWhatItIsDoneBy();
+        }
+    }
+
+    private void SayWhatItIsDoneBy()
+    {
+        OnPropertyChanged(nameof(HasWays));
+        OnPropertyChanged(nameof(CanStandForLists));
+        OnPropertyChanged(nameof(WayListsLeft));
+    }
+
+    /// <summary>The ways as they are saved: none on an entry standing for lists, and none left blank.</summary>
+    private IReadOnlyList<TaskItemAlternativeDto> WaysAsSaved()
+        => IsALinkToOtherLists
+            ? []
+            : [.. Ways
+                .Where(way => way.IsAList || way.Description.Trim().Length > 0)
+                .Select(way => new TaskItemAlternativeDto(way.Description.Trim(), way.ListServerId, way.IsDone))];
+
+    /// <summary>
+    /// An entry done by ways is done when one is. Said here as well as on the server, because a private
+    /// list is sealed on this phone and nothing works it out for it afterwards.
+    /// </summary>
+    private bool IsCompletedAsSaved()
+        => WaysAsSaved() is { Count: > 0 } ways ? ways.Any(way => way.IsDone) : _item.IsCompleted;
+
+    /// <summary>
+    /// What this entry is the same thing as, when a name picked in this sitting made it so - see
+    /// TaskItem.ReferencesTaskItemId. The empty id is "Make it separate". Null leaves what it already was.
+    /// </summary>
+    private Guid? _pickedReference;
+
+    /// <summary>The shelf item a picked name was the name of, which makes this entry that product's errand.</summary>
+    private Guid? _pickedShelfItemId;
+
+    /// <summary>
+    /// Said under the entry while it is the same thing as another - the phone's '!', beside the web's.
+    /// Empty for an entry of its own.
+    /// </summary>
+    [ObservableProperty]
+    private string _referenceNote = string.Empty;
+
+    public bool HasReferenceNote => ReferenceNote.Length > 0;
+
+    public bool IsAReference => (_pickedReference ?? _item.ReferencesTaskItemId) is { } referenced && referenced != Guid.Empty;
+
+    /// <summary>
+    /// A name picked for what it is the name of: the entry takes the name and becomes the same thing. What
+    /// that thing says is read off this phone's own copy and shown at once, the way Orbit.Web's editor
+    /// reads it off the server - a picked name that left the form empty until the next sync looked like
+    /// the pick had not taken. The save still carries only the words and the pointer: the server is what
+    /// keeps a group in step (see Orbit.Core.Tasks.TaskItemReferences), and it fills in what this phone
+    /// cannot show - the priority and the colour - from the group itself. A product on a shelf makes the
+    /// entry that product's errand, the link a shelf already knows.
+    /// </summary>
+    public async Task TakeOnAsync(NameSuggestionOffer offer)
+    {
+        Description = offer.Name;
+        if (offer.Source.Kind == nameof(NameSuggestionSourceKind.InventoryItem))
+        {
+            Kind = nameof(TaskItemKind.Inventory);
+            PointAtTheProduct(offer.Source.Id);
+        }
+        else
+        {
+            _pickedReference = offer.Source.Id;
+            await TakeOnWhatItSaysAsync(offer.Source);
+        }
+
+        ReferenceNote = _translations.Format(
+            "The same thing as \"{0}\" in {1}: changing what it is changes it there too. Its date, tick and amount stay its own.",
+            offer.Name, offer.Source.ContainerName);
+        OnPropertyChanged(nameof(IsAReference));
+    }
+
+    /// <summary>
+    /// The details a reference group shares, off the entry the picked name is the name of - the fields
+    /// Orbit.Core.Tasks.TaskItem.TakeSharedDetailsFrom passes round, less the two this form does not
+    /// draw. Nothing happens for an entry this phone has not got: the pointer is saved either way.
+    /// </summary>
+    private async Task TakeOnWhatItSaysAsync(NameSuggestionSourceDto source)
+    {
+        if (EntryTheNameIsOf is null
+            || await EntryTheNameIsOf(source.ContainerId, source.ItemId) is not { } found)
+        {
+            return;
+        }
+
+        Kind = found.Kind;
+        Location = found.Location ?? string.Empty;
+        Notes = found.AllNotes;
+        Categories = CategoryText.Join(found.AllCategories);
+        if (found.LinkedInventoryItemId is { } productId)
+        {
+            PointAtTheProduct(productId);
+        }
+    }
+
+    /// <summary>
+    /// Makes the entry the errand about one product, and shows that product's own form where this phone
+    /// has the shelf it sits on - so the amounts are there to correct straight away rather than after a
+    /// save and a reopen. Without the shelf the link is still made, and the form says there is nothing
+    /// to edit (see <see cref="HasNoProductToEdit"/>) until the inventory arrives.
+    /// </summary>
+    private void PointAtTheProduct(Guid productId)
+    {
+        _pickedShelfItemId = productId;
+        if (ProductTheNameIsOf?.Invoke(productId) is not { } onTheShelf)
+        {
+            return;
+        }
+
+        Shelf = onTheShelf;
+        OnPropertyChanged(nameof(Shelf));
+        SayWhatTheFormShows();
+    }
+
+    /// <summary>
+    /// One entry on another of this account's lists, by the list and the entry a picked name names -
+    /// see Orbit.Contracts.Suggestions.NameSuggestionSourceDto. Handed in rather than reached for, the
+    /// way the lists and the channels are, and answered from this phone's own database.
+    /// </summary>
+    public Func<Guid, Guid, Task<TaskItemDto?>>? EntryTheNameIsOf { private get; set; }
+
+    /// <summary>
+    /// One product on one of this account's shelves, ready to edit - the same form
+    /// <see cref="Shelf"/> is opened on. Null for a shelf this phone has not got.
+    /// </summary>
+    public Func<Guid, TaskItemShelfProduct?>? ProductTheNameIsOf { private get; set; }
+
+    /// <summary>"Make it separate": the entry stops being the same thing as the others and keeps what it says.</summary>
+    [RelayCommand]
+    private void MakeItsOwn()
+    {
+        _pickedReference = Guid.Empty;
+        ReferenceNote = string.Empty;
+        OnPropertyChanged(nameof(IsAReference));
+    }
+
+    partial void OnReferenceNoteChanged(string value) => OnPropertyChanged(nameof(HasReferenceNote));
 
     /// <summary>
     /// The other entries of this same list, which this one can be made to wait for - "hang the door"
@@ -399,6 +591,8 @@ public sealed partial class TaskItemEditor : ObservableObject
             suggestions.Offers(NameSuggestionKind.TaskItemDescription);
             suggestions.StartsAt(editor.Description);
             suggestions.Takes = description => editor.Description = description;
+            // A name picked for what it names - see TakeOn, and the Preferences tab for which kinds.
+            suggestions.TakesSource = editor.TakeOnAsync;
         }
 
         return editor;
@@ -468,6 +662,27 @@ public sealed partial class TaskItemEditor : ObservableObject
             editor.LinkedTaskLists.Add(linked);
         }
 
+        // And the ways it is done by, in the order the entry names them. A way whose list this phone has
+        // not got keeps its place and is named "another list": it is still one of the ways.
+        foreach (var way in item.AllAlternatives)
+        {
+            editor.Ways.Add(new TaskItemWay(
+                way.Description,
+                way.LinkedTaskListId,
+                way.LinkedTaskListId is { } wayListId
+                    ? lists.FirstOrDefault(choice => choice.ServerId == wayListId)?.Name ?? editor._translations["another list"]
+                    : null,
+                way.IsDone));
+        }
+
+        // An entry read back as the same thing as another says so, though not which - that is on the
+        // server's side of the pointer, and the words say enough to recognise it.
+        if (item.ReferencesTaskItemId is not null)
+        {
+            editor.ReferenceNote = translations[
+                "The same thing as entries on other lists: changing what it is changes it there too. Its date, tick and amount stay its own."];
+        }
+
         // And what it already waits for, in the order the entry names them. A step naming an entry that
         // is no longer on the list is dropped rather than drawn as a blank - which is what the server
         // does with it on the next save anyway. See TaskListSteps.
@@ -528,6 +743,16 @@ public sealed partial class TaskItemEditor : ObservableObject
             // phone would quietly drop the rest of an entry standing for several.
             LinkedTaskListId = null,
             LinkedTaskListIds = [.. LinkedTaskLists.Select(linked => linked.ServerId!.Value)],
+            // The ways as this form now says them, and the tick they give the entry - see WaysAsSaved.
+            Alternatives = WaysAsSaved(),
+            IsCompleted = IsCompletedAsSaved(),
+            // What it is the same thing as, when a name picked here said so - see TakeOn - and otherwise
+            // what it already was.
+            ReferencesTaskItemId = _pickedReference ?? _item.ReferencesTaskItemId,
+            LinkedInventoryItemId = _pickedShelfItemId ?? _item.LinkedInventoryItemId,
+            // Left to the product while one is sent - the server takes the entry's minimum off it, one
+            // answer rather than two - and otherwise as the entry already had it.
+            RequiredQuantity = IsAskingForSomethingNoShelfHasYet || IsDescribingSomethingNew ? null : _item.RequiredQuantity,
             Description = Description.Trim(),
             // Always a string, never null, now that there is a box: an empty one means "cleared", which
             // is what emptying it has to mean - null would leave whatever the server holds.

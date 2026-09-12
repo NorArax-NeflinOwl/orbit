@@ -27,7 +27,11 @@ public static class SuggestionEndpoints
             var found = await dispatcher.SendAsync(
                 new GetNameSuggestionsQuery(GetUserId(user), suggestionKind, query ?? string.Empty), cancellationToken);
 
-            return Results.Ok(found.Select(suggestion => new NameSuggestionDto(suggestion.Name, suggestion.Similarity)));
+            return Results.Ok(found.Select(suggestion => new NameSuggestionDto(
+                suggestion.Name, suggestion.Similarity,
+                [.. suggestion.Sources.Select(source => new NameSuggestionSourceDto(
+                    source.Kind.ToString(), source.Id, source.ItemId, source.ContainerId, source.ContainerName,
+                    source.EntryKind))])));
         });
 
         // The whole of what this reader has filed things under, rather than what looks like what they

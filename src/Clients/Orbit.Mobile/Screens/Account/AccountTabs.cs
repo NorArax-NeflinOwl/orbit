@@ -7,6 +7,7 @@ public enum AccountTab
 {
     Account,
     Appearance,
+    Preferences,
     Permissions,
     Debug
 }
@@ -53,6 +54,7 @@ public sealed record AccountTabRow(AccountTab Tab, string Name, bool IsChosen)
     {
         AccountTab.Account => translations["Account"],
         AccountTab.Appearance => translations["Appearance"],
+        AccountTab.Preferences => translations["Preferences"],
         AccountTab.Permissions => translations["Permissions"],
         // Named as the browser names it, and as the permission that opens it is named.
         _ => translations["Debugger"]

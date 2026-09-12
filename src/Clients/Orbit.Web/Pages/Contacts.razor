@@ -110,6 +110,7 @@ else
                 {
                     <PersonRow Id="group.Id" Name="@group.Name"
                                Subtitle="@T.Format("{0} members", group.Members.Count)"
+                               HasUnseenAction="@(group.UnreadCount > 0)"
                                OnSelected="() => OpenGroup(group.Id)">
                         <Pin>
                             <PinButton IsPinned="Pins.IsPinned(group.Id)"
@@ -155,6 +156,7 @@ else
                 {
                     <PersonRow Id="group.Id" Name="@group.Name"
                                Subtitle="@T.Format("{0} members", group.Members.Count)"
+                               HasUnseenAction="@(group.UnreadCount > 0)"
                                OnSelected="() => OpenGroup(group.Id)">
                         <Menu>
                             <OverflowMenu>

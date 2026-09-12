@@ -311,6 +311,60 @@ public sealed class TaskItemSummaryScreenTests
         Assert.DoesNotContain("ShowTaskList", context.Navigator.Destinations);
     }
 
+    /// <summary>
+    /// "Move to", from the entry's own menu: the entry leaves this list for the one chosen, and the reader
+    /// is looking at it there - the same move the list's own entry form makes.
+    /// </summary>
+    [Fact]
+    public async Task Move_to_sends_the_entry_to_the_list_chosen_and_opens_it_there()
+    {
+        using var context = new ScreenContext();
+        var opened = await context.AddEntryAsync("Collect the parcel");
+        var kitchen = await context.AddListOnTheServerAsync("Kitchen");
+        var screen = await context.OpenAsync(opened);
+
+        var target = Assert.Single(await screen.MoveTargetsAsync());
+        await screen.MoveCommand.ExecuteAsync(target);
+
+        Assert.Equal((kitchen, opened.ItemId), context.Navigator.LastTaskItem);
+        Assert.Contains((await context.StoredListAsync(kitchen)).Items, item => item.Id == opened.ItemId);
+        Assert.DoesNotContain(
+            (await context.StoredListAsync(opened.TaskListLocalId)).Items, item => item.Id == opened.ItemId);
+    }
+
+    /// <summary>Only the server can move an entry between two lists, so with no connection it is said, not queued.</summary>
+    [Fact]
+    public async Task Moving_with_no_connection_says_so_and_stays_put()
+    {
+        using var context = new ScreenContext();
+        var opened = await context.AddEntryAsync("Collect the parcel");
+        await context.AddListOnTheServerAsync("Kitchen");
+        var screen = await context.OpenAsync(opened);
+        var target = Assert.Single(await screen.MoveTargetsAsync());
+        context.Server.IsUnreachable = true;
+
+        await screen.MoveCommand.ExecuteAsync(target);
+
+        Assert.Equal("Moving an entry needs a connection.", screen.Status);
+        Assert.DoesNotContain("ShowTaskItem", context.Navigator.Destinations);
+    }
+
+    /// <summary>
+    /// A list the entry stands for is not somewhere it can go - an entry cannot link to its own list, and
+    /// the server refuses the move - so it is left out, as the list's own form leaves it out.
+    /// </summary>
+    [Fact]
+    public async Task A_list_the_entry_stands_for_is_not_offered_as_somewhere_to_move_it()
+    {
+        using var context = new ScreenContext();
+        var kitchen = await context.AddListOnTheServerAsync("Kitchen");
+        var kitchenServerId = (await context.StoredListAsync(kitchen)).ServerId!.Value;
+        var opened = await context.AddEntryAsync("Kitchen done", standingFor: kitchenServerId);
+        var screen = await context.OpenAsync(opened);
+
+        Assert.Empty(await screen.MoveTargetsAsync());
+    }
+
     /// <summary>A tick is a tick either way round - a box that only fills in is a trap for a misread row.</summary>
     [Fact]
     public async Task A_tick_can_be_taken_back_here_too()
@@ -487,6 +541,17 @@ public sealed class TaskItemSummaryScreenTests
             await dbContext.SaveChangesAsync();
         }
 
+        /// <summary>
+        /// Another list of this account's, made here and pushed - so it and the entry's list are both on the
+        /// server, which a move needs. Answers its local id.
+        /// </summary>
+        public async Task<Guid> AddListOnTheServerAsync(string title)
+        {
+            var created = await _taskLists.CreateAsync(title, []);
+            await _synchronizer.SynchroniseAsync();
+            return created.LocalId;
+        }
+
         /// <summary>The reader's own answer about whether the list is finished - see LocalTaskList.Completion.</summary>
         public async Task AnswerWhetherTheListIsFinishedAsync(Guid taskListLocalId, string completion)
         {
@@ -530,7 +595,7 @@ public sealed class TaskItemSummaryScreenTests
             var screen = new TaskItemSummaryViewModel(
                 _taskLists, _events, new PlaceSearch(_nominatim.ToHttpClient()),
                 new Translations(new InMemoryLanguageStore()), Navigator,
-                new ChatRepository(_localStore, _clock), _synchronizer);
+                new ChatRepository(_localStore, _clock), _synchronizer, new TasksClient(Server.ToHttpClient()));
 
             screen.Open(opened.TaskListLocalId, opened.ItemId);
             await screen.LoadCommand.ExecuteAsync(null);

@@ -140,7 +140,9 @@ public sealed partial class InventoryViewModel : ObservableObject
             var found = _stored
                 .Where(CanBeSearched)
                 .SelectMany(inventory => inventory.Items.Select(item => new InventoryItemMatch(
-                    inventory.LocalId, inventory.Name, InventoryItemRow.From(item, _translations))))
+                    inventory.LocalId, inventory.Name, InventoryItemRow.From(
+                        item, _translations,
+                        usage: inventory.ItemUsage.GetValueOrDefault(item.Id ?? Guid.Empty)))))
                 .Where(match => match.Name.Contains(wanted, StringComparison.CurrentCultureIgnoreCase))
                 .OrderBy(match => match.Name, StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(match => match.InventoryName, StringComparer.CurrentCultureIgnoreCase);

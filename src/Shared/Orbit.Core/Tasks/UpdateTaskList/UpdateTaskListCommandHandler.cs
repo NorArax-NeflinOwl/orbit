@@ -11,11 +11,17 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
     private readonly RestockCompletion _restockCompletion;
     private readonly StockedEntryCompletion _stockedEntryCompletion;
     private readonly ProductEntryPlacement _productEntryPlacement;
+    private readonly ShelfUsage? _shelfUsage;
 
+    /// <param name="shelfUsage">
+    /// Recounts what the shelf items this list's entries stand for are asked for - see ShelfUsage. Optional
+    /// so a test about something else need not build one; the application always has it.
+    /// </param>
     public UpdateTaskListCommandHandler(
         TaskListAccessResolver taskListAccessResolver, ITaskRepository taskRepository,
         TaskListLinkValidator taskListLinkValidator, RestockCompletion restockCompletion,
-        StockedEntryCompletion stockedEntryCompletion, ProductEntryPlacement productEntryPlacement)
+        StockedEntryCompletion stockedEntryCompletion, ProductEntryPlacement productEntryPlacement,
+        ShelfUsage? shelfUsage = null)
     {
         _taskListAccessResolver = taskListAccessResolver;
         _taskRepository = taskRepository;
@@ -23,6 +29,7 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
         _restockCompletion = restockCompletion;
         _stockedEntryCompletion = stockedEntryCompletion;
         _productEntryPlacement = productEntryPlacement;
+        _shelfUsage = shelfUsage;
     }
 
     /// <summary>Mirrors Orbit.Core.Notes.UpdateNote.UpdateNoteCommandHandler - see its class comment for what NotFound/Locked mean here.</summary>
@@ -63,6 +70,18 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
         KeepTheDescriptionOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirNotes);
         KeepTheStepsOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirSteps);
         KeepTheLookOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirLook);
+        KeepTheAlternativesOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirAlternatives);
+        KeepTheReferenceOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirReference);
+        // Every entry keeps the creation time it was first stored with - see TaskItem.CreatedAtUtc.
+        TaskItemReferences.StampCreationTimes(identity.Items, taskList.Items, nowUtc);
+        var idsBefore = taskList.Items.Select(item => item.Id).ToHashSet();
+        // What each entry was the same thing as before, so one that has just joined a group can be told
+        // from one that was already in it - see TaskItemReferences.SettleAsync.
+        var referencesBefore = taskList.Items
+            .GroupBy(item => item.Id)
+            .ToDictionary(group => group.Key, group => group.First().ReferencesTaskItemId);
+        // What the list asked of the shelves before this save, whose count may drop with it - see ShelfUsage.
+        var shelfItemsBefore = ShelfUsage.ShelfItemsOf([taskList]);
 
         // A product entry on a list measured against a shelf goes onto that shelf and stands for its row
         // from this save on - see ProductEntryPlacement. After the product has been kept for entries
@@ -94,15 +113,39 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
             taskList.SetCompletion(completion);
         }
 
-        // One save when another list had to be renamed too, so a failure cannot leave two entries
-        // claiming one id in the database - the state this exists to prevent.
-        if (identity.ListsToSaveToo.Count > 0)
+        // The reference groups this save touches follow it - details passed on, pointers straightened, and
+        // a source taken away handed on to the member created first. See TaskItemReferences.
+        var removedIds = idsBefore.Where(id => taskList.Items.All(item => item.Id != id)).ToHashSet();
+        var changedByReferences = await new TaskItemReferences(_taskRepository).SettleAsync(
+            taskList.UserId, taskList, referencesBefore, removedIds, new HashSet<Guid>(), cancellationToken);
+
+        // A list renamed for its ids is written as renamed: the copy the references changed would put the
+        // contested ids back, and a clash in the database is the one thing this save must not cause.
+        IReadOnlyList<TaskList> alsoSaved =
+        [
+            .. changedByReferences.Where(changed => identity.ListsToSaveToo.All(renamed => renamed.Id != changed.Id)),
+            .. identity.ListsToSaveToo
+        ];
+
+        // One save when another list had to change too, so a failure cannot leave two entries claiming one
+        // id in the database - the state this exists to prevent - nor half a group changed.
+        if (alsoSaved.Count > 0)
         {
-            await _taskRepository.UpdateManyAsync([taskList, .. identity.ListsToSaveToo], cancellationToken);
+            await _taskRepository.UpdateManyAsync([taskList, .. alsoSaved], cancellationToken);
         }
         else
         {
             await _taskRepository.UpdateAsync(taskList, cancellationToken);
+        }
+
+        // What the shelves are asked for, before anything tops one up to its minimum: the minimum is never
+        // read as lower than that count, so it has to be right first. See ShelfUsage.
+        if (_shelfUsage is not null)
+        {
+            await _shelfUsage.RecountAsync(
+                taskList.UserId,
+                new HashSet<Guid>([.. shelfItemsBefore, .. ShelfUsage.ShelfItemsOf([taskList, .. alsoSaved])]),
+                cancellationToken);
         }
 
         // Crossing off a restock errand says the shelf was filled, so the shelf is filled - but the
@@ -165,6 +208,50 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
             if (storedById.TryGetValue(item.Id, out var storedItem))
             {
                 item.KeepLookOf(storedItem);
+            }
+        }
+    }
+
+    /// <summary>
+    /// An entry that said nothing about the ways it is done by keeps them - see
+    /// UpdateTaskListCommand.EntriesKeepingTheirAlternatives.
+    /// </summary>
+    private static void KeepTheAlternativesOfEntriesThatSaidNothing(
+        IReadOnlyList<TaskItem> incoming, TaskList stored, IReadOnlySet<Guid>? entriesKeepingTheirAlternatives)
+    {
+        if (entriesKeepingTheirAlternatives is not { Count: > 0 })
+        {
+            return;
+        }
+
+        var storedById = stored.Items.ToDictionary(item => item.Id);
+        foreach (var item in incoming.Where(item => entriesKeepingTheirAlternatives.Contains(item.Id)))
+        {
+            if (storedById.TryGetValue(item.Id, out var storedItem))
+            {
+                item.KeepAlternativesOf(storedItem);
+            }
+        }
+    }
+
+    /// <summary>
+    /// An entry that said nothing about what it is the same thing as keeps it, and its minimum - see
+    /// UpdateTaskListCommand.EntriesKeepingTheirReference.
+    /// </summary>
+    private static void KeepTheReferenceOfEntriesThatSaidNothing(
+        IReadOnlyList<TaskItem> incoming, TaskList stored, IReadOnlySet<Guid>? entriesKeepingTheirReference)
+    {
+        if (entriesKeepingTheirReference is not { Count: > 0 })
+        {
+            return;
+        }
+
+        var storedById = stored.Items.ToDictionary(item => item.Id);
+        foreach (var item in incoming.Where(item => entriesKeepingTheirReference.Contains(item.Id)))
+        {
+            if (storedById.TryGetValue(item.Id, out var storedItem))
+            {
+                item.KeepReferenceOf(storedItem);
             }
         }
     }

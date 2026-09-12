@@ -55,11 +55,27 @@ public sealed class InventoryItem
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
     /// <summary>
-    /// Whether this item has dropped strictly below its own minimum - always false when no minimum is
-    /// set. Sitting exactly at the minimum counts as fine: the minimum is the level to keep, not the
-    /// level that already needs restocking, so 1 of 1 raises no task.
+    /// How much of this the reader's task lists ask for, every entry that stands for it added up - see
+    /// Orbit.Core.Tasks.TaskItem.RequiredQuantity and ShelfUsage, which keeps the count. Not a minimum
+    /// anybody typed and not shown as one: it is the floor <see cref="MinimumQuantity"/> can never be
+    /// below, so the shelf always holds at least what the plans need. Zero when nothing asks for it.
     /// </summary>
-    public bool IsBelowMinimum => MinimumQuantity is { } minimumQuantity && Quantity < minimumQuantity;
+    public decimal Usage { get; private set; }
+
+    /// <summary>
+    /// The level this item is kept at: the minimum somebody set, never lower than what the task lists ask
+    /// for (<see cref="Usage"/>). Set higher than that, it stays as set. Null when neither says anything.
+    /// Everything that restocks reads this rather than <see cref="MinimumQuantity"/>.
+    /// </summary>
+    public decimal? EffectiveMinimum
+        => Usage > 0 ? Math.Max(MinimumQuantity ?? 0, Usage) : MinimumQuantity;
+
+    /// <summary>
+    /// Whether this item has dropped strictly below the level it is kept at - always false when there is
+    /// none. Sitting exactly at it counts as fine: the minimum is the level to keep, not the level that
+    /// already needs restocking, so 1 of 1 raises no task.
+    /// </summary>
+    public bool IsBelowMinimum => EffectiveMinimum is { } minimumQuantity && Quantity < minimumQuantity;
 
     /// <summary>
     /// Something to look at every round rather than only when it runs low - milk, batteries, the things
@@ -127,14 +143,30 @@ public sealed class InventoryItem
         decimal? minimumQuantity,
         InventoryUnit unit, DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel,
         Guid? pendingRestockTaskListId, Guid? pendingRestockTaskItemId, int position, DateTimeOffset createdAtUtc,
-        DateTimeOffset updatedAtUtc, bool isCheckedRegularly = false)
+        DateTimeOffset updatedAtUtc, bool isCheckedRegularly = false, decimal usage = 0)
         => new(
             id, inventoryId, name, productType, categories, quantity, minimumQuantity, unit, expiryDate,
             expiryNotificationChannel, pendingRestockTaskListId, pendingRestockTaskItemId, position, createdAtUtc,
             updatedAtUtc)
         {
-            IsCheckedRegularly = isCheckedRegularly
+            IsCheckedRegularly = isCheckedRegularly,
+            Usage = usage
         };
+
+    /// <summary>
+    /// Takes the count of what the task lists ask for - see <see cref="Usage"/> and ShelfUsage. Answers
+    /// whether it moved, so an item whose count did not is not written again.
+    /// </summary>
+    public bool CountUsage(decimal usage)
+    {
+        if (Usage == usage)
+        {
+            return false;
+        }
+
+        Usage = usage;
+        return true;
+    }
 
     /// <summary>
     /// Brings this item up to the level it is meant to be kept at, which is what finishing its restock
@@ -143,7 +175,7 @@ public sealed class InventoryItem
     /// </summary>
     public bool TopUpToMinimum()
     {
-        if (MinimumQuantity is not { } minimum || Quantity >= minimum)
+        if (EffectiveMinimum is not { } minimum || Quantity >= minimum)
         {
             return false;
         }

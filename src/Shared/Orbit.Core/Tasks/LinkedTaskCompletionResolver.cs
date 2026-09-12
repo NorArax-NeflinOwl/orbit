@@ -40,11 +40,13 @@ public sealed class LinkedTaskCompletionResolver
             return null;
         }
 
+        // An entry standing for lists is done when every one of them is, and a step that read as finished
+        // while one of its lists still had work in it would be worse than no answer at all. A way that is
+        // a list is done when that list is, and its entry when any way is. A list that cannot be resolved
+        // counts as not done either way, the same as a single missing link always did.
         var resolvedItems = taskList.Items
-            .Select(item => item.IsALinkToOtherLists
-                ? TaskItem.FromPersistence(
-                    item.Id, item.Description, item.DueDateUtc, IsEveryLinkedListDone(item, context), item.LinkedTaskListIds,
-                    item.Reminders, waitsForTaskItemIds: item.WaitsForTaskItemIds)
+            .Select(item => item.IsALinkToOtherLists || item.HasAlternatives
+                ? item.ResolvedAgainst(listId => Resolve(listId, context)?.IsCompleted ?? false)
                 : item)
             .ToList();
 
@@ -76,15 +78,6 @@ public sealed class LinkedTaskCompletionResolver
         context.Visiting.Remove(taskListId);
         return resolvedTaskList;
     }
-
-    /// <summary>
-    /// Every list the entry names, or it is not done. An entry standing for several lists is one step -
-    /// "the flat is ready" - and a step that reads as finished while one of its lists still has work in
-    /// it would be worse than no answer at all. A list that cannot be resolved counts as not done, the
-    /// same as a single missing link always did.
-    /// </summary>
-    private static bool IsEveryLinkedListDone(TaskItem item, ResolutionContext context)
-        => item.LinkedTaskListIds.All(linkedListId => Resolve(linkedListId, context)?.IsCompleted ?? false);
 
     /// <summary>Working state threaded through the recursive resolution of one user's task lists.</summary>
     private sealed class ResolutionContext(IReadOnlyDictionary<Guid, TaskList> taskListsById)

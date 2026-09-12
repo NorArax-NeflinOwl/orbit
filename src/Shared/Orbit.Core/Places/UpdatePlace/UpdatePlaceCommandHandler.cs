@@ -30,7 +30,7 @@ public sealed class UpdatePlaceCommandHandler : IRequestHandler<UpdatePlaceComma
 
         place.Update(
             request.Name, request.Description, request.Where, request.Colour, request.Priority,
-            request.TaskListIds, request.IsPrivate, request.EncryptedContent);
+            request.TaskListIds, request.IsPrivate, request.EncryptedContent, request.SourceTaskItemId);
         await _placeRepository.UpdateAsync(place, cancellationToken);
         return true;
     }

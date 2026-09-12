@@ -85,5 +85,10 @@ public sealed class CopyTaskItemCommandHandler : IRequestHandler<CopyTaskItemCom
             item.Categories,
             item.Product,
             item.Notes,
-            item.IsFailed);
+            item.IsFailed,
+            // The ways it can be got done are words the entry says, so they travel; one of them that is
+            // another list is a reference, and a copy carries none of those. So does how much of its
+            // product it needs, which is the entry's own answer rather than a pointer at anything.
+            alternatives: [.. item.Alternatives.Where(way => !way.IsAList)],
+            requiredQuantity: item.RequiredQuantity);
 }

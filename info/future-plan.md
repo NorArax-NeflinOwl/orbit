@@ -931,6 +931,11 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   Orbit can hold. The alternatives worth weighing when somebody wants this: an optional link from an
   entry to a `Place` (one point, one owner, and the entry borrows it), or leaving Location as prose and
   letting the entry offer "keep this as a place" once. Needs a decision before any of it is built.
+  **Done 2026-09-11, the user's choice:** the link runs the other way. Saving a list on the web makes a
+  place for each Location entry (`TaskEntryPlaces`), and the place names its entry
+  (`Place.SourceTaskItemId`). The point is still stored once, on the place. On the map these places are
+  grouped under their list, can be hidden, and open their list from the pin. The phone does not make
+  them yet - see functionality.md, "A task list's Location entry keeps a place of its own".
 
 - **Why the map's Start and Share do nothing on a phone: two of the three causes are ruled out.** Both
   are hidden below 680px as of 2026-09-09 (`.map-panel-start`, `.map-panel-share`), on a report that
@@ -1069,15 +1074,17 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   deliberate trade for letting `orbit-web` scale to zero again; `FloodStop` is what stands in front of
   that path instead. A WAF in front of both is what would make the two surfaces equal, and is the
   expensive half below.
-- **There is still no autoscaling and no WAF.** Both apps are `max-replicas 1` with no scale rules at
-  0.25 vCPU and 0.5 GiB, and nothing sits in front of `orbit-web`. The edge limits refuse a flood rather
-  than absorbing it, which is the cheap half of the problem; the expensive half is unchanged.
-- **`max-replicas` is still 1 on both Container Apps.** Nothing in the code assumes otherwise any more -
-  the live update hub, the privacy choice cache and the rate limiter each count across instances now -
-  but raising it is a deliberate act and a cost decision, and it has not been taken. Two things to know
-  before it is: `orbit-web` currently scales to zero when idle and will stop doing so once anybody holds
-  a live update connection open, and nothing above has ever run on more than one replica, so the first
-  time it does is the first real test of all three.
+- **There is still no WAF.** Nothing sits in front of `orbit-web`, and both apps run at 0.25 vCPU and
+  0.5 GiB. The edge limits refuse a flood rather than absorbing it, which is the cheap half of the
+  problem; the expensive half is unchanged. ~~No autoscaling~~ - see the next entry.
+- ~~**`max-replicas` is still 1 on both Container Apps.**~~ Settled on 2026-09-11 by the user: autoscaling
+  exists and is **off by default**, one button away. `.github/workflows/autoscale.yml` turns it on (both
+  apps up to `max-replicas 3`, a new replica past 30 concurrent HTTP requests by default) or off (back to
+  1), and touches nothing else - `min-replicas` stays as it was, also the user's call. See
+  [azure-setup.md, Scaling](azure-setup.md#scaling). **Not yet run on Azure**: the workflow can only be
+  started from `main`, so its first use waits for this to reach it. Nothing above has ever run on more
+  than one replica, so the first time it is on is the first real test of the live updates, the privacy
+  choice cache and the rate limiter counting across instances.
 - **Nothing enforces that work reaches `main` only through `Coding`.** `guard-main.yml` closes stray
   pull requests, but a direct push to `main` deploys before any workflow can run. Real branch
   protection needs GitHub Pro on a private repository.

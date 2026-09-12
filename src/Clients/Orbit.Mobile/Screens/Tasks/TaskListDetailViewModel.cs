@@ -337,6 +337,12 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
                 // TaskItemEditor.WaitableEntries, and TaskListSteps for what waiting then means.
                 _items);
 
+            // What a picked name is the name of, as this phone already holds it - see
+            // TaskItemEditor.TakeOnAsync. Both answered from the local database, so a name picked with
+            // no connection fills the form in at once instead of waiting for the next sync.
+            BeingEdited.EntryTheNameIsOf = (listId, entryId) => _taskLists.FindEntryAsync(listId, entryId);
+            BeingEdited.ProductTheNameIsOf = ShelfProductById;
+
             // Where the entry can go depends on what it stands for, and that changes while the form is
             // open - see MoveTargetsForTheEntry.
             BeingEdited.PropertyChanged += (_, changed) =>
@@ -548,10 +554,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// </summary>
     private TaskItemShelfProduct? ShelfProductFor(TaskItemDto item)
     {
-        if (item.LinkedInventoryItemId is { } productId && _shelfProducts.TryGetValue(productId, out var found))
+        if (item.LinkedInventoryItemId is { } productId && ShelfProductById(productId) is { } found)
         {
-            return TaskItemShelfProduct.For(
-                found.InventoryLocalId, found.InventoryName, found.Product, _translations);
+            return found;
         }
 
         // Nothing on the shelf answers to this entry yet, and the list says which shelf it is measured
@@ -559,6 +564,16 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         // Orbit.Web's editor offers the same two cases through the same fields.
         return item.Kind == nameof(TaskItemKind.Inventory) ? ShelfForSomethingNew(item.Product) : null;
     }
+
+    /// <summary>
+    /// One product of this account's, by its id, ready to edit - or null when this phone has not got the
+    /// shelf it sits on. What an errand already names is read through here, and so is what a picked name
+    /// turns out to be the name of.
+    /// </summary>
+    private TaskItemShelfProduct? ShelfProductById(Guid productId)
+        => _shelfProducts.TryGetValue(productId, out var found)
+            ? TaskItemShelfProduct.For(found.InventoryLocalId, found.InventoryName, found.Product, _translations)
+            : null;
 
     /// <summary>
     /// A form for a product the list's own shelf has not got yet, or null when it is measured against
@@ -843,6 +858,13 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             return Task.CompletedTask;
         }
 
+        // An entry done by ways is not ticked either: the press offers its ways - see AskAboutTheWays.
+        if (row.Item.AllAlternatives.Count > 0)
+        {
+            AskAboutTheWays(row);
+            return Task.CompletedTask;
+        }
+
         if (row.Item.AllLinkedTaskListIds.Count > 0)
         {
             AskAboutTheListsBehind(row);
@@ -912,6 +934,78 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// <summary>"No" - the question dropped, and the entry left as it was.</summary>
     [RelayCommand]
     private void LeaveTheListBehind() => LinkedTickBeingAsked = null;
+
+    /// <summary>
+    /// The entry whose ways are being offered, after a press on its box - see AskAboutTheWays. The page
+    /// answers it with a sheet, the same split the lists behind an entry use.
+    /// </summary>
+    [ObservableProperty]
+    private TaskItemRow? _waysTickBeingAsked;
+
+    public bool IsAskingAboutTheWays => WaysTickBeingAsked is not null;
+
+    /// <summary>
+    /// What the sheet offers, one line per way in the entry's order: a line of its own by its words, the
+    /// taken one marked, and a way that is a list as somewhere to go. The answer comes back by position -
+    /// see AnswerTheWaysAsync.
+    /// </summary>
+    public IReadOnlyList<string> WaysOffered { get; private set; } = [];
+
+    /// <summary>
+    /// Answers a press on an entry done any one of several ways (see TaskItem.Alternatives) by offering
+    /// them. Orbit.Web offers the same under the row it was asked about.
+    /// </summary>
+    private void AskAboutTheWays(TaskItemRow row)
+    {
+        WaysOffered = [.. row.Item.AllAlternatives.Select(way => way.LinkedTaskListId is not null
+            ? _translations.Format("Open {0}", NameOfWay(way))
+            : way.IsDone ? "✓ " + NameOfWay(way) : NameOfWay(way))];
+        WaysTickBeingAsked = row;
+    }
+
+    /// <summary>What a way is called: its own words, or its list's name when it says nothing else.</summary>
+    private string NameOfWay(TaskItemAlternativeDto way)
+        => way.Description.Length > 0
+            ? _translations.Written(way.Description)
+            : way.LinkedTaskListId is { } listId && _listsByServerId.TryGetValue(listId, out var list)
+                ? list.Label
+                : _translations["another list"];
+
+    /// <summary>
+    /// The reader's answer to the ways sheet: the position of the way they chose, or null for none. A
+    /// line of its own is taken, or taken back, and saved - the entry is done while one is taken. A way
+    /// that is a list opens that list, which is where it is done.
+    /// </summary>
+    [RelayCommand]
+    private Task AnswerTheWaysAsync(int? chosenIndex, CancellationToken cancellationToken)
+    {
+        var row = WaysTickBeingAsked;
+        WaysTickBeingAsked = null;
+        if (row is null || chosenIndex is not { } index || index < 0 || index >= row.Item.AllAlternatives.Count)
+        {
+            return Task.CompletedTask;
+        }
+
+        if (row.Item.AllAlternatives[index].LinkedTaskListId is { } listId)
+        {
+            if (_listsByServerId.TryGetValue(listId, out var list))
+            {
+                _navigator.ShowTaskList(list.LocalId);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        List<TaskItemAlternativeDto> ways =
+        [
+            .. row.Item.AllAlternatives.Select((way, position) => position == index ? way with { IsDone = !way.IsDone } : way)
+        ];
+        return SaveAsync(
+            [.. _items.Select(item => item.Id == row.Id
+                ? item with { Alternatives = ways, IsCompleted = ways.Any(way => way.IsDone) }
+                : item)],
+            cancellationToken);
+    }
 
     /// <summary>
     /// The entries this one is still waiting on. The same rule the server keeps: a step crossed out
@@ -1419,6 +1513,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     partial void OnLinkedTickBeingAskedChanged(TaskItemRow? value)
         => OnPropertyChanged(nameof(IsAskingAboutTheListsBehind));
+
+    partial void OnWaysTickBeingAskedChanged(TaskItemRow? value)
+        => OnPropertyChanged(nameof(IsAskingAboutTheWays));
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
 

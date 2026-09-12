@@ -74,7 +74,28 @@ public sealed class InventoryRowTests
             Guid.NewGuid(), name, string.Empty, string.Empty, quantity, minimum,
             nameof(InventoryUnit.Piece), null, "None");
 
+    /// <summary>
+    /// The level a product is kept at is never below what the reader's task lists ask for - the same rule
+    /// the server keeps (InventoryItem.EffectiveMinimum). Reading the typed minimum alone, the phone called
+    /// a product fine while the server was already restocking it.
+    /// </summary>
+    [Fact]
+    public void A_product_the_lists_ask_more_of_than_its_minimum_is_running_low()
+    {
+        var flour = new InventoryItemRequest(
+            Guid.NewGuid(), "Flour", "Bag", "Kitchen", 3, 2, nameof(InventoryUnit.Piece), null, "None");
+        var translations = new Translations(new InMemoryLanguageStore());
+
+        Assert.False(InventoryItemRow.From(flour, translations).IsRunningLow);
+
+        var asTheListsAskForIt = InventoryItemRow.From(flour, translations, usage: 5);
+
+        Assert.True(asTheListsAskForIt.IsRunningLow);
+        Assert.Contains("5", asTheListsAskForIt.Detail);
+    }
+
     private static InventoryRow Describe(LocalInventory inventory, bool privateItemsAreUnlocked = true)
+
         => InventoryRow.From(
             inventory, hasUnsentChanges: false, FixedNetworkStatus.Online,
             new Translations(new InMemoryLanguageStore()), privateItemsAreUnlocked);
