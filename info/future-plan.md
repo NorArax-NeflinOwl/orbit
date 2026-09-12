@@ -664,6 +664,22 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **`TaskItem.KeepAlternativesOf` can leave the completion time disagreeing with the tick.** Noticed
+  2026-09-12, merging the round that records when an entry was done into the one that lets it be done any
+  one of several ways. The two save handlers call `RecordWhenItWasDone` after it, so what is stored is
+  always corrected; a later caller that forgets would store a time for an entry that is not done, or
+  none for one that is. What it would take: either stamping inside `KeepAlternativesOf` itself, or a
+  guard in the constructor that refuses the pairing the way `Place` refuses private-with-nothing-sealed.
+
+- **Three group chat tests failed once under the full suite and have not since.** Noticed 2026-09-12:
+  `GroupConversationPagesTests` failed on the first full `dotnet test Orbit.CI.slnf` after the merge,
+  then passed on their own, on a re-run of that assembly, and on two further full runs, with nothing
+  changed in between - so this reads as flakiness under cross-assembly parallelism rather than anything
+  the merge did. Nobody chased the cause. Worth knowing that the last time a test here was flaky
+  (`NoteDetailScreenTests`, 2026-08-31) it was removed and the coverage was lost for a week because
+  nobody owned going back - see "Known scope cuts and rough edges". If these fail again, the thing to
+  look at first is what they share with another assembly's tests rather than the page itself.
+
 - ~~**Opening a conversation on the web still clears its bell entries before anything is seen.**~~ Fixed
   2026-09-12: `NewsSettler.SettledByThePageItself` names the addresses the layout must leave alone - a
   one-to-one conversation and nothing else - and `MainLayout` returns on them without settling. A group's
