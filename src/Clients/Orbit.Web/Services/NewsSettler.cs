@@ -53,4 +53,22 @@ public sealed class NewsSettler
 
         return anyMarked;
     }
+
+    /// <summary>
+    /// Whether the page at this path settles its own entries on its own terms, so the layout's settle on
+    /// every navigation has to leave it alone. One-to-one conversations are the case, and the only one:
+    /// arriving at "/chat/{otherUserId}" is not reading anything, and the page clears its entries once
+    /// the other party's newest message has actually been in view in a window with focus - see
+    /// Chat.razor's ClearNotificationsForThisConversationAsync. Settling on arrival would beat it to it
+    /// behind an unfocused window, or with their newest message still below the list.
+    ///
+    /// A group's own path is deliberately not one of these: a group raises no entry per message, so what
+    /// is waiting there is an invitation to the group, and reaching the group is reading that.
+    /// </summary>
+    public static bool SettledByThePageItself(string path)
+    {
+        const string conversations = "/chat/";
+        return path.StartsWith(conversations, StringComparison.OrdinalIgnoreCase)
+            && Guid.TryParse(path[conversations.Length..].TrimEnd('/'), out _);
+    }
 }

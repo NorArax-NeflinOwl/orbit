@@ -664,7 +664,11 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
-- **Opening a conversation on the web still clears its bell entries before anything is seen.** Since
+- ~~**Opening a conversation on the web still clears its bell entries before anything is seen.**~~ Fixed
+  2026-09-12: `NewsSettler.SettledByThePageItself` names the addresses the layout must leave alone - a
+  one-to-one conversation and nothing else - and `MainLayout` returns on them without settling. A group's
+  path is not one of them, since its entry is an invitation rather than a message, and reaching the group
+  reads it. As noticed: Since
   2026-09-11 the conversation page itself clears them only once the other person's newest message is in
   view, in a focused window (`ChatReadState.HasSeenTheirNewest`). `MainLayout` also settles every
   notification pointing at the page it navigates to, whatever that page is (`NewsSettler.SettleAsync(path)`

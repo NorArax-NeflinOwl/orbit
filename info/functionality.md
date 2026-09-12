@@ -3738,8 +3738,11 @@ the server marks nothing past it.
   (`POST /api/notifications/read-at` for `/chat/{otherUserId}`) only once the other party's newest
   message has been in view while the window was in front (`ChatReadState.HasSeenTheirNewest`) - an entry
   does not say which message it was for, so it stays while one of theirs is still below the list.
-  Opening the conversation still settles what was waiting on arrival (`MainLayout`, `NewsSettler`). Group
-  messages record no feed entries, so a group thread has nothing to clear.
+  Arriving no longer settles them either: the layout marks read whatever the address bar reaches on every
+  navigation, and since 2026-09-12 it leaves a conversation's own address to the page
+  (`NewsSettler.SettledByThePageItself`), which is the one place that knows whether anything was seen. A
+  group's path is not one of these - a group records no feed entry per message, so what waits there is an
+  invitation, and reaching the group reads it.
 - **The phone** (`ConversationViewModel`, `GroupConversationViewModel`) marks only while the page is
   showing (`OnAppearing`/`OnDisappearing`) and the app is in the foreground (the window's
   `Stopped`/`Resumed` - going to the background does not make a page disappear), up to the other
