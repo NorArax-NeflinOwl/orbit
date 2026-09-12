@@ -649,7 +649,9 @@ asked. It is a stored count, recounted from scratch for the items a list's save,
 may have moved. The minimum someone typed stays as typed. The level the shelf is kept at is the higher
 of that and Usage (`InventoryItem.EffectiveMinimum`), which is what every restock reads. The inventory
 editor shows the count beside **Min**, as a warning while the typed minimum is below it. Usage is not
-shown as a number of its own anywhere else.
+shown as a number of its own anywhere else. The phone keeps the same count beside its copy of the
+shelf (`LocalInventory.ItemUsage`, filled by the sync the way the arrival dates are), so a product its
+lists ask more of than its typed minimum reads as running low there too (`InventoryItemRow.KeptAt`).
 
 **The phone** offers the same picks under the entry's name as chips. After a pick it shows the '!' note
 and **Make it separate**. It sets only the words and the pointer; the group's details arrive with the

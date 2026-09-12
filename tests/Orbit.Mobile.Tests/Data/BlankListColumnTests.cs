@@ -74,7 +74,27 @@ public sealed class BlankListColumnTests
         Assert.Empty(stored.ItemArrivals);
     }
 
+    /// <summary>
+    /// And the same for the count beside it - see LocalInventory.ItemUsage, added the same way and
+    /// backfilled blank on every phone that upgrades.
+    /// </summary>
+    [Fact]
+    public async Task A_shelfs_blank_usage_column_reads_as_nothing_asked_for()
+    {
+        using var localStore = new LocalStore();
+        var clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-08-31T10:00:00Z"));
+        var inventories = new LocalInventoryRepository(
+            localStore, clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
+        var inventory = await inventories.CreateAsync("Kitchen");
+
+        Blank(localStore, "Inventories", "ItemUsage", inventory.LocalId);
+
+        var stored = Assert.Single(await inventories.GetAllAsync());
+        Assert.Empty(stored.ItemUsage);
+    }
+
     /// <summary>Writes a column as a migration's backfill leaves it, going round the converter.</summary>
+
     private static void BlankTheSnapshot(LocalStore localStore, Guid localId)
         => Blank(localStore, "Notes", "CopyBaseLines", localId);
 

@@ -88,8 +88,27 @@ public sealed class InventorySyncTests
     /// each arrived is the only thing that tells them apart. The save shape carries no such date - the
     /// server decides it - so the phone keeps it beside the items, and a save must not lose it.
     /// </summary>
+    /// <summary>
+    /// What the reader's task lists ask of each product, which the save shape does not carry either, so
+    /// the phone keeps it beside the items - see LocalInventory.ItemUsage. Without it a shelf read as
+    /// stocked here while the server was already restocking it.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_remembers_what_the_lists_ask_of_each_product()
+    {
+        using var context = new InventoryContext();
+        var remote = context.Server.AddInventory("Pantry");
+        context.Server.AddItem(remote.Id, "Flour", 2, usage: 5);
+
+        await context.SynchroniseAsync();
+
+        var stored = (await context.Inventories.GetAllAsync()).Single();
+        Assert.Equal(5, stored.ItemUsage[stored.Items.Single().Id!.Value]);
+    }
+
     [Fact]
     public async Task A_shelf_remembers_when_each_batch_arrived()
+
     {
         using var context = new InventoryContext();
         var remote = context.Server.AddInventory("Pantry");

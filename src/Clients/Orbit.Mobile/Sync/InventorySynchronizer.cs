@@ -170,6 +170,9 @@ public sealed class InventorySynchronizer
                 // When each batch arrived, which the save shape does not carry - see
                 // LocalInventory.ItemArrivals.
                 inventory.ItemArrivals = onTheShelf.ToDictionary(item => item.Id, item => item.CreatedAtUtc);
+                // And what the task lists ask of each of them, which the save shape does not carry
+                // either - see LocalInventory.ItemUsage.
+                inventory.ItemUsage = onTheShelf.ToDictionary(item => item.Id, item => item.Usage);
             }
 
             received++;
