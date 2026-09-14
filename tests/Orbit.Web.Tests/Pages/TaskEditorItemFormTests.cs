@@ -1118,6 +1118,60 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>
+    /// And it can wait for one that has not been saved either. The picker used to offer only entries the
+    /// server already held, because an entry had no id until a save minted one - so ordering the steps of
+    /// a list being written for the first time meant saving in the middle of writing it, and on a brand
+    /// new list nothing could wait for anything at all. Every entry names itself as it is made now.
+    /// </summary>
+    [Fact]
+    public void An_entry_can_wait_for_one_that_has_not_been_saved_yet()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        // Two more, so the middle one has a stored entry on one side and an unsaved one on the other.
+        ClickButtonSaying(cut, "Add item");
+        ClickButtonSaying(cut, "Add item");
+
+        var theSecondEntry = cut.FindAll(".editor-item").Skip(1).First();
+        var waitsFor = theSecondEntry.QuerySelectorAll("select")
+            .Single(select => select.GetAttribute("aria-label") == "Waits for");
+
+        // The stored entry, the unsaved one, and the "None" that is not an entry at all.
+        Assert.Equal(3, waitsFor.QuerySelectorAll("option").Count());
+    }
+
+    /// <summary>
+    /// And the choice survives the save: the id the form gave the entry is the id it is stored under, so
+    /// what waits for it still points at it afterwards. That is the whole reason the client names its own
+    /// entries - see Orbit.Core.Tasks.TaskItemIdentity.
+    /// </summary>
+    [Fact]
+    public void Waiting_for_an_unsaved_entry_still_points_at_it_after_the_save()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        ClickButtonSaying(cut, "Add item");
+        ClickButtonSaying(cut, "Add item");
+
+        var theSecondEntry = cut.FindAll(".editor-item").Skip(1).First();
+        var waitsFor = theSecondEntry.QuerySelectorAll("select")
+            .Single(select => select.GetAttribute("aria-label") == "Waits for");
+        var theUnsavedOne = waitsFor.QuerySelectorAll("option")
+            .Select(option => option.GetAttribute("value"))
+            .Single(value => value is { Length: > 0 } && value != ItemId.ToString());
+
+        waitsFor.Change(theUnsavedOne);
+        ClickButtonSaying(cut, "Save");
+
+        var items = JsonDocument.Parse(_lastSavedJson!).RootElement.GetProperty("items");
+        Assert.Equal(
+            items[2].GetProperty("id").GetGuid(),
+            items[1].GetProperty("waitsForTaskItemIds")[0].GetGuid());
+    }
+
+    /// <summary>
     /// Whatever the entry is. The picker used to sit among the checklist fields, so an entry that
     /// describes a product or raises an appointment could not be put in order behind another - although
     /// TaskListSteps reads the field off every entry whatever its kind, and the column holds it for all
