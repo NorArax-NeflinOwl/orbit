@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.IdentityModel.JsonWebTokens;
+using Orbit.Contracts.Notes;
 using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Sharing;
@@ -80,7 +81,11 @@ public static class PublicShareEndpoints
             item.ItemType.ToString(), item.Title, item.Subtitle,
             item.Lines.Select(line => new PublicSharedItemLineDto(
                 line.Text, line.IsChecklistItem, line.IsChecked, line.Detail, line.IsFailed,
-                line.Style.ToString())).ToList(),
+                line.Style.ToString(),
+                line.AllMarks.Count == 0
+                    ? null
+                    : line.AllMarks.Select(run => new NoteTextRunDto(run.Start, run.Length, run.Mark.ToString())).ToList()))
+                .ToList(),
             item.OwnerDisplayName, item.UpdatedAtUtc);
 
     private static Guid GetUserId(ClaimsPrincipal user)

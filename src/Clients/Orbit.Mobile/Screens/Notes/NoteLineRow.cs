@@ -47,6 +47,14 @@ public sealed partial class NoteLineRow : ObservableObject
     [ObservableProperty]
     private int _listNumber;
 
+    /// <summary>
+    /// The marks on stretches of words inside this line - see Orbit.Core.Notes.NoteTextRun. Carried
+    /// rather than drawn for now: a MAUI Entry renders one face for the whole field, so the phone keeps
+    /// what the browser wrote and hands it back unchanged, which is what stops an edit here from
+    /// flattening a note written there.
+    /// </summary>
+    public IReadOnlyList<NoteTextRun> Marks { get; set; } = NoteTextMarks.None;
+
     public static NoteLineRow From(NoteContentLineDto line)
         => new()
         {
@@ -54,10 +62,18 @@ public sealed partial class NoteLineRow : ObservableObject
             IsChecklistItem = line.IsChecklistItem,
             IsChecked = line.IsChecked,
             IsFailed = line.IsFailed,
-            Style = NoteLineStyles.Read(line.Style)
+            Style = NoteLineStyles.Read(line.Style),
+            Marks = NoteTextMarks.Normalized(
+                line.AllMarks.Select(run => new NoteTextRun(run.Start, run.Length, NoteTextMarks.Read(run.Mark))),
+                line.Text.Length)
         };
 
-    public NoteContentLineDto ToDto() => new(Text, IsChecklistItem, IsChecked, IsFailed, Style.ToString());
+    public NoteContentLineDto ToDto()
+        => new(
+            Text, IsChecklistItem, IsChecked, IsFailed, Style.ToString(),
+            Marks.Count == 0
+                ? null
+                : Marks.Select(run => new NoteTextRunDto(run.Start, run.Length, run.Mark.ToString())).ToList());
 
     /// <summary>The same line as the surface Orbit.Core decides edits on - see Orbit.Core.Notes.SurfaceState.</summary>
     public static NoteLineRow From(NoteContentLine line)
@@ -67,11 +83,12 @@ public sealed partial class NoteLineRow : ObservableObject
             IsChecklistItem = line.IsChecklistItem,
             IsChecked = line.IsChecked,
             IsFailed = line.IsFailed,
-            Style = line.Style
+            Style = line.Style,
+            Marks = line.AllMarks
         };
 
     /// <inheritdoc cref="From(NoteContentLine)"/>
-    public NoteContentLine ToLine() => new(Text, IsChecklistItem, IsChecked, IsFailed, Style);
+    public NoteContentLine ToLine() => new(Text, IsChecklistItem, IsChecked, IsFailed, Style, Marks);
 
     /// <summary>
     /// Becomes <paramref name="line"/> in place - what an undo does to a line that is still there, so the
@@ -84,6 +101,7 @@ public sealed partial class NoteLineRow : ObservableObject
         IsChecked = line.IsChecked;
         IsFailed = line.IsFailed;
         Style = line.Style;
+        Marks = line.AllMarks;
     }
 
     /// <summary>

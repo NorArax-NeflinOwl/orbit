@@ -1,3 +1,5 @@
+using Orbit.Contracts.Notes;
+
 namespace Orbit.Contracts.Sharing;
 
 /// <param name="ItemType">One of "Note", "TaskList", "CalendarEvent", "Inventory".</param>
@@ -21,9 +23,18 @@ public sealed record PublicSharedItemDto(
 /// Orbit.Core.Notes.NoteLineStyle is named by; anything else reads as "Body" (see NoteLineStyles.Read).
 /// Last and defaulted, because every other kind of item is a list of things and says nothing here.
 /// </param>
+/// <param name="Marks">
+/// The marks on stretches of words inside the line, where the item is a note - see
+/// Orbit.Contracts.Notes.NoteTextRunDto, which is the same shape a note's own lines travel with. Null for
+/// everything else, as for a line nobody marked.
+/// </param>
 public sealed record PublicSharedItemLineDto(
     string Text, bool IsChecklistItem, bool IsChecked, string? Detail, bool IsFailed = false,
-    string Style = "Body");
+    string Style = "Body", IReadOnlyList<NoteTextRunDto>? Marks = null)
+{
+    /// <summary>The marks as something to read without a null check - see <see cref="Marks"/>.</summary>
+    public IReadOnlyList<NoteTextRunDto> AllMarks => Marks ?? [];
+}
 
 /// <param name="AlreadyHeld">The caller already had access, so nothing new was granted.</param>
 public sealed record ClaimPublicShareLinkResponse(string ItemType, Guid ItemId, bool AlreadyHeld);

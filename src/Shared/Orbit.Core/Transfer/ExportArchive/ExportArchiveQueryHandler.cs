@@ -109,7 +109,11 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
         => new(
             note.Title,
             note.Content.Select(line => new ArchivedNoteLine(
-                line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed, line.Style.ToString())).ToList(),
+                line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed, line.Style.ToString(),
+                line.AllMarks.Count == 0
+                    ? null
+                    : line.AllMarks.Select(run => new ArchivedTextRun(run.Start, run.Length, run.Mark.ToString())).ToList()))
+                .ToList(),
             note.IsPrivate,
             ToArchived(note.EncryptedContent),
             note.Tags);

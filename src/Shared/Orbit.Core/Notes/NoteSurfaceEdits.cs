@@ -59,8 +59,8 @@ public static partial class NoteSurfaceEdits
         }
 
         var indentation = keepsIndentation ? IndentationOf(line.Text) : string.Empty;
-        lines[caret.Line] = line with { Text = line.Text[..caret.Offset] };
-        lines.Insert(caret.Line + 1, Continuing(line) with { Text = indentation + line.Text[caret.Offset..] });
+        lines[caret.Line] = line.Head(caret.Offset);
+        lines.Insert(caret.Line + 1, Continuing(line.Tail(caret.Offset)).Changed(0, 0, indentation));
         return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line + 1, indentation.Length));
     }
 
@@ -103,7 +103,9 @@ public static partial class NoteSurfaceEdits
                 return RemoveLine(lines, caret.Line);
             }
 
-            lines[caret.Line] = Plain(line.Text);
+            // Only the box: the words stay, with their marks, and so does what kind of line it is -
+            // taking a box off a heading was never asked for and would be a second edit nobody made.
+            lines[caret.Line] = line with { IsChecklistItem = false, IsChecked = false, IsFailed = false };
             return SurfaceState.CaretAt(lines, caret);
         }
 
@@ -115,7 +117,7 @@ public static partial class NoteSurfaceEdits
         }
 
         var previous = lines[caret.Line - 1];
-        lines[caret.Line - 1] = previous with { Text = previous.Text + line.Text };
+        lines[caret.Line - 1] = previous.FollowedBy(line);
         lines.RemoveAt(caret.Line);
         return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line - 1, previous.Text.Length));
     }
@@ -151,7 +153,7 @@ public static partial class NoteSurfaceEdits
             return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, 0));
         }
 
-        lines[caret.Line] = line with { Text = line.Text + lines[caret.Line + 1].Text };
+        lines[caret.Line] = line.FollowedBy(lines[caret.Line + 1]);
         lines.RemoveAt(caret.Line + 1);
         return SurfaceState.CaretAt(lines, caret);
     }
@@ -189,9 +191,9 @@ public static partial class NoteSurfaceEdits
         }
 
         var first = lines[start.Line];
-        var tail = lines[end.Line].Text[end.Offset..];
+        var tail = lines[end.Line].Tail(end.Offset);
         lines.RemoveRange(start.Line + 1, end.Line - start.Line);
-        lines[start.Line] = first with { Text = first.Text[..start.Offset] + tail };
+        lines[start.Line] = first.Head(start.Offset).FollowedBy(tail);
         return SurfaceState.CaretAt(lines, start);
     }
 
@@ -213,8 +215,8 @@ public static partial class NoteSurfaceEdits
         var caret = cleared.Caret;
         var lines = cleared.Lines.ToList();
         var line = lines[caret.Line];
-        var before = line.Text[..caret.Offset];
-        var after = line.Text[caret.Offset..];
+        var head = line.Head(caret.Offset);
+        var tail = line.Tail(caret.Offset);
         var written = LinesOf(text);
         var startsALine = readsMarkers && caret.Offset == 0 && !line.IsChecklistItem;
 
@@ -222,21 +224,21 @@ public static partial class NoteSurfaceEdits
         {
             if (startsALine && Read(written[0]) is { IsChecklistItem: true } box)
             {
-                lines[caret.Line] = box with { Text = box.Text + after };
+                lines[caret.Line] = box.FollowedBy(tail);
                 return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, box.Text.Length));
             }
 
-            lines[caret.Line] = line with { Text = before + written[0] + after };
+            lines[caret.Line] = line.Changed(caret.Offset, 0, written[0]);
             return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, caret.Offset + written[0].Length));
         }
 
         var replacement = new List<NoteContentLine>
         {
-            startsALine ? Read(written[0]) : line with { Text = before + written[0] }
+            startsALine ? Read(written[0]) : head.Changed(caret.Offset, 0, written[0])
         };
         replacement.AddRange(written.Skip(1).SkipLast(1).Select(pasted => readsMarkers ? Read(pasted) : Plain(pasted)));
         var last = readsMarkers ? Read(written[^1]) : Plain(written[^1]);
-        replacement.Add(last with { Text = last.Text + after });
+        replacement.Add(last.FollowedBy(tail));
 
         lines.RemoveAt(caret.Line);
         lines.InsertRange(caret.Line, replacement);
@@ -310,9 +312,8 @@ public static partial class NoteSurfaceEdits
         var lines = state.Lines.ToList();
         // The line's style is kept: a box is what the line is answered in, not what kind of line it is -
         // see NoteLineStyle, which says why the two are separate fields.
-        lines[caret.Line] = line with
+        lines[caret.Line] = line.Changed(0, marker.Length, string.Empty) with
         {
-            Text = line.Text[marker.Length..],
             IsChecklistItem = true,
             IsChecked = false,
             IsFailed = false
@@ -377,7 +378,7 @@ public static partial class NoteSurfaceEdits
         var lines = state.Lines.ToList();
         for (var index = first; index <= last; index++)
         {
-            lines[index] = lines[index] with { Text = Indentation + lines[index].Text };
+            lines[index] = lines[index].Changed(0, 0, Indentation);
         }
 
         // A point at the head of a line stays there, so the new level is inside the selection.
@@ -403,7 +404,7 @@ public static partial class NoteSurfaceEdits
         for (var index = first; index <= last; index++)
         {
             removed[index] = LeadingIndentationLength(lines[index].Text);
-            lines[index] = lines[index] with { Text = lines[index].Text[removed[index]..] };
+            lines[index] = lines[index].Changed(0, removed[index], string.Empty);
         }
 
         SurfacePoint Shifted(SurfacePoint point)
@@ -554,16 +555,16 @@ public static partial class NoteSurfaceEdits
         var first = state.Lines[start.Line];
         if (start.Line == end.Line)
         {
-            return [Plain(first.Text[start.Offset..end.Offset])];
+            return [Words(first, start.Offset, end.Offset - start.Offset)];
         }
 
         var fragment = new List<NoteContentLine>
         {
-            start.Offset == 0 ? first : Plain(first.Text[start.Offset..])
+            start.Offset == 0 ? first : Words(first, start.Offset, first.Text.Length - start.Offset)
         };
         fragment.AddRange(state.Lines.Skip(start.Line + 1).Take(end.Line - start.Line - 1));
         var lastLine = state.Lines[end.Line];
-        fragment.Add(end.Offset == 0 ? SurfaceState.EmptyLine : lastLine with { Text = lastLine.Text[..end.Offset] });
+        fragment.Add(end.Offset == 0 ? SurfaceState.EmptyLine : lastLine.Head(end.Offset));
         return fragment;
     }
 
@@ -604,20 +605,20 @@ public static partial class NoteSurfaceEdits
     private static SurfaceState InsertFragment(List<NoteContentLine> lines, SurfacePoint at, List<NoteContentLine> moved)
     {
         var line = lines[at.Line];
-        var before = line.Text[..at.Offset];
-        var after = line.Text[at.Offset..];
+        var head = line.Head(at.Offset);
+        var tail = line.Tail(at.Offset);
         if (moved.Count == 1)
         {
-            lines[at.Line] = line with { Text = before + moved[0].Text + after };
+            lines[at.Line] = head.FollowedBy(moved[0]).FollowedBy(tail);
             return new SurfaceState(lines, at, at with { Offset = at.Offset + moved[0].Text.Length });
         }
 
         var replacement = new List<NoteContentLine>
         {
-            at.Offset == 0 && !line.IsChecklistItem ? moved[0] : line with { Text = before + moved[0].Text }
+            at.Offset == 0 && !line.IsChecklistItem ? moved[0] : head.FollowedBy(moved[0])
         };
         replacement.AddRange(moved.Skip(1).SkipLast(1));
-        replacement.Add(moved[^1] with { Text = moved[^1].Text + after });
+        replacement.Add(moved[^1].FollowedBy(tail));
 
         lines.RemoveAt(at.Line);
         lines.InsertRange(at.Line, replacement);
@@ -671,6 +672,17 @@ public static partial class NoteSurfaceEdits
 
     private static NoteContentLine Plain(string text) => new(text, IsChecklistItem: false, IsChecked: false);
 
+    /// <summary>
+    /// A stretch of a line's words as a fragment of its own: the words and the marks on them, and none of
+    /// what the line was. A fragment carries writing - a box and a heading belong to the line it was cut
+    /// out of, not to the words.
+    /// </summary>
+    private static NoteContentLine Words(NoteContentLine line, int start, int length)
+        => Plain(line.Text.Substring(start, length)) with
+        {
+            Marks = NoteTextMarks.Taken(line.AllMarks, start, length)
+        };
+
     private static NoteContentLine Unticked(NoteContentLine line) => line with { IsChecked = false, IsFailed = false };
 
     /// <summary>
@@ -706,6 +718,100 @@ public static partial class NoteSurfaceEdits
         }
 
         return new SurfaceState(lines, state.Anchor, state.Focus);
+    }
+
+    /// <summary>
+    /// Puts a mark on the words the selection covers - bold, italic, underlined, struck through - or
+    /// takes it off where every one of them already carries it. The rule a style follows, applied to a
+    /// stretch of words instead of to whole lines: pressing what something already is turns it off.
+    ///
+    /// <b>A caret with nothing selected does nothing.</b> There are no words to mark, and a control that
+    /// answered such a press would have to remember that the next thing typed is bold - which is the
+    /// browser's business, since it is the browser that carries the caret and draws what is typed.
+    ///
+    /// On or off is decided once, over the whole selection, and then said to each line: a selection half
+    /// bold is one somebody is asking to make bold, not one they are asking to turn off - and a selection
+    /// that flipped line by line would come back striped.
+    /// </summary>
+    public static SurfaceState Mark(SurfaceState state, NoteTextMark mark)
+    {
+        state = state.Normalized();
+        if (state.IsCollapsed)
+        {
+            return state;
+        }
+
+        var (start, end) = (state.Start, state.End);
+        var lines = state.Lines.ToList();
+        var alreadyAllOfIt = Enumerable.Range(start.Line, end.Line - start.Line + 1).All(index =>
+        {
+            var (from, length) = Selected(lines[index], index, start, end);
+            return length == 0 || NoteTextMarks.Holds(lines[index].AllMarks, from, length, mark);
+        });
+
+        for (var index = start.Line; index <= end.Line; index++)
+        {
+            var line = lines[index];
+            var (from, length) = Selected(line, index, start, end);
+            if (length == 0)
+            {
+                continue;
+            }
+
+            lines[index] = line with
+            {
+                Marks = alreadyAllOfIt
+                    ? NoteTextMarks.Without(line.AllMarks, from, length, mark, line.Text.Length)
+                    : NoteTextMarks.With(line.AllMarks, from, length, mark, line.Text.Length)
+            };
+        }
+
+        return new SurfaceState(lines, state.Anchor, state.Focus);
+    }
+
+    /// <summary>
+    /// Which of a line's characters a selection covers: from the caret on the line it starts on, to the
+    /// caret on the line it ends on, and the whole of every line in between.
+    /// </summary>
+    private static (int From, int Length) Selected(
+        NoteContentLine line, int index, SurfacePoint start, SurfacePoint end)
+    {
+        var from = index == start.Line ? start.Offset : 0;
+        var to = index == end.Line ? end.Offset : line.Text.Length;
+        return (from, Math.Max(0, to - from));
+    }
+
+    /// <summary>
+    /// Whether every word the selection covers already carries <paramref name="mark"/> - what the control
+    /// over the writing draws itself by, so Bold is lit while the caret is in bold words.
+    /// </summary>
+    public static bool Holds(SurfaceState state, NoteTextMark mark)
+    {
+        state = state.Normalized();
+        if (state.IsCollapsed)
+        {
+            return false;
+        }
+
+        var (start, end) = (state.Start, state.End);
+        var anything = false;
+        for (var index = start.Line; index <= end.Line; index++)
+        {
+            var line = state.Lines[index];
+            var (from, length) = Selected(line, index, start, end);
+            if (length == 0)
+            {
+                continue;
+            }
+
+            anything = true;
+            if (!NoteTextMarks.Holds(line.AllMarks, from, length, mark))
+            {
+                return false;
+            }
+        }
+
+        return anything;
     }
 
     /// <summary>What typing at the head of a line turns into a box - the rule the phone has always had.</summary>

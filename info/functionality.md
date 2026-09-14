@@ -1058,6 +1058,25 @@ disagree in.
     decided what an old note says. A word this build does not know reads as Body rather than throwing, on
     every side - and an export carries it too (`ArchivedNoteLine.Style`). **No migration**: the lines are
     a JSON column, and a note saved before this reads as Body throughout.
+- **Marks on a stretch of words inside a line** - bold, italic, underlined, struck through
+  (`NoteTextMark`, `NoteTextRun`, 2026-09-14). Kept **beside** the text rather than folded into it
+  (`NoteContentLine.Marks`: a start, a length and a mark), so everything that reads a line's words - every
+  search, every preview, every copy - goes on reading a plain string, and only what draws a line has to
+  know about them.
+  - **The arithmetic is shared** (`NoteTextMarks`, `NoteLineText`): a line split, two lines joined, a
+    stretch replaced or taken away, a level of indentation, a "[]" eaten by the box it makes - each moves
+    the marks with the words it moved, in one place, because the browser and the phone must agree about
+    what a note says.
+  - **A mark sticks to the character before what arrives**: text typed inside bold words, or right after
+    them, is bold; text typed at the very head of them is not. What every editor does, and what the
+    browser reports having drawn anyway.
+  - **The control marks a selection** and takes the mark off where every word already carries it
+    (`NoteSurfaceEdits.Mark`, `Holds`). Across lines the answer is decided once, so a selection half bold
+    is made bold rather than coming back striped. **A caret with nothing selected does nothing**: there
+    are no words to mark, and remembering that the *next* thing typed is bold is the browser's business.
+  - **Nothing draws them yet.** The model, the rules and the wire carry marks on both clients
+    (`NoteContentLineDto.Marks`, the archive, a shared link), so no edit anywhere flattens them - the
+    browser's buttons and the phone's drawing are the next step. See `info/future-plan.md`.
 - **Not in a list's or an inventory's name and description** (`TitledDescription`,
   `ChecklistTextEditor.TakesStyles` off): those store two plain strings, so a style set there would be
   dropped by the save - the same reason `[]` stays words there. Giving descriptions the note's own

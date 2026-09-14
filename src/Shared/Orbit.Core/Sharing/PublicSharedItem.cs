@@ -28,6 +28,14 @@ public sealed record PublicSharedItem(
 /// last and defaulted. Without it a note read through a link came back as a flat column of sentences,
 /// which is the one thing a link is for showing.
 /// </param>
+/// <param name="Marks">
+/// The marks on stretches of words inside the line, where the item is a note - see
+/// <see cref="NoteTextRun"/>. Null for everything else, as for a line nobody marked.
+/// </param>
 public sealed record PublicSharedItemLine(
     string Text, bool IsChecklistItem, bool IsChecked, string? Detail, bool IsFailed = false,
-    NoteLineStyle Style = NoteLineStyle.Body);
+    NoteLineStyle Style = NoteLineStyle.Body, IReadOnlyList<NoteTextRun>? Marks = null)
+{
+    /// <summary>The marks as something to read without a null check - see <see cref="Marks"/>.</summary>
+    public IReadOnlyList<NoteTextRun> AllMarks => Marks ?? NoteTextMarks.None;
+}

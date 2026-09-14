@@ -82,8 +82,20 @@ public sealed record ArchivedTagColour(string Tag, string Colour);
 /// A word rather than a number so the file stays readable and stays valid when the list of styles grows;
 /// defaulted and last, so a file written before styles existed reads as ordinary writing throughout.
 /// </param>
+/// <param name="Marks">
+/// The marks on stretches of words inside the line - see Orbit.Core.Notes.NoteTextRun. Null for a line
+/// with none, and for every line of a file written before marks existed.
+/// </param>
 public sealed record ArchivedNoteLine(
-    string Text, bool IsChecklistItem, bool IsChecked, bool IsFailed = false, string Style = "Body");
+    string Text, bool IsChecklistItem, bool IsChecked, bool IsFailed = false, string Style = "Body",
+    IReadOnlyList<ArchivedTextRun>? Marks = null)
+{
+    /// <summary>The marks as something to read without a null check - see <see cref="Marks"/>.</summary>
+    public IReadOnlyList<ArchivedTextRun> AllMarks => Marks ?? [];
+}
+
+/// <param name="Mark">"Bold", "Italic", "Underlined" or "StruckThrough" - the word, as every other enum in this file.</param>
+public sealed record ArchivedTextRun(int Start, int Length, string Mark);
 
 /// <param name="Tags">The words it is tagged with - see <see cref="ArchivedNote.Tags"/>, which says the same.</param>
 public sealed record ArchivedTaskList(

@@ -91,6 +91,12 @@ classDiagram
         +bool IsChecked
         +bool IsFailed
         +NoteLineStyle Style
+        +IReadOnlyList~NoteTextRun~ Marks
+    }
+    class NoteTextRun {
+        +int Start
+        +int Length
+        +NoteTextMark Mark
     }
     class TaskList {
         +Guid Id
@@ -188,6 +194,7 @@ classDiagram
     }
 
     Note "1" *-- "0..*" NoteContentLine
+    NoteContentLine "1" *-- "0..*" NoteTextRun : marks a stretch of
     TaskList "1" *-- "0..*" TaskItem
     TaskItem "1" *-- "1" TaskItemSubject
     TaskItem "1" *-- "0..1" TaskItemProduct

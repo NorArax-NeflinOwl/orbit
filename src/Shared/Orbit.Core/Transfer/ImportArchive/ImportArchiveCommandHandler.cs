@@ -97,7 +97,10 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
                 userId, archived.Title,
                 archived.Content.Select(line => new NoteContentLine(
                     line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed,
-                    NoteLineStyles.Read(line.Style))).ToList(),
+                    NoteLineStyles.Read(line.Style),
+                    NoteTextMarks.Normalized(
+                        line.AllMarks.Select(run => new NoteTextRun(run.Start, run.Length, NoteTextMarks.Read(run.Mark))),
+                        line.Text.Length))).ToList(),
                 archived.IsPrivate, ToPayload(archived.EncryptedContent), tags: archived.AllTags);
             await _noteRepository.AddAsync(note, cancellationToken);
         }

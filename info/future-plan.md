@@ -1518,14 +1518,16 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
 Paragraph styles landed on 2026-09-14 - `NoteLineStyle`, the "Aa" tool, and the eight Apple Notes offers
 (see `info/functionality.md`, "What a line is"). What that round deliberately did not do:
 
-- **Bold, italic and underline inside a line.** A style belongs to a *line* here; those belong to a
-  stretch of words inside one, and the surface has nowhere to put them: `NoteContentLine` is text plus
-  flags, the phone draws each line as one `Entry`, and MAUI renders no inline styling in a field at all
-  (a `Label` takes `FormattedString`, but a field somebody types in does not). So this wants the line's
-  text to become **a list of spans** - a contract change, a stored-shape change on both clients, and a
-  rewrite of every offset in `NoteSurfaceEdits`, which counts characters in a string today. Real work,
-  and a round of its own. The browser alone could do it sooner, at the cost of the two clients no longer
-  holding the same note.
+- **Bold, italic and underline inside a line.** *Started 2026-09-14, on the user's word ("zrób pełny
+  model fragmentów"), and the half that is done is the half everything else rests on.* The marks are
+  **beside** the text rather than folded into it - `NoteContentLine.Marks`, a start, a length and a mark -
+  so nothing that reads a line's words had to change, and the arithmetic that keeps a mark over the words
+  it was put on lives once, in `NoteTextMarks`/`NoteLineText`. Every edit on the surface carries them, the
+  wire and the archive carry them, and both clients hand them back unchanged, so nothing flattens a marked
+  note. **What is left:** the browser reading them back out of the document it draws (`extractLines` in
+  `checklistTextEditor.js` reports text today) and the four buttons; and the phone, where a MAUI `Entry`
+  renders one face for the whole field - the note screen already swaps a `Label` in for a line it is not
+  writing in, which is the seam a `FormattedString` goes through.
 - ~~**A control to set a style on the phone.**~~ Done 2026-09-14, the same day and exactly as this said:
   an "Aa" button in the bar over the note's foot, beside undo, redo and the indent buttons, opening a
   sheet of the eight (`NoteDetailViewModel.StyleChoices`, worded there so the wording is testable) and
