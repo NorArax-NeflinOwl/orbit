@@ -4503,6 +4503,15 @@ input.note-editor-title {
     padding-block: 12px;
 }
 
+/* Naming a list about to go inside a group list - see TaskListChecklist. A card like the ones under it
+   rather than a strip of its own, because what it makes is one of those. */
+.checklist-new-sublist {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
 /* Calendar.razor's event list, sharing the editor row shape so a day's events read the same way an
    editor's items do. */
 .event-list {

@@ -847,6 +847,13 @@ public static class PolishTranslations
         ["Show places already past"] = "Pokaż miejsca już minione",
         // The plans behind the reader, in a box of their own under the ones ahead - see MapPage. Turning
         // the past on starts a month back, so the box opens on the near past rather than on all of it.
+        // A list made inside a group list, from the group's own page - see TaskListChecklist.
+        ["New sublist"] = "Nowa podlista",
+        ["What is it called?"] = "Jak się nazywa?",
+        ["A list of its own, inside this one. It starts where this list is - the same folder - and this list gets an entry standing for it."] =
+            "Osobna lista wewnątrz tej. Powstaje tam, gdzie jest ta lista - w tym samym folderze - a ta lista dostaje pozycję odpowiadającą za nią.",
+        ["\"{0}\" was made, but it could not be added to this list. It is on your task lists."] =
+            "Lista \"{0}\" powstała, ale nie udało się dodać jej do tej listy. Znajdziesz ją wśród swoich list zadań.",
         ["Where your plans were"] = "Gdzie były twoje plany",
         ["Nothing behind you since then."] = "Nic za tobą od tego dnia.",
         // The eye on a map panel's heading, and the day to show the past from - see MapPinVisibility.
