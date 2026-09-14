@@ -27,7 +27,10 @@
             $"{_retentionDays} {(_retentionDays == 1 ? T["day"] : T["days"])}")@Space<a href="/options">@T["Options"]</a>.
     </Description>
     <Actions>
-        <button class="btn-secondary" disabled="@_isClearing" @onclick="ClearAsync">@T["Clear"]</button>
+        @* "Delete history" rather than "Clear": the press does not tidy the list away, it deletes the
+           entries on the server - see NotificationEntry.Dismiss - and nothing brings them back. A word
+           that sounds like tidying is the wrong warning for a press that cannot be undone. *@
+        <button class="btn-secondary" disabled="@_isClearing" @onclick="ClearAsync">@T["Delete history"]</button>
     </Actions>
 </PageHeader>
 

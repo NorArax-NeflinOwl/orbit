@@ -30,6 +30,9 @@ public static class PolishTranslations
         ["Notifications"] = "Powiadomienia",
         ["Log out"] = "Wyloguj się",
         ["Clear"] = "Wyczyść",
+        // What the bell's panel and the notifications page call emptying the feed. Not "Clear": the
+        // press deletes the entries rather than hiding them, and nothing brings them back.
+        ["Delete history"] = "Usuń historię",
         ["See all notifications"] = "Zobacz wszystkie powiadomienia",
         ["Nothing yet."] = "Na razie nic.",
         ["Loading…"] = "Wczytywanie…",
