@@ -1045,9 +1045,14 @@ disagree in.
     two lists. The mark of a bulleted or dashed line is drawn the same way (CSS `::before`,
     `user-select: none`), so it is never part of the words, never selected with them and never copied.
   - **Drawn wherever a note is read, not only where it is written**: the note's own page
-    (`.note-line[data-style]`, which `NoteSummary.razor` puts on its lines too) and the phone
-    (`NoteLineRow.DrawnFontSize`/`IsDrawnBold`/`ListMark`). The phone carries and draws styles but has no
-    control to set one yet - `info/future-plan.md`.
+    (`.note-line[data-style]`, which `NoteSummary.razor` puts on its lines too), a note opened through a
+    share link (`PublicSharedItemLine.Style`, drawn by `SharedItemPage` and by the phone's
+    `SharedLinkPage`), and the phone's own note screen (`NoteLineLook`, which decides the size, the bold
+    and the list's mark for both of the phone's screens).
+  - **The phone sets one from a sheet**: an "Aa" button over the note's foot, beside undo, redo and the
+    indent buttons, opening the same eight (`NoteDetailViewModel.StyleChoices`, `Restyle`). A sheet
+    rather than a row of buttons - eight choices over the writing would be most of the writing on a
+    phone. The press changes the line being written in, as the indent buttons do.
   - **Stored and sent as a word**, never a number (`NoteLineStyleJsonConverter`, `NoteLineStyles.Read`):
     content is JSON on the server and on the phone alike, so a number would mean the order of the enum
     decided what an old note says. A word this build does not know reads as Body rather than throwing, on

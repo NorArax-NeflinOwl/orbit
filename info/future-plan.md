@@ -1526,12 +1526,12 @@ Paragraph styles landed on 2026-09-14 - `NoteLineStyle`, the "Aa" tool, and the 
   rewrite of every offset in `NoteSurfaceEdits`, which counts characters in a string today. Real work,
   and a round of its own. The browser alone could do it sooner, at the cost of the two clients no longer
   holding the same note.
-- **A control to set a style on the phone.** The phone *carries and draws* styles as of the same day
-  (`NoteLineRow.DrawnFontSize`/`IsDrawnBold`/`ListMark`), so a note written in the browser reads right
-  there and is never flattened by an edit - but there is no format button. What it wants is the bar over
-  the note's foot (where undo, redo and the indent buttons already are) to open the same eight, working
-  `NoteSurfaceEdits.Restyle` on the surface the screen already builds - the shape `Indent`/`Outdent`
-  followed on 2026-09-14.
+- ~~**A control to set a style on the phone.**~~ Done 2026-09-14, the same day and exactly as this said:
+  an "Aa" button in the bar over the note's foot, beside undo, redo and the indent buttons, opening a
+  sheet of the eight (`NoteDetailViewModel.StyleChoices`, worded there so the wording is testable) and
+  working `NoteSurfaceEdits.Restyle` on the surface the screen already builds - the shape `Indent` and
+  `Outdent` follow. A sheet rather than a row of buttons: eight choices over the writing would be most of
+  the writing on a phone. Covered by `NoteDetailScreenTests.Style`. **Not yet seen on a device.**
 - **Tables.** The fourth tool in the row still says "not implemented yet", and it is the one that does
   not fit the line at all: a table is a grid, the surface is a column of lines, and every rule in
   `NoteSurfaceEdits` is about lines. The honest shapes are a table as *a kind of line* carrying its own
@@ -1542,10 +1542,11 @@ Paragraph styles landed on 2026-09-14 - `NoteLineStyle`, the "Aa" tool, and the 
   style set there would be dropped by the save - the same reason `[]` stays words there. This is a third
   item for the question the section above asks about descriptions: text features are free, and boxes,
   styles and pictures all wait on the same decision about the stored shape.
-- **A shared link draws a note's lines plainly.** `PublicSharedItemLineDto` carries text and a tick and
-  nothing else, so a note opened through a share link shows headings and lists as ordinary writing. Small
-  and self-contained: the contract gains the style word, the server's mapper carries it, and
-  `SharedItemPage` draws it the way `NoteSummary` now does.
+- ~~**A shared link draws a note's lines plainly.**~~ Done 2026-09-14, as this said: `PublicSharedItemLine`
+  and its DTO carry the style, `PublicSharedItemReader` fills it from the note's own lines, and both
+  clients draw it - `SharedItemPage` with the same `data-style` the note's pages use, the phone's
+  `SharedLinkPage` with the sizes and marks `NoteLineLook` decides. Only a note ever sends one; every
+  other kind of item is a list of things and leaves it at Body.
 
 ## Redrawing the rest of the phone
 

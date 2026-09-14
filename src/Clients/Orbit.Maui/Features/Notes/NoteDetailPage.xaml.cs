@@ -58,6 +58,7 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		ChecklistButton.Command = new Command(PutABoxOnThisLine);
 		IndentButton.Command = new Command(() => ReindentThisLine(more: true));
 		OutdentButton.Command = new Command(() => ReindentThisLine(more: false));
+		StyleButton.Command = new Command(async () => await ChooseAStyleAsync());
 		_viewModel.CaretPlaced += OnCaretPlaced;
 	}
 
@@ -439,6 +440,28 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		var line = _beingWrittenIn ?? _viewModel.Lines.LastOrDefault();
 		var command = more ? _viewModel.IndentCommand : _viewModel.OutdentCommand;
 		command.Execute(line);
+	}
+
+	/// <summary>
+	/// Asks what the line being written in should be, and makes it that - the phone's half of the
+	/// browser's "Aa" control. A sheet rather than a row of buttons: eight choices over the writing would
+	/// be most of the writing on a phone. The line is the one with the caret in it, or the last one, as
+	/// the indent buttons take theirs.
+	///
+	/// The names are the view model's (<see cref="NoteDetailViewModel.StyleChoices"/>), so the wording is
+	/// testable; opening the sheet is the platform's and stays here.
+	/// </summary>
+	private async Task ChooseAStyleAsync()
+	{
+		var choices = _viewModel.StyleChoices;
+		var chosen = await DisplayActionSheetAsync(
+			_translations["Text style"], _translations["Cancel"], destruction: null,
+			choices.Select(choice => choice.Name).ToArray());
+
+		if (choices.FirstOrDefault(choice => choice.Name == chosen) is { } style)
+		{
+			_viewModel.Restyle(_beingWrittenIn ?? _viewModel.Lines.LastOrDefault(), style.Style);
+		}
 	}
 
 	/// <inheritdoc cref="IndentTheLineCommand"/>

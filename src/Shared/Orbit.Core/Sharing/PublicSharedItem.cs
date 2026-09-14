@@ -1,3 +1,5 @@
+using Orbit.Core.Notes;
+
 namespace Orbit.Core.Sharing;
 
 /// <summary>
@@ -20,4 +22,12 @@ public sealed record PublicSharedItem(
 
 /// <param name="Detail">A due date, a quantity, a location - whatever the line's own kind adds beneath the text.</param>
 /// <param name="IsFailed">Crossed out rather than ticked - a line, or an entry, somebody gave up on.</param>
-public sealed record PublicSharedItemLine(string Text, bool IsChecklistItem, bool IsChecked, string? Detail, bool IsFailed = false);
+/// <param name="Style">
+/// What the line is, for the one kind of item whose lines have a shape of their own - a note (see
+/// Orbit.Core.Notes.NoteLineStyle). Everything else is a list of things and leaves this alone, so it is
+/// last and defaulted. Without it a note read through a link came back as a flat column of sentences,
+/// which is the one thing a link is for showing.
+/// </param>
+public sealed record PublicSharedItemLine(
+    string Text, bool IsChecklistItem, bool IsChecked, string? Detail, bool IsFailed = false,
+    NoteLineStyle Style = NoteLineStyle.Body);

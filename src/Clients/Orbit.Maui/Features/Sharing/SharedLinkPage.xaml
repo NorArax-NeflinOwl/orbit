@@ -46,8 +46,24 @@
                                 <controls:CheckCircle Grid.Column="0" Diameter="20" IsChecked="{Binding IsTicked}"
                                                       IsVisible="{Binding IsChecklistItem}" VerticalOptions="Center"
                                                       Description="{Binding Text}" />
+                                <!-- The mark at the head of a line of a list, in the box's own column and
+                                     never shown at the same time as a box - the rule the note's own
+                                     screen has. See NoteLineLook. -->
+                                <Label Grid.Column="0" Text="{Binding ListMark}" VerticalOptions="Center"
+                                       IsVisible="{Binding ShowsListMark}"
+                                       Style="{StaticResource SubtleLabel}" />
+
+                                <!-- A heading read through a link is the heading it was written as. The
+                                     bold half is a trigger because Orbit.Mobile is plain net10.0 and
+                                     knows nothing about MAUI's own types - see SharedLine.IsDrawnBold. -->
                                 <Label Grid.Column="1" Text="{Binding Text}" LineBreakMode="WordWrap"
-                                       VerticalOptions="Center" />
+                                       FontSize="{Binding DrawnFontSize}" VerticalOptions="Center">
+                                    <Label.Triggers>
+                                        <DataTrigger TargetType="Label" Binding="{Binding IsDrawnBold}" Value="True">
+                                            <Setter Property="FontAttributes" Value="Bold" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                </Label>
                                 <Label Grid.Column="2" Text="{Binding Detail}" IsVisible="{Binding HasDetail}"
                                        FontSize="12" VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
                             </Grid>

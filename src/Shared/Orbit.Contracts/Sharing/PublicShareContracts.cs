@@ -16,7 +16,14 @@ public sealed record PublicSharedItemDto(
     DateTimeOffset UpdatedAtUtc);
 
 /// <param name="IsFailed">Crossed out rather than ticked - see Orbit.Core.Tasks.TaskItem.IsFailed.</param>
-public sealed record PublicSharedItemLineDto(string Text, bool IsChecklistItem, bool IsChecked, string? Detail, bool IsFailed = false);
+/// <param name="Style">
+/// What the line is, where the item is a note - a heading, a line of a list, ordinary writing. The word
+/// Orbit.Core.Notes.NoteLineStyle is named by; anything else reads as "Body" (see NoteLineStyles.Read).
+/// Last and defaulted, because every other kind of item is a list of things and says nothing here.
+/// </param>
+public sealed record PublicSharedItemLineDto(
+    string Text, bool IsChecklistItem, bool IsChecked, string? Detail, bool IsFailed = false,
+    string Style = "Body");
 
 /// <param name="AlreadyHeld">The caller already had access, so nothing new was granted.</param>
 public sealed record ClaimPublicShareLinkResponse(string ItemType, Guid ItemId, bool AlreadyHeld);

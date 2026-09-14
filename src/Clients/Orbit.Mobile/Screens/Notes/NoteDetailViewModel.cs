@@ -25,6 +25,11 @@ namespace Orbit.Mobile.Screens.Notes;
 /// one is on this screen exactly as it is in Orbit.Web's editor. A note this device cannot open - no
 /// key, or a key pair since replaced - still opens read-only and says which of those it is.
 /// </summary>
+/// <summary>
+/// One entry of the sheet the "Aa" button opens: a style under the name the reader sees it by.
+/// </summary>
+public sealed record NoteStyleChoice(string Name, NoteLineStyle Style);
+
 public sealed partial class NoteDetailViewModel : ObservableObject
 {
     private readonly LocalNoteRepository _notes;
@@ -397,6 +402,45 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     /// </summary>
     [RelayCommand]
     private void Outdent(NoteLineRow? row) => Reindent(row, NoteSurfaceEdits.Outdent);
+
+    /// <summary>
+    /// Makes a line a heading, a line of a list, or ordinary writing again - the phone's half of the
+    /// browser's "Aa" control. Works <see cref="NoteSurfaceEdits.Restyle"/> on the surface with the caret
+    /// at the head of <paramref name="row"/>, exactly as the indent buttons do, so the press changes
+    /// that line rather than wherever the caret happens to be. Asking for the style a line already is
+    /// takes it back to ordinary writing, which is the rule the surface itself holds.
+    ///
+    /// A method rather than a command because it takes two things - the line and the style - and the
+    /// page hands it both from the sheet it opened (see NoteDetailPage.ChooseAStyleAsync).
+    /// </summary>
+    public void Restyle(NoteLineRow? row, NoteLineStyle style)
+    {
+        if (row is null || IsReadOnly || Lines.IndexOf(row) is var index && index < 0)
+        {
+            return;
+        }
+
+        var before = Surface(new SurfacePoint(index + 1, 0));
+        Apply(before, NoteSurfaceEdits.Restyle(before, style), SurfaceEditKind.Reshaping);
+    }
+
+    /// <summary>
+    /// The styles the sheet offers, in the order Apple Notes lists them and in the reader's language -
+    /// biggest first, then the plain ones, then the lists. Ordinary writing is among them on purpose: it
+    /// is how somebody takes a heading off without having to know that asking for Heading again does the
+    /// same thing. Built here rather than in the page so the wording is testable.
+    /// </summary>
+    public IReadOnlyList<NoteStyleChoice> StyleChoices =>
+    [
+        new(_translations["Title"], NoteLineStyle.Title),
+        new(_translations["Heading"], NoteLineStyle.Heading),
+        new(_translations["Subheading"], NoteLineStyle.Subheading),
+        new(_translations["Body"], NoteLineStyle.Body),
+        new(_translations["Monospaced"], NoteLineStyle.Monospaced),
+        new(_translations["Bulleted list"], NoteLineStyle.Bulleted),
+        new(_translations["Dashed list"], NoteLineStyle.Dashed),
+        new(_translations["Numbered list"], NoteLineStyle.Numbered)
+    ];
 
     /// <summary>
     /// Works <paramref name="edit"/> on the surface with the caret at the head of <paramref name="row"/>,
@@ -1133,20 +1177,17 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Writes each numbered line's number onto it, counting from one down each unbroken run of numbered
-    /// lines - the rule <see cref="NoteLineStyles.NumberOf"/> states. Done here, over all the lines,
-    /// rather than by each line, because a line's number is a fact about what is above it: inserting one
-    /// in the middle of a list renumbers everything under it, and nothing is stored, so the numbers can
-    /// never disagree with where the lines actually are. Orbit.Web draws them the same way - see
+    /// Writes each numbered line's number onto it - see <see cref="NoteLineLook.NumbersFor"/>. Called
+    /// wherever the lines change, because a line's number is a fact about what is above it: inserting one
+    /// in the middle of a list renumbers everything under it. Orbit.Web draws them the same way - see
     /// numberTheLists in checklistTextEditor.js.
     /// </summary>
     private void NumberTheLists()
     {
-        var number = 0;
-        foreach (var line in Lines)
+        var numbers = NoteLineLook.NumbersFor([.. Lines.Select(line => line.Style)]);
+        for (var index = 0; index < Lines.Count; index++)
         {
-            number = line.Style == NoteLineStyle.Numbered ? number + 1 : 0;
-            line.ListNumber = number;
+            Lines[index].ListNumber = numbers[index];
         }
     }
 

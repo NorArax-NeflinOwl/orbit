@@ -1,5 +1,6 @@
 @page "/s/{Token}"
 @using Orbit.Core.Abstractions
+@using Orbit.Core.Notes
 @using Orbit.Contracts.Sharing
 @using Orbit.Web.Services
 @inject PublicShareApiClient PublicShareApiClient
@@ -46,8 +47,14 @@
             else
             {
                 <ul class="shared-item-lines">
-                    @foreach (var line in _item.Lines)
+                    @* By position, because a numbered line's number is its place in the run above it -
+                       see NoteLineStyles.NumberOf, which the note's own pages count with too. *@
+                    @for (var index = 0; index < _item.Lines.Count; index++)
                     {
+                        var line = _item.Lines[index];
+                        var number = NoteLineStyles.NumberOf(
+                            _item.Lines.Count, index, at => NoteLineStyles.Read(_item.Lines[at].Style));
+
                         <li class="shared-item-line @(line.IsChecked || line.IsFailed ? "shared-item-line-checked" : "")">
                             @if (line.IsChecklistItem)
                             {
@@ -56,7 +63,12 @@
                                    nothing. See TickBox, which is the same box where it can be pressed. *@
                                 <TickBox State="@Ticks.Read(line.IsChecked, line.IsFailed)" IsDisabled="true" />
                             }
-                            <span class="shared-item-line-text">@line.Text</span>
+                            @* .note-line on the words rather than on the row: that is where every style
+                               is drawn, and a heading read through a link is the heading it was written
+                               as. Only a note ever sends one - see PublicSharedItemLineDto.Style. *@
+                            <span class="note-line @(line.IsChecklistItem ? "note-line-checklist" : null) shared-item-line-text"
+                                  data-style="@NoteLineStyles.Read(line.Style).ToString().ToLowerInvariant()"
+                                  data-number="@(number > 0 ? number.ToString() : null)">@line.Text</span>
                             @if (line.Detail is not null)
                             {
                                 <span class="shared-item-line-detail">@line.Detail</span>

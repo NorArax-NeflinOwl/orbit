@@ -79,7 +79,8 @@ public static class PublicShareEndpoints
         => new(
             item.ItemType.ToString(), item.Title, item.Subtitle,
             item.Lines.Select(line => new PublicSharedItemLineDto(
-                line.Text, line.IsChecklistItem, line.IsChecked, line.Detail, line.IsFailed)).ToList(),
+                line.Text, line.IsChecklistItem, line.IsChecked, line.Detail, line.IsFailed,
+                line.Style.ToString())).ToList(),
             item.OwnerDisplayName, item.UpdatedAtUtc);
 
     private static Guid GetUserId(ClaimsPrincipal user)

@@ -97,38 +97,14 @@ public sealed partial class NoteLineRow : ObservableObject
     /// <summary>What the box says, as the three answers there are - see TickState.</summary>
     public TickState Tick => Ticks.Read(IsChecked, IsFailed);
 
-    /// <summary>
-    /// How large the line is drawn. The sizes the note's own title field and the app's text already use,
-    /// so a heading on the phone is the same weight of thing as a heading in the browser rather than a
-    /// second opinion about what a heading looks like.
-    /// </summary>
-    public double DrawnFontSize => Style switch
-    {
-        NoteLineStyle.Title => 22,
-        NoteLineStyle.Heading => 18,
-        NoteLineStyle.Subheading => 16,
-        _ => 14
-    };
+    /// <summary>How large the line is drawn - see <see cref="NoteLineLook.SizeOf"/>.</summary>
+    public double DrawnFontSize => NoteLineLook.SizeOf(Style);
 
-    /// <summary>
-    /// Whether the line is drawn bold - a heading of any size is. A bool rather than MAUI's
-    /// FontAttributes because this project is plain net10.0 on purpose (see the note in its .csproj) and
-    /// knows nothing about controls; the page turns it into a font - see NoteDetailPage.xaml.
-    /// </summary>
-    public bool IsDrawnBold => Style.IsAHeading();
+    /// <inheritdoc cref="NoteLineLook.IsBold"/>
+    public bool IsDrawnBold => NoteLineLook.IsBold(Style);
 
-    /// <summary>
-    /// The mark at the head of a line of a list - drawn beside the words rather than typed into them,
-    /// so it is never part of what is stored and never carried by a copy of the line. Empty for
-    /// everything that is not a list.
-    /// </summary>
-    public string ListMark => Style switch
-    {
-        NoteLineStyle.Bulleted => "\u2022",
-        NoteLineStyle.Dashed => "\u2013",
-        NoteLineStyle.Numbered => $"{ListNumber}.",
-        _ => string.Empty
-    };
+    /// <inheritdoc cref="NoteLineLook.MarkOf"/>
+    public string ListMark => NoteLineLook.MarkOf(Style, ListNumber);
 
     /// <summary>
     /// Whether that mark is shown. Not on a line that also has a box: the box is already the mark at the

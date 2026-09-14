@@ -2,18 +2,45 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Sharing;
+using Orbit.Core.Notes;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Screens.Notes;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Sharing;
 
 /// <summary>One line of what a link shows, already worded - see PublicSharedItemLineDto.</summary>
 /// <param name="IsTicked">Drawn as ticked, never tickable: this is somebody else's list being read.</param>
-public sealed record SharedLine(string Text, string Detail, bool IsChecklistItem, bool IsTicked)
+/// <param name="Style">
+/// What the line is, where the item is a note - a heading, a line of a list, ordinary writing. Only a
+/// note sends one; everything else is a list of things and reads as Body.
+/// </param>
+/// <param name="ListNumber">
+/// What a numbered line shows, worked out over all the lines at once when they arrive - see
+/// <see cref="NoteLineLook.NumbersFor"/>.
+/// </param>
+public sealed record SharedLine(
+    string Text, string Detail, bool IsChecklistItem, bool IsTicked,
+    NoteLineStyle Style = NoteLineStyle.Body, int ListNumber = 0)
 {
     public bool HasDetail => Detail.Length > 0;
+
+    /// <summary>How large the line is drawn - the same rules the note's own screen draws by.</summary>
+    public double DrawnFontSize => NoteLineLook.SizeOf(Style);
+
+    /// <inheritdoc cref="NoteLineLook.IsBold"/>
+    public bool IsDrawnBold => NoteLineLook.IsBold(Style);
+
+    /// <inheritdoc cref="NoteLineLook.MarkOf"/>
+    public string ListMark => NoteLineLook.MarkOf(Style, ListNumber);
+
+    /// <summary>
+    /// Whether that mark is shown. Not on a line that also has a box: the box is already the mark at the
+    /// head of the line - the rule NoteLineRow has, and the browser's stylesheet with it.
+    /// </summary>
+    public bool ShowsListMark => ListMark.Length > 0 && !IsChecklistItem;
 }
 
 /// <summary>
@@ -170,9 +197,17 @@ public sealed partial class SharedLinkViewModel : ObservableObject
         SharedBy = _translations.Format("Shared by {0}", item.OwnerDisplayName);
         Message = string.Empty;
 
-        foreach (var line in item.Lines)
+        // The numbers first, over all the lines at once: a numbered line's number is its place in the
+        // run above it, which no single line knows.
+        var styles = item.Lines.Select(line => NoteLineStyles.Read(line.Style)).ToList();
+        var numbers = NoteLineLook.NumbersFor(styles);
+
+        for (var index = 0; index < item.Lines.Count; index++)
         {
-            Lines.Add(new SharedLine(line.Text, line.Detail ?? string.Empty, line.IsChecklistItem, line.IsChecked));
+            var line = item.Lines[index];
+            Lines.Add(new SharedLine(
+                line.Text, line.Detail ?? string.Empty, line.IsChecklistItem, line.IsChecked,
+                styles[index], numbers[index]));
         }
 
         OnPropertyChanged(nameof(HasNothingInIt));
