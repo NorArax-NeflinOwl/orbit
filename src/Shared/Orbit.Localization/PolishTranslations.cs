@@ -1150,6 +1150,11 @@ public static class PolishTranslations
         ["Delete row"] = "Usuń wiersz",
         ["Delete column"] = "Usuń kolumnę",
         ["Delete table"] = "Usuń tabelę",
+        ["Save the note first, then add pictures."] = "Najpierw zapisz notatkę, potem dodaj zdjęcia.",
+        ["Unlock your encryption key to add a picture to a private note."] = "Odblokuj klucz szyfrowania, aby dodać zdjęcie do prywatnej notatki.",
+        ["This note already holds all the pictures it may - 50 MB."] = "Ta notatka ma już tyle zdjęć, ile może - 50 MB.",
+        ["The picture could not be stored. Try again."] = "Nie udało się zapisać zdjęcia. Spróbuj ponownie.",
+        ["Picture (open in a browser to see it)"] = "Zdjęcie (otwórz w przeglądarce, aby je zobaczyć)",
         ["Attachment"] = "Załącznik",
         ["{0}: not implemented yet."] = "{0}: jeszcze niezaimplementowane.",
         // Several boxes selected in a note's writing - see NoteSurfaceEdits.Cycle. The first is the

@@ -12,6 +12,9 @@
 @using Orbit.Core.Notes
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient
+@inject NotePicturesApiClient NotePicturesApiClient
+@inject NotePictureSource NotePictureSource
+@inject PrivateContentSealer PrivateContentSealer
 @inject FolderState Folders
 @inject ChatApiClient ChatApiClient
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
@@ -93,6 +96,8 @@ else
                                      TakesTab="true" TakesStyles="true"
                                      SelectedTicksChanged="count => _selectedTicks = count"
                                      CaretInTableChanged="inTable => OnCaretInTableChanged(inTable)"
+                                     PicturePasted="OnPicturePastedAsync"
+                                     PictureUrlFor="ResolvePictureUrlAsync"
                                      @bind-Lines="_formModel.Lines" />
 
                 @* Over the corner of the writing rather than above it: a toolbar at the top of a note
@@ -178,8 +183,10 @@ else
                                 <rect x="2.5" y="4" width="15" height="12" rx="1.5" /><path d="M2.5 8.5h15" /><path d="M10 8.5V16" />
                             </svg>
                         </button>
+                        @* A picture, from a file - the same road a pasted or dropped one takes once it
+                           is chosen (see OnPicturePastedAsync). *@
                         <button type="button" class="note-tool" title="@AttachmentLabel" aria-label="@AttachmentLabel"
-                                @onclick="() => NotImplementedYet(AttachmentLabel)">
+                                @onclick="PickPictureAsync">
                             <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor"
                                  stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M14.5 9.5 9 15a3 3 0 0 1-4.2-4.2l6.4-6.4a2 2 0 0 1 2.8 2.8l-6.4 6.4a1 1 0 0 1-1.4-1.4l5.7-5.7" />
@@ -428,8 +435,85 @@ else
     private void OnPriorityChosen(ChangeEventArgs args)
         => _formModel.Priority = args.Value?.ToString() is { Length: > 0 } chosen ? chosen : NoteFormModel.NormalPriority;
 
-    private void NotImplementedYet(string tool)
-        => _toolBeingExplained = T.Format("{0}: not implemented yet.", tool);
+    /// <summary>
+    /// A picture pasted, dropped or picked: stored first, sealed if the note is, then put where the
+    /// caret is. A note that has never been saved has nowhere to keep one - a picture belongs to a note,
+    /// and there is no note yet - so it says to save first, which is the one thing Apple Notes does not
+    /// have to say because it saves as you type.
+    /// </summary>
+    private async Task OnPicturePastedAsync(ChecklistTextEditor.PastedPicture pasted)
+    {
+        if (IsNewNote)
+        {
+            _toolBeingExplained = T["Save the note first, then add pictures."];
+            return;
+        }
+
+        var bytes = pasted.Bytes;
+        if (_formModel.IsPrivate)
+        {
+            try
+            {
+                bytes = await PrivateContentSealer.SealBytesAsync(bytes);
+            }
+            catch (EncryptionKeyLockedException)
+            {
+                _toolBeingExplained = T["Unlock your encryption key to add a picture to a private note."];
+                return;
+            }
+        }
+
+        var outcome = await NotePicturesApiClient.UploadAsync(Id!.Value, bytes, pasted.ContentType, _formModel.IsPrivate);
+        if (outcome.Kind == NotePictureUploadOutcomeKind.TooLarge)
+        {
+            _toolBeingExplained = T["This note already holds all the pictures it may - 50 MB."];
+            return;
+        }
+
+        if (outcome.Picture is null)
+        {
+            _toolBeingExplained = T["The picture could not be stored. Try again."];
+            return;
+        }
+
+        if (_checklistEditorRef is not null)
+        {
+            await _checklistEditorRef.InsertPictureAsync(
+                new NotePictureLineDto(outcome.Picture.Id, pasted.ContentType, pasted.WidthPixels, pasted.HeightPixels));
+        }
+    }
+
+    /// <summary>Where a picture's bytes are drawn from - see NotePictureSource, which opens a sealed one.</summary>
+    private Task<string?> ResolvePictureUrlAsync(Guid pictureId)
+    {
+        if (Id is null)
+        {
+            return Task.FromResult<string?>(null);
+        }
+
+        var line = _formModel.Lines.Select(line => line.Picture).FirstOrDefault(picture => picture?.PictureId == pictureId);
+        return line is null
+            ? Task.FromResult<string?>(null)
+            : NotePictureSource.UrlForAsync(Id.Value, line, _formModel.IsPrivate);
+    }
+
+    private async Task PickPictureAsync()
+    {
+        if (IsNewNote)
+        {
+            _toolBeingExplained = T["Save the note first, then add pictures."];
+            return;
+        }
+
+        if (_checklistEditorRef is not null)
+        {
+            await _checklistEditorRef.PickPictureAsync();
+        }
+    }
+
+    /// <summary>The pictures the note still names, told to the save so the rest are swept - see UpdateNoteRequest.PictureIds.</summary>
+    private IReadOnlyList<Guid> PictureIdsKept
+        => [.. _formModel.Lines.Where(line => line.Picture is not null).Select(line => line.Picture!.PictureId)];
 
     /// <summary>Whether the list of styles is open under the "Aa" button.</summary>
     private bool _isChoosingStyle;
@@ -852,7 +936,9 @@ else
             }
             else
             {
-                var outcome = await NotesApiClient.UpdateNoteAsync(Id!.Value, new UpdateNoteRequest(_formModel.Title, _formModel.Content, _formModel.IsPrivate, Priority: _formModel.Priority, Tags: _formModel.Tags));
+                var outcome = await NotesApiClient.UpdateNoteAsync(Id!.Value, new UpdateNoteRequest(
+                    _formModel.Title, _formModel.Content, _formModel.IsPrivate, Priority: _formModel.Priority, Tags: _formModel.Tags,
+                    PictureIds: PictureIdsKept));
                 if (outcome.Kind == EditOutcomeKind.Locked)
                 {
                     _lockedByUserName = outcome.LockedByUserName;

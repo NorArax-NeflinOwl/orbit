@@ -90,6 +90,9 @@
                                     </BindableLayout.ItemTemplate>
                                 </VerticalStackLayout>
 
+                                <Label Grid.Column="1" Text="{controls:Translate 'Picture (open in a browser to see it)'}"
+                                       IsVisible="{Binding IsAPicture}" VerticalOptions="Center"
+                                       Style="{StaticResource SubtleLabel}" />
                                 <Label Grid.Column="2" Text="{Binding Detail}" IsVisible="{Binding HasDetail}"
                                        FontSize="12" VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
                             </Grid>

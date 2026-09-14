@@ -67,6 +67,10 @@
                             {
                                 <NoteTableView Table="@table.ToTable()" />
                             }
+                            else if (line.Picture is { } picture)
+                            {
+                                <NotePictureView Picture="@picture" Token="@Token" />
+                            }
                             else
                             {
                                 @* .note-line on the words rather than on the row: that is where every

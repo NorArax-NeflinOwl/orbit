@@ -940,9 +940,7 @@ disagree in.
 
 - **The tools sit over the writing's bottom-left corner**, not above it - a toolbar at the top of a note
   is a strip of the page given to controls before a word has been written. Four of them, as the design
-  draws: text style, checklist, table, attachment. **Three of the four work**; the attachment answers a
-  press with "*Attachment*: not implemented yet." rather than being greyed out, because a dead button
-  explains nothing and a row of them explains less.
+  draws: text style, checklist, table, attachment - and since 2026-09-14 **all four work**.
 - **The writing keeps room under its last line** for the tools and three lines more, and the caret's
   line scrolls clear of them (`.note-editor-page`'s padding and `scroll-padding`): the text used to run
   on underneath the tools.
@@ -1114,6 +1112,48 @@ disagree in.
     stored in the same JSON, squared up on the way in (`NoteTables.Squared`). The archive and a share
     link carry it; the read-only pages draw it (`NoteTableView`); **the phone draws it and carries it
     through every edit unchanged, but cannot write in its cells yet** - `info/future-plan.md`.
+- **A picture is a kind of line too** (`NotePictureLine`, `NoteContentLine.Picture`, 2026-09-14), settled
+  with the user the same way as the table and carried the same way. What the line holds is the id of the
+  bytes, their kind and their size in pixels; the bytes are somewhere else.
+  - **The bytes go in a store of their own** (`INotePictureStore`): on Azure a storage account with
+    public blob access **off** - deliberately not `orbitdownloads`, whose blobs are anonymous-read to hand
+    out the APK - reached by a connection string that is a Container App secret
+    (`NotePictures:ConnectionString`); locally a directory on a named volume (`NotePictures:Directory`).
+    Which of the two is decided by whether the connection string is set. The row beside them
+    (`OP_NOTES_PICTURES`, `NotePicture`) says which note a picture belongs to, how many bytes it is and
+    whether it is sealed - and nothing else.
+  - **50 MB a note, counted server-side** (`NotePictureLimits`): a total across the note's pictures, and
+    30 MB - Kestrel's own default - for one upload, since each picture is one request
+    (`POST /api/notes/{id}/pictures`, the bytes as the body and their kind as `Content-Type`). The row
+    records what the store actually took, not what a header claimed. The browser scales a picture to
+    2048 pixels on its longest edge before sending it, because four phone photographs would otherwise be
+    most of a note's allowance.
+  - **A private note's picture is sealed the way a place is.** The browser seals the bytes under the key
+    the note is sealed with (`PrivateContentSealer.SealBytesAsync`, nonce and ciphertext in one buffer)
+    and says so in a header; the handler **refuses** a private note's picture that arrives in the clear,
+    and a public note's that arrives sealed. The blob holds ciphertext, the row holds no content type -
+    the kind is on the line, inside the sealed content - and only the ciphertext's length is readable,
+    which says roughly how big the picture is: the same shape of leak a sealed place accepts, stated
+    rather than found. A sealed picture is never served as a plain link and never through a share link.
+  - **Drawn from a `blob:` URL the page owns** (`NotePictureSource`): an `<img src="/api/…">` sends no
+    bearer token, and a sealed picture is ciphertext until this browser opens it, so the bytes come
+    through the app's own client, are opened where they must be, and are handed to the document as a
+    URL that is revoked when the page goes. One fetch per picture for the life of the page.
+  - **The interaction follows Apple Notes**: paste, drop or the attachment tool put a picture where the
+    caret is (an empty line becomes it, anything else gets it underneath - the table tool's rule); it is
+    drawn scaled to the width of the note and opened full size by pressing it; **Backspace or Delete on it
+    takes it away** - the one thing that tells it from a table, which goes by its own menu; words never
+    join it and writing that lands on it goes under it. A note that has never been saved has nowhere to
+    keep a picture, so the editor says to save first.
+  - **What a save no longer names is swept** (`NotePictureSweeper`): the save carries the ids the note
+    still holds (`UpdateNoteRequest.PictureIds`), because a private note's lines are sealed and the
+    server cannot read which pictures they name; a client that says nothing sweeps nothing. Deleting the
+    note takes them all, bytes and rows.
+  - **Not in an export.** A file cannot carry the bytes, and a line naming bytes that are not there would
+    be a broken picture on import, so picture lines are left out of `ExportArchive`.
+  - **The phone carries a picture line unchanged and draws a placeholder** ("Picture - open in a browser
+    to see it"): fetching the bytes for a handset means caching them for offline reading, which is the
+    phone's own round - `info/future-plan.md`.
 - **Not in a list's or an inventory's name and description** (`TitledDescription`,
   `ChecklistTextEditor.TakesStyles` off): those store two plain strings, so a style set there would be
   dropped by the save - the same reason `[]` stays words there. Giving descriptions the note's own

@@ -96,6 +96,7 @@ erDiagram
     OS_USERS ||--o{ OP_INVENTORIES : owns
 
     OP_NOTES ||--o{ OP_NOTES_SHARED : "shared as"
+    OP_NOTES ||--o{ OP_NOTES_PICTURES : "keeps"
     OP_TASKS ||--o{ OP_TASKS_SHARED : "shared as"
     OP_EVENTS ||--o{ OP_EVENTS_SHARED : "shared as"
     OP_INVENTORIES ||--o{ OP_INVENTORIES_SHARED : "shared as"
@@ -123,6 +124,15 @@ erDiagram
         text OP_N_TAGSJSON "JSON list - empty when private, the tags are sealed"
         uuid OP_N_LOCKEDBYUSERID
         timestamptz OP_N_LOCKEXPIRESATUTC
+    }
+    OP_NOTES_PICTURES {
+        uuid OP_NP_ID PK
+        uuid OP_NP_NOTEID FK
+        uuid OP_NP_OWNERUSERID FK
+        bigint OP_NP_SIZEBYTES "the ciphertext's length when sealed"
+        text OP_NP_CONTENTTYPE "null when sealed"
+        boolean OP_NP_ISSEALED
+        timestamptz OP_NP_CREATEDATUTC
     }
     OP_NOTES_SHARED {
         uuid OP_NS_ID PK

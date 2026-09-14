@@ -1399,9 +1399,16 @@ descriptions, and answering it once answers both.
   machinery `NoteSynchronizer` does not have.
 - **Migrations on both sides**, and a `NoteContentLineDto` that older installed phones still read.
 
-**A first version that respects all of the above** would be: web only, blob storage, sealed pictures
+~~**A first version that respects all of the above** would be: web only, blob storage, sealed pictures
 included (since the sealing is decided and the browser already has the crypto), 50 MB a note counted
-server-side, and the phone as a deliberate second step. It is still a round of its own.
+server-side, and the phone as a deliberate second step. It is still a round of its own.~~ **Built
+2026-09-14, exactly that version** - see `info/functionality.md`, "A picture is a kind of line too".
+What is left is the phone (below) and one thing that cannot be done from a session: **the storage
+account does not exist yet.** The code falls back to a directory when `NotePictures:ConnectionString`
+is unset, so the compose stack and a `dotnet run` keep pictures; on Azure they would go to a directory
+inside the container and be lost on the next revision. The command to make the account is in
+`info/azure-setup.md` ("Where a note's pictures are kept") and is **to be run by the user or with their
+word at the time** - it is a resource that bills.
 
 Written down rather than fixed on the spot, per rule 14 in `.claude/CLAUDE.md`: work that turns up
 beside a task belongs here, not in that task's diff. A defect is the exception and is fixed when found.

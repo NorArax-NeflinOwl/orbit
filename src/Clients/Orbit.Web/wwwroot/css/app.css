@@ -734,6 +734,40 @@ input.note-editor-title {
     text-decoration: line-through;
 }
 
+/* A picture in the flow of a note - see Orbit.Core.Notes.NotePictureLine. Scaled to the width of the
+   note and never wider, as Apple Notes draws one; the space it takes is taken from what the line says
+   before the bytes arrive, so the note does not jump while it is read (NotePictureView, and
+   createPictureElement in checklistTextEditor.js). */
+.note-line-picture {
+    padding: 0.35em 0;
+}
+
+.note-picture {
+    margin: 0;
+    max-width: 100%;
+}
+
+.note-picture img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    cursor: zoom-in;
+}
+
+/* The caret's picture, so which one Backspace will take is plain before it is pressed. */
+.note-line-picture:focus-within .note-picture img {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.note-picture-waiting {
+    width: 100%;
+    max-width: 480px;
+    border-radius: 8px;
+    background: var(--bg-subtle);
+}
+
 /* The table's own list, under the table tool rather than under "Aa" - the third button from the left,
    so the panel sits one button further along than the styles do. */
 .note-table-menu {

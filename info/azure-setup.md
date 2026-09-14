@@ -369,6 +369,36 @@ az storage account create -n orbitdownloads -g Orbit -l polandcentral --sku Stan
 az storage container create --account-name orbitdownloads -n apps --public-access blob
 ```
 
+### 7a. Where a note's pictures are kept
+
+**Not the account above.** `orbitdownloads` has public blob access on and its `apps` container is
+anonymous-read *on purpose*, to hand out the APK - the last place for somebody's photographs, sealed or
+not. Pictures in notes (2026-09-14, see `info/functionality.md`) want an account of their own with public
+access **off**, read only through the API. **Not yet created**: the user asked to be shown the command
+before it is run, per rule 6 in `.claude/CLAUDE.md`. Until it exists the API falls back to a directory
+(`NotePictures:Directory`), which on Azure is inside the container and lost on the next revision.
+
+```bash
+az storage account create -n orbitnotepictures -g Orbit -l polandcentral --sku Standard_LRS \
+  --kind StorageV2 --allow-blob-public-access false --min-tls-version TLS1_2
+az storage container create --account-name orbitnotepictures -n note-pictures --public-access off
+```
+
+The API reaches it by connection string, which is a secret and goes in as a Container App secret the
+way `Jwt__SigningKey` does - never into `appsettings*.json` or a workflow file:
+
+```bash
+az containerapp secret set -n orbit-api -g Orbit \
+  --secrets note-pictures-connection="$(az storage account show-connection-string -n orbitnotepictures -g Orbit -o tsv)"
+az containerapp update -n orbit-api -g Orbit \
+  --set-env-vars NotePictures__ConnectionString=secretref:note-pictures-connection
+```
+
+Standard_LRS, because a picture in a note is worth exactly one copy in one region, and the account bills
+per GB stored plus per operation - pennies a month at the scale of a few accounts, which is still money
+and still the user's to say yes to. The container is created by the API on first use as well, so the
+second command is belt and braces.
+
 Then give the release workflow somewhere to put the file, as repository *variables* rather than secrets
 (neither value is one):
 

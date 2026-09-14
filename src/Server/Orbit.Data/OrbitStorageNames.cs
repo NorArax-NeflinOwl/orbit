@@ -24,6 +24,7 @@ internal static class OrbitStorageNames
         // OP_ - what the user works on.
         [typeof(NoteEntity)] = new("OP_NOTES", "OP_N_"),
         [typeof(NoteShareEntity)] = new("OP_NOTES_SHARED", "OP_NS_"),
+        [typeof(NotePictureEntity)] = new("OP_NOTES_PICTURES", "OP_NP_"),
         [typeof(TaskEntity)] = new("OP_TASKS", "OP_T_"),
         [typeof(TaskItemEntity)] = new("OP_TASKS_ITEMS", "OP_TI_"),
         [typeof(TaskItemCategoryEntity)] = new("OP_TASKS_CATEGORIES", "OP_TC_"),

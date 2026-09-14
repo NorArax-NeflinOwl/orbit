@@ -155,6 +155,13 @@
                                     </BindableLayout.ItemTemplate>
                                 </VerticalStackLayout>
 
+                                                <!-- A picture the note holds, which the phone does not fetch yet - see
+                                     NoteLineRow.Picture. Said rather than left blank, so the reader knows
+                                     there is something here the browser shows. -->
+                                <Label Grid.Column="1" Text="{controls:Translate 'Picture (open in a browser to see it)'}"
+                                       IsVisible="{Binding IsAPicture}" Margin="0,10"
+                                       Style="{StaticResource SubtleLabel}" />
+
                                 <!-- The mark that chooses a box to change together with the others,
                                      beside every box while boxes are being chosen and nowhere else. At
                                      the line's end, away from the box it is about, so choosing a line

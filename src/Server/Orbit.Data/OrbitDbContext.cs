@@ -48,6 +48,7 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<DiagnosticLogEntryEntity> DiagnosticLogEntries => Set<DiagnosticLogEntryEntity>();
     public DbSet<SyncTombstoneEntity> SyncTombstones => Set<SyncTombstoneEntity>();
     public DbSet<PublicShareLinkEntity> PublicShareLinks => Set<PublicShareLinkEntity>();
+    public DbSet<NotePictureEntity> NotePictures => Set<NotePictureEntity>();
     public DbSet<UserPermissionEntity> UserPermissions => Set<UserPermissionEntity>();
     public DbSet<PermissionCodeEntity> PermissionCodes => Set<PermissionCodeEntity>();
     public DbSet<RateLimitWindowEntity> RateLimitWindows => Set<RateLimitWindowEntity>();
@@ -104,6 +105,15 @@ public sealed class OrbitDbContext : DbContext
             // the default rather than as an unparseable empty string.
             entity.Property(row => row.Priority).IsRequired().HasMaxLength(10)
                 .HasDefaultValue(nameof(Orbit.Core.Abstractions.ItemPriority.Normal));
+        });
+
+        modelBuilder.Entity<NotePictureEntity>(entity =>
+        {
+            entity.HasKey(picture => picture.Id);
+            // A MIME type is short; this is a bound against a caller that is not the app, not a size.
+            entity.Property(picture => picture.ContentType).HasMaxLength(128);
+            // Every read is by note: what a note holds, and how much of its 50 MB that is.
+            entity.HasIndex(picture => picture.NoteId);
         });
 
         modelBuilder.Entity<FolderEntity>(entity =>

@@ -37,6 +37,9 @@
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageReference Include="Serilog.Sinks.OpenTelemetry" Version="4.2.0" />
     <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.8.3" />
+    <!-- Where a note's pictures are kept on Azure (see AzureBlobNotePictureStore) - the one binary Orbit
+         stores, in an account of its own with public blob access off. -->
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.29.2" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
     <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />

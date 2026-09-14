@@ -29,9 +29,11 @@ public sealed record PublicSharedItemDto(
 /// everything else, as for a line nobody marked.
 /// </param>
 /// <param name="Table">The table this line is, where the item is a note and the line one of its tables - see NoteTableDto.</param>
+/// <param name="Picture">The picture this line is, where the item is a note - its bytes are at GET /api/public/{token}/pictures/{id}.</param>
 public sealed record PublicSharedItemLineDto(
     string Text, bool IsChecklistItem, bool IsChecked, string? Detail, bool IsFailed = false,
-    string Style = "Body", IReadOnlyList<NoteTextRunDto>? Marks = null, NoteTableDto? Table = null)
+    string Style = "Body", IReadOnlyList<NoteTextRunDto>? Marks = null, NoteTableDto? Table = null,
+    NotePictureLineDto? Picture = null)
 {
     /// <summary>The marks as something to read without a null check - see <see cref="Marks"/>.</summary>
     public IReadOnlyList<NoteTextRunDto> AllMarks => Marks ?? [];

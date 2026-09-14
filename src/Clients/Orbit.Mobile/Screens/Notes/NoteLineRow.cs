@@ -66,6 +66,16 @@ public sealed partial class NoteLineRow : ObservableObject
     /// <summary>Whether this line is a table rather than writing - which hides the field and shows the grid.</summary>
     public bool IsATable => Table is not null;
 
+    /// <summary>
+    /// The picture this line is, when it is one - see Orbit.Core.Notes.NotePictureLine. Carried through
+    /// every edit unchanged and drawn as a placeholder: the phone fetches no picture bytes yet (they
+    /// would have to be cached for offline reading), see info/future-plan.md.
+    /// </summary>
+    [ObservableProperty]
+    private NotePictureLine? _picture;
+
+    public bool IsAPicture => Picture is not null;
+
     /// <summary>The table's rows as the screen draws them: each a list of its cells' words.</summary>
     public IReadOnlyList<IReadOnlyList<string>> TableRows
         => Table is null ? [] : [.. Table.Rows.Select(row => (IReadOnlyList<string>)[.. row.Cells.Select(cell => cell.Text)])];
@@ -82,7 +92,10 @@ public sealed partial class NoteLineRow : ObservableObject
             Table = line.Table is null
                 ? null
                 : NoteTables.Squared(new NoteTable([.. line.Table.Rows.Select(row => new NoteTableRow(
-                    [.. row.Cells.Select(cell => new NoteTableCell(cell.Text, ReadMarks(cell.AllMarks, cell.Text)))]))]))
+                    [.. row.Cells.Select(cell => new NoteTableCell(cell.Text, ReadMarks(cell.AllMarks, cell.Text)))]))])),
+            Picture = line.Picture is null
+                ? null
+                : new NotePictureLine(line.Picture.PictureId, line.Picture.ContentType, line.Picture.WidthPixels, line.Picture.HeightPixels)
         };
 
     private static IReadOnlyList<NoteTextRun> ReadMarks(IReadOnlyList<NoteTextRunDto> marks, string text)
@@ -100,7 +113,10 @@ public sealed partial class NoteLineRow : ObservableObject
             Table is null
                 ? null
                 : new NoteTableDto([.. Table.Rows.Select(row => new NoteTableRowDto(
-                    [.. row.Cells.Select(cell => new NoteTableCellDto(cell.Text, SentMarks(cell.AllMarks)))]))]));
+                    [.. row.Cells.Select(cell => new NoteTableCellDto(cell.Text, SentMarks(cell.AllMarks)))]))]),
+            Picture is null
+                ? null
+                : new NotePictureLineDto(Picture.PictureId, Picture.ContentType, Picture.WidthPixels, Picture.HeightPixels));
 
     /// <summary>The same line as the surface Orbit.Core decides edits on - see Orbit.Core.Notes.SurfaceState.</summary>
     public static NoteLineRow From(NoteContentLine line)
@@ -112,11 +128,12 @@ public sealed partial class NoteLineRow : ObservableObject
             IsFailed = line.IsFailed,
             Style = line.Style,
             Marks = line.AllMarks,
-            Table = line.Table
+            Table = line.Table,
+            Picture = line.Picture
         };
 
     /// <inheritdoc cref="From(NoteContentLine)"/>
-    public NoteContentLine ToLine() => new(Text, IsChecklistItem, IsChecked, IsFailed, Style, Marks, Table);
+    public NoteContentLine ToLine() => new(Text, IsChecklistItem, IsChecked, IsFailed, Style, Marks, Table, Picture);
 
     /// <summary>
     /// Becomes <paramref name="line"/> in place - what an undo does to a line that is still there, so the
@@ -131,6 +148,7 @@ public sealed partial class NoteLineRow : ObservableObject
         Style = line.Style;
         Marks = line.AllMarks;
         Table = line.Table;
+        Picture = line.Picture;
     }
 
     /// <summary>
@@ -186,7 +204,7 @@ public sealed partial class NoteLineRow : ObservableObject
     /// done - which of the two controls is showing. A ticked line opens while it is being written in; a
     /// table never does, since its words are in its cells and the field would be an empty line over it.
     /// </summary>
-    public bool IsOpenForWriting => !IsATable && (!IsCompleted || IsBeingWrittenIn);
+    public bool IsOpenForWriting => !IsATable && !IsAPicture && (!IsCompleted || IsBeingWrittenIn);
 
     /// <summary>Struck through: done, and not currently being written in.</summary>
     public bool IsStruckThrough => IsCompleted && !IsBeingWrittenIn;
@@ -207,6 +225,12 @@ public sealed partial class NoteLineRow : ObservableObject
     {
         OnPropertyChanged(nameof(IsATable));
         OnPropertyChanged(nameof(TableRows));
+        SayHowItIsDrawn();
+    }
+
+    partial void OnPictureChanged(NotePictureLine? value)
+    {
+        OnPropertyChanged(nameof(IsAPicture));
         SayHowItIsDrawn();
     }
 

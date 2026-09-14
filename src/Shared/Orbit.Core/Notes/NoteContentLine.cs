@@ -34,12 +34,33 @@ namespace Orbit.Core.Notes;
 /// picture will be carried the same way. Null for ordinary writing, and for every line saved before
 /// tables existed.
 /// </param>
+/// <param name="Picture">
+/// The picture this line is, when it is one - see <see cref="NotePictureLine"/>, carried the way a table
+/// is. Null for everything else.
+/// </param>
 public sealed record NoteContentLine(
     string Text, bool IsChecklistItem, bool IsChecked, bool IsFailed = false,
     NoteLineStyle Style = NoteLineStyle.Body,
     IReadOnlyList<NoteTextRun>? Marks = null,
-    NoteTable? Table = null)
+    NoteTable? Table = null,
+    NotePictureLine? Picture = null)
 {
+    /// <summary>A line that is a picture and nothing else - see <see cref="OfTable"/>, which is the same rule for a table.</summary>
+    public static NoteContentLine OfPicture(NotePictureLine picture)
+        => new(string.Empty, IsChecklistItem: false, IsChecked: false, Picture: picture);
+
+    /// <summary>Whether this line is a picture rather than writing.</summary>
+    public bool IsAPicture => Picture is not null;
+
+    /// <summary>
+    /// Whether this line is something other than words - a table or a picture. What every rule that
+    /// counts characters asks: such a line has no caret offset to speak of, so an edit that split or
+    /// joined it as if it had words would be the caret landing nowhere. The two differ in one place
+    /// only - Backspace over a picture takes it away, as it takes any element, where a table goes by
+    /// its own menu - and the rules ask the narrower question there.
+    /// </summary>
+    public bool IsAnElement => IsATable || IsAPicture;
+
     /// <summary>
     /// A line that is a table and nothing else: no words, no box, ordinary style. The one way a table
     /// line is made, so nothing can make one that also carries words.
@@ -75,7 +96,8 @@ public sealed record NoteContentLine(
             && IsFailed == other.IsFailed
             && Style == other.Style
             && AllMarks.SequenceEqual(other.AllMarks)
-            && Equals(Table, other.Table);
+            && Equals(Table, other.Table)
+            && Picture == other.Picture;
 
     public override int GetHashCode()
     {
@@ -91,6 +113,7 @@ public sealed record NoteContentLine(
         }
 
         hash.Add(Table);
+        hash.Add(Picture);
         return hash.ToHashCode();
     }
 }

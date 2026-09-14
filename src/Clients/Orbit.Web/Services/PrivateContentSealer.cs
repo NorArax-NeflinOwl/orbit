@@ -63,6 +63,29 @@ public sealed class PrivateContentSealer
         return plainText is null ? default : JsonSerializer.Deserialize<TContent>(plainText);
     }
 
+    /// <summary>
+    /// Seals bytes - a note's picture - under the same key <see cref="SealAsync"/> seals text with, and
+    /// hands back one buffer the server stores as it is (see sealBytesForSelf in e2eeChat.js). Throws
+    /// <see cref="EncryptionKeyLockedException"/> for the reason SealAsync does.
+    /// </summary>
+    public async Task<byte[]> SealBytesAsync(byte[] bytes, CancellationToken cancellationToken = default)
+    {
+        var ownUserId = await RequireOwnUserIdAsync();
+        await _ownEncryptionKeyProvider.EnsurePublicKeyAsync();
+
+        await using var cryptoModule = await ImportCryptoModuleAsync();
+        return await cryptoModule.InvokeAsync<byte[]>("sealBytesForSelf", cancellationToken, ownUserId, bytes);
+    }
+
+    /// <summary>Opens what <see cref="SealBytesAsync"/> produced, or null when this browser cannot - see <see cref="OpenAsync"/>.</summary>
+    public async Task<byte[]?> OpenBytesAsync(byte[] sealedBytes, CancellationToken cancellationToken = default)
+    {
+        var ownUserId = await RequireOwnUserIdAsync();
+
+        await using var cryptoModule = await ImportCryptoModuleAsync();
+        return await cryptoModule.InvokeAsync<byte[]?>("openBytesForSelf", cancellationToken, ownUserId, sealedBytes);
+    }
+
     private async Task<Guid> RequireOwnUserIdAsync()
         => await _authenticationStateProvider.TryGetCurrentUserIdAsync()
             // No signed-in user means no key to seal with - the same dead end as a browser missing the

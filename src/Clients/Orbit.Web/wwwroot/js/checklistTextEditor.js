@@ -22,7 +22,10 @@ const instances = new Map();
 
 /// options: { takesTab, tickHint } - see ChecklistTextEditor.TakesTab, and the tooltip each box carries.
 export function initialize(container, dotNetHelper, initialLinesJson, options) {
-    const state = { dotNetHelper, options: options || {}, selectionBefore: null, pickedCount: 0, dragged: null, inTable: false };
+    const state = {
+        dotNetHelper, options: options || {}, selectionBefore: null, pickedCount: 0, dragged: null, inTable: false,
+        pictureUrls: new Map()
+    };
     instances.set(container, state);
     render(container, normalizeLines(JSON.parse(initialLinesJson)));
 
@@ -95,6 +98,10 @@ function onDrop(event, container, state) {
     }
 
     event.preventDefault();
+    if (!dragged && takePictureFiles(event.dataTransfer, container, state)) {
+        return;
+    }
+
     const to = dropPoint(container, event);
     if (!to) {
         return;
@@ -140,12 +147,107 @@ function onPaste(event, container, state) {
     }
 
     event.preventDefault();
+    if (takePictureFiles(event.clipboardData, container, state)) {
+        return;
+    }
+
     const text = event.clipboardData.getData('text/plain');
     if (!text) {
         return;
     }
 
     const answer = ask(container, state, 'paste', { text });
+    if (answer) {
+        show(container, state, answer);
+    }
+}
+
+/// The picture files in a paste or a drop, handed to Blazor one at a time as bytes - see
+/// ChecklistTextEditor.OnPicturePasted, which uploads them and asks for the line to be put in. Answers
+/// whether there were any, so the caller knows the paste was pictures rather than words. A picture
+/// larger than a screen needs to be is scaled first: a phone photograph is 4-8 MB and four of them would
+/// be most of a note's 50 MB.
+function takePictureFiles(transfer, container, state) {
+    if (!transfer || !transfer.files || transfer.files.length === 0 || !state.options.takesPictures) {
+        return false;
+    }
+
+    const pictures = Array.from(transfer.files).filter((file) => file.type && file.type.startsWith('image/'));
+    if (pictures.length === 0) {
+        return false;
+    }
+
+    (async () => {
+        for (const file of pictures) {
+            const scaled = await scaledPicture(file);
+            if (scaled) {
+                await state.dotNetHelper.invokeMethodAsync(
+                    'OnPicturePasted', new Uint8Array(scaled.bytes), scaled.contentType, scaled.width, scaled.height);
+            }
+        }
+    })();
+    return true;
+}
+
+/// The longest edge a stored picture keeps. Enough for any screen the note is read on; a photograph's
+/// own 4000 pixels would be four times the bytes for nothing anybody sees.
+const LONGEST_EDGE = 2048;
+
+/// The file's bytes and size, scaled down to LONGEST_EDGE where it was larger. A picture that is not
+/// scaled is sent as it is, so a PNG stays a PNG with its transparency; one that is scaled comes back
+/// as what it was where the canvas can write that, and as JPEG otherwise.
+async function scaledPicture(file) {
+    let bitmap;
+    try {
+        bitmap = await createImageBitmap(file);
+    } catch {
+        return null;
+    }
+
+    const longest = Math.max(bitmap.width, bitmap.height);
+    if (longest <= LONGEST_EDGE) {
+        return { bytes: await file.arrayBuffer(), contentType: file.type, width: bitmap.width, height: bitmap.height };
+    }
+
+    const scale = LONGEST_EDGE / longest;
+    const width = Math.round(bitmap.width * scale);
+    const height = Math.round(bitmap.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext('2d').drawImage(bitmap, 0, 0, width, height);
+    const contentType = file.type === 'image/png' || file.type === 'image/webp' ? file.type : 'image/jpeg';
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, contentType, 0.9));
+    if (!blob) {
+        return null;
+    }
+    return { bytes: await blob.arrayBuffer(), contentType: blob.type || contentType, width, height };
+}
+
+/// The attachment tool: a file picker, whose choice goes the way a pasted picture does.
+export function pickPicture(container) {
+    const state = instances.get(container);
+    if (!state || !isWritable(container)) {
+        return;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.addEventListener('change', () => takePictureFiles(input, container, state));
+    input.click();
+}
+
+/// A picture already in the store, put where the caret is - see NoteSurfaceEdits.InsertPicture. Called
+/// by Blazor once the upload has answered with the id the line names the bytes by.
+export async function insertPicture(container, pictureJson) {
+    await Promise.resolve();
+    const state = instances.get(container);
+    if (!state || !isWritable(container)) {
+        return;
+    }
+
+    const answer = ask(container, state, 'insertPicture', { picture: JSON.parse(pictureJson) });
     if (answer) {
         show(container, state, answer);
     }
@@ -572,6 +674,20 @@ function onBeforeInput(event, container, state) {
         return;
     }
 
+    // Words typed on a picture's line would land beside the picture in its own element; they go to C#
+    // instead, which puts them under it (see NoteSurfaceEdits.Replace).
+    const caretLine = closestLine(window.getSelection() && window.getSelection().anchorNode, container);
+    if (caretLine && caretLine.classList.contains('note-line-picture') && (event.inputType || '').startsWith('insert')
+        && event.inputType !== 'insertCompositionText') {
+        event.preventDefault();
+        const typed = event.data ?? (event.dataTransfer ? event.dataTransfer.getData('text/plain') : '');
+        const answer = ask(container, state, 'replace', { text: typed || '' });
+        if (answer) {
+            show(container, state, answer);
+        }
+        return;
+    }
+
     // Ctrl+B and its friends - and the same four from the browser's own menus. Stopped and asked of C#,
     // which owns what a mark means here: left to the browser, these would put tags of their own choosing
     // into the line and the phone would never hear about them.
@@ -762,6 +878,10 @@ function render(container, lines) {
     }
 
     numberTheLists(container);
+    const state = instances.get(container);
+    if (state) {
+        resolvePictures(container, state);
+    }
 }
 
 /// Writes each numbered line's number onto it, counting from one down each unbroken run - the same rule
@@ -806,6 +926,15 @@ function draw(container, lines) {
             return;
         }
 
+        const isPicture = element.classList.contains('note-line-picture');
+        if (isPicture || line.picture) {
+            const drawn = pictureIn(element);
+            if (!isPicture || !line.picture || !drawn || drawn.pictureId !== line.picture.pictureId) {
+                element.replaceWith(createLineElement(line, hint));
+            }
+            return;
+        }
+
         const isTable = element.classList.contains('note-line-table');
         if (isTable || line.table) {
             // Rebuilt whole: a table that changed shape has no cell left in the same place to keep,
@@ -837,6 +966,10 @@ function draw(container, lines) {
     }
 
     numberTheLists(container);
+    const state = instances.get(container);
+    if (state) {
+        resolvePictures(container, state);
+    }
 }
 
 function tickHintOf(container) {
@@ -1053,6 +1186,14 @@ function createLineElement(line, tickHint) {
         return div;
     }
 
+    // And a picture the same - see NoteContentLine.OfPicture. Drawn once its bytes have been fetched
+    // and turned into a URL the page owns (see NotePictureSource); until then it holds its shape.
+    if (line.picture) {
+        div.classList.add('note-line-picture');
+        div.appendChild(createPictureElement(line.picture));
+        return div;
+    }
+
     if (line.isChecklistItem) {
         div.classList.add('note-line-checklist');
 
@@ -1095,6 +1236,75 @@ function createTableElement(table) {
         }
     }
     return element;
+}
+
+/// A picture line's element: not editable itself, so the caret stands beside it rather than in it, and
+/// sized from what the line says so the note does not jump when the bytes arrive. Pressed, it opens full
+/// size in a tab of its own - Apple Notes' rule, and the only thing a picture in a note is pressed for.
+function createPictureElement(picture) {
+    const figure = document.createElement('figure');
+    figure.className = 'note-picture';
+    figure.contentEditable = 'false';
+    figure.dataset.pictureId = picture.pictureId;
+    figure.dataset.contentType = picture.contentType || '';
+    figure.dataset.width = String(picture.widthPixels || 0);
+    figure.dataset.height = String(picture.heightPixels || 0);
+
+    const img = document.createElement('img');
+    img.alt = '';
+    if (picture.widthPixels > 0 && picture.heightPixels > 0) {
+        img.width = picture.widthPixels;
+        img.height = picture.heightPixels;
+    }
+    img.addEventListener('click', () => {
+        if (img.src) {
+            window.open(img.src, '_blank', 'noopener');
+        }
+    });
+    figure.appendChild(img);
+    return figure;
+}
+
+/// Gives every picture on the surface its URL, asking Blazor once per picture and remembering the
+/// answer - see ChecklistTextEditor.PictureUrl. Nothing here waits on it: a line is drawn at once and
+/// its picture arrives when it does.
+function resolvePictures(container, state) {
+    for (const figure of container.querySelectorAll('.note-picture')) {
+        const img = figure.querySelector('img');
+        const id = figure.dataset.pictureId;
+        if (!img || !id || img.src) {
+            continue;
+        }
+
+        const known = state.pictureUrls.get(id);
+        if (known) {
+            img.src = known;
+            continue;
+        }
+
+        state.dotNetHelper.invokeMethodAsync('PictureUrl', id).then((url) => {
+            if (url) {
+                state.pictureUrls.set(id, url);
+                if (figure.isConnected) {
+                    img.src = url;
+                }
+            }
+        });
+    }
+}
+
+/// The picture a line names, read back off what was drawn.
+function pictureIn(line) {
+    const figure = line.querySelector('.note-picture');
+    if (!figure) {
+        return null;
+    }
+    return {
+        pictureId: figure.dataset.pictureId,
+        contentType: figure.dataset.contentType || '',
+        widthPixels: Number(figure.dataset.width) || 0,
+        heightPixels: Number(figure.dataset.height) || 0
+    };
 }
 
 /// A table as the document now holds it, read back the way a line's words are: each cell's text, and
@@ -1148,7 +1358,7 @@ function setTick(line, state) {
 }
 
 function lineText(line) {
-    if (line.classList && line.classList.contains('note-line-table')) {
+    if (line.classList && (line.classList.contains('note-line-table') || line.classList.contains('note-line-picture'))) {
         return '';
     }
     const span = line.querySelector('.note-line-text');
@@ -1179,14 +1389,16 @@ function extractLines(container) {
         const tick = line.querySelector('.note-line-tick');
         const state = tick ? stateOf(tick) : TICK_NONE;
         const table = tableIn(line);
+        const picture = pictureIn(line);
         return {
-            text: table ? '' : (lineText(line) || ''),
+            text: table || picture ? '' : (lineText(line) || ''),
             isChecklistItem: !!tick,
             isChecked: state === TICK_DONE,
             isFailed: state === TICK_FAILED,
             style: line.dataset && line.dataset.style ? line.dataset.style : 'body',
-            marks: table ? [] : marksIn(line),
-            table
+            marks: table || picture ? [] : marksIn(line),
+            table,
+            picture
         };
     });
 }
@@ -1221,8 +1433,9 @@ function repairStrayText(container) {
 
 /// Answers whether anything had to be moved.
 function repairLineDom(line) {
-    // A table line has no span to put words back into, and everything in it is where it belongs.
-    if (line.classList.contains('note-line-table')) {
+    // A table line has no span to put words back into, and everything in it is where it belongs. A
+    // picture line the same.
+    if (line.classList.contains('note-line-table') || line.classList.contains('note-line-picture')) {
         return false;
     }
 
@@ -1351,6 +1564,10 @@ function domPoint(container, point) {
     const firstCell = line.classList.contains('note-line-table') ? line.querySelector('.note-cell') : null;
     if (firstCell) {
         return { node: firstCell, offset: 0 };
+    }
+    // A picture has nothing to stand in either: the caret goes on the line, before the picture.
+    if (line.classList.contains('note-line-picture')) {
+        return { node: line, offset: 0 };
     }
     const span = line.querySelector('.note-line-text') || line;
     let remaining = point.offset;

@@ -46,6 +46,9 @@ using Serilog.Events;
 using Serilog.Sinks.ApplicationInsights.TelemetryConverters;
 using Serilog.Sinks.OpenTelemetry;
 using Azure.Monitor.OpenTelemetry.Exporter;
+using Microsoft.Extensions.Options;
+using Orbit.Core.Notes;
+using Orbit.Api.Notes.Pictures;
 
 // Standard OpenTelemetry env var name, so both this sink and the SDK exporter below pick it up the
 // same way. Defaults to Aspire Dashboard's local port; docker-compose overrides it to the dashboard's
@@ -207,6 +210,14 @@ try
     builder.Services.AddSingleton<IGoogleIdentityVerifier, GoogleIdentityVerifier>();
     builder.Services.Configure<MobileVersionSettings>(builder.Configuration.GetSection(MobileVersionSettings.SectionName));
     builder.Services.Configure<DiagnosticLogSettings>(builder.Configuration.GetSection(DiagnosticLogSettings.SectionName));
+    // Where a note's pictures go: the storage account when its connection string is set, a directory
+    // otherwise - the same shape of decision the telemetry exporter makes on its own connection string.
+    // See NotePictureSettings for why the account is one of its own.
+    builder.Services.Configure<NotePictureSettings>(builder.Configuration.GetSection(NotePictureSettings.SectionName));
+    builder.Services.AddSingleton<INotePictureStore>(services =>
+        string.IsNullOrWhiteSpace(services.GetRequiredService<IOptions<NotePictureSettings>>().Value.ConnectionString)
+            ? new DirectoryNotePictureStore(services.GetRequiredService<IOptions<NotePictureSettings>>(), services.GetRequiredService<IHostEnvironment>())
+            : new AzureBlobNotePictureStore(services.GetRequiredService<IOptions<NotePictureSettings>>()));
 
     // Fails fast on startup instead of on the first login attempt if the signing key was never
     // configured, or is too short to be a usable HMAC-SHA256 key - see JwtSettings for where it's
@@ -397,6 +408,7 @@ try
     app.MapUserEndpoints();
     app.MapChatEndpoints();
     app.MapNoteEndpoints();
+    app.MapNotePictureEndpoints();
     app.MapFolderEndpoints();
     app.MapPlaceEndpoints();
     app.MapTaskEndpoints();

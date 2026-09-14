@@ -81,7 +81,7 @@ public static class NoteEndpoints
                 new UpdateNoteCommand(
                     GetUserId(user), id, request.Title, ToDomainContent(request.Content), request.IsPrivate,
                     ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
-                    request.Tags),
+                    request.Tags, request.PictureIds),
                 cancellationToken);
             return ToApiResult(outcome);
         });
@@ -190,8 +190,10 @@ public static class NoteEndpoints
     private static IReadOnlyList<NoteContentLine> ToDomainContent(IReadOnlyList<NoteContentLineDto> content)
         => content.Select(line => line.Table is { } table
             // A line that carries a table is the table and nothing else - see NoteContentLine.OfTable,
-            // which squares it up and leaves no room for words or a box beside it.
+            // which squares it up and leaves no room for words or a box beside it. A picture the same.
             ? NoteContentLine.OfTable(TableOf(table))
+            : line.Picture is { } picture
+            ? NoteContentLine.OfPicture(new NotePictureLine(picture.PictureId, picture.ContentType, picture.WidthPixels, picture.HeightPixels))
             : new NoteContentLine(
                 line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed && !line.IsChecked,
                 StyleOf(line.Style), MarksOf(line.AllMarks, line.Text))).ToList();
@@ -211,7 +213,10 @@ public static class NoteEndpoints
 
     private static NoteContentLineDto ToDto(NoteContentLine line)
         => new(line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed, line.Style.ToString(),
-            MarksSent(line.AllMarks), TableSent(line.Table));
+            MarksSent(line.AllMarks), TableSent(line.Table), PictureSent(line.Picture));
+
+    private static NotePictureLineDto? PictureSent(NotePictureLine? picture)
+        => picture is null ? null : new NotePictureLineDto(picture.PictureId, picture.ContentType, picture.WidthPixels, picture.HeightPixels);
 
     private static NoteTableDto? TableSent(NoteTable? table)
         => table is null

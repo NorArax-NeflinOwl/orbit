@@ -24,13 +24,25 @@ namespace Orbit.Contracts.Notes;
 /// table is the table: its text is empty and it has no box. Null for ordinary writing, and for every
 /// line a client written before tables existed sends.
 /// </param>
+/// <param name="Picture">The picture this line is, when it is one - see <see cref="NotePictureLineDto"/>. Null for everything else.</param>
 public sealed record NoteContentLineDto(
     string Text, bool IsChecklistItem, bool IsChecked, bool IsFailed = false, string Style = "Body",
-    IReadOnlyList<NoteTextRunDto>? Marks = null, NoteTableDto? Table = null)
+    IReadOnlyList<NoteTextRunDto>? Marks = null, NoteTableDto? Table = null, NotePictureLineDto? Picture = null)
 {
     /// <summary>The marks as something to read without a null check - see <see cref="Marks"/>.</summary>
     public IReadOnlyList<NoteTextRunDto> AllMarks => Marks ?? [];
 }
+
+/// <summary>
+/// A picture in the flow of a note - see Orbit.Core.Notes.NotePictureLine. It names the bytes (uploaded
+/// first, to POST /api/notes/{id}/pictures) and says what they are and how big they draw; for a private
+/// note this travels inside the sealed content, which is the only place a sealed picture's kind is
+/// written.
+/// </summary>
+public sealed record NotePictureLineDto(Guid PictureId, string ContentType, int WidthPixels = 0, int HeightPixels = 0);
+
+/// <summary>What an upload answers: the id the line names the picture by, and how much of the note's 50 MB it took.</summary>
+public sealed record NotePictureDto(Guid Id, long SizeBytes);
 
 /// <summary>A table inside a note - see Orbit.Core.Notes.NoteTable. Rows of cells; the server squares it up.</summary>
 public sealed record NoteTableDto(IReadOnlyList<NoteTableRowDto> Rows);

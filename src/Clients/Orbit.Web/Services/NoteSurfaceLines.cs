@@ -15,6 +15,8 @@ public static class NoteSurfaceLines
     public static IReadOnlyList<NoteContentLine> ToSurfaceLines(this IEnumerable<NoteContentLineDto> lines)
         => [.. lines.Select(line => line.Table is { } table
             ? NoteContentLine.OfTable(table.ToTable())
+            : line.Picture is { } picture
+            ? NoteContentLine.OfPicture(new NotePictureLine(picture.PictureId, picture.ContentType, picture.WidthPixels, picture.HeightPixels))
             : new NoteContentLine(
                 line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed, StyleOf(line.Style),
                 MarksOf(line)))];
@@ -22,7 +24,10 @@ public static class NoteSurfaceLines
     public static IReadOnlyList<NoteContentLineDto> ToDtos(this IEnumerable<NoteContentLine> lines)
         => [.. lines.Select(line => new NoteContentLineDto(
             line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed, line.Style.ToString(),
-            MarksSent(line.AllMarks), line.Table.ToDto()))];
+            MarksSent(line.AllMarks), line.Table.ToDto(),
+            line.Picture is null
+                ? null
+                : new NotePictureLineDto(line.Picture.PictureId, line.Picture.ContentType, line.Picture.WidthPixels, line.Picture.HeightPixels)))];
 
     /// <summary>A table as it arrived, squared up - see NoteTables.Squared - with each cell's marks read the way a line's are.</summary>
     public static NoteTable ToTable(this NoteTableDto table)

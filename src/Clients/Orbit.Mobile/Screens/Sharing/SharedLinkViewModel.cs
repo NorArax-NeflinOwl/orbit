@@ -28,15 +28,15 @@ namespace Orbit.Mobile.Screens.Sharing;
 public sealed record SharedLine(
     string Text, string Detail, bool IsChecklistItem, bool IsTicked,
     NoteLineStyle Style = NoteLineStyle.Body, int ListNumber = 0,
-    IReadOnlyList<IReadOnlyList<string>>? TableRows = null)
+    IReadOnlyList<IReadOnlyList<string>>? TableRows = null, bool IsAPicture = false)
 {
     public bool HasDetail => Detail.Length > 0;
 
     /// <summary>Whether this line is a table, which shows the grid instead of the words.</summary>
     public bool IsATable => TableRows is { Count: > 0 };
 
-    /// <summary>The words drawn as words - nothing for a table, whose words are in its cells.</summary>
-    public bool ShowsWords => !IsATable;
+    /// <summary>The words drawn as words - nothing for a table, whose words are in its cells, and nothing for a picture.</summary>
+    public bool ShowsWords => !IsATable && !IsAPicture;
 
     /// <summary>How large the line is drawn - the same rules the note's own screen draws by.</summary>
     public double DrawnFontSize => NoteLineLook.SizeOf(Style);
@@ -219,7 +219,8 @@ public sealed partial class SharedLinkViewModel : ObservableObject
             Lines.Add(new SharedLine(
                 line.Text, line.Detail ?? string.Empty, line.IsChecklistItem, line.IsChecked,
                 styles[index], numbers[index],
-                line.Table?.Rows.Select(row => (IReadOnlyList<string>)[.. row.Cells.Select(cell => cell.Text)]).ToList()));
+                line.Table?.Rows.Select(row => (IReadOnlyList<string>)[.. row.Cells.Select(cell => cell.Text)]).ToList(),
+                line.Picture is not null));
         }
 
         OnPropertyChanged(nameof(HasNothingInIt));

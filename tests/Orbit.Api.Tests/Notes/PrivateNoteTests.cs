@@ -155,7 +155,7 @@ public sealed class PrivateNoteTests
 
         public Task<EditOutcome> UpdateAsync(
             Guid noteId, string title, IReadOnlyList<NoteContentLine> content, bool isPrivate, EncryptedPayload? encryptedContent)
-            => new UpdateNoteCommandHandler(Resolver, NoteRepository)
+            => new UpdateNoteCommandHandler(Resolver, NoteRepository, new InMemoryNotePictureRepository(), new InMemoryNotePictureStore())
                 .HandleAsync(new UpdateNoteCommand(OwnerId, noteId, title, content, isPrivate, encryptedContent), CancellationToken.None);
 
         public Task<ShareOutcome?> ShareAsync(Guid noteId, Guid recipientId)

@@ -93,6 +93,20 @@ classDiagram
         +NoteLineStyle Style
         +IReadOnlyList~NoteTextRun~ Marks
         +NoteTable? Table
+        +NotePictureLine? Picture
+    }
+    class NotePictureLine {
+        +Guid PictureId
+        +string ContentType
+        +int WidthPixels
+        +int HeightPixels
+    }
+    class NotePicture {
+        +Guid Id
+        +Guid NoteId
+        +long SizeBytes
+        +string? ContentType
+        +bool IsSealed
     }
     class NoteTextRun {
         +int Start
@@ -206,6 +220,9 @@ classDiagram
     NoteContentLine "1" *-- "0..*" NoteTextRun : marks a stretch of
     NoteContentLine "1" *-- "0..1" NoteTable : is, when it is one
     NoteTable "1" *-- "1..*" NoteTableCell : rows of
+    NoteContentLine "1" *-- "0..1" NotePictureLine : is, when it is one
+    NotePictureLine "1" --> "1" NotePicture : names the bytes of
+    Note "1" *-- "0..*" NotePicture : keeps
     TaskList "1" *-- "0..*" TaskItem
     TaskItem "1" *-- "1" TaskItemSubject
     TaskItem "1" *-- "0..1" TaskItemProduct

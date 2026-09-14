@@ -57,6 +57,8 @@ public sealed class NoteEditorTests : OrbitTestContext
         checklistEditorModule.SetupVoid("mark", _ => true).SetVoidResult();
         checklistEditorModule.SetupVoid("insertTable", _ => true).SetVoidResult();
         checklistEditorModule.SetupVoid("editTable", _ => true).SetVoidResult();
+        checklistEditorModule.SetupVoid("pickPicture", _ => true).SetVoidResult();
+        checklistEditorModule.SetupVoid("insertPicture", _ => true).SetVoidResult();
         checklistEditorModule.Setup<string>("getLinesAsJson", _ => true).SetResult("[]");
 
         // The same wiring CalendarEventEditorTests uses, for the same reason: the editor injects a
@@ -87,6 +89,10 @@ public sealed class NoteEditorTests : OrbitTestContext
         Services.AddSingleton(new EncryptedChatMessageSender(
             jsRuntime, ownEncryptionKeyProvider, usersApiClient,
             new ChatApiClient(new HttpClient { BaseAddress = new Uri("https://example.test/") })));
+        // The editor seals a private note's picture before uploading it, and draws pictures through
+        // NotePictureSource; neither is exercised here beyond having to resolve.
+        Services.AddSingleton(new PrivateContentSealer(ownEncryptionKeyProvider, authenticationStateProvider, jsRuntime));
+        Services.AddScoped<NotePictureSource>();
     }
 
     [Fact]
@@ -446,13 +452,12 @@ public sealed class NoteEditorTests : OrbitTestContext
     }
 
     /// <summary>
-    /// The row of tools sits over the corner of the writing rather than above it. Three of its four work
-    /// - the styles, the tick box and the table - and the last is drawn for a design that has it rather
-    /// than for anything it does yet. It says so when it is pressed: a greyed-out button explains
-    /// nothing, and a row of them explains less.
+    /// The row of tools sits over the corner of the writing rather than above it, and all four of them
+    /// work. The attachment is a file picker, opened by the surface, whose choice comes back the way a
+    /// pasted picture does.
     /// </summary>
     [Fact]
-    public void The_tools_over_the_writing_say_when_there_is_nothing_behind_them()
+    public void The_attachment_tool_opens_the_picker_on_a_note_that_has_been_saved()
     {
         var note = Note("Shopping");
         RegisterApiClients(note);
@@ -464,7 +469,25 @@ public sealed class NoteEditorTests : OrbitTestContext
         cut.FindAll(".note-editor-tools .note-tool")
             .First(tool => tool.GetAttribute("aria-label") == "Attachment").Click();
 
-        Assert.Contains("not implemented yet", cut.Find(".note-tool-bubble").TextContent);
+        JSInterop.VerifyInvoke("pickPicture");
+        Assert.Empty(cut.FindAll(".note-tool-bubble"));
+    }
+
+    /// <summary>
+    /// A note that has never been saved has nowhere to keep a picture - a picture belongs to a note, and
+    /// there is no note yet - so the tool says to save first rather than opening a picker for nothing.
+    /// </summary>
+    [Fact]
+    public void The_attachment_tool_asks_for_a_save_first_on_a_new_note()
+    {
+        RegisterApiClients(note: null);
+        var cut = RenderComponent<NoteEditor>();
+
+        cut.FindAll(".note-editor-tools .note-tool")
+            .First(tool => tool.GetAttribute("aria-label") == "Attachment").Click();
+
+        Assert.Contains("Save the note first", cut.Find(".note-tool-bubble").TextContent);
+        Assert.Empty(JSInterop.Invocations.Where(invocation => invocation.Identifier == "pickPicture"));
     }
 
     /// <summary>Outside a table the table tool inserts one - the surface is told, and the lines pulled back.</summary>
@@ -832,6 +855,7 @@ public sealed class NoteEditorTests : OrbitTestContext
 
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
         Services.AddSingleton(new NotesApiClient(httpClient));
+        Services.AddSingleton(new NotePicturesApiClient(httpClient));
         Services.AddSingleton(new PublicShareApiClient(httpClient));
         Services.AddSingleton(new ChatApiClient(httpClient));
         // Over the one the constructor registered, so the sealed message goes somewhere a test can read

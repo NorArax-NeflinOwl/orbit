@@ -74,6 +74,11 @@ builder.Services.AddCascadingAuthenticationState();
 
 builder.Services.AddHttpClient<NotesApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
+// A note's pictures, bytes in and bytes out - see NotePicturesApiClient; NotePictureSource is what turns
+// them into something an <img> can draw, and is scoped so a page's blob: URLs go with the page.
+builder.Services.AddHttpClient<NotePicturesApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
+    .AddHttpMessageHandler<AuthorizationMessageHandler>();
+builder.Services.AddScoped<NotePictureSource>();
 builder.Services.AddHttpClient<TasksApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<InventoryApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))

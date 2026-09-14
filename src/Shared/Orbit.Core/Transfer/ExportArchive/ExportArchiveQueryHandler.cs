@@ -108,7 +108,10 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
     private static ArchivedNote ToArchived(Note note)
         => new(
             note.Title,
-            note.Content.Select(line => new ArchivedNoteLine(
+            // A picture's bytes are not in the file, and a line naming bytes that are not there would be
+            // a broken picture on import - so pictures are left out of an export, and said so in
+            // info/functionality.md.
+            note.Content.Where(line => !line.IsAPicture).Select(line => new ArchivedNoteLine(
                 line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed, line.Style.ToString(),
                 ArchivedMarks(line.AllMarks),
                 line.Table?.Rows

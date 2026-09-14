@@ -991,6 +991,45 @@ namespace Orbit.Data.Migrations
                     b.ToTable("OP_NOTES");
                 });
 
+            modelBuilder.Entity("Orbit.Data.Entities.NotePictureEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_NP_ID");
+
+                    b.Property<string>("ContentType")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("OP_NP_CONTENTTYPE");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_NP_CREATEDATUTC");
+
+                    b.Property<bool>("IsSealed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_NP_ISSEALED");
+
+                    b.Property<Guid>("NoteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_NP_NOTEID");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_NP_OWNERUSERID");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("OP_NP_SIZEBYTES");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NoteId");
+
+                    b.ToTable("OP_NOTES_PICTURES");
+                });
+
             modelBuilder.Entity("Orbit.Data.Entities.NoteShareEntity", b =>
                 {
                     b.Property<Guid>("Id")

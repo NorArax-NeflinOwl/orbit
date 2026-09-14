@@ -36,7 +36,7 @@ public sealed record PublicSharedItem(
 public sealed record PublicSharedItemLine(
     string Text, bool IsChecklistItem, bool IsChecked, string? Detail, bool IsFailed = false,
     NoteLineStyle Style = NoteLineStyle.Body, IReadOnlyList<NoteTextRun>? Marks = null,
-    NoteTable? Table = null)
+    NoteTable? Table = null, NotePictureLine? Picture = null)
 {
     /// <summary>The marks as something to read without a null check - see <see cref="Marks"/>.</summary>
     public IReadOnlyList<NoteTextRun> AllMarks => Marks ?? NoteTextMarks.None;

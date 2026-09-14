@@ -257,7 +257,8 @@ public sealed class Note
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(title) && !content.Any(line => !string.IsNullOrWhiteSpace(line.Text)))
+        // A table or a picture is something to read, though its line has no words of its own.
+        if (string.IsNullOrWhiteSpace(title) && !content.Any(line => line.IsAnElement || !string.IsNullOrWhiteSpace(line.Text)))
         {
             throw new InvalidRequestException("A note needs a title or something written in it.");
         }
