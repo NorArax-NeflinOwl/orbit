@@ -75,6 +75,7 @@
                                                       IsFailed="{Binding IsFailed}"
                                                       Description="{Binding Text}"
                                                       Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCheckedCommand, x:DataType=notes:NoteDetailPage}"
+                                                      LongPressCommand="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.PickThisLineCommand, x:DataType=notes:NoteDetailPage}"
                                                       CommandParameter="{Binding .}" />
 
                                 <Entry Grid.Column="1" Text="{Binding Text}" VerticalOptions="Center"

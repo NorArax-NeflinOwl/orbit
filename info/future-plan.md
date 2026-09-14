@@ -759,11 +759,20 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   written. Deciding which rule both follow, and moving the phone's two edits onto `NoteSurfaceEdits` if it
   is the browser's, would finish what the paste, undo and several-boxes work started.
 
-- **Choosing several boxes on the phone is only in the note's menu.** A long press on a box would be the
-  faster way in, and the one a phone user tries first, but MAUI has no long-press gesture of its own - it
-  needs a platform handler or CommunityToolkit.Maui's `TouchBehavior`, which Orbit.Maui does not
-  reference. The menu entry, the marks and the hint line (`NoteDetailViewModel.IsPickingLines`) stay as
-  they are; only the way in would be added.
+- ~~**Choosing several boxes on the phone is only in the note's menu.**~~ Done 2026-09-14, by the
+  platform handler rather than the package: `LongPresses` hangs Android's own long click on the button
+  behind a control that asked for one (`LongPress.Command`, forwarded onto `CheckCircle`'s inner button
+  by `CheckCircle.LongPressCommand`), and marks it handled so the press that would otherwise follow -
+  ticking the box - never arrives. Holding a box says both halves at once: `PickThisLineCommand` starts
+  the choosing and chooses that box. The menu entry, the marks and the hint line are untouched, exactly
+  as this said only the way in would be added, and a head that does not read the gesture still has the
+  menu - so nothing is reachable by holding alone.
+
+  A hold does nothing on a line with no box, or on a note with fewer than two boxes: there is nothing to
+  choose it against, and a mode turned on by accident would have to be turned off by hand. Five tests in
+  `NoteDetailScreenTests.SeveralBoxes` cover what the command does; **the gesture itself is not covered
+  and has not been seen on a device** - nothing this project can run raises an Android long click, so
+  whether the hold arrives at all is the one thing still to check there.
 
 - **The phone's multi-line paste rests on an unverified Android detail.** `NoteDetailViewModel.Paste`
   finds a pasted checklist's lines by the line breaks a one-line `Entry` keeps in its text. Android's

@@ -194,4 +194,81 @@ public sealed partial class NoteDetailScreenTests
         Assert.False(screen.CanPickLines);
         Assert.False(screen.StartPickingLinesCommand.CanExecute(null));
     }
+
+    /// <summary>
+    /// Holding a box says both halves at once - start choosing, and choose this one - which is what
+    /// somebody reaching for several boxes tries before finding the menu. The gesture itself is Android's
+    /// (see LongPresses); what it reaches is this.
+    /// </summary>
+    [Fact]
+    public async Task Holding_a_box_starts_choosing_and_chooses_it()
+    {
+        var (context, screen) = await ABoxedListAsync();
+        using var _ = context;
+
+        screen.PickThisLineCommand.Execute(screen.Lines[0]);
+
+        Assert.True(screen.IsPickingLines);
+        Assert.True(screen.Lines[0].IsPicked);
+        Assert.True(screen.Lines[0].ShowsPickMark);
+        Assert.False(screen.Lines[2].IsPicked);
+    }
+
+    /// <summary>A second box held joins the first rather than starting again.</summary>
+    [Fact]
+    public async Task Holding_a_second_box_adds_it_to_the_ones_chosen()
+    {
+        var (context, screen) = await ABoxedListAsync();
+        using var _ = context;
+
+        screen.PickThisLineCommand.Execute(screen.Lines[0]);
+        screen.PickThisLineCommand.Execute(screen.Lines[2]);
+
+        Assert.True(screen.Lines[0].IsPicked);
+        Assert.True(screen.Lines[2].IsPicked);
+    }
+
+    /// <summary>A line with no box is not a thing to choose, so holding it starts nothing.</summary>
+    [Fact]
+    public async Task Holding_a_line_with_no_box_chooses_nothing()
+    {
+        var (context, screen) = await ABoxedListAsync();
+        using var _ = context;
+
+        screen.PickThisLineCommand.Execute(screen.Lines[1]);
+
+        Assert.False(screen.IsPickingLines);
+        Assert.False(screen.Lines[1].IsPicked);
+    }
+
+    /// <summary>
+    /// And neither does a note with only one box: there is nothing to change it together with, and a
+    /// mode turned on by accident there would have to be turned off by hand.
+    /// </summary>
+    [Fact]
+    public async Task Holding_the_only_box_on_a_note_chooses_nothing()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk", "eggs");
+        var screen = await context.OpenAsync(note.LocalId);
+        screen.ToggleChecklistCommand.Execute(screen.Lines[0]);
+
+        screen.PickThisLineCommand.Execute(screen.Lines[0]);
+
+        Assert.False(screen.IsPickingLines);
+        Assert.False(screen.Lines[0].IsPicked);
+    }
+
+    /// <summary>A note shared in to read has nothing to choose, by the menu or by a hold.</summary>
+    [Fact]
+    public async Task Holding_a_box_on_a_note_that_cannot_be_changed_chooses_nothing()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteSharedToReadAsync("Shopping", "milk", "eggs");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        screen.PickThisLineCommand.Execute(screen.Lines[0]);
+
+        Assert.False(screen.IsPickingLines);
+    }
 }

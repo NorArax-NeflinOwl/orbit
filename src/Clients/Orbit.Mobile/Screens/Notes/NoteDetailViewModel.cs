@@ -1243,6 +1243,30 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanPickLines))]
     private void StartPickingLines() => IsPickingLines = true;
 
+    /// <summary>
+    /// Holding a box starts choosing them and chooses that one, which is the way in somebody reaching for
+    /// several boxes tries first - the menu's "Select boxes" asks for the mode and then for a box, and a
+    /// hold says both at once. Read on Android by LongPresses; a head that does not read the gesture
+    /// still has the menu, which is why this is a second way in rather than the only one.
+    ///
+    /// Nothing happens on a note with fewer than two boxes (<see cref="CanPickLines"/>) or on a line that
+    /// has no box: there is nothing to choose it against, and a mode turned on by accident over a note
+    /// with one box would have to be turned off again by hand.
+    /// </summary>
+    [RelayCommand]
+    private void PickThisLine(NoteLineRow? row)
+    {
+        if (row is not { IsChecklistItem: true } || !CanPickLines)
+        {
+            return;
+        }
+
+        IsPickingLines = true;
+        // The line over the note follows from here on its own: a row is watched, and IsPicked changing is
+        // one of the two things that re-reads it - see WhenALineChanges.
+        row.IsPicked = true;
+    }
+
     /// <summary>Stops choosing and lets every chosen box go.</summary>
     [RelayCommand]
     private void StopPickingLines() => IsPickingLines = false;

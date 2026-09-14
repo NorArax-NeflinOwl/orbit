@@ -103,6 +103,9 @@ public static class MauiProgram
 		// arrows between lines - which MAUI has no key events for at all. See NoteLineKeyPresses, and
 		// NoteLineKeys, which is what a field asks with.
 		Orbit.Maui.Platform.NoteLineKeyPresses.ReadTheNoteKeysOnEveryNoteField();
+		// And a hold, which MAUI has no gesture for either - the way into choosing several of a note's
+		// boxes at once. See LongPresses, and LongPress, which is what a control asks with.
+		Orbit.Maui.Platform.LongPresses.ReadAHoldOnEveryControlThatAsked();
 #endif
 
 		RegisterPlatformServices(builder.Services);
