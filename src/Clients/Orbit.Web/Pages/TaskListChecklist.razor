@@ -336,6 +336,14 @@ else
    buttons, because none of it is what somebody came here to do. It stays open while they set how the
    page reads, and the entries that act close it. *@
 <EditorRail OnCancel="LeaveAsync" OnEdit="GoToDeepEditor">
+    <Extras>
+        @* How much of the list is done, which the card on /tasks says and this screen did not - a page
+           read by scrolling through the entries is exactly the one that cannot be counted at a glance.
+           The whole tree, not the section the reader happens to be looking at: the question is about
+           the list they opened, and the cards below each say their own. *@
+        <p class="row-meta">@T.Format("Done: {0} of {1}", DoneOnTheWholeList, EverythingOnTheWholeList)</p>
+    </Extras>
+    <ChildContent>
     <OverflowMenu @ref="_menu" StaysOpen="true">
         <span class="overflow-menu-heading">@T["Sort"]</span>
         @* What order to read the items in. Offered whatever the list looks like: a single long
@@ -385,6 +393,7 @@ else
             </button>
         }
     </OverflowMenu>
+    </ChildContent>
 </EditorRail>
 </div>
 }
@@ -831,6 +840,17 @@ else
 
     private static string CompletionSummary(TaskDto taskList)
         => $"{taskList.Items.Count(item => item.IsCompleted)}/{taskList.Items.Count}";
+
+    /// <summary>
+    /// How many entries on this list are ticked off, and how many there are - the same count the card on
+    /// /tasks carries, for the panel beside the reading. Every section, so a group list answers for the
+    /// whole tree rather than for its own first page.
+    /// </summary>
+    private int DoneOnTheWholeList
+        => _sections.Sum(section => section.TaskList.Items.Count(item => item.IsCompleted));
+
+    /// <inheritdoc cref="DoneOnTheWholeList"/>
+    private int EverythingOnTheWholeList => _sections.Sum(section => section.TaskList.Items.Count);
 
     /// <summary>
     /// Ticks one entry off, through the same service the entry's own page ticks it off with - see
