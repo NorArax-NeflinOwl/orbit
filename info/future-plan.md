@@ -434,8 +434,9 @@ since been closed; what is left is recorded below with the same honesty about wh
   on it and `127.0.0.1` is a secure context. Fourteen checks: the round trip, a per-message nonce, a
   tampered message refusing to open, a stranger's key not opening it, two accounts in one browser not
   sharing a key, the password-wrapped backup and its restore, and the key surviving a reload. It runs in
-  the `test` job on every pull request, not only on a deploy - a change that quietly weakens the
-  encryption is not something to find out about afterwards.
+  the `test` job, which gates the deploy - so a change that quietly weakens the encryption cannot reach
+  Azure. It does **not** run before that: the `test` job's only trigger is the push to `main`, so on a
+  feature branch this harness is run by hand (`node ci/verify-browser-crypto.mjs`) or not at all.
 - ~~**`PushNotificationManager`, `pushNotifications.js` and `service-worker.js` have no coverage.**~~
   Closed the same way, by `ci/verify-push-notifications.mjs`. It registers the real worker, grants the
   permission, and delivers real push events through Chrome DevTools' `ServiceWorker.deliverPushMessage`,
@@ -466,12 +467,22 @@ since been closed; what is left is recorded below with the same honesty about wh
   answer to an announcement is driven rather than reasoned about. The slower pace while connected
   (`ConnectedPollInterval`) still is not: it needs a connection that is really up. As first written:
   `LiveUpdatesConnection` raised its events from inside itself and nothing outside could.
-- ~~**Nothing runs on a pull request.**~~ Put back, cheaply. The trigger was removed because every
-  billed minute counted and a day of ordinary work exhausted the allowance; what changed is that a run
-  now costs a fraction of what it did. The android job looks before it builds and does nothing when
-  nothing it builds from changed, a pull request run is cancelled by the next push to the same branch,
-  and documentation-only branches are skipped outright. The deploy job stays out of it either way -
-  guarded on the event as well as gated on the suite.
+- **Nothing runs on a pull request, and this entry said otherwise until 2026-09-14.** It was written as
+  "put back, cheaply" and struck through; re-read against the workflows, nothing had been put back. The
+  three files that would carry it - `main_orbit.yml`, `android-head.yml`, `verify-diagrams.yml` - all
+  trigger on `push` to `main` and `workflow_dispatch` and on nothing else, and the only
+  `pull_request` trigger in the repository is `guard-main.yml`, which comments on a pull request aimed
+  at `main` and runs no tests. Two details the struck-out text claimed are wrong about the workflows as
+  they stand either way: runs are queued, not cancelled (`cancel-in-progress: false`), and what
+  `paths-ignore` skips is a *merge to `main`* that touches only documentation, not a branch.
+
+  So the state is the one `.claude/CLAUDE.md` rule 5 describes: `dotnet test Orbit.CI.slnf` on the
+  machine that made the change is the only check anything gets before it reaches `Coding`. Putting a
+  cheap pull-request run back is still worth weighing - the cost argument in `main_orbit.yml`'s header
+  is about a trigger that also fired on `Coding` and on the integration pull request, which a
+  `pull_request`-only trigger with `cancel-in-progress: true` would not - but it is a decision to make
+  with skill `ci-pipeline` open and the user's word on the runner budget, not a correction to make in
+  passing. Recorded here so the next session does not act on the claim this entry used to make.
 - **What Google actually does with an "Add to Google Calendar" link.** The URL is built and pinned by
   `GoogleLinkTests` - the shape of the dates, the RRULE, what is escaped - but whether Google renders
   a pre-filled event form from it has only ever been checked by reading its documentation. Opening
