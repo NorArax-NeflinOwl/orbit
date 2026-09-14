@@ -69,6 +69,13 @@
     [Parameter]
     public EventCallback<int> SelectedTicksChanged { get; set; }
 
+    /// <summary>
+    /// Whether the caret is inside a table, told whenever that changes. For the page's table tool, which
+    /// means "insert one" outside a table and "change this one" inside it - see NoteEditor.razor.
+    /// </summary>
+    [Parameter]
+    public EventCallback<bool> CaretInTableChanged { get; set; }
+
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
@@ -180,6 +187,10 @@
     [JSInvokable]
     public Task OnSelectedTicksChanged(int count) => SelectedTicksChanged.InvokeAsync(count);
 
+    /// <summary>Told when the caret enters or leaves a table - see <see cref="CaretInTableChanged"/>.</summary>
+    [JSInvokable]
+    public Task OnCaretInTableChanged(bool inTable) => CaretInTableChanged.InvokeAsync(inTable);
+
     /// <summary>An edit C# makes, recorded as a step of the kind it is - see SurfaceEditKind.</summary>
     private SurfaceState? Apply(SurfaceRequest request)
     {
@@ -206,6 +217,19 @@
             // back off where all of them already carry it.
             "mark" when TakesStyles && MarkAsked(request.Text) is { } mark
                 => (NoteSurfaceEdits.Mark(before, mark), SurfaceEditKind.Reshaping),
+            // A table and its shape - see NoteTables. Gated with the styles, for the same reason: a
+            // surface that stores its words as one string has nowhere to keep a table.
+            "insertTable" when TakesStyles => (NoteSurfaceEdits.InsertTable(before), SurfaceEditKind.Reshaping),
+            "tableRowBelow" when TakesStyles && request.Line is { } rowLine
+                => (NoteSurfaceEdits.AddTableRow(before, rowLine, request.Row ?? -1), SurfaceEditKind.Reshaping),
+            "tableColumnRight" when TakesStyles && request.Line is { } columnLine
+                => (NoteSurfaceEdits.AddTableColumn(before, columnLine, request.Column ?? -1), SurfaceEditKind.Reshaping),
+            "tableRowRemoved" when TakesStyles && request.Line is { } rowGoneLine
+                => (NoteSurfaceEdits.RemoveTableRow(before, rowGoneLine, request.Row ?? -1), SurfaceEditKind.Reshaping),
+            "tableColumnRemoved" when TakesStyles && request.Line is { } columnGoneLine
+                => (NoteSurfaceEdits.RemoveTableColumn(before, columnGoneLine, request.Column ?? -1), SurfaceEditKind.Reshaping),
+            "tableRemoved" when TakesStyles && request.Line is { } tableLine
+                => (NoteSurfaceEdits.RemoveTable(before, tableLine), SurfaceEditKind.Reshaping),
             _ => (null, SurfaceEditKind.Reshaping)
         };
 
@@ -281,7 +305,9 @@
         int? Line,
         double At,
         SurfacePoint? To,
-        bool Copies)
+        bool Copies,
+        int? Row = null,
+        int? Column = null)
     {
         /// <summary>
         /// The surface this edit is made on. A selection outside the surface - the toolbar button has the
@@ -346,6 +372,35 @@
         if (_module is not null)
         {
             await _module.InvokeVoidAsync("mark", _containerRef, mark.ToString());
+            var linesJson = await _module.InvokeAsync<string>("getLinesAsJson", _containerRef);
+            await OnLinesChangedFromJs(linesJson);
+        }
+    }
+
+    /// <summary>
+    /// The table tool outside a table: an empty line becomes one, anything else gets one under it - see
+    /// NoteSurfaceEdits.InsertTable. The browser puts the caret in the first cell, since a cell is not
+    /// a point on the surface C# reads, and the lines are pulled back the way every tool's are.
+    /// </summary>
+    public async Task InsertTableAsync()
+    {
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("insertTable", _containerRef);
+            var linesJson = await _module.InvokeAsync<string>("getLinesAsJson", _containerRef);
+            await OnLinesChangedFromJs(linesJson);
+        }
+    }
+
+    /// <summary>
+    /// One change to the shape of the table the caret is in - one of the "table…" commands Edit knows.
+    /// The browser finds which cell the caret is in and hands the edit its row and column.
+    /// </summary>
+    public async Task EditTableAsync(string action)
+    {
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("editTable", _containerRef, action);
             var linesJson = await _module.InvokeAsync<string>("getLinesAsJson", _containerRef);
             await OnLinesChangedFromJs(linesJson);
         }

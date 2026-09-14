@@ -82,11 +82,18 @@ public static class PublicShareEndpoints
             item.Lines.Select(line => new PublicSharedItemLineDto(
                 line.Text, line.IsChecklistItem, line.IsChecked, line.Detail, line.IsFailed,
                 line.Style.ToString(),
-                line.AllMarks.Count == 0
+                MarksSent(line.AllMarks),
+                line.Table is null
                     ? null
-                    : line.AllMarks.Select(run => new NoteTextRunDto(run.Start, run.Length, run.Mark.ToString())).ToList()))
+                    : new NoteTableDto([.. line.Table.Rows.Select(row => new NoteTableRowDto(
+                        [.. row.Cells.Select(cell => new NoteTableCellDto(cell.Text, MarksSent(cell.AllMarks)))]))])))
                 .ToList(),
             item.OwnerDisplayName, item.UpdatedAtUtc);
+
+    private static IReadOnlyList<NoteTextRunDto>? MarksSent(IReadOnlyList<Orbit.Core.Notes.NoteTextRun> marks)
+        => marks.Count == 0
+            ? null
+            : marks.Select(run => new NoteTextRunDto(run.Start, run.Length, run.Mark.ToString())).ToList();
 
     private static Guid GetUserId(ClaimsPrincipal user)
     {

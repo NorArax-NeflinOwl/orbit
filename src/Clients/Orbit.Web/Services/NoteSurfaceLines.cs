@@ -13,23 +13,37 @@ namespace Orbit.Web.Services;
 public static class NoteSurfaceLines
 {
     public static IReadOnlyList<NoteContentLine> ToSurfaceLines(this IEnumerable<NoteContentLineDto> lines)
-        => [.. lines.Select(line => new NoteContentLine(
-            line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed, StyleOf(line.Style),
-            MarksOf(line)))];
+        => [.. lines.Select(line => line.Table is { } table
+            ? NoteContentLine.OfTable(table.ToTable())
+            : new NoteContentLine(
+                line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed, StyleOf(line.Style),
+                MarksOf(line)))];
 
     public static IReadOnlyList<NoteContentLineDto> ToDtos(this IEnumerable<NoteContentLine> lines)
         => [.. lines.Select(line => new NoteContentLineDto(
             line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed, line.Style.ToString(),
-            MarksSent(line)))];
+            MarksSent(line.AllMarks), line.Table.ToDto()))];
+
+    /// <summary>A table as it arrived, squared up - see NoteTables.Squared - with each cell's marks read the way a line's are.</summary>
+    public static NoteTable ToTable(this NoteTableDto table)
+        => NoteTables.Squared(new NoteTable([.. table.Rows.Select(row => new NoteTableRow(
+            [.. row.Cells.Select(cell => new NoteTableCell(cell.Text, MarksOf(cell.AllMarks, cell.Text)))]))]));
+
+    /// <summary>A table as it goes out - null for a line that is not one, so the field is absent.</summary>
+    public static NoteTableDto? ToDto(this NoteTable? table)
+        => table is null
+            ? null
+            : new NoteTableDto([.. table.Rows.Select(row => new NoteTableRowDto(
+                [.. row.Cells.Select(cell => new NoteTableCellDto(cell.Text, MarksSent(cell.AllMarks)))]))]);
 
     /// <summary>
     /// A line's marks as they go out - null rather than an empty list for a line with none, which is
     /// nearly every line of nearly every note: the field is then simply absent from the JSON.
     /// </summary>
-    private static IReadOnlyList<NoteTextRunDto>? MarksSent(NoteContentLine line)
-        => line.AllMarks.Count == 0
+    private static IReadOnlyList<NoteTextRunDto>? MarksSent(IReadOnlyList<NoteTextRun> marks)
+        => marks.Count == 0
             ? null
-            : line.AllMarks.Select(run => new NoteTextRunDto(run.Start, run.Length, run.Mark.ToString())).ToList();
+            : marks.Select(run => new NoteTextRunDto(run.Start, run.Length, run.Mark.ToString())).ToList();
 
     /// <summary>
     /// A line's marks, read off the wire and put in the one shape the rules work in - see

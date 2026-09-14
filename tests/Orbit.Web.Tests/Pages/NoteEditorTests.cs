@@ -12,6 +12,7 @@ using Orbit.Contracts.Chat;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Sharing;
 using Orbit.Contracts.Users;
+using Orbit.Web.Components;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
@@ -54,6 +55,8 @@ public sealed class NoteEditorTests : OrbitTestContext
         // so an empty answer is the right one here.
         checklistEditorModule.SetupVoid("setStyle", _ => true).SetVoidResult();
         checklistEditorModule.SetupVoid("mark", _ => true).SetVoidResult();
+        checklistEditorModule.SetupVoid("insertTable", _ => true).SetVoidResult();
+        checklistEditorModule.SetupVoid("editTable", _ => true).SetVoidResult();
         checklistEditorModule.Setup<string>("getLinesAsJson", _ => true).SetResult("[]");
 
         // The same wiring CalendarEventEditorTests uses, for the same reason: the editor injects a
@@ -443,9 +446,9 @@ public sealed class NoteEditorTests : OrbitTestContext
     }
 
     /// <summary>
-    /// The row of tools sits over the corner of the writing rather than above it. Two of its four work -
-    /// the styles and the tick box - and the other two are drawn for a design that has them rather than
-    /// for anything they do yet. Each of those says so when it is pressed: a greyed-out button explains
+    /// The row of tools sits over the corner of the writing rather than above it. Three of its four work
+    /// - the styles, the tick box and the table - and the last is drawn for a design that has it rather
+    /// than for anything it does yet. It says so when it is pressed: a greyed-out button explains
     /// nothing, and a row of them explains less.
     /// </summary>
     [Fact]
@@ -459,9 +462,52 @@ public sealed class NoteEditorTests : OrbitTestContext
         Assert.Empty(cut.FindAll(".note-tool-bubble"));
 
         cut.FindAll(".note-editor-tools .note-tool")
-            .First(tool => tool.GetAttribute("aria-label") == "Table").Click();
+            .First(tool => tool.GetAttribute("aria-label") == "Attachment").Click();
 
         Assert.Contains("not implemented yet", cut.Find(".note-tool-bubble").TextContent);
+    }
+
+    /// <summary>Outside a table the table tool inserts one - the surface is told, and the lines pulled back.</summary>
+    [Fact]
+    public void The_table_tool_inserts_a_table_where_the_caret_is()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        cut.FindAll(".note-editor-tools .note-tool")
+            .First(tool => tool.GetAttribute("aria-label") == "Table").Click();
+
+        JSInterop.VerifyInvoke("insertTable");
+        Assert.Empty(cut.FindAll(".note-table-menu"));
+    }
+
+    /// <summary>
+    /// Inside a table the same button opens what can be done to this one, and choosing one tells the
+    /// surface which. The caret's whereabouts arrive from the browser - see
+    /// ChecklistTextEditor.OnCaretInTableChanged - so the test says so the way the browser would.
+    /// </summary>
+    [Fact]
+    public void Inside_a_table_the_table_tool_offers_what_can_be_done_to_it()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+        var editor = cut.FindComponent<ChecklistTextEditor>().Instance;
+        cut.InvokeAsync(() => editor.OnCaretInTableChanged(true)).GetAwaiter().GetResult();
+
+        cut.FindAll(".note-editor-tools .note-tool")
+            .First(tool => tool.GetAttribute("aria-label") == "Table").Click();
+
+        var offered = cut.FindAll(".note-table-menu .note-style-menu-item");
+        Assert.Equal(
+            ["Add row below", "Add column right", "Delete row", "Delete column", "Delete table"],
+            offered.Select(entry => entry.TextContent.Trim()));
+
+        offered.First(entry => entry.TextContent.Trim() == "Delete column").Click();
+
+        Assert.Equal("tableColumnRemoved", JSInterop.VerifyInvoke("editTable").Arguments[1]);
+        Assert.Empty(cut.FindAll(".note-table-menu"));
     }
 
     /// <summary>

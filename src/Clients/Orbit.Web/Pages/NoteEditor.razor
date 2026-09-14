@@ -92,6 +92,7 @@ else
                                      IsReadOnly="@(_isSharedReadOnly || _lockedByUserName is not null)"
                                      TakesTab="true" TakesStyles="true"
                                      SelectedTicksChanged="count => _selectedTicks = count"
+                                     CaretInTableChanged="inTable => OnCaretInTableChanged(inTable)"
                                      @bind-Lines="_formModel.Lines" />
 
                 @* Over the corner of the writing rather than above it: a toolbar at the top of a note
@@ -101,6 +102,19 @@ else
                    being greyed out with nothing to explain it. *@
                 @if (!_isSharedReadOnly && _lockedByUserName is null)
                 {
+                    @if (_isEditingTable)
+                    {
+                        @* What can be done to the table the caret is in. The same panel the styles use,
+                           because it is the same kind of thing: a short list over the writing, opened
+                           from the row. *@
+                        <div class="note-style-menu note-table-menu" role="menu">
+                            @foreach (var (action, name) in TableActions)
+                            {
+                                <button type="button" role="menuitem" class="note-style-menu-item"
+                                        @onclick="() => EditTableAsync(action)">@name</button>
+                            }
+                        </div>
+                    }
                     @if (_isChoosingStyle)
                     {
                         @* Each entry drawn in the style it sets, which is how a reader tells a heading
@@ -141,7 +155,7 @@ else
                         <button type="button" class="note-tool note-tool-letters @(_isChoosingStyle ? "note-tool-on" : null)"
                                 title="@TextStyleLabel" aria-label="@TextStyleLabel"
                                 aria-expanded="@_isChoosingStyle.ToString().ToLowerInvariant()"
-                                @onclick="() => _isChoosingStyle = !_isChoosingStyle">Aa</button>
+                                @onclick="() => { _isChoosingStyle = !_isChoosingStyle; _isEditingTable = false; }">Aa</button>
                         @* The one that works: it types "[]", which the surface turns into a tick box -
                            the same way somebody who never finds this row gets one. *@
                         <button type="button" class="note-tool" title="@T["Checklist item"]"
@@ -152,8 +166,13 @@ else
                                 <circle cx="5" cy="14" r="2.6" /><path d="M10 14h7" />
                             </svg>
                         </button>
-                        <button type="button" class="note-tool" title="@TableLabel" aria-label="@TableLabel"
-                                @onclick="() => NotImplementedYet(TableLabel)">
+                        @* Outside a table the tool inserts one; inside a table it opens what can be
+                           done to this one - the two things a table button means, told apart by where
+                           the caret is (see ChecklistTextEditor.CaretInTableChanged). *@
+                        <button type="button" class="note-tool @(_isEditingTable ? "note-tool-on" : null)"
+                                title="@TableLabel" aria-label="@TableLabel"
+                                aria-expanded="@(_caretIsInATable ? _isEditingTable.ToString().ToLowerInvariant() : null)"
+                                @onclick="OnTableToolPressedAsync">
                             <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor"
                                  stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                                 <rect x="2.5" y="4" width="15" height="12" rx="1.5" /><path d="M2.5 8.5h15" /><path d="M10 8.5V16" />
@@ -414,6 +433,64 @@ else
 
     /// <summary>Whether the list of styles is open under the "Aa" button.</summary>
     private bool _isChoosingStyle;
+
+    /// <summary>Whether the caret is inside a table, which is what the table tool's press means by.</summary>
+    private bool _caretIsInATable;
+
+    /// <summary>Whether the table's own list - rows, columns, taking it away - is open under the table tool.</summary>
+    private bool _isEditingTable;
+
+    /// <summary>
+    /// What can be done to the table the caret is in, as the commands ChecklistTextEditor.Edit knows
+    /// them, under the words the reader sees. Rows and columns are added after the caret's, which is
+    /// what "below" and "right" mean.
+    /// </summary>
+    private IReadOnlyList<(string Action, string Name)> TableActions =>
+    [
+        ("tableRowBelow", T["Add row below"]),
+        ("tableColumnRight", T["Add column right"]),
+        ("tableRowRemoved", T["Delete row"]),
+        ("tableColumnRemoved", T["Delete column"]),
+        ("tableRemoved", T["Delete table"])
+    ];
+
+    private void OnCaretInTableChanged(bool inTable)
+    {
+        _caretIsInATable = inTable;
+        if (!inTable)
+        {
+            _isEditingTable = false;
+        }
+    }
+
+    /// <summary>
+    /// The table tool: inserts a table where the caret is, or - with the caret already in one - opens
+    /// what can be done to it. Closes the styles, since one list over the writing at a time is enough.
+    /// </summary>
+    private async Task OnTableToolPressedAsync()
+    {
+        _isChoosingStyle = false;
+        if (_caretIsInATable)
+        {
+            _isEditingTable = !_isEditingTable;
+            return;
+        }
+
+        if (_checklistEditorRef is not null)
+        {
+            await _checklistEditorRef.InsertTableAsync();
+        }
+    }
+
+    /// <summary>One change to the table's shape, and the list closes: a shape is changed once and then written into.</summary>
+    private async Task EditTableAsync(string action)
+    {
+        _isEditingTable = false;
+        if (_checklistEditorRef is not null)
+        {
+            await _checklistEditorRef.EditTableAsync(action);
+        }
+    }
 
     /// <summary>
     /// The styles offered, in the order Apple Notes lists them - biggest first, then the plain ones,

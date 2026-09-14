@@ -86,11 +86,18 @@ public sealed record ArchivedTagColour(string Tag, string Colour);
 /// The marks on stretches of words inside the line - see Orbit.Core.Notes.NoteTextRun. Null for a line
 /// with none, and for every line of a file written before marks existed.
 /// </param>
+/// <param name="Table">The table this line is, when it is one - rows of cells, each with words and marks. Null for writing.</param>
 public sealed record ArchivedNoteLine(
     string Text, bool IsChecklistItem, bool IsChecked, bool IsFailed = false, string Style = "Body",
-    IReadOnlyList<ArchivedTextRun>? Marks = null)
+    IReadOnlyList<ArchivedTextRun>? Marks = null, IReadOnlyList<IReadOnlyList<ArchivedTableCell>>? Table = null)
 {
     /// <summary>The marks as something to read without a null check - see <see cref="Marks"/>.</summary>
+    public IReadOnlyList<ArchivedTextRun> AllMarks => Marks ?? [];
+}
+
+/// <summary>One cell of an archived table - see Orbit.Core.Notes.NoteTableCell.</summary>
+public sealed record ArchivedTableCell(string Text, IReadOnlyList<ArchivedTextRun>? Marks = null)
+{
     public IReadOnlyList<ArchivedTextRun> AllMarks => Marks ?? [];
 }
 

@@ -3,6 +3,7 @@
     x:Class="Orbit.Maui.Features.Notes.NoteDetailPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
     xmlns:controls="clr-namespace:Orbit.Maui.Controls"
     xmlns:notes="clr-namespace:Orbit.Maui.Features.Notes"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Notes;assembly=Orbit.Mobile"
@@ -129,6 +130,30 @@
                                             CommandParameter="{Binding .}" />
                                     </Label.GestureRecognizers>
                                 </Label>
+
+
+                                <!-- A table, drawn as the grid of its cells' words - see NoteLineRow.TableRows /
+                                     SharedLine.TableRows. Two nested BindableLayouts rather than a Grid, because
+                                     a Grid's rows and columns are declared and a table's are whatever the note
+                                     says. Hairlines between cells, as the browser draws them. -->
+                                <VerticalStackLayout Grid.Column="1" Spacing="0" Margin="0,8"
+                                                     IsVisible="{Binding IsATable}"
+                                                     BindableLayout.ItemsSource="{Binding TableRows}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="sys:Object">
+                                            <HorizontalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding .}">
+                                                <BindableLayout.ItemTemplate>
+                                                    <DataTemplate x:DataType="x:String">
+                                                        <Border Padding="8,6" StrokeThickness="1" MinimumWidthRequest="72"
+                                                                Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}">
+                                                            <Label Text="{Binding .}" LineBreakMode="WordWrap" />
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </BindableLayout.ItemTemplate>
+                                            </HorizontalStackLayout>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
 
                                 <!-- The mark that chooses a box to change together with the others,
                                      beside every box while boxes are being chosen and nowhere else. At

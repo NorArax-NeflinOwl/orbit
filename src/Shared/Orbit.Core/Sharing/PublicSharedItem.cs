@@ -32,9 +32,11 @@ public sealed record PublicSharedItem(
 /// The marks on stretches of words inside the line, where the item is a note - see
 /// <see cref="NoteTextRun"/>. Null for everything else, as for a line nobody marked.
 /// </param>
+/// <param name="Table">The table this line is, where the item is a note and the line one of its tables - see <see cref="NoteTable"/>.</param>
 public sealed record PublicSharedItemLine(
     string Text, bool IsChecklistItem, bool IsChecked, string? Detail, bool IsFailed = false,
-    NoteLineStyle Style = NoteLineStyle.Body, IReadOnlyList<NoteTextRun>? Marks = null)
+    NoteLineStyle Style = NoteLineStyle.Body, IReadOnlyList<NoteTextRun>? Marks = null,
+    NoteTable? Table = null)
 {
     /// <summary>The marks as something to read without a null check - see <see cref="Marks"/>.</summary>
     public IReadOnlyList<NoteTextRun> AllMarks => Marks ?? NoteTextMarks.None;

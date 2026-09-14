@@ -19,11 +19,27 @@ namespace Orbit.Contracts.Notes;
 /// The marks on stretches of words inside the line - see <see cref="NoteTextRunDto"/>. Null for a line
 /// with none, and for every line a client written before marks existed sends.
 /// </param>
+/// <param name="Table">
+/// The table this line is, when it is one - see <see cref="NoteTableDto"/>. A line that carries a
+/// table is the table: its text is empty and it has no box. Null for ordinary writing, and for every
+/// line a client written before tables existed sends.
+/// </param>
 public sealed record NoteContentLineDto(
     string Text, bool IsChecklistItem, bool IsChecked, bool IsFailed = false, string Style = "Body",
-    IReadOnlyList<NoteTextRunDto>? Marks = null)
+    IReadOnlyList<NoteTextRunDto>? Marks = null, NoteTableDto? Table = null)
 {
     /// <summary>The marks as something to read without a null check - see <see cref="Marks"/>.</summary>
+    public IReadOnlyList<NoteTextRunDto> AllMarks => Marks ?? [];
+}
+
+/// <summary>A table inside a note - see Orbit.Core.Notes.NoteTable. Rows of cells; the server squares it up.</summary>
+public sealed record NoteTableDto(IReadOnlyList<NoteTableRowDto> Rows);
+
+public sealed record NoteTableRowDto(IReadOnlyList<NoteTableCellDto> Cells);
+
+/// <summary>One cell: its words and the marks on stretches of them, the same shape a line's words travel in.</summary>
+public sealed record NoteTableCellDto(string Text, IReadOnlyList<NoteTextRunDto>? Marks = null)
+{
     public IReadOnlyList<NoteTextRunDto> AllMarks => Marks ?? [];
 }
 

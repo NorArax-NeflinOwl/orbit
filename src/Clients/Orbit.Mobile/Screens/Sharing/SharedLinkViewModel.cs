@@ -21,11 +21,22 @@ namespace Orbit.Mobile.Screens.Sharing;
 /// What a numbered line shows, worked out over all the lines at once when they arrive - see
 /// <see cref="NoteLineLook.NumbersFor"/>.
 /// </param>
+/// <param name="TableRows">
+/// The table this line is, where it is one - each row the words of its cells - and nothing for a line
+/// of writing. See Orbit.Core.Notes.NoteTable; only a note ever sends one.
+/// </param>
 public sealed record SharedLine(
     string Text, string Detail, bool IsChecklistItem, bool IsTicked,
-    NoteLineStyle Style = NoteLineStyle.Body, int ListNumber = 0)
+    NoteLineStyle Style = NoteLineStyle.Body, int ListNumber = 0,
+    IReadOnlyList<IReadOnlyList<string>>? TableRows = null)
 {
     public bool HasDetail => Detail.Length > 0;
+
+    /// <summary>Whether this line is a table, which shows the grid instead of the words.</summary>
+    public bool IsATable => TableRows is { Count: > 0 };
+
+    /// <summary>The words drawn as words - nothing for a table, whose words are in its cells.</summary>
+    public bool ShowsWords => !IsATable;
 
     /// <summary>How large the line is drawn - the same rules the note's own screen draws by.</summary>
     public double DrawnFontSize => NoteLineLook.SizeOf(Style);
@@ -207,7 +218,8 @@ public sealed partial class SharedLinkViewModel : ObservableObject
             var line = item.Lines[index];
             Lines.Add(new SharedLine(
                 line.Text, line.Detail ?? string.Empty, line.IsChecklistItem, line.IsChecked,
-                styles[index], numbers[index]));
+                styles[index], numbers[index],
+                line.Table?.Rows.Select(row => (IReadOnlyList<string>)[.. row.Cells.Select(cell => cell.Text)]).ToList()));
         }
 
         OnPropertyChanged(nameof(HasNothingInIt));

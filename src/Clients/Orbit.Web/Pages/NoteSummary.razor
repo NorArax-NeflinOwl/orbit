@@ -59,7 +59,12 @@ else
 
             @* A checklist line is ticked here; an ordinary one is read. Both keep the order they were
                written in, because a note is prose as often as it is a list and the two are mixed. *@
-            @if (line.IsChecklistItem)
+            @if (line.Table is { } table)
+            {
+                @* A table is the whole of its line - see NoteContentLine.OfTable. *@
+                <NoteTableView Table="@table.ToTable()" />
+            }
+            else if (line.IsChecklistItem)
             {
                 @* Its own press, kept from the card around it: a tick is what this row is for, and
                    opening the whole note to write in instead would be answering a different question.

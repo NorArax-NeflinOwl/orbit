@@ -55,6 +55,21 @@ public sealed partial class NoteLineRow : ObservableObject
     /// </summary>
     public IReadOnlyList<NoteTextRun> Marks { get; set; } = NoteTextMarks.None;
 
+    /// <summary>
+    /// The table this line is, when it is one - see Orbit.Core.Notes.NoteTable. Drawn on the screen as a
+    /// grid of its cells' words (see <see cref="TableRows"/>); the cells cannot be written in on the phone
+    /// yet, and the table is carried through every edit unchanged so nothing here flattens one.
+    /// </summary>
+    [ObservableProperty]
+    private NoteTable? _table;
+
+    /// <summary>Whether this line is a table rather than writing - which hides the field and shows the grid.</summary>
+    public bool IsATable => Table is not null;
+
+    /// <summary>The table's rows as the screen draws them: each a list of its cells' words.</summary>
+    public IReadOnlyList<IReadOnlyList<string>> TableRows
+        => Table is null ? [] : [.. Table.Rows.Select(row => (IReadOnlyList<string>)[.. row.Cells.Select(cell => cell.Text)])];
+
     public static NoteLineRow From(NoteContentLineDto line)
         => new()
         {
@@ -63,17 +78,29 @@ public sealed partial class NoteLineRow : ObservableObject
             IsChecked = line.IsChecked,
             IsFailed = line.IsFailed,
             Style = NoteLineStyles.Read(line.Style),
-            Marks = NoteTextMarks.Normalized(
-                line.AllMarks.Select(run => new NoteTextRun(run.Start, run.Length, NoteTextMarks.Read(run.Mark))),
-                line.Text.Length)
+            Marks = ReadMarks(line.AllMarks, line.Text),
+            Table = line.Table is null
+                ? null
+                : NoteTables.Squared(new NoteTable([.. line.Table.Rows.Select(row => new NoteTableRow(
+                    [.. row.Cells.Select(cell => new NoteTableCell(cell.Text, ReadMarks(cell.AllMarks, cell.Text)))]))]))
         };
+
+    private static IReadOnlyList<NoteTextRun> ReadMarks(IReadOnlyList<NoteTextRunDto> marks, string text)
+        => NoteTextMarks.Normalized(
+            marks.Select(run => new NoteTextRun(run.Start, run.Length, NoteTextMarks.Read(run.Mark))), text.Length);
+
+    private static IReadOnlyList<NoteTextRunDto>? SentMarks(IReadOnlyList<NoteTextRun> marks)
+        => marks.Count == 0
+            ? null
+            : marks.Select(run => new NoteTextRunDto(run.Start, run.Length, run.Mark.ToString())).ToList();
 
     public NoteContentLineDto ToDto()
         => new(
-            Text, IsChecklistItem, IsChecked, IsFailed, Style.ToString(),
-            Marks.Count == 0
+            Text, IsChecklistItem, IsChecked, IsFailed, Style.ToString(), SentMarks(Marks),
+            Table is null
                 ? null
-                : Marks.Select(run => new NoteTextRunDto(run.Start, run.Length, run.Mark.ToString())).ToList());
+                : new NoteTableDto([.. Table.Rows.Select(row => new NoteTableRowDto(
+                    [.. row.Cells.Select(cell => new NoteTableCellDto(cell.Text, SentMarks(cell.AllMarks)))]))]));
 
     /// <summary>The same line as the surface Orbit.Core decides edits on - see Orbit.Core.Notes.SurfaceState.</summary>
     public static NoteLineRow From(NoteContentLine line)
@@ -84,11 +111,12 @@ public sealed partial class NoteLineRow : ObservableObject
             IsChecked = line.IsChecked,
             IsFailed = line.IsFailed,
             Style = line.Style,
-            Marks = line.AllMarks
+            Marks = line.AllMarks,
+            Table = line.Table
         };
 
     /// <inheritdoc cref="From(NoteContentLine)"/>
-    public NoteContentLine ToLine() => new(Text, IsChecklistItem, IsChecked, IsFailed, Style, Marks);
+    public NoteContentLine ToLine() => new(Text, IsChecklistItem, IsChecked, IsFailed, Style, Marks, Table);
 
     /// <summary>
     /// Becomes <paramref name="line"/> in place - what an undo does to a line that is still there, so the
@@ -102,6 +130,7 @@ public sealed partial class NoteLineRow : ObservableObject
         IsFailed = line.IsFailed;
         Style = line.Style;
         Marks = line.AllMarks;
+        Table = line.Table;
     }
 
     /// <summary>
@@ -154,9 +183,10 @@ public sealed partial class NoteLineRow : ObservableObject
 
     /// <summary>
     /// Whether the editor shows this line as something to write in rather than as something already
-    /// done - which of the two controls is showing. A ticked line opens while it is being written in.
+    /// done - which of the two controls is showing. A ticked line opens while it is being written in; a
+    /// table never does, since its words are in its cells and the field would be an empty line over it.
     /// </summary>
-    public bool IsOpenForWriting => !IsCompleted || IsBeingWrittenIn;
+    public bool IsOpenForWriting => !IsATable && (!IsCompleted || IsBeingWrittenIn);
 
     /// <summary>Struck through: done, and not currently being written in.</summary>
     public bool IsStruckThrough => IsCompleted && !IsBeingWrittenIn;
@@ -172,6 +202,13 @@ public sealed partial class NoteLineRow : ObservableObject
     partial void OnStyleChanged(NoteLineStyle value) => SayHowItIsDrawn();
 
     partial void OnListNumberChanged(int value) => SayHowItIsDrawn();
+
+    partial void OnTableChanged(NoteTable? value)
+    {
+        OnPropertyChanged(nameof(IsATable));
+        OnPropertyChanged(nameof(TableRows));
+        SayHowItIsDrawn();
+    }
 
     /// <summary>
     /// Chosen to change together with the other chosen boxes - see NoteDetailViewModel.IsPickingLines.

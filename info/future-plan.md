@@ -1568,11 +1568,15 @@ Paragraph styles landed on 2026-09-14 - `NoteLineStyle`, the "Aa" tool, and the 
   working `NoteSurfaceEdits.Restyle` on the surface the screen already builds - the shape `Indent` and
   `Outdent` follow. A sheet rather than a row of buttons: eight choices over the writing would be most of
   the writing on a phone. Covered by `NoteDetailScreenTests.Style`. **Not yet seen on a device.**
-- **Tables.** The fourth tool in the row still says "not implemented yet", and it is the one that does
-  not fit the line at all: a table is a grid, the surface is a column of lines, and every rule in
-  `NoteSurfaceEdits` is about lines. The honest shapes are a table as *a kind of line* carrying its own
-  cells (which the pictures section above already needs, for the same reason) or a table as a block of
-  its own in the content list. Worth deciding once, with pictures, rather than twice.
+- ~~**Tables.**~~ Done 2026-09-14, as a kind of line, the shape the user chose (decision 2 above):
+  `NoteTable` on `NoteContentLine.Table`, `NoteTables` for its shape, the guards in `NoteSurfaceEdits`
+  written first with `NoteSurfaceTableTests`, then the drawing. See `info/functionality.md`, "A table is
+  a kind of line". **What the phone still lacks:** it draws a table and carries it through every edit
+  unchanged, but its cells cannot be written in - the note screen draws each cell as a `Label` in a
+  `Border`, and writing in one wants an `Entry` per cell that reports back through
+  `NoteTables.WithCell`, plus the table's own menu (a row, a column, the table) on the screen's foot. The
+  same shape the style sheet took on 2026-09-14. Marks inside a cell are carried and drawn in the
+  browser; the four buttons do not set them there (the browser's own Ctrl+B does).
 - **A description still cannot carry a style.** `TitledDescription` runs the same surface with
   `TakesStyles` off, because a list's or a storage's description is stored as one plain string and a
   style set there would be dropped by the save - the same reason `[]` stays words there. This is a third

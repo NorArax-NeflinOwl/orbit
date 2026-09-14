@@ -188,31 +188,45 @@ public static class NoteEndpoints
     }
 
     private static IReadOnlyList<NoteContentLine> ToDomainContent(IReadOnlyList<NoteContentLineDto> content)
-        => content.Select(line => new NoteContentLine(
-            line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed && !line.IsChecked,
-            StyleOf(line.Style), MarksOf(line))).ToList();
+        => content.Select(line => line.Table is { } table
+            // A line that carries a table is the table and nothing else - see NoteContentLine.OfTable,
+            // which squares it up and leaves no room for words or a box beside it.
+            ? NoteContentLine.OfTable(TableOf(table))
+            : new NoteContentLine(
+                line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed && !line.IsChecked,
+                StyleOf(line.Style), MarksOf(line.AllMarks, line.Text))).ToList();
+
+    private static NoteTable TableOf(NoteTableDto table)
+        => new([.. table.Rows.Select(row => new NoteTableRow(
+            [.. row.Cells.Select(cell => new NoteTableCell(cell.Text, MarksOf(cell.AllMarks, cell.Text)))]))]);
 
     /// <summary>
     /// A line's marks as they arrived, put in the one shape the rules work in - clipped to the words,
     /// with anything this build does not know dropped. See NoteTextMarks.Normalized.
     /// </summary>
-    private static IReadOnlyList<NoteTextRun> MarksOf(NoteContentLineDto line)
+    private static IReadOnlyList<NoteTextRun> MarksOf(IReadOnlyList<NoteTextRunDto> marks, string text)
         => NoteTextMarks.Normalized(
-            line.AllMarks.Select(run => new NoteTextRun(run.Start, run.Length, NoteTextMarks.Read(run.Mark))),
-            line.Text.Length);
+            marks.Select(run => new NoteTextRun(run.Start, run.Length, NoteTextMarks.Read(run.Mark))),
+            text.Length);
 
     private static NoteContentLineDto ToDto(NoteContentLine line)
         => new(line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed, line.Style.ToString(),
-            MarksSent(line));
+            MarksSent(line.AllMarks), TableSent(line.Table));
+
+    private static NoteTableDto? TableSent(NoteTable? table)
+        => table is null
+            ? null
+            : new NoteTableDto([.. table.Rows.Select(row => new NoteTableRowDto(
+                [.. row.Cells.Select(cell => new NoteTableCellDto(cell.Text, MarksSent(cell.AllMarks)))]))]);
 
     /// <summary>
     /// A line's marks as they go out - null rather than an empty list for a line with none, which is
     /// nearly every line of nearly every note: the field is then simply absent from the JSON.
     /// </summary>
-    private static IReadOnlyList<NoteTextRunDto>? MarksSent(NoteContentLine line)
-        => line.AllMarks.Count == 0
+    private static IReadOnlyList<NoteTextRunDto>? MarksSent(IReadOnlyList<NoteTextRun> marks)
+        => marks.Count == 0
             ? null
-            : line.AllMarks.Select(run => new NoteTextRunDto(run.Start, run.Length, run.Mark.ToString())).ToList();
+            : marks.Select(run => new NoteTextRunDto(run.Start, run.Length, run.Mark.ToString())).ToList();
 
     /// <summary>
     /// A style read off a request. A word this build does not know reads as Body rather than being

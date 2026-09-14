@@ -92,11 +92,20 @@ classDiagram
         +bool IsFailed
         +NoteLineStyle Style
         +IReadOnlyList~NoteTextRun~ Marks
+        +NoteTable? Table
     }
     class NoteTextRun {
         +int Start
         +int Length
         +NoteTextMark Mark
+    }
+    class NoteTable {
+        +IReadOnlyList~NoteTableRow~ Rows
+        +int Columns
+    }
+    class NoteTableCell {
+        +string Text
+        +IReadOnlyList~NoteTextRun~ Marks
     }
     class TaskList {
         +Guid Id
@@ -195,6 +204,8 @@ classDiagram
 
     Note "1" *-- "0..*" NoteContentLine
     NoteContentLine "1" *-- "0..*" NoteTextRun : marks a stretch of
+    NoteContentLine "1" *-- "0..1" NoteTable : is, when it is one
+    NoteTable "1" *-- "1..*" NoteTableCell : rows of
     TaskList "1" *-- "0..*" TaskItem
     TaskItem "1" *-- "1" TaskItemSubject
     TaskItem "1" *-- "0..1" TaskItemProduct

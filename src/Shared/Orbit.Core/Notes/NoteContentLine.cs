@@ -27,11 +27,33 @@ namespace Orbit.Core.Notes;
 /// existed. Kept beside the text rather than folded into it, so everything that reads a line's words -
 /// every search, every preview, every copy - goes on reading a plain string.
 /// </param>
+/// <param name="Table">
+/// The table this line is, when it is one - see <see cref="NoteTable"/>, and <see cref="IsATable"/>.
+/// What kind of line this is, is said by what it carries rather than by a separate word that could
+/// disagree with it: a line with a table is the table, and its <paramref name="Text"/> is empty. A
+/// picture will be carried the same way. Null for ordinary writing, and for every line saved before
+/// tables existed.
+/// </param>
 public sealed record NoteContentLine(
     string Text, bool IsChecklistItem, bool IsChecked, bool IsFailed = false,
     NoteLineStyle Style = NoteLineStyle.Body,
-    IReadOnlyList<NoteTextRun>? Marks = null)
+    IReadOnlyList<NoteTextRun>? Marks = null,
+    NoteTable? Table = null)
 {
+    /// <summary>
+    /// A line that is a table and nothing else: no words, no box, ordinary style. The one way a table
+    /// line is made, so nothing can make one that also carries words.
+    /// </summary>
+    public static NoteContentLine OfTable(NoteTable table)
+        => new(string.Empty, IsChecklistItem: false, IsChecked: false, Table: NoteTables.Squared(table));
+
+    /// <summary>
+    /// Whether this line is a table rather than writing. Every rule on the surface that counts
+    /// characters asks this first: a table has no caret offset to speak of, and an edit that split or
+    /// joined it as if it had words would be the caret landing nowhere.
+    /// </summary>
+    public bool IsATable => Table is not null;
+
     /// <summary>Shorthand for a plain (non-checklist) line - the shape most existing content, and most tests, actually need.</summary>
     public static NoteContentLine PlainText(string text) => new(text, IsChecklistItem: false, IsChecked: false);
 
@@ -52,7 +74,8 @@ public sealed record NoteContentLine(
             && IsChecked == other.IsChecked
             && IsFailed == other.IsFailed
             && Style == other.Style
-            && AllMarks.SequenceEqual(other.AllMarks);
+            && AllMarks.SequenceEqual(other.AllMarks)
+            && Equals(Table, other.Table);
 
     public override int GetHashCode()
     {
@@ -67,6 +90,7 @@ public sealed record NoteContentLine(
             hash.Add(run);
         }
 
+        hash.Add(Table);
         return hash.ToHashCode();
     }
 }

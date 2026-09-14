@@ -940,9 +940,9 @@ disagree in.
 
 - **The tools sit over the writing's bottom-left corner**, not above it - a toolbar at the top of a note
   is a strip of the page given to controls before a word has been written. Four of them, as the design
-  draws: text style, checklist, table, attachment. **The text style and the checklist ones work**; the
-  other two answer a press with "*Table*: not implemented yet." rather than being greyed out, because a
-  dead button explains nothing and a row of them explains less.
+  draws: text style, checklist, table, attachment. **Three of the four work**; the attachment answers a
+  press with "*Attachment*: not implemented yet." rather than being greyed out, because a dead button
+  explains nothing and a row of them explains less.
 - **The writing keeps room under its last line** for the tools and three lines more, and the caret's
   line scrolls clear of them (`.note-editor-page`'s padding and `scroll-padding`): the text used to run
   on underneath the tools.
@@ -1089,6 +1089,31 @@ disagree in.
     field, so the note screen keeps what the browser wrote and hands it back unchanged - which is what
     stops an edit there from flattening a marked note. See `info/future-plan.md` for what drawing them
     would take.
+- **A table is a kind of line** (`NoteTable`, `NoteContentLine.Table`, 2026-09-14 - settled with the
+  user as such rather than as a block of its own). A line that carries a table *is* the table: no words,
+  no box, ordinary style (`NoteContentLine.OfTable`), and the note stays a list of lines. Always
+  rectangular and never empty (`NoteTables`); the last row or column taken away takes the table, and an
+  empty line to write on is left where it stood. Each cell is words plus marks - the same shape a line's
+  words have, so bold inside a cell is the bold everything else draws.
+  - **The table tool means two things**, told apart by where the caret is: outside a table it inserts
+    one (an empty line becomes it, anything else gets it underneath - the tick-box tool's rule); inside
+    one it opens what can be done to *this* one - a row below, a column to the right, the row or the
+    column taken away, the table taken away (`ChecklistTextEditor.CaretInTableChanged`, `EditTableAsync`).
+  - **Inside a cell the browser is on its own for the words**, and the keys that change a *line's*
+    shape mean something else: Tab and Shift+Tab walk the cells, Enter goes to the next row and adds one
+    under the last, and a delete that would take the cell itself is stopped (`answerKeyInCell` in
+    `checklistTextEditor.js`). The browser's own Ctrl+B is let through in a cell - what it wraps the
+    words in is read back with the cell, so a cell's bold is a bold C# hears about.
+  - **Every edit on the surface has an answer for "the line is a table"** (`NoteSurfaceTableTests`),
+    because a table has no caret offset: Enter on one starts writing under it, Backspace and Delete on
+    one do nothing (a table goes by its own menu, never a key), words never join a table above or below
+    them, a paste that lands on one goes under it, Tab and a style leave it alone, and a selection that
+    ends on one **keeps** it - a point inside a table always reads as its head, so the selection cannot
+    say how much of it was meant, and a grid of words is not taken on a guess.
+  - **No migration**, as with styles and marks: the table travels as `NoteContentLineDto.Table` and is
+    stored in the same JSON, squared up on the way in (`NoteTables.Squared`). The archive and a share
+    link carry it; the read-only pages draw it (`NoteTableView`); **the phone draws it and carries it
+    through every edit unchanged, but cannot write in its cells yet** - `info/future-plan.md`.
 - **Not in a list's or an inventory's name and description** (`TitledDescription`,
   `ChecklistTextEditor.TakesStyles` off): those store two plain strings, so a style set there would be
   dropped by the save - the same reason `[]` stays words there. Giving descriptions the note's own

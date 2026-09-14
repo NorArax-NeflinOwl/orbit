@@ -95,12 +95,12 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
         {
             var note = Note.Create(
                 userId, archived.Title,
-                archived.Content.Select(line => new NoteContentLine(
-                    line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed,
-                    NoteLineStyles.Read(line.Style),
-                    NoteTextMarks.Normalized(
-                        line.AllMarks.Select(run => new NoteTextRun(run.Start, run.Length, NoteTextMarks.Read(run.Mark))),
-                        line.Text.Length))).ToList(),
+                archived.Content.Select(line => line.Table is { } table
+                    ? NoteContentLine.OfTable(new NoteTable([.. table.Select(row => new NoteTableRow(
+                        [.. row.Select(cell => new NoteTableCell(cell.Text, ReadMarks(cell.AllMarks, cell.Text)))]))]))
+                    : new NoteContentLine(
+                        line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed,
+                        NoteLineStyles.Read(line.Style), ReadMarks(line.AllMarks, line.Text))).ToList(),
                 archived.IsPrivate, ToPayload(archived.EncryptedContent), tags: archived.AllTags);
             await _noteRepository.AddAsync(note, cancellationToken);
         }
@@ -305,4 +305,9 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
                 .OfType<Guid>()
                 .Distinct()];
     }
+
+    /// <summary>Marks read off a file, clipped to the words they are on and with anything this build does not know dropped.</summary>
+    private static IReadOnlyList<NoteTextRun> ReadMarks(IReadOnlyList<ArchivedTextRun> marks, string text)
+        => NoteTextMarks.Normalized(
+            marks.Select(run => new NoteTextRun(run.Start, run.Length, NoteTextMarks.Read(run.Mark))), text.Length);
 }

@@ -110,9 +110,11 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
             note.Title,
             note.Content.Select(line => new ArchivedNoteLine(
                 line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed, line.Style.ToString(),
-                line.AllMarks.Count == 0
-                    ? null
-                    : line.AllMarks.Select(run => new ArchivedTextRun(run.Start, run.Length, run.Mark.ToString())).ToList()))
+                ArchivedMarks(line.AllMarks),
+                line.Table?.Rows
+                    .Select(row => (IReadOnlyList<ArchivedTableCell>)row.Cells
+                        .Select(cell => new ArchivedTableCell(cell.Text, ArchivedMarks(cell.AllMarks))).ToList())
+                    .ToList()))
                 .ToList(),
             note.IsPrivate,
             ToArchived(note.EncryptedContent),
@@ -190,4 +192,10 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
 
     private static ArchivedEncryptedContent? ToArchived(EncryptedPayload? encryptedContent)
         => encryptedContent is null ? null : new ArchivedEncryptedContent(encryptedContent.Ciphertext, encryptedContent.Nonce);
+
+    /// <summary>A line's or a cell's marks as the file carries them - nothing at all for none, so the field is absent.</summary>
+    private static IReadOnlyList<ArchivedTextRun>? ArchivedMarks(IReadOnlyList<NoteTextRun> marks)
+        => marks.Count == 0
+            ? null
+            : marks.Select(run => new ArchivedTextRun(run.Start, run.Length, run.Mark.ToString())).ToList();
 }

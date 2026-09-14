@@ -1144,6 +1144,12 @@ public static class PolishTranslations
         ["Underline"] = "Podkreślenie",
         ["Strikethrough"] = "Przekreślenie",
         ["Table"] = "Tabela",
+        ["Insert table"] = "Wstaw tabelę",
+        ["Add row below"] = "Dodaj wiersz poniżej",
+        ["Add column right"] = "Dodaj kolumnę po prawej",
+        ["Delete row"] = "Usuń wiersz",
+        ["Delete column"] = "Usuń kolumnę",
+        ["Delete table"] = "Usuń tabelę",
         ["Attachment"] = "Załącznik",
         ["{0}: not implemented yet."] = "{0}: jeszcze niezaimplementowane.",
         // Several boxes selected in a note's writing - see NoteSurfaceEdits.Cycle. The first is the

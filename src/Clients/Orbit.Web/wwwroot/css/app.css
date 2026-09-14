@@ -683,6 +683,63 @@ input.note-editor-title {
     text-decoration: line-through;
 }
 
+/* A table inside a note - see Orbit.Core.Notes.NoteTable. The same grid whether it is being written
+   in (real cells the caret walks, in the editor) or read (NoteTableView.razor): hairline borders in the
+   border colour, cells that wrap, and never wider than the note - a table that scrolled sideways would
+   be the one thing on the page that does. */
+.note-line-table {
+    padding: 0.35em 0;
+}
+
+.note-table {
+    width: 100%;
+    max-width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 0.95em;
+}
+
+.note-cell {
+    border: 1px solid var(--border);
+    padding: 6px 8px;
+    vertical-align: top;
+    min-width: 3em;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    outline: none;
+}
+
+/* The caret's cell, so which one Tab will leave is plain before it is pressed. */
+.note-cell:focus-within,
+.note-line-table .note-cell:focus {
+    background: var(--bg-subtle);
+}
+
+/* The same marks inside a cell as on a line - the cell holds the same elements the words are wrapped
+   in on the line, so the rules above the styles apply through this selector too. */
+.note-cell strong {
+    font-weight: 650;
+}
+
+.note-cell em {
+    font-style: italic;
+}
+
+.note-cell u {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.note-cell s {
+    text-decoration: line-through;
+}
+
+/* The table's own list, under the table tool rather than under "Aa" - the third button from the left,
+   so the panel sits one button further along than the styles do. */
+.note-table-menu {
+    left: calc(14px + 4px + 2 * 36px + 2 * 2px);
+}
+
 /* The list of styles, opened by the "Aa" button and sitting on the writing above the row it came from.
    Each entry is drawn in the style it sets, which is how somebody tells a heading from a subheading
    without reading the words. */

@@ -28,9 +28,10 @@ public sealed record PublicSharedItemDto(
 /// Orbit.Contracts.Notes.NoteTextRunDto, which is the same shape a note's own lines travel with. Null for
 /// everything else, as for a line nobody marked.
 /// </param>
+/// <param name="Table">The table this line is, where the item is a note and the line one of its tables - see NoteTableDto.</param>
 public sealed record PublicSharedItemLineDto(
     string Text, bool IsChecklistItem, bool IsChecked, string? Detail, bool IsFailed = false,
-    string Style = "Body", IReadOnlyList<NoteTextRunDto>? Marks = null)
+    string Style = "Body", IReadOnlyList<NoteTextRunDto>? Marks = null, NoteTableDto? Table = null)
 {
     /// <summary>The marks as something to read without a null check - see <see cref="Marks"/>.</summary>
     public IReadOnlyList<NoteTextRunDto> AllMarks => Marks ?? [];

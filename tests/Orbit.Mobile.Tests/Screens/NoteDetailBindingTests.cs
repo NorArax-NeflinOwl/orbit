@@ -96,7 +96,7 @@ public sealed class NoteDetailBindingTests
         var start = markup.IndexOf("x:DataType=\"screens:NoteLineRow\"", StringComparison.Ordinal);
         Assert.True(start > 0, "The line's own template was not found in the note screen's markup.");
 
-        var end = markup.IndexOf("</DataTemplate>", start, StringComparison.Ordinal);
+        var end = EndOfTemplate(markup, start);
         Assert.True(end > start, "The line's own template is not closed.");
 
         return
@@ -106,6 +106,43 @@ public sealed class NoteDetailBindingTests
                 .Where(name => !name.EndsWith("Command", StringComparison.Ordinal))
                 .Distinct()
         ];
+    }
+
+    /// <summary>
+    /// Where the template that starts at <paramref name="start"/> closes - counting the templates
+    /// nested inside it, since a table's grid is two templates inside the line's own and the first
+    /// closing tag after the start is one of theirs.
+    /// </summary>
+    private static int EndOfTemplate(string markup, int start)
+    {
+        var depth = 0;
+        var at = start;
+        while (at < markup.Length)
+        {
+            var opens = markup.IndexOf("<DataTemplate", at, StringComparison.Ordinal);
+            var closes = markup.IndexOf("</DataTemplate>", at, StringComparison.Ordinal);
+            if (closes < 0)
+            {
+                return -1;
+            }
+
+            if (opens >= 0 && opens < closes)
+            {
+                depth++;
+                at = opens + 1;
+                continue;
+            }
+
+            if (depth == 0)
+            {
+                return closes;
+            }
+
+            depth--;
+            at = closes + 1;
+        }
+
+        return -1;
     }
 
     /// <summary>

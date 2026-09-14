@@ -22,7 +22,7 @@ const instances = new Map();
 
 /// options: { takesTab, tickHint } - see ChecklistTextEditor.TakesTab, and the tooltip each box carries.
 export function initialize(container, dotNetHelper, initialLinesJson, options) {
-    const state = { dotNetHelper, options: options || {}, selectionBefore: null, pickedCount: 0, dragged: null };
+    const state = { dotNetHelper, options: options || {}, selectionBefore: null, pickedCount: 0, dragged: null, inTable: false };
     instances.set(container, state);
     render(container, normalizeLines(JSON.parse(initialLinesJson)));
 
@@ -214,6 +214,58 @@ export async function mark(container, asked) {
     }
 }
 
+/// The table tool pressed outside a table: an empty line becomes one, anything else gets one under it -
+/// see NoteSurfaceEdits.InsertTable. The caret goes into the first cell, which is the browser's to do:
+/// a cell is not a point on the surface C# reads.
+export async function insertTable(container) {
+    await Promise.resolve();
+    const state = instances.get(container);
+    if (!state || !isWritable(container)) {
+        return;
+    }
+
+    const answer = ask(container, state, 'insertTable');
+    if (answer) {
+        draw(container, answer.lines);
+        focusCell(container, answer.focus.line, 0, 0);
+        notifyChanged(container, state.dotNetHelper);
+    }
+}
+
+/// One change to the shape of the table the caret is in - a row or a column added or taken away, or the
+/// table itself taken away. The cell the caret was in is where it goes back to, or the nearest one that
+/// is still there; a table that is gone leaves the caret on the line it stood on.
+export async function editTable(container, action) {
+    await Promise.resolve();
+    const state = instances.get(container);
+    if (!state || !isWritable(container)) {
+        return;
+    }
+
+    const where = caretCell(container);
+    if (!where) {
+        return;
+    }
+
+    const answer = ask(container, state, action, { line: where.line, row: where.row, column: where.column });
+    if (!answer) {
+        return;
+    }
+
+    draw(container, answer.lines);
+    const line = answer.lines[where.line];
+    if (line && line.table) {
+        const rows = line.table.rows.length;
+        const columns = rows > 0 ? line.table.rows[0].cells.length : 0;
+        const row = action === 'tableRowBelow' ? where.row + 1 : Math.min(where.row, rows - 1);
+        const column = action === 'tableColumnRight' ? where.column + 1 : Math.min(where.column, columns - 1);
+        focusCell(container, where.line, row, column);
+    } else {
+        select(container, answer.anchor, answer.focus);
+    }
+    notifyChanged(container, state.dotNetHelper);
+}
+
 export async function setStyle(container, style) {
     await Promise.resolve();
     const state = instances.get(container);
@@ -256,6 +308,10 @@ function onKeyDown(event, container, state) {
     }
 
     repairStrayText(container);
+    if (inACell(container) && answerKeyInCell(event, container, state)) {
+        return;
+    }
+
     const command = commandFor(event, state);
     if (!command) {
         return;
@@ -270,6 +326,180 @@ function onKeyDown(event, container, state) {
     if (answer) {
         show(container, state, answer);
     }
+}
+
+/// What a key does inside a cell. A table is one line however many cells it has, so the keys that
+/// change a line's shape - Enter, Backspace at its head, Tab - mean something else here: Tab and Enter
+/// walk the cells, and a delete that would take the cell itself is stopped. Undo and redo still fall
+/// through to the surface's own history. Answers whether the key was dealt with.
+function answerKeyInCell(event, container, state) {
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+        return false;
+    }
+
+    const where = caretCell(container);
+    if (!where) {
+        return false;
+    }
+
+    switch (event.key) {
+        case 'Tab': {
+            event.preventDefault();
+            const step = event.shiftKey ? -1 : 1;
+            walkCells(container, state, where, step);
+            return true;
+        }
+        case 'Enter': {
+            // The next row, same column - and a new row under the last, which is how a table grows
+            // while it is being typed into. Shift+Enter is left to the browser as a break in the cell.
+            if (event.shiftKey) {
+                return false;
+            }
+            event.preventDefault();
+            if (where.row + 1 >= where.rows) {
+                const answer = ask(container, state, 'tableRowBelow', { line: where.line, row: where.row, column: where.column });
+                if (answer) {
+                    draw(container, answer.lines);
+                    notifyChanged(container, state.dotNetHelper);
+                }
+            }
+            focusCell(container, where.line, where.row + 1, where.column);
+            return true;
+        }
+        case 'Backspace':
+            // A delete at the head of a cell would take the cell - or the table - with it, which is the
+            // table menu's to do and never a key's.
+            if (caretIsAtCellEdge(where.cell, /* atStart */ true)) {
+                event.preventDefault();
+                return true;
+            }
+            return false;
+        case 'Delete':
+            if (caretIsAtCellEdge(where.cell, /* atStart */ false)) {
+                event.preventDefault();
+                return true;
+            }
+            return false;
+        default:
+            return false;
+    }
+}
+
+/// From one cell to the next in reading order, or back; past the last cell a new row is added, and
+/// before the first nothing happens.
+function walkCells(container, state, where, step) {
+    let index = where.row * where.columns + where.column + step;
+    if (index < 0) {
+        return;
+    }
+    if (index >= where.rows * where.columns) {
+        const answer = ask(container, state, 'tableRowBelow', { line: where.line, row: where.row, column: where.column });
+        if (!answer) {
+            return;
+        }
+        draw(container, answer.lines);
+        notifyChanged(container, state.dotNetHelper);
+    }
+    focusCell(container, where.line, Math.floor(index / where.columns), index % where.columns);
+}
+
+function inACell(container) {
+    const selection = window.getSelection();
+    return !!(selection && selection.rangeCount > 0 && closestCell(selection.anchorNode, container));
+}
+
+function closestCell(node, container) {
+    if (!node) {
+        return null;
+    }
+    let element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+    while (element && element !== container) {
+        if (element.classList && element.classList.contains('note-cell')) {
+            return element;
+        }
+        element = element.parentElement;
+    }
+    return null;
+}
+
+/// Where the caret is inside a table: the line, the row, the column, and the size of the grid.
+function caretCell(container) {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+        return null;
+    }
+    const cell = closestCell(selection.anchorNode, container);
+    if (!cell) {
+        return null;
+    }
+    const rowElement = cell.parentElement;
+    const table = rowElement.parentElement;
+    const line = closestLine(cell, container);
+    if (!line) {
+        return null;
+    }
+    return {
+        cell,
+        line: Array.prototype.indexOf.call(container.children, line),
+        row: Array.prototype.indexOf.call(table.children, rowElement),
+        column: Array.prototype.indexOf.call(rowElement.children, cell),
+        rows: table.children.length,
+        columns: rowElement.children.length
+    };
+}
+
+function caretIsAtCellEdge(cell, atStart) {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) {
+        return false;
+    }
+    const range = document.createRange();
+    range.selectNodeContents(cell);
+    if (atStart) {
+        range.setEnd(selection.anchorNode, selection.anchorOffset);
+    } else {
+        range.setStart(selection.anchorNode, selection.anchorOffset);
+    }
+    return range.toString().length === 0;
+}
+
+/// Puts the caret in one cell of one table line, at the end of its words - or in the nearest cell that
+/// is there, so a press aimed past the edge of the grid still lands somewhere in it.
+function focusCell(container, lineIndex, row, column) {
+    const line = container.children[lineIndex];
+    const table = line ? line.querySelector('.note-table') : null;
+    if (!table || table.rows.length === 0) {
+        return;
+    }
+    const rowElement = table.rows[Math.max(0, Math.min(row, table.rows.length - 1))];
+    const cell = rowElement.cells[Math.max(0, Math.min(column, rowElement.cells.length - 1))];
+    if (!cell) {
+        return;
+    }
+    if (document.activeElement !== container) {
+        container.focus({ preventScroll: true });
+    }
+    const range = document.createRange();
+    const text = lastTextNode(cell);
+    if (text) {
+        range.setStart(text, text.textContent.length);
+    } else {
+        range.setStart(cell, 0);
+    }
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    cell.scrollIntoView({ block: 'nearest' });
+}
+
+function lastTextNode(element) {
+    let last = null;
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        last = node;
+    }
+    return last;
 }
 
 function commandFor(event, state) {
@@ -345,6 +575,20 @@ function onBeforeInput(event, container, state) {
     // Ctrl+B and its friends - and the same four from the browser's own menus. Stopped and asked of C#,
     // which owns what a mark means here: left to the browser, these would put tags of their own choosing
     // into the line and the phone would never hear about them.
+    // Inside a cell the browser is on its own for the words, and formatting with it: what it wraps the
+    // words in is read back when the line is (see marksOn), so a cell's bold is a bold C# hears about.
+    // A break in a cell is the next row, which keydown already answers; a soft keyboard sends it here.
+    if (inACell(container)) {
+        if (event.inputType === 'insertParagraph') {
+            event.preventDefault();
+            const where = caretCell(container);
+            if (where) {
+                focusCell(container, where.line, where.row + 1, where.column);
+            }
+        }
+        return;
+    }
+
     const marking = MARK_INPUTS[event.inputType];
     if (marking) {
         event.preventDefault();
@@ -461,6 +705,15 @@ function onSelectionChange(container, state) {
         state.pickedCount = picked.length;
         state.dotNetHelper.invokeMethodAsync('OnSelectedTicksChanged', picked.length);
     }
+
+    // The page's table tool means "insert" outside a table and "change this one" inside, so it is told
+    // which the caret is in whenever that changes.
+    const inTable = isWritable(container) && !!(selection && selection.rangeCount > 0)
+        && container.contains(selection.anchorNode) && !!closestCell(selection.anchorNode, container);
+    if (inTable !== state.inTable) {
+        state.inTable = inTable;
+        state.dotNetHelper.invokeMethodAsync('OnCaretInTableChanged', inTable);
+    }
 }
 
 /// Copies what is selected as text somebody can paste anywhere: one line per line, and a tick-box line
@@ -550,6 +803,16 @@ function draw(container, lines) {
         const element = existing[index];
         if (!element) {
             container.appendChild(createLineElement(line, hint));
+            return;
+        }
+
+        const isTable = element.classList.contains('note-line-table');
+        if (isTable || line.table) {
+            // Rebuilt whole: a table that changed shape has no cell left in the same place to keep,
+            // and the caret is put back into a cell by whoever asked (see editTable, focusCell).
+            if (!isTable || !line.table || !sameTable(tableIn(element), line.table)) {
+                element.replaceWith(createLineElement(line, hint));
+            }
             return;
         }
 
@@ -646,15 +909,20 @@ function setLineWords(line, text, marks) {
         return;
     }
 
-    span.textContent = '';
+    fillWords(span, text, marks);
+}
+
+/// Fills one element - a line's span, a table's cell - with words and their marks, from scratch.
+function fillWords(element, text, marks) {
+    element.textContent = '';
     if (text.length === 0) {
-        // See setLineText: an empty span has no line box, so the caret has nowhere to stand in it.
-        span.appendChild(document.createElement('br'));
+        // See setLineText: an empty element has no line box, so the caret has nowhere to stand in it.
+        element.appendChild(document.createElement('br'));
         return;
     }
 
     for (const piece of markedPieces(text, marks)) {
-        span.appendChild(wrapped(piece.text, piece.marks));
+        element.appendChild(wrapped(piece.text, piece.marks));
     }
 }
 
@@ -708,16 +976,17 @@ function wrapped(text, marks) {
 /// its ancestors up to the span name.
 function marksIn(line) {
     const span = line.querySelector('.note-line-text');
-    if (!span) {
-        return [];
-    }
+    return span ? marksInWords(span) : [];
+}
 
+/// The marks inside one element holding words - a line's span, a table's cell.
+function marksInWords(element) {
     const runs = [];
     let offset = 0;
-    const walker = document.createTreeWalker(span, NodeFilter.SHOW_TEXT);
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
         const length = node.textContent.length;
-        for (const mark of marksOn(node, span)) {
+        for (const mark of marksOn(node, element)) {
             runs.push({ start: offset, length, mark });
         }
         offset += length;
@@ -777,6 +1046,13 @@ function createLineElement(line, tickHint) {
     // whether a line's style changed without picking the class list apart.
     div.dataset.style = styleOf(line);
 
+    // A table is the whole of its line: no span for words, no box - see NoteContentLine.OfTable.
+    if (line.table) {
+        div.classList.add('note-line-table');
+        div.appendChild(createTableElement(line.table));
+        return div;
+    }
+
     if (line.isChecklistItem) {
         div.classList.add('note-line-checklist');
 
@@ -803,6 +1079,40 @@ function createLineElement(line, tickHint) {
     }
 
     return div;
+}
+
+/// A table as C# sends it - rows of cells, each cell words and marks - drawn as the table it is. Real
+/// <td>s rather than a grid of divs, so the caret walks cells the way it walks any table in a page.
+function createTableElement(table) {
+    const element = document.createElement('table');
+    element.className = 'note-table';
+    for (const row of table.rows || []) {
+        const tr = element.insertRow();
+        for (const cell of row.cells || []) {
+            const td = tr.insertCell();
+            td.className = 'note-cell';
+            fillWords(td, cell.text || '', marksOf(cell));
+        }
+    }
+    return element;
+}
+
+/// A table as the document now holds it, read back the way a line's words are: each cell's text, and
+/// the marks its words sit inside.
+function tableIn(line) {
+    const table = line.querySelector('.note-table');
+    if (!table) {
+        return null;
+    }
+    return {
+        rows: Array.from(table.rows).map((tr) => ({
+            cells: Array.from(tr.cells).map((td) => ({ text: td.textContent || '', marks: marksInWords(td) }))
+        }))
+    };
+}
+
+function sameTable(one, other) {
+    return JSON.stringify(one) === JSON.stringify(other);
 }
 
 const TICK_NONE = 'none';
@@ -838,6 +1148,9 @@ function setTick(line, state) {
 }
 
 function lineText(line) {
+    if (line.classList && line.classList.contains('note-line-table')) {
+        return '';
+    }
     const span = line.querySelector('.note-line-text');
     return span ? span.textContent : line.textContent;
 }
@@ -865,13 +1178,15 @@ function extractLines(container) {
     return Array.from(container.children).map((line) => {
         const tick = line.querySelector('.note-line-tick');
         const state = tick ? stateOf(tick) : TICK_NONE;
+        const table = tableIn(line);
         return {
-            text: lineText(line) || '',
+            text: table ? '' : (lineText(line) || ''),
             isChecklistItem: !!tick,
             isChecked: state === TICK_DONE,
             isFailed: state === TICK_FAILED,
             style: line.dataset && line.dataset.style ? line.dataset.style : 'body',
-            marks: marksIn(line)
+            marks: table ? [] : marksIn(line),
+            table
         };
     });
 }
@@ -906,6 +1221,11 @@ function repairStrayText(container) {
 
 /// Answers whether anything had to be moved.
 function repairLineDom(line) {
+    // A table line has no span to put words back into, and everything in it is where it belongs.
+    if (line.classList.contains('note-line-table')) {
+        return false;
+    }
+
     const tick = line.querySelector('.note-line-tick');
     let span = line.querySelector('.note-line-text');
     if (!span) {
@@ -1026,6 +1346,12 @@ function pointOf(container, node, offset) {
 function domPoint(container, point) {
     const lines = container.children;
     const line = lines[Math.max(0, Math.min(point.line, lines.length - 1))];
+    // A table has no offset to stand at: the caret goes to the head of its first cell, and the cell
+    // commands put it somewhere more exact themselves (see focusCell).
+    const firstCell = line.classList.contains('note-line-table') ? line.querySelector('.note-cell') : null;
+    if (firstCell) {
+        return { node: firstCell, offset: 0 };
+    }
     const span = line.querySelector('.note-line-text') || line;
     let remaining = point.offset;
     let lastText = null;
