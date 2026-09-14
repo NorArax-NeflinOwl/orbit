@@ -1315,34 +1315,93 @@ ways and the one worth weighing first.
 **The thing to know first: Orbit stores no files at all today.** Not one. The only endpoint that takes an
 upload is the diagnostic log (`DiagnosticLogEndpoints`, 2 MB), and what it stores is *text rows in
 PostgreSQL*. The only blob in Azure is `orbitdownloads/apps`, which CI writes the Android APK into. So
-this is not "add a field", it is the first binary Orbit has ever kept, and six things have to be decided
-before any of it is written:
+this is the first binary Orbit would keep.
 
-1. **Where the bytes live.** PostgreSQL as `bytea` costs no new Azure resource and keeps a picture in the
-   same transaction and the same backup as the note it belongs to - but the database grows by whole
-   photographs, and `orbit-api` runs at 0.25 vCPU and 0.5 GiB and would pass every one of them through
-   itself. Blob storage is the right tool and is **a new Azure resource, which is the user's call and
-   real money** - plus SAS handling, orphan sweeping, and a second thing to back up.
-2. **What a private note's pictures are.** A private note is sealed in the browser
-   (`PrivateContentSealer`) and the server never sees its words. A picture would have to travel the same
-   way - encrypted before it is sent, decrypted to a `blob:` URL to be drawn - which is buildable on the
-   Web Crypto already there for chat, but rules out ever serving one as a plain `<img src="/api/…">`.
-   The other answer is that a sealed note takes no pictures, and says so.
-3. **A size limit, and where the shrinking happens.** Kestrel's default is 30 MB a request on a 0.5 GiB
-   container; a phone photograph is 4-8 MB. A limit per picture, a limit per note, and almost certainly
-   scaling in the browser before anything is sent.
-4. **The phone's half.** `LocalNote.Content` is the same list of lines in SQLite. Pictures have to sync
-   offline: fetched, cached on the handset, and whatever was pasted without a signal pushed later. That
-   is machinery `NoteSynchronizer` does not have.
-5. **Migrations on both sides**, and a `NoteContentLineDto` that older installed phones still read.
-6. **What a paste of a picture even is** - a line of its own beside text and boxes, or something hung on
-   the note beside its lines. `checklistTextEditor.js` reads a paste as text today
-   (`NoteSurfaceEdits.Replace`); an image branch is a different path.
+**Three of the decisions were taken by the user on 2026-09-14** and are written here as settled, so
+whoever builds this is not asked them again.
 
-**A cheap first version exists** if it is wanted before the whole thing: web only, notes that are not
-sealed, bytes in PostgreSQL, a hard limit of about 1 MB after scaling in the browser. That needs no new
-Azure resource and does not touch the sealing, and leaves the phone and private notes as a deliberate
-second step. It is still a round of its own.
+### Settled: the bytes go in blob storage
+
+Not PostgreSQL. The database would otherwise grow by whole photographs, and `orbit-api` runs at 0.25 vCPU
+and 0.5 GiB and would pass every one of them through itself.
+
+**Not the storage account Orbit already has.** `orbitdownloads` exists, and it was created
+`--allow-blob-public-access true` with its `apps` container `--public-access blob` - anonymous read, on
+purpose, because its whole job is handing the Android APK to anybody who opens the download page (see
+[azure-setup.md](azure-setup.md)). An account whose reason for existing is public downloads is the last
+place to put somebody's photographs, sealed or not. So this wants **its own account, with public blob
+access off**, which is a new Azure resource that bills real money: creating it is an `az` action taken
+with skill `azure-cost-guard` open and the user's word at the time. What is recorded here is the design,
+not permission to create anything.
+
+The rest of what blob storage brings, none of it decided yet: how a client is given access to one blob
+and no others (a short-lived SAS is the usual answer), what sweeps a blob whose note or line is gone, and
+that it is a second thing to back up beside the database.
+
+### Settled: a private picture is sealed the way a place is
+
+**The model is `Orbit.Core.Places.Place`** - the pins on the map - and it is worth reading, because it
+seals harder than a note does and the user named it on purpose:
+
+- **the client encrypts before saving**, and the readable columns go *empty* rather than merely unread;
+- **what stays readable is only what draws nothing in particular** - for a place, the colour, the
+  priority, the lists it belongs to and the two timestamps;
+- **the handlers refuse** rather than the screens hiding: a sealed place cannot be shared, copied
+  server-side, or published as a link (`SharePlaceCommandHandler`, `DuplicatePlaceCommandHandler`);
+- **an unsealed private one is refused at construction** - `EnsureSealedWhenPrivate` throws on a private
+  place that arrives unencrypted, so the invariant is not a screen's good manners.
+
+Read onto a picture, that is: the blob holds ciphertext and nothing else; no file name, no content type,
+nothing about the picture is stored readable beside it; a sealed note's picture cannot be shared, copied
+or published, refused in the handler; and a picture arriving for a sealed note unencrypted is refused
+rather than quietly stored in the clear. A picture takes its note's answer rather than having one of its
+own - a place is sealed by default because of what a place is, and a note already has its own default.
+
+One consequence to write down rather than discover: a sealed picture can never be served as a plain
+`<img src="/api/…">`. It is fetched, opened in the browser (the Web Crypto already there for chat), and
+drawn from a `blob:` URL.
+
+### Settled: 50 MB a note
+
+A total across the pictures on one note, not a limit per picture.
+
+Two things follow. **The count has to be kept**, which means each picture's stored length is a readable
+number beside it - and for a sealed note that is the ciphertext's length, which says roughly how big the
+picture is. That is a small leak and the same shape as the one a place already accepts (a sealed place
+still says publicly that it exists, and when it changed); worth stating rather than finding.
+
+**And the per-request limit is a different number.** Kestrel's default is 30 MB a request (see "Known
+scope cuts", where that is already recorded) - so with blob storage a picture is uploaded in a request of
+its own and 30 MB bounds one picture, while 50 MB bounds the note. Scaling in the browser before
+uploading is still almost certainly wanted; a phone photograph is 4-8 MB and four of them would be most
+of the note's allowance.
+
+### Settled: the interaction follows Apple Notes
+
+Which is a steer about *where a picture lives in the writing*, and it is the useful half:
+
+- a picture sits **inline in the flow**, between the lines, rather than in a gallery at the foot;
+- **paste and drag put it where the caret is**, like any other insertion;
+- it is drawn scaled to the width of the note and **opened full size by pressing it**;
+- **backspace over it takes it away** like any other element;
+- it **travels with a copy** of the text around it.
+
+Where Orbit's own surface differs, and this is the piece to design rather than copy: the note is a list
+of `NoteContentLine`, one element per line, and every change of shape is worked out in C#
+(`NoteSurfaceEdits`) with the browser drawing what comes back. So a picture is naturally **a third kind
+of line** beside text and a tick box - which is the same question the section above asks about
+descriptions, and answering it once answers both.
+
+### Still open
+
+- **The phone's half.** `LocalNote.Content` is the same list of lines in SQLite. Pictures have to sync
+  offline: fetched, cached on the handset, and whatever was pasted without a signal pushed later. That is
+  machinery `NoteSynchronizer` does not have.
+- **Migrations on both sides**, and a `NoteContentLineDto` that older installed phones still read.
+
+**A first version that respects all of the above** would be: web only, blob storage, sealed pictures
+included (since the sealing is decided and the browser already has the crypto), 50 MB a note counted
+server-side, and the phone as a deliberate second step. It is still a round of its own.
 
 Written down rather than fixed on the spot, per rule 14 in `.claude/CLAUDE.md`: work that turns up
 beside a task belongs here, not in that task's diff. A defect is the exception and is fixed when found.
