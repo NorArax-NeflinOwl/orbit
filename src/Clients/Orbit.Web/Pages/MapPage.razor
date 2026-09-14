@@ -288,6 +288,16 @@ else
                     {
                         <span class="card-badge card-badge-priority-@priority.ToLowerInvariant()">@DescribePriority(priority)</span>
                     }
+                    @* A route from or to this place, without hunting for its pin first - the same
+                       press its popup carries, and the same one button that changes from "start" to
+                       "to here" once a start has been chosen. See OnPinRoute. *@
+                    <button type="button" class="icon-btn map-share-open" title="@RouteLabel"
+                            aria-label="@RouteLabel"
+                            @onclick="() => OnPinRoute(PlaceMapKey(place.Id))" @onclick:stopPropagation="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none"
+                             stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+                             aria-hidden="true"><circle cx="5" cy="15" r="2" /><circle cx="15" cy="5" r="2" /><path d="M7 15h4a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h4" /></svg>
+                    </button>
                     <button type="button" class="icon-btn map-share-open" title="@(T["Take me there"])"
                             aria-label="@(T["Take me there"])"
                             @onclick="() => AskHowToGetTo(TargetFor(place))" @onclick:stopPropagation="true">
@@ -483,7 +493,8 @@ else
             </div>
         }
 
-        @* A route between two pins, chosen from their popups - see OnPinRoute. Along the foot of the map
+        @* A route between two places, each chosen from its pin's popup or from its row in the panel -
+           see OnPinRoute, which both go through. Along the foot of the map
            with the other questions about pins, because it is about two of them. *@
         @if (_routeStart is { } routeStart)
         {
@@ -498,7 +509,7 @@ else
                 }
                 else
                 {
-                    <span class="map-create-event-question">@T.Format("Route from {0}. Open another pin and choose where it goes.", routeStart.Address)</span>
+                    <span class="map-create-event-question">@T.Format("Route from {0}. Choose where it goes - another pin, or a row in the panel.", routeStart.Address)</span>
                 }
                 <button type="button" class="btn-secondary" @onclick="ClearTheRouteAsync">@T["Clear the route"]</button>
             </div>
@@ -1457,6 +1468,13 @@ else
                 <span class="map-place-dot" style="background:@placed.Color" aria-hidden="true"></span>
                 <span class="row-title @(placed.IsBehindYou ? "map-place-past" : "")">@placed.Title</span>
                 <span class="row-meta">@placed.When</span>
+                @* A route from or to it, as the places above carry - see OnPinRoute. *@
+                <button type="button" class="icon-btn map-share-open" title="@RouteLabel" aria-label="@RouteLabel"
+                        @onclick="() => OnPinRoute(placed.Key)" @onclick:stopPropagation="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none"
+                         stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+                         aria-hidden="true"><circle cx="5" cy="15" r="2" /><circle cx="15" cy="5" r="2" /><path d="M7 15h4a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h4" /></svg>
+                </button>
                 @* The same offer the shared positions carry, on the plans that are most of what somebody
                    has to get to. *@
                 <button type="button" class="icon-btn map-share-open" title="@(T["Take me there"])"

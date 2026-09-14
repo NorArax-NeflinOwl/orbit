@@ -2006,7 +2006,9 @@ the new place's own pin it read as a second place still waiting.
 **"Start a route here" in one pin's popup, then "Route to here" in another's** (2026-09-11,
 `MapPage.OnPinRoute`, `locationMap.js`'s `showRoute`). One button that changes its words rather than two
 side by side. Any spot can be an end: press the map there, and the pin that press draws carries the same
-button. A bar under the map names both ends and says how far and how long, with **Clear the route**.
+button - or from the row in the panel, which carries the same one press so neither end has to be hunted
+for among the pins first. A bar under the map names both ends and says how far and how long, with
+**Clear the route**.
 
 The road route comes from the **public OSRM demo server** (FOSSGIS, OpenStreetMap's routing machine),
 driving only - that is what the demo serves reliably. It is a third party, so it is asked **only where the

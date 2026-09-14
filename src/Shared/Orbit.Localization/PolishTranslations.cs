@@ -267,8 +267,8 @@ public static class PolishTranslations
         // A route between two pins on the map, chosen from their popups - see MapPage.OnPinRoute.
         ["Start a route here"] = "Zacznij trasę tutaj",
         ["Route to here"] = "Trasa do tego miejsca",
-        ["Route from {0}. Open another pin and choose where it goes."] =
-            "Trasa od: {0}. Otwórz inną pinezkę i wybierz, dokąd prowadzi.",
+        ["Route from {0}. Choose where it goes - another pin, or a row in the panel."] =
+            "Trasa od: {0}. Wybierz, dokąd prowadzi - inną pinezkę albo wiersz na panelu.",
         ["Clear the route"] = "Wyczyść trasę",
         ["in a straight line"] = "w linii prostej",
         ["about {0} min"] = "ok. {0} min",

@@ -1234,19 +1234,21 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
     0.5 GiB container, the phone's half, and a migration. Worth scoping as its own round rather than
     slipping into one.
 
-  - **A route with stops, and both ends chosen from the list of pins.** Half of it is built: two pins
-    make a route from their own bubbles (2026-09-14 and before). What is asked for beyond that is
-    picking the two from the panel's list rather than from the map, and stops along the way. The second
-    is the one with a question in it: a straight line between two points is what the map draws today
+  - **Stops along a route.** ~~Both ends chosen from the list of pins~~ went in on 2026-09-14: every row
+    in the map's panel - a place, a plan, either list - carries the same one press its pin's popup does,
+    so neither end has to be hunted for among the pins first. **Stops are what is left, and they are the
+    half with a question in it**: a straight line between two points is what the map draws today
     (`map-route-line-straight`), and stops only mean something against real roads, which means a routing
     service - a third-party request to gate beside the tiles, and one that would be told where somebody
     is going.
 
-  - **A sublist made from a group list's own page.** A group list holds other lists
-    (`TaskList.IsGroup`), and today a member list is made on `/tasks` and then linked. Making one from
-    the group's page is small; what it needs said is what the new list inherits - its folder, whether it
-    is private, and whether it joins the group as a member or as an entry standing for it, which are
-    two different things in the data and read almost the same on screen.
+  - ~~**A sublist made from a group list's own page.**~~ Done 2026-09-14, and the question this entry
+    raised was a false one: a group's members **are** its entries' linked lists (`BuildSections` reads
+    them off exactly that), so "a member or an entry standing for it" is one thing under two names, not
+    two designs to choose between. "New sublist" in the list's menu makes the list and adds the entry in
+    one press. It starts in the folder the group is in, the rule everything else follows about making
+    something while standing somewhere; a sealed list is not offered it, since its entries are sealed by
+    the editor and would be written in the clear from there.
 
 Written down rather than fixed on the spot, per rule 14 in `.claude/CLAUDE.md`: work that turns up
 beside a task belongs here, not in that task's diff. A defect is the exception and is fixed when found.
