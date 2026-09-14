@@ -25,6 +25,12 @@ Each Container App also has its own **system-assigned managed identity** (separa
 `identity-orbit`), used to pull images from `orbitcontainerregistry` without a stored registry
 password - visible as `"identity": "system"` under each app's `registries` config.
 
+Two more objects belong to this deployment and are deliberately not in the table, because neither is
+billable and neither lives in the resource group: the `orbit-monthly-budget` consumption budget, which
+sits on the subscription, and the `orbit-cost-alerts` action group it notifies. They are what keeps the
+bill from running away unnoticed - see [Cost limits](#cost-limits) for what they do, what they
+emphatically do not do, and how to check they still exist.
+
 ## How the pieces talk to each other
 
 ```
@@ -416,6 +422,259 @@ which writes them into the client's `appsettings.json` when the container starts
 than credentials, and they are deliberately not committed: they land in a file every visitor can
 download, so the resource path lives in the deployment's own configuration rather than in the
 repository. Following one still needs a portal sign-in with rights to that resource.
+
+## Cost limits
+
+Two numbers govern this subscription: **50 zł a month is a warning, 90 zł a month is the ceiling.**
+Setting them up is the rest of this section, and the first thing to understand is that Azure will
+enforce exactly one of them - the warning.
+
+**A budget does not stop anything.** On a pay-as-you-go subscription there is no spending cap to turn
+on: the "spending limit" Azure documents belongs to credit-based offers (free trial, Azure for
+Students, Visual Studio credit), where it exists because there is a credit to run out of. Here there is
+a card, and a budget is a *notification* resource - it watches the running total, sends email at the
+thresholds it was given, and lets the meter keep running. So the 90 zł ceiling has to be enforced by
+something that actually turns resources off, which is
+[`scripts/stop-azure-compute.sh`](../scripts/stop-azure-compute.sh) below.
+
+**And the total it watches is stale.** Pay-as-you-go usage is rated in batches, and a charge can take
+most of a day to appear in Cost Management - so the alert saying "90 zł" is really saying "90 zł as of
+some hours ago". Whatever this deployment burns in those hours is spent before anybody is told. That is
+the reason for the forecast notification below, which fires on the projected end-of-month total rather
+than the current one, and is the only one of the three that arrives in time to act on calmly.
+
+### First, check what currency the subscription bills in
+
+A budget's amount carries no currency of its own: it is denominated in the subscription's billing
+currency, whatever that is. `90` on a subscription billed in euro is a ceiling of roughly 390 zł, and
+nothing in the portal will point that out.
+
+```bash
+az consumption usage list --top 1 --query "[0].currency" -o tsv
+```
+
+`PLN` back means the numbers below can be used as they are. Anything else means converting 50 and 90 zł
+into that currency first, and writing the rate and date next to the amounts, because the ceiling then
+drifts with the exchange rate. The portal says the same thing under **Cost Management + Billing →
+Billing scopes → Properties**.
+
+### Second, check what the deployment already costs
+
+A ceiling below the running cost is a monthly outage, not a limit. Before creating anything, get last
+full month's bill broken down by resource:
+
+```bash
+az consumption usage list --start-date 2026-08-01 --end-date 2026-08-31 \
+  --query "[].[instanceName, pretaxCost, currency]" -o tsv | awk -F'\t' '
+    { split($1, segments, "/"); total[segments[length(segments)]] += $2; sum += $2; currency = $3 }
+    END { for (resource in total) printf "%10.2f %s  %s\n", total[resource], currency, resource
+          printf "%10.2f %s  TOTAL\n", sum, currency }' | sort -rn
+```
+
+It takes a while - the Consumption API pages through every usage record of the month - and the TOTAL
+line sorts to the top. What to expect from it, at list prices and in rough order of size:
+
+| What bills | Why it bills | Can the stop script reach it? |
+| --- | --- | --- |
+| Container Apps vCPU-seconds and GiB-seconds | `orbit-api` runs at `min-replicas 1`, so it bills around the clock even with nobody using Orbit - very likely the largest line. The consumption plan's monthly free grant (180,000 vCPU-seconds, 360,000 GiB-seconds) covers only the first days of one always-on replica, and how many days depends on what the app was created with: `az containerapp show -n orbit-api -g Orbit --query "properties.template.containers[0].resources"`. | **Yes** - to zero. |
+| PostgreSQL Flexible Server compute (`Standard_B1ms`) | Always on unless stopped. | **Yes** - compute only. |
+| PostgreSQL storage and backups (32 GB) | Billed whether the server is running or stopped. | No. |
+| `orbitcontainerregistry` (Basic) | A flat daily charge for the registry existing, independent of pushes or pulls. | No. |
+| Log Analytics ingestion behind `appinsights-orbit` | Per GB ingested, with 5 GB free per month. Small at this traffic, and bounded by the API logging at Information level in production. | No, but see the note below. |
+| `orbitdownloads` blob storage | Pennies for one APK. | No. |
+
+**If that TOTAL is already near or above 90 zł, the ceiling is in the wrong place** - stopping
+everything on, say, the 20th of each month is not a cost limit, it is a scheduled outage. Then the
+choice is to raise the numbers, or to make the deployment cheaper first: `orbit-api` at
+`min-replicas 0` is the single largest saving available, at the price of a cold start on the first
+request after a quiet spell (which is exactly how `orbit-web` already runs). Decide that before
+creating the budget, not after the first alert.
+
+### 1. Create the action group the alerts are delivered to
+
+An action group is the "who gets told" half; the budget only references it. It is free to keep, and
+email notifications are free for the first thousand a month, so this adds no recurring charge - but it
+is still a resource being created, so it falls under
+[rule 6](../.claude/CLAUDE.md) and the `azure-cost-guard` skill.
+
+```bash
+az monitor action-group create \
+  --name orbit-cost-alerts \
+  --resource-group Orbit \
+  --short-name orbitcost \
+  --action email orbit-owner "<your address>"
+```
+
+`--short-name` is what shows up in the email subject and is capped at 12 characters. Add a second
+`--action email <name> <address>` for anyone else who should know.
+
+### 2. Create the budget
+
+Thresholds on an Azure budget are **percentages of the budget amount, not amounts**, which is the one
+detail that makes this fiddly. Setting the amount to the 90 zł ceiling makes the warning
+50 ÷ 90 = 55.56% - slightly over 50 zł (50.004), close enough that the difference is noise, and it
+keeps the amount reading as what it is: the ceiling.
+
+```bash
+SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+ACTION_GROUP_ID=$(az monitor action-group show -n orbit-cost-alerts -g Orbit --query id -o tsv)
+
+cat > /tmp/orbit-budget.json <<JSON
+{
+  "properties": {
+    "category": "Cost",
+    "amount": 90,
+    "timeGrain": "Monthly",
+    "timePeriod": { "startDate": "2026-09-01T00:00:00Z", "endDate": "2036-09-01T00:00:00Z" },
+    "notifications": {
+      "Warning50": {
+        "enabled": true, "operator": "GreaterThanOrEqualTo",
+        "threshold": 55.56, "thresholdType": "Actual",
+        "contactGroups": ["$ACTION_GROUP_ID"], "locale": "en-us"
+      },
+      "Ceiling90": {
+        "enabled": true, "operator": "GreaterThanOrEqualTo",
+        "threshold": 100, "thresholdType": "Actual",
+        "contactGroups": ["$ACTION_GROUP_ID"], "locale": "en-us"
+      },
+      "Forecast90": {
+        "enabled": true, "operator": "GreaterThanOrEqualTo",
+        "threshold": 100, "thresholdType": "Forecasted",
+        "contactGroups": ["$ACTION_GROUP_ID"], "locale": "en-us"
+      }
+    }
+  }
+}
+JSON
+
+az rest --method put \
+  --url "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/providers/Microsoft.Consumption/budgets/orbit-monthly-budget?api-version=2023-05-01" \
+  --body @/tmp/orbit-budget.json
+```
+
+Things that will reject the call if changed carelessly:
+
+- `startDate` must be the first day of a month, and Azure refuses one more than three months in the
+  past. Use the current month; a monthly budget resets on the 1st regardless, so nothing is lost by
+  starting late.
+- `timeGrain: Monthly` is what "a month" means here - the counter resets on the 1st and every
+  threshold is re-armed. `endDate` is only how long the budget itself lives; ten years out is a way of
+  saying "until somebody removes it".
+- A budget holds at most five notifications, and a *forecast* one only fires once Azure has enough
+  history on the subscription to project from - expect it to be quiet for the first couple of months.
+- `az rest` is used rather than `az consumption budget create` because that command group is
+  deprecated and never covered subscription scope properly. The portal does the same job under **Cost
+  Management → Budgets → Add**, and this whole section is reproducible there if the CLI argues.
+
+Read it back, which is also the quickest "where am I this month":
+
+```bash
+az rest --method get \
+  --url "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/providers/Microsoft.Consumption/budgets/orbit-monthly-budget?api-version=2023-05-01" \
+  --query "properties.[amount, currentSpend.amount, currentSpend.unit]" -o tsv
+```
+
+`scripts/stop-azure-compute.sh --status` prints that same line alongside what is actually running.
+
+### 3. When the 50 zł warning arrives
+
+Nothing has to be turned off. It is a prompt to find out *why* - half of a 90 zł month by the middle of
+it is normal; half of it by the 5th is not:
+
+```bash
+scripts/stop-azure-compute.sh --status
+# and the per-resource breakdown from "Second, check what the deployment already costs",
+# with this month's dates
+```
+
+The usual culprits, in the order they are worth checking: autoscaling left on after a test (the
+`max-replicas 3` of [Scaling](#scaling) above), `orbit-web` never scaling to zero because a client is
+holding a live-update connection open, or a deploy loop that pushed far more images than usual.
+
+### 4. When the 90 zł ceiling is reached
+
+The email is not the block. The block is:
+
+```bash
+scripts/stop-azure-compute.sh --dry-run     # read what it is about to do
+scripts/stop-azure-compute.sh               # and do it
+```
+
+It stops the PostgreSQL Flexible Server, closes both Container Apps' ingress and sets them to
+`min-replicas 0`. Both apps then hold no replicas, so they bill nothing; the database keeps only its
+storage charge. **Nothing is deleted** - not the database, not the images, not the configuration - so
+this is a pause, not a teardown.
+
+Three things to know before running it:
+
+- Orbit goes down for everyone, web and phone alike, until `--resume`.
+- Closing the ingress is not decoration. `orbit-api` is kept awake by the phone syncing against it, so
+  `min-replicas 0` on its own would never let it empty.
+- **Azure starts a stopped Flexible Server again by itself after seven days.** That is Flexible Server
+  behaviour, not something this repository chose, and it means the block quietly expires. If the month
+  still has time to run at that point, stop it again.
+
+### 5. Bringing it back
+
+```bash
+scripts/stop-azure-compute.sh --resume
+```
+
+The database starts first, because `orbit-api` applies migrations at startup and never becomes healthy
+without it; then the apps get their ingress and `min-replicas` back. `--resume` restores the values in
+[Confirm ingress](#5-confirm-ingress) above rather than remembering what it found, so if that table ever
+changes, the constants at the top of the script have to change with it. `max-replicas` is deliberately
+left alone, so whatever the autoscale workflow last chose survives the whole round trip. Then verify it
+the way a deploy is verified - see [Verifying a deploy](#verifying-a-deploy).
+
+### What the stop cannot stop
+
+`orbitcontainerregistry` (a flat daily charge), PostgreSQL storage and backups, the storage account and
+whatever Log Analytics has already ingested all keep billing with everything switched off. That is the
+floor the ceiling sits on: no script gets the month to zero, and getting below that floor means
+*deleting* resources, which costs the images, the database or the telemetry history to get back.
+
+Log Analytics is worth one extra note, because it is the one line on the bill that a code change can
+send climbing: the workspace bills per GB ingested, so a logging change that turns a hot path chatty at
+Information level shows up as cost rather than as a failure. If a bill jumps with no infrastructure
+change behind it, look there before anywhere else.
+
+### Making the ceiling enforce itself
+
+Everything above leaves one manual step: a person reads the 90 zł email and runs the script. Closing
+that gap means letting the action group run something, and every route to that creates a resource -
+which is a decision for the subscription's owner, not a default:
+
+- **Azure Automation account + PowerShell runbook**, wired to the action group as an *Automation
+  Runbook* action. The account's free grant is 500 job-minutes a month and a run of this work takes
+  seconds, so in practice it adds nothing to the bill. The runbook needs a system-assigned managed
+  identity with **Contributor** on the `Orbit` resource group, and its body is the same three moves the
+  script makes: `Stop-AzPostgreSqlFlexibleServer`, then `az containerapp ingress disable` and
+  `--min-replicas 0` (or `Update-AzContainerApp`) for each app.
+- **A Logic App** triggered by the same action group's webhook. Consumption billing per action, tiny at
+  one run a month, but it is another resource to keep and another identity to grant.
+
+Neither is set up today, and the honest trade is worth stating: an automatic block can take the
+deployment down at three in the morning over a rating batch nobody has looked at, and the seven-day
+auto-restart above means even that is not permanent. The manual path - forecast alert, then actual
+alert, then a person running one command - is what this deployment uses, and it is written down in
+[Future Plan — Deployment](future-plan.md#deployment) as the follow-up it is.
+
+### Checking the limits are still there
+
+A budget is easy to lose track of: it is invisible until it fires, and it lives on the subscription
+rather than in the `Orbit` resource group, so anything that reasons about "what is in the resource
+group" will not see it.
+
+```bash
+az rest --method get \
+  --url "https://management.azure.com/subscriptions/$(az account show --query id -o tsv)/providers/Microsoft.Consumption/budgets?api-version=2023-05-01" \
+  --query "value[].{name: name, amount: properties.amount, spent: properties.currentSpend.amount}" -o table
+az monitor action-group list -g Orbit -o table
+```
+
+Worth running after any subscription change, and worth a thought when a month passes with no email at
+all: silence means either a cheap month or a deleted budget, and the two look identical from here.
 
 ## Verifying a deploy
 

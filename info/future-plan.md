@@ -540,6 +540,20 @@ since been closed; what is left is recorded below with the same honesty about wh
   approval gate is then about *deliberateness* (did a human mean to ship this now) rather than being
   the only thing standing between a bug and production.
 
+- **Letting the 90 zł ceiling enforce itself.** The spending limit is written down and half-built: a
+  subscription budget warns at 50 zł and at 90 zł, and `scripts/stop-azure-compute.sh` stops the
+  PostgreSQL server and empties both Container Apps - but a *person* has to read the email and run it,
+  because an Azure budget on a pay-as-you-go subscription notifies and nothing more (see
+  [Azure setup — Cost limits](azure-setup.md#cost-limits)). Closing that gap means an Azure Automation
+  account with a runbook the action group can call, or a Logic App on its webhook; either is a new
+  resource, which is the user's call under [rule 6](../.claude/CLAUDE.md), and the Automation account's
+  free grant of 500 job-minutes a month would cover a run that takes seconds. **Not done deliberately,
+  for two reasons worth weighing before it is:** an automatic block takes the deployment down
+  unattended, possibly over a rating batch nobody has looked at, and Azure restarts a stopped Flexible
+  Server by itself after seven days - so even the automatic version is not a block that holds, just one
+  that fires faster. The forecast notification, which warns when the *month* is projected to reach 90 zł
+  rather than when it has, is what makes the manual path workable in the meantime.
+
 ## What the footer could grow into
 
 **Re-read against the code on 2026-09-07, and most of this section had already happened.** What it

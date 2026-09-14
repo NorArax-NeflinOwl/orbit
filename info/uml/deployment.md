@@ -19,6 +19,8 @@ flowchart TB
         blob["<b>orbitdownloads</b> / apps<br/>orbit-android.apk"]
         insights["<b>appinsights-orbit</b><br/>+ Log Analytics"]
         identity["<b>identity-orbit</b><br/>managed identity, OIDC"]
+        budget["<b>orbit-monthly-budget</b><br/><i>subscription scope, not this group</i><br/>50 zł warns, 90 zł is the ceiling"]
+        alerts["<b>orbit-cost-alerts</b><br/>action group"]
     end
 
     subgraph outside["Outside"]
@@ -29,6 +31,7 @@ flowchart TB
     end
 
     gh["GitHub Actions<br/><i>on push to main only</i>"]
+    owner["Whoever holds the card<br/><i>runs scripts/stop-azure-compute.sh</i>"]
 
     browser -->|HTTPS| web
     web -->|"/api/ → orbit-api, internal FQDN"| api
@@ -48,6 +51,11 @@ flowchart TB
     gh -->|az containerapp update| api
     gh -.->|federated credential| identity
     acr -.->|pulled by| env
+
+    budget -->|"threshold crossed"| alerts
+    alerts -->|email| owner
+    owner -.->|"stops and starts again"| pg
+    owner -.->|"stops and starts again"| env
 ```
 
 ## What the picture is trying to settle
@@ -84,6 +92,14 @@ rule; off, they are back to one. See [azure-setup.md, Scaling](../azure-setup.md
 
 **`orbit-web` scales to zero when idle, and will stop.** A client holding a live-update connection open
 is not idle. Whoever raises replicas should expect that bill to change shape.
+
+**The spending limit runs through a person, and the dotted arrows say so.** `orbit-monthly-budget`
+watches the subscription and emails through `orbit-cost-alerts` at 50 zł, at 90 zł, and when the month
+is forecast to reach 90 - but a budget on a pay-as-you-go subscription is a notification and nothing
+more. Azure's spending *cap* exists only on credit-based offers, so what actually stops the meter is
+someone running `scripts/stop-azure-compute.sh`, which stops the database's compute and empties both
+apps. That is why those two arrows are dotted and start outside Azure: nothing in the picture enforces
+the ceiling by itself. See [azure-setup.md, Cost limits](../azure-setup.md#cost-limits).
 
 ## The pipeline, and why it is shaped that way
 
