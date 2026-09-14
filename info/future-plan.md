@@ -1361,8 +1361,11 @@ Every screen the design covers has now been redrawn. The passes were:
     is in [`android-design-deltas.md`](android-design-deltas.md), screen by screen, with the six
     disagreements between design and spec listed first and settled in the spec's favour. Nothing there
     is a defect; it is the list of what is still owed if the design is taken as the specification for
-    the rest. The one structural piece everything else waits on: a title menu is *groups* with headings
-    and counts, and `ScreenMenu` can only draw a flat list with one heading.
+    the rest. **What this used to name as the one structural piece everything else waits on - a title
+    menu being *groups* with headings and counts, which `ScreenMenu` could not draw - was built on
+    2026-09-09** (`ScreenMenu.Groups`/`ShowGroups`, `ScreenMenuEntry.Count`); the sentence stood here
+    unchanged until 2026-09-14. What is left in that document is per-screen corrections and a handful of
+    standing decisions, none of them blocked on anything.
 
 One thing the design asks for that belongs to **both clients** rather than to the phone:
 
