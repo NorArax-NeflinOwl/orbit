@@ -1513,6 +1513,36 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   pull requests, but a direct push to `main` deploys before any workflow can run. Real branch
   protection needs GitHub Pro on a private repository.
 
+### Settled 2026-09-14: what was asked and answered
+
+Four questions were put to the user at the end of the formatting round, and all four were answered. They
+are recorded here because each one decides a round that has not been built yet, and a decision that lives
+only in a conversation is a decision the next session asks again.
+
+1. **Attachments need a new Azure storage account, which bills.** Answer: **prepare everything, ask before
+   creating it.** So the code - the upload endpoint, the 50 MB-a-note total, the sealing of a private
+   picture, the browser's paste - is to be written, together with the exact `az storage account create`
+   command (public blob access **off**, resource group `Orbit`, region `polandcentral`), and nothing is to
+   be run against Azure until the user has approved that command and its cost. See rule 6 in
+   `.claude/CLAUDE.md`, which says the same for every resource.
+2. **A table is a kind of line**, not a block in a content list of its own. So `NoteContentLine` gains what
+   kind of line it is, and a table carries its own cells - which is the same answer pictures want, and is
+   why the question was asked once for both. `NoteSurfaceEdits` goes on working a list of lines.
+3. **A description becomes a list of lines**, like a note's content - the full answer rather than markers
+   in the text. That is a contract change on a task entry, a task list, an inventory and an event, a
+   migration on the server and in the phone's store, and a rule for every place a description is *shown*
+   rather than written (a card's preview, a calendar chip, the phone's read-only label). What it buys is
+   that a description is a note: boxes, styles, marks and one day pictures, with no second implementation.
+4. **Bold and italic get the full model**, on both clients, rather than a browser-only version. Done on
+   the day it was asked, apart from the phone's drawing - see *What a note's formatting still leaves
+   undone*.
+
+**The order they are worth doing in**, given that none of them can be compiled in the session that writes
+them: the table first (it needs no migration at all - a note's content is JSON - and it finishes the four
+things the original ask named); then the attachments, which are written but cannot be run until the
+account exists; then descriptions-as-lines, which is the only one of the three that touches the database
+and the one where a mistake costs a migration rather than a redraw.
+
 ## What a note's formatting still leaves undone
 
 Paragraph styles landed on 2026-09-14 - `NoteLineStyle`, the "Aa" tool, and the eight Apple Notes offers
