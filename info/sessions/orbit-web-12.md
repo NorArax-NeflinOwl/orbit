@@ -84,20 +84,24 @@ Twenty-nine commits; PR #288 carries them in full. The four that shape the code:
 
 ## Next step
 
-**Build the table as a kind of line** - decision 2, and the last of the four things the original ask
-named. `info/future-plan.md` holds the decision and the order; the shape is `NoteContentLine` gaining
-what kind of line it is, with a table carrying its own cells (each cell text plus marks, reusing
-`NoteTextRun`). No migration - the content is JSON.
+**Get the branch compiled and green before anything else is built on it.** Tables (commit `854d9fb`)
+and pictures (`b16f49c`) went in after this handover was first written, both uncompiled like everything
+before them; the branch now carries a real EF migration (`20260914210000_ANoteKeepsItsPictures`) and a
+new NuGet package (`Azure.Storage.Blobs 12.29.2`). On a machine with the SDK: `dotnet test
+Orbit.CI.slnf`, fix what it says, and only then go on.
 
-The part to be careful about, and the reason it was not started here: **every edit in
-`NoteSurfaceEdits` assumes a line is text with a caret offset in it**. A table line has no such offset,
-so Enter, Backspace, Delete, the selection rules and `pointOf`/`domPoint` in `checklistTextEditor.js`
-each need an answer for "the line is a table" before any of it is safe. Write those guards first, with
-tests, and only then the drawing.
+Then, in order:
 
-After that, in this order: the attachments (written in full, but **ask before creating the Azure storage
-account** - decision 1), then descriptions-as-lines (decision 3), which is the only one that touches the
-database and the one where a mistake costs a migration rather than a redraw.
+1. **The storage account for pictures** - decision 1, and the user's call because it bills. The exact
+   commands are in `info/azure-setup.md`, "Where a note's pictures are kept". Until it exists, pictures
+   on Azure go to a directory inside the container and are lost on the next revision; locally they are on
+   a named volume and fine.
+2. **Descriptions as lines** - decision 3, the one that touches the database. The shape is worked out in
+   `info/future-plan.md` under that decision (beside the text, not instead of it; the keep-what-is-stored
+   rule for the two writers; the editors; the phone carrying). Start with the server: four nullable JSON
+   columns in one migration, the domain rule with tests, then the contracts, then `TitledDescription`.
+3. **The phone's own halves**: writing in a table's cells, drawing marks, fetching and caching pictures
+   for offline reading - each written down in `info/future-plan.md` with what it takes.
 
 ## Environment facts confirmed this session
 

@@ -1540,6 +1540,32 @@ only in a conversation is a decision the next session asks again.
    migration on the server and in the phone's store, and a rule for every place a description is *shown*
    rather than written (a card's preview, a calendar chip, the phone's read-only label). What it buys is
    that a description is a note: boxes, styles, marks and one day pictures, with no second implementation.
+
+   **The shape to build it in, worked out 2026-09-14 and deliberately not started** - it is the one of the
+   four that touches the database, and after styles, marks, tables and pictures on one uncompiled branch
+   it is the one to start on a green suite:
+
+   - **Beside the text, not instead of it.** Each of the four (`TaskItem.Notes`, `TaskList.Description`,
+     `Inventory.Description`, `CalendarEventDetails.Description`) gains a nullable JSON column of
+     `NoteContentLine` next to the text it has today - one additive migration on the server, one on the
+     phone's SQLite store, no data rewritten. The text stays what it is and is **derived** from the lines
+     on every write (their words, one per line), so every card, chip, preview and label that reads the
+     text today goes on working unchanged, and an installed phone that has never heard of the lines keeps
+     reading the description it always did. Only the editors change, and the read views that want the
+     formatting drawn.
+   - **The keep-what-is-stored rule, for the two writers.** A request carries `DescriptionLines`
+     nullable: null means "not provided" - a client written before this existed - and then the server
+     keeps the stored lines **if the text it sent is the stored text**, and otherwise rebuilds the lines
+     from the text it sent, plainly. That is what stops a phone editing the words from leaving formatting
+     behind that no longer matches them, and it is the eighth field to follow
+     `EntriesKeepingTheirListRule`'s shape.
+   - **The editors.** `TitledDescription` stops joining two strings and carries lines (its pages hand it
+     the lines and get lines back); the task entry's and the event's `<textarea rows="2">` become the same
+     `ChecklistTextEditor` with `TakesStyles` on and the tick box on, which is the whole of what the ask
+     was. Pictures in a description come with the note's own picture store and the same 50 MB counted
+     against the owning item - a second slice.
+   - **The phone carries and draws, the way it does a note's styles**: `NoteLineRow` already is the row
+     to draw with; its editors keep writing text until a cell-by-cell editor exists.
 4. **Bold and italic get the full model**, on both clients, rather than a browser-only version. Done on
    the day it was asked, apart from the phone's drawing - see *What a note's formatting still leaves
    undone*.
