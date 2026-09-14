@@ -6212,6 +6212,24 @@ p.field-hint {
     color: var(--text-primary);
 }
 
+/* The map itself in the dark theme. OpenStreetMap serves one set of tiles, drawn for a light page, so
+   a map was the one white rectangle left on a dark screen - and at night, on a phone, the brightest
+   thing in the room.
+
+   Turned dark here rather than fetched dark: a second tile source would be a second third-party request
+   to gate (see mapTiles.js, where that gate lives and why there is only one), and the dark styles worth
+   having are keyed services. Inverting and turning the hue back through 180 degrees keeps the map
+   readable and leaves the colours roughly where they were - water stays blue rather than becoming
+   orange - and the brightness and saturation come down because an inverted map is otherwise a page of
+   glowing roads.
+
+   Only the tiles (.leaflet-tile-pane). Everything Orbit draws on top - the pins, their popups, a route
+   between two of them - is drawn in the theme's own colours already, and inverting those would undo
+   exactly the work that made them readable. */
+:root[data-theme="dark"] .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.7);
+}
+
 /* Leaflet paints its popup white whatever the theme is, and the label above takes the theme's text
    colour - so in the dark theme a pin opened on light text on a white card, which was barely readable.
    The card now takes the theme too, which keeps the two in step rather than fixing one colour to match
