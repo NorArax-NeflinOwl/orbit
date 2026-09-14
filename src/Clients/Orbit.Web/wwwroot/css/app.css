@@ -6897,33 +6897,70 @@ p.field-hint {
     display: none;
 }
 
-/* No room for a column beside the form, so the panel becomes a bar along the foot of the window: the
-   arrow that opens the rest of it at one end, the three actions at the other. Fixed rather than sticky,
-   because the point of it on a phone is to be under the thumb wherever the form has been scrolled to. */
+/* No room for a column beside the form, so the panel becomes a bar across the top of the window, under
+   the app's own: the arrow that opens the rest of it at one end, the three actions at the other.
+
+   At the top rather than along the foot, which is where it used to sit. Two reasons, and the second is
+   the one that settles it. A bar over the foot covers the last line of whatever is being written -
+   worst on the screens where the writing runs to the bottom of the page, which is every screen this
+   bar is on. And the app's own bar goes away while the reader goes down the page (see stickyBars.js),
+   so the foot was the one place the editor's bar could not follow it: what is left when the first bar
+   hides is a screen with the page's own chrome at the top and the thing to press at the other end of
+   it.
+
+   Sticky rather than fixed, so it takes its own row at the top of the page instead of lying over the
+   first thing on it, and so the rest of the page starts underneath rather than behind. */
 @media (max-width: 680px) {
     .editor-page {
-        display: block;
+        /* A column, so the panel can be lifted above the form it belongs to - see the order below. The
+           markup keeps the form first, which is the order a keyboard should meet the two in. */
+        display: flex;
+        flex-direction: column;
+        /* Stretch, not the flex-start the row above uses: in a column that would leave the bar as wide
+           as the three buttons in it rather than as wide as the page. */
+        align-items: stretch;
     }
 
     .editor-rail {
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        /* Undoes the offset it sticks to on a wide screen: kept, it would hold the bar's top there and
-           stretch it over the whole page. */
-        top: auto;
+        order: -1;
+        position: sticky;
+        /* Under the app's bar while that is there, and at the very top once it has gone - measured
+           rather than written as a number, because the bar's height is padding plus whatever the row
+           holds. See stickyBars.js, which measures it, and the fallback for the moment before it has. */
+        top: var(--topbar-height, 52px);
+        bottom: auto;
         flex-direction: row;
         flex-wrap: wrap;
         align-items: center;
         justify-content: space-between;
-        padding: 8px 12px;
+        /* Edge to edge, as it was along the foot: the page is padded by 16 and the bar is not part of
+           the page's own column, it is chrome over it. The padding takes that 16 back so what is in the
+           bar still lines up with what is under it. */
+        margin-inline: -16px;
+        padding: 8px 28px;
         border-radius: 0;
         border-left: 0;
         border-right: 0;
-        border-bottom: 0;
-        /* Over the page it sits on, and under the menus that hang off the bar at the top. */
+        border-top: 0;
+        /* Over the page it sits on, and under the app's bar and the menus that hang off it. */
         z-index: 20;
+        transition: top 0.2s ease;
+    }
+
+    /* The app's bar has gone, so the editor's takes the top of the screen. */
+    body.topbar-away .editor-rail {
+        top: 0;
+    }
+
+    /* Out of the way while the reader is going down the page, and back the moment they go up - see
+       stickyBars.js, which watches the scroll. Moved rather than hidden, so it slides instead of
+       blinking and so nothing about the page's own height changes as it goes. */
+    .topbar {
+        transition: transform 0.2s ease;
+    }
+
+    body.topbar-away .topbar {
+        transform: translateY(-100%);
     }
 
     .editor-rail-toggle {
@@ -6948,22 +6985,6 @@ p.field-hint {
 
     .editor-rail-open .editor-rail-extras {
         display: flex;
-    }
-
-    /* Room under the last thing on the page for the bar to sit over nothing. */
-    .main-content-page {
-        padding-bottom: 96px;
-    }
-
-    /* The foot belongs to the editor here. Both are position:fixed at bottom:0 and the banner's
-       z-index is the higher of the two, so it sat *over* Save, Back and the menu - on a phone, on the
-       one screen whose whole purpose is a button. There is no stacking either: two fixed bars is most
-       of a phone's height, on the screen somebody is typing into.
-
-       Only below 680px, which is where the panel becomes a bar. Between 681px and 1199px the banner
-       shows and the panel is a column beside the page, so nothing overlaps and the slot is kept. */
-    .app-body:has(.editor-rail) .ad-banner {
-        display: none;
     }
 
     /* Half the size, because a bar that is 60px tall on a phone is a bar and a half. */

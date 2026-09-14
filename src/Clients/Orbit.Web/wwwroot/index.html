@@ -60,6 +60,10 @@
          Blazor app itself crashes. -->
     <script src="js/clientLogging.js"></script>
     <script src="js/viewport.js"></script>
+    <!-- What the bars across the top do while a narrow page is read: the app's bar goes away going down
+         and comes back going up, and the editor's bar under it stays. Plain DOM, loaded here rather than
+         as a module, so it is watching from the first paint - see stickyBars.js. -->
+    <script src="js/stickyBars.js"></script>
     <script src="js/googleSignIn.js"></script>
     <script src="js/chatScroll.js"></script>
     <script src="js/fieldHint.js"></script>
