@@ -49,6 +49,12 @@ public sealed class NoteEditorTests : OrbitTestContext
         checklistEditorModule.SetupVoid("initialize", _ => true).SetVoidResult();
         checklistEditorModule.SetupVoid("dispose", _ => true).SetVoidResult();
 
+        // The two the style control makes: the surface is told what to be, and the lines are pulled back
+        // into Blazor afterwards - see ChecklistTextEditor.SetStyleAsync. The browser is what draws them,
+        // so an empty answer is the right one here.
+        checklistEditorModule.SetupVoid("setStyle", _ => true).SetVoidResult();
+        checklistEditorModule.Setup<string>("getLinesAsJson", _ => true).SetResult("[]");
+
         // The same wiring CalendarEventEditorTests uses, for the same reason: the editor injects a
         // collaborator graph that only its save path exercises, and it just has to resolve.
         var tokenStore = new TokenStore(new StubJSRuntime());
@@ -436,9 +442,10 @@ public sealed class NoteEditorTests : OrbitTestContext
     }
 
     /// <summary>
-    /// The row of tools sits over the corner of the writing rather than above it, and three of its four
-    /// are drawn for a design that has them rather than for anything they do yet. Each says so when it
-    /// is pressed: a greyed-out button explains nothing, and a row of them explains less.
+    /// The row of tools sits over the corner of the writing rather than above it. Two of its four work -
+    /// the styles and the tick box - and the other two are drawn for a design that has them rather than
+    /// for anything they do yet. Each of those says so when it is pressed: a greyed-out button explains
+    /// nothing, and a row of them explains less.
     /// </summary>
     [Fact]
     public void The_tools_over_the_writing_say_when_there_is_nothing_behind_them()
@@ -454,6 +461,52 @@ public sealed class NoteEditorTests : OrbitTestContext
             .First(tool => tool.GetAttribute("aria-label") == "Table").Click();
 
         Assert.Contains("not implemented yet", cut.Find(".note-tool-bubble").TextContent);
+    }
+
+    /// <summary>
+    /// The "Aa" tool opens the eight styles rather than doing something to the line at once: a note is
+    /// mostly ordinary writing, and a control that changes what a line is on a single press is one
+    /// nobody can put down. Each entry is drawn in the style it sets, which is how somebody tells a
+    /// heading from a subheading without reading the words.
+    /// </summary>
+    [Fact]
+    public void The_styles_are_offered_by_name_under_the_letters_tool()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        Assert.Empty(cut.FindAll(".note-style-menu"));
+
+        cut.FindAll(".note-editor-tools .note-tool")
+            .First(tool => tool.GetAttribute("aria-label") == "Text style").Click();
+
+        var offered = cut.FindAll(".note-style-menu-item");
+        Assert.Equal(8, offered.Count);
+        Assert.Equal(
+            ["Title", "Heading", "Subheading", "Body", "Monospaced", "Bulleted list", "Dashed list", "Numbered list"],
+            offered.Select(entry => entry.TextContent.Trim()));
+        Assert.Contains("note-style-heading", offered[1].GetAttribute("class"));
+    }
+
+    /// <summary>
+    /// Choosing one tells the surface and closes the list. Closed, because a style is chosen once and
+    /// then written in - unlike the tick box, whose button is a switch that stays on while a checklist
+    /// is being typed.
+    /// </summary>
+    [Fact]
+    public void Choosing_a_style_tells_the_writing_surface_and_closes_the_list()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        cut.FindAll(".note-editor-tools .note-tool")
+            .First(tool => tool.GetAttribute("aria-label") == "Text style").Click();
+        cut.FindAll(".note-style-menu-item").First(entry => entry.TextContent.Trim() == "Numbered list").Click();
+
+        Assert.Equal("Numbered", JSInterop.VerifyInvoke("setStyle").Arguments[1]);
+        Assert.Empty(cut.FindAll(".note-style-menu"));
     }
 
     /// <summary>
