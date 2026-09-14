@@ -1099,6 +1099,19 @@ is handed to them as a `SurfaceState` whose line 0 is the name:
   a letter jumping to the next line - came from an empty `<span>` having no line box, and a column of one
   field per line has no such thing; a ticked line's hidden field is opened before the caret is put in it.
 
+**A search ignores the marks over a letter** (`Orbit.Core.Text.LooseText`). Orbit is written in Polish as
+much as in English, and every marked letter is one a phone keyboard makes somebody hold a key for, so
+"zolw" finds "Żółw" and "żurek" finds a row written "zurek" - both directions, since which side carries
+the marks is not something a reader should have to think about. Letters that are their own rather than a
+marked form of another, "ł" among them, are listed by hand. Asked by everything that narrows a list by
+what is typed: the suggestion browser behind every used-value field, the tag field, the task entry
+filter, both shelf searches, and the conversation and group searches.
+
+**A note's text can be copied out of its menu** ("Copy the text", `NoteSummary`). Written the way the
+note's own editor copies a selection out of itself - a box is `- ` and a ticked one `[x] `, both of which
+a paste reads back as a box - so a note copied here and pasted into another note arrives as the same
+note. The name is the first line, which is what a note's name already is on both clients.
+
 ### Sharing notes and task lists
 
 Notes and task lists can be shared with another user, on the same offer/accept mechanism as calendar
@@ -1169,7 +1182,8 @@ used to be sections under the form - below everything else on a long list or she
 the old sections' rules: nothing before the first save, nothing for a sealed item (the server refuses to
 share one and cannot publish what it cannot read), and Share only where the reader's own access allows
 passing it on. Ticking Private withdraws both at once, with the menu still open. On a narrow screen the
-panel is a bar along the foot of the window and the menu stays in it, so both are reached the same way.
+panel is a bar across the top of the window, under the app's own bar, and the menu stays in it, so both
+are reached the same way.
 
 **Duplicate offers.** Sharing something that was already offered to the same recipient — accepted or
 still pending — doesn't create a second `NoteShare`/`TaskListShare`/`CalendarEventShare` row.
@@ -1910,10 +1924,11 @@ shopping was done on Tuesday for a slot booked on Friday - and the map used to g
 it until Friday came and went.
 
 It is a filter rather than a rule: "Show places already past" in the page's own menu brings it back,
-pins included, and **"Show from"** then appears above the list to say how far back to go. Empty is all of
-it, which is what the option meant before there was anywhere to say otherwise - on an account with a year
-of appointments in it, that answer buried the two the reader wanted. An event with no address is not a
-place and is never listed - there is nothing to draw.
+pins included, in a second box of its own - **"Where your plans were"**, newest first, under the plans
+ahead. Two questions rather than one list: where am I going, and where was I. Turning the option on
+starts a month back, and **"Show from"** sits in that box to say how far back to go; empty is all of it,
+which on an account with a year of appointments in it buries the two the reader wanted. An event with no
+address is not a place and is never listed - there is nothing to draw.
 
 **Each of the two lists has an eye on its heading** that takes its pins off the map without taking the
 list off the page (`MapPinVisibility`, remembered by the browser like `PanelPreferences`). A map covered
@@ -1963,7 +1978,14 @@ whose address is known and whose spot on the map is not obvious. It is deliberat
 whatever pin happens to be on the map: somebody who meant that pin has the question above in front of
 them already. Leaflet's zoom control moved to the bottom-left to make room (`locationMap.js`), since two
 plus signs side by side - one meaning "closer" and the other "remember this spot" - is a corner nobody
-can read, and zoom has a wheel and a pinch besides.
+can read. **The wheel does not zoom** (`scrollWheelZoom: false`, both maps): a map sits inside a page
+that scrolls, so reading down past one zoomed it instead, losing the place being looked at and the
+reader's place on the page. The buttons, a pinch and a double press all still do it.
+
+**The tiles are turned dark with the app** (`:root[data-theme="dark"] .leaflet-tile-pane`).
+OpenStreetMap serves one set, drawn for a light page, so a map was the one white rectangle left on a
+dark screen. Inverted with the hue turned back through 180 degrees, so water stays blue; only the tiles,
+since everything Orbit draws over them is already in the theme's own colours.
 
 The place travels in a scoped `ChosenPlace` rather than in the address bar. `/calendar/new?lat=52.2&lon=21.0`
 would write where somebody is going into their browser history and into anything that later reads a URL,
@@ -3997,6 +4019,13 @@ Clicking any item navigates straight to it (`/notes/{id}`, `/tasks/{id}`, or `/c
 dashboard has no editing of its own. For a task list that is its checklist, not its settings: see
 [Two editing levels](#two-editing-levels) for why the shallow level is what opening a list means.
 
+**Upcoming looks a week ahead** (`DevicePreferences.UpcomingDays`, a day / a week / a month / three
+months / everything, on Options' Preferences tab and kept on the device). The card holds six rows and is
+glanced down, and without a horizon it drew everything that would ever happen with next Tuesday somewhere
+inside it. Nothing is lost by it: what falls outside is still in the calendar, which the card's own name
+opens. Measured from the start of today, so something happening this morning is still on a card read this
+afternoon.
+
 **An event a task list raised is named after the list**, "Health: Dentist", the way a deadline on that
 list already was. This card gathers things from everywhere, so a row that does not say where it came
 from is the one row on it that has lost something. Both the name and the link ask the same lookup -
@@ -4450,9 +4479,11 @@ navigates there, so the panel reaches the same destination the corresponding pus
 almost nothing readable, so on that breakpoint the entry navigates to `/notifications`
 (`Notifications.razor`) instead — the same decision the logo makes when it becomes a Dashboard shortcut
 (`OrbitViewport.isMobile`, the one place both CSS and Blazor read the breakpoint). Both forms render the
-same `NotificationList` component and offer the same **Clear**, which empties the server feed *and* this
-browser's captured errors, because the panel presents them as one list and clearing half would look
-broken. Clear discards rather than marks read — it is about getting rid of the list, not the badge.
+same `NotificationList` component and offer the same **Delete history**, which empties the server feed
+*and* this browser's captured errors, because the panel presents them as one list and clearing half would
+look broken. It discards rather than marks read — it is about getting rid of the list, not the badge —
+and it says so: it used to read "Clear", which sounds like tidying a list away rather than deleting
+entries nothing brings back.
 
 **Badges mark where a notification came from, not just that one arrived.** The 10-second poll fetches the
 unread *entries* (`GET /api/notifications/unread`) rather than a bare count and puts them in

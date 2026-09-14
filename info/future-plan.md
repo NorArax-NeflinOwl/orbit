@@ -1205,6 +1205,49 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   `IndexOf` then answers -1, nothing matches, and the list is saved back **with nothing ticked at all**,
   reporting success. It matches on the id now, and by position only for an entry that has none.
 
+- **Five of the user's list of 2026-09-14 need a decision before anything is built.** Eleven of the
+  sixteen went in that day; these are the ones where building the obvious thing would be guessing at
+  which thing was meant, and each is written here with the question rather than with a plan.
+
+  - **An entry that stands for several lists, with "any one of them" instead of "all of them".** Asked
+    for as: the field should take more than one list and always mean *or*. Today
+    `TaskItem.LinkedTaskListIds` means *and* - the entry is done when every list it stands for is - and
+    *or* already exists beside it as the ways an entry can be done (`TaskItem.Alternatives`, "done as
+    soon as any one of these is", which takes a list as one of its ways). So there are two readings and
+    they are not close: either the existing *and* becomes *or*, which silently changes what every entry
+    already stored means and leaves nothing able to say "all of them"; or the field learns a switch
+    between the two, which is a contract change on both clients and a third thing to explain beside the
+    ways. **Worth asking first whether the ways are simply the answer** - if what is wanted is already
+    built under another name, the fix is the wording of the two fields rather than the rule behind one.
+
+  - **Two notifications for one entry.** Reported again on 2026-09-14. Already written up above, under
+    "An entry that is both late and reminded daily says the same thing twice" - the schedulers do not
+    know about each other, each notice is right on its own, and which of the two should speak for a late
+    entry is a decision rather than a fix. The plainest answer is that the overdue notice stands in for
+    that day's daily reminder; it is not taken, because somebody may want the daily reminder to keep
+    coming *because* the entry is late.
+
+  - **Pictures pasted into a note.** The one item on the list that is a feature rather than a change:
+    a note is lines of text on both clients, in a column, sealed for a private one - so this needs
+    somewhere to put the bytes (nothing in Orbit stores a file today), a rule for a private note's
+    pictures (sealed in the browser like its words, or not offered at all), a size limit against a
+    0.5 GiB container, the phone's half, and a migration. Worth scoping as its own round rather than
+    slipping into one.
+
+  - **A route with stops, and both ends chosen from the list of pins.** Half of it is built: two pins
+    make a route from their own bubbles (2026-09-14 and before). What is asked for beyond that is
+    picking the two from the panel's list rather than from the map, and stops along the way. The second
+    is the one with a question in it: a straight line between two points is what the map draws today
+    (`map-route-line-straight`), and stops only mean something against real roads, which means a routing
+    service - a third-party request to gate beside the tiles, and one that would be told where somebody
+    is going.
+
+  - **A sublist made from a group list's own page.** A group list holds other lists
+    (`TaskList.IsGroup`), and today a member list is made on `/tasks` and then linked. Making one from
+    the group's page is small; what it needs said is what the new list inherits - its folder, whether it
+    is private, and whether it joins the group as a member or as an entry standing for it, which are
+    two different things in the data and read almost the same on screen.
+
 Written down rather than fixed on the spot, per rule 14 in `.claude/CLAUDE.md`: work that turns up
 beside a task belongs here, not in that task's diff. A defect is the exception and is fixed when found.
 
