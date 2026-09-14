@@ -53,9 +53,10 @@ public sealed class TaskItem
     /// Only ever set on a completed entry: the constructor drops one given to an entry that is not, and
     /// taking the tick back - <see cref="Reopen"/>, or <see cref="TaskListSteps"/> refusing it - clears
     /// it. A cross is not a completion and carries none. Recorded by <see cref="RecordWhenItWasDone"/>
-    /// on a save, and by <see cref="Complete"/> when Orbit crosses an entry off itself. An entry done
-    /// one of several ways carries one too: its tick is the ways', and when it was done is when the way
-    /// that was taken was.
+    /// on a save, by <see cref="Complete"/> when Orbit crosses an entry off itself, and by
+    /// <see cref="KeepAlternativesOf"/>, which moves the tick and so has to move this with it. An entry
+    /// done one of several ways carries one too: its tick is the ways', and when it was done is when the
+    /// way that was taken was.
     /// </summary>
     public DateTimeOffset? CompletedAtUtc { get; private set; }
 
@@ -387,6 +388,12 @@ public sealed class TaskItem
     /// sixth field to follow this rule (see UpdateTaskListCommand.EntriesKeepingTheirAlternatives). The
     /// tick follows them back: a client that knows nothing of ways cannot have meant its own tick on an
     /// entry whose tick is theirs.
+    ///
+    /// And when it was done follows the tick, here rather than in the caller. Moving the tick without
+    /// moving the time leaves the pair disagreeing - a time on an entry that is not done, or none on one
+    /// that is - which <see cref="CompletedAtUtc"/> says can never happen. The two save handlers call
+    /// <see cref="RecordWhenItWasDone"/> afterwards and always corrected it; a third caller that forgot
+    /// would have stored the disagreement.
     /// </summary>
     public void KeepAlternativesOf(TaskItem stored)
     {
@@ -400,6 +407,12 @@ public sealed class TaskItem
         {
             IsCompleted = Alternatives.Any(way => way.IsDone);
             IsFailed = IsFailed && !IsCompleted;
+            // The same rule a save settles by, applied to the tick this has just moved: a time sent for
+            // this entry stands, an entry the stored one was already done by keeps that time, and a way
+            // the stored entry was not yet done by is stamped now - which is what Complete does for the
+            // tick it moves itself. Calling RecordWhenItWasDone again after this - which both save
+            // handlers do - changes nothing it left.
+            RecordWhenItWasDone(stored, DateTimeOffset.UtcNow);
         }
     }
 

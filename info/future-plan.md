@@ -664,12 +664,19 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
-- **`TaskItem.KeepAlternativesOf` can leave the completion time disagreeing with the tick.** Noticed
+- ~~**`TaskItem.KeepAlternativesOf` can leave the completion time disagreeing with the tick.**~~ Fixed
+  2026-09-14, the first of the two ways this offered: `KeepAlternativesOf` calls `RecordWhenItWasDone`
+  itself once the ways have moved the tick, so the pair cannot be left disagreeing by any caller. The
+  constructor guard was not taken - the contradiction is made by a mutation rather than by a
+  construction, so a guard there would not have seen it. Nothing about what a save stores changed: both
+  handlers still call `RecordWhenItWasDone` afterwards and it is idempotent, a time the client sent is
+  still taken at its word, and an entry already done still keeps the stored time rather than being
+  re-stamped. Covered by two tests in `EntryDoneAnyOneOfSeveralWaysTests` - the time kept when the ways
+  bring the tick back, and the time dropped when the ways say the entry is not done. As noticed:
   2026-09-12, merging the round that records when an entry was done into the one that lets it be done any
   one of several ways. The two save handlers call `RecordWhenItWasDone` after it, so what is stored is
   always corrected; a later caller that forgets would store a time for an entry that is not done, or
-  none for one that is. What it would take: either stamping inside `KeepAlternativesOf` itself, or a
-  guard in the constructor that refuses the pairing the way `Place` refuses private-with-nothing-sealed.
+  none for one that is.
 
 - **Three group chat tests failed once under the full suite and have not since.** Noticed 2026-09-12:
   `GroupConversationPagesTests` failed on the first full `dotnet test Orbit.CI.slnf` after the merge,

@@ -178,4 +178,44 @@ public sealed class EntryDoneAnyOneOfSeveralWaysTests
         Assert.Equal("Buy a ready one", Assert.Single(incoming.Alternatives).Description);
         Assert.True(incoming.IsCompleted);
     }
+
+    /// <summary>
+    /// The tick the ways bring back takes when it was done with it. The stored time stands rather than
+    /// being re-stamped: the entry was done when the way was taken, not when a client that knows nothing
+    /// of ways next saved the list.
+    /// </summary>
+    [Fact]
+    public void Keeping_the_ways_keeps_when_the_entry_was_done_by_them()
+    {
+        var whenTheSauceWasBought = DateTimeOffset.UtcNow.AddDays(-2);
+        var stored = TaskItem.Create(
+            "Sauce", null, false,
+            alternatives: [new("Buy a ready one", IsDone: true)], completedAtUtc: whenTheSauceWasBought);
+        var incoming = TaskItem.FromPersistence(stored.Id, "Sauce", null, isCompleted: false, linkedTaskListIds: null, reminders: null);
+
+        incoming.KeepAlternativesOf(stored);
+
+        Assert.True(incoming.IsCompleted);
+        Assert.Equal(whenTheSauceWasBought, incoming.CompletedAtUtc);
+    }
+
+    /// <summary>
+    /// The other direction, which is the one that could store a contradiction: the ways say the entry is
+    /// not done, so the time a client sent for it goes. Only a completed entry carries one - see
+    /// TaskItem.CompletedAtUtc - and this is the one place that moves the tick without a save's own
+    /// RecordWhenItWasDone having to come after it.
+    /// </summary>
+    [Fact]
+    public void Keeping_ways_that_are_not_taken_drops_a_time_sent_for_the_entry()
+    {
+        var stored = TaskItem.Create("Sauce", null, false, alternatives: [new("Buy a ready one")]);
+        var incoming = TaskItem.FromPersistence(
+            stored.Id, "Sauce", null, isCompleted: true, linkedTaskListIds: null, reminders: null,
+            completedAtUtc: DateTimeOffset.UtcNow);
+
+        incoming.KeepAlternativesOf(stored);
+
+        Assert.False(incoming.IsCompleted);
+        Assert.Null(incoming.CompletedAtUtc);
+    }
 }
