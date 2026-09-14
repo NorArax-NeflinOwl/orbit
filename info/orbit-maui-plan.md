@@ -878,3 +878,148 @@ The web's own calendar was rebuilt at the same time and the rest of that work **
 list rather than two, each row tagged as an event or a task, a date said once when something starts and
 ends on the same day, and no times on a month cell. See
 [Functionality — the calendar](functionality.md).
+
+
+## 15. Living without the server
+
+Asked on 2026-09-14, after the [cost limits](azure-setup.md#cost-limits) made a switched-off server a
+planned event rather than an accident: what would it take for the phone to keep working - everything
+that can work - while `orbit-api` is stopped, and is that worth building at all? Chat, sharing and
+identity are accepted as gone for the duration; nobody asked for those.
+
+**The short answer: most of it exists, two things break it, and one thing is genuinely missing.** The
+app was built offline-first (§5) - SQLite, an outbox, delta pulls - so a phone with no signal already
+reads and edits notes, lists, the calendar, inventories and places for as long as it likes. A stopped
+server is *not* that case, and the difference is what this section is about.
+
+### 15.1 How a stopped server differs from no signal
+
+Three ways, and the code treats each one differently from being offline:
+
+1. **The phone has a network.** `INetworkStatus.IsOnline` is MAUI's connectivity, and it says *yes*.
+   Everything keyed on it then behaves as if the server were there: `OfflineEditPolicy` lets a shared
+   item be edited (§5.4's rule is skipped when online), `ConnectionRequirement` leaves every
+   online-only button enabled so it fails after the tap instead of being greyed before it, and the
+   corner reads "Couldn't sync" with a Reconnect button that reconnects to nothing.
+2. **The server may answer, rather than be silent.** With its ingress disabled, `orbit-api`'s address
+   still resolves - it is a wildcard on the environment - and the environment's front door answers
+   **404** for a host no app claims. *That is the assumption this section rests on, and it is
+   unverified: it could equally be a refused connection or a failed TLS handshake.* The distinction
+   matters because "no response" and "a response I did not want" go down different paths everywhere
+   (`SyncFailure`), and the wanted paths are the silent ones.
+3. **It lasts days, not a train ride.** Access tokens live 15 minutes (`JwtSettings.ExpiryMinutes`),
+   refresh tokens 30 days (`RefreshTokenService`), and the outbox gives up on a change after five
+   *answered* refusals. Days of a server that answers is a different load on each of those than an hour
+   of one that does not.
+
+### 15.2 The two things that break it today
+
+Both are correct behaviour against a *live* server and only become wrong when combined with the stop.
+They are listed here as the first two items of the plan rather than fixed on sight, because each needs
+the reachability concept in 15.4 to be fixed properly, and a quick patch (treat 404 as offline) would
+hide a real 404 from a live server too.
+
+**A phone is signed out within fifteen minutes of the stop.** `TokenRefreshService` clears the session
+on *any* unsuccessful refresh - the test is `!IsSuccessStatusCode`, written for a 401 meaning "this
+token is revoked". A 404 from the front door is not a success either, so the first API call after the
+access token expires refreshes, is answered 404, and signs the reader out from inside the HTTP call;
+`AppNavigator` shows the sign-in screen, and sign-in needs the server. The local database is untouched
+(`LocalStoreReset` clears only for a *different* account), so nothing is lost - but for the length of
+the stop, everything on the phone is behind a door that cannot be opened. **This alone defeats the idea
+of an app that works through the outage.** If the server is silent rather than answering (15.1, item
+2), the refresh throws instead, the handler lets the exception through, and the session survives - which
+is why the assumption has to be checked first.
+
+**Queued changes are thrown away after five syncs.** `SyncFailure.WasAnswered` counts a 404 as a
+refusal, and `OutboxReplay` drops an entry after five of them - said in the feed, but gone. Five syncs
+is one evening. A create is recoverable (`LostCreates` re-queues it on the next edit); an update is
+not. The rule exists so a change the server will never take does not block everything behind it, and
+it is right for a live server. Against a stopped one it deletes a fortnight's work five syncs in.
+
+### 15.3 What works, what stops, what nobody asked for
+
+| Already works through the stop | Needs the plan below | Stays off, as agreed |
+| --- | --- | --- |
+| Reading and editing notes, lists, calendar, inventories, places - once 15.2 is fixed | **Reminders.** All four are server background services (`CalendarEventReminderBackgroundService`, `DailyTaskReminderBackgroundService`, `OverdueTaskNotificationBackgroundService`, `InventoryExpiryReminderBackgroundService`) delivering by push and email. The phone schedules nothing of its own, so a stopped server means no reminder rings, however the appointment was made. | Chat, in both directions; live updates; presence |
+| The dashboard, folders, tags and their colours, private items (sealed locally) | **Name suggestions and duplicate warnings.** `NameSuggestions` asks `SuggestionsClient` and nothing else; the names are all in the local database. | Sharing, share links, accepting a share, copy review (§5.4 - the review is an edit made late) |
+| The home screen widget (`TodayAtAGlance` reads the local database) | **Knowing it is paused.** The corner says "Couldn't sync", which is the wrong sentence: nothing went wrong, and there is nothing to reconnect to. | Registering, changing username, email or password, deleting the account, Google linking, unlock codes |
+| The version gate (cached verdict; a 404 is caught and the cache used) | **Editing rules keyed on connectivity** - 15.1, item 1 | Export and import (`TransferClient`), diagnostic upload |
+| Recording your own location; map tiles and reverse geocoding (neither is `orbit-api`) | **The live-updates reconnect loop.** `KeepTryingRetryPolicy` settles at one attempt every 30 seconds, forever, against a server that is not coming back today. | Viewing others' locations |
+| Google Calendar and Maps hand-off links (built on the phone) | | A fresh install, or a phone whose 30-day refresh token ran out during the stop, cannot sign in until the server is back |
+| Permissions already unlocked (cached) | | |
+| A calendar entry made from a task, offline (`PendingCalendarLink` already pairs them until the server names the event) | | |
+
+### 15.4 The plan
+
+In the order they pay for themselves. The first three are small; the fourth is the one real feature.
+
+1. **Verify the assumption.** Stop the server the way the cost limit does
+   (`scripts/stop-azure-compute.sh`, on the test environment) and watch a signed-in phone for twenty
+   minutes with the diagnostic log open. What does `api/auth/refresh` come back as - 404, refused
+   connection, TLS failure? Everything below is shaped by the answer, and it costs one evening to get.
+
+2. **Tell "the server answered" from "Orbit answered".** The two defects share a cause: a status code
+   from Azure's front door is read as the API's opinion. The API can be told apart - it sets headers the
+   front door does not, and its refusals carry a body the front door's 404 does not - so `SyncFailure`
+   gains a third answer beside *worth retrying* and *answered*: **not Orbit**. The refresh keeps the
+   session on it, the outbox neither drops nor counts on it, and the corner has something truthful to
+   say. Better still is to be *told* the server is paused rather than to infer it, which is item 3.
+
+3. **A pause signal the phone can read.** `orbitdownloads` is a public storage account that costs
+   pennies and stays up through the stop. `scripts/stop-azure-compute.sh` writes a small
+   `status.json` there (`paused`, since when, a sentence for the reader) and `--resume` removes it.
+   The phone reads it only when the API has just failed, so a working day costs no extra request, and
+   then knows the answer to every question below: the corner says *"Orbit is paused"* rather than
+   *"Couldn't sync"*, Reconnect is not offered, `OfflineEditPolicy` and `ConnectionRequirement` take
+   *paused* as *offline* (the shared-item rule applies, online-only buttons grey out with a sentence
+   that is true), the outbox waits, the refresh does not sign anybody out, and the live-updates
+   connection stops trying until the next launch or the file goes away. One new concept -
+   `ServerReachability`, three states: *reachable*, *unreachable*, *paused* - fed by the sync result and
+   the status file, and everything that today asks `INetworkStatus` asks it instead. Item 2 remains
+   the fallback for a stop that forgot to write the file.
+
+4. **Reminders that ring from the phone.** The genuinely new piece, and worth having outside outages
+   too: push is best-effort, and a phone that knows an appointment is at ten can say so without asking
+   anybody. Local scheduled notifications from the local database - `AlarmManager` on Android,
+   `UNUserNotificationCenter` on iOS, both platform code under `Platforms/` - rescheduled whenever the
+   calendar, a list or an inventory changes locally or by sync. The rule that keeps this from doubling
+   every reminder: **the server's push wins when it arrives, and the local one is the fallback**, so the
+   phone cancels its own scheduled copy when the matching push lands (a push's destination path
+   already names the event - see `NotificationDestination`, `["calendar", id]`). Overdue-task and expiry reminders are a daily local check on
+   the same footing. This is the largest item and the only one with a user-visible design question:
+   which of the four reminders the phone should take on at all. Calendar and expiry first; the daily
+   task reminder is a fixed hour and easy; overdue is a judgement the server makes from *everyone's*
+   lists and is the one to leave to it.
+
+5. **Suggestions from what the phone holds.** `NameSuggestions` falls back to the local repositories
+   when `SuggestionsClient` fails or the server is paused - a prefix and contains match over the same
+   four kinds of name. It will not be the trigram match `pg_trgm` gives the browser, and it does not
+   need to be: the duplicate warning is the half worth keeping, and an exact-ish match serves it.
+
+6. **Say so on the sign-in screen.** A phone that was signed out anyway - by a stop before item 2, or
+   by a refresh token that ran out - reaches sign-in with everything still in its database. The screen
+   can say *Orbit is paused; your notes are still on this phone* and offer a read-only look at them,
+   which needs a session-less way into the local repositories. Worth doing after the rest, because
+   after item 2 it is the rare case rather than the usual one.
+
+Not in the plan, on purpose: making the outbox survive a stop longer than the 30-day refresh token.
+The budget resets monthly and the stop ends with it; a phone that stays out longer than that has a
+bigger problem than sync.
+
+### 15.5 Is it worth building?
+
+**Yes, and narrowly.** Not because Orbit should work without a server - it is a shared-data product,
+and half of it is other people - but because the [cost limits](azure-setup.md#cost-limits) make a
+stopped server an *expected* state, days long, possibly every month. Against that, the app as it stands
+does the worst thing available: it signs everyone out within fifteen minutes and starts discarding
+their queued work by the evening, on a phone whose database holds everything they need. The offline
+design in §5 was built for exactly this and is defeated by one status code.
+
+So the case is for items 1-3, which cost days and turn the stop into what §5 already promised, and for
+item 4, which is a feature on its own merits that the stop merely makes urgent. Items 5 and 6 are
+polish. What is *not* worth building is anything that tries to make chat, sharing or identity limp
+along without the server - those are the server, and the honest phone says so.
+
+The other way to read the question is as a challenge to the stop itself: if the phone needs this much
+care to survive a pause, perhaps pause less. That is the cost decision's to answer, and 15.4's items
+1-3 are cheap enough that the phone should not be the reason it is answered either way.

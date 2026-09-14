@@ -554,6 +554,18 @@ since been closed; what is left is recorded below with the same honesty about wh
   The forecast notification, which warns when the *month* is projected to reach 20 € rather than when
   it has, is what makes the manual path workable in the meantime.
 
+- **The phone through a paused server.** The cost stop makes a switched-off `orbit-api` an expected,
+  days-long state, and the phone as it stands does the worst thing available in it: a stopped Container
+  App's address still answers - the environment's front door says 404 - and the phone reads that as
+  the API's opinion, so `TokenRefreshService` signs everyone out within fifteen minutes and
+  `OutboxReplay` starts discarding queued edits after five syncs, on a phone whose database holds
+  everything the reader needs. Both are right against a live server and wrong against a paused one.
+  Analysed 2026-09-14 in [Orbit.Maui — Plan, §15](orbit-maui-plan.md#15-living-without-the-server):
+  the offline design already covers reading and editing; what is missing is telling "Azure answered"
+  from "Orbit answered", a pause signal the stop script can leave on `orbitdownloads`, and reminders
+  that ring from the phone (all four are server background services today). Worth building, narrowly -
+  items 1-3 there cost days and turn the stop into what §5 already promised; chat, sharing and identity
+  stay off, as agreed. Not started; item 1 is to verify the 404 assumption on the test environment.
 - **nginx in `orbit-web` runs as root.** The image is `nginx:alpine`, whose master process starts as
   root so it can bind port 80 - `orbit-api` already drops to `$APP_UID` in its own Dockerfile, so this
   is the only container in the deployment that does not. The fix is `nginxinc/nginx-unprivileged`,
