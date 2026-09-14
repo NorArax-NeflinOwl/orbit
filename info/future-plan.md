@@ -1524,10 +1524,14 @@ Paragraph styles landed on 2026-09-14 - `NoteLineStyle`, the "Aa" tool, and the 
   so nothing that reads a line's words had to change, and the arithmetic that keeps a mark over the words
   it was put on lives once, in `NoteTextMarks`/`NoteLineText`. Every edit on the surface carries them, the
   wire and the archive carry them, and both clients hand them back unchanged, so nothing flattens a marked
-  note. **What is left:** the browser reading them back out of the document it draws (`extractLines` in
-  `checklistTextEditor.js` reports text today) and the four buttons; and the phone, where a MAUI `Entry`
-  renders one face for the whole field - the note screen already swaps a `Label` in for a line it is not
-  writing in, which is the seam a `FormattedString` goes through.
+  note. **The browser is done** the same day: the surface draws a stretch in real elements and reads the
+  marks back out of what it drew, the four buttons sit at the head of the format panel, Ctrl+B and its
+  friends are routed through the same edit, and a line being read draws them too (`MarkedText`).
+  **What is left is the phone**, where a MAUI `Entry` renders one face for the whole field: it carries
+  marks through every edit and hands them back unchanged, so nothing is lost there, but drawing them
+  wants a `Label` with a `FormattedString` for a line nobody is writing in - the note screen already
+  swaps a `Label` in for a struck-through line, which is the seam - plus a converter in Orbit.Maui, since
+  Orbit.Mobile is plain net10.0 and knows nothing about MAUI's `Span`.
 - ~~**A control to set a style on the phone.**~~ Done 2026-09-14, the same day and exactly as this said:
   an "Aa" button in the bar over the note's foot, beside undo, redo and the indent buttons, opening a
   sheet of the eight (`NoteDetailViewModel.StyleChoices`, worded there so the wording is testable) and

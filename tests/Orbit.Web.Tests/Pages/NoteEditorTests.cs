@@ -53,6 +53,7 @@ public sealed class NoteEditorTests : OrbitTestContext
         // into Blazor afterwards - see ChecklistTextEditor.SetStyleAsync. The browser is what draws them,
         // so an empty answer is the right one here.
         checklistEditorModule.SetupVoid("setStyle", _ => true).SetVoidResult();
+        checklistEditorModule.SetupVoid("mark", _ => true).SetVoidResult();
         checklistEditorModule.Setup<string>("getLinesAsJson", _ => true).SetResult("[]");
 
         // The same wiring CalendarEventEditorTests uses, for the same reason: the editor injects a
@@ -487,6 +488,47 @@ public sealed class NoteEditorTests : OrbitTestContext
             ["Title", "Heading", "Subheading", "Body", "Monospaced", "Bulleted list", "Dashed list", "Numbered list"],
             offered.Select(entry => entry.TextContent.Trim()));
         Assert.Contains("note-style-heading", offered[1].GetAttribute("class"));
+    }
+
+    /// <summary>
+    /// The four marks sit at the head of the same panel, as Apple Notes has them: they answer a
+    /// selection where a style answers a line. Each is drawn in the mark it puts on, which is what says
+    /// what it does without a word.
+    /// </summary>
+    [Fact]
+    public void The_marks_are_offered_at_the_head_of_the_same_panel()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        cut.FindAll(".note-editor-tools .note-tool")
+            .First(tool => tool.GetAttribute("aria-label") == "Text style").Click();
+
+        var marks = cut.FindAll(".note-mark");
+        Assert.Equal(4, marks.Count);
+        Assert.Equal(
+            ["Bold", "Italic", "Underline", "Strikethrough"],
+            marks.Select(button => button.GetAttribute("aria-label")));
+    }
+
+    /// <summary>
+    /// Pressing one tells the surface and leaves the panel open: marks are pressed together - bold and
+    /// italic - and a panel that closed after each would be reopened twice.
+    /// </summary>
+    [Fact]
+    public void Pressing_a_mark_tells_the_writing_surface_and_leaves_the_panel_open()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        cut.FindAll(".note-editor-tools .note-tool")
+            .First(tool => tool.GetAttribute("aria-label") == "Text style").Click();
+        cut.FindAll(".note-mark").First(button => button.GetAttribute("aria-label") == "Italic").Click();
+
+        Assert.Equal("Italic", JSInterop.VerifyInvoke("mark").Arguments[1]);
+        Assert.NotEmpty(cut.FindAll(".note-style-menu"));
     }
 
     /// <summary>

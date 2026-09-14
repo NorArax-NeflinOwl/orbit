@@ -1,4 +1,5 @@
 using Orbit.Contracts.Notes;
+using Orbit.Contracts.Sharing;
 using Orbit.Core.Notes;
 
 namespace Orbit.Web.Services;
@@ -32,12 +33,20 @@ public static class NoteSurfaceLines
 
     /// <summary>
     /// A line's marks, read off the wire and put in the one shape the rules work in - see
-    /// NoteTextMarks.Normalized, which also drops a mark this build does not know.
+    /// NoteTextMarks.Normalized, which also drops a mark this build does not know. Public because the
+    /// pages that only <em>read</em> a note need them too, to draw a line's words as they were written.
     /// </summary>
-    private static IReadOnlyList<NoteTextRun> MarksOf(NoteContentLineDto line)
+    public static IReadOnlyList<NoteTextRun> MarksOf(this NoteContentLineDto line)
+        => MarksOf(line.AllMarks, line.Text);
+
+    /// <inheritdoc cref="MarksOf(NoteContentLineDto)"/>
+    public static IReadOnlyList<NoteTextRun> MarksOf(this PublicSharedItemLineDto line)
+        => MarksOf(line.AllMarks, line.Text);
+
+    private static IReadOnlyList<NoteTextRun> MarksOf(IReadOnlyList<NoteTextRunDto> marks, string text)
         => NoteTextMarks.Normalized(
-            line.AllMarks.Select(run => new NoteTextRun(run.Start, run.Length, NoteTextMarks.Read(run.Mark))),
-            line.Text.Length);
+            marks.Select(run => new NoteTextRun(run.Start, run.Length, NoteTextMarks.Read(run.Mark))),
+            text.Length);
 
     /// <summary>
     /// The style of a line that has not been brought over to the surface - the pages that only read a

@@ -600,6 +600,89 @@ input.note-editor-title {
     content: none;
 }
 
+/* A stretch of words carrying a mark - see Orbit.Core.Notes.NoteTextMark. Drawn by the elements the
+   words are wrapped in rather than by classes, so a copy out of the note arrives elsewhere still bold;
+   these rules only settle how much, since a browser's own <strong> is heavier than this app's text. */
+.note-line-text strong {
+    font-weight: 650;
+}
+
+.note-line-text em {
+    font-style: italic;
+}
+
+.note-line-text u {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.note-line-text s {
+    text-decoration: line-through;
+}
+
+/* The same four on a line being read rather than written - see MarkedText.razor, which names them on a
+   span instead of wrapping the words in elements. The sizes are the ones above, said once more rather
+   than shared, because these are a different element for a different reason. */
+.note-marked-bold {
+    font-weight: 650;
+}
+
+.note-marked-italic {
+    font-style: italic;
+}
+
+.note-marked-underlined {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.note-marked-struckthrough {
+    text-decoration: line-through;
+}
+
+/* The four marks, at the head of the format panel: they answer a selection where the styles answer a
+   line. Each is drawn in the mark it puts on, which says what it does without a word. */
+.note-mark-row {
+    display: flex;
+    gap: 4px;
+    padding: 2px 4px 6px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+}
+
+.note-mark {
+    flex: 1;
+    padding: 6px 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.note-mark:hover {
+    background: var(--bg-subtle);
+}
+
+.note-mark-bold {
+    font-weight: 700;
+}
+
+.note-mark-italic {
+    font-style: italic;
+}
+
+.note-mark-underlined {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.note-mark-struckthrough {
+    text-decoration: line-through;
+}
+
 /* The list of styles, opened by the "Aa" button and sitting on the writing above the row it came from.
    Each entry is drawn in the style it sets, which is how somebody tells a heading from a subheading
    without reading the words. */

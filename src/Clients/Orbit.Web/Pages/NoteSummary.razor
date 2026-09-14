@@ -75,7 +75,7 @@ else
                 @* .note-line as well, which is where every style is drawn - a heading read back is the
                    same heading it was written as, and the mark on a list is drawn by the same rule. *@
                 <p class="note-line note-summary-line" data-style="@DrawnStyle(line)" data-number="@(number > 0 ? number.ToString() : null)">
-                    <TextWithLinks Text="@line.Text" />
+                    <MarkedText Text="@line.Text" Marks="@line.MarksOf()" />
                 </p>
             }
             else

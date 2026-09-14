@@ -106,6 +106,34 @@ public sealed class NoteTextMarkTests
     public void A_mark_is_read_off_its_name_however_it_is_written(string written, NoteTextMark mark)
         => Assert.Equal(mark, NoteTextMarks.Read(written));
 
+    /// <summary>
+    /// What something drawing a line is handed: the longest stretches that carry the same marks, which is
+    /// not what the runs say directly - two marks over the same words are two runs of their own.
+    /// </summary>
+    [Fact]
+    public void The_words_are_cut_into_the_stretches_that_carry_the_same_marks()
+    {
+        var pieces = NoteTextMarks.Pieces("milk and bread", [Bold(0, 4), Italic(9, 5)]);
+
+        Assert.Equal(["milk", " and ", "bread"], pieces.Select(piece => piece.Text));
+        Assert.Equal([NoteTextMark.Bold], pieces[0].Marks);
+        Assert.Empty(pieces[1].Marks);
+        Assert.Equal([NoteTextMark.Italic], pieces[2].Marks);
+    }
+
+    [Fact]
+    public void Words_carrying_two_marks_are_one_stretch_carrying_both()
+    {
+        var pieces = NoteTextMarks.Pieces("milk", [Bold(0, 4), Italic(0, 4)]);
+
+        Assert.Equal("milk", Assert.Single(pieces).Text);
+        Assert.Equal([NoteTextMark.Bold, NoteTextMark.Italic], pieces[0].Marks);
+    }
+
+    [Fact]
+    public void Nothing_written_is_nothing_to_draw()
+        => Assert.Empty(NoteTextMarks.Pieces(string.Empty, [Bold(0, 4)]));
+
     [Fact]
     public void A_mark_holds_where_every_letter_of_the_stretch_carries_it()
         => Assert.True(NoteTextMarks.Holds([Bold(0, 4)], start: 1, length: 2, NoteTextMark.Bold));

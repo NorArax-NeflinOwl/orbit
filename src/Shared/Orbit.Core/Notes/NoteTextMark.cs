@@ -72,6 +72,51 @@ public static class NoteTextMarks
     public static readonly IReadOnlyList<NoteTextRun> None = [];
 
     /// <summary>
+    /// The text cut into the longest stretches that carry the same marks. What drawing needs and what a
+    /// list of marks does not say directly, since two marks over the same words are two runs of their
+    /// own: a reader has to be handed "these words, bold and italic" rather than two overlapping claims.
+    ///
+    /// Every stretch names its marks in one order always, so the same set reads as the same stretch.
+    /// Answers nothing at all for empty text.
+    /// </summary>
+    public static IReadOnlyList<NoteTextPiece> Pieces(string text, IEnumerable<NoteTextRun> marks)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return [];
+        }
+
+        var carried = new List<NoteTextMark>[text.Length];
+        for (var at = 0; at < text.Length; at++)
+        {
+            carried[at] = [];
+        }
+
+        foreach (var run in Normalized(marks, text.Length))
+        {
+            for (var at = run.Start; at < run.End; at++)
+            {
+                carried[at].Add(run.Mark);
+            }
+        }
+
+        var pieces = new List<NoteTextPiece>();
+        var from = 0;
+        for (var at = 1; at <= text.Length; at++)
+        {
+            if (at < text.Length && carried[at].SequenceEqual(carried[from]))
+            {
+                continue;
+            }
+
+            pieces.Add(new NoteTextPiece(text[from..at], carried[from]));
+            from = at;
+        }
+
+        return pieces;
+    }
+
+    /// <summary>
     /// A mark read off the word it is sent and stored as. One this build does not know reads as
     /// <see cref="NoteTextMark.None"/>, which draws nothing and is dropped by
     /// <see cref="Normalized"/> - the rule every stored-by-name enum in Orbit follows, and the reason a
@@ -236,6 +281,12 @@ public static class NoteTextMarks
         return Normalized(kept, textLength);
     }
 }
+
+/// <summary>
+/// A stretch of a line's words and every mark on all of it - what something drawing a line is handed, one
+/// piece after another. See <see cref="NoteTextMarks.Pieces"/>.
+/// </summary>
+public sealed record NoteTextPiece(string Text, IReadOnlyList<NoteTextMark> Marks);
 
 /// <summary>
 /// Writes a mark by its name and reads one back the same way, for the reason

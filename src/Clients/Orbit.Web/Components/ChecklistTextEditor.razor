@@ -202,6 +202,10 @@
             // NoteSurfaceEdits.Restyle, which also takes it back off when they are all already it.
             "style" when TakesStyles && StyleAsked(request.Text) is { } style
                 => (NoteSurfaceEdits.Restyle(before, style), SurfaceEditKind.Reshaping),
+            // A mark on the words the selection covers - see NoteSurfaceEdits.Mark, which also takes it
+            // back off where all of them already carry it.
+            "mark" when TakesStyles && MarkAsked(request.Text) is { } mark
+                => (NoteSurfaceEdits.Mark(before, mark), SurfaceEditKind.Reshaping),
             _ => (null, SurfaceEditKind.Reshaping)
         };
 
@@ -309,6 +313,15 @@
         => Enum.TryParse<NoteLineStyle>(asked, ignoreCase: true, out var style) ? style : null;
 
     /// <summary>
+    /// The mark a "mark" command asked for, or null for a word this build does not know - which does
+    /// nothing, for the reason above: a command nobody understands should not take a bold away.
+    /// </summary>
+    private static NoteTextMark? MarkAsked(string? asked)
+        => Enum.TryParse<NoteTextMark>(asked, ignoreCase: true, out var mark) && mark != NoteTextMark.None
+            ? mark
+            : null;
+
+    /// <summary>
     /// Makes the caret's line - or every line the selection touches - this style, for the format control
     /// over the note's foot. Pulls the answer back into Blazor the way InsertChecklistItemAsync does, and
     /// for the same reason.
@@ -318,6 +331,21 @@
         if (_module is not null)
         {
             await _module.InvokeVoidAsync("setStyle", _containerRef, style.ToString());
+            var linesJson = await _module.InvokeAsync<string>("getLinesAsJson", _containerRef);
+            await OnLinesChangedFromJs(linesJson);
+        }
+    }
+
+    /// <summary>
+    /// Puts a mark on the words the selection covers, or takes it off - the four buttons over the
+    /// writing. A press with nothing selected does nothing, which is where it is decided: see
+    /// NoteSurfaceEdits.Mark.
+    /// </summary>
+    public async Task MarkAsync(NoteTextMark mark)
+    {
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("mark", _containerRef, mark.ToString());
             var linesJson = await _module.InvokeAsync<string>("getLinesAsJson", _containerRef);
             await OnLinesChangedFromJs(linesJson);
         }

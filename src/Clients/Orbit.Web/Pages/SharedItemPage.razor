@@ -68,7 +68,8 @@
                                as. Only a note ever sends one - see PublicSharedItemLineDto.Style. *@
                             <span class="note-line @(line.IsChecklistItem ? "note-line-checklist" : null) shared-item-line-text"
                                   data-style="@NoteLineStyles.Read(line.Style).ToString().ToLowerInvariant()"
-                                  data-number="@(number > 0 ? number.ToString() : null)">@line.Text</span>
+                                  data-number="@(number > 0 ? number.ToString() : null)"><MarkedText
+                                Text="@line.Text" Marks="@line.MarksOf()" /></span>
                             @if (line.Detail is not null)
                             {
                                 <span class="shared-item-line-detail">@line.Detail</span>

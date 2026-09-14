@@ -107,6 +107,18 @@ else
                            from a subheading without reading the words. Pressing the one a line already
                            is takes it back to Body - see NoteSurfaceEdits.Restyle. *@
                         <div class="note-style-menu" role="menu">
+                            @* The four marks first, as Apple Notes has them: they answer a selection,
+                               where the styles answer a line, and a press with nothing selected does
+                               nothing (see NoteSurfaceEdits.Mark). Drawn as the letter each one makes,
+                               which is how every editor draws them. *@
+                            <div class="note-mark-row">
+                                @foreach (var mark in MarksOffered)
+                                {
+                                    <button type="button" class="note-mark @MarkClass(mark)"
+                                            title="@DescribeMark(mark)" aria-label="@DescribeMark(mark)"
+                                            @onclick="() => MarkAsync(mark)">A</button>
+                                }
+                            </div>
                             @foreach (var style in StylesOffered)
                             {
                                 <button type="button" role="menuitem"
@@ -413,6 +425,38 @@ else
         NoteLineStyle.Title, NoteLineStyle.Heading, NoteLineStyle.Subheading, NoteLineStyle.Body,
         NoteLineStyle.Monospaced, NoteLineStyle.Bulleted, NoteLineStyle.Dashed, NoteLineStyle.Numbered
     ];
+
+    /// <summary>
+    /// The marks offered, in the order every editor puts them in. None is not among them: it is what a
+    /// mark this build does not know reads as, never something to ask for - see NoteTextMark.
+    /// </summary>
+    private static readonly IReadOnlyList<NoteTextMark> MarksOffered =
+    [
+        NoteTextMark.Bold, NoteTextMark.Italic, NoteTextMark.Underlined, NoteTextMark.StruckThrough
+    ];
+
+    private string DescribeMark(NoteTextMark mark) => mark switch
+    {
+        NoteTextMark.Italic => T["Italic"],
+        NoteTextMark.Underlined => T["Underline"],
+        NoteTextMark.StruckThrough => T["Strikethrough"],
+        _ => T["Bold"]
+    };
+
+    /// <summary>Each button is drawn in the mark it puts on, which is what says what it does without a word.</summary>
+    private static string MarkClass(NoteTextMark mark) => $"note-mark-{mark.ToString().ToLowerInvariant()}";
+
+    /// <summary>
+    /// Puts a mark on the selected words, or takes it off. The list stays open, unlike a style: marks are
+    /// pressed together - bold and italic - and a panel that closed after each would be reopened twice.
+    /// </summary>
+    private async Task MarkAsync(NoteTextMark mark)
+    {
+        if (_checklistEditorRef is not null)
+        {
+            await _checklistEditorRef.MarkAsync(mark);
+        }
+    }
 
     private string DescribeStyle(NoteLineStyle style) => style switch
     {

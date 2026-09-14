@@ -1074,9 +1074,21 @@ disagree in.
     (`NoteSurfaceEdits.Mark`, `Holds`). Across lines the answer is decided once, so a selection half bold
     is made bold rather than coming back striped. **A caret with nothing selected does nothing**: there
     are no words to mark, and remembering that the *next* thing typed is bold is the browser's business.
-  - **Nothing draws them yet.** The model, the rules and the wire carry marks on both clients
-    (`NoteContentLineDto.Marks`, the archive, a shared link), so no edit anywhere flattens them - the
-    browser's buttons and the phone's drawing are the next step. See `info/future-plan.md`.
+  - **The browser draws them and reads them back.** The writing surface wraps a stretch in real elements
+    (`<strong>`, `<em>`, `<u>`, `<s>` - `setLineWords` in `checklistTextEditor.js`), which is what lets it
+    read the marks back out of the document it drew and what makes a copy out of a note arrive elsewhere
+    still bold. The four buttons sit at the head of the same panel the styles are in, and **Ctrl+B and
+    its friends come the same way**: the browser's own `formatBold` and the rest are stopped in
+    `onBeforeInput` and asked of C#, because left alone they would put tags of their own choosing into
+    the line and the phone would never hear about them.
+  - **A line being read draws them too** (`MarkedText.razor`, on the note's page and through a share
+    link): one span naming its marks rather than nested elements, since nothing is read back there. Each
+    stretch still goes through `TextWithLinks`, so an address inside bold words is as pressable as one
+    outside them.
+  - **The phone carries them but does not draw them yet.** A MAUI `Entry` renders one face for the whole
+    field, so the note screen keeps what the browser wrote and hands it back unchanged - which is what
+    stops an edit there from flattening a marked note. See `info/future-plan.md` for what drawing them
+    would take.
 - **Not in a list's or an inventory's name and description** (`TitledDescription`,
   `ChecklistTextEditor.TakesStyles` off): those store two plain strings, so a style set there would be
   dropped by the save - the same reason `[]` stays words there. Giving descriptions the note's own

@@ -196,6 +196,24 @@ export async function insertChecklistItem(container) {
 /// Makes the caret's line - or every line the selection touches - the style asked for, and takes it back
 /// to Body when they are all already it. Written like insertChecklistItem above and for the same reason:
 /// it is a press rather than a key, so it goes through the one door every edit goes through.
+/// Puts a mark on the words the selection covers, or takes it off - the four buttons over the writing,
+/// and the browser's own Ctrl+B and friends, which arrive as an inputType and are sent here too. C#
+/// decides which way round it goes (NoteSurfaceEdits.Mark), for the reason every other edit is decided
+/// there: the phone has to answer the same.
+export async function mark(container, asked) {
+    await Promise.resolve();
+    const state = instances.get(container);
+    if (!state || !isWritable(container)) {
+        return;
+    }
+
+    const answer = ask(container, state, 'mark', { text: asked });
+    if (answer) {
+        draw(container, answer.lines);
+        select(container, answer.anchor, answer.focus);
+    }
+}
+
 export async function setStyle(container, style) {
     await Promise.resolve();
     const state = instances.get(container);
@@ -320,6 +338,19 @@ function onBeforeInput(event, container, state) {
             if (answer) {
                 show(container, state, answer);
             }
+        }
+        return;
+    }
+
+    // Ctrl+B and its friends - and the same four from the browser's own menus. Stopped and asked of C#,
+    // which owns what a mark means here: left to the browser, these would put tags of their own choosing
+    // into the line and the phone would never hear about them.
+    const marking = MARK_INPUTS[event.inputType];
+    if (marking) {
+        event.preventDefault();
+        const answer = ask(container, state, 'mark', { text: marking });
+        if (answer) {
+            show(container, state, answer);
         }
         return;
     }
@@ -529,8 +560,9 @@ function draw(container, lines) {
             return;
         }
 
-        if (lineText(element) !== (line.text || '')) {
-            setLineText(element, line.text || '');
+        const wanted = marksOf(line);
+        if (lineText(element) !== (line.text || '') || !sameMarks(marksIn(element), wanted)) {
+            setLineWords(element, line.text || '', wanted);
         }
         if (tick && stateOf(tick) !== tickStateOf(line)) {
             setTick(element, tickStateOf(line));
@@ -550,7 +582,9 @@ function tickHintOf(container) {
 }
 
 function normalizeLines(lines) {
-    return lines && lines.length > 0 ? lines : [{ text: '', isChecklistItem: false, isChecked: false, style: 'body' }];
+    return lines && lines.length > 0
+        ? lines
+        : [{ text: '', isChecklistItem: false, isChecked: false, style: 'body', marks: [] }];
 }
 
 /// The style a line is drawn in, as the word C# sends - see Orbit.Core.Notes.NoteLineStyle. Anything
@@ -562,6 +596,178 @@ function styleOf(line) {
 }
 
 const STYLES = ['body', 'title', 'heading', 'subheading', 'monospaced', 'bulleted', 'dashed', 'numbered'];
+
+/// The marks a stretch of words inside a line can carry - see Orbit.Core.Notes.NoteTextMark. Lower case
+/// here and sent as such: C# reads a mark's name however it is written.
+const MARKS = ['bold', 'italic', 'underlined', 'struckthrough'];
+
+/// The inputTypes a browser reports for its own four formatting commands - Ctrl+B, the Edit menu, a
+/// context menu. Each is answered as the matching mark rather than let through.
+const MARK_INPUTS = {
+    formatBold: 'bold',
+    formatItalic: 'italic',
+    formatUnderline: 'underlined',
+    formatStrikeThrough: 'struckthrough'
+};
+
+/// What each is drawn as. Real elements rather than classed spans, so a copy out of the note arrives
+/// elsewhere still bold - and so the browser's own Ctrl+B, if one ever slips past onBeforeInput, makes
+/// something this can read back rather than something it has to guess at.
+const MARK_TAGS = { bold: 'strong', italic: 'em', underlined: 'u', struckthrough: 's' };
+
+/// And back again, with the tags a browser uses for the same four when it formats text itself.
+const TAG_MARKS = {
+    STRONG: 'bold', B: 'bold',
+    EM: 'italic', I: 'italic',
+    U: 'underlined',
+    S: 'struckthrough', STRIKE: 'struckthrough', DEL: 'struckthrough'
+};
+
+/// A line's marks as C# sends them, with anything this build does not know dropped - the rule every
+/// name on this wire follows.
+function marksOf(line) {
+    const marks = line && Array.isArray(line.marks) ? line.marks : [];
+    return marks
+        .map((run) => ({
+            start: run.start | 0,
+            length: run.length | 0,
+            mark: String(run.mark || '').toLowerCase()
+        }))
+        .filter((run) => run.length > 0 && MARKS.includes(run.mark));
+}
+
+/// The words of a line, drawn with their marks. The span's contents are built from scratch: a stretch of
+/// words carrying the same marks is one text node inside however many elements it needs, and the caret is
+/// put back afterwards by whoever asked for the redraw (see show).
+function setLineWords(line, text, marks) {
+    const span = line.querySelector('.note-line-text');
+    if (!span) {
+        line.textContent = text;
+        return;
+    }
+
+    span.textContent = '';
+    if (text.length === 0) {
+        // See setLineText: an empty span has no line box, so the caret has nowhere to stand in it.
+        span.appendChild(document.createElement('br'));
+        return;
+    }
+
+    for (const piece of markedPieces(text, marks)) {
+        span.appendChild(wrapped(piece.text, piece.marks));
+    }
+}
+
+/// The text cut into the longest stretches that carry the same marks - which is what a redraw needs and
+/// what a run of marks does not say directly, since two marks over the same words are two runs.
+function markedPieces(text, marks) {
+    const carried = [];
+    for (let at = 0; at < text.length; at++) {
+        carried.push([]);
+    }
+
+    for (const run of marks) {
+        const from = Math.max(0, run.start);
+        const to = Math.min(text.length, run.start + run.length);
+        for (let at = from; at < to; at++) {
+            if (!carried[at].includes(run.mark)) {
+                carried[at].push(run.mark);
+            }
+        }
+    }
+
+    // Named in one order always, so the same set of marks reads as the same stretch.
+    const nameOf = (marksHere) => MARKS.filter((mark) => marksHere.includes(mark)).join(' ');
+    const pieces = [];
+    for (let at = 0; at < text.length; at++) {
+        const name = nameOf(carried[at]);
+        const last = pieces.length > 0 ? pieces[pieces.length - 1] : null;
+        if (last && last.name === name) {
+            last.text += text[at];
+        } else {
+            pieces.push({ name, text: text[at], marks: name ? name.split(' ') : [] });
+        }
+    }
+
+    return pieces;
+}
+
+function wrapped(text, marks) {
+    let node = document.createTextNode(text);
+    for (const mark of marks) {
+        const element = document.createElement(MARK_TAGS[mark]);
+        element.appendChild(node);
+        node = element;
+    }
+
+    return node;
+}
+
+/// The marks on a line as the document now holds them - what the browser drew, plus anything it drew
+/// itself while somebody was typing. Read by walking the words: every text node carries whatever marks
+/// its ancestors up to the span name.
+function marksIn(line) {
+    const span = line.querySelector('.note-line-text');
+    if (!span) {
+        return [];
+    }
+
+    const runs = [];
+    let offset = 0;
+    const walker = document.createTreeWalker(span, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const length = node.textContent.length;
+        for (const mark of marksOn(node, span)) {
+            runs.push({ start: offset, length, mark });
+        }
+        offset += length;
+    }
+
+    return joinedRuns(runs);
+}
+
+function marksOn(node, span) {
+    const found = [];
+    for (let element = node.parentElement; element; element = element.parentElement) {
+        const mark = TAG_MARKS[element.tagName];
+        if (mark && !found.includes(mark)) {
+            found.push(mark);
+        }
+        if (element === span) {
+            break;
+        }
+    }
+
+    return found;
+}
+
+/// Touching stretches of one mark made one - the shape C# keeps them in (NoteTextMarks.Normalized), so
+/// what goes back is what would come out again rather than one run per text node.
+function joinedRuns(runs) {
+    const sorted = runs.slice().sort((one, other) =>
+        one.mark === other.mark ? one.start - other.start : (one.mark < other.mark ? -1 : 1));
+
+    const joined = [];
+    for (const run of sorted) {
+        const last = joined.length > 0 ? joined[joined.length - 1] : null;
+        if (last && last.mark === run.mark && last.start + last.length >= run.start) {
+            last.length = Math.max(last.start + last.length, run.start + run.length) - last.start;
+            continue;
+        }
+
+        joined.push({ start: run.start, length: run.length, mark: run.mark });
+    }
+
+    return joined;
+}
+
+/// Whether two sets of marks say the same thing, for draw() - which redraws a line whose marks changed
+/// the way it redraws one whose words did.
+function sameMarks(one, other) {
+    return one.length === other.length
+        && one.every((run, at) =>
+            run.start === other[at].start && run.length === other[at].length && run.mark === other[at].mark);
+}
 
 function createLineElement(line, tickHint) {
     const div = document.createElement('div');
@@ -591,7 +797,7 @@ function createLineElement(line, tickHint) {
     const text = document.createElement('span');
     text.className = 'note-line-text';
     div.appendChild(text);
-    setLineText(div, line.text || '');
+    setLineWords(div, line.text || '', marksOf(line));
     if (line.isChecklistItem) {
         setTick(div, tickStateOf(line));
     }
@@ -664,7 +870,8 @@ function extractLines(container) {
             isChecklistItem: !!tick,
             isChecked: state === TICK_DONE,
             isFailed: state === TICK_FAILED,
-            style: line.dataset && line.dataset.style ? line.dataset.style : 'body'
+            style: line.dataset && line.dataset.style ? line.dataset.style : 'body',
+            marks: marksIn(line)
         };
     });
 }
@@ -720,7 +927,10 @@ function repairLineDom(line) {
         strayText += node.textContent;
         node.remove();
     }
-    setLineText(line, strayText + lineText(line));
+    // The marks move along by however much was put back in front of the words they were on - the same
+    // arithmetic NoteTextMarks.Kept does for an insertion at the head of a line.
+    const moved = marksIn(line).map((run) => ({ ...run, start: run.start + strayText.length }));
+    setLineWords(line, strayText + lineText(line), moved);
     return true;
 }
 
