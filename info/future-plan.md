@@ -838,7 +838,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   shelf editor offers the shelves' types (`InventoryEditor.razor`). Passing the shelves' and entries'
   types to `Knowing` when that screen opens an item is all it takes.
 
-- **An entry that is both late and reminded daily says the same thing twice.** Reported by the user on
+- ~~**An entry that is both late and reminded daily says the same thing twice.**~~ Fixed 2026-09-14, the
+  way the user decided: the overdue notice speaks and the daily reminder stands down for the day it goes
+  out - see the entry under "Five of the user's list of 2026-09-14" for which of the two gives way and
+  why. As reported by the user on
   2026-09-12, with both notifications side by side: "Sprawdzenie sprzęgła (nie odbija i się blokuje)"
   from the list "Samochód" arrived as a daily reminder at 09:00 and as an overdue notice at 09:01.
   Nothing is misconfigured - the entry has a due date and "remind daily", and each notification is right
@@ -1220,12 +1223,19 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
     ways. **Worth asking first whether the ways are simply the answer** - if what is wanted is already
     built under another name, the fix is the wording of the two fields rather than the rule behind one.
 
-  - **Two notifications for one entry.** Reported again on 2026-09-14. Already written up above, under
-    "An entry that is both late and reminded daily says the same thing twice" - the schedulers do not
-    know about each other, each notice is right on its own, and which of the two should speak for a late
-    entry is a decision rather than a fix. The plainest answer is that the overdue notice stands in for
-    that day's daily reminder; it is not taken, because somebody may want the daily reminder to keep
-    coming *because* the entry is late.
+  - ~~**Two notifications for one entry.**~~ Settled by the user on 2026-09-14 and done the same day:
+    the overdue notice replaces the daily reminder, because a late entry has a notification of its own
+    and nothing in Orbit should say one thing twice. `DailyTaskReminderScheduler` asks the overdue
+    repository the question the overdue scheduler asks itself - past its due date, and not notified about
+    yet - and stands down when the answer is yes.
+
+    **Which of the two gives way, and for how long, is the part worth knowing.** The daily one gives
+    way, because it is the one that can: the overdue notice is sent once ever, so the day it goes out is
+    the only day the two collide, and the daily reminder carries on the next day. Standing the overdue
+    notice down instead is the other way to read "replaces" and loses the one piece of news the reader
+    has not had; standing the daily one down *for good* would quietly take away the "remind daily" they
+    turned on. Asked as "is a notice about to go out" rather than "was one sent today" so it does not
+    matter which service polls first - which is what the reported pair came down to, a minute apart.
 
   - **Pictures pasted into a note.** The one item on the list that is a feature rather than a change:
     a note is lines of text on both clients, in a column, sealed for a private one - so this needs

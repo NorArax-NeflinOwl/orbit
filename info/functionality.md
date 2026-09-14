@@ -3408,6 +3408,16 @@ The place named on a calendar entry stays on the entry. The calendar's own locat
 (`EventLocationRequest`) and the map overlay deliberately hands back an address rather than a pin, so
 there is nothing to build one from here; the screen says so rather than dropping it quietly.
 
+**An overdue notice speaks instead of that day's daily reminder.** An entry that is both late and
+reminded daily said the same thing twice a minute apart - each notice right on its own, and neither
+scheduler knowing the other existed. `DailyTaskReminderScheduler` now asks the overdue repository the
+same question `OverdueTaskNotificationScheduler` asks itself (past its due date, and not notified about
+yet) and stands down when the answer is yes. **The daily one gives way, and only for that day**: the
+overdue notice is sent once ever, so the day it goes out is the only day the two collide, and the daily
+reminder carries on the next. Asked as "is a notice about to go out" rather than "was one sent today",
+so it does not matter which of the two services polls first. An entry with no deadline can never be
+overdue and is never held back - which is the standing "Update stock levels" a shelf keeps.
+
 **A daily reminder needs an hour.** Saving refuses without one rather than sending it at midnight - an
 hour nobody chose is worse than being asked for one. An entry loaded at exactly 00:00 reads as one with
 no hour set: the wire carries a plain `TimeOnly` and cannot say "none". **Both clients read it that
