@@ -1,4 +1,5 @@
 @using Orbit.Web.Services
+@using Orbit.Core.Text
 @inject Translations T
 
 @* Several short words about one thing - what a task entry is filed under. A box to type in, the list of
@@ -224,9 +225,8 @@
     /// </summary>
     private IReadOnlyList<string> OfferedNow()
         => [.. Known
-            .Where(value => !_added.Contains(value, StringComparer.CurrentCultureIgnoreCase))
-            .Where(value => _typed.Trim().Length == 0
-                || value.Contains(_typed.Trim(), StringComparison.CurrentCultureIgnoreCase))
+            .Where(value => !_added.Any(added => LooseText.Same(added, value)))
+            .Where(value => LooseText.Holds(value, _typed))
             .Take(UsedValueBrowser.Most)];
 
     private string Next(IReadOnlyList<string> offered, int by)

@@ -12,6 +12,7 @@
 @using Orbit.Core.Inventories
 @using Orbit.Core.Suggestions
 @using Orbit.Web.Services
+@using Orbit.Core.Text
 @inject InventoryApiClient InventoryApiClient
 @inject TasksApiClient TasksApiClient
 @inject NotificationsApiClient NotificationsApiClient
@@ -821,11 +822,10 @@ else
                 && Contains(Name, item.Name);
 
         private static bool Matches(string chosen, string itemValue)
-            => chosen.Length == 0 || string.Equals(chosen, itemValue.Trim(), StringComparison.CurrentCultureIgnoreCase);
+            => chosen.Length == 0 || LooseText.Same(chosen, itemValue);
 
-        private static bool Contains(string typed, string itemName)
-            => typed.Trim() is not { Length: > 0 } wanted
-                || itemName.Contains(wanted, StringComparison.CurrentCultureIgnoreCase);
+        // Without the marks over a letter as well as without case - see LooseText.
+        private static bool Contains(string typed, string itemName) => LooseText.Holds(itemName, typed);
     }
 
     private void AddItem()

@@ -1,5 +1,6 @@
 @implements IAsyncDisposable
 @using Orbit.Web.Services
+@using Orbit.Core.Text
 @inject IJSRuntime JSRuntime
 @inject Translations T
 
@@ -47,13 +48,13 @@
 
     /// <summary>
     /// What is actually on offer: what has not been taken, narrowed by what is typed. Contains rather
-    /// than starts-with, since somebody who files things under "Food, dry" will type "dry".
+    /// than starts-with, since somebody who files things under "Food, dry" will type "dry" - and loosely,
+    /// so the marks over a letter do not have to be typed to find a word written with them (LooseText).
     /// </summary>
     public IReadOnlyList<string> Offered
         => [.. Known
-            .Where(value => !Taken.Contains(value, StringComparer.CurrentCultureIgnoreCase))
-            .Where(value => Typed.Trim().Length == 0
-                || value.Contains(Typed.Trim(), StringComparison.CurrentCultureIgnoreCase))
+            .Where(value => !Taken.Any(taken => LooseText.Same(taken, value)))
+            .Where(value => LooseText.Holds(value, Typed))
             .Take(Most)];
 
     /// <summary>

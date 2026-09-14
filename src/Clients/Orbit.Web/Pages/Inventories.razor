@@ -7,6 +7,7 @@
 @using Orbit.Contracts.Inventories
 @using Orbit.Core.Inventories
 @using Orbit.Web.Services
+@using Orbit.Core.Text
 @inject InventoryApiClient InventoryApiClient
 @inject ChatApiClient ChatApiClient
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
@@ -246,10 +247,11 @@
             _isSearchingItems = false;
         }
 
-        // Matched anywhere in the name and without case, the same as the editor's own box: a shelf holds
-        // "Flour, wheat" and somebody typing "flour" means it.
+        // Matched anywhere in the name, without case and without the marks over a letter, the same as
+        // the editor's own box: a shelf holds "Flour, wheat" and somebody typing "flour" means it, and
+        // one holding "Żurek" is meant by somebody typing "zurek" - see LooseText.
         _itemMatches = [.. _everythingOnEveryShelf
-            .Where(item => item.Name.Contains(wanted, StringComparison.CurrentCultureIgnoreCase))
+            .Where(item => LooseText.Holds(item.Name, wanted))
             .OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(item => item.InventoryName, StringComparer.CurrentCultureIgnoreCase)];
     }
