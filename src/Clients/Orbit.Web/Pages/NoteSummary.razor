@@ -87,6 +87,7 @@ else
         <ChildContent>
             @* No Edit in here: it is a button of its own on the panel now - see EditorRail.OnEdit. *@
             <ObjectMenu AllLabel="@T["All notes"]" OnAll="GoToNotes"
+                        CopyTextLabel="@(_copied ? T["Copied"] : T["Copy the text"])" OnCopyText="CopyTheTextAsync"
                         DeleteLabel="@(!_note.IsShared ? T["Delete"] : null)" OnDelete="DeleteAsync" />
         </ChildContent>
     </EditorRail>
@@ -112,8 +113,53 @@ else
     private bool _isSaving;
     private string? _message;
 
+    /// <summary>Says so on the menu entry itself until the menu is left - the press has nothing else to show.</summary>
+    private bool _copied;
+
     /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
     private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
+
+    /// <summary>
+    /// The whole note as words, for taking it somewhere Orbit is not - an email, a message, another app.
+    ///
+    /// Written the way this note's own editor copies a selection out of itself (onCopy in
+    /// checklistTextEditor.js): a box is "- ", and a ticked one "[x] ", which are two of the marks a
+    /// paste reads back as a box (NoteSurfaceEdits.ReadPastedLine). So a note copied from here and
+    /// pasted into another note arrives as the same note rather than as a page of brackets.
+    ///
+    /// The name is the first line, because that is what a note's name is on both clients - the first
+    /// line of the writing - and a note pasted somewhere without it is a note nobody can tell from
+    /// another.
+    /// </summary>
+    private string AsWords()
+        => string.Join("\n", new[] { _note?.Title ?? string.Empty }.Concat(_lines.Select(AsALine)));
+
+    private static string AsALine(NoteContentLineDto line)
+        => line switch
+        {
+            { IsChecklistItem: false } => line.Text,
+            { IsChecked: true } => $"[x] {line.Text}",
+            _ => $"- {line.Text}"
+        };
+
+    /// <summary>
+    /// A denied clipboard permission - some mobile browsers, a restricted webview - throws rather than
+    /// answering, and a note that would not copy is not a reason to take the page down with it. See
+    /// ShareLinkButton, which guards its own copy the same way.
+    /// </summary>
+    private async Task CopyTheTextAsync()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", AsWords());
+            _copied = true;
+        }
+        catch (JSException exception)
+        {
+            Logger.LogWarning(exception, "Failed to copy the note's text to the clipboard");
+            _message = T["The text could not be copied. Your browser did not allow it."];
+        }
+    }
 
     protected override async Task OnParametersSetAsync()
     {

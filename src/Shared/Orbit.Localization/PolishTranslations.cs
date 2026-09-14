@@ -1028,6 +1028,11 @@ public static class PolishTranslations
         ["Back"] = "Wróć",
         ["Confirm"] = "Potwierdź",
         ["Copy"] = "Kopiuj",
+        // Taking what a note says out of Orbit altogether, from its menu - next to Copy, which makes a
+        // second note inside it. The label says which of the two it is.
+        ["Copy the text"] = "Kopiuj tekst",
+        ["The text could not be copied. Your browser did not allow it."] =
+            "Nie udało się skopiować tekstu. Przeglądarka na to nie pozwoliła.",
         ["None"] = "Brak",
         ["Every"] = "Co",
         ["Custom"] = "Własne",
