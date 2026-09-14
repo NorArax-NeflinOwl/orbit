@@ -5,6 +5,7 @@
 @inject NotificationsApiClient NotificationsApiClient
 @inject ClientFlagsApiClient ClientFlagsApiClient
 @inject NotificationFeedState NotificationFeedState
+@inject NewsSettler NewsSettler
 @inject ClientExceptionLog ClientExceptionLog
 @inject NavigationManager NavigationManager
 @inject ILogger<Notifications> Logger
@@ -27,6 +28,11 @@
             $"{_retentionDays} {(_retentionDays == 1 ? T["day"] : T["days"])}")@Space<a href="/options">@T["Options"]</a>.
     </Description>
     <Actions>
+        @* Reading them all at once, as a press rather than as something opening the page did on its own
+           - which is the phone's own arrangement (NotificationFeedViewModel.MarkEverythingRead) and the
+           half the browser was missing once opening stopped meaning read. *@
+        <button class="btn-secondary" disabled="@(_isMarkingAllRead || NotificationFeedState.UnreadCount == 0)"
+                @onclick="MarkEverythingReadAsync">@T["Mark all read"]</button>
         @* "Delete history" rather than "Clear": the press does not tidy the list away, it deletes the
            entries on the server - see NotificationEntry.Dismiss - and nothing brings them back. A word
            that sounds like tidying is the wrong warning for a press that cannot be undone. *@
@@ -36,25 +42,31 @@
 
 <div class="notifications-page">
     <NotificationList IsLoading="_isLoading" Entries="_entries" ExceptionEntries="_exceptionEntries"
-                      OnEntrySelected="OpenEntry" ShowsDismissed="true" />
+                      OnEntrySelected="OpenEntryAsync" ShowsDismissed="true" />
 </div>
 
 @code {
     private bool _isLoading = true;
     private bool _isClearing;
+    private bool _isMarkingAllRead;
     private int _retentionDays = 3;
     private IReadOnlyList<NotificationEntryDto> _entries = [];
     private IReadOnlyList<ClientLogEntry> _exceptionEntries = [];
 
-    /// <summary>Opening the page counts as seeing the notifications, exactly as opening the desktop popup does.</summary>
+    /// <summary>
+    /// Opening the page is <b>not</b> reading what is on it. It used to mark every entry read, exactly as
+    /// opening the desktop popup did - so glancing at the bell to see whether anything had happened lost
+    /// the answer, and the one entry somebody meant to come back to was as read as the rest.
+    ///
+    /// An entry is read by reaching what it is about: pressing it here, or opening that thing any other
+    /// way - see NewsSettler, which both this page's own press and every navigation go through.
+    /// </summary>
     protected override async Task OnInitializedAsync()
     {
         try
         {
             _entries = await NotificationsApiClient.GetHistoryAsync();
             await LoadExceptionEntriesAsync();
-            await NotificationsApiClient.MarkAllReadAsync();
-            NotificationFeedState.Clear();
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -89,11 +101,44 @@
     /// list of notifications is still on that list after answering one of them. See ReturnTo, and
     /// MainLayout.OpenNotificationEntry, which does the same for the bell panel.
     /// </summary>
-    private void OpenEntry(NotificationEntryDto entry)
+    /// <summary>
+    /// Pressing an entry is reading it: it is marked read here, before the page it points at is even
+    /// opened, so the badge and the marks on the cards it is about go at the press rather than on
+    /// arrival. Settled explicitly rather than left to the layout's settle on the navigation, which is
+    /// the same rule but only fires if the address actually changes.
+    /// </summary>
+    private async Task OpenEntryAsync(NotificationEntryDto entry)
     {
-        if (entry.Url is not null)
+        if (entry.Url is not { } url)
         {
-            NavigationManager.NavigateTo(ReturnTo.Link(entry.Url, "/notifications"));
+            return;
+        }
+
+        await NewsSettler.SettleAsync(url);
+        NavigationManager.NavigateTo(ReturnTo.Link(url, "/notifications"));
+    }
+
+    /// <summary>
+    /// Reads the whole feed in one press. Read and cleared are different things and the server keeps
+    /// them apart: read means "I have seen these", cleared means "take them out of my way" - which is
+    /// why this sits beside Delete history rather than instead of it, and why it is the phone's
+    /// arrangement too.
+    /// </summary>
+    private async Task MarkEverythingReadAsync()
+    {
+        _isMarkingAllRead = true;
+        try
+        {
+            await NotificationsApiClient.MarkAllReadAsync();
+            NotificationFeedState.Clear();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to mark every notification read");
+        }
+        finally
+        {
+            _isMarkingAllRead = false;
         }
     }
 

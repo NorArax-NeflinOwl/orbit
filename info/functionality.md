@@ -4465,17 +4465,34 @@ actually deliver on a channel the account has turned off.
 **The feed itself.** `NotificationEntry` (`Id, UserId, Kind, Title, Body, Url?, CreatedAtUtc, ReadAtUtc?`)
 is a flat, reverse-chronological list per user — `GET /api/notifications` returns the most recent 30,
 `GET /api/notifications/unread` the unread ones (which is what the per-source badges are computed from),
-`POST /api/notifications/read` marks everything read at once, `DELETE /api/notifications` empties the feed (there's no per-entry read state exposed anywhere, matching "opening the panel clears the
-badge" rather than tracking which individual entries were seen). `Kind` is `PushReminder` or
+`POST /api/notifications/read` marks everything read at once, `POST /api/notifications/read-at` marks
+read whatever pointed at one address, and `DELETE /api/notifications` empties the feed. `Kind` is `PushReminder` or
 `ChatMessage`, mostly for the client to render slightly differently later; `Url` is the same in-app deep
 link (`/tasks/{id}`, `/calendar/{id}`, `/chat/{userId}`, ...) the corresponding push notification's own
 payload already carries.
 
 **Client (`MainLayout.razor`).** The avatar gets a small unread-count badge (`FormatUnreadCount`: hidden
 at 0, the number at 1–9, "9+" above that) and a new "Notifications" entry next to "Log out" in the
-dropdown. Opening it loads the recent feed, calls `POST /api/notifications/read`, and zeros the badge
-immediately rather than waiting for the next poll tick. Clicking a feed row that carries a `Url`
-navigates there, so the panel reaches the same destination the corresponding push notification would.
+dropdown.
+
+**Opening the panel is not reading what is in it.** It used to mark every entry read on arrival, so a
+glance at the bell to see whether anything had happened was the thing that lost the answer, and the one
+entry somebody meant to come back to was as read as the rest. **An entry is read by reaching what it is
+about**, and there are three ways to do that, all of them the same rule (`NewsSettler`, and
+`NotificationFeedState.UnreadUrlsSettledBy` for what "reach" means):
+
+- **pressing the entry**, which settles it before the page it points at even opens, so the badge and the
+  marks on the cards it is about (`HasNewsAbout`, `.row-unseen`) go at the press rather than on arrival;
+- **opening that thing any other way** - every navigation settles what the address reaches, so a task
+  list's notification is read by opening the list;
+- **either depth of it**, since an address settles the one it sits under: a notification points at the
+  shallow page (`/tasks/{id}`, `/notes/{id}`, `/calendar/{id}`, `/inventory/{id}` - every reminder
+  builder writes that form), and `/tasks/{id}/edit` settles it too.
+
+**Reading them all at once is a press of its own** - "Mark all read" on the notifications page, beside
+Delete history, which is the arrangement the phone already had
+(`NotificationFeedViewModel.MarkEverythingRead`). Read and cleared stay different things, as the server
+keeps them: read means "I have seen these", cleared means "take them out of my way".
 
 **Desktop opens a popup; a phone opens a page.** A 320px panel anchored to the mobile top bar leaves
 almost nothing readable, so on that breakpoint the entry navigates to `/notifications`

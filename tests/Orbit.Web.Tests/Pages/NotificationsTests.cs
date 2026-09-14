@@ -83,6 +83,40 @@ public sealed class NotificationsTests : OrbitTestContext
     /// here finished on whichever section the thing belongs to, and the rest of the list had to be found
     /// again.
     /// </summary>
+    /// <summary>
+    /// Opening the page is not reading what is on it. It used to mark every entry read on arrival, so a
+    /// glance at the bell to see whether anything had happened was the thing that lost the answer - and
+    /// the one entry somebody meant to come back to was as read as the rest.
+    /// </summary>
+    [Fact]
+    public void Opening_the_page_does_not_mark_everything_read()
+    {
+        RegisterApiClients([Entry("A task is overdue")]);
+
+        RenderComponent<Web.Pages.Notifications>();
+
+        Assert.DoesNotContain("/api/notifications/read", _requestedPaths);
+    }
+
+    /// <summary>
+    /// Pressing one is reading that one. Asked of the server before the page it points at is even
+    /// opened, so the badge and the marks on the cards it is about go at the press.
+    /// </summary>
+    [Fact]
+    public void Opening_an_entry_marks_that_one_read()
+    {
+        RegisterApiClients([Entry("A task is overdue")]);
+        // The settle costs nothing while the bell is empty, so the entry has to be in it for the press
+        // to reach the server at all - see NewsSettler.SettleAsync.
+        Services.GetRequiredService<NotificationFeedState>().Set([Entry("A task is overdue")]);
+
+        var cut = RenderComponent<Web.Pages.Notifications>();
+        cut.Find(".notifications-panel-item-link").Click();
+
+        Assert.Contains("/api/notifications/read-at", _requestedPaths);
+        Assert.DoesNotContain("/api/notifications/read", _requestedPaths);
+    }
+
     [Fact]
     public void Opening_an_entry_says_to_come_back_to_this_page()
     {
@@ -146,10 +180,16 @@ public sealed class NotificationsTests : OrbitTestContext
         });
 
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
-        Services.AddSingleton(new NotificationsApiClient(httpClient));
+        var notifications = new NotificationsApiClient(httpClient);
+        Services.AddSingleton(notifications);
         Services.AddSingleton(new ClientFlagsApiClient(httpClient));
         Services.AddSingleton(new NotificationFeedState());
         Services.AddSingleton(new ClientExceptionLog(new StubJSRuntime(), NullLogger<ClientExceptionLog>.Instance));
+        // Over the base context's own, which answers "nothing to mark" through a transport no test can
+        // read: this page settles the entry it opens, so what it asked the server is exactly what these
+        // tests are about - see OrbitTestContext, which says the same about registering your own.
+        Services.AddScoped(services => new NewsSettler(
+            notifications, services.GetRequiredService<NotificationFeedState>()));
     }
 
     private static NotificationEntryDto Entry(string title, bool isDismissed = false, string url = "/tasks/1")
