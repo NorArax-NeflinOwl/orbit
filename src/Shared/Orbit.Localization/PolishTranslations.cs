@@ -422,6 +422,16 @@ public static class PolishTranslations
         ["Recent chats"] = "Ostatnie rozmowy",
         ["Groups"] = "Grupy",
         ["Upcoming"] = "Nadchodzące",
+        // How far ahead that card looks, on Options' Preferences tab - see DevicePreferences.UpcomingDays.
+        // A phrase each rather than a number and a unit: Polish counts days three different ways, and
+        // "everything" is the absence of a horizon rather than a length.
+        ["How far ahead Upcoming looks"] = "Jak daleko w przód patrzy kafelek Nadchodzące",
+        ["The dashboard's Upcoming card shows what is happening inside this many days. Anything further off is still in your calendar, which the card's own name opens. Kept on this device."] =
+            "Kafelek Nadchodzące na pulpicie pokazuje to, co dzieje się w tylu dniach. Dalsze rzeczy nadal są w kalendarzu, który otwiera nazwa kafelka. Zapamiętane na tym urządzeniu.",
+        ["A day"] = "Dzień",
+        ["A week"] = "Tydzień",
+        ["A month"] = "Miesiąc",
+        ["Three months"] = "Trzy miesiące",
         ["Nothing to show."] = "Nie ma nic do pokazania.",
         ["Done"] = "Ukończone",
         ["Admin"] = "Administrator",
