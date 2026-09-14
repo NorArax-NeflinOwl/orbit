@@ -77,7 +77,13 @@ public sealed record ArchivedNote(
 public sealed record ArchivedTagColour(string Tag, string Colour);
 
 /// <param name="IsFailed">Crossed out rather than ticked - see Orbit.Core.Notes.NoteContentLine.IsFailed.</param>
-public sealed record ArchivedNoteLine(string Text, bool IsChecklistItem, bool IsChecked, bool IsFailed = false);
+/// <param name="Style">
+/// What the line is - a heading, a line of a list, ordinary writing. See Orbit.Core.Notes.NoteLineStyle.
+/// A word rather than a number so the file stays readable and stays valid when the list of styles grows;
+/// defaulted and last, so a file written before styles existed reads as ordinary writing throughout.
+/// </param>
+public sealed record ArchivedNoteLine(
+    string Text, bool IsChecklistItem, bool IsChecked, bool IsFailed = false, string Style = "Body");
 
 /// <param name="Tags">The words it is tagged with - see <see cref="ArchivedNote.Tags"/>, which says the same.</param>
 public sealed record ArchivedTaskList(

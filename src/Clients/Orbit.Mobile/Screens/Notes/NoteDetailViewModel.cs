@@ -656,6 +656,8 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             {
                 AddLineAfter(null);
             }
+
+            NumberTheLists();
         }
         finally
         {
@@ -1121,10 +1123,30 @@ public sealed partial class NoteDetailViewModel : ObservableObject
                 Lines.Insert(same + added, row);
                 Watch(row);
             }
+
+            NumberTheLists();
         }
         finally
         {
             _applying--;
+        }
+    }
+
+    /// <summary>
+    /// Writes each numbered line's number onto it, counting from one down each unbroken run of numbered
+    /// lines - the rule <see cref="NoteLineStyles.NumberOf"/> states. Done here, over all the lines,
+    /// rather than by each line, because a line's number is a fact about what is above it: inserting one
+    /// in the middle of a list renumbers everything under it, and nothing is stored, so the numbers can
+    /// never disagree with where the lines actually are. Orbit.Web draws them the same way - see
+    /// numberTheLists in checklistTextEditor.js.
+    /// </summary>
+    private void NumberTheLists()
+    {
+        var number = 0;
+        foreach (var line in Lines)
+        {
+            number = line.Style == NoteLineStyle.Numbered ? number + 1 : 0;
+            line.ListNumber = number;
         }
     }
 

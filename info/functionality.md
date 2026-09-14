@@ -923,8 +923,8 @@ not copied, and should not be: the errand is about the shelf it was raised from.
 
 
 `POST /api/notes` and `PUT /api/notes/{id}` both take `{ title, content }`, where `content` is an
-ordered list of lines, each `{ text, isChecklistItem, isChecked }` — a note is plain text and checklist
-items in one body, not two separate features. A checklist item's checked state is a real field rather
+ordered list of lines, each `{ text, isChecklistItem, isChecked, isFailed, style }` — a note is plain
+text and checklist items in one body, not two separate features. A checklist item's checked state is a real field rather
 than `"[ ]"`/`"[x]"` text every client would have to parse back out, and it is persisted as JSON (see
 `NoteEntity.ContentJson`). `GET /api/notes` and `GET /api/notes/{id}` return the same shape back, plus
 `id`, `createdAtUtc`, and `updatedAtUtc`. `DELETE /api/notes/{id}` deletes a note, 404ing under the same
@@ -940,8 +940,8 @@ disagree in.
 
 - **The tools sit over the writing's bottom-left corner**, not above it - a toolbar at the top of a note
   is a strip of the page given to controls before a word has been written. Four of them, as the design
-  draws: text style, checklist, table, attachment. **Only the checklist one does anything**; the other
-  three answer a press with "*Text style*: not implemented yet." rather than being greyed out, because a
+  draws: text style, checklist, table, attachment. **The text style and the checklist ones work**; the
+  other two answer a press with "*Table*: not implemented yet." rather than being greyed out, because a
   dead button explains nothing and a row of them explains less.
 - **The writing keeps room under its last line** for the tools and three lines more, and the caret's
   line scrolls clear of them (`.note-editor-page`'s padding and `scroll-padding`): the text used to run
@@ -1002,7 +1002,8 @@ disagree in.
   draws the lines and the caret that come back; typing inside one line is still the browser's own. That is
   where the caret goes, and it is unit-tested there:
   - **Enter** splits the line and puts the caret at the start of the new one (a checklist line continues
-    as an unticked box; an empty box leaves the list, in place). At the head of a line with words on it the
+    as an unticked box and a line of a list as another line of that list; an empty one of either leaves
+    the list, in place; a heading is followed by ordinary writing). At the head of a line with words on it the
     new line opens above, so a tick stays with its words. `keepsIndentation` makes the new line start where
     the one it came from starts, with the caret after that indentation - off in the browser, on for the
     phone, whose lines are one field each and where a field cannot open at a column somebody has to type
@@ -1023,6 +1024,39 @@ disagree in.
   inventory's name and description** (`TitledDescription`, the same surface with
   `ChecklistTextEditor.ReadsMarkers` off): those store only text, so `[]` typed or pasted there stays
   words rather than becoming a box the save would drop.
+- **What a line is - the eight styles** (`NoteLineStyle`, 2026-09-14): Title, Heading, Subheading, Body,
+  Monospaced, and the bulleted, dashed and numbered lists. Apple Notes' own Format menu, which is what
+  this follows. The "Aa" tool opens them, each entry drawn in the style it sets; pressing the style a
+  line already is takes it back to Body, the way a format control works everywhere
+  (`NoteSurfaceEdits.Restyle`, which applies to every line the selection touches).
+  - **A style belongs to a line, not to a stretch of words inside it.** A note is a list of lines on both
+    clients and the phone draws each as its own field, so bold and italic *inside* a line are a different
+    shape - written down in `info/future-plan.md` rather than guessed at.
+  - **A tick box is not one of the styles** (`NoteContentLine.IsChecklistItem`, a field of its own since
+    long before this): a box is what a line is answered in, not what kind of line it is, and the two are
+    carried separately - so a line of a list can have a box, and giving a line a box keeps its style.
+  - **Enter follows the style**: a line of a list carries on as one and an **empty** one ends the list, in
+    place - exactly the rule a tick box has - and a heading is one line by definition, so Enter after one
+    starts ordinary writing.
+  - **A numbered line's number is worked out, never stored** (`NoteLineStyles.NumberOf`, and
+    `numberTheLists` in `checklistTextEditor.js`): its place in the unbroken run of numbered lines above
+    it, so inserting a line renumbers the rest and a number can never disagree with where the line is. A
+    line that is not numbered breaks the run, which is what makes two lists with a paragraph between them
+    two lists. The mark of a bulleted or dashed line is drawn the same way (CSS `::before`,
+    `user-select: none`), so it is never part of the words, never selected with them and never copied.
+  - **Drawn wherever a note is read, not only where it is written**: the note's own page
+    (`.note-line[data-style]`, which `NoteSummary.razor` puts on its lines too) and the phone
+    (`NoteLineRow.DrawnFontSize`/`IsDrawnBold`/`ListMark`). The phone carries and draws styles but has no
+    control to set one yet - `info/future-plan.md`.
+  - **Stored and sent as a word**, never a number (`NoteLineStyleJsonConverter`, `NoteLineStyles.Read`):
+    content is JSON on the server and on the phone alike, so a number would mean the order of the enum
+    decided what an old note says. A word this build does not know reads as Body rather than throwing, on
+    every side - and an export carries it too (`ArchivedNoteLine.Style`). **No migration**: the lines are
+    a JSON column, and a note saved before this reads as Body throughout.
+- **Not in a list's or an inventory's name and description** (`TitledDescription`,
+  `ChecklistTextEditor.TakesStyles` off): those store two plain strings, so a style set there would be
+  dropped by the save - the same reason `[]` stays words there. Giving descriptions the note's own
+  surface is written down in `info/future-plan.md`.
 - **How much it matters, where it is filed and whether it is sealed live in the panel's menu**, above
   Save and Back (`EditorRail`'s `ChildContent`, an `OverflowMenu` that stays open because these are
   settings rather than actions). They used to sit under the writing, which is a form somebody had to

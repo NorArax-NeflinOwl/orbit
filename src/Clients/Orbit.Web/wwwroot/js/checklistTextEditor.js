@@ -193,6 +193,23 @@ export async function insertChecklistItem(container) {
     }
 }
 
+/// Makes the caret's line - or every line the selection touches - the style asked for, and takes it back
+/// to Body when they are all already it. Written like insertChecklistItem above and for the same reason:
+/// it is a press rather than a key, so it goes through the one door every edit goes through.
+export async function setStyle(container, style) {
+    await Promise.resolve();
+    const state = instances.get(container);
+    if (!state || !isWritable(container)) {
+        return;
+    }
+
+    const answer = ask(container, state, 'style', { text: style });
+    if (answer) {
+        draw(container, answer.lines);
+        select(container, answer.anchor, answer.focus);
+    }
+}
+
 function isWritable(container) {
     return container.getAttribute('contenteditable') === 'true';
 }
@@ -459,6 +476,30 @@ function render(container, lines) {
     for (const line of lines) {
         container.appendChild(createLineElement(line, tickHintOf(container)));
     }
+
+    numberTheLists(container);
+}
+
+/// Writes each numbered line's number onto it, counting from one down each unbroken run - the same rule
+/// NoteLineStyles.NumberOf follows, and it is here as well as there because the number is *drawn* (a CSS
+/// ::before reads it) rather than being part of the words. Any line that is not numbered breaks the run,
+/// which is what makes two lists separated by a paragraph two lists.
+///
+/// Done after the lines are in the container rather than while each is built, because a line's number is
+/// a fact about what is above it and nothing knows that until they are all there.
+function numberTheLists(container) {
+    let number = 0;
+    for (const line of Array.from(container.children)) {
+        if (line.dataset && line.dataset.style === 'numbered') {
+            number++;
+            line.dataset.number = String(number);
+        } else {
+            number = 0;
+            if (line.dataset) {
+                delete line.dataset.number;
+            }
+        }
+    }
 }
 
 /// Brings the surface to lines C# decided on, touching only the lines that differ - a line left alone
@@ -482,7 +523,8 @@ function draw(container, lines) {
         }
 
         const tick = element.querySelector('.note-line-tick');
-        if (!!tick !== !!line.isChecklistItem || !element.querySelector('.note-line-text')) {
+        if (!!tick !== !!line.isChecklistItem || !element.querySelector('.note-line-text')
+            || element.dataset.style !== styleOf(line)) {
             element.replaceWith(createLineElement(line, hint));
             return;
         }
@@ -498,6 +540,8 @@ function draw(container, lines) {
     for (let index = lines.length; index < existing.length; index++) {
         existing[index].remove();
     }
+
+    numberTheLists(container);
 }
 
 function tickHintOf(container) {
@@ -506,12 +550,26 @@ function tickHintOf(container) {
 }
 
 function normalizeLines(lines) {
-    return lines && lines.length > 0 ? lines : [{ text: '', isChecklistItem: false, isChecked: false }];
+    return lines && lines.length > 0 ? lines : [{ text: '', isChecklistItem: false, isChecked: false, style: 'body' }];
 }
+
+/// The style a line is drawn in, as the word C# sends - see Orbit.Core.Notes.NoteLineStyle. Anything
+/// missing or unknown is Body, which is the same answer the two C# readers give and the reason a note
+/// written on a newer build still opens here.
+function styleOf(line) {
+    const style = (line && line.style ? String(line.style) : 'Body').toLowerCase();
+    return STYLES.includes(style) ? style : 'body';
+}
+
+const STYLES = ['body', 'title', 'heading', 'subheading', 'monospaced', 'bulleted', 'dashed', 'numbered'];
 
 function createLineElement(line, tickHint) {
     const div = document.createElement('div');
     div.className = 'note-line';
+
+    // The style as a data attribute rather than a class, so the CSS reads one thing and draw() can tell
+    // whether a line's style changed without picking the class list apart.
+    div.dataset.style = styleOf(line);
 
     if (line.isChecklistItem) {
         div.classList.add('note-line-checklist');
@@ -605,7 +663,8 @@ function extractLines(container) {
             text: lineText(line) || '',
             isChecklistItem: !!tick,
             isChecked: state === TICK_DONE,
-            isFailed: state === TICK_FAILED
+            isFailed: state === TICK_FAILED,
+            style: line.dataset && line.dataset.style ? line.dataset.style : 'body'
         };
     });
 }

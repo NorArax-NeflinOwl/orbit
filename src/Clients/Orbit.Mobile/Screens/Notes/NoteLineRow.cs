@@ -30,16 +30,34 @@ public sealed partial class NoteLineRow : ObservableObject
     [ObservableProperty]
     private bool _isFailed;
 
+    /// <summary>
+    /// What this line is - a heading, a line of a list, ordinary writing. See
+    /// Orbit.Core.Notes.NoteLineStyle, which is where the rules about it live; here it is carried so
+    /// that a note written on one client and edited on the other keeps its shape, and drawn by the
+    /// three properties below.
+    /// </summary>
+    [ObservableProperty]
+    private NoteLineStyle _style = NoteLineStyle.Body;
+
+    /// <summary>
+    /// What a numbered line shows, or 0 for a line that is not numbered. Worked out from the lines above
+    /// it - see NoteLineStyles.NumberOf, which the view model calls whenever the lines change, because a
+    /// line's number is a fact about what is above it and a line knows nothing about that on its own.
+    /// </summary>
+    [ObservableProperty]
+    private int _listNumber;
+
     public static NoteLineRow From(NoteContentLineDto line)
         => new()
         {
             Text = line.Text,
             IsChecklistItem = line.IsChecklistItem,
             IsChecked = line.IsChecked,
-            IsFailed = line.IsFailed
+            IsFailed = line.IsFailed,
+            Style = NoteLineStyles.Read(line.Style)
         };
 
-    public NoteContentLineDto ToDto() => new(Text, IsChecklistItem, IsChecked, IsFailed);
+    public NoteContentLineDto ToDto() => new(Text, IsChecklistItem, IsChecked, IsFailed, Style.ToString());
 
     /// <summary>The same line as the surface Orbit.Core decides edits on - see Orbit.Core.Notes.SurfaceState.</summary>
     public static NoteLineRow From(NoteContentLine line)
@@ -48,11 +66,12 @@ public sealed partial class NoteLineRow : ObservableObject
             Text = line.Text,
             IsChecklistItem = line.IsChecklistItem,
             IsChecked = line.IsChecked,
-            IsFailed = line.IsFailed
+            IsFailed = line.IsFailed,
+            Style = line.Style
         };
 
     /// <inheritdoc cref="From(NoteContentLine)"/>
-    public NoteContentLine ToLine() => new(Text, IsChecklistItem, IsChecked, IsFailed);
+    public NoteContentLine ToLine() => new(Text, IsChecklistItem, IsChecked, IsFailed, Style);
 
     /// <summary>
     /// Becomes <paramref name="line"/> in place - what an undo does to a line that is still there, so the
@@ -64,6 +83,7 @@ public sealed partial class NoteLineRow : ObservableObject
         IsChecklistItem = line.IsChecklistItem;
         IsChecked = line.IsChecked;
         IsFailed = line.IsFailed;
+        Style = line.Style;
     }
 
     /// <summary>
@@ -76,6 +96,45 @@ public sealed partial class NoteLineRow : ObservableObject
 
     /// <summary>What the box says, as the three answers there are - see TickState.</summary>
     public TickState Tick => Ticks.Read(IsChecked, IsFailed);
+
+    /// <summary>
+    /// How large the line is drawn. The sizes the note's own title field and the app's text already use,
+    /// so a heading on the phone is the same weight of thing as a heading in the browser rather than a
+    /// second opinion about what a heading looks like.
+    /// </summary>
+    public double DrawnFontSize => Style switch
+    {
+        NoteLineStyle.Title => 22,
+        NoteLineStyle.Heading => 18,
+        NoteLineStyle.Subheading => 16,
+        _ => 14
+    };
+
+    /// <summary>
+    /// Whether the line is drawn bold - a heading of any size is. A bool rather than MAUI's
+    /// FontAttributes because this project is plain net10.0 on purpose (see the note in its .csproj) and
+    /// knows nothing about controls; the page turns it into a font - see NoteDetailPage.xaml.
+    /// </summary>
+    public bool IsDrawnBold => Style.IsAHeading();
+
+    /// <summary>
+    /// The mark at the head of a line of a list - drawn beside the words rather than typed into them,
+    /// so it is never part of what is stored and never carried by a copy of the line. Empty for
+    /// everything that is not a list.
+    /// </summary>
+    public string ListMark => Style switch
+    {
+        NoteLineStyle.Bulleted => "\u2022",
+        NoteLineStyle.Dashed => "\u2013",
+        NoteLineStyle.Numbered => $"{ListNumber}.",
+        _ => string.Empty
+    };
+
+    /// <summary>
+    /// Whether that mark is shown. Not on a line that also has a box: the box is already the mark at the
+    /// head of the line, and two of them read as two lists - the same rule the browser's stylesheet has.
+    /// </summary>
+    public bool ShowsListMark => ListMark.Length > 0 && !IsChecklistItem;
 
     /// <summary>What the tick box shows: empty, ticked, or nothing at all for prose.</summary>
     public string CompletionMark => !IsChecklistItem ? string.Empty : IsChecked ? "☑" : "☐";
@@ -116,6 +175,10 @@ public sealed partial class NoteLineRow : ObservableObject
 
     partial void OnIsBeingWrittenInChanged(bool value) => SayHowItIsDrawn();
 
+    partial void OnStyleChanged(NoteLineStyle value) => SayHowItIsDrawn();
+
+    partial void OnListNumberChanged(int value) => SayHowItIsDrawn();
+
     /// <summary>
     /// Chosen to change together with the other chosen boxes - see NoteDetailViewModel.IsPickingLines.
     /// A fact about the screen, not the note: it is never saved, and an undo does not bring it back.
@@ -144,5 +207,9 @@ public sealed partial class NoteLineRow : ObservableObject
         OnPropertyChanged(nameof(IsStruckThrough));
         OnPropertyChanged(nameof(Tick));
         OnPropertyChanged(nameof(ShowsPickMark));
+        OnPropertyChanged(nameof(DrawnFontSize));
+        OnPropertyChanged(nameof(IsDrawnBold));
+        OnPropertyChanged(nameof(ListMark));
+        OnPropertyChanged(nameof(ShowsListMark));
     }
 }

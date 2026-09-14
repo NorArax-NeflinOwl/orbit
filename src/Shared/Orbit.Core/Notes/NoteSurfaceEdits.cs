@@ -21,6 +21,12 @@ public static partial class NoteSurfaceEdits
     /// checklist line carries on as a checklist - unticked - and an empty one leaves the list instead,
     /// so pressing Enter twice ends a list rather than piling up empty boxes.
     ///
+    /// <b>A style follows the same two rules</b> (see <see cref="NoteLineStyle"/>, added 2026-09-14):
+    /// a bulleted, dashed or numbered line carries on as one, and an empty one ends the list; a heading
+    /// is one line by definition, so Enter after one starts ordinary writing. Everything else - Body,
+    /// Monospaced - simply carries. That is Apple Notes' behaviour and the behaviour the tick box has
+    /// had since 2026-09-12, which is why it is one rule here rather than two.
+    ///
     /// With <paramref name="keepsIndentation"/> the new line starts where the line it came from starts
     /// (see <see cref="IndentationOf"/>) and the caret goes after that indentation, to the start of the
     /// line's words - so a list written with tabs stays a list when a line is added to the middle of it.
@@ -35,7 +41,8 @@ public static partial class NoteSurfaceEdits
         var lines = cleared.Lines.ToList();
         var line = lines[caret.Line];
 
-        if (line.IsChecklistItem && line.Text.Length == 0)
+        // An empty line of a list ends the list, in place - a box, a bullet, a dash or a number alike.
+        if (line.Text.Length == 0 && (line.IsChecklistItem || line.Style.IsAList()))
         {
             lines[caret.Line] = SurfaceState.EmptyLine;
             return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, 0));
@@ -47,13 +54,13 @@ public static partial class NoteSurfaceEdits
         // is nothing for indentation to be carried onto either.
         if (caret.Offset == 0 && line.Text.Length > 0)
         {
-            lines.Insert(caret.Line, Unticked(line with { Text = string.Empty }));
+            lines.Insert(caret.Line, Continuing(line) with { Text = string.Empty });
             return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line + 1, 0));
         }
 
         var indentation = keepsIndentation ? IndentationOf(line.Text) : string.Empty;
         lines[caret.Line] = line with { Text = line.Text[..caret.Offset] };
-        lines.Insert(caret.Line + 1, Unticked(line with { Text = indentation + line.Text[caret.Offset..] }));
+        lines.Insert(caret.Line + 1, Continuing(line) with { Text = indentation + line.Text[caret.Offset..] });
         return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line + 1, indentation.Length));
     }
 
@@ -301,7 +308,15 @@ public static partial class NoteSurfaceEdits
         }
 
         var lines = state.Lines.ToList();
-        lines[caret.Line] = new NoteContentLine(line.Text[marker.Length..], IsChecklistItem: true, IsChecked: false);
+        // The line's style is kept: a box is what the line is answered in, not what kind of line it is -
+        // see NoteLineStyle, which says why the two are separate fields.
+        lines[caret.Line] = line with
+        {
+            Text = line.Text[marker.Length..],
+            IsChecklistItem = true,
+            IsChecked = false,
+            IsFailed = false
+        };
         return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, Math.Max(0, caret.Offset - marker.Length)));
     }
 
@@ -319,7 +334,9 @@ public static partial class NoteSurfaceEdits
 
         if (!line.IsChecklistItem && line.Text.Length == 0)
         {
-            lines[caret.Line] = unticked;
+            // In place, so the line keeps what it is - an empty line of a list given a box is still a
+            // line of that list. The line started below is a new one and starts as ordinary writing.
+            lines[caret.Line] = unticked with { Style = line.Style };
             return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, 0));
         }
 
@@ -655,6 +672,41 @@ public static partial class NoteSurfaceEdits
     private static NoteContentLine Plain(string text) => new(text, IsChecklistItem: false, IsChecked: false);
 
     private static NoteContentLine Unticked(NoteContentLine line) => line with { IsChecked = false, IsFailed = false };
+
+    /// <summary>
+    /// The line Enter starts after <paramref name="line"/>: the same kind of line, unticked, except that
+    /// a heading is one line and is followed by ordinary writing. What carries is the shape, never the
+    /// answer - a new box is empty, and a new numbered line takes its number from where it lands (see
+    /// NoteLineStyles.NumberOf) rather than from the line it came from.
+    /// </summary>
+    private static NoteContentLine Continuing(NoteContentLine line)
+        => Unticked(line) with { Style = line.Style.IsAHeading() ? NoteLineStyle.Body : line.Style };
+
+    /// <summary>
+    /// Makes every line the caret or the selection touches this style, or takes it back to
+    /// <see cref="NoteLineStyle.Body"/> where they are all already it - the way a format control works
+    /// everywhere: pressing what a line already is turns it off.
+    ///
+    /// A tick box is not a style and is left exactly as it is (see <see cref="NoteLineStyle"/>): a
+    /// checklist line made into a heading is a heading with a box on it, which is what asking for both
+    /// means. Nothing about the words changes, so the caret stays where it is - this is the one edit on
+    /// this surface that moves no text at all.
+    /// </summary>
+    public static SurfaceState Restyle(SurfaceState state, NoteLineStyle style)
+    {
+        state = state.Normalized();
+        var (first, last) = state.SelectedLines;
+        var lines = state.Lines.ToList();
+        var alreadyAllOfIt = Enumerable.Range(first, last - first + 1).All(index => lines[index].Style == style);
+        var wanted = alreadyAllOfIt ? NoteLineStyle.Body : style;
+
+        for (var index = first; index <= last; index++)
+        {
+            lines[index] = lines[index] with { Style = wanted };
+        }
+
+        return new SurfaceState(lines, state.Anchor, state.Focus);
+    }
 
     /// <summary>What typing at the head of a line turns into a box - the rule the phone has always had.</summary>
     [GeneratedRegex(@"^\[[ \t]?\][ \t]?")]

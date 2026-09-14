@@ -85,6 +85,13 @@ classDiagram
         +Guid? FolderId
         +IReadOnlyList~string~ Tags
     }
+    class NoteContentLine {
+        +string Text
+        +bool IsChecklistItem
+        +bool IsChecked
+        +bool IsFailed
+        +NoteLineStyle Style
+    }
     class TaskList {
         +Guid Id
         +Guid UserId

@@ -78,7 +78,17 @@
                                                       LongPressCommand="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.PickThisLineCommand, x:DataType=notes:NoteDetailPage}"
                                                       CommandParameter="{Binding .}" />
 
+                                <!-- The mark at the head of a line of a list - a dot, a dash, or the
+                                     line's number. Drawn beside the words rather than typed into them,
+                                     so it is never part of what is stored and never carried by a copy
+                                     of the line. In the box's own column, and never shown at the same
+                                     time as a box: see NoteLineRow.ShowsListMark. -->
+                                <Label Grid.Column="0" Text="{Binding ListMark}" Margin="0,10,8,0"
+                                       VerticalOptions="Start" IsVisible="{Binding ShowsListMark}"
+                                       Style="{StaticResource SubtleLabel}" />
+
                                 <Entry Grid.Column="1" Text="{Binding Text}" VerticalOptions="Center"
+                                       FontSize="{Binding DrawnFontSize}"
                                        IsVisible="{Binding IsOpenForWriting}"
                                        controls:BareField.IsBare="True" ReturnType="Next"
                                        IsReadOnly="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.IsReadOnly, x:DataType=notes:NoteDetailPage}"
@@ -88,7 +98,16 @@
                                        controls:NoteLineKeys.IndentsTheLine="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=IndentTheLineCommand, x:DataType=notes:NoteDetailPage}"
                                        controls:NoteLineKeys.OutdentsTheLine="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=OutdentTheLineCommand, x:DataType=notes:NoteDetailPage}"
                                        Completed="OnLineCompleted" Focused="OnLineFocused"
-                                       Unfocused="OnLineUnfocused" Loaded="OnLineLoaded" />
+                                       Unfocused="OnLineUnfocused" Loaded="OnLineLoaded">
+                                    <!-- A heading is bold. A trigger rather than a bound
+                                         FontAttributes, because Orbit.Mobile is plain net10.0 and knows
+                                         nothing about MAUI's own types - see NoteLineRow.IsDrawnBold. -->
+                                    <Entry.Triggers>
+                                        <DataTrigger TargetType="Entry" Binding="{Binding IsDrawnBold}" Value="True">
+                                            <Setter Property="FontAttributes" Value="Bold" />
+                                        </DataTrigger>
+                                    </Entry.Triggers>
+                                </Entry>
 
                                 <!-- A ticked line is struck through, from its box rightwards - which on
                                      a line whose box is at its head is the whole line. A Label rather
@@ -101,6 +120,7 @@
                                      rid of it was to untick it first. -->
                                 <Label Grid.Column="1" Text="{Binding Text}" VerticalOptions="Center"
                                        IsVisible="{Binding IsStruckThrough}" Margin="0,10"
+                                       FontSize="{Binding DrawnFontSize}"
                                        TextDecorations="Strikethrough" LineBreakMode="WordWrap"
                                        Style="{StaticResource SubtleLabel}">
                                     <Label.GestureRecognizers>

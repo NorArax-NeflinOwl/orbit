@@ -1513,6 +1513,40 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   pull requests, but a direct push to `main` deploys before any workflow can run. Real branch
   protection needs GitHub Pro on a private repository.
 
+## What a note's formatting still leaves undone
+
+Paragraph styles landed on 2026-09-14 - `NoteLineStyle`, the "Aa" tool, and the eight Apple Notes offers
+(see `info/functionality.md`, "What a line is"). What that round deliberately did not do:
+
+- **Bold, italic and underline inside a line.** A style belongs to a *line* here; those belong to a
+  stretch of words inside one, and the surface has nowhere to put them: `NoteContentLine` is text plus
+  flags, the phone draws each line as one `Entry`, and MAUI renders no inline styling in a field at all
+  (a `Label` takes `FormattedString`, but a field somebody types in does not). So this wants the line's
+  text to become **a list of spans** - a contract change, a stored-shape change on both clients, and a
+  rewrite of every offset in `NoteSurfaceEdits`, which counts characters in a string today. Real work,
+  and a round of its own. The browser alone could do it sooner, at the cost of the two clients no longer
+  holding the same note.
+- **A control to set a style on the phone.** The phone *carries and draws* styles as of the same day
+  (`NoteLineRow.DrawnFontSize`/`IsDrawnBold`/`ListMark`), so a note written in the browser reads right
+  there and is never flattened by an edit - but there is no format button. What it wants is the bar over
+  the note's foot (where undo, redo and the indent buttons already are) to open the same eight, working
+  `NoteSurfaceEdits.Restyle` on the surface the screen already builds - the shape `Indent`/`Outdent`
+  followed on 2026-09-14.
+- **Tables.** The fourth tool in the row still says "not implemented yet", and it is the one that does
+  not fit the line at all: a table is a grid, the surface is a column of lines, and every rule in
+  `NoteSurfaceEdits` is about lines. The honest shapes are a table as *a kind of line* carrying its own
+  cells (which the pictures section above already needs, for the same reason) or a table as a block of
+  its own in the content list. Worth deciding once, with pictures, rather than twice.
+- **A description still cannot carry a style.** `TitledDescription` runs the same surface with
+  `TakesStyles` off, because a list's or a storage's description is stored as one plain string and a
+  style set there would be dropped by the save - the same reason `[]` stays words there. This is a third
+  item for the question the section above asks about descriptions: text features are free, and boxes,
+  styles and pictures all wait on the same decision about the stored shape.
+- **A shared link draws a note's lines plainly.** `PublicSharedItemLineDto` carries text and a tick and
+  nothing else, so a note opened through a share link shows headings and lists as ordinary writing. Small
+  and self-contained: the contract gains the style word, the server's mapper carries it, and
+  `SharedItemPage` draws it the way `NoteSummary` now does.
+
 ## Redrawing the rest of the phone
 
 **Superseded 2026-09-08.** The section below was about pulling the Android head to `app.css`; the

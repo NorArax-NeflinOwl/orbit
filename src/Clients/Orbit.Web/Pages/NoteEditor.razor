@@ -9,6 +9,7 @@
 @using Orbit.Contracts.Notes
 @using Orbit.Core.Abstractions
 @using Orbit.Core.Folders
+@using Orbit.Core.Notes
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient
 @inject FolderState Folders
@@ -89,17 +90,31 @@ else
             <div class="note-editor-surface">
                 <ChecklistTextEditor @ref="_checklistEditorRef" CssClass="note-editor-content note-editor-titled note-editor-page"
                                      IsReadOnly="@(_isSharedReadOnly || _lockedByUserName is not null)"
-                                     TakesTab="true"
+                                     TakesTab="true" TakesStyles="true"
                                      SelectedTicksChanged="count => _selectedTicks = count"
                                      @bind-Lines="_formModel.Lines" />
 
                 @* Over the corner of the writing rather than above it: a toolbar at the top of a note
-                   is a strip of the page given to controls before a word has been written. Only the
-                   tick box does anything today - the other three are drawn because the row they belong
-                   to is the row this design has, and each says so when it is pressed rather than being
-                   greyed out with nothing to explain it. *@
+                   is a strip of the page given to controls before a word has been written. The styles
+                   and the tick box work; the table and the attachment are drawn because the row they
+                   belong to is the row this design has, and each says so when it is pressed rather than
+                   being greyed out with nothing to explain it. *@
                 @if (!_isSharedReadOnly && _lockedByUserName is null)
                 {
+                    @if (_isChoosingStyle)
+                    {
+                        @* Each entry drawn in the style it sets, which is how a reader tells a heading
+                           from a subheading without reading the words. Pressing the one a line already
+                           is takes it back to Body - see NoteSurfaceEdits.Restyle. *@
+                        <div class="note-style-menu" role="menu">
+                            @foreach (var style in StylesOffered)
+                            {
+                                <button type="button" role="menuitem"
+                                        class="note-style-menu-item note-style-@style.ToString().ToLowerInvariant()"
+                                        @onclick="() => SetStyleAsync(style)">@DescribeStyle(style)</button>
+                            }
+                        </div>
+                    }
                     <div class="note-editor-tools">
                         @* The same bubble says what a press on one of several selected boxes will do,
                            while they are selected - see SelectionHint. *@
@@ -107,8 +122,14 @@ else
                         {
                             <span class="note-tool-bubble" role="status">@explained</span>
                         }
-                        <button type="button" class="note-tool note-tool-letters" title="@TextStyleLabel"
-                                aria-label="@TextStyleLabel" @onclick="() => NotImplementedYet(TextStyleLabel)">Aa</button>
+                        @* What a line is - a heading, a list, monospaced. Apple Notes' own Format menu,
+                           which is what this follows; the styles themselves are NoteLineStyle. Opened
+                           from the row rather than laid out in it: eight choices in a bar over the
+                           writing is a bar that is most of the writing. *@
+                        <button type="button" class="note-tool note-tool-letters @(_isChoosingStyle ? "note-tool-on" : null)"
+                                title="@TextStyleLabel" aria-label="@TextStyleLabel"
+                                aria-expanded="@_isChoosingStyle.ToString().ToLowerInvariant()"
+                                @onclick="() => _isChoosingStyle = !_isChoosingStyle">Aa</button>
                         @* The one that works: it types "[]", which the surface turns into a tick box -
                            the same way somebody who never finds this row gets one. *@
                         <button type="button" class="note-tool" title="@T["Checklist item"]"
@@ -378,6 +399,45 @@ else
 
     private void NotImplementedYet(string tool)
         => _toolBeingExplained = T.Format("{0}: not implemented yet.", tool);
+
+    /// <summary>Whether the list of styles is open under the "Aa" button.</summary>
+    private bool _isChoosingStyle;
+
+    /// <summary>
+    /// The styles offered, in the order Apple Notes lists them - biggest first, then the plain ones,
+    /// then the lists. Body is in it on purpose: it is how somebody takes a heading off without having
+    /// to know that pressing Heading again does the same thing.
+    /// </summary>
+    private static readonly IReadOnlyList<NoteLineStyle> StylesOffered =
+    [
+        NoteLineStyle.Title, NoteLineStyle.Heading, NoteLineStyle.Subheading, NoteLineStyle.Body,
+        NoteLineStyle.Monospaced, NoteLineStyle.Bulleted, NoteLineStyle.Dashed, NoteLineStyle.Numbered
+    ];
+
+    private string DescribeStyle(NoteLineStyle style) => style switch
+    {
+        NoteLineStyle.Title => T["Title"],
+        NoteLineStyle.Heading => T["Heading"],
+        NoteLineStyle.Subheading => T["Subheading"],
+        NoteLineStyle.Monospaced => T["Monospaced"],
+        NoteLineStyle.Bulleted => T["Bulleted list"],
+        NoteLineStyle.Dashed => T["Dashed list"],
+        NoteLineStyle.Numbered => T["Numbered list"],
+        _ => T["Body"]
+    };
+
+    /// <summary>
+    /// Sets the style and closes the list. Closed because a style is chosen once and then written in -
+    /// unlike the tick box, whose button is a switch that stays on while a checklist is being typed.
+    /// </summary>
+    private async Task SetStyleAsync(NoteLineStyle style)
+    {
+        _isChoosingStyle = false;
+        if (_checklistEditorRef is not null)
+        {
+            await _checklistEditorRef.SetStyleAsync(style);
+        }
+    }
 
     @* Read once each rather than written into the attributes: a string in quotes inside an attribute's
        own quotes is what Razor cannot parse - see the same trap in the task editor. *@

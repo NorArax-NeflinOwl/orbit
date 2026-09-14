@@ -3,6 +3,7 @@
 @using System.Net
 @using Orbit.Contracts.Notes
 @using Orbit.Core.Abstractions
+@using Orbit.Core.Notes
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient
 @inject NavigationManager NavigationManager
@@ -48,8 +49,14 @@ else
         {
             <p class="checklist-empty">@T["Nothing written here yet."]</p>
         }
-        @foreach (var line in _lines)
+        @* By position rather than over the lines themselves, because a numbered line's number is its
+           place in the run above it - see NoteLineStyles.NumberOf, which the writing surface draws
+           from as well so a list is numbered the same whether it is being read or written. *@
+        @for (var index = 0; index < _lines.Count; index++)
         {
+            var line = _lines[index];
+            var number = NoteLineStyles.NumberOf(_lines.Count, index, at => _lines[at].StyleOf());
+
             @* A checklist line is ticked here; an ordinary one is read. Both keep the order they were
                written in, because a note is prose as often as it is a list and the two are mixed. *@
             @if (line.IsChecklistItem)
@@ -65,7 +72,11 @@ else
             }
             else if (line.Text.Length > 0)
             {
-                <p class="note-summary-line"><TextWithLinks Text="@line.Text" /></p>
+                @* .note-line as well, which is where every style is drawn - a heading read back is the
+                   same heading it was written as, and the mark on a list is drawn by the same rule. *@
+                <p class="note-line note-summary-line" data-style="@DrawnStyle(line)" data-number="@(number > 0 ? number.ToString() : null)">
+                    <TextWithLinks Text="@line.Text" />
+                </p>
             }
             else
             {
@@ -195,16 +206,22 @@ else
     }
 
     /// <summary>
-    /// Ticks a line, or unticks it. Nothing is written until Save: a note is read by scrolling, and a
-    /// page that saved on every press would be writing while somebody is only passing through.
-    /// </summary>
-    /// <summary>
     /// How a line is marked: struck through when it is finished with, either way, and told apart so a
     /// line somebody gave up on does not read as one that was done - see .check-row.failed.
     /// </summary>
     private static string? LineMark(NoteContentLineDto line)
         => line.IsChecked ? "completed" : line.IsFailed ? "completed failed" : null;
 
+    /// <summary>
+    /// The style as the stylesheet names it - see .note-line[data-style] in app.css, and
+    /// checklistTextEditor.js, which writes the same word onto the same lines while they are written.
+    /// </summary>
+    private static string DrawnStyle(NoteContentLineDto line) => line.StyleOf().ToString().ToLowerInvariant();
+
+    /// <summary>
+    /// Ticks a line, or unticks it. Nothing is written until Save: a note is read by scrolling, and a
+    /// page that saved on every press would be writing while somebody is only passing through.
+    /// </summary>
     private void Tick(NoteContentLineDto line, TickState state)
     {
         var at = _lines.IndexOf(line);

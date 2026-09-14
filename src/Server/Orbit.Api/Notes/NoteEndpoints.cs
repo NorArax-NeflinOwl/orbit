@@ -189,10 +189,18 @@ public static class NoteEndpoints
 
     private static IReadOnlyList<NoteContentLine> ToDomainContent(IReadOnlyList<NoteContentLineDto> content)
         => content.Select(line => new NoteContentLine(
-            line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed && !line.IsChecked)).ToList();
+            line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed && !line.IsChecked,
+            StyleOf(line.Style))).ToList();
 
     private static NoteContentLineDto ToDto(NoteContentLine line)
-        => new(line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed);
+        => new(line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed, line.Style.ToString());
+
+    /// <summary>
+    /// A style read off a request. A word this build does not know reads as Body rather than being
+    /// refused: a line drawn plainly is still the reader's line, where refusing the save loses what they
+    /// wrote. See NoteLineStyles.Read, which is that rule and which every client reads styles by.
+    /// </summary>
+    private static NoteLineStyle StyleOf(string? style) => NoteLineStyles.Read(style);
 
 
     /// <summary>Both halves travel together or not at all, so a request carrying only one is treated as carrying neither.</summary>

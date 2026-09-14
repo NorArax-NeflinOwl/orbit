@@ -1129,6 +1129,16 @@ public static class PolishTranslations
         // The row of tools over the corner of a note - see NoteEditor. Three of the four are drawn for
         // the design that has them rather than for anything they do yet, and say so when pressed.
         ["Text style"] = "Styl tekstu",
+        // What a line of a note is - Apple Notes' own Format menu, which this follows. See
+        // Orbit.Core.Notes.NoteLineStyle. "Title" is not here: the dictionary has had one since the
+        // pages did, and it is the same word for the same thing.
+        ["Heading"] = "Nagłówek",
+        ["Subheading"] = "Podnagłówek",
+        ["Body"] = "Tekst",
+        ["Monospaced"] = "Stała szerokość",
+        ["Bulleted list"] = "Lista punktowana",
+        ["Dashed list"] = "Lista z myślnikami",
+        ["Numbered list"] = "Lista numerowana",
         ["Table"] = "Tabela",
         ["Attachment"] = "Załącznik",
         ["{0}: not implemented yet."] = "{0}: jeszcze niezaimplementowane.",

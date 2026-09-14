@@ -45,6 +45,14 @@
     public bool TakesTab { get; set; }
 
     /// <summary>
+    /// Whether a line can be made a heading, a list or monospaced - see NoteLineStyle. On for a note,
+    /// which is a page to write on; off for the surfaces that are one name and one description
+    /// (TitledDescription), which store the words alone and would drop a style on save.
+    /// </summary>
+    [Parameter]
+    public bool TakesStyles { get; set; }
+
+    /// <summary>
     /// Whether "[]" typed at the head of a line, and a pasted line starting "[]", "[x]" or "- ", become a
     /// tick box. True by default: the note is a checklist too. False for a surface whose writing is stored
     /// as text alone (see TitledDescription) - a box there has nowhere to be kept, so "[] milk" lost its
@@ -190,6 +198,10 @@
             "outdent" when TakesTab => (NoteSurfaceEdits.Outdent(before), SurfaceEditKind.Reshaping),
             "tick" => (NoteSurfaceEdits.Cycle(before, request.Line ?? -1), SurfaceEditKind.Ticking),
             "checklistItem" => (NoteSurfaceEdits.StartChecklistItem(before), SurfaceEditKind.Reshaping),
+            // A style for the caret's line, or for every line a selection touches - see
+            // NoteSurfaceEdits.Restyle, which also takes it back off when they are all already it.
+            "style" when TakesStyles && StyleAsked(request.Text) is { } style
+                => (NoteSurfaceEdits.Restyle(before, style), SurfaceEditKind.Reshaping),
             _ => (null, SurfaceEditKind.Reshaping)
         };
 
@@ -286,6 +298,29 @@
         var lines = JsonSerializer.Deserialize<List<NoteContentLineDto>>(linesJson, JsonOptions) ?? [];
         Lines = lines;
         await LinesChanged.InvokeAsync(lines);
+    }
+
+    /// <summary>
+    /// The style a "style" command asked for, or null for a word this build does not know - which does
+    /// nothing rather than turning the line into Body, since a command nobody understands should not
+    /// take a heading away.
+    /// </summary>
+    private static NoteLineStyle? StyleAsked(string? asked)
+        => Enum.TryParse<NoteLineStyle>(asked, ignoreCase: true, out var style) ? style : null;
+
+    /// <summary>
+    /// Makes the caret's line - or every line the selection touches - this style, for the format control
+    /// over the note's foot. Pulls the answer back into Blazor the way InsertChecklistItemAsync does, and
+    /// for the same reason.
+    /// </summary>
+    public async Task SetStyleAsync(NoteLineStyle style)
+    {
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("setStyle", _containerRef, style.ToString());
+            var linesJson = await _module.InvokeAsync<string>("getLinesAsJson", _containerRef);
+            await OnLinesChangedFromJs(linesJson);
+        }
     }
 
     /// <summary>Ends the current line (if not empty) and starts a new checklist line - called by NoteEditor.razor's toolbar button.</summary>

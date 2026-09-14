@@ -108,7 +108,8 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
     private static ArchivedNote ToArchived(Note note)
         => new(
             note.Title,
-            note.Content.Select(line => new ArchivedNoteLine(line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed)).ToList(),
+            note.Content.Select(line => new ArchivedNoteLine(
+                line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed, line.Style.ToString())).ToList(),
             note.IsPrivate,
             ToArchived(note.EncryptedContent),
             note.Tags);
