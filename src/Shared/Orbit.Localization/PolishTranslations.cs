@@ -198,6 +198,11 @@ public static class PolishTranslations
         ["The name is yours to write - the pin keeps its exact position either way."] = "Nazwę piszesz sam - pinezka i tak trzyma swoje dokładne położenie.",
         ["Point at this place on the map so the calendar knows where it is - a name on its own stays as words."] = "Wskaż to miejsce na mapie, żeby kalendarz wiedział, gdzie jest - sama nazwa zostaje słowami.",
         ["Stands for these lists"] = "Odpowiada za listy",
+        // Which of them have to be done. Any one of them unless this is ticked - see
+        // TaskItem.NeedsEveryLinkedList. Offered only where the entry stands for two or more.
+        ["Needs all of them"] = "Wymaga wszystkich",
+        ["Off, this entry is done as soon as any one of the lists it stands for is. On, every one of them has to be done."] =
+            "Wyłączone: pozycja jest zrobiona, gdy zrobiona jest dowolna z list, za które odpowiada. Włączone: muszą być zrobione wszystkie.",
         ["Add another…"] = "Dodaj kolejną…",
         // An entry done any one of several ways - see TaskItem.Alternatives.
         ["Ways to get it done"] = "Sposoby wykonania",

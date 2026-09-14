@@ -84,6 +84,22 @@ public sealed class TaskItem
     public bool IsALinkToOtherLists => LinkedTaskListIds.Count > 0;
 
     /// <summary>
+    /// Whether every one of <see cref="LinkedTaskListIds"/> has to be done before this entry is, or any
+    /// one of them is enough. <b>Any one of them, unless this says otherwise</b> - the user's rule,
+    /// settled 2026-09-14.
+    ///
+    /// "Buy a cake" stands for "bake one" and "go to the baker": either finishes the errand, and that is
+    /// what somebody writing one entry for two ways of getting a thing means most of the time. Needing
+    /// all of them is the rarer reading - a checklist made of whole lists, done when the last of them is -
+    /// so it is the one that is asked for rather than the one you get.
+    ///
+    /// It was "all of them" and nothing else until this existed. An entry stored before that is left
+    /// meaning what it meant: the migration marks every entry that already points at a list, so this
+    /// changes what nothing already saved says - see EntryStandsForAnyOfItsLists.
+    /// </summary>
+    public bool NeedsEveryLinkedList { get; private set; }
+
+    /// <summary>
     /// The entries <b>on this same list</b> that have to be done before this one can be - "hang the
     /// door" after "fit the hinges". Empty for an ordinary entry, which is nearly all of them.
     ///
@@ -244,9 +260,11 @@ public sealed class TaskItem
         ItemPriority priority = ItemPriority.Normal, string? colour = null,
         IReadOnlyList<TaskItemAlternative>? alternatives = null,
         DateTimeOffset? createdAtUtc = null, Guid? referencesTaskItemId = null, decimal? requiredQuantity = null,
-        DateTimeOffset? completedAtUtc = null)
+        DateTimeOffset? completedAtUtc = null, bool needsEveryLinkedList = false)
     {
         Id = id;
+        // Any one of them unless asked otherwise - see the property.
+        NeedsEveryLinkedList = needsEveryLinkedList;
         Description = description;
         Notes = notes ?? string.Empty;
         Priority = priority;
@@ -417,6 +435,14 @@ public sealed class TaskItem
     }
 
     /// <summary>
+    /// Keeps whether every list this entry stands for has to be done, for a caller that said nothing
+    /// about it - the eighth field to follow this rule (see
+    /// UpdateTaskListCommand.EntriesKeepingTheirListRule). Without it a save from a client that has never
+    /// heard of the rule would turn an entry somebody set to "all of them" back to the default.
+    /// </summary>
+    public void KeepListRuleOf(TaskItem stored) => NeedsEveryLinkedList = stored.NeedsEveryLinkedList;
+
+    /// <summary>
     /// Keeps what this entry is the same thing as, and how much of it it needs, for a caller that said
     /// nothing about either - the seventh field to follow this rule (see
     /// UpdateTaskListCommand.EntriesKeepingTheirReference). A minimum the product it describes still
@@ -535,7 +561,7 @@ public sealed class TaskItem
         ItemPriority priority = ItemPriority.Normal, string? colour = null,
         IReadOnlyList<TaskItemAlternative>? alternatives = null,
         Guid? referencesTaskItemId = null, decimal? requiredQuantity = null,
-        DateTimeOffset? completedAtUtc = null)
+        DateTimeOffset? completedAtUtc = null, bool needsEveryLinkedList = false)
     {
         // Here rather than in the constructor, which FromPersistence also uses: a row already stored
         // fits by definition, and rejecting one on the way back out would make an old entry unreadable
@@ -572,7 +598,7 @@ public sealed class TaskItem
             Guid.NewGuid(), description, dueDateUtc, standsOnItsOwn && isCompleted, linkedTaskListIds,
             reminders, subject, categories, product, notes, standsOnItsOwn && isFailed, waitsForTaskItemIds,
             priority, colour, ways, DateTimeOffset.UtcNow, referencesTaskItemId, requiredQuantity,
-            completedAtUtc);
+            completedAtUtc, needsEveryLinkedList);
     }
 
     /// <summary>
@@ -584,7 +610,8 @@ public sealed class TaskItem
         => new(
             Guid.NewGuid(), Description, DueDateUtc, IsCompleted, LinkedTaskListIds,
             Reminders, Subject, Categories, Product, Notes, IsFailed, WaitsForTaskItemIds, Priority, Colour,
-            Alternatives, CreatedAtUtc, ReferencesTaskItemId, RequiredQuantity, CompletedAtUtc);
+            Alternatives, CreatedAtUtc, ReferencesTaskItemId, RequiredQuantity, CompletedAtUtc,
+            NeedsEveryLinkedList);
 
     /// <summary>
     /// This entry with its completion worked out from the lists it points at: every one of them for an
@@ -592,14 +619,21 @@ public sealed class TaskItem
     /// it carries comes along. The resolver used to rebuild a linked entry from its id, words, date and
     /// reminders alone, so a read handed back a linked entry without its notes, kind, colour or priority.
     /// </summary>
+    /// <summary>
+    /// Whether the lists this entry stands for say it is done - any one of them, or every one, as
+    /// <see cref="NeedsEveryLinkedList"/> has it.
+    /// </summary>
+    private bool IsDoneByItsLists(Func<Guid, bool> isListDone)
+        => NeedsEveryLinkedList ? LinkedTaskListIds.All(isListDone) : LinkedTaskListIds.Any(isListDone);
+
     internal TaskItem ResolvedAgainst(Func<Guid, bool> isListDone)
         => new(
             Id, Description, DueDateUtc,
-            IsALinkToOtherLists ? LinkedTaskListIds.All(isListDone) : IsCompleted,
+            IsALinkToOtherLists ? IsDoneByItsLists(isListDone) : IsCompleted,
             LinkedTaskListIds, Reminders, Subject, Categories, Product, Notes, IsFailed, WaitsForTaskItemIds,
             Priority, Colour,
             [.. Alternatives.Select(way => way.IsAList ? way with { IsDone = isListDone(way.LinkedTaskListId!.Value) } : way)],
-            CreatedAtUtc, ReferencesTaskItemId, RequiredQuantity, CompletedAtUtc);
+            CreatedAtUtc, ReferencesTaskItemId, RequiredQuantity, CompletedAtUtc, NeedsEveryLinkedList);
 
     /// <summary>
     /// Rebuilds a checklist entry from already-known values, bypassing the completion override above -
@@ -614,11 +648,11 @@ public sealed class TaskItem
         ItemPriority priority = ItemPriority.Normal, string? colour = null,
         IReadOnlyList<TaskItemAlternative>? alternatives = null,
         DateTimeOffset? createdAtUtc = null, Guid? referencesTaskItemId = null, decimal? requiredQuantity = null,
-        DateTimeOffset? completedAtUtc = null)
+        DateTimeOffset? completedAtUtc = null, bool needsEveryLinkedList = false)
         => new(
             id, description, dueDateUtc, isCompleted, linkedTaskListIds, reminders, subject, categories, product,
             notes, isFailed, waitsForTaskItemIds, priority, colour, alternatives,
-            createdAtUtc, referencesTaskItemId, requiredQuantity, completedAtUtc);
+            createdAtUtc, referencesTaskItemId, requiredQuantity, completedAtUtc, needsEveryLinkedList);
 
     /// <summary>
     /// Takes the tick back off an entry that may not carry one yet, because something it waits for is

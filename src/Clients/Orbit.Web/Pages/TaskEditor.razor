@@ -475,6 +475,17 @@ else
                                     </select>
                                 </label>
                             }
+                            @* Which of the lists have to be done. Any one of them unless this is ticked -
+                               the user's rule, settled 2026-09-14: one entry for two ways of getting a
+                               thing is what somebody usually means by writing it once. Only where there
+                               are two to choose between: with one list the question has one answer. *@
+                            @if (item.LinkedTaskListIds.Count > 1)
+                            {
+                                <span class="field-break"></span>
+                                <label>
+                                    <input type="checkbox" checked="@item.NeedsEveryLinkedList"
+                                           @onchange="args => item.NeedsEveryLinkedList = args.Value is true" />@T["Needs all of them"]<FieldHint>@T["Off, this entry is done as soon as any one of the lists it stands for is. On, every one of them has to be done."]</FieldHint></label>
+                            }
                             @if (item.IsALinkToOtherLists)
                             {
                                 <span class="field-break"></span>
@@ -1510,6 +1521,7 @@ else
                                 Event = new EventFormModel(TimeProvider) { Color = TaskItemFormModel.AppointmentColor },
                                 Id = item.Id,
                                 WasStored = true,
+                                NeedsEveryLinkedList = item.NeedsEveryLinkedList,
                                 Description = item.Description,
                                 DueDate = item.DueDateUtc is { } dueDateUtc ? DateOnly.FromDateTime(dueDateUtc.LocalDateTime) : null,
                                 DueTime = item.DueDateUtc is { } dueTimeUtc ? TimeOnly.FromDateTime(dueTimeUtc.LocalDateTime) : null,
@@ -2554,7 +2566,10 @@ else
                 AlternativesAsSaved(item),
                 item.ReferencesTaskItemId,
                 RequiredQuantityAsSaved(item),
-                ToCompletedAtUtc(item)))
+                ToCompletedAtUtc(item),
+                // Said outright rather than left null, for the reason Priority above gives: null means
+                // "leave what is stored", which is the answer for a client with no control for it.
+                item.NeedsEveryLinkedList))
             .ToList();
 
     /// <summary>
@@ -3098,6 +3113,13 @@ else
 
         /// <inheritdoc cref="CompletedDate"/>
         public TimeOnly? CompletedTime { get; set; }
+
+        /// <summary>
+        /// Whether every list this entry stands for has to be done before it is - see
+        /// TaskItem.NeedsEveryLinkedList. False, which is "any one of them", for a new entry and for one
+        /// read back from a server that has not learned the rule.
+        /// </summary>
+        public bool NeedsEveryLinkedList { get; set; }
 
         /// <summary>How much this entry matters, which is its own answer rather than the list's - see TaskItem.Priority.</summary>
         public string Priority { get; set; } = nameof(ItemPriority.Normal);

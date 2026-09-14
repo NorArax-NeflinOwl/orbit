@@ -240,7 +240,8 @@ public sealed class TaskRepository : ITaskRepository
             entity.CreatedAtUtc,
             entity.ReferencesTaskItemId,
             entity.RequiredQuantity,
-            entity.CompletedAtUtc);
+            entity.CompletedAtUtc,
+            entity.NeedsEveryLinkedList);
 
     /// <summary>
     /// What the entry asks for, when it asks for anything - see TaskItemEntity.ProductType for why the
@@ -336,6 +337,7 @@ public sealed class TaskRepository : ITaskRepository
             Priority = item.Priority.ToString(),
             Colour = item.Colour,
             CompletedAtUtc = item.CompletedAtUtc,
+            NeedsEveryLinkedList = item.NeedsEveryLinkedList,
             LinkedCalendarEventId = item.LinkedCalendarEventId,
             LinkedInventoryItemId = item.LinkedInventoryItemId,
             // All of them or none of them - see TaskItemEntity.ProductType. An entry that describes

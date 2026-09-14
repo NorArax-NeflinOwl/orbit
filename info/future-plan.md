@@ -1212,16 +1212,22 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   sixteen went in that day; these are the ones where building the obvious thing would be guessing at
   which thing was meant, and each is written here with the question rather than with a plan.
 
-  - **An entry that stands for several lists, with "any one of them" instead of "all of them".** Asked
-    for as: the field should take more than one list and always mean *or*. Today
-    `TaskItem.LinkedTaskListIds` means *and* - the entry is done when every list it stands for is - and
-    *or* already exists beside it as the ways an entry can be done (`TaskItem.Alternatives`, "done as
-    soon as any one of these is", which takes a list as one of its ways). So there are two readings and
-    they are not close: either the existing *and* becomes *or*, which silently changes what every entry
-    already stored means and leaves nothing able to say "all of them"; or the field learns a switch
-    between the two, which is a contract change on both clients and a third thing to explain beside the
-    ways. **Worth asking first whether the ways are simply the answer** - if what is wanted is already
-    built under another name, the fix is the wording of the two fields rather than the rule behind one.
+  - ~~**An entry that stands for several lists, with "any one of them" instead of "all of them".**~~
+    Settled by the user on 2026-09-14 - one field, "any one of them" by default, a switch for "all of
+    them" - and done the same day. `TaskItem.NeedsEveryLinkedList`, the tick box **Needs all of them**
+    drawn only where an entry names two or more lists, and the eighth field to follow the
+    keep-what-is-stored rule (`EntriesKeepingTheirListRule`) so a save from a phone that has never heard
+    of it does not reset it.
+
+    **The half of it worth remembering is what happened to what was already saved.** The default is the
+    opposite of what every stored entry meant, so the migration (`EntryStandsForAnyOfItsLists`) marks
+    every entry that already points at a list: each of them goes on meaning "all of them", and only
+    entries written afterwards get the new default. Changing the rule *and* rewriting what is stored
+    would have been one change too many - somebody would have found things ticked that they had not
+    ticked.
+
+    Half of what was asked for turned out to be built already: the field has taken more than one list,
+    with chips and a "Add another…", since before this was raised. What was missing was only the rule.
 
   - ~~**Two notifications for one entry.**~~ Settled by the user on 2026-09-14 and done the same day:
     the overdue notice replaces the daily reminder, because a late entry has a notification of its own

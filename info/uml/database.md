@@ -213,6 +213,7 @@ erDiagram
         timestamptz OP_TI_CREATEDATUTC "kept by id across saves; decides a reference group's heir"
         uuid OP_TI_REFERENCESTASKITEMID "the group's source entry, on any list; no FK"
         numeric OP_TI_REQUIREDQUANTITY "the entry's own minimum - the one detail a group does not share"
+        bool OP_TI_NEEDSEVERYLINKEDLIST "false: any one of OL_TASKS_ITEMS is enough; true: all of them"
     }
     OP_TASKS_ALTERNATIVES {
         uuid OP_TA_TASKITEMID PK

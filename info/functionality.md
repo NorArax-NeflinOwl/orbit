@@ -645,13 +645,29 @@ way is either a line of its own, ticked by hand ("Buy a ready one"), or another 
 which is done when that list is. The entry is **done as soon as any one way is**. So a one-errand
 alternative needs no list made for it, which is what "Stands for these lists" would have needed.
 
-- **The opposite of Stands for these lists.** That field is "every one of these", and this is "any one
-  of these". An entry has one or the other, so each form hides whichever the entry is not using. If both
-  arrive, the links win and the ways are dropped, in `TaskItem`'s constructor.
+- **Beside Stands for these lists, which says the same thing about whole lists.** Since 2026-09-14 that
+  field reads "any one of these" too, unless the entry is asked for all of them - see below. The two
+  differ in what a choice can be: a *way* can be a line ticked by hand, so a one-errand alternative needs
+  no list made for it. An entry has one or the other, so each form hides whichever the entry is not
+  using. If both arrive, the links win and the ways are dropped, in `TaskItem`'s constructor.
 - **Its tick belongs to its ways.** A tick sent for the entry itself is ignored while it has ways. A way
   that is a list is never taken on a client's word: `LinkedTaskCompletionResolver` works it out on every
   read, and it is stored as not done. `TaskListLinkValidator` checks a way's list the way it checks a link:
   it must exist, must not be the entry's own list, and must not close a loop.
+**Stands for these lists is "any one of them", unless it is asked for all of them**
+(`TaskItem.NeedsEveryLinkedList`, the tick box **Needs all of them**, drawn only where the entry names
+two or more). "Buy a cake" stands for baking one and going to the baker and either finishes it, which is
+what writing one entry for two ways usually means; "the flat is ready" stands for the kitchen and the
+bathroom and needs both. It was "all of them" and nothing else until 2026-09-14, when the user settled
+which way round the default goes.
+
+**Nothing stored changed meaning when the default did.** The migration that added the column
+(`EntryStandsForAnyOfItsLists`) marks every entry that already points at a list, so each of them keeps
+saying "all of them"; only entries written afterwards get the new default. And a client that has never
+heard of the rule keeps it rather than resetting it - the eighth field to follow that rule
+(`UpdateTaskListCommand.EntriesKeepingTheirListRule`, `TaskItem.KeepListRuleOf`), which is what stops a
+save from the phone turning an entry somebody set to "all of them" back to the default.
+
 - **Rebuilds keep everything.** Resolving an entry now keeps every field it carries. The resolver used
   to rebuild a linked entry from its id, words, date and reminders alone, so a read handed it back
   without its notes, kind, colour or priority.
