@@ -13,15 +13,17 @@ go-ahead, every time.
 
 ## The limits that are supposed to be in place
 
-Two numbers, set up in `info/azure-setup.md` under "Cost limits": **50 zł a month warns, 90 zł a month
+Two numbers, set up in `info/azure-setup.md` under "Cost limits": **10 € a month warns, 20 € a month
 is the ceiling.** Read that section before changing anything that bills, and know these three things
 about it:
 
-- The `orbit-monthly-budget` budget only sends email. Azure has no spending cap on pay-as-you-go, so
-  nothing stops on its own at 90 zł.
+- The `orbit-monthly-budget` budget only notifies. Azure has no spending cap on pay-as-you-go, so
+  nothing stops on its own at 20 €. The mails it triggers are written by the runbook in
+  `orbit-automation` (`scripts/send-cost-instruction-mail.ps1`), whose identity is Reader only - it
+  mails commands and runs none.
 - What actually stops the spending is `scripts/stop-azure-compute.sh`, run by a person. It stops the
   PostgreSQL server and empties both Container Apps, and `--resume` puts them back.
-- Cost data lags by up to a day, so "we are at 60 zł" always means "we were".
+- Cost data lags by up to a day, so "we are at 12 €" always means "we were".
 
 Where does this month stand, before proposing anything that adds to it:
 

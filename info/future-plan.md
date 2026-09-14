@@ -540,19 +540,19 @@ since been closed; what is left is recorded below with the same honesty about wh
   approval gate is then about *deliberateness* (did a human mean to ship this now) rather than being
   the only thing standing between a bug and production.
 
-- **Letting the 90 zł ceiling enforce itself.** The spending limit is written down and half-built: a
-  subscription budget warns at 50 zł and at 90 zł, and `scripts/stop-azure-compute.sh` stops the
-  PostgreSQL server and empties both Container Apps - but a *person* has to read the email and run it,
-  because an Azure budget on a pay-as-you-go subscription notifies and nothing more (see
-  [Azure setup — Cost limits](azure-setup.md#cost-limits)). Closing that gap means an Azure Automation
-  account with a runbook the action group can call, or a Logic App on its webhook; either is a new
-  resource, which is the user's call under [rule 6](../.claude/CLAUDE.md), and the Automation account's
-  free grant of 500 job-minutes a month would cover a run that takes seconds. **Not done deliberately,
-  for two reasons worth weighing before it is:** an automatic block takes the deployment down
-  unattended, possibly over a rating batch nobody has looked at, and Azure restarts a stopped Flexible
-  Server by itself after seven days - so even the automatic version is not a block that holds, just one
-  that fires faster. The forecast notification, which warns when the *month* is projected to reach 90 zł
-  rather than when it has, is what makes the manual path workable in the meantime.
+- **Letting the 20 € ceiling enforce itself.** The spending limit is written down and all but one
+  step built: a subscription budget fires at 10 € and at 20 €, the runbook in `orbit-automation`
+  (`scripts/send-cost-instruction-mail.ps1`) mails what to run at each, and on the last day of the
+  month mails the resume commands if anything is still stopped - but a *person* runs them, because
+  the runbook's identity is Reader only and an Azure budget on a pay-as-you-go subscription notifies
+  and nothing more (see [Azure setup — Cost limits](azure-setup.md#cost-limits)). Closing the last gap
+  is small now: Contributor on the resource group for that identity, and a runbook that runs the five
+  stop commands at 20 € instead of mailing them. **Not done deliberately, for two reasons worth
+  weighing before it is:** an automatic block takes the deployment down unattended, possibly over a
+  rating batch nobody has looked at, and Azure restarts a stopped Flexible Server by itself after
+  seven days - so even the automatic version is not a block that holds, just one that fires faster.
+  The forecast notification, which warns when the *month* is projected to reach 20 € rather than when
+  it has, is what makes the manual path workable in the meantime.
 
 - **nginx in `orbit-web` runs as root.** The image is `nginx:alpine`, whose master process starts as
   root so it can bind port 80 - `orbit-api` already drops to `$APP_UID` in its own Dockerfile, so this
@@ -564,7 +564,7 @@ since been closed; what is left is recorded below with the same honesty about wh
 - **Whether to buy Defender for open-source relational databases.** Of the paid Defender plans, this is
   the only one worth weighing here: the PostgreSQL server holds every user's data, it is the one
   resource with a public endpoint and a password, and at roughly $15 a month it is the cheapest of
-  them - but that is still most of a 50 zł warning threshold, spent on monitoring rather than on
+  them - but that is still more than the 10 € warning threshold, spent on monitoring rather than on
   running anything. The rest of the plans, and what each would close, are costed in
   [Azure security](azure-security.md#what-the-remaining-points-cost). A decision to take deliberately
   against the [cost limits](azure-setup.md#cost-limits), not a default.

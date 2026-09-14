@@ -19,8 +19,9 @@ flowchart TB
         blob["<b>orbitdownloads</b> / apps<br/>orbit-android.apk"]
         insights["<b>appinsights-orbit</b><br/>+ Log Analytics"]
         identity["<b>identity-orbit</b><br/>managed identity, OIDC"]
-        budget["<b>orbit-monthly-budget</b><br/><i>subscription scope, not this group</i><br/>50 zł warns, 90 zł is the ceiling"]
+        budget["<b>orbit-monthly-budget</b><br/><i>subscription scope, not this group</i><br/>10 € warns, 20 € is the ceiling"]
         alerts["<b>orbit-cost-alerts</b><br/>action group"]
+        automation["<b>orbit-automation</b><br/>runbook send-cost-instruction-mail<br/><i>Reader only - mails commands, runs none</i>"]
     end
 
     subgraph outside["Outside"]
@@ -52,8 +53,11 @@ flowchart TB
     gh -.->|federated credential| identity
     acr -.->|pulled by| env
 
-    budget -->|"threshold crossed"| alerts
-    alerts -->|email| owner
+    budget -->|"10 €, 20 € crossed"| alerts
+    alerts -->|webhook| automation
+    automation -.->|"reads state, daily and on alert"| pg
+    automation -->|"the commands, by mail"| smtp
+    smtp -.-> owner
     owner -.->|"stops and starts again"| pg
     owner -.->|"stops and starts again"| env
 ```
@@ -94,12 +98,15 @@ rule; off, they are back to one. See [azure-setup.md, Scaling](../azure-setup.md
 is not idle. Whoever raises replicas should expect that bill to change shape.
 
 **The spending limit runs through a person, and the dotted arrows say so.** `orbit-monthly-budget`
-watches the subscription and emails through `orbit-cost-alerts` at 50 zł, at 90 zł, and when the month
-is forecast to reach 90 - but a budget on a pay-as-you-go subscription is a notification and nothing
-more. Azure's spending *cap* exists only on credit-based offers, so what actually stops the meter is
-someone running `scripts/stop-azure-compute.sh`, which stops the database's compute and empties both
-apps. That is why those two arrows are dotted and start outside Azure: nothing in the picture enforces
-the ceiling by itself. See [azure-setup.md, Cost limits](../azure-setup.md#cost-limits).
+watches the subscription and fires `orbit-cost-alerts` at 10 € and at 20 €; the action group calls the
+runbook in `orbit-automation`, which mails what to *do* - where to look at 10 €, the five stop commands
+at 20 €, and on the last day of the month, if anything is still stopped, the commands that start it
+again - over the same SMTP account `orbit-api` sends reminders with. A budget on a pay-as-you-go
+subscription is a notification and nothing more, and the runbook's identity holds Reader and nothing
+more, so what actually stops the meter is someone running those commands
+(`scripts/stop-azure-compute.sh` is their short form). That is why the last two arrows are dotted and
+start outside Azure: nothing in the picture enforces the ceiling by itself. See
+[azure-setup.md, Cost limits](../azure-setup.md#cost-limits).
 
 ## The pipeline, and why it is shaped that way
 

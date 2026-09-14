@@ -6,9 +6,9 @@ which of it costs more than the deployment it protects.
 The secure score on 2026-09-14 was **42% (about 5 of 12 points), with 4 resources in bad health.** This
 page is the plan for that number - and the first thing it has to say is that the number is not the goal.
 
-## "Fully secured" and the 90 zł ceiling pull against each other
+## "Fully secured" and the 20 € ceiling pull against each other
 
-The [cost limits](azure-setup.md#cost-limits) put a warning at 50 zł a month and a ceiling at 90 zł.
+The [cost limits](azure-setup.md#cost-limits) put a warning at 10 € a month and a ceiling at 20 €.
 Most of the missing seven points are not settings - they are **paid Defender plans and premium SKUs**,
 and turning on the ones that would clear the score costs more per month than everything Orbit currently
 runs on. The arithmetic is in [What the remaining points cost](#what-the-remaining-points-cost) below,
@@ -181,22 +181,22 @@ not money, it is one more moving part between a container start and a working ap
 ## What the remaining points cost
 
 Approximate list prices, to check in the portal's pricing calculator rather than to trust from here -
-and all of them recurring, every month, against a 90 zł ceiling:
+and all of them recurring, every month, against a 20 € ceiling:
 
-| What it would close | Roughly per month | Against the 90 zł ceiling |
+| What it would close | Roughly per month | Against the 20 € ceiling |
 | --- | --- | --- |
-| Defender CSPM (the "enable Defender" controls) | ~$5 per billable resource - six or so resources here | ~110 zł, on its own |
-| Defender for open-source relational databases (the PostgreSQL server) | ~$15 per server | ~60 zł |
-| Defender for Storage | ~$10 per account | ~40 zł per account |
-| Defender for Containers (image scanning) | ~$7 per vCore | ~30 zł and up |
-| A private endpoint for PostgreSQL | ~$7 each, plus a VNet-integrated Container Apps environment (workload profiles are not the free consumption plan) | tens of zł, plus rebuilding the environment |
-| Private link to the registry | ACR Premium, ~$50 | ~200 zł, replacing a ~20 zł Basic |
-| A WAF in front of `orbit-web` | Front Door Premium or Application Gateway WAF v2 | ~1000 zł and up |
-| Azure DDoS Network Protection | ~$2,944 | ~12,000 zł - listed only to be dismissed |
+| Defender CSPM (the "enable Defender" controls) | ~$5 per billable resource - six or so resources here | ~28 €, on its own - already over the ceiling |
+| Defender for open-source relational databases (the PostgreSQL server) | ~$15 per server | ~14 € - most of the ceiling |
+| Defender for Storage | ~$10 per account | ~9 € per account |
+| Defender for Containers (image scanning) | ~$7 per vCore | ~7 € and up |
+| A private endpoint for PostgreSQL | ~$7 each, plus a VNet-integrated Container Apps environment (workload profiles are not the free consumption plan) | a few euro, plus rebuilding the environment |
+| Private link to the registry | ACR Premium, ~$50 | ~46 €, replacing a ~5 € Basic |
+| A WAF in front of `orbit-web` | Front Door Premium or Application Gateway WAF v2 | ~250 € and up |
+| Azure DDoS Network Protection | ~$2,944 | ~2,700 € - listed only to be dismissed |
 
 Enabling just the Defender plans - the ones that raise the score fastest, because "Defender for X should
-be enabled" is itself a control - lands somewhere around **200-250 zł a month**, on a deployment whose
-whole ceiling is 90 zł. That is the honest reason this page stops where it does.
+be enabled" is itself a control - lands somewhere around **45-60 € a month**, on a deployment whose
+whole ceiling is 20 €. That is the honest reason this page stops where it does.
 
 If any single one of them is worth buying here, it is **Defender for open-source relational databases**:
 the database holds every user's data, it is the one resource with a public endpoint and a password, and

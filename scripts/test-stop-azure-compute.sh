@@ -33,7 +33,7 @@ case "$1 $2 $3" in
     "containerapp replica list") echo "1"; exit 0 ;;
     "rest --method get")
         [ -f "$state/no-budget" ] && exit 1
-        printf '90\t61.40\tPLN\n'; exit 0 ;;
+        printf '20\t12.40\tEUR\n'; exit 0 ;;
 esac
 exit 0
 FAKE
@@ -105,7 +105,7 @@ echo "--status only reads"
 new_state
 output=$(run_subject --status)
 check "no mutating call reached az" "0" "$(call_count)"
-check_contains "reports the spend against the budget" "61.40 of 90 PLN spent this month" "$output"
+check_contains "reports the spend against the budget" "12.40 of 20 EUR spent this month" "$output"
 check_contains "reports the database state" "orbit-postgres-djgiwo: Ready" "$output"
 
 echo "--status without a budget says so instead of pretending"
