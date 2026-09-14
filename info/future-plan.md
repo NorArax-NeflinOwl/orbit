@@ -554,6 +554,21 @@ since been closed; what is left is recorded below with the same honesty about wh
   that fires faster. The forecast notification, which warns when the *month* is projected to reach 90 zł
   rather than when it has, is what makes the manual path workable in the meantime.
 
+- **nginx in `orbit-web` runs as root.** The image is `nginx:alpine`, whose master process starts as
+  root so it can bind port 80 - `orbit-api` already drops to `$APP_UID` in its own Dockerfile, so this
+  is the only container in the deployment that does not. The fix is `nginxinc/nginx-unprivileged`,
+  which listens on 8080 instead, so it also means changing the target port on `orbit-web`'s ingress and
+  in `nginx.azure.conf`, and re-verifying the `/api/` proxy path end to end. A real change with a real
+  test rather than a setting, which is why it is written down instead of done - see
+  [Azure security](azure-security.md#deliberately-accepted-and-why).
+- **Whether to buy Defender for open-source relational databases.** Of the paid Defender plans, this is
+  the only one worth weighing here: the PostgreSQL server holds every user's data, it is the one
+  resource with a public endpoint and a password, and at roughly $15 a month it is the cheapest of
+  them - but that is still most of a 50 zł warning threshold, spent on monitoring rather than on
+  running anything. The rest of the plans, and what each would close, are costed in
+  [Azure security](azure-security.md#what-the-remaining-points-cost). A decision to take deliberately
+  against the [cost limits](azure-setup.md#cost-limits), not a default.
+
 ## What the footer could grow into
 
 **Re-read against the code on 2026-09-07, and most of this section had already happened.** What it

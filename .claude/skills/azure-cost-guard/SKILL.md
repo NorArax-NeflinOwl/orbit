@@ -76,6 +76,11 @@ not carry over — permission is per command.
 - Delete anything to "start clean". Re-creation costs time and money.
 - Enable higher-priced SKUs or features (ACR Premium, dedicated workload
   profiles, zone redundancy) — they add recurring cost.
+- Turn on a **Microsoft Defender for Cloud plan** to raise the secure score. Each is a
+  recurring per-resource charge, and the ones that would clear the score come to more per
+  month than everything Orbit runs on — priced out in `info/azure-security.md`. The free
+  hardening on that page is where to go instead; buying a plan is the user's decision,
+  taken against the ceiling.
 
 ## Cheap alternatives to try first
 

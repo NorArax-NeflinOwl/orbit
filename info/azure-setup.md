@@ -8,6 +8,10 @@ Resource group `Orbit`, region Poland Central throughout.
 it never sets configuration. Everything on this page has to be set up once, outside the pipeline, by
 hand or by running the commands below - and reconfirmed if a resource is ever recreated.
 
+Two neighbouring pages: [Cost limits](#cost-limits) below is what keeps the bill bounded, and
+[azure-security.md](azure-security.md) is what Defender for Cloud wants changed, what of it is worth
+buying at this budget, and what is deliberately left as it is.
+
 ## Resource inventory
 
 | Resource | Type | Purpose |
@@ -205,8 +209,12 @@ az containerapp secret set -n orbit-api -g Orbit \
 az containerapp update -n orbit-api -g Orbit --set-env-vars \
   "Jwt__SigningKey=secretref:jwt-signing-key"
 
+# Ssl Mode=VerifyFull, and no "Trust Server Certificate": under Npgsql 10 that trust setting is what
+# switches certificate verification off, leaving a connection that is encrypted without proving who
+# answered. See info/azure-security.md - the deployment this was written on may still carry the old
+# value, which cannot be read back out of the secret.
 az containerapp secret set -n orbit-api -g Orbit \
-  --secrets orbit-db-connection-string="Host=$PG_SERVER_NAME.postgres.database.azure.com;Port=5432;Database=orbit;Username=orbitadmin;Password=$PG_PASSWORD;Ssl Mode=Require;Trust Server Certificate=true"
+  --secrets orbit-db-connection-string="Host=$PG_SERVER_NAME.postgres.database.azure.com;Port=5432;Database=orbit;Username=orbitadmin;Password=$PG_PASSWORD;Ssl Mode=VerifyFull"
 az containerapp update -n orbit-api -g Orbit --set-env-vars \
   "ConnectionStrings__Orbit=secretref:orbit-db-connection-string"
 
