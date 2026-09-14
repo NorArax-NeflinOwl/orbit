@@ -372,6 +372,50 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     }
 
     /// <summary>
+    /// One level more at the head of a line. The two buttons over the note's foot, beside undo and redo,
+    /// and a hardware keyboard's Tab - see NoteLineKeys. A soft keyboard has no Tab key at all, so
+    /// without these a note written on the phone could show indentation the browser wrote and carry it
+    /// on to the next line (see <see cref="NoteSurfaceEdits.Enter"/>'s keepsIndentation), but never add
+    /// or take away a level of its own.
+    ///
+    /// The edit is the browser's - Orbit.Core's <see cref="NoteSurfaceEdits.Indent"/> - so a level means
+    /// the same thing wherever a note is written. It is taken at the <b>head</b> of the line rather than
+    /// at the caret, which is the one place this parts from the browser and is deliberate: Tab there
+    /// puts a tab where the caret is, because that is what a Tab key does in a writing surface, while
+    /// the way in here is a button, and a button called Indent means "move this line in a level" rather
+    /// than "type a tab wherever I happen to be". Pressing it also takes the focus off the field, so the
+    /// column the caret was in is not something this could be sure of; and Outdent works off the head
+    /// whatever the caret does, so taking Indent from there is what makes the pair a pair.
+    /// </summary>
+    [RelayCommand]
+    private void Indent(NoteLineRow? row) => Reindent(row, NoteSurfaceEdits.Indent);
+
+    /// <summary>
+    /// One level less, the mirror of <see cref="Indent"/> - the second button, and Shift+Tab. A line with
+    /// no indentation to take away is left alone, and the press is not a step to undo: the history drops
+    /// an edit that changed no writing (see NoteSurfaceHistory.Record).
+    /// </summary>
+    [RelayCommand]
+    private void Outdent(NoteLineRow? row) => Reindent(row, NoteSurfaceEdits.Outdent);
+
+    /// <summary>
+    /// Works <paramref name="edit"/> on the surface with the caret at the head of <paramref name="row"/>,
+    /// which is what makes both of the two an edit to the line rather than to wherever the caret is.
+    /// </summary>
+    private void Reindent(NoteLineRow? row, Func<SurfaceState, SurfaceState> edit)
+    {
+        if (row is null || IsReadOnly || Lines.IndexOf(row) is var index && index < 0)
+        {
+            return;
+        }
+
+        // Line 0 of the surface is the note's name, so a row's own line is one further down - the same
+        // offset MergeIntoTheLineAbove works from.
+        var before = Surface(new SurfacePoint(index + 1, 0));
+        Apply(before, edit(before), SurfaceEditKind.Reshaping);
+    }
+
+    /// <summary>
     /// Whether the next line started will be a tickable one. The button in the bottom-left corner of
     /// the editor turns this on and puts a box on the line being written in; pressing it again takes
     /// that box off again and turns it back off - which is what the design asks of one control.

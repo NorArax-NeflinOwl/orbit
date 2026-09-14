@@ -84,6 +84,8 @@
                                        controls:NoteLineKeys.JoinsTheLineAbove="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=JoinTheLineAboveCommand, x:DataType=notes:NoteDetailPage}"
                                        controls:NoteLineKeys.GoesToTheLineAbove="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=GoToTheLineAboveCommand, x:DataType=notes:NoteDetailPage}"
                                        controls:NoteLineKeys.GoesToTheLineBelow="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=GoToTheLineBelowCommand, x:DataType=notes:NoteDetailPage}"
+                                       controls:NoteLineKeys.IndentsTheLine="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=IndentTheLineCommand, x:DataType=notes:NoteDetailPage}"
+                                       controls:NoteLineKeys.OutdentsTheLine="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=OutdentTheLineCommand, x:DataType=notes:NoteDetailPage}"
                                        Completed="OnLineCompleted" Focused="OnLineFocused"
                                        Unfocused="OnLineUnfocused" Loaded="OnLineLoaded" />
 
@@ -182,6 +184,19 @@
             <controls:IconButton Data="M13,4 L17,8 L13,12 M17,8 H8 A4.5,4.5 0 0 0 8,17 H12" TouchSize="44"
                                  Command="{Binding RedoCommand}" IsEnabledForPress="{Binding CanRedo}"
                                  Description="{controls:Translate 'Redo'}" />
+            <!-- One level more at the head of the line being written in, and one level less. A soft
+                 keyboard has no Tab key, so on a phone these are the only way to indent at all - the
+                 browser's Tab and Shift+Tab have had it since 2026-09-11. Drawn as lines with an arrow
+                 pointing the way the writing moves, which is how every editor draws the pair. Their
+                 command is set in the code-behind, not bound here, because it is the line the caret is
+                 in that they act on and only the page knows which that is - see PutABoxOnThisLine,
+                 the tick-box button beside them, which is told the same thing the same way. -->
+            <controls:IconButton x:Name="IndentButton" TouchSize="44"
+                                 Data="M4,5 H16 M8,10 H16 M8,15 H16 M2,8 L5,10.5 L2,13"
+                                 Description="{controls:Translate 'Indent'}" />
+            <controls:IconButton x:Name="OutdentButton" TouchSize="44"
+                                 Data="M4,5 H16 M8,10 H16 M8,15 H16 M5,8 L2,10.5 L5,13"
+                                 Description="{controls:Translate 'Outdent'}" />
         </HorizontalStackLayout>
 
         <controls:NavigationBar Grid.Row="0" />

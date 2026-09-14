@@ -48,12 +48,16 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		JoinTheLineAboveCommand = new Command<Entry>(JoinTheLineAbove);
 		GoToTheLineAboveCommand = new Command<Entry>(field => WalkToAnotherLine(field, upwards: true));
 		GoToTheLineBelowCommand = new Command<Entry>(field => WalkToAnotherLine(field, upwards: false));
+		IndentTheLineCommand = new Command<Entry>(field => Reindent(field, more: true));
+		OutdentTheLineCommand = new Command<Entry>(field => Reindent(field, more: false));
 		OpenForWritingCommand = new Command<NoteLineRow>(OpenForWriting);
 
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 		_translations = translations;
 		ChecklistButton.Command = new Command(PutABoxOnThisLine);
+		IndentButton.Command = new Command(() => ReindentThisLine(more: true));
+		OutdentButton.Command = new Command(() => ReindentThisLine(more: false));
 		_viewModel.CaretPlaced += OnCaretPlaced;
 	}
 
@@ -125,6 +129,20 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 
 	/// <inheritdoc cref="GoToTheLineAboveCommand"/>
 	public ICommand GoToTheLineBelowCommand { get; }
+
+	/// <summary>
+	/// What Tab means on a line, and Shift+Tab beside it: one level of indentation more at the head of
+	/// the line, or one less. Bound from the template and told which field the press came from, for the
+	/// same reasons as the commands above.
+	///
+	/// Only a hardware keyboard has the key - a soft keyboard does not draw one - so the buttons over
+	/// the note's foot are the way in, and this is the extra for somebody typing on a keyboard. Both
+	/// ends reach the same edit on the view model.
+	/// </summary>
+	public ICommand IndentTheLineCommand { get; }
+
+	/// <inheritdoc cref="IndentTheLineCommand"/>
+	public ICommand OutdentTheLineCommand { get; }
 
 	/// <summary>
 	/// What pressing a ticked line does: opens the field in the struck-through Label's place and puts
@@ -406,6 +424,34 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	/// </summary>
 	private void PutABoxOnThisLine()
 		=> _viewModel.ToggleChecklistCommand.Execute(_beingWrittenIn ?? _viewModel.Lines.LastOrDefault());
+
+	/// <summary>
+	/// Indents the line the caret is in, for the two buttons over the note's foot. The line the caret is
+	/// in is what the tick-box button beside them acts on too, and for the same reason: these are tools
+	/// for the writing rather than for a line somebody points at.
+	///
+	/// Pressing a button takes the focus off the field, so _beingWrittenIn - which is only ever set when
+	/// a line is focused - still names the line that was being written in, as it does for the tick box.
+	/// A note nobody has written in yet falls back to its last line, exactly as the tick box does.
+	/// </summary>
+	private void ReindentThisLine(bool more)
+	{
+		var line = _beingWrittenIn ?? _viewModel.Lines.LastOrDefault();
+		var command = more ? _viewModel.IndentCommand : _viewModel.OutdentCommand;
+		command.Execute(line);
+	}
+
+	/// <inheritdoc cref="IndentTheLineCommand"/>
+	private void Reindent(Entry? field, bool more)
+	{
+		if (!_viewModel.CanEdit || field?.BindingContext is not NoteLineRow row)
+		{
+			return;
+		}
+
+		var command = more ? _viewModel.IndentCommand : _viewModel.OutdentCommand;
+		command.Execute(row);
+	}
 
 	/// <summary>
 	/// What the note can be asked, under its own name in the bar: what it is worth, whether it is

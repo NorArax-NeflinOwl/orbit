@@ -1029,8 +1029,8 @@ disagree in.
 `NoteDetailPage` (view) over `NoteDetailViewModel` (decisions, in `Orbit.Mobile`) is a column of one-line
 fields, one per line, because a line can carry a real tick box and no text box can hold a control. The
 name is the first field. Enter starts the next line keeping the indentation, backspace at the head of a
-line joins it to the line above, and a hardware keyboard's arrows walk between lines (`NoteLineKeys`, read
-on Android by `NoteLineKeyPresses`). Nothing is written until Save; leaving asks first when something would
+line joins it to the line above, a hardware keyboard's arrows walk between lines, and its Tab indents the
+line rather than moving the focus on (`NoteLineKeys`, read on Android by `NoteLineKeyPresses`). Nothing is written until Save; leaving asks first when something would
 be lost. Where it follows the browser's editor, it uses the same rules from `Orbit.Core/Notes` - the note
 is handed to them as a `SurfaceState` whose line 0 is the name:
 
@@ -1045,6 +1045,14 @@ is handed to them as a `SurfaceState` whose line 0 is the name:
   goes (`CaretPlaced`, a `NoteCaret`) - unless all it put back was a tick, which never moved the caret.
   Saving keeps the history; reading the note back after changing its priority or privacy keeps it too
   when nothing on the screen changed; opening a note starts a new one.
+- **Indent and outdent are two more buttons in that row** (`NoteDetailViewModel.Indent`/`Outdent`), and
+  a hardware keyboard's Tab and Shift+Tab reach the same two. A soft keyboard has no Tab key at all, so
+  without them a note written on the phone could show the indentation the browser wrote, and carry it on
+  to the next line, but never add or take away a level. The edits are the browser's
+  (`NoteSurfaceEdits.Indent`/`Outdent`) so a level means the same thing on both, but they are taken at
+  the **head of the line** rather than at the caret: the way in here is a button, and a button called
+  Indent moves the line rather than typing a tab wherever the caret is. A line with no indentation to
+  take away is left alone and is not a step to undo.
 - **A paste is read with the browser's rules** (`NoteSurfaceEdits.Replace` with `readsMarkers`,
   `ReadPastedLine`). A one-line field keeps a paste's line breaks in its text, so several lines pasted
   into a line become that many lines at the caret, with the caret at the end of what was pasted - into

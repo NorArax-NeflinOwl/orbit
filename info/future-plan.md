@@ -711,13 +711,32 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   opt out of the layout's settle for its own address (the chat pages settle on their own terms), and
   checking the other callers of `NewsSettler` still clear what they should.
 
-- **The phone's note screen has no way to indent.** The browser's Tab and Shift+Tab (2026-09-11) have no
+- ~~**The phone's note screen has no way to indent.**~~ Done 2026-09-14, both halves exactly as this
+  said: `NoteDetailViewModel.Indent`/`Outdent` work `NoteSurfaceEdits.Indent`/`Outdent` on the surface
+  the screen already builds, two `IconButton`s sit beside undo and redo over the note's foot (their
+  command set in the code-behind, like the tick box's, because it is the line the caret is in they act
+  on and only the page knows which that is), and `Keycode.Tab` joins the arrows in `NoteLineKeyPresses`
+  - with Shift+Tab outdenting - behind two new `NoteLineKeys` properties, so every other `Entry` in the
+  app keeps Tab as the key that moves the focus on.
+
+  **One deliberate difference from the browser, and it is about the way in rather than the edit.** Both
+  are taken at the *head* of the line rather than at the caret. The browser's Tab puts a tab where the
+  caret is, which is what a Tab key does in a writing surface; here the way in is a button, and a button
+  called Indent means "move this line in a level" rather than "type a tab wherever I happen to be". A
+  press also takes the focus off the field, so the column the caret was in is not something the page
+  could be sure of - and `Outdent` already worked off the head whatever the caret did, so taking
+  `Indent` from there is what makes the pair a pair. The phone's hardware Tab follows the buttons rather
+  than the browser, so there is one rule on the phone rather than two.
+
+  Covered by `NoteDetailScreenTests.Indent` - the level put on and taken off, a level written as spaces,
+  a line with nothing to take away left alone and not recorded as a step, a level as one step of the
+  history, a box kept, and a note shared in to read indenting nothing. **Not yet looked at on a device**,
+  which for the Tab half is the part worth looking at: nothing here has run on a hardware keyboard.
+
+  As noticed: The browser's Tab and Shift+Tab (2026-09-11) have no
   phone counterpart: a soft keyboard has no Tab key, and a hardware keyboard's Tab moves the focus on.
   Indentation typed as spaces, or written by the browser as tabs, is shown and carried on by Enter, but
-  cannot be added or taken away as a level. What it would take: an indent and an outdent button beside
-  undo/redo over the note's foot, using `NoteSurfaceEdits.Indent`/`Outdent` on the surface
-  `NoteDetailViewModel` already builds - and, for a hardware keyboard, `Keycode.Tab` in
-  `NoteLineKeyPresses` beside the arrows.
+  cannot be added or taken away as a level.
 
 - ~~**Enter and Backspace on an empty box follow different rules on the two clients.**~~ Fixed 2026-09-12:
   the browser's, because the web is the model, and by moving the phone's two edits onto

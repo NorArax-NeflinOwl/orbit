@@ -1105,6 +1105,11 @@ public static class PolishTranslations
         // The phone's note screen has no Ctrl+Z, so undo and redo are two buttons beside its tick box.
         ["Undo"] = "Cofnij",
         ["Redo"] = "Ponów",
+        // And no Tab key on a soft keyboard, so the two levels of indentation are two more buttons in
+        // the same row. Said as what the press does rather than as the noun, which is what a screen
+        // reader is being told - see NoteDetailViewModel.Indent.
+        ["Indent"] = "Zwiększ wcięcie",
+        ["Outdent"] = "Zmniejsz wcięcie",
         // Several boxes chosen on the phone's note screen, where there is no Shift+click: an entry in the
         // note's menu, a mark beside each box, and a line over the note saying what a press will do.
         ["Select boxes"] = "Zaznacz pola",

@@ -8,8 +8,9 @@ namespace Orbit.Maui.Platform;
 
 /// <summary>
 /// Makes the keys that mean something to a whole note mean it on the note editor's one-line fields:
-/// backspace at the head of a line joins it to the line above, and the arrows walk the caret from one
-/// line to the next instead of stopping at the ends of the one it is in.
+/// backspace at the head of a line joins it to the line above, the arrows walk the caret from one line
+/// to the next instead of stopping at the ends of the one it is in, and Tab indents the line rather than
+/// moving the focus off the writing.
 ///
 /// MAUI has no key events of its own, so this is the one place the presses can be seen: Android's own
 /// EditText raises them, and the field says what each one means by carrying a command - see
@@ -48,7 +49,9 @@ internal static class NoteLineKeyPresses
 		// Only the fields that asked. Every other Entry in the app keeps Android's own keys.
 		if (NoteLineKeys.GetJoinsTheLineAbove(element) is null
 			&& NoteLineKeys.GetGoesToTheLineAbove(element) is null
-			&& NoteLineKeys.GetGoesToTheLineBelow(element) is null)
+			&& NoteLineKeys.GetGoesToTheLineBelow(element) is null
+			&& NoteLineKeys.GetIndentsTheLine(element) is null
+			&& NoteLineKeys.GetOutdentsTheLine(element) is null)
 		{
 			return;
 		}
@@ -71,6 +74,12 @@ internal static class NoteLineKeyPresses
 					=> NoteLineKeys.GetJoinsTheLineAbove(element),
 				Keycode.DpadUp => NoteLineKeys.GetGoesToTheLineAbove(element),
 				Keycode.DpadDown => NoteLineKeys.GetGoesToTheLineBelow(element),
+				// Tab is a level of indentation here rather than the next control. Answered - and so
+				// taken from Android - only because the field asked for it: everything else on every
+				// other screen still moves the focus on, which is what Tab means outside a piece of
+				// writing.
+				Keycode.Tab when args.Event?.IsShiftPressed == true => NoteLineKeys.GetOutdentsTheLine(element),
+				Keycode.Tab => NoteLineKeys.GetIndentsTheLine(element),
 				_ => null
 			};
 
