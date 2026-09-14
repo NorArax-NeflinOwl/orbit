@@ -1243,12 +1243,8 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
     turned on. Asked as "is a notice about to go out" rather than "was one sent today" so it does not
     matter which service polls first - which is what the reported pair came down to, a minute apart.
 
-  - **Pictures pasted into a note.** The one item on the list that is a feature rather than a change:
-    a note is lines of text on both clients, in a column, sealed for a private one - so this needs
-    somewhere to put the bytes (nothing in Orbit stores a file today), a rule for a private note's
-    pictures (sealed in the browser like its words, or not offered at all), a size limit against a
-    0.5 GiB container, the phone's half, and a migration. Worth scoping as its own round rather than
-    slipping into one.
+  - **Pictures pasted into a note.** Confirmed 2026-09-14 as its own round rather than a list item, and
+    written out below under "Pictures in a note, and the note control everywhere a description is".
 
   - **Stops along a route.** ~~Both ends chosen from the list of pins~~ went in on 2026-09-14: every row
     in the map's panel - a place, a plan, either list - carries the same one press its pin's popup does,
@@ -1265,6 +1261,88 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
     one press. It starts in the folder the group is in, the rule everything else follows about making
     something while standing somewhere; a sealed list is not offered it, since its entries are sealed by
     the editor and would be written in the clear from there.
+
+## Pictures in a note, and the note control everywhere a description is
+
+Two asks from 2026-09-14 that belong together, because the second one decides how hard the first is.
+
+### The note control wherever a description is written
+
+**Asked for:** a description - on a task entry, on a task list, on an event - should be the note control,
+with everything the note control does.
+
+**Where it already is.** A task list's and a storage's *title and description* are one note surface
+(`Orbit.Web/Components/TitledDescription.razor`, which is `ChecklistTextEditor` with the checklist half
+switched off: nothing offers the box button, and `[]` typed or pasted stays words). So the shape exists
+and is proven.
+
+**Where it is not**, and these are the two the ask names:
+
+- a task entry's description - `item.Notes`, a plain `<textarea rows="2">` in `TaskEditor.razor`;
+- an event's description - `Model.Description`, a plain `<textarea rows="2">` in `EventFields.razor`.
+
+**Splitting the ask in two is what makes it tractable**, because the features divide cleanly by whether
+they need the stored shape to change:
+
+1. **Everything that works on plain text needs no migration at all.** Undo and redo
+   (`NoteSurfaceHistory`), Tab and Shift+Tab for a level of indentation, a paste that lands at the caret
+   rather than at the start of the line, the arrows walking between lines, the room at the foot so the
+   tools do not sit on the last line. All of that is `ChecklistTextEditor` working on a string, which is
+   exactly what `TitledDescription` already does. **This half is a swap of two textareas**, plus deciding
+   what a two-row box becomes when it grows.
+
+2. **Tick boxes are the one feature that cannot come free.** A description is a `string`; a box is
+   `NoteContentLine.IsChecklistItem`, a field beside the line's text. So either
+
+   - **a description becomes lines**, like a note's content - a contract change on `TaskItemRequest`,
+     `TaskItemDto`, the event contracts and the phone's local store, with a migration on both sides and
+     a rule for every other place a description is *shown* rather than written (a card's preview, a
+     calendar chip, the phone's read-only label); or
+   - **boxes ride in the text as marks** - `[]`, `[x]`, `- ` - which the surface already reads on a paste
+     and already writes on a copy (`NoteSurfaceEdits.ReadPastedLine`, `onCopy` in
+     `checklistTextEditor.js`), so the round trip is built. The cost is that a description then contains
+     its own markup, and everything that shows one without the control shows the brackets.
+
+**The question to answer before either:** is "all its functions" meant to include the boxes? If it is
+the text features that are wanted - and those are the ones an ordinary description is missing - part 1
+stands alone and is small. If the boxes are wanted too, the second bullet above is the cheaper of the two
+ways and the one worth weighing first.
+
+### Pictures pasted into a note
+
+**Asked for:** pasting a picture into a note.
+
+**The thing to know first: Orbit stores no files at all today.** Not one. The only endpoint that takes an
+upload is the diagnostic log (`DiagnosticLogEndpoints`, 2 MB), and what it stores is *text rows in
+PostgreSQL*. The only blob in Azure is `orbitdownloads/apps`, which CI writes the Android APK into. So
+this is not "add a field", it is the first binary Orbit has ever kept, and six things have to be decided
+before any of it is written:
+
+1. **Where the bytes live.** PostgreSQL as `bytea` costs no new Azure resource and keeps a picture in the
+   same transaction and the same backup as the note it belongs to - but the database grows by whole
+   photographs, and `orbit-api` runs at 0.25 vCPU and 0.5 GiB and would pass every one of them through
+   itself. Blob storage is the right tool and is **a new Azure resource, which is the user's call and
+   real money** - plus SAS handling, orphan sweeping, and a second thing to back up.
+2. **What a private note's pictures are.** A private note is sealed in the browser
+   (`PrivateContentSealer`) and the server never sees its words. A picture would have to travel the same
+   way - encrypted before it is sent, decrypted to a `blob:` URL to be drawn - which is buildable on the
+   Web Crypto already there for chat, but rules out ever serving one as a plain `<img src="/api/…">`.
+   The other answer is that a sealed note takes no pictures, and says so.
+3. **A size limit, and where the shrinking happens.** Kestrel's default is 30 MB a request on a 0.5 GiB
+   container; a phone photograph is 4-8 MB. A limit per picture, a limit per note, and almost certainly
+   scaling in the browser before anything is sent.
+4. **The phone's half.** `LocalNote.Content` is the same list of lines in SQLite. Pictures have to sync
+   offline: fetched, cached on the handset, and whatever was pasted without a signal pushed later. That
+   is machinery `NoteSynchronizer` does not have.
+5. **Migrations on both sides**, and a `NoteContentLineDto` that older installed phones still read.
+6. **What a paste of a picture even is** - a line of its own beside text and boxes, or something hung on
+   the note beside its lines. `checklistTextEditor.js` reads a paste as text today
+   (`NoteSurfaceEdits.Replace`); an image branch is a different path.
+
+**A cheap first version exists** if it is wanted before the whole thing: web only, notes that are not
+sealed, bytes in PostgreSQL, a hard limit of about 1 MB after scaling in the browser. That needs no new
+Azure resource and does not touch the sealing, and leaves the phone and private notes as a deliberate
+second step. It is still a round of its own.
 
 Written down rather than fixed on the spot, per rule 14 in `.claude/CLAUDE.md`: work that turns up
 beside a task belongs here, not in that task's diff. A defect is the exception and is fixed when found.
