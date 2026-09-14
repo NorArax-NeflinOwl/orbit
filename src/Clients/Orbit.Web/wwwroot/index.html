@@ -2,7 +2,14 @@
 <html lang="en">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- The page does not zoom. Orbit's phone layout is built for the width it is given, and a pinch
+         over it zooms the whole app rather than the thing under the finger - so a pinch meant for a map
+         or a photo left the reader on a page wider than the screen with the bar off the side of it. The
+         map keeps its own pinch, which is Leaflet's and is about the map rather than the page.
+
+         Worth knowing what this costs: somebody who zooms a page to read it cannot do that here, and
+         the answer for them is the browser's own text size, which this does not override. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Orbit</title>
     <base href="/" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
