@@ -1705,19 +1705,6 @@ stays in the file beside the opened words.
   is counted in a line under the result. Its import sends a file's private places closed, like the
   browser's, and its result names all five counts.
 
-## Ready-made archives to import
-
-`samples/` holds archives written in the shape `/api/transfer/import` reads, for importing into an
-account as they are - see `samples/README.md` for what each one holds. They are ordinary exports, so
-everything an import promises holds for them: things are added and nothing already in the account is
-replaced, and the same file imported twice leaves two copies.
-
-Nothing in the application reads these files; what keeps them honest is `SampleArchiveTests`, which
-imports each of them through `ImportArchiveCommandHandler` after reading it the way the Options page
-reads an uploaded file. A change to the archive format that leaves one unreadable fails there rather
-than in somebody's account - which is the whole reason the test exists, since a sample nobody imports
-for months rots in silence.
-
 ## Private notes and task lists
 
 A note or task list can be marked **private**, which means exactly one thing: only its creator can ever
