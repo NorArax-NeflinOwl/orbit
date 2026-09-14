@@ -845,6 +845,10 @@ public static class PolishTranslations
         ["Nothing in your calendar or your lists says where it happens."] =
             "Nic w Twoim kalendarzu ani na listach nie mówi, gdzie się odbywa.",
         ["Show places already past"] = "Pokaż miejsca już minione",
+        // The plans behind the reader, in a box of their own under the ones ahead - see MapPage. Turning
+        // the past on starts a month back, so the box opens on the near past rather than on all of it.
+        ["Where your plans were"] = "Gdzie były twoje plany",
+        ["Nothing behind you since then."] = "Nic za tobą od tego dnia.",
         // The eye on a map panel's heading, and the day to show the past from - see MapPinVisibility.
         ["Show these on the map"] = "Pokaż je na mapie",
         // The places task lists' Location entries keep - see TaskEntryPlaces and the map's own list.
