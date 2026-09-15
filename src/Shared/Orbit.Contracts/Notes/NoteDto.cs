@@ -35,7 +35,13 @@ public sealed record NoteDto(
     /// The words it is tagged with - see Orbit.Core.Notes.Note.Tags. Empty for a private note, whose tags
     /// are in its sealed payload (SealedNote.Tags). Null from a server written before tags existed.
     /// </summary>
-    IReadOnlyList<string>? Tags = null)
+    IReadOnlyList<string>? Tags = null,
+    /// <summary>
+    /// Whether its owner has put it away - see Orbit.Core.Folders.BuiltInFolder.Archived. False is what
+    /// everything stored before the column existed is, and what a server that has not learned about
+    /// archiving answers. Defaulted and last, so an older client reads past it.
+    /// </summary>
+    bool IsArchived = false)
 {
     /// <summary>The tags as something to read without a null check - see <see cref="Tags"/>.</summary>
     public IReadOnlyList<string> AllTags => Tags ?? [];

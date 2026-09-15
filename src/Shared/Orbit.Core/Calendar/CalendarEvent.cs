@@ -25,6 +25,17 @@ public sealed class CalendarEvent
     /// </summary>
     public Guid? FolderId { get; private set; }
 
+    /// <summary>
+    /// Whether this appointment has been put away - see <see cref="Archive"/>. Stored rather than derived,
+    /// unlike the other built-in folders (a sealed thing is private, a ticked-through list is finished),
+    /// because there is nothing else about a appointment that could say it: being put away is a decision
+    /// somebody makes about it rather than something it becomes.
+    ///
+    /// The owner's, and only theirs, exactly as <see cref="FolderId"/> is: one row is one appointment, so a
+    /// recipient archiving it would be putting it away on its owner's own page.
+    /// </summary>
+    public bool IsArchived { get; private set; }
+
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
@@ -83,8 +94,12 @@ public sealed class CalendarEvent
     /// <summary>Rebuilds an event from already-persisted values, bypassing creation rules.</summary>
     public static CalendarEvent FromPersistence(
         Guid id, Guid userId, CalendarEventDetails details, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc, Guid? folderId = null)
-        => new(id, userId, details, createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc, folderId);
+        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc, Guid? folderId = null,
+        bool isArchived = false)
+        => new(id, userId, details, createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc, folderId)
+        {
+            IsArchived = isArchived
+        };
 
     /// <summary>Stamps how the current caller relates to this event - see the class comment. Not persisted.</summary>
     /// <summary>Tells the owner that somebody else holds accepted access - the mirror of <see cref="IsShared"/>.</summary>
@@ -122,6 +137,30 @@ public sealed class CalendarEvent
         }
 
         FolderId = folderId;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Put away rather than thrown away - see Orbit.Core.Folders.BuiltInFolder.Archived, which is the
+    /// tab this appointment then gathers under. The one way out of every list that is not deletion, and the
+    /// answer to somebody who wants a appointment gone from in front of them without losing it.
+    ///
+    /// Its own command rather than a field on the update, for the reason <see cref="MoveToFolder"/>
+    /// gives: an update replaces the whole thing, so a client that had not heard of archiving would
+    /// bring back everything its owner had put away, every time it saved.
+    ///
+    /// <see cref="FolderId"/> is left exactly as it was. Archiving is not filing - it is a decision
+    /// about whether this is in front of the reader at all - so bringing it back puts it under the
+    /// folder it was under, rather than somewhere a rule had to choose.
+    /// </summary>
+    public void Archive(bool isArchived)
+    {
+        if (IsArchived == isArchived)
+        {
+            return;
+        }
+
+        IsArchived = isArchived;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 

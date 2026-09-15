@@ -894,6 +894,10 @@ public static class PolishTranslations
         ["Folder name"] = "Nazwa folderu",
         ["Public"] = "Publiczne",
         ["Finished"] = "Ukończone",
+        // The fourth built-in folder - things put away rather than deleted, see
+        // Orbit.Core.Folders.BuiltInFolder.Archived. The button that puts something there says "Archive"
+        // and the one that takes it out says "Put back", both of which the conversations already had.
+        ["Archived"] = "Zarchiwizowane",
         ["New folder"] = "Nowy folder",
         ["Rename folder"] = "Zmień nazwę folderu",
         // The folder row's button on the phone while a folder is being renamed rather than made.

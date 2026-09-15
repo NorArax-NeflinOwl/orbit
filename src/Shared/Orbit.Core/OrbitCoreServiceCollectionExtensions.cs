@@ -6,6 +6,7 @@ using Orbit.Core.Calendar;
 using Orbit.Core.Calendar.AcceptCalendarEventShare;
 using Orbit.Core.Calendar.AcquireCalendarEventLock;
 using Orbit.Core.Calendar.CreateCalendarEvent;
+using Orbit.Core.Calendar.ArchiveCalendarEvent;
 using Orbit.Core.Calendar.MoveCalendarEventToFolder;
 using Orbit.Core.Calendar.DuplicateCalendarEvent;
 using Orbit.Core.Calendar.DeleteCalendarEvent;
@@ -48,6 +49,7 @@ using Orbit.Core.Chat.MarkConversationAsRead;
 using Orbit.Core.Chat.SendMessage;
 using Orbit.Core.Inventories;
 using Orbit.Core.Inventories.FinishRestocking;
+using Orbit.Core.Inventories.ArchiveInventory;
 using Orbit.Core.Inventories.MoveInventoryToFolder;
 using Orbit.Core.Inventories.ReconcileRestockList;
 using Orbit.Core.Inventories.RestockListSettingsAccess;
@@ -80,6 +82,7 @@ using Orbit.Core.Notes.DeleteNote;
 using Orbit.Core.Notes.GetNoteById;
 using Orbit.Core.Notes.GetNoteShareStatus;
 using Orbit.Core.Notes.GetNotes;
+using Orbit.Core.Notes.ArchiveNote;
 using Orbit.Core.Notes.MoveNoteToFolder;
 using Orbit.Core.Places;
 using Orbit.Core.Places.CreatePlace;
@@ -131,6 +134,7 @@ using Orbit.Core.Tasks.DeleteTaskList;
 using Orbit.Core.Tasks.GetTaskListById;
 using Orbit.Core.Tasks.GetTaskListShareStatus;
 using Orbit.Core.Tasks.GetTaskLists;
+using Orbit.Core.Tasks.ArchiveTaskList;
 using Orbit.Core.Tasks.MoveTaskListToFolder;
 using Orbit.Core.Tasks.LinkCalendarEventToTaskList;
 using Orbit.Core.Tasks.MoveTaskItem;
@@ -213,6 +217,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<AcquireNoteLockCommand, EditOutcome>, AcquireNoteLockCommandHandler>();
         services.AddScoped<IRequestHandler<ReleaseNoteLockCommand, bool>, ReleaseNoteLockCommandHandler>();
         services.AddScoped<IRequestHandler<MoveNoteToFolderCommand, bool>, MoveNoteToFolderCommandHandler>();
+        services.AddScoped<IRequestHandler<ArchiveNoteCommand, bool>, ArchiveNoteCommandHandler>();
 
         // Somewhere on the map worth keeping, on its own account - see Orbit.Core.Places.Place.
         services.AddScoped<IRequestHandler<CreatePlaceCommand, Guid>, CreatePlaceCommandHandler>();
@@ -242,6 +247,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<CreateTaskListCommand, Guid>, CreateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<DuplicateTaskListCommand, Guid?>, DuplicateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<MoveTaskListToFolderCommand, bool>, MoveTaskListToFolderCommandHandler>();
+        services.AddScoped<IRequestHandler<ArchiveTaskListCommand, bool>, ArchiveTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<UpdateTaskListCommand, EditOutcome>, UpdateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<MoveTaskItemCommand, EditOutcome>, MoveTaskItemCommandHandler>();
         services.AddScoped<IRequestHandler<CopyTaskItemCommand, EditOutcome>, CopyTaskItemCommandHandler>();
@@ -291,6 +297,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<UpdateCalendarEventCommand, EditOutcome>, UpdateCalendarEventCommandHandler>();
         services.AddScoped<IRequestHandler<DeleteCalendarEventCommand, bool>, DeleteCalendarEventCommandHandler>();
         services.AddScoped<IRequestHandler<MoveCalendarEventToFolderCommand, bool>, MoveCalendarEventToFolderCommandHandler>();
+        services.AddScoped<IRequestHandler<ArchiveCalendarEventCommand, bool>, ArchiveCalendarEventCommandHandler>();
         services.AddScoped<IRequestHandler<GetCalendarEventsQuery, IReadOnlyList<CalendarEvent>>, GetCalendarEventsQueryHandler>();
         services.AddScoped<IRequestHandler<GetCalendarEventByIdQuery, CalendarEvent?>, GetCalendarEventByIdQueryHandler>();
         services.AddScoped<IRequestHandler<ShareCalendarEventCommand, ShareOutcome?>, ShareCalendarEventCommandHandler>();
@@ -432,6 +439,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<CreateInventoryCommand, Guid>, CreateInventoryCommandHandler>();
         services.AddScoped<IRequestHandler<DuplicateInventoryCommand, Guid?>, DuplicateInventoryCommandHandler>();
         services.AddScoped<IRequestHandler<MoveInventoryToFolderCommand, bool>, MoveInventoryToFolderCommandHandler>();
+        services.AddScoped<IRequestHandler<ArchiveInventoryCommand, bool>, ArchiveInventoryCommandHandler>();
         services.AddScoped<IRequestHandler<GetInventoriesQuery, IReadOnlyList<Inventory>>, GetInventoriesQueryHandler>();
         services.AddScoped<IRequestHandler<GetInventoryByIdQuery, Inventory?>, GetInventoryByIdQueryHandler>();
         services.AddScoped<IRequestHandler<UpdateInventoryCommand, EditOutcome>, UpdateInventoryCommandHandler>();

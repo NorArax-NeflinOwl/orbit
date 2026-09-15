@@ -24,6 +24,7 @@ using Orbit.Core.Inventories.ReleaseInventoryLock;
 using Orbit.Core.Inventories.ShareInventory;
 using Orbit.Core.Inventories.UpdateInventory;
 using Orbit.Core.Notifications;
+using Orbit.Core.Inventories.ArchiveInventory;
 
 namespace Orbit.Api.Inventories;
 
@@ -113,6 +114,17 @@ public static class InventoryEndpoints
             var moved = await dispatcher.SendAsync(
                 new MoveInventoryToFolderCommand(GetUserId(user), inventoryId, request.FolderId), cancellationToken);
             return moved ? Results.NoContent() : Results.NotFound();
+        });
+
+        // Putting one away and bringing it back - see ArchiveInventoryCommand. Its own endpoint beside
+        // the filing above, and for the same reason: an update carries the whole shelf.
+        inventories.MapPut("/{inventoryId:guid}/archived", async (
+            Guid inventoryId, ArchiveRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var archived = await dispatcher.SendAsync(
+                new ArchiveInventoryCommand(GetUserId(user), inventoryId, request.IsArchived), cancellationToken);
+            return archived ? Results.NoContent() : Results.NotFound();
         });
 
         inventories.MapDelete("/{inventoryId:guid}", async (
@@ -246,7 +258,9 @@ public static class InventoryEndpoints
             inventory.IsSharedWithOthers,
             inventory.Description,
             // Never the owner's filing - see NoteEndpoints, which says the same about a shared note.
-            inventory.IsShared ? null : inventory.FolderId);
+            inventory.IsShared ? null : inventory.FolderId,
+            // The owner's too - see NoteEndpoints.ToDto, which says why a recipient is told nothing.
+            !inventory.IsShared && inventory.IsArchived);
 
 
     /// <summary>Both halves travel together or not at all, so a request carrying only one is treated as carrying neither.</summary>

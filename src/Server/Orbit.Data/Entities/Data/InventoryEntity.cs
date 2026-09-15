@@ -29,6 +29,12 @@ public sealed class InventoryEntity
     /// </summary>
     public Guid? FolderId { get; set; }
 
+    /// <summary>
+    /// Whether its owner has put it away - see Orbit.Core.Folders.BuiltInFolder.Archived. The one
+    /// built-in folder with a column, because nothing else about the row could say it.
+    /// </summary>
+    public bool IsArchived { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
     public Guid? LockedByUserId { get; set; }

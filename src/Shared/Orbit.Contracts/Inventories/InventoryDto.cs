@@ -38,4 +38,10 @@ public sealed record InventoryDto(
     /// when it is sealed (Orbit.Core.Folders.BuiltInFolder). Always null for somebody reading this
     /// through a share, the way NoteDto.FolderId is.
     /// </summary>
-    Guid? FolderId = null);
+    Guid? FolderId = null,
+    /// <summary>
+    /// Whether its owner has put it away - see Orbit.Core.Folders.BuiltInFolder.Archived. False is what
+    /// everything stored before the column existed is, and what a server that has not learned about
+    /// archiving answers. Defaulted and last, so an older client reads past it.
+    /// </summary>
+    bool IsArchived = false);

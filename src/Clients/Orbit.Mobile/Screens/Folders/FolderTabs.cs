@@ -101,9 +101,15 @@ public sealed class FolderTabs
     /// false by a screen with no Finished tab, which is how a finished list stays visible there instead
     /// of being filed under a tab that screen does not draw - see <see cref="FolderPages.HasAFinishedTab"/>.
     /// </summary>
-    public FolderKey Where(Guid? folderId, bool isPrivate, bool isFinished)
+    /// <param name="isArchived">
+    /// Whether its owner has put it away, which beats every other answer - see FolderPlacement. Not
+    /// gated on the screen: every screen draws the Archived tab, because something put away has to be
+    /// somewhere it can be found again.
+    /// </param>
+    public FolderKey Where(Guid? folderId, bool isPrivate, bool isFinished, bool isArchived = false)
         => FolderPlacement.Of(
-            folderId, isPrivate, isFinished && Page.HasAFinishedTab(), [.. _made.Select(folder => folder.LocalId)]);
+            folderId, isPrivate, isFinished && Page.HasAFinishedTab(), [.. _made.Select(folder => folder.LocalId)],
+            isArchived);
 
     /// <summary>Whether a row in <paramref name="where"/> belongs on the screen as it is being read.</summary>
     public bool Holds(FolderKey where) => where == Chosen;
@@ -141,16 +147,24 @@ public sealed class FolderTabs
     {
         var counts = whereEachRowIs.GroupBy(where => where).ToDictionary(rows => rows.Key, rows => rows.Count());
 
-        List<FolderChoice> choices =
-        [
-            Choice(FolderKey.Of(BuiltInFolder.Public), _translations["Public"], counts),
-            Choice(FolderKey.Of(BuiltInFolder.Private), _translations["Private"], counts)
-        ];
+        List<FolderChoice> choices = [Choice(FolderKey.Of(BuiltInFolder.Public), _translations["Public"], counts)];
+
+        // Gated the way the browser's row gates it, which this did not do: an event cannot be sealed at
+        // all, so the calendar's menu offered a tab that could only ever read zero - see
+        // FolderPages.HasAPrivateTab, which was written for the browser and not asked here.
+        if (Page.HasAPrivateTab())
+        {
+            choices.Add(Choice(FolderKey.Of(BuiltInFolder.Private), _translations["Private"], counts));
+        }
 
         if (Page.HasAFinishedTab())
         {
             choices.Add(Choice(FolderKey.Of(BuiltInFolder.Finished), _translations["Finished"], counts));
         }
+
+        // Last of the built-in ones, and on every screen: something put away has to be somewhere it can
+        // be found again, so there is no screen that hides this the way the calendar hides Private.
+        choices.Add(Choice(FolderKey.Of(BuiltInFolder.Archived), _translations["Archived"], counts));
 
         choices.AddRange(_made.Select(folder => Choice(FolderKey.Of(folder.LocalId), folder.Name, counts)));
         return choices;

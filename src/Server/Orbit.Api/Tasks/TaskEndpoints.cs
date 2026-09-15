@@ -35,6 +35,7 @@ using Orbit.Core.Tasks.RaiseStockShortfalls;
 using Orbit.Core.Tasks.SetTaskListPinned;
 using Orbit.Core.Tasks.ShareTaskList;
 using Orbit.Core.Tasks.UpdateTaskList;
+using Orbit.Core.Tasks.ArchiveTaskList;
 
 namespace Orbit.Api.Tasks;
 
@@ -124,6 +125,17 @@ public static class TaskEndpoints
             var moved = await dispatcher.SendAsync(
                 new MoveTaskListToFolderCommand(GetUserId(user), id, request.FolderId), cancellationToken);
             return moved ? Results.NoContent() : Results.NotFound();
+        });
+
+        // Putting one away and bringing it back - see ArchiveTaskListCommand. Its own endpoint beside
+        // the filing above, and for the same reason: an update carries the whole list.
+        tasks.MapPut("/{id:guid}/archived", async (
+            Guid id, ArchiveRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var archived = await dispatcher.SendAsync(
+                new ArchiveTaskListCommand(GetUserId(user), id, request.IsArchived), cancellationToken);
+            return archived ? Results.NoContent() : Results.NotFound();
         });
 
         // A second list with the same entries on it - see DuplicateTaskListCommand for what is
@@ -598,7 +610,9 @@ public static class TaskEndpoints
             // is told nothing about it.
             taskList.IsShared ? null : taskList.FolderId,
             taskList.Completion.ToString(),
-            taskList.Tags);
+            taskList.Tags,
+            // The owner's too - see NoteEndpoints.ToDto, which says why a recipient is told nothing.
+            !taskList.IsShared && taskList.IsArchived);
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

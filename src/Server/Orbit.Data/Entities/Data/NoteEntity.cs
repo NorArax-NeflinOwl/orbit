@@ -23,6 +23,12 @@ public sealed class NoteEntity
     /// </summary>
     public Guid? FolderId { get; set; }
 
+    /// <summary>
+    /// Whether its owner has put it away - see Orbit.Core.Folders.BuiltInFolder.Archived. The one
+    /// built-in folder with a column, because nothing else about the row could say it.
+    /// </summary>
+    public bool IsArchived { get; set; }
+
     /// <summary>Stored by name, like every other enum here - see Orbit.Core.Abstractions.ItemPriority.</summary>
     public string Priority { get; set; } = nameof(Orbit.Core.Abstractions.ItemPriority.Normal);
 

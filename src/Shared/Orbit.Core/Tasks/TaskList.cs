@@ -127,6 +127,17 @@ public sealed class TaskList
     /// </summary>
     public Guid? FolderId { get; private set; }
 
+    /// <summary>
+    /// Whether this list has been put away - see <see cref="Archive"/>. Stored rather than derived,
+    /// unlike the other built-in folders (a sealed thing is private, a ticked-through list is finished),
+    /// because there is nothing else about a list that could say it: being put away is a decision
+    /// somebody makes about it rather than something it becomes.
+    ///
+    /// The owner's, and only theirs, exactly as <see cref="FolderId"/> is: one row is one list, so a
+    /// recipient archiving it would be putting it away on its owner's own page.
+    /// </summary>
+    public bool IsArchived { get; private set; }
+
     /// <summary>The user id currently holding the edit lock, if any - see AcquireLock/ReleaseLock.</summary>
     public Guid? LockedByUserId { get; private set; }
 
@@ -208,7 +219,7 @@ public sealed class TaskList
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc,
         ItemPriority priority, bool isPinned, Guid? linkedInventoryId = null, string description = "",
         Guid? folderId = null, TaskListCompletion completion = TaskListCompletion.FromTheEntries,
-        IReadOnlyList<string>? tags = null)
+        IReadOnlyList<string>? tags = null, bool isArchived = false)
     {
         var taskList = new TaskList(id, userId, title, items, isGroup, isPrivate, encryptedContent, priority, isPinned,
             createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc);
@@ -217,6 +228,7 @@ public sealed class TaskList
         taskList.Tags = Orbit.Core.Tags.TagNames.Tidy(tags);
         taskList.FolderId = folderId;
         taskList.Completion = completion;
+        taskList.IsArchived = isArchived;
         return taskList;
     }
 
@@ -375,6 +387,30 @@ public sealed class TaskList
         }
 
         FolderId = folderId;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Put away rather than thrown away - see Orbit.Core.Folders.BuiltInFolder.Archived, which is the
+    /// tab this list then gathers under. The one way out of every list that is not deletion, and the
+    /// answer to somebody who wants a list gone from in front of them without losing it.
+    ///
+    /// Its own command rather than a field on the update, for the reason <see cref="MoveToFolder"/>
+    /// gives: an update replaces the whole thing, so a client that had not heard of archiving would
+    /// bring back everything its owner had put away, every time it saved.
+    ///
+    /// <see cref="FolderId"/> is left exactly as it was. Archiving is not filing - it is a decision
+    /// about whether this is in front of the reader at all - so bringing it back puts it under the
+    /// folder it was under, rather than somewhere a rule had to choose.
+    /// </summary>
+    public void Archive(bool isArchived)
+    {
+        if (IsArchived == isArchived)
+        {
+            return;
+        }
+
+        IsArchived = isArchived;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 

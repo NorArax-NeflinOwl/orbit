@@ -22,6 +22,7 @@ using Orbit.Core.Notes.ReleaseNoteLock;
 using Orbit.Core.Notes.SetNotePinned;
 using Orbit.Core.Notes.ShareNote;
 using Orbit.Core.Notes.UpdateNote;
+using Orbit.Core.Notes.ArchiveNote;
 
 namespace Orbit.Api.Notes;
 
@@ -107,6 +108,17 @@ public static class NoteEndpoints
             var moved = await dispatcher.SendAsync(
                 new MoveNoteToFolderCommand(GetUserId(user), id, request.FolderId), cancellationToken);
             return moved ? Results.NoContent() : Results.NotFound();
+        });
+
+        // Putting one away and bringing it back - see ArchiveNoteCommand. Its own endpoint beside
+        // the filing above, and for the same reason: an update carries the whole note.
+        notes.MapPut("/{id:guid}/archived", async (
+            Guid id, ArchiveRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var archived = await dispatcher.SendAsync(
+                new ArchiveNoteCommand(GetUserId(user), id, request.IsArchived), cancellationToken);
+            return archived ? Results.NoContent() : Results.NotFound();
         });
 
         // A second note saying the same thing - see DuplicateNoteCommand. The body is optional, and a
@@ -258,7 +270,11 @@ public static class NoteEndpoints
             // folder that does not exist on their pages, and a card filed under a tab they cannot see
             // is a card that has vanished.
             note.IsShared ? null : note.FolderId,
-            note.Tags);
+            note.Tags,
+            // Putting away is the owner's too, and for a stronger reason than the filing: a recipient who was
+            // told this was archived would find it gone from their own pages over a decision that was never
+            // theirs. False for them, which is where their own copy already is.
+            !note.IsShared && note.IsArchived);
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

@@ -550,15 +550,30 @@ One consequence worth knowing: a page may hold **one `PageHeader` at a time**, s
 subscribers to the same section. That is one per page in practice; it shows up in tests, where rendering
 the same page twice without disposing the first now throws.
 
-**Built-in folders exist without a row of their own** (`Orbit.Core.Folders.BuiltInFolder`). Which one
-something is in is decided from what it already is, and the first that applies wins:
+**Built-in folders exist without a row of their own** (`Orbit.Core.Folders.BuiltInFolder`), with one
+exception at the top of the list. Which one something is in is otherwise decided from what it already
+is, and the first that applies wins:
 
-1. **The folder its owner filed it under**, finished or not. Filing beats finishing: where something
+1. **Archived** - put away by its owner (2026-09-15, the user's decision of that date). The exception:
+   this one *is* stored, one column on each of the four kinds (`OP_N_ISARCHIVED` and its three
+   counterparts, `Note.Archive`), because nothing else about a thing could say it - being put away is a
+   decision somebody takes rather than something a thing becomes. It beats even a folder somebody made,
+   which is the whole point: putting something away is a decision about whether it is in front of the
+   reader at all, and an archived note still sitting under "Work" would not have been put anywhere. **Its
+   folder id is left untouched**, so bringing it back puts it under "Work" again rather than somewhere a
+   rule had to choose. Every page draws the tab - there is no page that hides it the way the calendar
+   hides Private - because something put away has to be somewhere it can be found again. Its own command
+   and its own endpoint on each of the four (`PUT .../{id}/archived`, `ArchiveRequest`), for the reason
+   filing has its own: an update carries the whole thing, so a client that had never heard of archiving
+   would bring back everything its owner had put away, every time it saved. A recipient is told nothing
+   about it and never sets it, exactly as with the filing - and for a stronger reason, since a decision
+   that was never theirs would take the thing off their own pages.
+2. **The folder its owner filed it under**, finished or not. Filing beats finishing: where something
    goes is a decision somebody made, and finishing the work is not a decision to file it somewhere else.
    A list put in "Renovation" used to leave that tab the moment its last entry was ticked off, which
    reads as the list having been lost. A folder id belonging to another page counts as no folder here,
    and falls through to the rest.
-2. **Finished** - a task list that is done and that nobody filed anywhere. Two ways to be done, and both
+3. **Finished** - a task list that is done and that nobody filed anywhere. Two ways to be done, and both
    put it here: every entry ticked off, which happens on its own and comes back out the moment something
    is reopened, or **its owner saying so** with the Completed box in the list's form
    (`TaskList.Completion`, `OP_T_COMPLETION` - see below). A note is never in it, having nothing to
@@ -566,14 +581,16 @@ something is in is decided from what it already is, and the first that applies w
    stops showing a finished list rather than filing it somewhere (`FolderPages.HasAFinishedTab`). A page
    without the tab does not merely hide it: it never asks whether something is finished, so a finished
    list is placed there by its folder and its privacy like anything else.
-3. **Private** - a sealed item nobody filed anywhere (see [Private notes and task
+4. **Private** - a sealed item nobody filed anywhere (see [Private notes and task
    lists](#private-notes-and-task-lists)).
-4. **Public** - everything else, and where a page opens.
+5. **Public** - everything else, and where a page opens.
 
-**Only notes and task lists are filed at all.** A calendar event is not, and is not going to be
-(decided 2026-09-09) - an event is found by when it happens, which is what the calendar is for. It is
-written down in [the scope cuts](future-plan.md#known-scope-cuts-and-rough-edges) because it reads like
-an omission rather than a decision, and because undoing it would be a migration rather than a checkbox.
+**All four kinds are filed**: notes, task lists, calendar events and inventories. The events and the
+shelves gained it on 2026-09-15, which **reverses a decision of 2026-09-09** that an event would never
+be filed because it is found by when it happens. What was kept from that reasoning is where the tabs are
+*not*: a calendar tab narrows the grid and the list beside it together, and the dashboard draws no
+calendar tabs at all, because what it says about the calendar is what is on today and what is coming -
+which answers *when* rather than *which*.
 
 **An entry has a priority and a colour of its own** (2026-09-10, `OP_TI_PRIORITY`, `OP_TI_COLOUR`,
 `TaskItem.Priority`/`Colour`). The list has a priority and this is not it: a list of ten errands usually

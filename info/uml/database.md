@@ -118,6 +118,7 @@ erDiagram
         uuid OP_N_ID PK
         uuid OP_N_USERID FK
         uuid OP_N_FOLDERID FK "null = a built-in folder"
+        bool OP_N_ISARCHIVED "decides the Archived folder"
         text OP_N_TITLE
         bool OP_N_ISPRIVATE
         text OP_N_ENCRYPTEDCIPHERTEXT "set when private"
@@ -168,14 +169,21 @@ the note for them (`NoteAccessResolver`, `TaskListAccessResolver`). Nothing is s
 carries one `IsPinned`, and which row it came from depends on who asked.
 
 **`OP_FOLDERS` holds only the folders somebody made**, each on exactly one page (`OP_F_SCOPE` -
-`Orbit.Core.Folders.FolderScope`, `Notes`, `Tasks`, `Calendar` or `Inventories`). Three more exist
-without a row - Public, Private and Finished (`Orbit.Core.Folders.BuiltInFolder`) - and which of them
-something is in is decided from what it already is: something filed under one of this page's folders is
-in that folder finished or not, an unfiled finished list is in Finished, an unfiled sealed one in
-Private, everything else unfiled in Public. Nothing about them is stored, which is why folders arrived
-without a backfill and why `OP_N_FOLDERID`/`OP_T_FOLDERID`/`OP_E_FOLDERID`/`OP_I_FOLDERID` are nullable
-rather than defaulted - and why the two scopes added on 2026-09-15 needed no migration of their own, the
-scope being stored by name. There is no foreign-key cascade either: `FolderRepository.DeleteAsync`
+`Orbit.Core.Folders.FolderScope`, `Notes`, `Tasks`, `Calendar` or `Inventories`). Four more exist
+without a row of their own - Archived, Public, Private and Finished
+(`Orbit.Core.Folders.BuiltInFolder`) - and which of them something is in is decided from what it
+already is, first match winning: anything its owner put away is in Archived whatever else is true of it,
+something filed under one of this page's folders is in that folder finished or not, an unfiled finished
+list is in Finished, an unfiled sealed one in Private, everything else unfiled in Public.
+
+**Only Archived is stored**, one boolean on each of the four kinds
+(`OP_N_ISARCHIVED`/`OP_T_ISARCHIVED`/`OP_E_ISARCHIVED`/`OP_I_ISARCHIVED`, added 2026-09-15, false for
+everything already there), because nothing else about a row could say it. Nothing about the other three
+is, which is why folders arrived without a backfill and why
+`OP_N_FOLDERID`/`OP_T_FOLDERID`/`OP_E_FOLDERID`/`OP_I_FOLDERID` are nullable rather than defaulted - and
+why the two scopes added on 2026-09-15 needed no migration of their own, the scope being stored by name.
+The folder column and the archived column are independent: putting something away leaves its folder id
+alone, so bringing it back puts it under the tab it was under. There is no foreign-key cascade either: `FolderRepository.DeleteAsync`
 empties the folder first (all four columns back to null) and then removes the row, so deleting a tab can
 never delete what was under it.
 
@@ -203,6 +211,7 @@ erDiagram
         uuid OP_T_ID PK
         uuid OP_T_USERID FK
         uuid OP_T_FOLDERID FK "null = a built-in folder"
+        bool OP_T_ISARCHIVED "decides the Archived folder"
         text OP_T_TITLE
         bool OP_T_ISCOMPLETED "decides the Finished folder"
         text OP_T_COMPLETION "TaskListCompletion by name - what its owner said, if anything"

@@ -55,6 +55,17 @@ public sealed class Inventory
     /// </summary>
     public Guid? FolderId { get; private set; }
 
+    /// <summary>
+    /// Whether this shelf has been put away - see <see cref="Archive"/>. Stored rather than derived,
+    /// unlike the other built-in folders (a sealed thing is private, a ticked-through list is finished),
+    /// because there is nothing else about a shelf that could say it: being put away is a decision
+    /// somebody makes about it rather than something it becomes.
+    ///
+    /// The owner's, and only theirs, exactly as <see cref="FolderId"/> is: one row is one shelf, so a
+    /// recipient archiving it would be putting it away on its owner's own page.
+    /// </summary>
+    public bool IsArchived { get; private set; }
+
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
@@ -120,10 +131,13 @@ public sealed class Inventory
         Guid id, Guid userId, string name, bool isPrivate, EncryptedPayload? encryptedContent,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc,
-        string description = "", Guid? folderId = null)
+        string description = "", Guid? folderId = null, bool isArchived = false)
         => Described(
             new(id, userId, name, isPrivate, encryptedContent, createdAtUtc, updatedAtUtc,
-                lockedByUserId, lockedByUserName, lockExpiresAtUtc, folderId),
+                lockedByUserId, lockedByUserName, lockExpiresAtUtc, folderId)
+            {
+                IsArchived = isArchived
+            },
             description);
 
     /// <summary>
@@ -205,6 +219,30 @@ public sealed class Inventory
         }
 
         FolderId = folderId;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Put away rather than thrown away - see Orbit.Core.Folders.BuiltInFolder.Archived, which is the
+    /// tab this shelf then gathers under. The one way out of every list that is not deletion, and the
+    /// answer to somebody who wants a shelf gone from in front of them without losing it.
+    ///
+    /// Its own command rather than a field on the update, for the reason <see cref="MoveToFolder"/>
+    /// gives: an update replaces the whole thing, so a client that had not heard of archiving would
+    /// bring back everything its owner had put away, every time it saved.
+    ///
+    /// <see cref="FolderId"/> is left exactly as it was. Archiving is not filing - it is a decision
+    /// about whether this is in front of the reader at all - so bringing it back puts it under the
+    /// folder it was under, rather than somewhere a rule had to choose.
+    /// </summary>
+    public void Archive(bool isArchived)
+    {
+        if (IsArchived == isArchived)
+        {
+            return;
+        }
+
+        IsArchived = isArchived;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 

@@ -1965,7 +1965,14 @@ It is **not** on the two other places somebody edits in the browser:
   reason the date itself is the point: re-formatting it in another reader's locale would be re-reading it
   in a different way, which is the thing this decision rules out.
 
-- **Archiving, as protection against deleting.** Asked for on notes, task lists, events and inventories:
+- **Archiving, as protection against deleting** - **the server half is built (2026-09-15); the clients
+  are not.** What exists: `IsArchived` on all four aggregates with `Archive(bool)` beside `MoveToFolder`,
+  `BuiltInFolder.Archived` at the head of `FolderPlacement`, one command and one `PUT .../{id}/archived`
+  per kind, the column on each of the four tables (`ThingsCanBePutAwayRatherThanDeleted`), the flag on
+  each DTO, and the tab in both clients' tab rows. What is **missing**: anything that sets it. Neither
+  client has an Archive action in a menu yet, the phone has no local column, no outbox operation and no
+  migration for it, and the export carries nothing about it. Until those land, the tab is drawn and is
+  always empty. The original entry, for the reasoning: 
   put something away rather than lose it. Nothing of it exists on those four - deletion is a real delete
   plus a sync tombstone, and the only `IsArchived` in Orbit is on a conversation and on a group
   membership (done 2026-09-09, and the shape to copy). It is a column on each of the four, a command per

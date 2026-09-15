@@ -21,4 +21,10 @@ namespace Orbit.Contracts.Calendar;
 public sealed record CalendarEventDto(
     Guid Id, CalendarEventDetailsDto Details, DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc,
     bool IsShared, string? SharedByUserName, string AccessLevel, Guid? OriginalOwnerUserId,
-    bool IsSharedWithOthers = false, Guid? FolderId = null);
+    bool IsSharedWithOthers = false, Guid? FolderId = null,
+    /// <summary>
+    /// Whether its owner has put it away - see Orbit.Core.Folders.BuiltInFolder.Archived. False is what
+    /// everything stored before the column existed is, and what a server that has not learned about
+    /// archiving answers. Defaulted and last, so an older client reads past it.
+    /// </summary>
+    bool IsArchived = false);

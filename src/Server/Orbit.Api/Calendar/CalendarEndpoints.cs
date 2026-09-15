@@ -22,6 +22,7 @@ using Orbit.Core.Calendar.ReleaseCalendarEventLock;
 using Orbit.Core.Calendar.ShareCalendarEvent;
 using Orbit.Core.Calendar.UpdateCalendarEvent;
 using Orbit.Core.Notifications;
+using Orbit.Core.Calendar.ArchiveCalendarEvent;
 
 namespace Orbit.Api.Calendar;
 
@@ -99,6 +100,17 @@ public static class CalendarEndpoints
             var moved = await dispatcher.SendAsync(
                 new MoveCalendarEventToFolderCommand(GetUserId(user), id, request.FolderId), cancellationToken);
             return moved ? Results.NoContent() : Results.NotFound();
+        });
+
+        // Putting one away and bringing it back - see ArchiveCalendarEventCommand. Its own endpoint beside
+        // the filing above, and for the same reason: an update carries the whole appointment.
+        calendarEvents.MapPut("/{id:guid}/archived", async (
+            Guid id, ArchiveRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var archived = await dispatcher.SendAsync(
+                new ArchiveCalendarEventCommand(GetUserId(user), id, request.IsArchived), cancellationToken);
+            return archived ? Results.NoContent() : Results.NotFound();
         });
 
         calendarEvents.MapDelete("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
@@ -216,7 +228,9 @@ public static class CalendarEndpoints
             calendarEvent.IsSharedWithOthers,
             // Never the owner's filing: a folder is where they keep their own things, and the recipient
             // files this wherever they like on their own calendar. Mirrors NoteEndpoints.
-            calendarEvent.IsShared ? null : calendarEvent.FolderId);
+            calendarEvent.IsShared ? null : calendarEvent.FolderId,
+            // The owner's too - see NoteEndpoints.ToDto, which says why a recipient is told nothing.
+            !calendarEvent.IsShared && calendarEvent.IsArchived);
     }
 
     private static EventLocationDto? ToLocationDto(EventLocation? location)
