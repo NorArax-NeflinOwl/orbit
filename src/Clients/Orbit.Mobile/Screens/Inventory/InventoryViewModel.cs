@@ -37,6 +37,15 @@ public sealed partial class InventoryViewModel : ObservableObject
     private IReadOnlyList<LocalInventory> _stored = [];
 
     /// <summary>
+    /// Every shelf on the phone, before the open tab narrows it - see <see cref="_stored"/>, which is
+    /// what the rows are drawn from. The search across shelves is asked of this one: "where is the
+    /// flour" is a question about the reader's whole inventory, not about the tab they happen to be
+    /// standing on, and answering it from one tab would say "it is nowhere" about a shelf filed under
+    /// another. The folders narrow the list, not the search.
+    /// </summary>
+    private IReadOnlyList<LocalInventory> _everyShelf = [];
+
+    /// <summary>
     /// Inventories this device could not look inside - sealed with a key it has not got, or private
     /// while private things are locked. Counted rather than skipped: a search that quietly leaves one
     /// out answers "it is nowhere" when the truth is "I could not look there". Counted rather than
@@ -232,10 +241,10 @@ public sealed partial class InventoryViewModel : ObservableObject
     /// </summary>
     public string ItemMatchSummary
         => _unsearchableInventoryCount == 0
-            ? _translations.Format("Found in {0} of {1} inventories.", InventoriesMatched, _stored.Count)
+            ? _translations.Format("Found in {0} of {1} inventories.", InventoriesMatched, _everyShelf.Count)
             : _translations.Format(
                 "Found in {0} of {1} inventories. {2} could not be opened, so nothing in them was searched.",
-                InventoriesMatched, _stored.Count, _unsearchableInventoryCount);
+                InventoriesMatched, _everyShelf.Count, _unsearchableInventoryCount);
 
     private int InventoriesMatched
         => ItemMatches.Select(match => match.InventoryLocalId).Distinct().Count();
@@ -268,7 +277,7 @@ public sealed partial class InventoryViewModel : ObservableObject
         ItemMatches.Clear();
         if (SearchedItemName.Trim() is { Length: > 0 } wanted)
         {
-            var found = _stored
+            var found = _everyShelf
                 .Where(CanBeSearched)
                 .SelectMany(inventory => inventory.Items.Select(item => new InventoryItemMatch(
                     inventory.LocalId, inventory.Name, InventoryItemRow.From(
@@ -422,6 +431,7 @@ public sealed partial class InventoryViewModel : ObservableObject
 
         OnPropertyChanged(nameof(ChosenFolderName));
 
+        _everyShelf = held;
         _stored = [.. held.Where(inventory => Folders.Holds(placements[inventory.LocalId]))];
         _pending = pending;
         ShowRows();
@@ -441,7 +451,7 @@ public sealed partial class InventoryViewModel : ObservableObject
                 _privateItems.IsUnlocked, _translations["Private"]));
         }
 
-        _unsearchableInventoryCount = _stored.Count(inventory => !CanBeSearched(inventory));
+        _unsearchableInventoryCount = _everyShelf.Count(inventory => !CanBeSearched(inventory));
         ShowMatchingItems();
     }
 

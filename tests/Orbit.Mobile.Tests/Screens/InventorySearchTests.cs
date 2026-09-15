@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Inventories;
+using Orbit.Core.Folders;
 using Orbit.Core.Inventories;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Chat;
@@ -122,6 +123,29 @@ public sealed class InventorySearchTests
 
         Assert.Contains("could not be opened", screen.ItemMatchSummary);
         Assert.DoesNotContain("Locked away", screen.ItemMatchSummary);
+    }
+
+    /// <summary>
+    /// The folder tabs narrow the list of shelves, not the search across them. "Where is the flour" is a
+    /// question about the whole inventory, and answering it from the tab somebody happens to be standing
+    /// on would say "it is nowhere" about a shelf filed under another one - the same wrong answer the
+    /// sealed shelf above is counted to avoid. It said exactly that between the folders arriving on the
+    /// shelves and 2026-09-15.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_under_another_folder_is_searched_from_the_tab_the_reader_is_on()
+    {
+        using var context = new ScreenContext();
+        await context.AddInventoryAsync("Kitchen", Item("Sugar"));
+        var pantry = await context.AddInventoryAsync("Pantry", Item("Flour"));
+        await context.FileAsync(pantry.LocalId, "Downstairs");
+        var screen = await context.OpenInventoryAsync();
+
+        // Standing on the tab the screen opens on, which is not the one the pantry is under.
+        screen.SearchedItemName = "flour";
+
+        Assert.Equal("Pantry", Assert.Single(screen.ItemMatches).InventoryName);
+        Assert.Equal("Found in 1 of 2 inventories.", screen.ItemMatchSummary);
     }
 
     /// <summary>Nothing to apologise for when every shelf could be read - just what was found.</summary>
@@ -276,6 +300,13 @@ public sealed class InventorySearchTests
             await using var dbContext = _localStore.CreateDbContext();
             dbContext.Inventories.Single(stored => stored.LocalId == inventory.LocalId).IsPrivate = true;
             await dbContext.SaveChangesAsync();
+        }
+
+        /// <summary>Puts a shelf in a folder of its own, as the shelf's own menu does.</summary>
+        public async Task FileAsync(Guid inventoryLocalId, string folderName)
+        {
+            var folder = await Folders.CreateAsync(folderName, FolderScope.Inventories);
+            await _inventories.FileAsync(inventoryLocalId, folder.LocalId);
         }
 
         public async Task<InventoryViewModel> OpenInventoryAsync()
