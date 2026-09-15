@@ -99,6 +99,24 @@ public sealed class PeriodicSyncTests
         Assert.Equal(SyncCondition.Unknown, context.State.Condition);
     }
 
+    /// <summary>
+    /// A deployment somebody stopped on purpose is not somewhere to keep knocking - the phone has a
+    /// network, and there is nothing at the other end of it that will answer as Orbit. The pause ends
+    /// when Orbit answers as itself again, which the presence heartbeat finds out long before this would
+    /// (see ServerReachability), so there is nothing lost by leaving off.
+    /// </summary>
+    [Fact]
+    public async Task Nothing_is_attempted_while_the_deployment_says_it_is_paused()
+    {
+        var context = new SyncingContext();
+        context.PauseNotice.Notice = new PauseNotice("Orbit is paused until the month turns.", null);
+        await context.CanReachOrbit.RecordAnswerNotFromOrbitAsync(CancellationToken.None);
+
+        await context.Sync.SynchroniseAsync();
+
+        Assert.Equal(0, context.Runs);
+    }
+
     [Fact]
     public async Task A_run_that_brought_something_tells_the_screens()
     {
@@ -153,7 +171,11 @@ public sealed class PeriodicSyncTests
         public SyncingContext(bool signedIn = true)
         {
             Clock = new FakeTimeProvider(Now);
-            State = new SyncState(Reachability.Over(Network), Clock);
+            // The two together, which is what the app registers as its INetworkStatus: a phone on a
+            // working network whose deployment has been stopped is not online in any sense this cares
+            // about. See ServerReachability.
+            CanReachOrbit = Reachability.Over(Network, PauseNotice, Clock);
+            State = new SyncState(CanReachOrbit, Clock);
             var sessionStore = new SessionStore(new InMemorySessionStorage(signedIn ? SignedIn : null));
             Sync = new PeriodicSync(
                 _ =>
@@ -161,12 +183,19 @@ public sealed class PeriodicSyncTests
                     Runs++;
                     return Fails is null ? Task.FromResult(Result) : throw Fails;
                 },
-                sessionStore, Network, State, Clock, NullLogger<PeriodicSync>.Instance);
+                sessionStore, CanReachOrbit, State, Clock, NullLogger<PeriodicSync>.Instance);
         }
 
         public FakeTimeProvider Clock { get; }
 
+        /// <summary>The device's own answer, which a test moves on and off the network.</summary>
         public FixedNetworkStatus Network { get; } = FixedNetworkStatus.Online;
+
+        /// <summary>What the deployment says about itself - a test about a pause writes one here.</summary>
+        public FixedPauseNotice PauseNotice { get; } = new();
+
+        /// <inheritdoc cref="ServerReachability"/>
+        public ServerReachability CanReachOrbit { get; }
 
         public SyncState State { get; }
 

@@ -100,9 +100,15 @@ public sealed class PeriodicSync : IDisposable
     }
 
     /// <summary>
-    /// One run. Nothing is attempted with nobody signed in, and nothing while the phone believes it has
-    /// no connection - a run offline would put "couldn't sync" in the corner every few minutes for a
-    /// reader who is working offline on purpose, which is the app behaving as designed.
+    /// One run. Nothing is attempted with nobody signed in, and nothing while Orbit cannot be reached -
+    /// a run then would put "couldn't sync" in the corner every few minutes for a reader who is working
+    /// offline on purpose, which is the app behaving as designed.
+    ///
+    /// "Cannot be reached" is more than having no signal: a deployment somebody stopped on purpose
+    /// answers that way too, and there is nothing at the other end of a working network that will answer
+    /// as Orbit (see ServerReachability, which is the INetworkStatus the app registers). Nothing is lost
+    /// by leaving off - the pause ends when Orbit answers as itself again, and the presence heartbeat
+    /// asks far more often than this does.
     ///
     /// The indicator is moved the way a screen's own sync moves it, so the corner tells the same story
     /// whoever asked. The screens are told only when the run actually brought something down: see
