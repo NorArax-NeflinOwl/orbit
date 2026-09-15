@@ -30,6 +30,19 @@ namespace Orbit.Mobile.Screens.Notes;
 /// </summary>
 public sealed record NoteStyleChoice(string Name, NoteLineStyle Style);
 
+/// <summary>What the table's own menu can do to the table a cell is in - the browser's table menu, on the phone.</summary>
+public enum NoteTableAction
+{
+    AddRowBelow,
+    AddColumnRight,
+    RemoveRow,
+    RemoveColumn,
+    RemoveTable
+}
+
+/// <summary>One entry of the table's menu, worded for the sheet - see <see cref="NoteDetailViewModel.TableActions"/>.</summary>
+public sealed record NoteTableActionChoice(string Name, NoteTableAction Action);
+
 public sealed partial class NoteDetailViewModel : ObservableObject
 {
     private readonly LocalNoteRepository _notes;
@@ -443,6 +456,75 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     ];
 
     /// <summary>
+    /// Puts a table where <paramref name="row"/> is - the phone's half of the browser's table tool, for a
+    /// caret that is not in a table. The surface's own rule decides where it lands: an empty plain line
+    /// becomes the table, any other gets it underneath (<see cref="NoteSurfaceEdits.InsertTable"/>). With
+    /// no line to go by it goes after the last one, as the indent buttons take theirs.
+    /// </summary>
+    public void InsertTable(NoteLineRow? row)
+    {
+        if (IsReadOnly)
+        {
+            return;
+        }
+
+        var index = row is null ? Lines.Count - 1 : Lines.IndexOf(row);
+        if (index < 0)
+        {
+            return;
+        }
+
+        var before = Surface(new SurfacePoint(index + 1, 0));
+        Apply(before, NoteSurfaceEdits.InsertTable(before), SurfaceEditKind.Reshaping);
+    }
+
+    /// <summary>
+    /// Changes the shape of the table <paramref name="cell"/> is in - the browser's table menu, for a
+    /// caret that is in one. A row or a column goes beside the cell's; taking the last row or column
+    /// away takes the table and leaves an empty line to write on, which is the surface's rule. A stale
+    /// cell - one whose line is no longer a table - does nothing.
+    /// </summary>
+    public void ReshapeTable(NoteTableCellField? cell, NoteTableAction action)
+    {
+        if (cell is null || IsReadOnly || Lines.IndexOf(cell.Line) is var index && index < 0)
+        {
+            return;
+        }
+
+        var line = index + 1;
+        var before = Surface(new SurfacePoint(line, 0));
+        var after = action switch
+        {
+            NoteTableAction.AddRowBelow => NoteSurfaceEdits.AddTableRow(before, line, cell.Row),
+            NoteTableAction.AddColumnRight => NoteSurfaceEdits.AddTableColumn(before, line, cell.Column),
+            NoteTableAction.RemoveRow => NoteSurfaceEdits.RemoveTableRow(before, line, cell.Row),
+            NoteTableAction.RemoveColumn => NoteSurfaceEdits.RemoveTableColumn(before, line, cell.Column),
+            NoteTableAction.RemoveTable => NoteSurfaceEdits.RemoveTable(before, line),
+            _ => null
+        };
+
+        if (after is null)
+        {
+            return;
+        }
+
+        Apply(before, after, SurfaceEditKind.Reshaping);
+    }
+
+    /// <summary>
+    /// The table menu's entries, in the browser's order and in the reader's language - what can be added
+    /// first, then what can be taken away, the whole table last. Worded here so the wording is testable.
+    /// </summary>
+    public IReadOnlyList<NoteTableActionChoice> TableActions =>
+    [
+        new(_translations["Add row below"], NoteTableAction.AddRowBelow),
+        new(_translations["Add column right"], NoteTableAction.AddColumnRight),
+        new(_translations["Delete row"], NoteTableAction.RemoveRow),
+        new(_translations["Delete column"], NoteTableAction.RemoveColumn),
+        new(_translations["Delete table"], NoteTableAction.RemoveTable)
+    ];
+
+    /// <summary>
     /// Works <paramref name="edit"/> on the surface with the caret at the head of <paramref name="row"/>,
     /// which is what makes both of the two an edit to the line rather than to wherever the caret is.
     /// </summary>
@@ -683,6 +765,7 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             foreach (var line in Lines)
             {
                 line.PropertyChanged -= WhenALineChanges;
+                line.CellWrittenIn -= WhenACellIsWrittenIn;
             }
 
             Lines.Clear();
@@ -769,6 +852,7 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         // A line that arrives while boxes are being chosen can be chosen too, once it has a box.
         row.OffersPicking = IsPickingLines;
         row.PropertyChanged += WhenALineChanges;
+        row.CellWrittenIn += WhenACellIsWrittenIn;
     }
 
     private void WhenALineChanges(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
@@ -809,6 +893,26 @@ public sealed partial class NoteDetailViewModel : ObservableObject
 
         RecordTyping(line, change);
         ReadTypedMarker(row, line, change);
+    }
+
+    /// <summary>
+    /// Something written in a cell of a table, which the line has already put into the table (see
+    /// NoteLineRow.WhenACellChanges). Recorded as typing on the table's line with the caret at its head -
+    /// a cell is not a point on the surface, so the head of the line is the only place the step can say
+    /// it happened - which is where an undo puts the caret back, and which lets a run of characters
+    /// typed into the cells join one step the way typing in a line does.
+    /// </summary>
+    private void WhenACellIsWrittenIn(object? sender, NoteCellChange written)
+    {
+        if (_applying > 0 || sender is not NoteLineRow row || Lines.IndexOf(row) is var index && index < 0)
+        {
+            return;
+        }
+
+        var at = new SurfacePoint(index + 1, 0);
+        var before = _history.Current with { Anchor = at, Focus = at };
+        var kind = written.Change.Inserted.Length == 0 ? SurfaceEditKind.Erasing : SurfaceEditKind.Typing;
+        Record(before, at, kind, written.Change.Inserted);
     }
 
     /// <summary>
@@ -1164,6 +1268,7 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             for (var gone = changedInPlace; gone < shownBetween; gone++)
             {
                 Lines[same + changedInPlace].PropertyChanged -= WhenALineChanges;
+                Lines[same + changedInPlace].CellWrittenIn -= WhenACellIsWrittenIn;
                 Lines.RemoveAt(same + changedInPlace);
             }
 

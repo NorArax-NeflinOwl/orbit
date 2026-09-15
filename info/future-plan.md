@@ -1611,12 +1611,18 @@ Paragraph styles landed on 2026-09-14 - `NoteLineStyle`, the "Aa" tool, and the 
 - ~~**Tables.**~~ Done 2026-09-14, as a kind of line, the shape the user chose (decision 2 above):
   `NoteTable` on `NoteContentLine.Table`, `NoteTables` for its shape, the guards in `NoteSurfaceEdits`
   written first with `NoteSurfaceTableTests`, then the drawing. See `info/functionality.md`, "A table is
-  a kind of line". **What the phone still lacks:** it draws a table and carries it through every edit
+  a kind of line". ~~**What the phone still lacks:** it draws a table and carries it through every edit
   unchanged, but its cells cannot be written in - the note screen draws each cell as a `Label` in a
   `Border`, and writing in one wants an `Entry` per cell that reports back through
   `NoteTables.WithCell`, plus the table's own menu (a row, a column, the table) on the screen's foot. The
-  same shape the style sheet took on 2026-09-14. Marks inside a cell are carried and drawn in the
-  browser; the four buttons do not set them there (the browser's own Ctrl+B does).
+  same shape the style sheet took on 2026-09-14.~~ **Done 2026-09-15, in exactly that shape**
+  (`NoteTableCellField`, `NoteDetailViewModel.InsertTable`/`ReshapeTable`/`TableActions`, the table
+  button over the foot; `NoteDetailScreenTests.Table`). **Still left on the phone:** marks inside a cell
+  are carried and moved but not drawn there (a cell is always a field, where a line swaps in a
+  `MarkedLabel` when nobody is writing in it - the same swap would do), and nothing walks the cells
+  (no Tab on a soft keyboard; a "next cell" key on the field's Done would be the phone's answer). Marks
+  inside a cell are drawn in the browser; the four buttons do not set them there (the browser's own
+  Ctrl+B does).
 - **A description still cannot carry a style.** `TitledDescription` runs the same surface with
   `TakesStyles` off, because a list's or a storage's description is stored as one plain string and a
   style set there would be dropped by the save - the same reason `[]` stays words there. This is a third

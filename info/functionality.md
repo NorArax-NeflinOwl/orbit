@@ -1047,8 +1047,8 @@ disagree in.
     share link (`PublicSharedItemLine.Style`, drawn by `SharedItemPage` and by the phone's
     `SharedLinkPage`), and the phone's own note screen (`NoteLineLook`, which decides the size, the bold
     and the list's mark for both of the phone's screens).
-  - **The phone sets one from a sheet**: an "Aa" button over the note's foot, beside undo, redo and the
-    indent buttons, opening the same eight (`NoteDetailViewModel.StyleChoices`, `Restyle`). A sheet
+  - **The phone sets one from a sheet**: an "Aa" button over the note's foot, beside undo, redo, the
+    indent buttons and the table button, opening the same eight (`NoteDetailViewModel.StyleChoices`, `Restyle`). A sheet
     rather than a row of buttons - eight choices over the writing would be most of the writing on a
     phone. The press changes the line being written in, as the indent buttons do.
   - **Stored and sent as a word**, never a number (`NoteLineStyleJsonConverter`, `NoteLineStyles.Read`):
@@ -1116,8 +1116,19 @@ disagree in.
     say how much of it was meant, and a grid of words is not taken on a guess.
   - **No migration**, as with styles and marks: the table travels as `NoteContentLineDto.Table` and is
     stored in the same JSON, squared up on the way in (`NoteTables.Squared`). The archive and a share
-    link carry it; the read-only pages draw it (`NoteTableView`); **the phone draws it and carries it
-    through every edit unchanged, but cannot write in its cells yet** - `info/future-plan.md`.
+    link carry it; the read-only pages draw it (`NoteTableView`).
+  - **The phone writes in it where it reads it** (2026-09-15): each cell is a bare field
+    (`NoteTableCellField`), and what is written there goes into the line's table through
+    `NoteTables.WithCell`, with the cell's marks moved along as a line's are - carried, not drawn, since a
+    field renders one face. The grid is rebuilt only when the table changes shape; a change of words
+    alone is written into the fields that are there, so an undo rewrites the field being written in
+    rather than taking its caret. A step in the history is typing on the table's line, caret at its head:
+    a cell is not a point on the surface, so the line is where the step can say it happened. The
+    phone's table button has the browser's two meanings, decided by whether a cell has the caret
+    (`NoteDetailPage.UseTheTableToolAsync`): outside, a table where the line being written in is
+    (`NoteDetailViewModel.InsertTable`); inside, a sheet of the five things the browser's menu offers
+    (`TableActions`, `ReshapeTable`). No Tab between cells - a soft keyboard has none - and Enter in a cell
+    closes the keyboard rather than adding a row.
 - **A picture is a kind of line too** (`NotePictureLine`, `NoteContentLine.Picture`, 2026-09-14), settled
   with the user the same way as the table and carried the same way. What the line holds is the id of the
   bytes, their kind and their size in pixels; the bytes are somewhere else.

@@ -165,10 +165,18 @@
                                         <DataTemplate x:DataType="sys:Object">
                                             <HorizontalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding .}">
                                                 <BindableLayout.ItemTemplate>
-                                                    <DataTemplate x:DataType="x:String">
-                                                        <Border Padding="8,6" StrokeThickness="1" MinimumWidthRequest="72"
+                                                    <!-- A cell is a field, bare as a line's is, so the table is
+                                                         written in where it is read. What it says goes into the
+                                                         table through NoteTableCellField; the table's own menu
+                                                         (a row, a column, the table) is the table button over
+                                                         the foot, once a cell has the caret - see UseTheTableTool. -->
+                                                    <DataTemplate x:DataType="screens:NoteTableCellField">
+                                                        <Border Padding="8,0" StrokeThickness="1" MinimumWidthRequest="72"
                                                                 Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}">
-                                                            <Label Text="{Binding .}" LineBreakMode="WordWrap" />
+                                                            <Entry Text="{Binding Text}" controls:BareField.IsBare="True"
+                                                                   ReturnType="Done" MinimumWidthRequest="56"
+                                                                   IsReadOnly="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.IsReadOnly, x:DataType=notes:NoteDetailPage}"
+                                                                   Focused="OnCellFocused" />
                                                         </Border>
                                                     </DataTemplate>
                                                 </BindableLayout.ItemTemplate>
@@ -279,6 +287,14 @@
             <controls:IconButton x:Name="StyleButton" TouchSize="44"
                                  Data="M2,16 L6,5 L10,16 M3.2,12.5 H8.8 M12,16 L14.6,9 L17.2,16 M12.8,14 H16.4"
                                  Description="{controls:Translate 'Text style'}" />
+            <!-- The browser's table tool, which means two things told apart by where the caret is:
+                 outside a table it puts one where the line being written in is, inside one it opens a
+                 sheet of what can be done to that table. Drawn as a grid, which is how every editor
+                 draws it. Its command is set in the code-behind for the reason the buttons beside it
+                 give - only the page knows whether a cell has the caret. -->
+            <controls:IconButton x:Name="TableButton" TouchSize="44"
+                                 Data="M3,4 H17 V16 H3 Z M3,8 H17 M3,12 H17 M8,4 V16 M13,4 V16"
+                                 Description="{controls:Translate 'Table'}" />
         </HorizontalStackLayout>
 
         <controls:NavigationBar Grid.Row="0" />

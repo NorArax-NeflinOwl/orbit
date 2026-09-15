@@ -65,11 +65,28 @@ public sealed partial class NoteLineRow : ObservableObject
 
     /// <summary>
     /// The table this line is, when it is one - see Orbit.Core.Notes.NoteTable. Drawn on the screen as a
-    /// grid of its cells' words (see <see cref="TableRows"/>); the cells cannot be written in on the phone
-    /// yet, and the table is carried through every edit unchanged so nothing here flattens one.
+    /// grid of fields, one a cell (see <see cref="TableRows"/>), and written in through them: what a
+    /// cell's field says goes into the table here (<see cref="WhenACellChanges"/>), which is what makes
+    /// the table the one thing every edit, undo and save reads.
     /// </summary>
     [ObservableProperty]
     private NoteTable? _table;
+
+    /// <summary>
+    /// The cells' fields, a list a row, built from <see cref="Table"/> and rebuilt only when it changes
+    /// shape: a change of words alone is written into the fields that are there, so the field being
+    /// written in keeps its caret and its keyboard.
+    /// </summary>
+    private IReadOnlyList<IReadOnlyList<NoteTableCellField>> _tableRows = [];
+
+    /// <summary>Above zero while the fields are being told what the table says, so nothing is written back.</summary>
+    private int _settingCells;
+
+    /// <summary>True while a cell's own words are being put into the table, which is no reason to redraw the cells.</summary>
+    private bool _takingACellsWords;
+
+    /// <summary>Raised when something was written in one of the table's cells - for the view model, which records the step.</summary>
+    public event EventHandler<NoteCellChange>? CellWrittenIn;
 
     /// <summary>Whether this line is a table rather than writing - which hides the field and shows the grid.</summary>
     public bool IsATable => Table is not null;
@@ -84,9 +101,8 @@ public sealed partial class NoteLineRow : ObservableObject
 
     public bool IsAPicture => Picture is not null;
 
-    /// <summary>The table's rows as the screen draws them: each a list of its cells' words.</summary>
-    public IReadOnlyList<IReadOnlyList<string>> TableRows
-        => Table is null ? [] : [.. Table.Rows.Select(row => (IReadOnlyList<string>)[.. row.Cells.Select(cell => cell.Text)])];
+    /// <summary>The table's rows as the screen draws and writes in them: each a list of its cells' fields.</summary>
+    public IReadOnlyList<IReadOnlyList<NoteTableCellField>> TableRows => _tableRows;
 
     public static NoteLineRow From(NoteContentLineDto line)
         => new()
@@ -239,10 +255,97 @@ public sealed partial class NoteLineRow : ObservableObject
 
     partial void OnTableChanged(NoteTable? value)
     {
+        if (!_takingACellsWords)
+        {
+            RedrawCells(value);
+        }
+
         OnPropertyChanged(nameof(IsATable));
         OnPropertyChanged(nameof(IsAnElement));
-        OnPropertyChanged(nameof(TableRows));
         SayHowItIsDrawn();
+    }
+
+    /// <summary>
+    /// Makes the cells' fields say what <paramref name="table"/> says: in place when it has the shape
+    /// they were built for - an undo, a save read back - and from scratch when it does not - a row
+    /// added, the table gone. TableRows is announced only in the second case, since announcing it is
+    /// what makes the screen build the grid again.
+    /// </summary>
+    private void RedrawCells(NoteTable? table)
+    {
+        if (table is not null && HasTheShapeOf(table))
+        {
+            _settingCells++;
+            try
+            {
+                for (var row = 0; row < table.Rows.Count; row++)
+                {
+                    for (var column = 0; column < table.Columns; column++)
+                    {
+                        var cell = table.Rows[row].Cells[column];
+                        _tableRows[row][column].Marks = cell.AllMarks;
+                        _tableRows[row][column].Text = cell.Text;
+                    }
+                }
+            }
+            finally
+            {
+                _settingCells--;
+            }
+
+            return;
+        }
+
+        foreach (var field in _tableRows.SelectMany(row => row))
+        {
+            field.PropertyChanged -= WhenACellChanges;
+        }
+
+        _tableRows = table is null ? [] : FieldsFor(table);
+        foreach (var field in _tableRows.SelectMany(row => row))
+        {
+            field.PropertyChanged += WhenACellChanges;
+        }
+
+        OnPropertyChanged(nameof(TableRows));
+    }
+
+    private IReadOnlyList<IReadOnlyList<NoteTableCellField>> FieldsFor(NoteTable table)
+        => [.. table.Rows.Select((row, rowIndex) => (IReadOnlyList<NoteTableCellField>)[.. row.Cells.Select(
+            (cell, columnIndex) => new NoteTableCellField(this, rowIndex, columnIndex, cell))])];
+
+    private bool HasTheShapeOf(NoteTable table)
+        => _tableRows.Count == table.Rows.Count && _tableRows.All(row => row.Count == table.Columns);
+
+    /// <summary>
+    /// What was written in a cell goes into the table, with the cell's marks moved along with it (the
+    /// arithmetic a line's marks follow, see NoteDetailViewModel.WhenALineChanges), and the view model is
+    /// told. The cells are not redrawn for it: the field already says what the table now says.
+    /// </summary>
+    private void WhenACellChanges(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+    {
+        if (_settingCells > 0
+            || args.PropertyName != nameof(NoteTableCellField.Text)
+            || sender is not NoteTableCellField field
+            || Table is not { } table)
+        {
+            return;
+        }
+
+        var change = NoteTextChange.Between(field.TextBefore, field.Text);
+        field.Marks = NoteTextMarks.Kept(field.Marks, change.Start, change.Removed, change.Inserted.Length, field.Text.Length);
+
+        _takingACellsWords = true;
+        try
+        {
+            Table = NoteTables.WithCell(table, field.Row, field.Column, field.ToCell());
+        }
+        finally
+        {
+            _takingACellsWords = false;
+        }
+
+        CellWrittenIn?.Invoke(this, new NoteCellChange(field, change));
     }
 
     partial void OnPictureChanged(NotePictureLine? value)

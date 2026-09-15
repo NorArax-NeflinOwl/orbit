@@ -952,9 +952,7 @@ public static partial class NoteSurfaceEdits
     {
         var cleared = DeleteSelection(state.Normalized(), forReplacement: true);
         var caret = cleared.Caret;
-        var lines = cleared.Lines.ToList();
-        var line = lines[caret.Line];
-        return Placed(lines, caret, NoteContentLine.OfTable(NoteTables.Empty()));
+        return Placed(cleared.Lines.ToList(), caret, NoteContentLine.OfTable(NoteTables.Empty()));
     }
 
     /// <summary>

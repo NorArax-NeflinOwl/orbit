@@ -29,6 +29,14 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	private NoteLineRow? _beingWrittenIn;
 
 	/// <summary>
+	/// The cell of a table the caret is in, or null when it is in a line - which is what the table
+	/// button goes by. Set as a cell is focused and cleared as a line is, so a cell somebody left for a
+	/// line does not keep the table's menu open to them; pressing the button itself, like the buttons
+	/// beside it, takes the focus off the cell without clearing this.
+	/// </summary>
+	private NoteTableCellField? _cellBeingWrittenIn;
+
+	/// <summary>
 	/// A line just started whose field does not exist yet, waiting for one so the caret can be put in
 	/// it. Only for the lines where that is actually true: a line started by Enter has its field before
 	/// the command that made it has even returned - see PutTheCaretIn, which is where both cases meet.
@@ -59,6 +67,7 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		IndentButton.Command = new Command(() => ReindentThisLine(more: true));
 		OutdentButton.Command = new Command(() => ReindentThisLine(more: false));
 		StyleButton.Command = new Command(async () => await ChooseAStyleAsync());
+		TableButton.Command = new Command(async () => await UseTheTableToolAsync());
 		_viewModel.CaretPlaced += OnCaretPlaced;
 	}
 
@@ -256,6 +265,21 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		if ((sender as Entry)?.BindingContext is NoteLineRow row)
 		{
 			_beingWrittenIn = row;
+			_cellBeingWrittenIn = null;
+		}
+	}
+
+	/// <summary>
+	/// The caret went into a cell of a table. The table's line becomes the line being written in, so the
+	/// buttons that act on that line - the box, the indent, the style - find a table there and do nothing,
+	/// which is what the surface says they do on a table; the table button finds the cell.
+	/// </summary>
+	private void OnCellFocused(object? sender, FocusEventArgs eventArgs)
+	{
+		if ((sender as Entry)?.BindingContext is NoteTableCellField cell)
+		{
+			_cellBeingWrittenIn = cell;
+			_beingWrittenIn = cell.Line;
 		}
 	}
 
@@ -461,6 +485,36 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		if (choices.FirstOrDefault(choice => choice.Name == chosen) is { } style)
 		{
 			_viewModel.Restyle(_beingWrittenIn ?? _viewModel.Lines.LastOrDefault(), style.Style);
+		}
+	}
+
+	/// <summary>
+	/// The table button, which means two things: with the caret in a cell it asks what to do to that
+	/// table and does it (<see cref="NoteDetailViewModel.ReshapeTable"/>); anywhere else it puts a table
+	/// where the line being written in is (<see cref="NoteDetailViewModel.InsertTable"/>), or after the
+	/// last line of a note nobody has written in yet. A sheet for the menu, as the style button opens one.
+	/// </summary>
+	private async Task UseTheTableToolAsync()
+	{
+		if (!_viewModel.CanEdit)
+		{
+			return;
+		}
+
+		if (_cellBeingWrittenIn is null)
+		{
+			_viewModel.InsertTable(_beingWrittenIn ?? _viewModel.Lines.LastOrDefault());
+			return;
+		}
+
+		var choices = _viewModel.TableActions;
+		var chosen = await DisplayActionSheetAsync(
+			_translations["Table"], _translations["Cancel"], destruction: null,
+			choices.Select(choice => choice.Name).ToArray());
+
+		if (choices.FirstOrDefault(choice => choice.Name == chosen) is { } action)
+		{
+			_viewModel.ReshapeTable(_cellBeingWrittenIn, action.Action);
 		}
 	}
 

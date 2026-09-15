@@ -64,8 +64,10 @@ Twenty-nine commits; PR #288 carries them in full. The four that shape the code:
   SDK should do with this branch.
 - **Not seen in a browser or on a device.** The format panel, the styles on every read-only page, and
   the phone's style sheet have never been looked at.
-- The phone **carries** marks but does not draw them: a MAUI `Entry` renders one face for the whole
-  field. Nothing is lost by an edit there; it simply looks plain.
+- The phone draws marks on a line nobody is writing in (`MarkedLabel`, 2026-09-15) and writes in a
+  table's cells (`NoteTableCellField`, same day); neither has been seen on a device. Inside a cell, and
+  while a line is being written in, marks are carried and moved but look plain: a MAUI `Entry` renders
+  one face for the whole field.
 
 ## Rejected approaches (do not retry)
 
@@ -100,8 +102,9 @@ Then, in order:
    `info/future-plan.md` under that decision (beside the text, not instead of it; the keep-what-is-stored
    rule for the two writers; the editors; the phone carrying). Start with the server: four nullable JSON
    columns in one migration, the domain rule with tests, then the contracts, then `TitledDescription`.
-3. **The phone's own halves**: writing in a table's cells, drawing marks, fetching and caching pictures
-   for offline reading - each written down in `info/future-plan.md` with what it takes.
+3. **The phone's own halves**: ~~writing in a table's cells, drawing marks~~ (both done 2026-09-15 -
+   `NoteTableCellField`, `MarkedLabel`), setting a mark on the phone, fetching and caching pictures for
+   offline reading - each written down in `info/future-plan.md` with what it takes.
 
 ## Environment facts confirmed this session
 
