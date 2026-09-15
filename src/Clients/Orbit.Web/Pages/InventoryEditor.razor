@@ -9,10 +9,12 @@
 @using Orbit.Contracts.Tasks
 @using Orbit.Contracts.Notifications
 @using Orbit.Core.Abstractions
+@using Orbit.Core.Folders
 @using Orbit.Core.Inventories
 @using Orbit.Core.Suggestions
 @using Orbit.Web.Services
 @using Orbit.Core.Text
+@inject FolderState Folders
 @inject InventoryApiClient InventoryApiClient
 @inject TasksApiClient TasksApiClient
 @inject NotificationsApiClient NotificationsApiClient
@@ -66,6 +68,14 @@ else
                     </Suggestions>
                 </TitledDescription>
             </div>
+
+            @* Where it will be found. Only the owner files a shelf: one reached through a share sits in
+               its owner's folder on their page, and this reader's tabs are their own. *@
+            @if (!_isShared)
+            {
+                <FolderField Page="FolderPage.Inventories" Value="_folderId" ValueChanged="folderId => _folderId = folderId"
+                             Hint="@(T["Without one it is in Public, or in Private when it is sealed."])" />
+            }
 
             <h2 class="options-heading">@T["Items"]</h2>
 
@@ -466,6 +476,16 @@ else
     private bool _isSaving;
     private InventoryFormModel _formModel = new();
 
+    /// <summary>
+    /// The folder this inventory is filed under, as the form holds it. Beside the form model rather than
+    /// in it, because it does not travel with the save: filing is its own request, so that null can go on
+    /// meaning "nothing said" there - see MoveToFolderRequest.
+    /// </summary>
+    private Guid? _folderId;
+
+    /// <summary>What the server was last told, so a save only sends the filing when it actually changed.</summary>
+    private Guid? _savedFolderId;
+
     /// <summary>The row being dragged to a new place on the shelf, while one is - see RowArrangement.</summary>
     private readonly RowArrangement<InventoryItemFormModel> _itemOrder = new();
 
@@ -535,6 +555,13 @@ else
         // the first Save.
         if (IsNewInventory)
         {
+            // Made where the reader is standing, as a new note is - see NoteEditor. From Private what
+            // carries over is the thing that puts a shelf there: it starts sealed, rather than being
+            // written in the open and landing under Public.
+            await Folders.EnsureLoadedAsync();
+            var chosen = Folders.ChosenOn(FolderPage.Inventories);
+            _folderId = chosen.FolderId;
+            _formModel.IsPrivate = chosen == FolderKey.Of(BuiltInFolder.Private);
             _isLoading = false;
             return;
         }
@@ -568,6 +595,8 @@ else
 
             var items = await InventoryApiClient.GetInventoryItemsAsync(InventoryId.Value) ?? [];
             _formModel = InventoryFormModel.FromDto(inventory, items);
+            _folderId = inventory.FolderId;
+            _savedFolderId = inventory.FolderId;
 
             if (!_isReadOnly)
             {
@@ -924,16 +953,18 @@ else
             {
                 // Said in the server's own words when it refuses. "Try again" is the wrong thing to
                 // tell somebody about a request that will be refused identically every time.
-                var creation = await InventoryApiClient.CreateInventoryAsync(_formModel.ToRequest());
+                var creation = await InventoryApiClient.CreateInventoryAsync(_formModel.ToRequest(_folderId));
                 if (!creation.WasCreated)
                 {
                     _saveErrorMessage = creation.RefusedBecause;
                     return;
                 }
+
+                _savedFolderId = _folderId;
             }
             else
             {
-                var outcome = await InventoryApiClient.UpdateInventoryAsync(InventoryId!.Value, _formModel.ToRequest());
+                var outcome = await InventoryApiClient.UpdateInventoryAsync(InventoryId!.Value, _formModel.ToRequest(_folderId));
                 if (outcome.Kind == EditOutcomeKind.Locked)
                 {
                     _lockedByUserName = outcome.LockedByUserName;
@@ -952,6 +983,25 @@ else
                 // switch they had just moved had not taken. Only for an inventory that exists - a new
                 // one has no list to configure until it has been created.
                 await InventoryApiClient.SaveRestockListSettingsAsync(InventoryId!.Value, _restockSettings.ToDto());
+
+                // Filing travels separately from the inventory itself - see MoveToFolderRequest - so it
+                // is sent only when it actually changed, and a refusal is said out loud: the shelf is
+                // saved, and only the tab it was meant for is not.
+                if (_folderId != _savedFolderId)
+                {
+                    if (await InventoryApiClient.MoveToFolderAsync(InventoryId!.Value, _folderId))
+                    {
+                        _savedFolderId = _folderId;
+                    }
+                    else
+                    {
+                        Logger.LogWarning(
+                            "Inventory {InventoryId} was saved but could not be filed under folder {FolderId}",
+                            InventoryId, _folderId);
+                        _saveErrorMessage = T["The inventory was saved, but it couldn't be filed under that folder. Choose it again."];
+                        return;
+                    }
+                }
             }
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
@@ -1065,8 +1115,12 @@ else
                 Items = [.. items.Select(InventoryItemFormModel.FromDto)]
             };
 
-        public SaveInventoryRequest ToRequest()
-            => new(Name, [.. Items.Select(item => item.ToDto())], IsPrivate, Description: Description);
+        /// <summary>
+        /// The body a save sends. <paramref name="folderId"/> is read by the server only when the
+        /// inventory is being made - filing one that exists is its own request - see SaveInventoryRequest.
+        /// </summary>
+        public SaveInventoryRequest ToRequest(Guid? folderId = null)
+            => new(Name, [.. Items.Select(item => item.ToDto())], IsPrivate, Description: Description, FolderId: folderId);
     }
 
 }

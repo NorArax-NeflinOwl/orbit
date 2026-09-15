@@ -478,8 +478,19 @@ shelves' are. What the dashboard says about the calendar is what is on today and
 those two cards answer *when*; an event's folder answers *which*, so a tab narrowing "today" to one
 folder would be answering a question nobody asked there (`FolderPages.ScopesOn`).
 
-**Nothing is finished on the calendar or the shelves.** The Finished tab stays the task lists' alone
-(`FolderPages.HasAFinishedTab`): an event is over rather than done, and a shelf is never either.
+**Nothing is finished on the calendar or the shelves, and nothing on the calendar is sealed.** The
+Finished tab stays the task lists' alone (`FolderPages.HasAFinishedTab`): an event is over rather than
+done, and a shelf is never either. The **calendar has no Private tab** either
+(`FolderPages.HasAPrivateTab`): an event is one of the kinds Orbit does not seal, so the tab could only
+ever have read zero - the same reason the notes have no Finished tab.
+
+**In the browser** both pages carry the tab row the notes and the lists have (`FolderTabs` inside
+`PhoneToolbar`, so it folds into one Menu button on a phone), and both editors carry the picker
+(`FolderField`). A tab on the calendar narrows the grid **and** the list beside it together, so it is a
+way of looking at the whole calendar rather than at half of it; the count on each tab is everything that
+folder holds rather than what is on screen, since a tab reading zero because the reader is looking at
+March would be answering a different question. Filing is sent after the save and only when it changed;
+a refusal says so rather than being swallowed, because the thing is saved and only its tab is not.
 
 **An export carries the folders, and an import files everything back into them** (2026-09-15,
 `OrbitArchive.Folders`, `ArchivedFolder`, and a `Folder` on each of the four kinds - defaulted and last,

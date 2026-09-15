@@ -123,19 +123,21 @@
     /// The built-in ones first, in the order somebody reads them - what is still open, what is sealed,
     /// and, where the page has one, what is finished - and then whatever they made here, oldest first.
     ///
-    /// Finished is not on every page. A note has nothing to finish, so the tab on the notes was a tab
-    /// that could only ever be empty, and the dashboard stops showing a finished list rather than
-    /// filing it somewhere - see FolderPages.HasAFinishedTab.
+    /// Neither Finished nor Private is on every page. A note has nothing to finish, so the tab on the
+    /// notes was a tab that could only ever be empty, and the dashboard stops showing a finished list
+    /// rather than filing it somewhere; an event cannot be sealed, so the calendar has no Private tab
+    /// either - see FolderPages.HasAFinishedTab and HasAPrivateTab.
     /// </summary>
     private IEnumerable<FolderKey> Tabs
     {
         get
         {
-            var builtIn = new List<FolderKey>
+            var builtIn = new List<FolderKey> { FolderKey.Of(BuiltInFolder.Public) };
+            if (Page.HasAPrivateTab())
             {
-                FolderKey.Of(BuiltInFolder.Public),
-                FolderKey.Of(BuiltInFolder.Private)
-            };
+                builtIn.Add(FolderKey.Of(BuiltInFolder.Private));
+            }
+
             if (Page.HasAFinishedTab())
             {
                 builtIn.Add(FolderKey.Of(BuiltInFolder.Finished));

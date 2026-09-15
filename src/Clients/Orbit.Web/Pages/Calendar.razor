@@ -7,6 +7,8 @@
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Tasks
 @using Orbit.Web.Services
+@using Orbit.Core.Folders
+@inject FolderState Folders
 @inject CalendarApiClient CalendarApiClient
 @inject ChatApiClient ChatApiClient
 @inject TasksApiClient TasksApiClient
@@ -66,6 +68,13 @@
         </OverflowMenu>
     </Actions>
 </PageHeader>
+
+@* Which folder is being read. It narrows the grid and the list beside it together, so a tab is a way of
+   looking at the whole calendar rather than at part of it. No Private tab here - an event is never
+   sealed, see FolderPages.HasAPrivateTab. *@
+<PhoneToolbar Page="FolderPage.Calendar">
+    <FolderTabs Page="FolderPage.Calendar" CountIn="CountIn" />
+</PhoneToolbar>
 
 <div class="calendar-layout">
     <div class="calendar-event-list-panel">
@@ -327,7 +336,7 @@
             // An event that starts before the period and runs into it belongs to it as much as one that
             // starts inside it.
             var nowUtc = TimeProvider.GetUtcNow();
-            return [.. (_events ?? [])
+            return [.. EventsUnderTheOpenTab
                 .Where(calendarEvent => DateOnly.FromDateTime(calendarEvent.Details.StartUtc.LocalDateTime) < toExclusive
                     && DateOnly.FromDateTime(calendarEvent.Details.EndUtc.LocalDateTime) >= from)
                 // An event that has already ended is over. Left out unless the reader asked for
@@ -420,6 +429,8 @@
         // one this page has never read, so hearing about it has to mean reading again - see
         // OnNotificationsChanged.
         NotificationFeedState.Changed += OnNotificationsChanged;
+        // The tabs are shared, so pressing one anywhere re-filters this page too.
+        Folders.Changed += OnFoldersChanged;
         // Before the first render, so the panels come back open rather than opening a moment later, and
         // the list is in the order it was left in rather than jumping into it.
         await Panels.InitializeAsync();
@@ -591,8 +602,27 @@
 
     private IReadOnlyList<CalendarEventDto> EventsOnTheGrid
         => ShowsEverythingInThisView
-            ? _events ?? []
-            : [.. (_events ?? []).Where(calendarEvent => !IsTickedOff(calendarEvent))];
+            ? EventsUnderTheOpenTab
+            : [.. EventsUnderTheOpenTab.Where(calendarEvent => !IsTickedOff(calendarEvent))];
+
+    /// <summary>
+    /// The events under the tab that is open - what both the grid and the list beside it are made of, so
+    /// that pressing a tab narrows the whole page rather than half of it. An event nobody filed is in
+    /// Public; none is ever in Private, an event being one of the kinds Orbit does not seal, which is why
+    /// the calendar draws no Private tab at all (FolderPages.HasAPrivateTab).
+    /// </summary>
+    private IReadOnlyList<CalendarEventDto> EventsUnderTheOpenTab
+        => [.. (_events ?? []).Where(calendarEvent =>
+            Folders.ShowsUnderTheChosenTab(FolderPage.Calendar, calendarEvent.FolderId, isPrivate: false))];
+
+    /// <summary>
+    /// How many events are under each tab, drawn on the tab itself. Everything the calendar holds, not
+    /// only what is on screen: the count says how much is in a folder, and a tab reading zero because
+    /// the reader is looking at March would be answering a different question.
+    /// </summary>
+    private int CountIn(FolderKey folder)
+        => (_events ?? []).Count(calendarEvent =>
+            Folders.PlacementOn(FolderPage.Calendar, calendarEvent.FolderId, isPrivate: false) == folder);
 
     /// <inheritdoc cref="EventsOnTheGrid"/>
     private IReadOnlyList<DueTaskDto> DueTasksOnTheGrid
@@ -1053,6 +1083,12 @@
             StateHasChanged();
         });
 
-    public void Dispose() => NotificationFeedState.Changed -= OnNotificationsChanged;
+    private void OnFoldersChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        NotificationFeedState.Changed -= OnNotificationsChanged;
+        Folders.Changed -= OnFoldersChanged;
+    }
 
 }

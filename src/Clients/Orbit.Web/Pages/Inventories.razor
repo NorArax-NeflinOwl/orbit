@@ -7,7 +7,9 @@
 @using Orbit.Contracts.Inventories
 @using Orbit.Core.Inventories
 @using Orbit.Web.Services
+@using Orbit.Core.Folders
 @using Orbit.Core.Text
+@inject FolderState Folders
 @inject InventoryApiClient InventoryApiClient
 @inject ChatApiClient ChatApiClient
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
@@ -82,8 +84,18 @@
     }
 }
 
+@* Which folder is being read - the inventories' own, since a folder belongs to one page (see
+   FolderScope). On a phone it folds into one Menu button. *@
+<PhoneToolbar Page="FolderPage.Inventories">
+    <FolderTabs Page="FolderPage.Inventories" CountIn="CountIn" />
+</PhoneToolbar>
+
 <ObjectList IsLoading="_inventories is null" IsEmpty="_inventories is { Count: 0 }"
             EmptyMessage="@T["No inventories yet. Create one to start tracking stock."]">
+    @if (_inventories is { Count: > 0 } && ArrangedInventories.Count == 0)
+    {
+        <p class="empty-hint empty-list">@T["Nothing in this folder."]</p>
+    }
     <div class="item-card-list">
         @foreach (var inventory in ArrangedInventories)
         {
@@ -173,6 +185,8 @@
         // is one this page has never read, so hearing about it has to mean reading again - see
         // OnNotificationsChanged.
         NotificationFeedState.Changed += OnNotificationsChanged;
+        // The tabs are shared, so pressing one anywhere re-filters this page too.
+        Folders.Changed += OnFoldersChanged;
         await Arrangement.InitializeAsync();
         var currentUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync();
         if (currentUserId is null)
@@ -320,9 +334,23 @@
     private void ToggleSharePanel(Guid inventoryId)
         => _sharePanelInventoryId = _sharePanelInventoryId == inventoryId ? null : inventoryId;
 
-    /// <summary>The inventories in the order this reader put them - see InventoryArrangement.</summary>
+    /// <summary>
+    /// The inventories under the open tab, in the order this reader put them - see InventoryArrangement.
+    /// One nobody filed is still in a folder: Public, or Private when it is sealed (FolderPlacement).
+    /// </summary>
     private IReadOnlyList<InventoryDto> ArrangedInventories
-        => [.. Arrangement.Arrange(_inventories ?? [], inventory => inventory.Id)];
+        => [.. Arrangement.Arrange(
+            (_inventories ?? []).Where(inventory =>
+                Folders.ShowsUnderTheChosenTab(FolderPage.Inventories, inventory.FolderId, inventory.IsPrivate)),
+            inventory => inventory.Id)];
+
+    /// <summary>
+    /// How many shelves are under each tab, drawn on the tab itself. There is no Finished tab here - a
+    /// shelf is never done with - see FolderPages.HasAFinishedTab.
+    /// </summary>
+    private int CountIn(FolderKey folder)
+        => (_inventories ?? []).Count(inventory =>
+            Folders.PlacementOn(FolderPage.Inventories, inventory.FolderId, inventory.IsPrivate) == folder);
 
     /// <summary>The card being dragged to a new place, while one is - see RowArrangement.</summary>
     private readonly RowArrangement<InventoryDto> _cardOrder = new();
@@ -444,6 +472,12 @@
     private bool HasNewsAbout(InventoryDto inventory)
         => NotificationFeedState.HasNewsAbout($"/inventory/{inventory.Id}");
 
-    public void Dispose() => NotificationFeedState.Changed -= OnNotificationsChanged;
+    private void OnFoldersChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        NotificationFeedState.Changed -= OnNotificationsChanged;
+        Folders.Changed -= OnFoldersChanged;
+    }
 
 }

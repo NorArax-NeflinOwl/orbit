@@ -915,6 +915,9 @@ public static class PolishTranslations
             "Zaznaczone samo, bo wszystkie pozycje są odhaczone. Odznacz, aby powiedzieć, że sama lista nie jest jeszcze gotowa - dostanie wtedy status \"niezakończona\".",
         ["Without one it is in Public, or in Private when it is sealed."] =
             "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych.",
+        // An event is never sealed, so the calendar has no Private tab to send it to - see
+        // FolderPages.HasAPrivateTab.
+        ["Without one it is in Public."] = "Bez folderu trafia do Publicznych.",
         ["Without one it is in Public, or in Private when it is sealed - and it moves to Finished on its own once everything is ticked off. A list you file somewhere stays in that folder, finished or not."] =
             "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych, i sama przechodzi do Ukończonych, gdy wszystkie pozycje zostaną odhaczone. Lista włożona do folderu zostaje w nim, ukończona czy nie.",
 
@@ -1342,6 +1345,10 @@ public static class PolishTranslations
             "Lista została zapisana, ale nie udało się umieścić jej w tym folderze. Wybierz go ponownie.",
         ["The note was saved, but it couldn't be filed under that folder. Choose it again."] =
             "Notatka została zapisana, ale nie udało się umieścić jej w tym folderze. Wybierz go ponownie.",
+        ["The event was saved, but it couldn't be filed under that folder. Choose it again."] =
+            "Wydarzenie zostało zapisane, ale nie udało się umieścić go w tym folderze. Wybierz go ponownie.",
+        ["The inventory was saved, but it couldn't be filed under that folder. Choose it again."] =
+            "Magazyn został zapisany, ale nie udało się umieścić go w tym folderze. Wybierz go ponownie.",
         ["Failed to save the inventory. Try again."] = "Nie udało się zapisać magazynu. Spróbuj ponownie.",
         ["Couldn't save that change. Try again."] = "Nie udało się zapisać tej zmiany. Spróbuj ponownie.",
         ["Couldn't save your profile. Try again."] = "Nie udało się zapisać profilu. Spróbuj ponownie.",

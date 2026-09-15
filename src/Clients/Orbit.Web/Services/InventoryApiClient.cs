@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Orbit.Contracts;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
@@ -190,6 +191,14 @@ public sealed class InventoryApiClient
 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
+    }
+
+    /// <inheritdoc cref="CalendarApiClient.MoveToFolderAsync"/>
+    public async Task<bool> MoveToFolderAsync(Guid inventoryId, Guid? folderId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/inventories/{inventoryId}/folder", new MoveToFolderRequest(folderId), cancellationToken);
+        return response.IsSuccessStatusCode;
     }
 
     public async Task DeleteInventoryAsync(Guid inventoryId, CancellationToken cancellationToken = default)

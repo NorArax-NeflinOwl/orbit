@@ -503,13 +503,14 @@ else
         [.. TaskListsUnderTheOpenTab.Where(taskList => Matches("tasks", taskList.IsPinned, taskList.Priority))];
 
     /// <summary>
-    /// The shelves under the open tab. An inventory is not filed into a folder somebody made - there is
-    /// no tab for one on the inventory page - but it can be sealed, so Public and Private tell them
-    /// apart here the same way they tell notes and lists apart. Without this the Private tab drew every
-    /// shelf the account has, which is the opposite of what the tab says.
+    /// The shelves under the open tab. Filed like everything else here since 2026-09-15: a folder
+    /// somebody made on the inventories is a tab on this page too, and Public and Private tell the rest
+    /// apart the way they do for notes and lists.
     /// </summary>
+    /// <inheritdoc cref="NotesUnderTheOpenTab"/>
     private IReadOnlyList<InventoryDto> InventoriesUnderTheOpenTab =>
-        [.. (_inventories ?? []).Where(inventory => inventory.IsPrivate == IsReadingWhatIsPrivate)];
+        [.. (_inventories ?? [])
+            .Where(inventory => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, inventory.FolderId, inventory.IsPrivate))];
 
     private IReadOnlyList<UpcomingEntry> UpcomingToShow =>
         [.. Upcoming()
@@ -798,6 +799,9 @@ else
         {
             FolderScope.Notes => cardKey == "notes",
             FolderScope.Tasks => cardKey == "tasks",
+            FolderScope.Inventories => cardKey == "inventories",
+            // The calendar's folders are not tabs here at all - see FolderPages.ScopesOn - so a card
+            // can never be about one.
             _ => false
         };
     }

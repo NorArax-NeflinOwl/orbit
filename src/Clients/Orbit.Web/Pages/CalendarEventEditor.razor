@@ -11,7 +11,9 @@
 @using Orbit.Contracts.Notifications
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Abstractions
+@using Orbit.Core.Folders
 @using Orbit.Web.Services
+@inject FolderState Folders
 @inject CalendarApiClient CalendarApiClient
 @inject TasksApiClient TasksApiClient
 @inject ChatApiClient ChatApiClient
@@ -59,6 +61,14 @@ else
             <input id="eventTitleInput" type="text" value="@_title"
                    @oninput="args => _title = args.Value?.ToString() ?? string.Empty" />
         </div>
+
+        @* Where it will be found. Only the owner files an event: one reached through a share sits in
+           its owner's folder on their page, and this reader's tabs are their own. *@
+        @if (!_isShared)
+        {
+            <FolderField Page="FolderPage.Calendar" Value="_folderId" ValueChanged="folderId => _folderId = folderId"
+                         Hint="@(T["Without one it is in Public."])" />
+        }
     </fieldset>
 
     @* Everything else an event is, drawn by the control the task list's calendar entry uses too - see
@@ -230,6 +240,16 @@ else
     private bool _isLoading = true;
     private EventFormModel _formModel = new();
 
+    /// <summary>
+    /// The folder this event is filed under, as the form holds it. Beside the form model rather than in
+    /// it, because it is not part of the event's details: it travels on its own request and is not part
+    /// of what a save replaces - see MoveToFolderRequest.
+    /// </summary>
+    private Guid? _folderId;
+
+    /// <summary>What the server was last told, so a save only sends the filing when it actually changed.</summary>
+    private Guid? _savedFolderId;
+
     /// <summary>The event's name. Its own field rather than the shared control's - see EventFields.razor.</summary>
     private string _title = string.Empty;
 
@@ -364,6 +384,8 @@ else
                     _formModel = EventFormModel.FromDto(calendarEvent.Details, TimeProvider);
                     _title = calendarEvent.Details.Title;
                     _savedDetails = calendarEvent.Details;
+                    _folderId = calendarEvent.FolderId;
+                    _savedFolderId = calendarEvent.FolderId;
                     _isShared = calendarEvent.IsShared;
                     _access = SharedItemAccess.For(calendarEvent.IsShared, calendarEvent.AccessLevel);
                     _isSharedReadOnly = calendarEvent.IsShared && !_access.CanEdit;
@@ -392,6 +414,11 @@ else
                 // reaches for too. Only for a new event: an existing one keeps whatever it was given,
                 // including deliberately having none.
                 _formModel.Reminders = [ReminderRow.FromMinutes(DefaultReminderMinutesBeforeStart)];
+                // Made where the reader is standing, as a new note is: somebody who pressed the plus
+                // while reading their "Work" tab means this event to be in Work, and having to file it
+                // afterwards is a step that only ever gets skipped. The built-in tabs file nothing.
+                await Folders.EnsureLoadedAsync();
+                _folderId = Folders.ChosenOn(FolderPage.Calendar).FolderId;
             }
 
             _contacts = await ChatApiClient.GetContactsAsync();
@@ -545,7 +572,9 @@ else
             {
                 if (IsNewEvent)
                 {
-                    eventId = await CalendarApiClient.CreateCalendarEventAsync(new CreateCalendarEventRequest(details));
+                    eventId = await CalendarApiClient.CreateCalendarEventAsync(
+                        new CreateCalendarEventRequest(details, _folderId));
+                    _savedFolderId = _folderId;
                     Logger.LogInformation("Calendar event {EventId} created", eventId);
                 }
                 else
@@ -581,6 +610,27 @@ else
                         }
 
                         Logger.LogInformation("Calendar event {EventId} updated", eventId);
+
+                        // Filing travels separately from the event itself - see MoveToFolderRequest - so
+                        // it is sent only when it actually changed. A refusal is said out loud rather
+                        // than swallowed: the event is saved, and only the tab it was meant for is not,
+                        // which is exactly what a reader has to be told to try again.
+                        if (_folderId != _savedFolderId)
+                        {
+                            if (await CalendarApiClient.MoveToFolderAsync(eventId, _folderId))
+                            {
+                                _savedFolderId = _folderId;
+                            }
+                            else
+                            {
+                                Logger.LogWarning(
+                                    "Calendar event {EventId} was saved but could not be filed under folder {FolderId}",
+                                    eventId, _folderId);
+                                _errorMessage = T["The event was saved, but it couldn't be filed under that folder. Choose it again."];
+                                return;
+                            }
+                        }
+
                         await ReleaseLockAsync(eventId);
                     }
                 }

@@ -14,9 +14,9 @@ using Xunit;
 namespace Orbit.Web.Tests.Components;
 
 /// <summary>
-/// The row of tabs the dashboard, the notes and the task lists are read under. The built-in ones are
-/// drawn here rather than fetched - they have no rows at all (see BuiltInFolder) - and the rest are
-/// whatever the reader has made on that page.
+/// The row of tabs every page made of cards is read under. The built-in ones are drawn here rather than
+/// fetched - they have no rows at all (see BuiltInFolder) - and the rest are whatever the reader has
+/// made on that page.
 /// </summary>
 public sealed class FolderTabsTests : OrbitTestContext
 {
@@ -50,6 +50,31 @@ public sealed class FolderTabsTests : OrbitTestContext
 
         Assert.Equal(["Public", "Private"], TabNames(RenderTabs(FolderPage.Notes)));
         Assert.Equal(["Public", "Private"], TabNames(RenderTabs(FolderPage.Dashboard)));
+    }
+
+    /// <summary>
+    /// An event cannot be sealed, so a Private tab on the calendar could only ever read zero - the same
+    /// reason the notes have no Finished tab. See FolderPages.HasAPrivateTab.
+    /// </summary>
+    [Fact]
+    public void The_calendar_has_no_Private_tab()
+    {
+        RegisterFolders([]);
+
+        Assert.Equal(["Public"], TabNames(RenderTabs(FolderPage.Calendar)));
+        Assert.Equal(["Public", "Private"], TabNames(RenderTabs(FolderPage.Inventories)));
+    }
+
+    [Fact]
+    public void The_calendar_and_the_inventories_draw_their_own_folders()
+    {
+        RegisterFolders([AFolderCalled("This week", FolderScope.Calendar), AnotherFolderCalled("Kitchen", FolderScope.Inventories)]);
+
+        Assert.Equal(["Public", "This week"], TabNames(RenderTabs(FolderPage.Calendar)));
+        Assert.Equal(["Public", "Private", "Kitchen"], TabNames(RenderTabs(FolderPage.Inventories)));
+        // The dashboard draws the shelves' tabs beside the notes' and the lists', but not the
+        // calendar's - see FolderPages.ScopesOn.
+        Assert.Equal(["Public", "Private", "Kitchen"], TabNames(RenderTabs(FolderPage.Dashboard)));
     }
 
     [Fact]

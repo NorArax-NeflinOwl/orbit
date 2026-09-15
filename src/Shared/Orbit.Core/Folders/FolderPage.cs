@@ -71,4 +71,11 @@ public static class FolderPages
     /// folder the page has no tab for and vanishing.
     /// </summary>
     public static bool HasAFinishedTab(this FolderPage page) => page == FolderPage.Tasks;
+
+    /// <summary>
+    /// Whether sealed things gather under a tab of their own here. Everywhere but the calendar: an event
+    /// cannot be sealed at all - it is one of the four kinds Orbit does not offer that for - so the tab
+    /// there could only ever read zero, which is the same reason the notes have no Finished tab.
+    /// </summary>
+    public static bool HasAPrivateTab(this FolderPage page) => page != FolderPage.Calendar;
 }
