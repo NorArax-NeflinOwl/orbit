@@ -484,6 +484,16 @@ done, and a shelf is never either. The **calendar has no Private tab** either
 (`FolderPages.HasAPrivateTab`): an event is one of the kinds Orbit does not seal, so the tab could only
 ever have read zero - the same reason the notes have no Finished tab.
 
+**On the phone** both screens carry what the notes and the lists carry: the folders are entries in the
+menu under the screen's name rather than a row of tabs (a phone has no room for a row), with the count
+beside each; the folder row unfolds from that menu to name a new one or rename the open one; and filing
+one event or one shelf is a group in the menu under its own name, "No folder" among the answers. The
+inventories' screen gained a title menu of its own for it (`InventoryPage`), and its folders can be
+hidden from the dashboard as the notes' and the lists' can, the shelves being cards the dashboard is
+made of. Everything is written to the phone first and queued: filing travels as its own kind of change
+(`OutboxOperation.File`), one the server has never seen carries its folder on the create instead, and
+the folders are pushed ahead of everything filed into them - see `FolderNotOnTheServerYet`.
+
 **In the browser** both pages carry the tab row the notes and the lists have (`FolderTabs` inside
 `PhoneToolbar`, so it folds into one Menu button on a phone), and both editors carry the picker
 (`FolderField`). A tab on the calendar narrows the grid **and** the list beside it together, so it is a

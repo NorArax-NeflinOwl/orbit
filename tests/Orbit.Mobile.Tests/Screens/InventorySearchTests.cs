@@ -241,6 +241,9 @@ public sealed class InventorySearchTests
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
+
+        /// <summary>The tabs this screen files into - see FolderTabs.</summary>
+        public LocalFolderRepository Folders { get; }
         private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-30T10:00:00Z"));
         private readonly LocalInventoryRepository _inventories;
         private readonly InventorySynchronizer _synchronizer;
@@ -250,6 +253,7 @@ public sealed class InventorySearchTests
         {
             _server = new FakeInventoryServer(_clock);
             _inventories = new LocalInventoryRepository(_localStore, _clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
+            Folders = new LocalFolderRepository(_localStore, _clock);
             _synchronizer = new InventorySynchronizer(
                 _localStore, new InventoryClient(_server.ToHttpClient()), _clock, new SyncGate(),
                 NullLogger<InventorySynchronizer>.Instance);
@@ -281,7 +285,9 @@ public sealed class InventorySearchTests
                 _inventories, _synchronizer, FixedNetworkStatus.Online,
                 new PrivateItemGate(new FixedDeviceAuthentication()),
                 new SyncState(FixedNetworkStatus.Online, _clock), Navigator, translations,
-                ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)));
+                ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)),
+                Folders, new InMemoryChosenFolderStore(),
+                TestDoubles.Folders.SynchronizerAgainstNobody(_localStore, _clock));
 
             await screen.LoadCommand.ExecuteAsync(null);
             return screen;
