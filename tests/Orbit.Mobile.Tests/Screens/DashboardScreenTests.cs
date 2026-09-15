@@ -179,12 +179,12 @@ public sealed class DashboardScreenTests
     }
 
     [Fact]
-    public async Task The_calendar_card_shows_everything_soonest_first()
+    public async Task The_upcoming_card_shows_what_is_ahead_soonest_first_and_nothing_that_has_been()
     {
-        // Not only what is ahead. Filtering to the future reads as the better idea and was a divergence:
-        // Orbit.Web shows the lot, so an account whose events have all been and gone showed a calendar
-        // card there and none here.
+        // It used to show the lot, on a comment claiming Orbit.Web did too - which it does not. A card
+        // headed "what is coming up" listing something from ten days ago is answering another question.
         using var context = new DashboardContext();
+        await context.AddEventAsync("Next week", Now.AddDays(7));
         await context.AddEventAsync("Tomorrow", Now.AddDays(1));
         await context.AddEventAsync("Long gone", Now.AddDays(-10));
         var screen = context.Open();
@@ -192,7 +192,62 @@ public sealed class DashboardScreenTests
         await screen.LoadCommand.ExecuteAsync(null);
 
         var events = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
-        Assert.Equal(["Long gone", "Tomorrow"], events.Rows.Select(row => row.Title));
+        Assert.Equal(["Tomorrow", "Next week"], events.Rows.Select(row => row.Title));
+    }
+
+    [Fact]
+    public async Task An_account_whose_events_have_all_been_and_gone_gets_no_upcoming_card()
+    {
+        using var context = new DashboardContext();
+        await context.AddEventAsync("Long gone", Now.AddDays(-10));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        // Nothing is coming up, so there is no card - rather than an empty one saying the filter emptied
+        // it, which no filter did.
+        Assert.DoesNotContain(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+    }
+
+    /// <summary>
+    /// An appointment a task list raised is finished when that entry is ticked off or crossed out: the
+    /// entry is where the work is, and the event is only when it happens. The card listed them anyway,
+    /// which is what the reader noticed.
+    /// </summary>
+    [Fact]
+    public async Task An_appointment_whose_entry_is_done_is_off_the_upcoming_card()
+    {
+        using var context = new DashboardContext();
+        var doneWith = await context.AddEventAsync("Dentist", Now.AddDays(2));
+        await context.AddEventAsync("Standup", Now.AddDays(3));
+        await context.RaiseFromATickedEntryAsync("Health", doneWith);
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var events = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+        Assert.Equal(["Standup"], events.Rows.Select(row => row.Title));
+    }
+
+    /// <summary>
+    /// A repeat is one event with a rule on it, not a row per occurrence. Read at the date it is stored
+    /// under, a weekly standup entered in spring sat at the bottom of the card under a date months old -
+    /// which is the same bug as a past event, wearing a different hat. See CalendarOccurrences.
+    /// </summary>
+    [Fact]
+    public async Task A_repeat_is_on_the_card_at_its_next_occurrence_rather_than_at_its_first()
+    {
+        using var context = new DashboardContext();
+        await context.AddRepeatingEventAsync("Standup", Now.AddDays(-25), "Weekly");
+        await context.AddEventAsync("Tomorrow", Now.AddDays(1));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var events = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+        // Tomorrow first, then the standup's next turn - three days off, not the twenty-five-day-old
+        // date the event is stored under.
+        Assert.Equal(["Tomorrow", "Standup"], events.Rows.Select(row => row.Title));
     }
 
     [Fact]
@@ -1607,9 +1662,45 @@ public sealed class DashboardScreenTests
             return created.LocalId;
         }
 
-        public async Task AddEventAsync(string title, DateTimeOffset startUtc, string? colour = null)
-            => await _calendarEvents.CreateAsync(new CalendarEventDetailsDto(
-                title, null, null, colour, startUtc, startUtc.AddHours(1), false, null, [], [], ReminderNotificationChannel: "None"));
+        public async Task<Guid> AddEventAsync(string title, DateTimeOffset startUtc, string? colour = null)
+            => (await _calendarEvents.CreateAsync(new CalendarEventDetailsDto(
+                title, null, null, colour, startUtc, startUtc.AddHours(1), false, null, [], [],
+                ReminderNotificationChannel: "None"))).LocalId;
+
+        /// <summary>
+        /// One event with a rule on it, which is how a repeat is stored - see CalendarOccurrences, which
+        /// is what turns it back into the days it falls on.
+        /// </summary>
+        public async Task<Guid> AddRepeatingEventAsync(string title, DateTimeOffset startUtc, string frequency)
+            => (await _calendarEvents.CreateAsync(new CalendarEventDetailsDto(
+                title, null, null, null, startUtc, startUtc.AddHours(1), false,
+                new RecurrenceDto(frequency, 1, null), [], [],
+                ReminderNotificationChannel: "None"))).LocalId;
+
+        /// <summary>
+        /// A task list whose one entry raised this appointment and has since been ticked off, which is
+        /// what takes the appointment off the Upcoming card - see DashboardViewModel.StillToDo.
+        ///
+        /// The event is stamped with a server id here because a server id is what an entry names
+        /// (`TaskItemDto.LinkedCalendarEventId`) and nothing in these tests has pushed anything.
+        /// </summary>
+        public async Task RaiseFromATickedEntryAsync(string listTitle, Guid eventLocalId)
+        {
+            var serverId = Guid.NewGuid();
+            await using (var dbContext = _localStore.CreateDbContext())
+            {
+                dbContext.CalendarEvents.First(stored => stored.LocalId == eventLocalId).ServerId = serverId;
+                await dbContext.SaveChangesAsync();
+            }
+
+            await _taskLists.CreateAsync(
+                listTitle,
+                [
+                    new TaskItemDto(
+                        Guid.NewGuid(), "Book it", null, IsCompleted: true, null, "None", false, "None",
+                        new TimeOnly(9, 0), Kind: "Calendar", LinkedCalendarEventId: serverId)
+                ]);
+        }
 
         /// <summary>
         /// Put on the server as well as in the local store, because the dashboard now synchronises on

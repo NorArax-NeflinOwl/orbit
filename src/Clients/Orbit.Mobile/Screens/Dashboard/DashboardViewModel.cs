@@ -163,6 +163,10 @@ public sealed partial class DashboardViewModel : ObservableObject
     {
         var notes = await _notes.GetAllAsync(cancellationToken);
         var taskLists = await _taskLists.GetAllAsync(cancellationToken);
+        // Held apart from taskLists, which the open folder narrows below. What raised an appointment is
+        // a fact about the appointment, not about the tab somebody is standing on: read off the narrowed
+        // set, an event whose entry lives in another folder would look like nobody's.
+        var everyTaskList = taskLists;
         var events = await _calendarEvents.GetAllAsync(cancellationToken);
         var inventories = await _inventories.GetAllAsync(cancellationToken);
         // Behind the permission that draws a map at all, the way the shared positions below are: a place
@@ -223,7 +227,10 @@ public sealed partial class DashboardViewModel : ObservableObject
 
         var shownNotes = notes.Where(note => Passes(DashboardCardKind.Notes, note.IsPinned)).ToList();
         var shownTaskLists = taskLists.Where(list => Passes(DashboardCardKind.Tasks, list.IsPinned)).ToList();
-        var shownEvents = events.Where(PassesPriority).Where(IsInsideTheHorizon).ToList();
+        // Split in two, the way Orbit.Web splits its own: what is coming up at all decides whether the
+        // card is on the page, and what survives the filter and the horizon is what it draws.
+        var everythingUpcoming = StillToDo(events, everyTaskList);
+        var shownEvents = everythingUpcoming.Where(PassesPriority).Where(IsInsideTheHorizon).ToList();
 
         // The account's tag colours, read from this phone like everything else on the page, for the two
         // cards whose rows draw tags - see DashboardRow.Tags.
@@ -241,7 +248,7 @@ public sealed partial class DashboardViewModel : ObservableObject
             taskLists.Any(CanBeShown));
         AddCardIfAnything(
             DashboardCardKind.Upcoming, _translations["Upcoming"], DescribeEvents(shownEvents), shownEvents.Count,
-            events.Count > 0);
+            everythingUpcoming.Count > 0);
         // Between what is coming up and who is around, which is where Orbit.Web puts it. The card
         // rather than a row carries the news: something about to go off says "/inventory" and names no
         // shelf (InventoryExpiryPushContent), so there is nothing here that could say which.
@@ -434,6 +441,81 @@ public sealed partial class DashboardViewModel : ObservableObject
             DashboardCardFilter.LowPriority => calendarEvent.Details.Priority == "Low",
             _ => true
         };
+
+    /// <summary>
+    /// What the Upcoming card is about: appointments still ahead of the reader and not already dealt
+    /// with, soonest occurrence first.
+    ///
+    /// Both halves were missing, and the card was a list of everything that has ever been in this
+    /// account's calendar. **Already been and gone**: an event whose end has passed is not coming up,
+    /// and a repeat was drawn at the date it is stored under rather than at its next occurrence, so a
+    /// weekly standup entered in spring sat at the bottom of the card under a date months old.
+    /// **Already done**: an appointment a task list raised is finished when that entry is ticked off or
+    /// crossed out - the entry is where the work is and the event is only when it happens - so the card
+    /// listed things somebody had already finished, which is exactly what a card headed "what is coming
+    /// up" must not do.
+    ///
+    /// Orbit.Web has asked both questions since 2026-09-06 (Dashboard.IsStillToDo, NextOccurrenceOf).
+    /// The comment here used to claim the difference was deliberate, and to give Orbit.Web showing
+    /// everything as the reason - which it does not.
+    /// </summary>
+    /// <param name="taskLists">
+    /// Every list on the phone rather than the ones under the open folder: what raised an appointment
+    /// does not depend on which tab the reader is standing on.
+    /// </param>
+    private List<LocalCalendarEvent> StillToDo(
+        IReadOnlyList<LocalCalendarEvent> events, IReadOnlyList<LocalTaskList> taskLists)
+    {
+        var nowUtc = _timeProvider.GetUtcNow();
+        return
+        [
+            .. events
+                .Where(calendarEvent => !IsAlreadyDealtWith(calendarEvent, taskLists))
+                .Select(calendarEvent => NextOccurrenceOf(calendarEvent, nowUtc))
+                .OfType<LocalCalendarEvent>()
+        ];
+    }
+
+    /// <summary>
+    /// Whether a task list raised this appointment and has since finished with it - the entry ticked
+    /// off, crossed out, or the whole list marked done. The lookup is by server id because that is what
+    /// an entry names (see TaskItemDto.LinkedCalendarEventId); an event this phone has not pushed yet
+    /// has no id to be named by, so nothing can have raised it.
+    /// </summary>
+    private static bool IsAlreadyDealtWith(LocalCalendarEvent calendarEvent, IReadOnlyList<LocalTaskList> taskLists)
+    {
+        if (calendarEvent.ServerId is not { } serverId)
+        {
+            return false;
+        }
+
+        foreach (var taskList in taskLists)
+        {
+            if (taskList.Items.FirstOrDefault(item => item.LinkedCalendarEventId == serverId) is { } entry)
+            {
+                return entry.IsCompleted || entry.IsFailed || taskList.IsCompleted;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// How far ahead a repeat is looked for. A year, as Orbit.Web looks, which covers what the year view
+    /// shows and bounds the walk for a daily event that has been running since forever.
+    /// </summary>
+    private static readonly TimeSpan HowFarAheadARepeatIsLookedFor = TimeSpan.FromDays(365);
+
+    /// <summary>
+    /// The next time this event falls, or null when it has been and gone. A repeat is expanded through
+    /// the shared stepping (see CalendarOccurrences) rather than read at the date it is stored under.
+    /// </summary>
+    private static LocalCalendarEvent? NextOccurrenceOf(LocalCalendarEvent calendarEvent, DateTimeOffset nowUtc)
+        => calendarEvent.Details.Recurrence is null
+            ? calendarEvent.Details.EndUtc >= nowUtc ? calendarEvent : null
+            : Calendar.CalendarOccurrences
+                .Between([calendarEvent], nowUtc, nowUtc + HowFarAheadARepeatIsLookedFor)
+                .FirstOrDefault(occurrence => occurrence.Details.EndUtc >= nowUtc);
 
     /// <summary>
     /// Whether an event is near enough for the Upcoming card - see UpcomingHorizon, which the reader
@@ -800,9 +882,8 @@ public sealed partial class DashboardViewModel : ObservableObject
             .ToList();
 
     /// <summary>
-    /// Everything on the calendar, soonest first - not only what is ahead. Filtering to the future reads
-    /// as the better idea and is a divergence: Orbit.Web shows the lot, and an account whose events have
-    /// all been and gone would show a calendar card there and none here.
+    /// The card's rows, soonest first. What reaches this is already only what is coming up and not done
+    /// with - see StillToDo, which is where that is decided.
     /// </summary>
     private IReadOnlyList<DashboardRow> DescribeEvents(IReadOnlyList<LocalCalendarEvent> events)
         => events

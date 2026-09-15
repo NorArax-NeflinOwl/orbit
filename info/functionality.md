@@ -4286,7 +4286,20 @@ months / everything, on Options' Preferences tab and kept on the device). The ca
 glanced down, and without a horizon it drew everything that would ever happen with next Tuesday somewhere
 inside it. Nothing is lost by it: what falls outside is still in the calendar, which the card's own name
 opens. Measured from the start of today, so something happening this morning is still on a card read this
-afternoon. **The phone offers the same five** on the account screen's Preferences tab and applies them to
+afternoon.
+
+**What reaches that card is what is still ahead and not dealt with.** An appointment whose end has passed
+is not coming up; a repeat is taken at its next occurrence rather than at the date it is stored under
+(`CalendarEventOccurrenceExpander` in the browser, `CalendarOccurrences` on the phone), or a weekly
+standup entered in spring would sit at the bottom of the card under a months-old date; and an appointment
+a task list raised is finished when that entry is ticked off or crossed out, because the entry is where
+the work is and the event is only when it happens. **The phone asked none of the three until 2026-09-15**
+and drew everything that had ever been in the calendar - on a comment claiming the browser did the same,
+which it has not since 2026-09-06. A card with nothing coming up is not drawn at all, which is different
+from one a filter emptied: the filter is in the card's own header and can be widened, and the horizon
+that emptied it cannot make a past appointment future.
+
+**The phone offers the same five** on the account screen's Preferences tab and applies them to
 its own card (`UpcomingHorizon`, `DashboardViewModel.IsInsideTheHorizon`), kept in that phone's
 preferences rather than shared with the browser - a horizon is how one screen is read on one device, the
 same as the theme beside it. A horizon that empties the card leaves the card where it was, as a filter
