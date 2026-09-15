@@ -90,6 +90,21 @@ Sixty-odd commits; PR #288 carries them in full. The four that shape the code:
   string, so a style set there would be dropped by the save - the same reason `[]` stays words there.
   That is what decision 3 below is about.
 
+## Half-built on purpose, and the first thing to finish
+
+**Archiving has a server and no clients** (2026-09-15). The user chose "Archived is a built-in folder"
+over "a state of its own", so everything a reader needs of it already exists as tabs and counts. What is
+built: `IsArchived` with `Archive(bool)` on all four aggregates, `BuiltInFolder.Archived` at the head of
+`FolderPlacement` (it beats even a folder somebody made, and leaves the folder id untouched so bringing
+something back puts it where it was), one command and one `PUT .../{id}/archived` per kind, the four
+columns (`ThingsCanBePutAwayRatherThanDeleted`), the flag on each DTO, and the tab in both clients' tab
+rows.
+
+**Nothing sets it.** No Archive action in any menu on either client, no local column on the phone, no
+outbox operation, no phone migration, and nothing in the export. **So the tab is drawn on every page and
+is always empty** - which is the state to finish rather than to discover. `info/future-plan.md` says the
+same under the archiving entry.
+
 ## Next step
 
 **Get the branch compiled and green before anything else is built on it.** It has grown a great deal
@@ -121,7 +136,8 @@ Then, in order:
    pictures~~ (all three done 2026-09-15 - `NoteTableCellField`, `MarkedLabel`, `NotePictureCache`),
    setting a mark on the phone, putting a picture into a note from the phone - each written down in
    `info/future-plan.md` with what it takes.
-4. **Ask about the seven open questions** from the audit above. There is no more of that list to build
+4. **Finish archiving's client half** - see above. It is the largest thing left half-done.
+5. **Ask about the three open questions** left from the audit above. There is no more of that list to build
    without an answer, so a successor that starts guessing is building the wrong thing.
 
 **Also carried on this branch, asked for on 2026-09-15**: folders for calendar events and for
@@ -146,13 +162,15 @@ Everything on that list that needed **no decision** has since been built (the ph
 "needs all of them" on the phone, "copy the text" and the done count on the phone, the place form's
 sticky Save, tests for "New sublist", and the deadlines the phone's Upcoming card was missing).
 
-**What is left there each wants an answer before it is worth starting**, and a successor should ask
-rather than guess: the Options page's rail (a rail carries one Save and that page has three that do
-different things); archiving as protection against deleting (a built-in folder, or a state of its own
-beside them); a note's date-and-time separator (stamped once, or re-read on every draw); the Group View
-box ticking itself (in the form, or in `TaskList`, which changes stored data); choosing several things
-at once; filtered copy and paste-from-the-clipboard; and editing a group list's children in the heavy
-editor. Each is written out with what the choice costs.
+**The user answered four of the seven on 2026-09-15**, and each answer is written into
+`info/future-plan.md` with what it costs: Archived is a built-in folder (built server-side, see above);
+the Group View box ticks itself in `TaskList` rather than in the form, with a migration and unpressable
+while an entry names a list (built); a note separator's date is stamped once (not built); and the
+Options page keeps its three inline Saves, so there is nothing to build there at all.
+
+**Three still want an answer**, and a successor should ask rather than guess: choosing several things at
+once and doing one thing to all of them; filtered copy and paste-from-the-clipboard; and editing a group
+list's children in the heavy editor. Each is written out with what the choice costs.
 
 ## The phone's second list, 2026-09-15
 
