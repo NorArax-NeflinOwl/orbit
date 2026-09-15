@@ -284,7 +284,7 @@ public sealed class InventorySearchTests
             var screen = new InventoryViewModel(
                 _inventories, _synchronizer, FixedNetworkStatus.Online,
                 new PrivateItemGate(new FixedDeviceAuthentication()),
-                new SyncState(FixedNetworkStatus.Online, _clock), Navigator, translations,
+                new SyncState(Reachability.Online, _clock), Navigator, translations,
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)),
                 Folders, new InMemoryChosenFolderStore(),
                 TestDoubles.Folders.SynchronizerAgainstNobody(_localStore, _clock));

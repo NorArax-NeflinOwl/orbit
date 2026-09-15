@@ -147,7 +147,21 @@ public static class MauiProgram
 		// long as a screen holds every entity it ever loaded and a SQLite connection behind it.
 		services.AddDbContextFactory<OrbitLocalDbContext>(options => options.UseSqlite(LocalDatabase.ConnectionString));
 		services.AddSingleton(TimeProvider.System);
-		services.AddSingleton<INetworkStatus, DeviceNetworkStatus>();
+		// What every screen asks is whether Orbit can be reached, and MAUI's connectivity is only half of
+		// that answer: the other half is whether the deployment has said it is paused. ServerReachability
+		// gives both, over the device's own status - see OrbitAnswerHandler for how it learns of a pause.
+		services.AddSingleton<DeviceNetworkStatus>();
+		services.AddHttpClient(nameof(PauseNoticeReader));
+		services.AddSingleton<IPauseNoticeReader>(provider => new PauseNoticeReader(
+			provider.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(PauseNoticeReader)),
+			OrbitPauseNoticeSettings.Current.Address,
+			provider.GetRequiredService<ILogger<PauseNoticeReader>>()));
+		services.AddSingleton(provider => new ServerReachability(
+			provider.GetRequiredService<DeviceNetworkStatus>(),
+			provider.GetRequiredService<IPauseNoticeReader>(),
+			provider.GetRequiredService<TimeProvider>(),
+			provider.GetRequiredService<ILogger<ServerReachability>>()));
+		services.AddSingleton<INetworkStatus>(provider => provider.GetRequiredService<ServerReachability>());
 		// Transient: each screen binds its own, and one that outlived its screen would keep it alive
 		// through the connectivity subscription.
 		services.AddTransient<ConnectionRequirement>();
@@ -319,6 +333,7 @@ public static class MauiProgram
 		services.AddSingleton(provider => new LiveUpdatesConnection(
 			provider.GetRequiredService<SessionStore>(),
 			provider.GetRequiredService<TokenRefreshService>(),
+			provider.GetRequiredService<ServerReachability>(),
 			apiSettings.BaseAddress,
 			provider.GetRequiredService<ILogger<LiveUpdatesConnection>>()));
 
@@ -329,25 +344,36 @@ public static class MauiProgram
 	private static void RegisterHttpClients(IServiceCollection services, OrbitApiSettings apiSettings)
 	{
 		services.AddTransient<AuthorizationMessageHandler>();
+		// Innermost on every client that talks to Orbit, so the authorization handler and every caller
+		// above it only ever see statuses the API itself chose - see OrbitAnswerHandler.
+		services.AddTransient<OrbitAnswerHandler>();
 
 		services.AddHttpClient<FoldersClient>(client => client.BaseAddress = apiSettings.BaseAddress)
-			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+			.AddHttpMessageHandler<AuthorizationMessageHandler>()
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 		services.AddHttpClient<NotesClient>(client => client.BaseAddress = apiSettings.BaseAddress)
-			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+			.AddHttpMessageHandler<AuthorizationMessageHandler>()
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 		services.AddHttpClient<TasksClient>(client => client.BaseAddress = apiSettings.BaseAddress)
-			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+			.AddHttpMessageHandler<AuthorizationMessageHandler>()
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 		services.AddHttpClient<CalendarClient>(client => client.BaseAddress = apiSettings.BaseAddress)
-			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+			.AddHttpMessageHandler<AuthorizationMessageHandler>()
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 		services.AddHttpClient<InventoryClient>(client => client.BaseAddress = apiSettings.BaseAddress)
-			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+			.AddHttpMessageHandler<AuthorizationMessageHandler>()
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 		// Only for taking up an offer of a place - there is no places screen here yet. See PlacesClient.
 		services.AddHttpClient<PlacesClient>(client => client.BaseAddress = apiSettings.BaseAddress)
-			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+			.AddHttpMessageHandler<AuthorizationMessageHandler>()
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 		services.AddHttpClient<SuggestionsClient>(client => client.BaseAddress = apiSettings.BaseAddress)
-			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+			.AddHttpMessageHandler<AuthorizationMessageHandler>()
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 		// The account's tag colours - see TagColourSynchronizer, which is the one thing that calls it.
 		services.AddHttpClient<TagsClient>(client => client.BaseAddress = apiSettings.BaseAddress)
-			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+			.AddHttpMessageHandler<AuthorizationMessageHandler>()
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 
 		// Talks to Google rather than to Orbit, so it gets no base address and no authorization handler -
 		// both endpoints it uses are absolute, and Orbit's token means nothing to Google.
@@ -358,28 +384,37 @@ public static class MauiProgram
 		// so two synchronizers meeting an expired token at the same moment each redeemed the same
 		// single-use refresh token, and the loser's rejection signed the reader out mid-use. Seen in the
 		// server's log as a refresh that answered 200 and another a second later that answered 401.
-		services.AddHttpClient(nameof(TokenRefreshService), client => client.BaseAddress = apiSettings.BaseAddress);
+		services.AddHttpClient(nameof(TokenRefreshService), client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 		services.AddSingleton(provider => new TokenRefreshService(
 			provider.GetRequiredService<SessionStore>(),
 			provider.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(TokenRefreshService)),
 			provider.GetRequiredService<ILogger<TokenRefreshService>>()));
-		services.AddHttpClient<AuthenticationClient>(client => client.BaseAddress = apiSettings.BaseAddress);
+		services.AddHttpClient<AuthenticationClient>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 		// Registering has no token to attach, and the rest are guarded by the server checking the current
 		// password rather than by this client - see AccountClient.
 		services.AddHttpClient<AccountClient>(client => client.BaseAddress = apiSettings.BaseAddress)
-			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+			.AddHttpMessageHandler<AuthorizationMessageHandler>()
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 		services.AddHttpClient<EncryptionKeyClient>(client => client.BaseAddress = apiSettings.BaseAddress)
-			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+			.AddHttpMessageHandler<AuthorizationMessageHandler>()
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 		services.AddHttpClient<ChatClient>(client => client.BaseAddress = apiSettings.BaseAddress)
-			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+			.AddHttpMessageHandler<AuthorizationMessageHandler>()
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 		services.AddHttpClient<UsersClient>(client => client.BaseAddress = apiSettings.BaseAddress)
-			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+			.AddHttpMessageHandler<AuthorizationMessageHandler>()
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 		services.AddHttpClient<LocationClient>(client => client.BaseAddress = apiSettings.BaseAddress)
-			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+			.AddHttpMessageHandler<AuthorizationMessageHandler>()
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 		services.AddHttpClient<PublicShareClient>(client => client.BaseAddress = apiSettings.BaseAddress)
-			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+			.AddHttpMessageHandler<AuthorizationMessageHandler>()
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 		services.AddHttpClient<NotePicturesClient>(client => client.BaseAddress = apiSettings.BaseAddress)
-			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+			.AddHttpMessageHandler<AuthorizationMessageHandler>()
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 		// One cache for the app, in the cache directory the OS may clear when short of room - a picture
 		// cleared that way is fetched again next time. See NotePictureCache for why the bytes stay sealed.
 		services.AddSingleton(provider => new NotePictureCache(
@@ -387,17 +422,23 @@ public static class MauiProgram
 			provider.GetRequiredService<NotePicturesClient>(),
 			provider.GetRequiredService<PrivateContentSealer>()));
 		services.AddHttpClient<ShareOfferClient>(client => client.BaseAddress = apiSettings.BaseAddress)
-			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+			.AddHttpMessageHandler<AuthorizationMessageHandler>()
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 		services.AddHttpClient<TransferClient>(client => client.BaseAddress = apiSettings.BaseAddress)
-			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+			.AddHttpMessageHandler<AuthorizationMessageHandler>()
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 		services.AddHttpClient<NotificationsClient>(client => client.BaseAddress = apiSettings.BaseAddress)
-			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+			.AddHttpMessageHandler<AuthorizationMessageHandler>()
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 		services.AddHttpClient<DiagnosticsClient>(client => client.BaseAddress = apiSettings.BaseAddress)
-			.AddHttpMessageHandler<AuthorizationMessageHandler>();
-		services.AddHttpClient<MobileVersionGate>(client => client.BaseAddress = apiSettings.BaseAddress);
+			.AddHttpMessageHandler<AuthorizationMessageHandler>()
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
+		services.AddHttpClient<MobileVersionGate>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 		// No authorization handler, like the gate above: which build the server is, is the answer to
 		// "what am I talking to" - exactly the question somebody has when they cannot sign in.
-		services.AddHttpClient<ServerVersionClient>(client => client.BaseAddress = apiSettings.BaseAddress);
+		services.AddHttpClient<ServerVersionClient>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<OrbitAnswerHandler>();
 	}
 
 	private static void RegisterScreens(IServiceCollection services)

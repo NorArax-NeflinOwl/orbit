@@ -43,7 +43,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     private readonly UserPermissions _permissions;
     private readonly SyncState _syncState;
     private readonly EverythingSynchronizer _synchronizer;
-    private readonly INetworkStatus _networkStatus;
+    private readonly ServerReachability _reachability;
     private readonly MobileVersionGate _versionGate;
     private readonly IScreenNavigator _navigator;
     private readonly ScreenHistory _history;
@@ -124,7 +124,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         AuthenticationClient authenticationClient, Presence.Presence presence, Translations translations,
         LocalStoreReset localStore, UserPermissions permissions, SyncState syncState,
         MobileVersionGate versionGate, IScreenNavigator navigator,
-        ScreenHistory history, EverythingSynchronizer synchronizer, INetworkStatus networkStatus,
+        ScreenHistory history, EverythingSynchronizer synchronizer, ServerReachability reachability,
         IEnumerable<Data.ICopyReviewStore> copyStores, Live.ILiveUpdates liveUpdates,
         Orbit.Mobile.Notifications.ForegroundNotices foregroundNotices, Orbit.Mobile.Notifications.NotificationOpener notificationOpener)
     {
@@ -148,8 +148,8 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         _permissions = permissions;
         _syncState = syncState;
         _synchronizer = synchronizer;
-        _networkStatus = networkStatus;
-        _networkStatus.Changed += (_, _) => ShowWhetherToOfferReconnecting();
+        _reachability = reachability;
+        _reachability.Changed += (_, _) => ShowWhetherToOfferReconnecting();
         _versionGate = versionGate;
 
         _navigator = navigator;
@@ -174,10 +174,22 @@ public sealed partial class NavigationBarViewModel : ObservableObject
 
     private void ShowSyncState()
     {
+        // A deployment that said it is paused is neither of the two things below: the phone has a
+        // connection, and nothing failed. Said first, and with whatever sentence the stop left behind,
+        // because that sentence is the one thing the reader can act on - see ServerReachability.
+        if (_reachability.Notice is { } notice)
+        {
+            SyncLabel = notice.Message.Length > 0
+                ? $"{_translations["Orbit is paused"]} - {notice.Message}"
+                : _translations["Orbit is paused"];
+            IsSyncing = false;
+            return;
+        }
+
         // A phone with no network says so, whatever the last sync happened to conclude. Otherwise the
         // row reads "Synced" next to a button offering to reconnect, which is two answers to one
         // question - and "Synced" is the wrong one: it was true when it was said and is not now.
-        if (!_networkStatus.IsOnline)
+        if (!_reachability.HasNetwork)
         {
             SyncLabel = _translations["No connection"];
             IsSyncing = false;
@@ -192,6 +204,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
             // string cannot be both - Polish has a different word for each ("Niedostępny" about somebody,
             // "Bez połączenia" about the app). This row is about the connection, so it says so.
             SyncCondition.Offline => _translations["No connection"],
+            SyncCondition.Paused => _translations["Orbit is paused"],
             SyncCondition.Failed => _translations["Couldn't sync"],
             // Before anything has tried, saying "Synced" would be a claim and saying "Offline" a
             // slander. The row stays quiet instead.
@@ -337,11 +350,13 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     /// <summary>
     /// Offered whenever trying again could help: with no connection, and equally when the phone had one
     /// and the attempt failed anyway. "Couldn't sync" with nothing to tap was the worse of the two -
-    /// being told something went wrong and given no way to do anything about it.
+    /// being told something went wrong and given no way to do anything about it. A pause counts too:
+    /// trying is how the phone finds out the server is back, and somebody who has just been told it is
+    /// should not have to wait for the next sync to happen by itself.
     /// </summary>
     private void ShowWhetherToOfferReconnecting()
     {
-        CanReconnect = !_networkStatus.IsOnline || _syncState.Condition is SyncCondition.Failed;
+        CanReconnect = !_reachability.IsOnline || _syncState.Condition is SyncCondition.Failed;
         ShowSyncState();
     }
 

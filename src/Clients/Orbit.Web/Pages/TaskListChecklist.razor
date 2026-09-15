@@ -235,24 +235,24 @@ else
     }
     else
     {
-    @foreach (var section in _sections)
+    @foreach (var checklistSection in _sections)
     {
-        <div class="card checklist-card" style="--checklist-depth: @section.Depth">
-            @if (section.IsMember)
+        <div class="card checklist-card" style="--checklist-depth: @checklistSection.Depth">
+            @if (checklistSection.IsMember)
             {
                 <div class="card-header">
-                    <span class="card-title">@Written(section.TaskList.Title)</span>
-                    <span class="card-count">@CompletionSummary(section.TaskList)</span>
+                    <span class="card-title">@Written(checklistSection.TaskList.Title)</span>
+                    <span class="card-count">@CompletionSummary(checklistSection.TaskList)</span>
                 </div>
             }
 
-            @if (section.TaskList.Items.Count == 0)
+            @if (checklistSection.TaskList.Items.Count == 0)
             {
                 <p class="checklist-empty">@T["No items."]</p>
             }
             else
             {
-                @foreach (var item in ItemsToShow(section.TaskList))
+                @foreach (var item in ItemsToShow(checklistSection.TaskList))
                 {
                     <div class="check-row @RowMark(item) @(Highlight == item.Id ? "highlighted" : "")">
                         @* An entry standing for other lists is not ticked here - it is done when they
@@ -261,13 +261,13 @@ else
                            not disabled - a disabled box takes no press at all and had nothing to say. *@
                         <TickBox State="@TickOf(item)"
                                  AriaLabel="@T.Format("Done: {0}", Written(item.Description))"
-                                 IsDisabled="@IsItemLocked(section, item)"
-                                 StateChanged="state => PressAsync(section.TaskList, item, state)" />
+                                 IsDisabled="@IsItemLocked(checklistSection, item)"
+                                 StateChanged="state => PressAsync(checklistSection.TaskList, item, state)" />
                         @* Opens the entry to be read rather than ticking it off. Ticking is the
                            checkbox's job, and it was doing both: the row was a <label>, so reading a
                            line by tapping it completed it. *@
                         <button type="button" class="check-row-text check-row-text-opens"
-                                @onclick="() => GoToEntry(section.TaskList.Id, item.Id)">@Written(item.Description)</button>
+                                @onclick="() => GoToEntry(checklistSection.TaskList.Id, item.Id)">@Written(item.Description)</button>
                         @* What it is about, the same marks the cards on /tasks carry - see TaskItem.Categories. *@
                         @foreach (var category in item.AllCategories)
                         {
@@ -318,7 +318,7 @@ else
                     @if (_waitingOn == item.Id)
                     {
                         <div class="check-row-asks">
-                            <span>@T.Format("Waiting for {0}.", WhatItWaitsForNamed(section.TaskList, item))</span>
+                            <span>@T.Format("Waiting for {0}.", WhatItWaitsForNamed(checklistSection.TaskList, item))</span>
                             <button type="button" class="btn-secondary" @onclick="() => _waitingOn = null">@T["OK"]</button>
                         </div>
                     }
@@ -343,7 +343,7 @@ else
                     }
                     @if (_askedAboutWays == item.Id)
                     {
-                        @WaysAsked(section.TaskList, item)
+                        @WaysAsked(checklistSection.TaskList, item)
                     }
                 }
             }

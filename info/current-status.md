@@ -243,6 +243,13 @@ developer account and signing key.
 - **iOS beyond phase 1 — deferred.** The head is written and everything in `Orbit.Mobile` is shared
   with it, but nothing built since phase 1 has been run there. It is blocked on an Apple developer
   account and a signing key rather than on the work: without them the head cannot be produced at all.
+- **Reminders while the server is paused.** The cost limits stop `orbit-api` for the rest of a month
+  that reaches 20 €, and since 2026-09-15 the phone lives through that: it tells the platform's 404
+  from Orbit's own answers, reads the stop script's `status.json` and says *"Orbit is paused"*
+  rather than signing out or discarding queued edits. What it cannot do yet is ring - every reminder
+  is a server background service delivered by push - so a paused month is a month without them. See
+  [Orbit.Maui — Plan, §15](orbit-maui-plan.md#15-living-without-the-server) for that and the two
+  smaller gaps beside it.
   What that leaves unknown is the head's own platform services, not the features.
 - **Two-way Google Calendar sync** — writing an event onto a recipient's real Google Calendar. What
   ships today is link-based hand-off, which needs no Google API at all — see
