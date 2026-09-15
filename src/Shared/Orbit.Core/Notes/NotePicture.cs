@@ -1,3 +1,5 @@
+using Orbit.Core.Abstractions;
+
 namespace Orbit.Core.Notes;
 
 /// <summary>
