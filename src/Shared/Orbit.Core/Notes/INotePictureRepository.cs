@@ -9,6 +9,13 @@ public interface INotePictureRepository
 
     Task<IReadOnlyList<NotePicture>> GetForNoteAsync(Guid noteId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Every picture this account owns, whichever note it is on - what an account deleting itself has to
+    /// be able to ask, because the bytes live outside the database and nothing else would ever name them
+    /// again. See NotePictureSweeper.RemoveEverythingOwnedByAsync.
+    /// </summary>
+    Task<IReadOnlyList<NotePicture>> GetForOwnerAsync(Guid ownerUserId, CancellationToken cancellationToken);
+
     /// <summary>How many bytes a note's pictures take together - what the 50 MB is counted against.</summary>
     Task<long> TotalBytesForNoteAsync(Guid noteId, CancellationToken cancellationToken);
 

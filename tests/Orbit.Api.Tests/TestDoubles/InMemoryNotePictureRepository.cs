@@ -22,6 +22,12 @@ internal sealed class InMemoryNotePictureRepository : INotePictureRepository
         return Task.FromResult(forNote);
     }
 
+    public Task<IReadOnlyList<NotePicture>> GetForOwnerAsync(Guid ownerUserId, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<NotePicture> owned = _pictures.Where(picture => picture.OwnerUserId == ownerUserId).ToList();
+        return Task.FromResult(owned);
+    }
+
     public Task<long> TotalBytesForNoteAsync(Guid noteId, CancellationToken cancellationToken)
         => Task.FromResult(_pictures.Where(picture => picture.NoteId == noteId).Sum(picture => picture.SizeBytes));
 

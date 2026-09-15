@@ -34,6 +34,15 @@ public sealed class NotePictureRepository : INotePictureRepository
         return entities.Select(ToDomain).ToList();
     }
 
+    public async Task<IReadOnlyList<NotePicture>> GetForOwnerAsync(Guid ownerUserId, CancellationToken cancellationToken)
+    {
+        var entities = await _dbContext.NotePictures.AsNoTracking()
+            .Where(picture => picture.OwnerUserId == ownerUserId)
+            .OrderBy(picture => picture.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+        return entities.Select(ToDomain).ToList();
+    }
+
     /// <summary>Summed in the database: the count is asked on every upload, and a note may hold many pictures.</summary>
     public Task<long> TotalBytesForNoteAsync(Guid noteId, CancellationToken cancellationToken)
         => _dbContext.NotePictures

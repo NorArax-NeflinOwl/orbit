@@ -48,4 +48,19 @@ public static class NotePictureSweeper
             await RemoveAsync(picture, pictures, store, cancellationToken);
         }
     }
+
+    /// <summary>
+    /// Every picture an account owns, for an account deleting itself. The rows would go with the sweep
+    /// that deletes the account's data either way; the <b>bytes</b> are why this exists, because they
+    /// live outside the database and after the rows are gone nothing names them again - a deleted
+    /// account's pictures would sit in the store for as long as the store does, sealed ones included.
+    /// </summary>
+    public static async Task RemoveEverythingOwnedByAsync(
+        Guid ownerUserId, INotePictureRepository pictures, INotePictureStore store, CancellationToken cancellationToken)
+    {
+        foreach (var picture in await pictures.GetForOwnerAsync(ownerUserId, cancellationToken))
+        {
+            await RemoveAsync(picture, pictures, store, cancellationToken);
+        }
+    }
 }
