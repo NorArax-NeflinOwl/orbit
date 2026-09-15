@@ -567,12 +567,18 @@ else
     private IEnumerable<UpcomingEntry> Upcoming()
     {
         var nowUtc = TimeProvider.GetUtcNow();
-        var entries = (_events ?? [])
+        // Held as a list rather than piped straight into the rows: the deadlines below are asked which
+        // of them is one of these already, and answering that needs the occurrences as this card has
+        // settled them rather than the events as they are stored.
+        var appointments = (_events ?? [])
             .Where(IsStillToDo)
             .Select(calendarEvent => NextOccurrenceOf(calendarEvent, nowUtc))
             .OfType<CalendarEventDto>()
+            .ToList();
+
+        var entries = appointments
             .Select(ToUpcomingEntry)
-            .Concat(UpcomingDeadlines(nowUtc));
+            .Concat(UpcomingDeadlines(nowUtc, appointments));
         return entries.OrderBy(entry => entry.At);
     }
 
@@ -636,8 +642,24 @@ else
     /// behind it still points at the list, so the two addresses differ here and both are carried: see
     /// NewsUrl, which is what decides whether the row is marked.
     /// </summary>
-    private IEnumerable<UpcomingEntry> UpcomingDeadlines(DateTimeOffset nowUtc)
-        => (_taskLists ?? [])
+    /// <param name="appointments">
+    /// What the card is already showing as appointments, to leave out an entry that <b>is</b> one of
+    /// them. An entry can carry both a date and an appointment, and then the card wrote it twice, one
+    /// line under the other - the same words, from the same list, at two times nobody had said were
+    /// different. Only where the appointment falls on the day the deadline does: on any other day
+    /// nothing else on the card stands for it, and hiding it would lose the deadline rather than tidy
+    /// it. The same rule the calendar applies to the same pair.
+    /// </param>
+    private IEnumerable<UpcomingEntry> UpcomingDeadlines(
+        DateTimeOffset nowUtc, IReadOnlyList<CalendarEventDto> appointments)
+    {
+        var daysTheirAppointmentIsOn = appointments
+            .GroupBy(appointment => appointment.Id)
+            .ToDictionary(
+                byEvent => byEvent.Key,
+                byEvent => byEvent.Select(appointment => appointment.Details.StartUtc.ToLocalTime().Date).ToHashSet());
+
+        return (_taskLists ?? [])
             .SelectMany(taskList => taskList.Items.Select(item => (taskList, item)))
             // A list somebody closed is closed, whatever is still unticked on it. Marking one finished
             // with work still on it is a way of saying "no more of this" (TaskList.IsMarkedCompleted),
@@ -645,7 +667,8 @@ else
             .Where(pair => !pair.taskList.IsCompleted)
             .Where(pair => !pair.item.IsCompleted && !pair.item.IsFailed
                 && pair.item.AllLinkedTaskListIds.Count == 0
-                && pair.item.DueDateUtc is { } dueDate && dueDate >= nowUtc)
+                && pair.item.DueDateUtc is { } dueDate && dueDate >= nowUtc
+                && !IsAlreadyAnAppointmentThatDay(pair.item, dueDate, daysTheirAppointmentIsOn))
             .Select(pair => new UpcomingEntry(
                 pair.item.DueDateUtc!.Value,
                 $"{Written(pair.taskList.Title)}: {Written(pair.item.Description)}",
@@ -655,6 +678,14 @@ else
                 $"/tasks/{pair.taskList.Id}/items/{pair.item.Id}",
                 // A deadline's reminder points at the list it is on, not at the entry the row opens.
                 $"/tasks/{pair.taskList.Id}"));
+    }
+
+    /// <inheritdoc cref="UpcomingDeadlines"/>
+    private static bool IsAlreadyAnAppointmentThatDay(
+        TaskItemDto item, DateTimeOffset dueDate, IReadOnlyDictionary<Guid, HashSet<DateTime>> daysTheirAppointmentIsOn)
+        => item.LinkedCalendarEventId is { } eventId
+            && daysTheirAppointmentIsOn.TryGetValue(eventId, out var days)
+            && days.Contains(dueDate.ToLocalTime().Date);
 
     /// <summary>
     /// The High/Low mark beside a row, when a reader has said this one is not like the others. Normal is
