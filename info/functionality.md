@@ -1279,6 +1279,35 @@ disagree in.
     and not fetchable now. A share link's pictures come the same way, by the token. The OS may clear the
     cache directory when short of room; nothing else sweeps it. The phone still puts no picture into a
     note - `info/future-plan.md`.
+- **A rule across the note is a kind of line too** (`NoteSeparatorLine`, `NoteContentLine.Separator`,
+  2026-09-15), carried the way the table and the picture are and for the same reason: it has no words
+  that can be written in, so it is what the line *is* rather than a style the line is given. A line that
+  carries one has no text and no box (`NoteContentLine.OfSeparator`).
+  - **Two of them, and the difference is what is written on the rule**: a date and time, or nothing at
+    all. One record carries both - an empty `Stamp` is the plain rule - so there is one kind of line
+    rather than two, and a rule drawn with nothing on it is still a rule rather than the absence of one.
+  - **The stamp is written once, when the rule is made**, and stored as the words it was made with.
+    That is what somebody means by putting a date in a note - "this is where I got to on Tuesday" - and
+    it is the only reading that survives being read again: worked out at draw time, yesterday's
+    separator would say today and nothing in the note would say when anything was written. Being part
+    of the line it travels into the export, onto the phone and into a share link, and says the same
+    thing in a year. It is **not** re-formatted in the reader's locale, for the same reason: that would
+    be re-reading the date rather than reading it.
+  - **A key takes it away**, as it takes a picture (`NoteContentLine.IsTakenAwayByAKey`) - a table is
+    the one element that goes by its own menu instead. Every other guard is the table's and the
+    picture's: it lands where they land, Enter on one starts writing under it, words never join it, a
+    paste that lands on one goes under it, and a style or a level leaves it alone
+    (`NoteSurfaceSeparatorTests`).
+  - **No migration**, as with styles, marks and tables: it travels as `NoteContentLineDto.Separator`,
+    is stored in the same JSON, and a line written before rules existed simply has no field there.
+  - **Both clients have the tool, and both ask first** - the browser as a two-entry panel over the
+    writing (`NoteEditor`, beside the styles, the table and the attachment), the phone as a sheet
+    (`NoteDetailPage.UseTheSeparatorToolAsync`, `NoteDetailViewModel.SeparatorChoices`). Each works the
+    stamp out at the moment of the press, in the reader's own language and format, because it is
+    written by the reader making it.
+  - **Left out of "copy the text"** (`NoteWords`), as a table and a picture are: what is pasted is read
+    back as lines and nothing there makes a rule, so one written out would come back as words
+    pretending to be one.
 - **Not in a list's or an inventory's name and description** (`TitledDescription`,
   `ChecklistTextEditor.TakesStyles` off): those store two plain strings, so a style set there would be
   dropped by the save - the same reason `[]` stays words there. Giving descriptions the note's own

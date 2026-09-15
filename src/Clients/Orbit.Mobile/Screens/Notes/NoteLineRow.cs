@@ -60,8 +60,8 @@ public sealed partial class NoteLineRow : ObservableObject
     /// <summary>Whether any stretch of the words carries a mark - which is what decides the label from the field.</summary>
     public bool HasMarks => Marks.Count > 0;
 
-    /// <summary>Whether this line is something other than words - a table or a picture. See NoteContentLine.IsAnElement.</summary>
-    public bool IsAnElement => IsATable || IsAPicture;
+    /// <summary>Whether this line is something other than words - a table, a picture or a rule. See NoteContentLine.IsAnElement.</summary>
+    public bool IsAnElement => IsATable || IsAPicture || IsASeparator;
 
     /// <summary>
     /// The table this line is, when it is one - see Orbit.Core.Notes.NoteTable. Drawn on the screen as a
@@ -102,6 +102,21 @@ public sealed partial class NoteLineRow : ObservableObject
     public bool IsAPicture => Picture is not null;
 
     /// <summary>
+    /// The rule across the note this line is, when it is one - see Orbit.Core.Notes.NoteSeparatorLine.
+    /// Carried through every edit unchanged, stamp included: what is written on it was written when it
+    /// was made and is never worked out again.
+    /// </summary>
+    [ObservableProperty]
+    private NoteSeparatorLine? _separator;
+
+    public bool IsASeparator => Separator is not null;
+
+    /// <summary>What is written on the rule, and whether anything is - which is what the page draws it by.</summary>
+    public string SeparatorStamp => Separator?.Stamp ?? string.Empty;
+
+    public bool ShowsSeparatorStamp => Separator is { HasAStamp: true };
+
+    /// <summary>
     /// The picture ready to draw, once the view model has fetched or opened it, and null until then or
     /// when it cannot be had - in which case <see cref="PictureNote"/> says why. Bytes rather than a
     /// path, because a private note's picture is kept sealed on the handset and only ever opened into
@@ -136,7 +151,8 @@ public sealed partial class NoteLineRow : ObservableObject
                     [.. row.Cells.Select(cell => new NoteTableCell(cell.Text, ReadMarks(cell.AllMarks, cell.Text)))]))])),
             Picture = line.Picture is null
                 ? null
-                : new NotePictureLine(line.Picture.PictureId, line.Picture.ContentType, line.Picture.WidthPixels, line.Picture.HeightPixels)
+                : new NotePictureLine(line.Picture.PictureId, line.Picture.ContentType, line.Picture.WidthPixels, line.Picture.HeightPixels),
+            Separator = line.Separator is null ? null : new NoteSeparatorLine(line.Separator.Stamp)
         };
 
     private static IReadOnlyList<NoteTextRun> ReadMarks(IReadOnlyList<NoteTextRunDto> marks, string text)
@@ -157,7 +173,8 @@ public sealed partial class NoteLineRow : ObservableObject
                     [.. row.Cells.Select(cell => new NoteTableCellDto(cell.Text, SentMarks(cell.AllMarks)))]))]),
             Picture is null
                 ? null
-                : new NotePictureLineDto(Picture.PictureId, Picture.ContentType, Picture.WidthPixels, Picture.HeightPixels));
+                : new NotePictureLineDto(Picture.PictureId, Picture.ContentType, Picture.WidthPixels, Picture.HeightPixels),
+            Separator is null ? null : new NoteSeparatorLineDto(Separator.Stamp));
 
     /// <summary>The same line as the surface Orbit.Core decides edits on - see Orbit.Core.Notes.SurfaceState.</summary>
     public static NoteLineRow From(NoteContentLine line)
@@ -170,11 +187,12 @@ public sealed partial class NoteLineRow : ObservableObject
             Style = line.Style,
             Marks = line.AllMarks,
             Table = line.Table,
-            Picture = line.Picture
+            Picture = line.Picture,
+            Separator = line.Separator
         };
 
     /// <inheritdoc cref="From(NoteContentLine)"/>
-    public NoteContentLine ToLine() => new(Text, IsChecklistItem, IsChecked, IsFailed, Style, Marks, Table, Picture);
+    public NoteContentLine ToLine() => new(Text, IsChecklistItem, IsChecked, IsFailed, Style, Marks, Table, Picture, Separator);
 
     /// <summary>
     /// Becomes <paramref name="line"/> in place - what an undo does to a line that is still there, so the
@@ -190,6 +208,7 @@ public sealed partial class NoteLineRow : ObservableObject
         Marks = line.AllMarks;
         Table = line.Table;
         Picture = line.Picture;
+        Separator = line.Separator;
     }
 
     /// <summary>
@@ -243,8 +262,8 @@ public sealed partial class NoteLineRow : ObservableObject
     /// <summary>
     /// Whether the editor shows this line as something to write in rather than as words drawn - which of
     /// the controls is showing. A ticked line and a line with marks on it are drawn as words until they
-    /// are being written in, since a field can strike nothing through and bold nothing; a table or a
-    /// picture never opens, its words being in its cells or none at all.
+    /// are being written in, since a field can strike nothing through and bold nothing; a table, a
+    /// picture or a rule never opens, its words being in its cells or none at all.
     /// </summary>
     public bool IsOpenForWriting => !IsAnElement && (IsBeingWrittenIn || (!IsCompleted && !HasMarks));
 
@@ -371,6 +390,15 @@ public sealed partial class NoteLineRow : ObservableObject
         OnPropertyChanged(nameof(IsAnElement));
         OnPropertyChanged(nameof(ShowsPicture));
         OnPropertyChanged(nameof(ShowsPictureNote));
+        SayHowItIsDrawn();
+    }
+
+    partial void OnSeparatorChanged(NoteSeparatorLine? value)
+    {
+        OnPropertyChanged(nameof(IsASeparator));
+        OnPropertyChanged(nameof(IsAnElement));
+        OnPropertyChanged(nameof(SeparatorStamp));
+        OnPropertyChanged(nameof(ShowsSeparatorStamp));
         SayHowItIsDrawn();
     }
 

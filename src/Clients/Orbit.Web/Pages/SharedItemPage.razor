@@ -71,6 +71,10 @@
                             {
                                 <NotePictureView Picture="@picture" Token="@Token" />
                             }
+                            else if (line.Separator is { } separator)
+                            {
+                                <NoteSeparatorView Stamp="@separator.Stamp" Label="@T["Separator"]" />
+                            }
                             else
                             {
                                 @* .note-line on the words rather than on the row: that is where every

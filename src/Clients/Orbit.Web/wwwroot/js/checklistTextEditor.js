@@ -253,6 +253,22 @@ export async function insertPicture(container, pictureJson) {
     }
 }
 
+/// A rule across the note, put where the caret is - see NoteSurfaceEdits.InsertSeparator. The stamp is
+/// worked out by Blazor at the moment of the press and travels with the line from here on; nothing
+/// re-reads the clock for it, which is what makes yesterday's separator still say yesterday.
+export async function insertSeparator(container, stamp) {
+    await Promise.resolve();
+    const state = instances.get(container);
+    if (!state || !isWritable(container)) {
+        return;
+    }
+
+    const answer = ask(container, state, 'insertSeparator', { stamp: stamp || '' });
+    if (answer) {
+        show(container, state, answer);
+    }
+}
+
 export function getLinesAsJson(container) {
     return JSON.stringify(extractLines(container));
 }
@@ -935,6 +951,16 @@ function draw(container, lines) {
             return;
         }
 
+        const isSeparator = element.classList.contains('note-line-separator');
+        if (isSeparator || line.separator) {
+            // Rebuilt whole when it changed at all: a rule has one thing written on it and no part of it
+            // worth keeping in place, since nothing is ever typed into one.
+            if (!isSeparator || !line.separator || stampIn(element) !== (line.separator.stamp || '')) {
+                element.replaceWith(createLineElement(line, hint));
+            }
+            return;
+        }
+
         const isTable = element.classList.contains('note-line-table');
         if (isTable || line.table) {
             // Rebuilt whole: a table that changed shape has no cell left in the same place to keep,
@@ -1194,6 +1220,14 @@ function createLineElement(line, tickHint) {
         return div;
     }
 
+    // And a rule the same - see NoteContentLine.OfSeparator. What is written on it came with the line
+    // and is drawn as it stands; nothing here works a date out.
+    if (line.separator) {
+        div.classList.add('note-line-separator');
+        div.appendChild(createSeparatorElement(line.separator));
+        return div;
+    }
+
     if (line.isChecklistItem) {
         div.classList.add('note-line-checklist');
 
@@ -1236,6 +1270,25 @@ function createTableElement(table) {
         }
     }
     return element;
+}
+
+/// A rule's element: not editable, so the caret stands beside it rather than in it, and the stamp drawn
+/// on the rule itself where there is one. A plain rule is the same element with nothing written on it,
+/// which is why one record carries both - see NoteSeparatorLine.
+function createSeparatorElement(separator) {
+    const rule = document.createElement('div');
+    rule.className = 'note-separator';
+    rule.contentEditable = 'false';
+
+    const stamp = (separator && separator.stamp) || '';
+    if (stamp.length > 0) {
+        const written = document.createElement('span');
+        written.className = 'note-separator-stamp';
+        written.textContent = stamp;
+        rule.appendChild(written);
+    }
+
+    return rule;
 }
 
 /// A picture line's element: not editable itself, so the caret stands beside it rather than in it, and
@@ -1294,6 +1347,12 @@ function resolvePictures(container, state) {
 }
 
 /// The picture a line names, read back off what was drawn.
+/// What is written on a drawn rule, for draw() - empty for a plain one, which is what the line says too.
+function stampIn(line) {
+    const written = line.querySelector('.note-separator-stamp');
+    return written ? written.textContent || '' : '';
+}
+
 function pictureIn(line) {
     const figure = line.querySelector('.note-picture');
     if (!figure) {
@@ -1357,8 +1416,18 @@ function setTick(line, state) {
     line.classList.toggle('note-line-failed', state === TICK_FAILED);
 }
 
+/// Whether this line's element is something other than words - a table, a picture, a rule across the
+/// note. The DOM's half of NoteContentLine.IsAnElement: such a line has no span of words in it and no
+/// caret offset to speak of, so everything that counts characters asks this first.
+function isElementLine(line) {
+    return !!line.classList
+        && (line.classList.contains('note-line-table')
+            || line.classList.contains('note-line-picture')
+            || line.classList.contains('note-line-separator'));
+}
+
 function lineText(line) {
-    if (line.classList && (line.classList.contains('note-line-table') || line.classList.contains('note-line-picture'))) {
+    if (isElementLine(line)) {
         return '';
     }
     const span = line.querySelector('.note-line-text');
@@ -1434,8 +1503,8 @@ function repairStrayText(container) {
 /// Answers whether anything had to be moved.
 function repairLineDom(line) {
     // A table line has no span to put words back into, and everything in it is where it belongs. A
-    // picture line the same.
-    if (line.classList.contains('note-line-table') || line.classList.contains('note-line-picture')) {
+    // picture line and a rule the same.
+    if (isElementLine(line)) {
         return false;
     }
 
@@ -1565,8 +1634,8 @@ function domPoint(container, point) {
     if (firstCell) {
         return { node: firstCell, offset: 0 };
     }
-    // A picture has nothing to stand in either: the caret goes on the line, before the picture.
-    if (line.classList.contains('note-line-picture')) {
+    // A picture or a rule has nothing to stand in either: the caret goes on the line, before it.
+    if (line.classList.contains('note-line-picture') || line.classList.contains('note-line-separator')) {
         return { node: line, offset: 0 };
     }
     const span = line.querySelector('.note-line-text') || line;

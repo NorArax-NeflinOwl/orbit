@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Notes;
@@ -29,6 +30,9 @@ namespace Orbit.Mobile.Screens.Notes;
 /// One entry of the sheet the "Aa" button opens: a style under the name the reader sees it by.
 /// </summary>
 public sealed record NoteStyleChoice(string Name, NoteLineStyle Style);
+
+/// <summary>One of the two rules the separator tool offers - see NoteDetailViewModel.SeparatorChoices.</summary>
+public sealed record NoteSeparatorChoice(string Name, bool IsDated);
 
 /// <summary>What the table's own menu can do to the table a cell is in - the browser's table menu, on the phone.</summary>
 public enum NoteTableAction
@@ -521,6 +525,45 @@ public sealed partial class NoteDetailViewModel : ObservableObject
 
         var before = Surface(new SurfacePoint(index + 1, 0));
         Apply(before, NoteSurfaceEdits.InsertTable(before), SurfaceEditKind.Reshaping);
+    }
+
+    /// <summary>
+    /// The two rules the separator tool offers, in the reader's own language - a rule with the moment
+    /// written on it, and a rule with nothing. Built here rather than in the page, so the wording is
+    /// testable, as the styles above are.
+    /// </summary>
+    public IReadOnlyList<NoteSeparatorChoice> SeparatorChoices =>
+    [
+        new(_translations["Date and time"], IsDated: true),
+        new(_translations["Plain line"], IsDated: false)
+    ];
+
+    /// <summary>
+    /// Puts a rule across the note where <paramref name="row"/> is, landing by the surface's own rule
+    /// the way a table does. <paramref name="isDated"/> decides what is written on it, and the stamp is
+    /// worked out **here**, once: see NoteSeparatorLine.Stamp, which says why a date on a separator is
+    /// the day it was drawn rather than the day it is read. Written in the reader's own language and
+    /// format, because it is written by the reader making it.
+    /// </summary>
+    public void InsertSeparator(NoteLineRow? row, bool isDated)
+    {
+        if (IsReadOnly)
+        {
+            return;
+        }
+
+        var index = row is null ? Lines.Count - 1 : Lines.IndexOf(row);
+        if (index < 0)
+        {
+            return;
+        }
+
+        var stamp = isDated
+            ? _timeProvider.GetLocalNow().DateTime.ToString("f", CultureInfo.CurrentCulture)
+            : string.Empty;
+
+        var before = Surface(new SurfacePoint(index + 1, 0));
+        Apply(before, NoteSurfaceEdits.InsertSeparator(before, stamp), SurfaceEditKind.Reshaping);
     }
 
     /// <summary>

@@ -206,6 +206,11 @@ public static class NoteEndpoints
             ? NoteContentLine.OfTable(TableOf(table))
             : line.Picture is { } picture
             ? NoteContentLine.OfPicture(new NotePictureLine(picture.PictureId, picture.ContentType, picture.WidthPixels, picture.HeightPixels))
+            // And a rule across the note the same - see NoteContentLine.OfSeparator. What is written on
+            // it is taken as it arrived: it was written when the rule was made, and the server's clock
+            // has nothing to say about it.
+            : line.Separator is { } separator
+            ? NoteContentLine.OfSeparator(separator.Stamp)
             : new NoteContentLine(
                 line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed && !line.IsChecked,
                 StyleOf(line.Style), MarksOf(line.AllMarks, line.Text))).ToList();
@@ -225,7 +230,8 @@ public static class NoteEndpoints
 
     private static NoteContentLineDto ToDto(NoteContentLine line)
         => new(line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed, line.Style.ToString(),
-            MarksSent(line.AllMarks), TableSent(line.Table), PictureSent(line.Picture));
+            MarksSent(line.AllMarks), TableSent(line.Table), PictureSent(line.Picture),
+            line.Separator is null ? null : new NoteSeparatorLineDto(line.Separator.Stamp));
 
     private static NotePictureLineDto? PictureSent(NotePictureLine? picture)
         => picture is null ? null : new NotePictureLineDto(picture.PictureId, picture.ContentType, picture.WidthPixels, picture.HeightPixels);

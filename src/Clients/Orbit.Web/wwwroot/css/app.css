@@ -768,10 +768,50 @@ input.note-editor-title {
     background: var(--bg-subtle);
 }
 
+/* A rule across the note - see Orbit.Core.Notes.NoteSeparatorLine. The line itself is a border rather
+   than an <hr>, so the stamp can sit on it: the border is drawn across the whole width and the words
+   are lifted onto it with a background of the page, which is how every ruled heading is drawn. */
+.note-separator {
+    position: relative;
+    margin: 0.55em 0;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    line-height: 0;
+    /* Nothing is ever typed into one: a caret standing in it would have nowhere to go. */
+    user-select: none;
+}
+
+.note-separator-stamp {
+    display: inline-block;
+    padding: 0 0.6em;
+    background: var(--bg-elevated);
+    color: var(--text-tertiary);
+    font-size: 0.78rem;
+    line-height: 1.6;
+}
+
+/* A rule with nothing on it still has to be pressable - and reachable by the caret, since Backspace is
+   what takes it away (see NoteContentLine.IsTakenAwayByAKey). Without a height an empty one collapses
+   to its border and there is nothing to stand beside. */
+.note-line-separator {
+    padding: 0.35em 0;
+}
+
+/* The caret's rule, so which one Backspace will take is plain before it is pressed - the same mark a
+   picture gets, and for the same reason. */
+.note-line-separator:focus-within .note-separator {
+    border-top-color: var(--accent);
+}
+
 /* The table's own list, under the table tool rather than under "Aa" - the third button from the left,
    so the panel sits one button further along than the styles do. */
 .note-table-menu {
     left: calc(14px + 4px + 2 * 36px + 2 * 2px);
+}
+
+/* And the separator's under the fifth button, which is where its tool sits in the row. */
+.note-separator-menu {
+    left: calc(14px + 4px + 4 * 36px + 4 * 2px);
 }
 
 /* The list of styles, opened by the "Aa" button and sitting on the writing above the row it came from.

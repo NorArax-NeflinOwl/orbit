@@ -145,7 +145,8 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
                 line.Table?.Rows
                     .Select(row => (IReadOnlyList<ArchivedTableCell>)row.Cells
                         .Select(cell => new ArchivedTableCell(cell.Text, ArchivedMarks(cell.AllMarks))).ToList())
-                    .ToList()))
+                    .ToList(),
+                line.Separator is null ? null : new ArchivedSeparator(line.Separator.Stamp)))
                 .ToList(),
             note.IsPrivate,
             ToArchived(note.EncryptedContent),

@@ -68,6 +68,10 @@ else
             {
                 <NotePictureView Picture="@picture" NoteId="@_note!.Id" IsSealed="@_note.IsPrivate" />
             }
+            else if (line.Separator is { } separator)
+            {
+                <NoteSeparatorView Stamp="@separator.Stamp" Label="@T["Separator"]" />
+            }
             else if (line.IsChecklistItem)
             {
                 @* Its own press, kept from the card around it: a tick is what this row is for, and

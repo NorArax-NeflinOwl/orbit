@@ -145,6 +145,8 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
                 archived.Content.Select(line => line.Table is { } table
                     ? NoteContentLine.OfTable(new NoteTable([.. table.Select(row => new NoteTableRow(
                         [.. row.Select(cell => new NoteTableCell(cell.Text, ReadMarks(cell.AllMarks, cell.Text)))]))]))
+                    : line.Separator is { } separator
+                    ? NoteContentLine.OfSeparator(separator.Stamp)
                     : new NoteContentLine(
                         line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed,
                         NoteLineStyles.Read(line.Style), ReadMarks(line.AllMarks, line.Text))).ToList(),

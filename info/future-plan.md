@@ -1949,12 +1949,14 @@ It is **not** on the two other places somebody edits in the browser:
 
 ### Not built at all
 
-- **A separator in a note, with modes.** Asked for as a button in the note's format panel beside the
-  styles, the marks, the table and the attachment, inserting a separator line - the first mode being a
-  date-and-time separator. Nothing of it exists: no button, and no line kind for it. It is another kind
-  of line (`NoteContentLine`, the shape a table and a picture already use) rather than a style, since it
-  carries no words of its own and cannot be written in - which means it wants the same guards in
-  `NoteSurfaceEdits` those two needed.
+- ~~**A separator in a note, with modes.**~~ Done 2026-09-15. It is another kind of line
+  (`NoteSeparatorLine`, `NoteContentLine.Separator`, the shape a table and a picture already use) rather
+  than a style, since it carries no words of its own and cannot be written in - so it took the same
+  guards in `NoteSurfaceEdits` those two needed, and goes on a key as a picture does
+  (`IsTakenAwayByAKey`). Two modes, told apart by what is written on the rule: a date and time, or
+  nothing. The tool is in both clients' format rows and both ask which before putting one in. No
+  migration - it travels as `NoteContentLineDto.Separator` in the same JSON - and the export, the share
+  link and both read-only views carry it. See `info/functionality.md`, "A rule across the note".
 
   **Settled 2026-09-15: the stamp is written once, when the separator is made.** That is what somebody
   means by putting a date in a note - "this is where I got to on Tuesday" - and it is the only reading

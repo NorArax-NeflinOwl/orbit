@@ -617,6 +617,50 @@ public sealed class ArchiveRoundTripTests
         Assert.False((await context.OwnNotesAsync()).Single().IsArchived);
     }
 
+    /// <summary>
+    /// A rule across a note travels with its stamp as the words it was made with - see
+    /// NoteSeparatorLine.Stamp. Worked out again on import it would say the day the file was opened,
+    /// which is the one thing putting a date in a note must not do.
+    /// </summary>
+    [Fact]
+    public async Task A_rule_across_a_note_comes_back_saying_what_it_said()
+    {
+        const string stamp = "Tuesday, 15 September 2026 11:20";
+        var source = new ArchiveTestContext();
+        await source.AddNoteWithARuleAsync("Kitchen", stamp);
+        var archive = await source.ExportAsync();
+
+        var written = Assert.Single(archive.Notes).Content;
+        Assert.Equal(stamp, written[1].Separator!.Stamp);
+        Assert.Equal(string.Empty, written[1].Text);
+
+        var destination = new ArchiveTestContext();
+        await destination.ImportAsync(archive);
+
+        var content = (await destination.OwnNotesAsync()).Single().Content;
+        Assert.True(content[1].IsASeparator);
+        Assert.Equal(stamp, content[1].Separator!.Stamp);
+        Assert.Equal(["Bought the paint", "Still to hang the door"], new[] { content[0].Text, content[2].Text });
+    }
+
+    /// <summary>
+    /// A file written before rules existed says nothing about them, and that reads as a note with none -
+    /// not as a refusal, and not as a line that is somehow both words and a rule.
+    /// </summary>
+    [Fact]
+    public async Task A_file_that_says_nothing_about_rules_imports_none()
+    {
+        var context = new ArchiveTestContext();
+        var archive = new OrbitArchive(
+            OrbitArchive.CurrentVersion, DateTimeOffset.UtcNow,
+            [new ArchivedNote("Shopping", [new ArchivedNoteLine("Milk", false, false)], IsPrivate: false, EncryptedContent: null)],
+            [], [], []);
+
+        await context.ImportAsync(archive);
+
+        Assert.False((await context.OwnNotesAsync()).Single().Content.Single().IsASeparator);
+    }
+
     private sealed class ArchiveTestContext
     {
         private readonly InMemoryNoteRepository _noteRepository = new();
@@ -659,6 +703,17 @@ public sealed class ArchiveRoundTripTests
                 ownedBySomeoneElse ? Guid.NewGuid() : UserId, title, lines.Select(NoteContentLine.PlainText).ToList());
             await _noteRepository.AddAsync(note, CancellationToken.None);
         }
+
+
+        /// <summary>A note with a dated rule across it, which the file has to carry back out unchanged.</summary>
+        public async Task AddNoteWithARuleAsync(string title, string stamp)
+            => await _noteRepository.AddAsync(
+                Note.Create(UserId, title, [
+                    NoteContentLine.PlainText("Bought the paint"),
+                    NoteContentLine.OfSeparator(stamp),
+                    NoteContentLine.PlainText("Still to hang the door")
+                ]),
+                CancellationToken.None);
 
         public async Task AddPrivateNoteAsync()
             => await _noteRepository.AddAsync(

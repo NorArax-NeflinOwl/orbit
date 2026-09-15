@@ -94,6 +94,10 @@ classDiagram
         +IReadOnlyList~NoteTextRun~ Marks
         +NoteTable? Table
         +NotePictureLine? Picture
+        +NoteSeparatorLine? Separator
+    }
+    class NoteSeparatorLine {
+        +string Stamp
     }
     class NotePictureLine {
         +Guid PictureId
@@ -223,6 +227,7 @@ classDiagram
     NoteContentLine "1" *-- "0..1" NoteTable : is, when it is one
     NoteTable "1" *-- "1..*" NoteTableCell : rows of
     NoteContentLine "1" *-- "0..1" NotePictureLine : is, when it is one
+    NoteContentLine "1" *-- "0..1" NoteSeparatorLine : is, when it is one
     NotePictureLine "1" --> "1" NotePicture : names the bytes of
     Note "1" *-- "0..*" NotePicture : keeps
     TaskList "1" *-- "0..*" TaskItem

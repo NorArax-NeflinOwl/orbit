@@ -1175,6 +1175,12 @@ public static class PolishTranslations
         ["This picture is sealed with an encryption key this device doesn't have."] = "To zdjęcie jest zaszyfrowane kluczem, którego to urządzenie nie ma.",
         ["This picture couldn't be fetched. Try again when you are back online."] = "Nie udało się pobrać tego zdjęcia. Spróbuj ponownie, gdy będziesz online.",
         ["Attachment"] = "Załącznik",
+        // The rule across a note, and the two things it can carry - see
+        // Orbit.Core.Notes.NoteSeparatorLine. "Data i godzina" is what is written on the dated one, so
+        // it names the choice rather than describing it.
+        ["Separator"] = "Separator",
+        ["Date and time"] = "Data i godzina",
+        ["Plain line"] = "Sama linia",
         ["{0}: not implemented yet."] = "{0}: jeszcze niezaimplementowane.",
         // Several boxes selected in a note's writing - see NoteSurfaceEdits.Cycle. The first is the
         // bubble over the tools while they are selected, the second each box's own tooltip.

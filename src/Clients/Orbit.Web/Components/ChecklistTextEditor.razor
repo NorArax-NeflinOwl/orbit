@@ -249,6 +249,10 @@
             "insertTable" when TakesStyles => (NoteSurfaceEdits.InsertTable(before), SurfaceEditKind.Reshaping),
             "insertPicture" when TakesStyles && request.Picture is { } picture
                 => (NoteSurfaceEdits.InsertPicture(before, picture), SurfaceEditKind.Reshaping),
+            // A rule across the note, with whatever the page wrote on it - see NoteSurfaceEdits.
+            // InsertSeparator. Gated with the styles like the two above, and for the same reason.
+            "insertSeparator" when TakesStyles
+                => (NoteSurfaceEdits.InsertSeparator(before, request.Stamp ?? string.Empty), SurfaceEditKind.Reshaping),
             "tableRowBelow" when TakesStyles && request.Line is { } rowLine
                 => (NoteSurfaceEdits.AddTableRow(before, rowLine, request.Row ?? -1), SurfaceEditKind.Reshaping),
             "tableColumnRight" when TakesStyles && request.Line is { } columnLine
@@ -340,7 +344,8 @@
         bool Copies,
         int? Row = null,
         int? Column = null,
-        NotePictureLine? Picture = null)
+        NotePictureLine? Picture = null,
+        string? Stamp = null)
     {
         /// <summary>
         /// The surface this edit is made on. A selection outside the surface - the toolbar button has the
@@ -436,6 +441,20 @@
             await _module.InvokeVoidAsync("insertPicture", _containerRef, JsonSerializer.Serialize(picture, JsonOptions));
             var linesJson = await _module.InvokeAsync<string>("getLinesAsJson", _containerRef);
             await OnLinesChangedFromJs(linesJson);
+        }
+    }
+
+    /// <summary>
+    /// Puts a rule across the note where the caret is - see NoteSurfaceEdits.InsertSeparator.
+    /// <paramref name="stamp"/> is what the page decided to write on it, worked out once at the press:
+    /// nothing re-reads a clock for it afterwards, which is what makes it still say the same thing when
+    /// the note is read again (see NoteSeparatorLine.Stamp).
+    /// </summary>
+    public async Task InsertSeparatorAsync(string stamp)
+    {
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("insertSeparator", _containerRef, stamp);
         }
     }
 

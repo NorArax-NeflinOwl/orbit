@@ -25,13 +25,26 @@ namespace Orbit.Contracts.Notes;
 /// line a client written before tables existed sends.
 /// </param>
 /// <param name="Picture">The picture this line is, when it is one - see <see cref="NotePictureLineDto"/>. Null for everything else.</param>
+/// <param name="Separator">
+/// The rule across the note this line is, when it is one - see <see cref="NoteSeparatorLineDto"/>. Null
+/// for everything else, and for every line a client written before separators existed sends.
+/// </param>
 public sealed record NoteContentLineDto(
     string Text, bool IsChecklistItem, bool IsChecked, bool IsFailed = false, string Style = "Body",
-    IReadOnlyList<NoteTextRunDto>? Marks = null, NoteTableDto? Table = null, NotePictureLineDto? Picture = null)
+    IReadOnlyList<NoteTextRunDto>? Marks = null, NoteTableDto? Table = null, NotePictureLineDto? Picture = null,
+    NoteSeparatorLineDto? Separator = null)
 {
     /// <summary>The marks as something to read without a null check - see <see cref="Marks"/>.</summary>
     public IReadOnlyList<NoteTextRunDto> AllMarks => Marks ?? [];
 }
+
+/// <summary>
+/// A rule across a note - see Orbit.Core.Notes.NoteSeparatorLine. What is written on it travels with it
+/// as the words it was made with, because the date on a separator is the day it was drawn rather than
+/// the day it is read.
+/// </summary>
+/// <param name="Stamp">Empty for a plain rule; the date and time it was made for the dated one.</param>
+public sealed record NoteSeparatorLineDto(string Stamp = "");
 
 /// <summary>
 /// A picture in the flow of a note - see Orbit.Core.Notes.NotePictureLine. It names the bytes (uploaded

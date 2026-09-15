@@ -30,10 +30,11 @@ public sealed record PublicSharedItemDto(
 /// </param>
 /// <param name="Table">The table this line is, where the item is a note and the line one of its tables - see NoteTableDto.</param>
 /// <param name="Picture">The picture this line is, where the item is a note - its bytes are at GET /api/public/{token}/pictures/{id}.</param>
+/// <param name="Separator">The rule this line is, where the item is a note - see NoteSeparatorLineDto.</param>
 public sealed record PublicSharedItemLineDto(
     string Text, bool IsChecklistItem, bool IsChecked, string? Detail, bool IsFailed = false,
     string Style = "Body", IReadOnlyList<NoteTextRunDto>? Marks = null, NoteTableDto? Table = null,
-    NotePictureLineDto? Picture = null)
+    NotePictureLineDto? Picture = null, NoteSeparatorLineDto? Separator = null)
 {
     /// <summary>The marks as something to read without a null check - see <see cref="Marks"/>.</summary>
     public IReadOnlyList<NoteTextRunDto> AllMarks => Marks ?? [];

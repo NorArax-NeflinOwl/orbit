@@ -68,6 +68,7 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		OutdentButton.Command = new Command(() => ReindentThisLine(more: false));
 		StyleButton.Command = new Command(async () => await ChooseAStyleAsync());
 		TableButton.Command = new Command(async () => await UseTheTableToolAsync());
+		SeparatorButton.Command = new Command(async () => await UseTheSeparatorToolAsync());
 		_viewModel.CaretPlaced += OnCaretPlaced;
 	}
 
@@ -515,6 +516,30 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		if (choices.FirstOrDefault(choice => choice.Name == chosen) is { } action)
 		{
 			_viewModel.ReshapeTable(_cellBeingWrittenIn, action.Action);
+		}
+	}
+
+	/// <summary>
+	/// The separator button: asks what to write on the rule and then puts one in, where the line being
+	/// written in is or after the last line of a note nobody has written in yet. A sheet rather than two
+	/// buttons, as the style button opens one - and it asks first because a rule has exactly one thing
+	/// to decide (see NoteDetailViewModel.SeparatorChoices).
+	/// </summary>
+	private async Task UseTheSeparatorToolAsync()
+	{
+		if (!_viewModel.CanEdit)
+		{
+			return;
+		}
+
+		var choices = _viewModel.SeparatorChoices;
+		var chosen = await DisplayActionSheetAsync(
+			_translations["Separator"], _translations["Cancel"], destruction: null,
+			choices.Select(choice => choice.Name).ToArray());
+
+		if (choices.FirstOrDefault(choice => choice.Name == chosen) is { } rule)
+		{
+			_viewModel.InsertSeparator(_beingWrittenIn ?? _viewModel.Lines.LastOrDefault(), rule.IsDated);
 		}
 	}
 

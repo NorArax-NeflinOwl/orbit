@@ -10,8 +10,10 @@ namespace Orbit.Core.Notes;
 /// by a paste (NoteSurfaceEdits.ReadPastedLine - "[x]" ticked, "- " not), so a note copied here and
 /// pasted into another arrives as the same note rather than as a page of brackets.
 ///
-/// A line that is not words at all - a table, a picture - is left out rather than written as a blank:
-/// a table's words are in its cells, and a picture has none.
+/// A line that is not words at all - a table, a picture, a rule across the note - is left out rather than
+/// written as a blank: a table's words are in its cells, and a picture has none. A rule is left out even
+/// where it carries a stamp, because what is pasted is read back as lines (NoteSurfaceEdits.ReadPastedLine)
+/// and nothing there makes a rule: written out, it would come back as a line of words pretending to be one.
 /// </summary>
 public static class NoteWords
 {

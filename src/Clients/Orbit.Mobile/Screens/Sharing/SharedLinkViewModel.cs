@@ -35,7 +35,7 @@ public sealed record SharedLine(
     NoteLineStyle Style = NoteLineStyle.Body, int ListNumber = 0,
     IReadOnlyList<IReadOnlyList<string>>? TableRows = null, bool IsAPicture = false,
     IReadOnlyList<NoteTextRun>? Marks = null, Guid? PictureId = null, byte[]? PictureBytes = null,
-    string PictureNote = "")
+    string PictureNote = "", string? SeparatorStamp = null)
 {
     public bool HasDetail => Detail.Length > 0;
 
@@ -51,8 +51,20 @@ public sealed record SharedLine(
     /// <summary>Whether this line is a table, which shows the grid instead of the words.</summary>
     public bool IsATable => TableRows is { Count: > 0 };
 
-    /// <summary>The words drawn as words - nothing for a table, whose words are in its cells, and nothing for a picture.</summary>
-    public bool ShowsWords => !IsATable && !IsAPicture;
+    /// <summary>
+    /// Whether this line is a rule across the note - see Orbit.Core.Notes.NoteSeparatorLine. Null rather
+    /// than empty for a line that is not one, so "a plain rule" and "not a rule" stay two answers.
+    /// </summary>
+    public bool IsASeparator => SeparatorStamp is not null;
+
+    /// <summary>Whether anything is written on the rule, which is what decides how it is drawn.</summary>
+    public bool ShowsSeparatorStamp => SeparatorStamp is { Length: > 0 };
+
+    /// <summary>What is written on it, as something to bind without a null check.</summary>
+    public string StampOnTheSeparator => SeparatorStamp ?? string.Empty;
+
+    /// <summary>The words drawn as words - nothing for a table, whose words are in its cells, nothing for a picture, and nothing for a rule.</summary>
+    public bool ShowsWords => !IsATable && !IsAPicture && !IsASeparator;
 
     /// <summary>How large the line is drawn - the same rules the note's own screen draws by.</summary>
     public double DrawnFontSize => NoteLineLook.SizeOf(Style);
@@ -246,7 +258,8 @@ public sealed partial class SharedLinkViewModel : ObservableObject
                     line.AllMarks.Select(run => new NoteTextRun(run.Start, run.Length, NoteTextMarks.Read(run.Mark))),
                     line.Text.Length),
                 line.Picture?.PictureId,
-                PictureNote: _translations["Picture"]));
+                PictureNote: _translations["Picture"],
+                SeparatorStamp: line.Separator?.Stamp));
         }
 
         OnPropertyChanged(nameof(HasNothingInIt));

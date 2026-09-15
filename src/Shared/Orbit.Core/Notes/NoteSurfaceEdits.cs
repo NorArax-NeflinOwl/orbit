@@ -115,9 +115,10 @@ public static partial class NoteSurfaceEdits
             return state;
         }
 
-        // A picture goes on Backspace, as any element in a page does - Apple Notes' rule, and the one
-        // thing that tells it from a table. The bytes are swept when the note is saved without it.
-        if (line.IsAPicture)
+        // A picture or a rule goes on Backspace, as any element in a page does - Apple Notes' rule, and
+        // the one thing that tells the two from a table. A picture's bytes are swept when the note is
+        // saved without it.
+        if (line.IsTakenAwayByAKey)
         {
             return RemoveLine(lines, caret.Line);
         }
@@ -183,9 +184,9 @@ public static partial class NoteSurfaceEdits
             return state;
         }
 
-        if (line.IsAPicture)
+        if (line.IsTakenAwayByAKey)
         {
-            // And a picture goes by either key, as Backspace says.
+            // And a picture or a rule goes by either key, as Backspace says.
             return RemoveLine(lines, caret.Line);
         }
 
@@ -964,6 +965,18 @@ public static partial class NoteSurfaceEdits
     {
         var cleared = DeleteSelection(state.Normalized(), forReplacement: true);
         return Placed(cleared.Lines.ToList(), cleared.Caret, NoteContentLine.OfPicture(picture));
+    }
+
+    /// <summary>
+    /// A rule put across the note where the caret is, with <paramref name="stamp"/> written on it - the
+    /// same rule the table and picture tools follow for where it lands. The stamp is whatever the caller
+    /// worked out at the moment of the press and is never worked out again: see NoteSeparatorLine.Stamp,
+    /// which says why a date on a separator is the day it was drawn.
+    /// </summary>
+    public static SurfaceState InsertSeparator(SurfaceState state, string stamp)
+    {
+        var cleared = DeleteSelection(state.Normalized(), forReplacement: true);
+        return Placed(cleared.Lines.ToList(), cleared.Caret, NoteContentLine.OfSeparator(stamp));
     }
 
     /// <summary>An element put where the caret is: in place of an empty plain line, or under any other. The caret goes to it.</summary>

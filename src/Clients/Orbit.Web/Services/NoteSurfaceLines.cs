@@ -17,6 +17,8 @@ public static class NoteSurfaceLines
             ? NoteContentLine.OfTable(table.ToTable())
             : line.Picture is { } picture
             ? NoteContentLine.OfPicture(new NotePictureLine(picture.PictureId, picture.ContentType, picture.WidthPixels, picture.HeightPixels))
+            : line.Separator is { } separator
+            ? NoteContentLine.OfSeparator(separator.Stamp)
             : new NoteContentLine(
                 line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed, StyleOf(line.Style),
                 MarksOf(line)))];
@@ -27,7 +29,8 @@ public static class NoteSurfaceLines
             MarksSent(line.AllMarks), line.Table.ToDto(),
             line.Picture is null
                 ? null
-                : new NotePictureLineDto(line.Picture.PictureId, line.Picture.ContentType, line.Picture.WidthPixels, line.Picture.HeightPixels)))];
+                : new NotePictureLineDto(line.Picture.PictureId, line.Picture.ContentType, line.Picture.WidthPixels, line.Picture.HeightPixels),
+            line.Separator is null ? null : new NoteSeparatorLineDto(line.Separator.Stamp)))];
 
     /// <summary>A table as it arrived, squared up - see NoteTables.Squared - with each cell's marks read the way a line's are.</summary>
     public static NoteTable ToTable(this NoteTableDto table)

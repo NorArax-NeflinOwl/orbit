@@ -124,13 +124,29 @@ public sealed record ArchivedFolder(string Name, string Scope);
 /// with none, and for every line of a file written before marks existed.
 /// </param>
 /// <param name="Table">The table this line is, when it is one - rows of cells, each with words and marks. Null for writing.</param>
+/// <param name="Separator">
+/// The rule across the note this line is, when it is one - see <see cref="ArchivedSeparator"/>. Null for
+/// everything else, and for every line of a file written before separators existed. Defaulted and last,
+/// so such a file still opens and one written now still imports into an older Orbit, which reads past it.
+/// </param>
 public sealed record ArchivedNoteLine(
     string Text, bool IsChecklistItem, bool IsChecked, bool IsFailed = false, string Style = "Body",
-    IReadOnlyList<ArchivedTextRun>? Marks = null, IReadOnlyList<IReadOnlyList<ArchivedTableCell>>? Table = null)
+    IReadOnlyList<ArchivedTextRun>? Marks = null, IReadOnlyList<IReadOnlyList<ArchivedTableCell>>? Table = null,
+    ArchivedSeparator? Separator = null)
 {
     /// <summary>The marks as something to read without a null check - see <see cref="Marks"/>.</summary>
     public IReadOnlyList<ArchivedTextRun> AllMarks => Marks ?? [];
 }
+
+/// <summary>
+/// A rule across a note - see Orbit.Core.Notes.NoteSeparatorLine. Its own record rather than a bare
+/// string, so "a plain rule" and "not a separator at all" stay two different answers in the file.
+/// </summary>
+/// <param name="Stamp">
+/// What is written on it, as the words it was made with. A date here is the day the separator was drawn,
+/// not the day the file is read - which is the point of writing it once.
+/// </param>
+public sealed record ArchivedSeparator(string Stamp = "");
 
 /// <summary>One cell of an archived table - see Orbit.Core.Notes.NoteTableCell.</summary>
 public sealed record ArchivedTableCell(string Text, IReadOnlyList<ArchivedTextRun>? Marks = null)

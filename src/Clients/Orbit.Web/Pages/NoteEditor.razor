@@ -4,6 +4,7 @@
 @page "/notes/{Id:guid}/edit"
 @attribute [Authorize]
 @implements IAsyncDisposable
+@using System.Globalization
 @using System.Text.Json
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Notes
@@ -146,6 +147,17 @@ else
                             }
                         </div>
                     }
+                    @if (_isChoosingSeparator)
+                    {
+                        @* What to write on the rule, which is the whole of what a separator has to
+                           decide. The same panel again, for the same reason the table's uses it. *@
+                        <div class="note-style-menu note-separator-menu" role="menu">
+                            <button type="button" role="menuitem" class="note-style-menu-item"
+                                    @onclick="() => InsertSeparatorAsync(dated: true)">@T["Date and time"]</button>
+                            <button type="button" role="menuitem" class="note-style-menu-item"
+                                    @onclick="() => InsertSeparatorAsync(dated: false)">@T["Plain line"]</button>
+                        </div>
+                    }
                     <div class="note-editor-tools">
                         @* The same bubble says what a press on one of several selected boxes will do,
                            while they are selected - see SelectionHint. *@
@@ -160,7 +172,7 @@ else
                         <button type="button" class="note-tool note-tool-letters @(_isChoosingStyle ? "note-tool-on" : null)"
                                 title="@TextStyleLabel" aria-label="@TextStyleLabel"
                                 aria-expanded="@_isChoosingStyle.ToString().ToLowerInvariant()"
-                                @onclick="() => { _isChoosingStyle = !_isChoosingStyle; _isEditingTable = false; }">Aa</button>
+                                @onclick="() => { _isChoosingStyle = !_isChoosingStyle; _isEditingTable = false; _isChoosingSeparator = false; }">Aa</button>
                         @* The one that works: it types "[]", which the surface turns into a tick box -
                            the same way somebody who never finds this row gets one. *@
                         <button type="button" class="note-tool" title="@T["Checklist item"]"
@@ -190,6 +202,17 @@ else
                             <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor"
                                  stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M14.5 9.5 9 15a3 3 0 0 1-4.2-4.2l6.4-6.4a2 2 0 0 1 2.8 2.8l-6.4 6.4a1 1 0 0 1-1.4-1.4l5.7-5.7" />
+                            </svg>
+                        </button>
+                        @* A rule across the note, opened from the row because it has something to
+                           decide - what is written on it. See NoteSeparatorLine. *@
+                        <button type="button" class="note-tool @(_isChoosingSeparator ? "note-tool-on" : null)"
+                                title="@SeparatorLabel" aria-label="@SeparatorLabel"
+                                aria-expanded="@_isChoosingSeparator.ToString().ToLowerInvariant()"
+                                @onclick="OnSeparatorToolPressed">
+                            <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor"
+                                 stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M2.5 10h15" /><path d="M5 5.5h10" stroke-opacity="0.45" /><path d="M5 14.5h10" stroke-opacity="0.45" />
                             </svg>
                         </button>
                     </div>
@@ -554,6 +577,7 @@ else
     private async Task OnTableToolPressedAsync()
     {
         _isChoosingStyle = false;
+        _isChoosingSeparator = false;
         if (_caretIsInATable)
         {
             _isEditingTable = !_isEditingTable;
@@ -563,6 +587,36 @@ else
         if (_checklistEditorRef is not null)
         {
             await _checklistEditorRef.InsertTableAsync();
+        }
+    }
+
+    /// <summary>Whether the separator's two choices are open over the writing - see <see cref="OnSeparatorToolPressed"/>.</summary>
+    private bool _isChoosingSeparator;
+
+    /// <summary>
+    /// The separator tool opens its choices rather than inserting one straight away: a rule can be
+    /// plain or carry a date, and which of the two is the only thing there is to say about it.
+    /// </summary>
+    private void OnSeparatorToolPressed()
+    {
+        _isChoosingStyle = false;
+        _isEditingTable = false;
+        _isChoosingSeparator = !_isChoosingSeparator;
+    }
+
+    /// <summary>
+    /// Puts a rule where the caret is and closes the choices. The stamp is worked out **here**, once,
+    /// and travels with the line from now on - see NoteSeparatorLine.Stamp, which says why: a date
+    /// re-read at draw time would make yesterday's separator say today. Written in the reader's own
+    /// language and format, because it is written by the reader making it.
+    /// </summary>
+    private async Task InsertSeparatorAsync(bool dated)
+    {
+        _isChoosingSeparator = false;
+        if (_checklistEditorRef is not null)
+        {
+            await _checklistEditorRef.InsertSeparatorAsync(
+                dated ? DateTime.Now.ToString("f", CultureInfo.CurrentCulture) : string.Empty);
         }
     }
 
@@ -651,6 +705,8 @@ else
     private string TableLabel => T["Table"];
 
     private string AttachmentLabel => T["Attachment"];
+
+    private string SeparatorLabel => T["Separator"];
 
     /// <summary>Who else currently holds the edit lock, if anyone - see AcquireLockAsync. Null means this browser holds it (or the note isn't editable at all, so no lock was ever sought).</summary>
     private string? _lockedByUserName;

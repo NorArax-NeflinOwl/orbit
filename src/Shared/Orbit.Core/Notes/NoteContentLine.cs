@@ -38,12 +38,18 @@ namespace Orbit.Core.Notes;
 /// The picture this line is, when it is one - see <see cref="NotePictureLine"/>, carried the way a table
 /// is. Null for everything else.
 /// </param>
+/// <param name="Separator">
+/// The rule this line is, when it is one - see <see cref="NoteSeparatorLine"/>, carried the way the two
+/// above are. A separator is not a style, because it has no words to style: it is what the line is.
+/// Null for everything else, and for every line stored before separators existed.
+/// </param>
 public sealed record NoteContentLine(
     string Text, bool IsChecklistItem, bool IsChecked, bool IsFailed = false,
     NoteLineStyle Style = NoteLineStyle.Body,
     IReadOnlyList<NoteTextRun>? Marks = null,
     NoteTable? Table = null,
-    NotePictureLine? Picture = null)
+    NotePictureLine? Picture = null,
+    NoteSeparatorLine? Separator = null)
 {
     /// <summary>A line that is a picture and nothing else - see <see cref="OfTable"/>, which is the same rule for a table.</summary>
     public static NoteContentLine OfPicture(NotePictureLine picture)
@@ -53,13 +59,30 @@ public sealed record NoteContentLine(
     public bool IsAPicture => Picture is not null;
 
     /// <summary>
-    /// Whether this line is something other than words - a table or a picture. What every rule that
-    /// counts characters asks: such a line has no caret offset to speak of, so an edit that split or
-    /// joined it as if it had words would be the caret landing nowhere. The two differ in one place
-    /// only - Backspace over a picture takes it away, as it takes any element, where a table goes by
-    /// its own menu - and the rules ask the narrower question there.
+    /// Whether this line is something other than words - a table, a picture or a rule across the note.
+    /// What every rule that counts characters asks: such a line has no caret offset to speak of, so an
+    /// edit that split or joined it as if it had words would be the caret landing nowhere. They differ
+    /// in one place only, which <see cref="IsTakenAwayByAKey"/> names.
     /// </summary>
-    public bool IsAnElement => IsATable || IsAPicture;
+    public bool IsAnElement => IsATable || IsAPicture || IsASeparator;
+
+    /// <summary>
+    /// Whether Backspace or Delete over this line takes it away. A picture and a rule do, as any element
+    /// in a page does; a table does not, because a key that could quietly delete a grid of words is not
+    /// a key, and its own menu takes it away instead.
+    /// </summary>
+    public bool IsTakenAwayByAKey => IsAPicture || IsASeparator;
+
+    /// <summary>
+    /// A line that is a rule across the note and nothing else - the one way a separator line is made,
+    /// so nothing can make one that also carries words. <paramref name="stamp"/> is written once, here,
+    /// and never worked out again - see <see cref="NoteSeparatorLine.Stamp"/>.
+    /// </summary>
+    public static NoteContentLine OfSeparator(string stamp)
+        => new(string.Empty, IsChecklistItem: false, IsChecked: false, Separator: new NoteSeparatorLine(stamp));
+
+    /// <summary>Whether this line is a rule across the note rather than writing.</summary>
+    public bool IsASeparator => Separator is not null;
 
     /// <summary>
     /// A line that is a table and nothing else: no words, no box, ordinary style. The one way a table
@@ -97,7 +120,8 @@ public sealed record NoteContentLine(
             && Style == other.Style
             && AllMarks.SequenceEqual(other.AllMarks)
             && Equals(Table, other.Table)
-            && Picture == other.Picture;
+            && Picture == other.Picture
+            && Separator == other.Separator;
 
     public override int GetHashCode()
     {
@@ -114,6 +138,7 @@ public sealed record NoteContentLine(
 
         hash.Add(Table);
         hash.Add(Picture);
+        hash.Add(Separator);
         return hash.ToHashCode();
     }
 }
