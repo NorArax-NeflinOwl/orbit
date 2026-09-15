@@ -1808,13 +1808,23 @@ public sealed class DashboardScreenTests
 
         /// <summary>
         /// Marks a list finished, as its own screen's box does - which closes it whatever is still
-        /// unticked on it. Written straight into the store: this context has no task-list screen.
+        /// unticked on it.
+        ///
+        /// Through the repository rather than by writing IsCompleted into the row: the dashboard
+        /// synchronises before it draws, so a flag set behind the store's back is pushed as nothing,
+        /// answered by the server's own reading of the entries - one of them unticked, so not finished -
+        /// and written straight back over. The reader's own answer travels as Completion, which is the
+        /// whole reason that field exists (see TaskListCompletion).
         /// </summary>
         public async Task CloseTaskListAsync(Guid taskListLocalId)
         {
-            await using var dbContext = _localStore.CreateDbContext();
-            dbContext.TaskLists.First(stored => stored.LocalId == taskListLocalId).IsCompleted = true;
-            await dbContext.SaveChangesAsync();
+            var stored = await _taskLists.FindAsync(taskListLocalId)
+                ?? throw new InvalidOperationException("No such list on this phone.");
+            await _taskLists.UpdateAsync(
+                taskListLocalId,
+                new TaskListContent(
+                    stored.Title, stored.Items, stored.IsGroup, stored.Priority, stored.IsPrivate,
+                    stored.Description, nameof(Orbit.Core.Tasks.TaskListCompletion.Finished)));
         }
 
         /// <summary>
