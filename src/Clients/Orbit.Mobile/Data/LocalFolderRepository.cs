@@ -126,6 +126,18 @@ public sealed class LocalFolderRepository
             taskList.FolderId = null;
         }
 
+        foreach (var calendarEvent in await dbContext.CalendarEvents
+            .Where(stored => stored.FolderId == localId).ToListAsync(cancellationToken))
+        {
+            calendarEvent.FolderId = null;
+        }
+
+        foreach (var inventory in await dbContext.Inventories
+            .Where(stored => stored.FolderId == localId).ToListAsync(cancellationToken))
+        {
+            inventory.FolderId = null;
+        }
+
         dbContext.Folders.Remove(stored);
 
         // A folder the server never saw has nothing to delete there, and dropping what was queued for

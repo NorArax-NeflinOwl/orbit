@@ -245,7 +245,7 @@ else
                         @* Offered for every saved entry, including one this account has nowhere to move -
                            the control saying so is an answer, where leaving it out looked like a setting
                            that had gone missing. *@
-                        @if (item.Id is { } persistedItemId)
+                        @if (item is { WasStored: true, Id: { } persistedItemId })
                         {
                             var moveTargets = MoveTargetsFor(item);
                             <label>@T["Move to list"]<select @onchange="@(changeArgs => MoveItemAsync(item, persistedItemId, changeArgs.Value))"
@@ -475,6 +475,17 @@ else
                                     </select>
                                 </label>
                             }
+                            @* Which of the lists have to be done. Any one of them unless this is ticked -
+                               the user's rule, settled 2026-09-14: one entry for two ways of getting a
+                               thing is what somebody usually means by writing it once. Only where there
+                               are two to choose between: with one list the question has one answer. *@
+                            @if (item.LinkedTaskListIds.Count > 1)
+                            {
+                                <span class="field-break"></span>
+                                <label>
+                                    <input type="checkbox" checked="@item.NeedsEveryLinkedList"
+                                           @onchange="args => item.NeedsEveryLinkedList = args.Value is true" />@T["Needs all of them"]<FieldHint>@T["Off, this entry is done as soon as any one of the lists it stands for is. On, every one of them has to be done."]</FieldHint></label>
+                            }
                             @if (item.IsALinkToOtherLists)
                             {
                                 <span class="field-break"></span>
@@ -645,10 +656,19 @@ else
                     </div>
                 }
 
+                @* Ticked and unpressable while something on the form points at another list: a list that
+                   gathers other lists is a group list, and the checklist draws the members either way -
+                   see TaskList.IsGroup, which settles it on the server whatever is sent. Said in words
+                   beside the box rather than left as a box that will not move. *@
                 <div class="field">
                     <label>
-                        <input type="checkbox" checked="@_formModel.IsGroup"
+                        <input type="checkbox" checked="@(_formModel.IsGroup || GathersOtherLists)"
+                               disabled="@GathersOtherLists"
                                @onchange="args => _formModel.IsGroup = args.Value is true" />@T["Group View"]<FieldHint>@T["A group list's checklist also shows every list it gathers, so the whole group fits on one screen."]</FieldHint></label>
+                    @if (GathersOtherLists)
+                    {
+                        <p class="empty-hint">@T["On, because an entry on this list stands for another list. Take that entry off to turn it back off."]</p>
+                    }
                 </div>
 
                 @* Whether the list is finished, asked once for both ways of being it. The box ticks itself once
@@ -1206,11 +1226,16 @@ else
     /// for and minus itself. Nothing is checked for a chain that comes back round - an entry waiting on
     /// something that waits on it can never be ticked, and neither can be ticked to begin with, so the
     /// list simply says so rather than a save being refused.
+    ///
+    /// An entry typed a moment ago is among them. It used to be left out because it had no id until the
+    /// save minted one, so building a list and ordering its steps meant saving in the middle of doing
+    /// it - and on a list being written for the first time, nothing could wait for anything. Every entry
+    /// names itself now (see TaskItemFormModel.Id), which is what the phone already did.
     /// </summary>
     private IReadOnlyList<TaskItemFormModel> StepsAvailableTo(TaskItemFormModel item)
         => [.. _formModel.Items.Where(candidate =>
-            candidate != item && !item.WaitsForTaskItemIds.Contains(candidate.Id ?? Guid.Empty)
-            && candidate.Id is not null)];
+            candidate != item && candidate.Id is { } candidateId
+            && !item.WaitsForTaskItemIds.Contains(candidateId))];
 
     private static void WaitForTheEntry(TaskItemFormModel item, object? chosenValue)
     {
@@ -1504,6 +1529,8 @@ else
                             {
                                 Event = new EventFormModel(TimeProvider) { Color = TaskItemFormModel.AppointmentColor },
                                 Id = item.Id,
+                                WasStored = true,
+                                NeedsEveryLinkedList = item.NeedsEveryLinkedList,
                                 Description = item.Description,
                                 DueDate = item.DueDateUtc is { } dueDateUtc ? DateOnly.FromDateTime(dueDateUtc.LocalDateTime) : null,
                                 DueTime = item.DueDateUtc is { } dueTimeUtc ? TimeOnly.FromDateTime(dueTimeUtc.LocalDateTime) : null,
@@ -1633,6 +1660,9 @@ else
 
         var entry = new TaskItemFormModel
         {
+            // As every new entry is - see TaskItemFormModel.Id. This one has a second reason: the place
+            // it is about answers to the entry by id.
+            Id = Guid.NewGuid(),
             Event = new EventFormModel(TimeProvider) { Color = TaskItemFormModel.AppointmentColor },
             Kind = nameof(TaskItemKind.Location),
             Location = place.Address,
@@ -2378,6 +2408,9 @@ else
         // Its appointment, should it become one, starts now by the page's clock - see EventFormModel.
         var item = new TaskItemFormModel
         {
+            // Named here rather than by the save, so the entries already on the form can wait for it and
+            // it can wait for them - see TaskItemFormModel.Id.
+            Id = Guid.NewGuid(),
             Event = new EventFormModel(TimeProvider) { Color = TaskItemFormModel.AppointmentColor }
         };
         _formModel.Items.Add(item);
@@ -2542,7 +2575,10 @@ else
                 AlternativesAsSaved(item),
                 item.ReferencesTaskItemId,
                 RequiredQuantityAsSaved(item),
-                ToCompletedAtUtc(item)))
+                ToCompletedAtUtc(item),
+                // Said outright rather than left null, for the reason Priority above gives: null means
+                // "leave what is stored", which is the answer for a client with no control for it.
+                item.NeedsEveryLinkedList))
             .ToList();
 
     /// <summary>
@@ -2640,13 +2676,14 @@ else
             return;
         }
 
-        // A Location entry is about to keep a place, which answers to it by id - so one added in this
-        // sitting is named here, the way the phone names its own entries, rather than by the save. The
-        // server keeps an id a client gives an entry (see TaskItemIdentity).
-        foreach (var newLocationEntry in _formModel.Items.Where(item =>
-                     item.Id is null && item.Kind == nameof(TaskItemKind.Location)))
+        // A Location entry is about to keep a place, which answers to it by id. It has one already:
+        // every entry names itself as it is made now (see TaskItemFormModel.Id), which this used to do
+        // here for Location entries alone. An entry read back from an older client may still have none,
+        // and is named now for the same reason - the server keeps an id a client gives an entry, see
+        // TaskItemIdentity.
+        foreach (var unnamedEntry in _formModel.Items.Where(item => item.Id is null))
         {
-            newLocationEntry.Id = Guid.NewGuid();
+            unnamedEntry.Id = Guid.NewGuid();
         }
 
         var items = ItemsAsSaved();
@@ -3006,6 +3043,15 @@ else
             "User set task list completion to {Completion}", _formModel.Completion);
     }
 
+    /// <summary>
+    /// Whether anything on the form points at another list, which is what makes this a group list
+    /// whatever the box says - see TaskList.IsGroup, where the server settles the same question. Read off
+    /// the form rather than off the list that was loaded, so the box answers what is on screen: adding an
+    /// entry that names a list ticks it in the same press, which is what "automatically" has to mean on
+    /// a form nobody has saved yet. The Completed box beside it is read the same way.
+    /// </summary>
+    private bool GathersOtherLists => _formModel.Items.Any(item => item.IsALinkToOtherLists);
+
     /// <summary>An answer this browser doesn't recognise reads as "the entries decide", which is where every list starts.</summary>
     private static TaskListCompletion ParseCompletion(string completion)
         => Enum.TryParse<TaskListCompletion>(completion, out var parsed) ? parsed : TaskListCompletion.FromTheEntries;
@@ -3054,8 +3100,23 @@ else
 
     private sealed class TaskItemFormModel
     {
-        /// <summary>Null for an item added in this editing session that hasn't been saved yet - "Move to another list" only applies once an item actually has a persisted id to move.</summary>
+        /// <summary>
+        /// The entry's id, minted here the moment the entry exists rather than by the save - the way the
+        /// phone names its own entries, and the way the server expects them to arrive (see
+        /// TaskItemIdentity). That is what lets one entry be pointed at before either has been stored:
+        /// "Waits for" offers an entry typed a second ago, and a Location entry can keep a place.
+        ///
+        /// Null only for an entry read back from a client older than this rule.
+        /// </summary>
         public Guid? Id { get; set; }
+
+        /// <summary>
+        /// Whether the server has this entry, which is a different question from whether it has an id
+        /// and is the one anything server-side has to ask. "Move to list" and "Copy to list" are the two:
+        /// both are requests about an entry the server holds, and neither means anything for one that
+        /// exists only on this form.
+        /// </summary>
+        public bool WasStored { get; set; }
         public string Description { get; set; } = string.Empty;
         public DateOnly? DueDate { get; set; }
         public TimeOnly? DueTime { get; set; }
@@ -3070,6 +3131,13 @@ else
 
         /// <inheritdoc cref="CompletedDate"/>
         public TimeOnly? CompletedTime { get; set; }
+
+        /// <summary>
+        /// Whether every list this entry stands for has to be done before it is - see
+        /// TaskItem.NeedsEveryLinkedList. False, which is "any one of them", for a new entry and for one
+        /// read back from a server that has not learned the rule.
+        /// </summary>
+        public bool NeedsEveryLinkedList { get; set; }
 
         /// <summary>How much this entry matters, which is its own answer rather than the list's - see TaskItem.Priority.</summary>
         public string Priority { get; set; } = nameof(ItemPriority.Normal);

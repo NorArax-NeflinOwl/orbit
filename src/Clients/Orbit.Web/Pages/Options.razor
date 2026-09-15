@@ -515,6 +515,26 @@
                 }
             </div>
         </div>
+
+        @* How far ahead the dashboard's Upcoming card looks - see DevicePreferences.UpcomingDays. A card
+           of six rows glanced down wants a horizon; the calendar is where a longer one is read. *@
+        <div class="options-section">
+            <h2 class="options-heading">@T["How far ahead Upcoming looks"]<FieldHint>@T["The dashboard's Upcoming card shows what is happening inside this many days. Anything further off is still in your calendar, which the card's own name opens. Kept on this device."]</FieldHint></h2>
+            <div class="options-card">
+                <div class="options-row">
+                    <div>
+                        <div class="options-row-title">@T["Upcoming"]</div>
+                    </div>
+                    <select value="@DevicePreferences.UpcomingDays" aria-label="@(T["How far ahead Upcoming looks"])"
+                            @onchange="OnUpcomingDaysChosen">
+                        @foreach (var days in DevicePreferences.UpcomingHorizons)
+                        {
+                            <option value="@days">@DescribeHorizon(days)</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
     }
 
     @if (_activeTab == OptionsTab.Permissions)
@@ -690,6 +710,28 @@
     /// <summary>One kind of entry switched in or out of what a picked name fills in - see DevicePreferences.KindsFilledFromSuggestions.</summary>
     private Task ToggleKindFilledFromSuggestionsAsync(string kind)
         => DevicePreferences.SetKindFilledFromSuggestionsAsync(kind, !DevicePreferences.KindsFilledFromSuggestions.Contains(kind));
+
+    private Task OnUpcomingDaysChosen(ChangeEventArgs args)
+        => int.TryParse(args.Value?.ToString(), out var days)
+            ? DevicePreferences.SetUpcomingDaysAsync(days)
+            : Task.CompletedTask;
+
+    /// <summary>
+    /// A horizon in the reader's words. A phrase each rather than a number and a unit: zero is not
+    /// "0 days" but the absence of a horizon, and a count of days needs a plural rule Polish has three
+    /// of. The list is DevicePreferences.UpcomingHorizons, so every case here is reachable and the
+    /// fallback is not - it is there so a horizon added to that list is drawn as something rather than
+    /// as nothing.
+    /// </summary>
+    private string DescribeHorizon(int days) => days switch
+    {
+        0 => T["Everything"],
+        1 => T["A day"],
+        7 => T["A week"],
+        30 => T["A month"],
+        90 => T["Three months"],
+        _ => days.ToString(CultureInfo.InvariantCulture)
+    };
 
     private OptionsTab _activeTab = OptionsTab.Account;
 

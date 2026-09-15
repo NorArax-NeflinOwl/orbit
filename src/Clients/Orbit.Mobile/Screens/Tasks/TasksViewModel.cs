@@ -283,7 +283,14 @@ public sealed partial class TasksViewModel : ObservableObject
         await ShowStoredListsAsync(cancellationToken);
     }
 
-    private async Task ShowStoredListsAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Draws the lists from what is on the phone, asking the server nothing.
+    ///
+    /// Public for one caller beyond this class: the page calls it when a sync that nobody on this
+    /// screen asked for has brought something down, so a screen left open stops showing what it was
+    /// shown when it was opened - see PeriodicSync and SyncState.BroughtSomethingNew.
+    /// </summary>
+    public async Task ShowStoredListsAsync(CancellationToken cancellationToken)
     {
         var stored = await _taskLists.GetAllAsync(cancellationToken);
         var pending = await _taskLists.GetPendingLocalIdsAsync(cancellationToken);
@@ -304,7 +311,7 @@ public sealed partial class TasksViewModel : ObservableObject
 
     /// <summary>Which folder one list is under - see FolderTabs.Where, and FolderPlacement.</summary>
     private FolderKey Where(LocalTaskList taskList)
-        => Folders.Where(taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted);
+        => Folders.Where(taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted, taskList.IsArchived);
 
     /// <inheritdoc cref="Notes.NotesViewModel.ChooseFolderAsync"/>
     [RelayCommand]

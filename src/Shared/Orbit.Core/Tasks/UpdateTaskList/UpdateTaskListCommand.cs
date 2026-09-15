@@ -65,6 +65,13 @@ public sealed record UpdateTaskListCommand(
     /// this rule, for the phone builds already installed.
     /// </summary>
     IReadOnlySet<Guid>? EntriesKeepingTheirReference = null,
+    /// <summary>
+    /// The entries that said nothing about whether every list they stand for has to be done or any one
+    /// of them is enough - see TaskItem.NeedsEveryLinkedList. The eighth field to follow this rule, and
+    /// the phone is the reason again: it saves lists without knowing the rule can be either, and such a
+    /// save must not turn an entry somebody set to "all of them" back to the default.
+    /// </summary>
+    IReadOnlySet<Guid>? EntriesKeepingTheirListRule = null,
     /// <summary>Null leaves the stored tags alone - see UpdateTaskRequest.Tags. An empty list clears them.</summary>
     IReadOnlyList<string>? Tags = null)
     : IRequest<EditOutcome>;

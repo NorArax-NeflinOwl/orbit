@@ -56,6 +56,7 @@ public static class OrbitDataServiceCollectionExtensions
         services.AddScoped<IPlaceShareRepository, PlaceShareRepository>();
         services.AddScoped<IFolderRepository, FolderRepository>();
         services.AddScoped<INoteShareRepository, NoteShareRepository>();
+        services.AddScoped<INotePictureRepository, NotePictureRepository>();
         services.AddScoped<ITaskRepository, TaskRepository>();
         services.AddScoped<ITaskListShareRepository, TaskListShareRepository>();
         services.AddScoped<ICalendarEventRepository, CalendarEventRepository>();

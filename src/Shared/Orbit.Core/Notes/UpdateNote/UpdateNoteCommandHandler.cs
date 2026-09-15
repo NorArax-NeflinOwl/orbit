@@ -6,11 +6,17 @@ public sealed class UpdateNoteCommandHandler : IRequestHandler<UpdateNoteCommand
 {
     private readonly NoteAccessResolver _noteAccessResolver;
     private readonly INoteRepository _noteRepository;
+    private readonly INotePictureRepository _pictures;
+    private readonly INotePictureStore _pictureStore;
 
-    public UpdateNoteCommandHandler(NoteAccessResolver noteAccessResolver, INoteRepository noteRepository)
+    public UpdateNoteCommandHandler(
+        NoteAccessResolver noteAccessResolver, INoteRepository noteRepository,
+        INotePictureRepository pictures, INotePictureStore pictureStore)
     {
         _noteAccessResolver = noteAccessResolver;
         _noteRepository = noteRepository;
+        _pictures = pictures;
+        _pictureStore = pictureStore;
     }
 
     /// <summary>
@@ -43,6 +49,9 @@ public sealed class UpdateNoteCommandHandler : IRequestHandler<UpdateNoteCommand
 
         note.Update(request.Title, request.Content, request.IsPrivate, request.EncryptedContent, request.Priority, request.Tags);
         await _noteRepository.UpdateAsync(note, cancellationToken);
+        // After the save, so a picture is only ever swept once the lines that stopped naming it are
+        // stored - the other order could lose a picture to a save that then failed.
+        await NotePictureSweeper.RemoveUnnamedAsync(note.Id, request.KeptPictureIds, _pictures, _pictureStore, cancellationToken);
         return EditOutcome.Success;
     }
 }

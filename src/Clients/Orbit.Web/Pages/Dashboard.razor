@@ -28,6 +28,7 @@
 @inject TimeProvider TimeProvider
 @inject DashboardPinService DashboardPins
 @inject DashboardCardPreferences CardPreferences
+@inject DevicePreferences DevicePreferences
 @inject NotificationFeedState NotificationFeed
 
 <PageTitle>@T["Orbit — Dashboard"]</PageTitle>
@@ -476,7 +477,7 @@ else
     /// </summary>
     private IReadOnlyList<NoteDto> NotesUnderTheOpenTab =>
         [.. (_notes ?? [])
-            .Where(note => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, note.FolderId, note.IsPrivate))];
+            .Where(note => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived))];
 
     private IReadOnlyList<NoteDto> NotesToShow =>
         [.. NotesUnderTheOpenTab.Where(note => Matches("notes", note.IsPinned, note.Priority))];
@@ -495,23 +496,50 @@ else
     /// <inheritdoc cref="NotesUnderTheOpenTab"/>
     private IReadOnlyList<TaskDto> TaskListsUnderTheOpenTab =>
         [.. (_taskLists ?? [])
-            .Where(taskList => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, taskList.FolderId, taskList.IsPrivate))
+            .Where(taskList => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, taskList.FolderId, taskList.IsPrivate, isFinished: false, taskList.IsArchived))
             .Where(taskList => !taskList.IsCompleted || taskList.IsPinned)];
 
     private IReadOnlyList<TaskDto> TaskListsToShow =>
         [.. TaskListsUnderTheOpenTab.Where(taskList => Matches("tasks", taskList.IsPinned, taskList.Priority))];
 
     /// <summary>
-    /// The shelves under the open tab. An inventory is not filed into a folder somebody made - there is
-    /// no tab for one on the inventory page - but it can be sealed, so Public and Private tell them
-    /// apart here the same way they tell notes and lists apart. Without this the Private tab drew every
-    /// shelf the account has, which is the opposite of what the tab says.
+    /// The shelves under the open tab. Filed like everything else here since 2026-09-15: a folder
+    /// somebody made on the inventories is a tab on this page too, and Public and Private tell the rest
+    /// apart the way they do for notes and lists.
     /// </summary>
+    /// <inheritdoc cref="NotesUnderTheOpenTab"/>
     private IReadOnlyList<InventoryDto> InventoriesUnderTheOpenTab =>
-        [.. (_inventories ?? []).Where(inventory => inventory.IsPrivate == IsReadingWhatIsPrivate)];
+        [.. (_inventories ?? [])
+            .Where(inventory => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, inventory.FolderId, inventory.IsPrivate, isFinished: false, inventory.IsArchived))];
 
     private IReadOnlyList<UpcomingEntry> UpcomingToShow =>
-        [.. Upcoming().Where(entry => Matches("upcoming", isPinned: false, entry.Priority))];
+        [.. Upcoming()
+            .Where(entry => IsInsideTheHorizon(entry.At))
+            .Where(entry => Matches("upcoming", isPinned: false, entry.Priority))];
+
+    /// <summary>
+    /// Whether something coming up is near enough for this card to say so - a week ahead unless the
+    /// reader chose otherwise on Options, and everything when they chose no horizon at all (see
+    /// DevicePreferences.UpcomingDays).
+    ///
+    /// The card holds six rows and is glanced down, so without a horizon it was not "what is coming up"
+    /// but "everything that will ever happen", with next Tuesday somewhere inside it. What falls outside
+    /// is not lost: the card's own name opens the calendar, which is where a longer view is read.
+    ///
+    /// Measured from the start of today rather than from this moment, so something happening this
+    /// morning is still on a card read this afternoon - a horizon that quietly drops what is happening
+    /// today would be worse than no horizon.
+    /// </summary>
+    private bool IsInsideTheHorizon(DateTimeOffset at)
+    {
+        var days = DevicePreferences.UpcomingDays;
+        if (days <= 0)
+        {
+            return true;
+        }
+
+        return at.ToLocalTime().Date <= TimeProvider.GetUtcNow().ToLocalTime().Date.AddDays(days);
+    }
 
     /// <summary>
     /// One thing coming up - an event, or a task item with a deadline. Both, because this card and the
@@ -539,12 +567,18 @@ else
     private IEnumerable<UpcomingEntry> Upcoming()
     {
         var nowUtc = TimeProvider.GetUtcNow();
-        var entries = (_events ?? [])
+        // Held as a list rather than piped straight into the rows: the deadlines below are asked which
+        // of them is one of these already, and answering that needs the occurrences as this card has
+        // settled them rather than the events as they are stored.
+        var appointments = (_events ?? [])
             .Where(IsStillToDo)
             .Select(calendarEvent => NextOccurrenceOf(calendarEvent, nowUtc))
             .OfType<CalendarEventDto>()
+            .ToList();
+
+        var entries = appointments
             .Select(ToUpcomingEntry)
-            .Concat(UpcomingDeadlines(nowUtc));
+            .Concat(UpcomingDeadlines(nowUtc, appointments));
         return entries.OrderBy(entry => entry.At);
     }
 
@@ -608,8 +642,24 @@ else
     /// behind it still points at the list, so the two addresses differ here and both are carried: see
     /// NewsUrl, which is what decides whether the row is marked.
     /// </summary>
-    private IEnumerable<UpcomingEntry> UpcomingDeadlines(DateTimeOffset nowUtc)
-        => (_taskLists ?? [])
+    /// <param name="appointments">
+    /// What the card is already showing as appointments, to leave out an entry that <b>is</b> one of
+    /// them. An entry can carry both a date and an appointment, and then the card wrote it twice, one
+    /// line under the other - the same words, from the same list, at two times nobody had said were
+    /// different. Only where the appointment falls on the day the deadline does: on any other day
+    /// nothing else on the card stands for it, and hiding it would lose the deadline rather than tidy
+    /// it. The same rule the calendar applies to the same pair.
+    /// </param>
+    private IEnumerable<UpcomingEntry> UpcomingDeadlines(
+        DateTimeOffset nowUtc, IReadOnlyList<CalendarEventDto> appointments)
+    {
+        var daysTheirAppointmentIsOn = appointments
+            .GroupBy(appointment => appointment.Id)
+            .ToDictionary(
+                byEvent => byEvent.Key,
+                byEvent => byEvent.Select(appointment => appointment.Details.StartUtc.ToLocalTime().Date).ToHashSet());
+
+        return (_taskLists ?? [])
             .SelectMany(taskList => taskList.Items.Select(item => (taskList, item)))
             // A list somebody closed is closed, whatever is still unticked on it. Marking one finished
             // with work still on it is a way of saying "no more of this" (TaskList.IsMarkedCompleted),
@@ -617,7 +667,8 @@ else
             .Where(pair => !pair.taskList.IsCompleted)
             .Where(pair => !pair.item.IsCompleted && !pair.item.IsFailed
                 && pair.item.AllLinkedTaskListIds.Count == 0
-                && pair.item.DueDateUtc is { } dueDate && dueDate >= nowUtc)
+                && pair.item.DueDateUtc is { } dueDate && dueDate >= nowUtc
+                && !IsAlreadyAnAppointmentThatDay(pair.item, dueDate, daysTheirAppointmentIsOn))
             .Select(pair => new UpcomingEntry(
                 pair.item.DueDateUtc!.Value,
                 $"{Written(pair.taskList.Title)}: {Written(pair.item.Description)}",
@@ -627,6 +678,14 @@ else
                 $"/tasks/{pair.taskList.Id}/items/{pair.item.Id}",
                 // A deadline's reminder points at the list it is on, not at the entry the row opens.
                 $"/tasks/{pair.taskList.Id}"));
+    }
+
+    /// <inheritdoc cref="UpcomingDeadlines"/>
+    private static bool IsAlreadyAnAppointmentThatDay(
+        TaskItemDto item, DateTimeOffset dueDate, IReadOnlyDictionary<Guid, HashSet<DateTime>> daysTheirAppointmentIsOn)
+        => item.LinkedCalendarEventId is { } eventId
+            && daysTheirAppointmentIsOn.TryGetValue(eventId, out var days)
+            && days.Contains(dueDate.ToLocalTime().Date);
 
     /// <summary>
     /// The High/Low mark beside a row, when a reader has said this one is not like the others. Normal is
@@ -771,6 +830,9 @@ else
         {
             FolderScope.Notes => cardKey == "notes",
             FolderScope.Tasks => cardKey == "tasks",
+            FolderScope.Inventories => cardKey == "inventories",
+            // The calendar's folders are not tabs here at all - see FolderPages.ScopesOn - so a card
+            // can never be about one.
             _ => false
         };
     }

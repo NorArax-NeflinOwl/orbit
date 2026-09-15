@@ -1,6 +1,7 @@
 using System.Collections.Specialized;
 using System.Windows.Input;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Sync;
 using Microsoft.Maui.Layouts;
 using Orbit.Maui.Controls;
 using Orbit.Mobile.Screens;
@@ -17,9 +18,12 @@ public partial class CalendarPage : ContentPage, ITitleMenu
 	private const double HourHeight = 46;
 
 	private readonly CalendarViewModel _viewModel;
+
+	/// <summary>Redraws this screen when a sync it did not ask for brings something - see ScreenKeptInStep.</summary>
+	private readonly ScreenKeptInStep _keptInStep;
 	private readonly Translations _translations;
 
-	public CalendarPage(CalendarViewModel viewModel, Translations translations)
+	public CalendarPage(CalendarViewModel viewModel, Translations translations, SyncState syncState)
 	{
 		_translations = translations;
 		// Assigned before InitializeComponent, which is where the binding to it is built - see
@@ -29,7 +33,9 @@ public partial class CalendarPage : ContentPage, ITitleMenu
 
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		_keptInStep = new ScreenKeptInStep(syncState, () => _viewModel.ShowStoredEventsAsync(CancellationToken.None));
 		AddButton.Command = NewItemForm.Toggling(AddRow, AddField);
+		_nameAFolder = NewItemForm.Toggling(FolderRow, FolderField);
 		_viewModel.DayBlocks.CollectionChanged += OnTheDayChanged;
 		DayClock.SizeChanged += OnTheClockLaidOut;
 	}
@@ -42,6 +48,12 @@ public partial class CalendarPage : ContentPage, ITitleMenu
 
 	/// <summary>What order the list under the grid is read in - see CalendarListEntry.</summary>
 	public ICommand ShowTitleMenuCommand { get; }
+
+	/// <summary>
+	/// Unfolds the row a folder is named in, the same way the plus unfolds the row an event is named in -
+	/// see NewItemForm. Chosen from the menu rather than standing on the screen.
+	/// </summary>
+	private readonly ICommand _nameAFolder;
 
 	/// <summary>What a card's three dots open. The same panel the header's do; only the entries differ.</summary>
 	public ICommand ShowCardMenuCommand { get; }
@@ -96,6 +108,17 @@ public partial class CalendarPage : ContentPage, ITitleMenu
 	/// </summary>
 	private void ShowSortMenu() => Menu.ShowGroups(
 		[
+			// Which folder is being read, with how many are in each - the row of tabs the browser draws
+			// above its cards, as entries here because a phone has no room for a row of them.
+			new ScreenMenuGroup(
+				_translations["Folders"],
+				_viewModel.FolderChoices.Select(choice => new ScreenMenuEntry(
+					choice.Name,
+					() => _viewModel.ChooseFolderCommand.Execute(choice.Key),
+					choice.IsChosen,
+					count: ScreenMenuEntry.CountOf(choice.Count)))),
+			new ScreenMenuGroup(_translations["Folder"], FolderActions()),
+
 			// The one in force is marked, because a menu of three with no answer among them leaves the
 			// reader guessing what they are looking at.
 			new ScreenMenuGroup(
@@ -122,6 +145,63 @@ public partial class CalendarPage : ContentPage, ITitleMenu
 				])
 		]);
 
+
+	/// <summary>
+	/// What can be done to the folders themselves - see NotesPage.FolderActions, which this mirrors.
+	/// Deleting and renaming are offered only while one somebody made is the one being read.
+	/// </summary>
+	private List<ScreenMenuEntry> FolderActions()
+	{
+		List<ScreenMenuEntry> entries =
+		[
+			new ScreenMenuEntry(_translations["New folder"], () =>
+			{
+				_viewModel.StartNamingANewFolder();
+				_nameAFolder.Execute(null);
+			})
+		];
+
+		if (_viewModel.Folders.Chosen.FolderId is not null)
+		{
+			entries.Add(new ScreenMenuEntry(_translations["Rename folder"], () =>
+			{
+				_viewModel.StartRenamingTheOpenFolder();
+				UnfoldTheFolderRow();
+			}));
+			entries.Add(new ScreenMenuEntry(_translations["Delete folder"], () => _ = DeleteTheFolderAsync()));
+		}
+
+		return entries;
+	}
+
+	/// <summary>Opens the folder row if it is shut, and only puts the cursor in it if it is already open.</summary>
+	private void UnfoldTheFolderRow()
+	{
+		if (FolderRow.IsVisible)
+		{
+			FolderField.Focus();
+			return;
+		}
+
+		_nameAFolder.Execute(null);
+	}
+
+	/// <summary>
+	/// Asked first, as every delete in Orbit is - and the question says what it does *not* do, because
+	/// "delete folder" reads like what is in it goes too, and it does not.
+	/// </summary>
+	private async Task DeleteTheFolderAsync()
+	{
+		var question = _translations.Format(
+			"Delete the folder \"{0}\"? Nothing in it is deleted - it goes back to Public, or to Private if it is sealed.",
+			_viewModel.ChosenFolderName);
+
+		if (await Confirmation.AskAsync(this, question, _translations["Delete folder"], _translations["Cancel"]))
+		{
+			_viewModel.DeleteFolderCommand.Execute(null);
+		}
+	}
+
 	private ScreenMenuEntry Order(string name, CalendarListSortOrder order) => new(
 		name,
 		() =>
@@ -136,6 +216,13 @@ public partial class CalendarPage : ContentPage, ITitleMenu
 	{
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
+		_keptInStep.Listen();
+	}
+
+	protected override void OnDisappearing()
+	{
+		base.OnDisappearing();
+		_keptInStep.StopListening();
 	}
 
 	private void OnTheDayChanged(object? sender, NotifyCollectionChangedEventArgs eventArgs) => DrawTheDay();

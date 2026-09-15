@@ -224,7 +224,14 @@ public sealed partial class NotesViewModel : ObservableObject
 
     private bool CanAddNote => NewNoteTitle.Trim().Length > 0;
 
-    private async Task ShowLocalNotesAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Draws the notes from what is on the phone, asking the server nothing.
+    ///
+    /// Public for one caller beyond this class: the page calls it when a sync that nobody on this
+    /// screen asked for has brought something down, so a screen left open stops showing what it was
+    /// shown when it was opened - see PeriodicSync and SyncState.BroughtSomethingNew.
+    /// </summary>
+    public async Task ShowLocalNotesAsync(CancellationToken cancellationToken)
     {
         var stored = await _notes.GetAllAsync(cancellationToken);
         var pending = await _notes.GetPendingNoteLocalIdsAsync(cancellationToken);
@@ -234,7 +241,7 @@ public sealed partial class NotesViewModel : ObservableObject
         // question a task list is asked here is not asked of it. See FolderPlacement.
         var placements = stored.ToDictionary(
             note => note.LocalId,
-            note => Folders.Where(note.FolderId, note.IsPrivate, isFinished: false));
+            note => Folders.Where(note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived));
 
         FolderChoices.Clear();
         foreach (var choice in Folders.Describe(placements.Values))

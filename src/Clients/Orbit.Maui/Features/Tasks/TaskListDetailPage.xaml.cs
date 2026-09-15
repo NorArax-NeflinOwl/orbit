@@ -160,10 +160,17 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 			Sharing.IsVisible,
 			canBeChosen: !_viewModel.IsPrivate));
 
-		// What used to be a row of words under the last entry, which on a long list is nowhere near the
-		// thumb. Deleting is offered only where this reader may change the list at all.
+		// Both ways out of the list, offered only where this reader may change it at all. Delete is what
+		// used to be a row of words under the last entry, which on a long list is nowhere near the
+		// thumb; archiving stands immediately above it on purpose, so somebody reaching for Delete
+		// because they want this out of the way meets the reversible one first - see
+		// BuiltInFolder.Archived.
 		if (_viewModel.CanEdit)
 		{
+			list.Add(new ScreenMenuEntry(
+				_viewModel.IsArchived ? _translations["Put back"] : _translations["Archive"],
+				() => _viewModel.ArchiveCommand.Execute(!_viewModel.IsArchived)));
+
 			list.Add(new ScreenMenuEntry(
 				_translations["Delete list"], () => _ = DeleteAsync()));
 		}

@@ -1,0 +1,51 @@
+@using Orbit.Contracts.Notes
+@using Orbit.Web.Services
+@inject NotePictureSource NotePictureSource
+
+@* A picture in a note being read rather than written. The bytes come through the app rather than as a
+   plain src - see NotePictureSource for why - and the picture holds its shape until they arrive, so a
+   note does not jump while it is read. Pressed, it opens full size in a tab of its own. *@
+<figure class="note-picture note-picture-read">
+    @if (_url is not null)
+    {
+        <a href="@_url" target="_blank" rel="noopener"><img src="@_url" alt="" width="@Width" height="@Height" /></a>
+    }
+    else
+    {
+        <div class="note-picture-waiting" style="@Placeholder"></div>
+    }
+</figure>
+
+@code {
+    [Parameter, EditorRequired] public NotePictureLineDto Picture { get; set; } = new(Guid.Empty, string.Empty);
+
+    /// <summary>The note the picture belongs to, for a reader who may see it. Either this or <see cref="Token"/>.</summary>
+    [Parameter] public Guid? NoteId { get; set; }
+
+    /// <summary>Whether the bytes are sealed and have to be opened here - a private note's are.</summary>
+    [Parameter] public bool IsSealed { get; set; }
+
+    /// <summary>The share link the picture is read through, for a reader with no account.</summary>
+    [Parameter] public string? Token { get; set; }
+
+    private string? _url;
+
+    private string? Width => Picture.WidthPixels > 0 ? Picture.WidthPixels.ToString() : null;
+
+    private string? Height => Picture.HeightPixels > 0 ? Picture.HeightPixels.ToString() : null;
+
+    /// <summary>The picture's own proportions, so the space it will take is taken before it arrives.</summary>
+    private string Placeholder
+        => Picture.WidthPixels > 0 && Picture.HeightPixels > 0
+            ? $"aspect-ratio: {Picture.WidthPixels} / {Picture.HeightPixels};"
+            : "aspect-ratio: 4 / 3;";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _url = Token is not null
+            ? await NotePictureSource.UrlForSharedAsync(Token, Picture)
+            : NoteId is { } noteId
+                ? await NotePictureSource.UrlForAsync(noteId, Picture, IsSealed)
+                : null;
+    }
+}

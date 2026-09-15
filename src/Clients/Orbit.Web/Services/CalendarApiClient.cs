@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts;
 using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
 using Orbit.Web.Services.Logging;
@@ -140,6 +141,26 @@ public sealed class CalendarApiClient
 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Files an event under a folder, or under none - which puts it back in Public. Its own call rather
+    /// than a field on the update, for the reason MoveToFolderRequest gives. False when the server
+    /// refused it: not this reader's event, or not this reader's folder.
+    /// </summary>
+    public async Task<bool> MoveToFolderAsync(Guid id, Guid? folderId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/calendar-events/{id}/folder", new MoveToFolderRequest(folderId), cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    /// <inheritdoc cref="NotesApiClient.SetArchivedAsync"/>
+    public async Task<bool> SetArchivedAsync(Guid id, bool isArchived, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/calendar-events/{id}/archived", new ArchiveRequest(isArchived), cancellationToken);
+        return response.IsSuccessStatusCode;
     }
 
     public async Task DeleteCalendarEventAsync(Guid id, CancellationToken cancellationToken = default)

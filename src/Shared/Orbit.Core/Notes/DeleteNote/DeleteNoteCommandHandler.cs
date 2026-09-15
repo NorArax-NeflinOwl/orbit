@@ -8,14 +8,19 @@ public sealed class DeleteNoteCommandHandler : IRequestHandler<DeleteNoteCommand
     private readonly INoteRepository _noteRepository;
     private readonly INoteShareRepository _noteShareRepository;
     private readonly ISyncTombstoneRepository _syncTombstoneRepository;
+    private readonly INotePictureRepository _pictures;
+    private readonly INotePictureStore _pictureStore;
 
     public DeleteNoteCommandHandler(
         INoteRepository noteRepository, INoteShareRepository noteShareRepository,
-        ISyncTombstoneRepository syncTombstoneRepository)
+        ISyncTombstoneRepository syncTombstoneRepository,
+        INotePictureRepository pictures, INotePictureStore pictureStore)
     {
         _noteRepository = noteRepository;
         _noteShareRepository = noteShareRepository;
         _syncTombstoneRepository = syncTombstoneRepository;
+        _pictures = pictures;
+        _pictureStore = pictureStore;
     }
 
     /// <summary>
@@ -44,6 +49,9 @@ public sealed class DeleteNoteCommandHandler : IRequestHandler<DeleteNoteCommand
             return true;
         }
 
+        // The pictures go with the note, bytes and all - a recipient dropping a grant above leaves
+        // them, since the note is still its owner's.
+        await NotePictureSweeper.RemoveAllAsync(request.Id, _pictures, _pictureStore, cancellationToken);
         await _noteRepository.DeleteAsync(request.UserId, request.Id, cancellationToken);
         await RecordTombstoneAsync(request, cancellationToken);
         return true;

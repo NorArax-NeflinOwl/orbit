@@ -21,6 +21,12 @@ public static partial class NoteSurfaceEdits
     /// checklist line carries on as a checklist - unticked - and an empty one leaves the list instead,
     /// so pressing Enter twice ends a list rather than piling up empty boxes.
     ///
+    /// <b>A style follows the same two rules</b> (see <see cref="NoteLineStyle"/>, added 2026-09-14):
+    /// a bulleted, dashed or numbered line carries on as one, and an empty one ends the list; a heading
+    /// is one line by definition, so Enter after one starts ordinary writing. Everything else - Body,
+    /// Monospaced - simply carries. That is Apple Notes' behaviour and the behaviour the tick box has
+    /// had since 2026-09-12, which is why it is one rule here rather than two.
+    ///
     /// With <paramref name="keepsIndentation"/> the new line starts where the line it came from starts
     /// (see <see cref="IndentationOf"/>) and the caret goes after that indentation, to the start of the
     /// line's words - so a list written with tabs stays a list when a line is added to the middle of it.
@@ -35,7 +41,17 @@ public static partial class NoteSurfaceEdits
         var lines = cleared.Lines.ToList();
         var line = lines[caret.Line];
 
-        if (line.IsChecklistItem && line.Text.Length == 0)
+        // A table is one line however many cells it has, and a picture one line however large: Enter on
+        // either starts ordinary writing under it. For a table only the phone can send this, since the
+        // browser answers Enter inside a cell itself.
+        if (line.IsAnElement)
+        {
+            lines.Insert(caret.Line + 1, SurfaceState.EmptyLine);
+            return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line + 1, 0));
+        }
+
+        // An empty line of a list ends the list, in place - a box, a bullet, a dash or a number alike.
+        if (line.Text.Length == 0 && (line.IsChecklistItem || line.Style.IsAList()))
         {
             lines[caret.Line] = SurfaceState.EmptyLine;
             return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, 0));
@@ -47,13 +63,13 @@ public static partial class NoteSurfaceEdits
         // is nothing for indentation to be carried onto either.
         if (caret.Offset == 0 && line.Text.Length > 0)
         {
-            lines.Insert(caret.Line, Unticked(line with { Text = string.Empty }));
+            lines.Insert(caret.Line, Continuing(line) with { Text = string.Empty });
             return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line + 1, 0));
         }
 
         var indentation = keepsIndentation ? IndentationOf(line.Text) : string.Empty;
-        lines[caret.Line] = line with { Text = line.Text[..caret.Offset] };
-        lines.Insert(caret.Line + 1, Unticked(line with { Text = indentation + line.Text[caret.Offset..] }));
+        lines[caret.Line] = line.Head(caret.Offset);
+        lines.Insert(caret.Line + 1, Continuing(line.Tail(caret.Offset)).Changed(0, 0, indentation));
         return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line + 1, indentation.Length));
     }
 
@@ -89,6 +105,24 @@ public static partial class NoteSurfaceEdits
 
         var lines = state.Lines.ToList();
         var line = lines[caret.Line];
+
+        // Backspace on a table line is nothing: the table's own menu takes a table away, and a key
+        // that could quietly delete a grid of words is not a key. The browser never sends this from
+        // inside a cell - see onBeforeInput - so it is the phone's, and answered here rather than let
+        // through so a field cannot go looking for something to delete.
+        if (line.IsATable)
+        {
+            return state;
+        }
+
+        // A picture or a rule goes on Backspace, as any element in a page does - Apple Notes' rule, and
+        // the one thing that tells the two from a table. A picture's bytes are swept when the note is
+        // saved without it.
+        if (line.IsTakenAwayByAKey)
+        {
+            return RemoveLine(lines, caret.Line);
+        }
+
         if (line.IsChecklistItem)
         {
             if (line.Text.Length == 0)
@@ -96,7 +130,9 @@ public static partial class NoteSurfaceEdits
                 return RemoveLine(lines, caret.Line);
             }
 
-            lines[caret.Line] = Plain(line.Text);
+            // Only the box: the words stay, with their marks, and so does what kind of line it is -
+            // taking a box off a heading was never asked for and would be a second edit nobody made.
+            lines[caret.Line] = line with { IsChecklistItem = false, IsChecked = false, IsFailed = false };
             return SurfaceState.CaretAt(lines, caret);
         }
 
@@ -108,7 +144,21 @@ public static partial class NoteSurfaceEdits
         }
 
         var previous = lines[caret.Line - 1];
-        lines[caret.Line - 1] = previous with { Text = previous.Text + line.Text };
+
+        // Words cannot join a table or a picture. An empty line under one goes away and the caret lands
+        // on the element, as it would on any line above; a line with words on it stays where it is.
+        if (previous.IsAnElement)
+        {
+            if (line.Text.Length > 0)
+            {
+                return state;
+            }
+
+            lines.RemoveAt(caret.Line);
+            return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line - 1, 0));
+        }
+
+        lines[caret.Line - 1] = previous.FollowedBy(line);
         lines.RemoveAt(caret.Line);
         return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line - 1, previous.Text.Length));
     }
@@ -128,6 +178,18 @@ public static partial class NoteSurfaceEdits
         var caret = state.Caret;
         var lines = state.Lines.ToList();
         var line = lines[caret.Line];
+        if (line.IsATable)
+        {
+            // See Backspace: a table goes by its own menu, never by a key.
+            return state;
+        }
+
+        if (line.IsTakenAwayByAKey)
+        {
+            // And a picture or a rule goes by either key, as Backspace says.
+            return RemoveLine(lines, caret.Line);
+        }
+
         if (caret.Offset < line.Text.Length)
         {
             return null;
@@ -144,7 +206,13 @@ public static partial class NoteSurfaceEdits
             return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, 0));
         }
 
-        lines[caret.Line] = line with { Text = line.Text + lines[caret.Line + 1].Text };
+        // Words cannot take a table or a picture onto their end - the mirror of Backspace's rule.
+        if (lines[caret.Line + 1].IsAnElement)
+        {
+            return state;
+        }
+
+        lines[caret.Line] = line.FollowedBy(lines[caret.Line + 1]);
         lines.RemoveAt(caret.Line + 1);
         return SurfaceState.CaretAt(lines, caret);
     }
@@ -181,11 +249,46 @@ public static partial class NoteSurfaceEdits
             return CaretAfterRemoval(lines, start.Line);
         }
 
+        // A table at either end is kept whole. A point inside a table always reads as its head - a
+        // cell is not a point on this surface - so a selection that ends on one cannot say how much of
+        // it was meant, and a grid of words is not something to take on a guess. The lines between go,
+        // and what is left of a text end stands beside the table on a line of its own, since words never
+        // join one.
         var first = lines[start.Line];
-        var tail = lines[end.Line].Text[end.Offset..];
-        lines.RemoveRange(start.Line + 1, end.Line - start.Line);
-        lines[start.Line] = first with { Text = first.Text[..start.Offset] + tail };
-        return SurfaceState.CaretAt(lines, start);
+        var lastLine = lines[end.Line];
+        var head = first.IsAnElement ? null : first.Head(start.Offset);
+        var tail = lastLine.IsAnElement ? null : lastLine.Tail(end.Offset);
+        var kept = new List<NoteContentLine>();
+        if (first.IsAnElement)
+        {
+            kept.Add(first);
+        }
+
+        if (head is not null || tail is not null)
+        {
+            kept.Add(Joined(head, tail));
+        }
+
+        if (lastLine.IsAnElement && end.Line != start.Line)
+        {
+            kept.Add(lastLine);
+        }
+
+        lines.RemoveRange(start.Line, end.Line - start.Line + 1);
+        lines.InsertRange(start.Line, kept);
+        var caretLine = start.Line + (first.IsAnElement ? 1 : 0);
+        return SurfaceState.CaretAt(lines, new SurfacePoint(Math.Min(caretLine, lines.Count - 1), head?.Text.Length ?? 0));
+    }
+
+    /// <summary>What is left of a selection's two ends as one line - either, both joined, or an empty line when neither had anything to keep.</summary>
+    private static NoteContentLine Joined(NoteContentLine? head, NoteContentLine? tail)
+    {
+        if (head is not null && tail is not null)
+        {
+            return head.FollowedBy(tail);
+        }
+
+        return head ?? tail ?? SurfaceState.EmptyLine;
     }
 
     /// <summary>
@@ -206,30 +309,40 @@ public static partial class NoteSurfaceEdits
         var caret = cleared.Caret;
         var lines = cleared.Lines.ToList();
         var line = lines[caret.Line];
-        var before = line.Text[..caret.Offset];
-        var after = line.Text[caret.Offset..];
         var written = LinesOf(text);
+
+        // Writing that lands on a table or a picture goes under it, as lines of its own: neither has a
+        // point in it for words to go in at, and a table's cells are the browser's to type in.
+        if (line.IsAnElement)
+        {
+            var under = written.Select(pasted => readsMarkers ? Read(pasted) : Plain(pasted)).ToList();
+            lines.InsertRange(caret.Line + 1, under);
+            return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line + under.Count, under[^1].Text.Length));
+        }
+
+        var head = line.Head(caret.Offset);
+        var tail = line.Tail(caret.Offset);
         var startsALine = readsMarkers && caret.Offset == 0 && !line.IsChecklistItem;
 
         if (written.Count == 1)
         {
             if (startsALine && Read(written[0]) is { IsChecklistItem: true } box)
             {
-                lines[caret.Line] = box with { Text = box.Text + after };
+                lines[caret.Line] = box.FollowedBy(tail);
                 return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, box.Text.Length));
             }
 
-            lines[caret.Line] = line with { Text = before + written[0] + after };
+            lines[caret.Line] = line.Changed(caret.Offset, 0, written[0]);
             return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, caret.Offset + written[0].Length));
         }
 
         var replacement = new List<NoteContentLine>
         {
-            startsALine ? Read(written[0]) : line with { Text = before + written[0] }
+            startsALine ? Read(written[0]) : head.Changed(caret.Offset, 0, written[0])
         };
         replacement.AddRange(written.Skip(1).SkipLast(1).Select(pasted => readsMarkers ? Read(pasted) : Plain(pasted)));
         var last = readsMarkers ? Read(written[^1]) : Plain(written[^1]);
-        replacement.Add(last with { Text = last.Text + after });
+        replacement.Add(last.FollowedBy(tail));
 
         lines.RemoveAt(caret.Line);
         lines.InsertRange(caret.Line, replacement);
@@ -295,13 +408,20 @@ public static partial class NoteSurfaceEdits
         var caret = state.Caret;
         var line = state.Lines[caret.Line];
         var marker = TypedTick().Match(line.Text);
-        if (line.IsChecklistItem || !marker.Success)
+        if (line.IsChecklistItem || line.IsAnElement || !marker.Success)
         {
             return null;
         }
 
         var lines = state.Lines.ToList();
-        lines[caret.Line] = new NoteContentLine(line.Text[marker.Length..], IsChecklistItem: true, IsChecked: false);
+        // The line's style is kept: a box is what the line is answered in, not what kind of line it is -
+        // see NoteLineStyle, which says why the two are separate fields.
+        lines[caret.Line] = line.Changed(0, marker.Length, string.Empty) with
+        {
+            IsChecklistItem = true,
+            IsChecked = false,
+            IsFailed = false
+        };
         return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, Math.Max(0, caret.Offset - marker.Length)));
     }
 
@@ -317,9 +437,11 @@ public static partial class NoteSurfaceEdits
         var line = lines[caret.Line];
         var unticked = new NoteContentLine(string.Empty, IsChecklistItem: true, IsChecked: false);
 
-        if (!line.IsChecklistItem && line.Text.Length == 0)
+        if (!line.IsChecklistItem && !line.IsAnElement && line.Text.Length == 0)
         {
-            lines[caret.Line] = unticked;
+            // In place, so the line keeps what it is - an empty line of a list given a box is still a
+            // line of that list. The line started below is a new one and starts as ordinary writing.
+            lines[caret.Line] = unticked with { Style = line.Style };
             return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, 0));
         }
 
@@ -353,14 +475,19 @@ public static partial class NoteSurfaceEdits
         state = state.Normalized();
         if (!SpansLines(state))
         {
-            return Replace(state, Indentation, readsMarkers: false);
+            // A table has no head to put a level at; the key does nothing there rather than writing
+            // a tab under it.
+            return state.Lines[state.Caret.Line].IsAnElement ? state : Replace(state, Indentation, readsMarkers: false);
         }
 
         var (first, last) = state.SelectedLines;
         var lines = state.Lines.ToList();
         for (var index = first; index <= last; index++)
         {
-            lines[index] = lines[index] with { Text = Indentation + lines[index].Text };
+            if (!lines[index].IsAnElement)
+            {
+                lines[index] = lines[index].Changed(0, 0, Indentation);
+            }
         }
 
         // A point at the head of a line stays there, so the new level is inside the selection.
@@ -385,8 +512,13 @@ public static partial class NoteSurfaceEdits
         var removed = new int[lines.Count];
         for (var index = first; index <= last; index++)
         {
+            if (lines[index].IsAnElement)
+            {
+                continue;
+            }
+
             removed[index] = LeadingIndentationLength(lines[index].Text);
-            lines[index] = lines[index] with { Text = lines[index].Text[removed[index]..] };
+            lines[index] = lines[index].Changed(0, removed[index], string.Empty);
         }
 
         SurfacePoint Shifted(SurfacePoint point)
@@ -537,16 +669,16 @@ public static partial class NoteSurfaceEdits
         var first = state.Lines[start.Line];
         if (start.Line == end.Line)
         {
-            return [Plain(first.Text[start.Offset..end.Offset])];
+            return [Words(first, start.Offset, end.Offset - start.Offset)];
         }
 
         var fragment = new List<NoteContentLine>
         {
-            start.Offset == 0 ? first : Plain(first.Text[start.Offset..])
+            start.Offset == 0 ? first : Words(first, start.Offset, first.Text.Length - start.Offset)
         };
         fragment.AddRange(state.Lines.Skip(start.Line + 1).Take(end.Line - start.Line - 1));
         var lastLine = state.Lines[end.Line];
-        fragment.Add(end.Offset == 0 ? SurfaceState.EmptyLine : lastLine with { Text = lastLine.Text[..end.Offset] });
+        fragment.Add(end.Offset == 0 ? SurfaceState.EmptyLine : lastLine.Head(end.Offset));
         return fragment;
     }
 
@@ -587,20 +719,29 @@ public static partial class NoteSurfaceEdits
     private static SurfaceState InsertFragment(List<NoteContentLine> lines, SurfacePoint at, List<NoteContentLine> moved)
     {
         var line = lines[at.Line];
-        var before = line.Text[..at.Offset];
-        var after = line.Text[at.Offset..];
+        if (line.IsAnElement)
+        {
+            // Part-lines cannot join a table or a picture any more than whole ones can; they go under
+            // it as lines of their own, the way a paste that lands on one does.
+            lines.InsertRange(at.Line + 1, moved);
+            return new SurfaceState(
+                lines, new SurfacePoint(at.Line + 1, 0), new SurfacePoint(at.Line + moved.Count, moved[^1].Text.Length));
+        }
+
+        var head = line.Head(at.Offset);
+        var tail = line.Tail(at.Offset);
         if (moved.Count == 1)
         {
-            lines[at.Line] = line with { Text = before + moved[0].Text + after };
+            lines[at.Line] = head.FollowedBy(moved[0]).FollowedBy(tail);
             return new SurfaceState(lines, at, at with { Offset = at.Offset + moved[0].Text.Length });
         }
 
         var replacement = new List<NoteContentLine>
         {
-            at.Offset == 0 && !line.IsChecklistItem ? moved[0] : line with { Text = before + moved[0].Text }
+            at.Offset == 0 && !line.IsChecklistItem ? moved[0] : head.FollowedBy(moved[0])
         };
         replacement.AddRange(moved.Skip(1).SkipLast(1));
-        replacement.Add(moved[^1] with { Text = moved[^1].Text + after });
+        replacement.Add(moved[^1].FollowedBy(tail));
 
         lines.RemoveAt(at.Line);
         lines.InsertRange(at.Line, replacement);
@@ -654,7 +795,242 @@ public static partial class NoteSurfaceEdits
 
     private static NoteContentLine Plain(string text) => new(text, IsChecklistItem: false, IsChecked: false);
 
+    /// <summary>
+    /// A stretch of a line's words as a fragment of its own: the words and the marks on them, and none of
+    /// what the line was. A fragment carries writing - a box and a heading belong to the line it was cut
+    /// out of, not to the words.
+    /// </summary>
+    private static NoteContentLine Words(NoteContentLine line, int start, int length)
+        => Plain(line.Text.Substring(start, length)) with
+        {
+            Marks = NoteTextMarks.Taken(line.AllMarks, start, length)
+        };
+
     private static NoteContentLine Unticked(NoteContentLine line) => line with { IsChecked = false, IsFailed = false };
+
+    /// <summary>
+    /// The line Enter starts after <paramref name="line"/>: the same kind of line, unticked, except that
+    /// a heading is one line and is followed by ordinary writing. What carries is the shape, never the
+    /// answer - a new box is empty, and a new numbered line takes its number from where it lands (see
+    /// NoteLineStyles.NumberOf) rather than from the line it came from.
+    /// </summary>
+    private static NoteContentLine Continuing(NoteContentLine line)
+        => Unticked(line) with { Style = line.Style.IsAHeading() ? NoteLineStyle.Body : line.Style };
+
+    /// <summary>
+    /// Makes every line the caret or the selection touches this style, or takes it back to
+    /// <see cref="NoteLineStyle.Body"/> where they are all already it - the way a format control works
+    /// everywhere: pressing what a line already is turns it off.
+    ///
+    /// A tick box is not a style and is left exactly as it is (see <see cref="NoteLineStyle"/>): a
+    /// checklist line made into a heading is a heading with a box on it, which is what asking for both
+    /// means. Nothing about the words changes, so the caret stays where it is - this is the one edit on
+    /// this surface that moves no text at all.
+    /// </summary>
+    public static SurfaceState Restyle(SurfaceState state, NoteLineStyle style)
+    {
+        state = state.Normalized();
+        var (first, last) = state.SelectedLines;
+        var lines = state.Lines.ToList();
+        var alreadyAllOfIt = Enumerable.Range(first, last - first + 1)
+            .All(index => lines[index].IsAnElement || lines[index].Style == style);
+        var wanted = alreadyAllOfIt ? NoteLineStyle.Body : style;
+
+        for (var index = first; index <= last; index++)
+        {
+            // A table is words in a grid and a picture is not words at all: neither has a style.
+            if (!lines[index].IsAnElement)
+            {
+                lines[index] = lines[index] with { Style = wanted };
+            }
+        }
+
+        return new SurfaceState(lines, state.Anchor, state.Focus);
+    }
+
+    /// <summary>
+    /// Puts a mark on the words the selection covers - bold, italic, underlined, struck through - or
+    /// takes it off where every one of them already carries it. The rule a style follows, applied to a
+    /// stretch of words instead of to whole lines: pressing what something already is turns it off.
+    ///
+    /// <b>A caret with nothing selected does nothing.</b> There are no words to mark, and a control that
+    /// answered such a press would have to remember that the next thing typed is bold - which is the
+    /// browser's business, since it is the browser that carries the caret and draws what is typed.
+    ///
+    /// On or off is decided once, over the whole selection, and then said to each line: a selection half
+    /// bold is one somebody is asking to make bold, not one they are asking to turn off - and a selection
+    /// that flipped line by line would come back striped.
+    /// </summary>
+    public static SurfaceState Mark(SurfaceState state, NoteTextMark mark)
+    {
+        state = state.Normalized();
+        if (state.IsCollapsed)
+        {
+            return state;
+        }
+
+        var (start, end) = (state.Start, state.End);
+        var lines = state.Lines.ToList();
+        var alreadyAllOfIt = Enumerable.Range(start.Line, end.Line - start.Line + 1).All(index =>
+        {
+            var (from, length) = Selected(lines[index], index, start, end);
+            return length == 0 || NoteTextMarks.Holds(lines[index].AllMarks, from, length, mark);
+        });
+
+        for (var index = start.Line; index <= end.Line; index++)
+        {
+            var line = lines[index];
+            var (from, length) = Selected(line, index, start, end);
+            if (length == 0)
+            {
+                continue;
+            }
+
+            lines[index] = line with
+            {
+                Marks = alreadyAllOfIt
+                    ? NoteTextMarks.Without(line.AllMarks, from, length, mark, line.Text.Length)
+                    : NoteTextMarks.With(line.AllMarks, from, length, mark, line.Text.Length)
+            };
+        }
+
+        return new SurfaceState(lines, state.Anchor, state.Focus);
+    }
+
+    /// <summary>
+    /// Which of a line's characters a selection covers: from the caret on the line it starts on, to the
+    /// caret on the line it ends on, and the whole of every line in between.
+    /// </summary>
+    private static (int From, int Length) Selected(
+        NoteContentLine line, int index, SurfacePoint start, SurfacePoint end)
+    {
+        var from = index == start.Line ? start.Offset : 0;
+        var to = index == end.Line ? end.Offset : line.Text.Length;
+        return (from, Math.Max(0, to - from));
+    }
+
+    /// <summary>
+    /// Whether every word the selection covers already carries <paramref name="mark"/> - what the control
+    /// over the writing draws itself by, so Bold is lit while the caret is in bold words.
+    /// </summary>
+    public static bool Holds(SurfaceState state, NoteTextMark mark)
+    {
+        state = state.Normalized();
+        if (state.IsCollapsed)
+        {
+            return false;
+        }
+
+        var (start, end) = (state.Start, state.End);
+        var anything = false;
+        for (var index = start.Line; index <= end.Line; index++)
+        {
+            var line = state.Lines[index];
+            var (from, length) = Selected(line, index, start, end);
+            if (length == 0)
+            {
+                continue;
+            }
+
+            anything = true;
+            if (!NoteTextMarks.Holds(line.AllMarks, from, length, mark))
+            {
+                return false;
+            }
+        }
+
+        return anything;
+    }
+
+    /// <summary>
+    /// The table tool: an empty plain line becomes a table, and anything else gets a table under it -
+    /// the rule the tick-box tool follows, for the same reason (see <see cref="StartChecklistItem"/>).
+    /// A selection is written over first, as every insertion writes over one. The caret is put on the
+    /// table's line; which cell it lands in is the browser's to decide, since a cell is not a point on
+    /// this surface.
+    /// </summary>
+    public static SurfaceState InsertTable(SurfaceState state)
+    {
+        var cleared = DeleteSelection(state.Normalized(), forReplacement: true);
+        var caret = cleared.Caret;
+        return Placed(cleared.Lines.ToList(), caret, NoteContentLine.OfTable(NoteTables.Empty()));
+    }
+
+    /// <summary>
+    /// A picture pasted or dropped into the note: an empty plain line becomes it, anything else gets it
+    /// underneath - the rule the table tool and the tick-box tool follow. The picture is already in the
+    /// store by now; this is only where it stands in the writing.
+    /// </summary>
+    public static SurfaceState InsertPicture(SurfaceState state, NotePictureLine picture)
+    {
+        var cleared = DeleteSelection(state.Normalized(), forReplacement: true);
+        return Placed(cleared.Lines.ToList(), cleared.Caret, NoteContentLine.OfPicture(picture));
+    }
+
+    /// <summary>
+    /// A rule put across the note where the caret is, with <paramref name="stamp"/> written on it - the
+    /// same rule the table and picture tools follow for where it lands. The stamp is whatever the caller
+    /// worked out at the moment of the press and is never worked out again: see NoteSeparatorLine.Stamp,
+    /// which says why a date on a separator is the day it was drawn.
+    /// </summary>
+    public static SurfaceState InsertSeparator(SurfaceState state, string stamp)
+    {
+        var cleared = DeleteSelection(state.Normalized(), forReplacement: true);
+        return Placed(cleared.Lines.ToList(), cleared.Caret, NoteContentLine.OfSeparator(stamp));
+    }
+
+    /// <summary>An element put where the caret is: in place of an empty plain line, or under any other. The caret goes to it.</summary>
+    private static SurfaceState Placed(List<NoteContentLine> lines, SurfacePoint caret, NoteContentLine element)
+    {
+        var line = lines[caret.Line];
+        if (!line.IsChecklistItem && !line.IsAnElement && line.Text.Length == 0)
+        {
+            lines[caret.Line] = element;
+            return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, 0));
+        }
+
+        lines.Insert(caret.Line + 1, element);
+        return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line + 1, 0));
+    }
+
+    /// <summary>A new empty row under row <paramref name="afterRow"/> of the table on line <paramref name="line"/>.</summary>
+    public static SurfaceState? AddTableRow(SurfaceState state, int line, int afterRow)
+        => Reshaped(state, line, table => NoteTables.WithRowAfter(table, afterRow));
+
+    /// <summary>A new empty column to the right of column <paramref name="afterColumn"/>.</summary>
+    public static SurfaceState? AddTableColumn(SurfaceState state, int line, int afterColumn)
+        => Reshaped(state, line, table => NoteTables.WithColumnAfter(table, afterColumn));
+
+    /// <summary>Row <paramref name="row"/> taken away. The last row taken away takes the table with it - see <see cref="Reshaped"/>.</summary>
+    public static SurfaceState? RemoveTableRow(SurfaceState state, int line, int row)
+        => Reshaped(state, line, table => NoteTables.WithoutRow(table, row));
+
+    /// <summary>Column <paramref name="column"/> taken away, the last one taking the table with it.</summary>
+    public static SurfaceState? RemoveTableColumn(SurfaceState state, int line, int column)
+        => Reshaped(state, line, table => NoteTables.WithoutColumn(table, column));
+
+    /// <summary>The whole table taken away, and an empty line left where it stood to write on.</summary>
+    public static SurfaceState? RemoveTable(SurfaceState state, int line)
+        => Reshaped(state, line, _ => null);
+
+    /// <summary>
+    /// One change of shape to the table on <paramref name="line"/>, or null when that line is not a
+    /// table - a stale press, answered by doing nothing. A table that <paramref name="reshape"/> answers
+    /// null for is gone, and the line becomes an empty line of writing rather than vanishing: what
+    /// stood there was the reader's, and a line to write on is where they were.
+    /// </summary>
+    private static SurfaceState? Reshaped(SurfaceState state, int line, Func<NoteTable, NoteTable?> reshape)
+    {
+        state = state.Normalized();
+        if (line < 0 || line >= state.Lines.Count || state.Lines[line].Table is not { } table)
+        {
+            return null;
+        }
+
+        var lines = state.Lines.ToList();
+        lines[line] = reshape(table) is { } reshaped ? NoteContentLine.OfTable(reshaped) : SurfaceState.EmptyLine;
+        return SurfaceState.CaretAt(lines, new SurfacePoint(line, 0));
+    }
 
     /// <summary>What typing at the head of a line turns into a box - the rule the phone has always had.</summary>
     [GeneratedRegex(@"^\[[ \t]?\][ \t]?")]

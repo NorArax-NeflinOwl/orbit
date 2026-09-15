@@ -67,6 +67,12 @@ public sealed class FolderRepository : IFolderRepository
         await _dbContext.Tasks
             .Where(taskList => taskList.UserId == userId && taskList.FolderId == id)
             .ExecuteUpdateAsync(taskList => taskList.SetProperty(stored => stored.FolderId, (Guid?)null), cancellationToken);
+        await _dbContext.CalendarEvents
+            .Where(calendarEvent => calendarEvent.UserId == userId && calendarEvent.FolderId == id)
+            .ExecuteUpdateAsync(calendarEvent => calendarEvent.SetProperty(stored => stored.FolderId, (Guid?)null), cancellationToken);
+        await _dbContext.Inventories
+            .Where(inventory => inventory.UserId == userId && inventory.FolderId == id)
+            .ExecuteUpdateAsync(inventory => inventory.SetProperty(stored => stored.FolderId, (Guid?)null), cancellationToken);
 
         _dbContext.Folders.Remove(entity);
         await _dbContext.SaveChangesAsync(cancellationToken);

@@ -15,6 +15,7 @@ public static class BuiltInFolderNames
     {
         BuiltInFolder.Private => translations["Private"],
         BuiltInFolder.Finished => translations["Finished"],
+        BuiltInFolder.Archived => translations["Archived"],
         _ => translations["Public"]
     };
 

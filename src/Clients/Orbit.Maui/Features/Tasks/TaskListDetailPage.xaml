@@ -40,6 +40,12 @@
         </VerticalStackLayout>
 
         <VerticalStackLayout Grid.Row="1" Spacing="4">
+            <!-- How much of the list is done, as the card that opened it says it - see
+                 TaskListDetailViewModel.Progress. On the screen itself because that is where somebody
+                 reading a long list asks the question. -->
+            <Label Text="{Binding Progress}" IsVisible="{Binding HasProgress}"
+                   FontSize="12" LineBreakMode="TailTruncation"
+                   Style="{StaticResource SubtleLabel}" />
             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
                    FontSize="12" TextColor="{DynamicResource Accent}" LineBreakMode="WordWrap" />
             <controls:CopyOffer IsOffered="{Binding IsCopyOffered}"
@@ -382,6 +388,20 @@
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
+
+                <!-- Which of them have to be done. Any one of them unless this is on - the user's rule,
+                     settled 2026-09-14. Only where there are two to choose between: with one list the
+                     question has one answer. Orbit.Web draws its own tick box on the same terms. -->
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8"
+                      IsVisible="{Binding BeingEdited.CanChooseHowManyListsAreNeeded}">
+                    <Label Grid.Column="0" Text="{controls:Translate 'Needs all of them'}"
+                           VerticalOptions="Center" LineBreakMode="WordWrap" />
+                    <Switch Grid.Column="1" IsToggled="{Binding BeingEdited.NeedsEveryLinkedList}"
+                            SemanticProperties.Description="{controls:Translate 'Needs all of them'}" />
+                </Grid>
+                <Label IsVisible="{Binding BeingEdited.CanChooseHowManyListsAreNeeded}"
+                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}"
+                       Text="{controls:Translate 'Off, this entry is done as soon as any one of the lists it stands for is. On, every one of them has to be done.'}" />
             </VerticalStackLayout>
 
             <!-- The ways this entry can be got done, any one of which is enough - "the sauce": buy a
@@ -477,12 +497,21 @@
         <VerticalStackLayout x:Name="ListSettings" Grid.Row="4" Spacing="10" IsVisible="False">
 
             <!-- Orbit.Web's "Group list": a list that gathers the lists its items link to rather than
-                 holding work of its own. It is also what makes the stock check below worth asking. -->
+                 holding work of its own. It is also what makes the stock check below worth asking.
+
+                 On and unmovable while an entry here points at another list - such a list is a group
+                 list whatever the switch says, and the checklist draws its members either way. See
+                 TaskList.IsGroup, where the server settles it for every writer, and the line below,
+                 because a switch that will not move and does not say why reads as broken. -->
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding CanEdit}">
                 <Label Grid.Column="0" Text="{controls:Translate 'Group list'}" VerticalOptions="Center" />
                 <Switch Grid.Column="1" IsToggled="{Binding IsGroup}" VerticalOptions="Center"
+                        IsEnabled="{Binding CanChooseGroupView}"
                         SemanticProperties.Description="{controls:Translate 'Group list'}" />
             </Grid>
+            <Label IsVisible="{Binding GathersOtherLists}" FontSize="12" LineBreakMode="WordWrap"
+                   Style="{StaticResource SubtleLabel}"
+                   Text="{controls:Translate 'On, because an entry on this list stands for another list. Take that entry off to turn it back off.'}" />
 
             <!-- The same checkbox Orbit.Web's task editor has: what it turns on is real encryption, so
                  the row says what it costs rather than only what it is. -->

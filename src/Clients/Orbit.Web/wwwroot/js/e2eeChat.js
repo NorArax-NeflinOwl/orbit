@@ -215,6 +215,44 @@ export async function encryptForSelf(ownUserId, plainText) {
     return encryptMessage(ownUserId, ownPublicKeyBase64, plainText);
 }
 
+/// Seals bytes - a note's picture - so only ownUserId can open them again, the way encryptForSelf seals
+/// text. One buffer comes back, the 12-byte nonce in front of the ciphertext, so the server stores one
+/// blob and knows nothing about either half; openBytesForSelf takes them apart again. Bytes rather than
+/// base64 across the interop boundary, since a photograph is megabytes and base64 would make it a third
+/// larger twice over.
+export async function sealBytesForSelf(ownUserId, bytes) {
+    const ownPublicKeyBase64 = await getKeyRecord(ownPublicKeyRecordId(ownUserId));
+    if (!ownPublicKeyBase64) {
+        throw new Error('No local key pair for this user - call ensureOwnPublicKey first.');
+    }
+
+    const sharedKey = await deriveSharedKey(ownUserId, ownPublicKeyBase64);
+    const nonce = crypto.getRandomValues(new Uint8Array(12));
+    const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, sharedKey, bytes));
+    const sealed = new Uint8Array(nonce.length + ciphertext.length);
+    sealed.set(nonce, 0);
+    sealed.set(ciphertext, nonce.length);
+    return sealed;
+}
+
+/// Reverses sealBytesForSelf. Null rather than a throw when the bytes cannot be opened, for the reason
+/// decryptForSelf gives: a picture sealed under a replaced key pair is one picture, not a broken note.
+export async function openBytesForSelf(ownUserId, sealed) {
+    try {
+        const ownPublicKeyBase64 = await getKeyRecord(ownPublicKeyRecordId(ownUserId));
+        if (!ownPublicKeyBase64 || !sealed || sealed.length <= 12) {
+            return null;
+        }
+
+        const sharedKey = await deriveSharedKey(ownUserId, ownPublicKeyBase64);
+        const nonce = sealed.slice(0, 12);
+        const ciphertext = sealed.slice(12);
+        return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce }, sharedKey, ciphertext));
+    } catch {
+        return null;
+    }
+}
+
 /// Reverses encryptForSelf. Returns null rather than throwing when the content cannot be opened - most
 /// often content sealed under a key pair that has since been replaced - so a list of notes can render a
 /// placeholder for that one item instead of failing whole.

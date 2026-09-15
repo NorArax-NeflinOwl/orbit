@@ -1,8 +1,14 @@
 using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.Abstractions;
+using Orbit.Core.Calendar;
+using Orbit.Core.Calendar.MoveCalendarEventToFolder;
 using Orbit.Core.Folders;
 using Orbit.Core.Folders.CreateFolder;
+using Orbit.Core.Inventories;
+using Orbit.Core.Inventories.MoveInventoryToFolder;
 using Orbit.Core.Notes;
 using Orbit.Core.Notes.MoveNoteToFolder;
+using Orbit.Core.Notifications;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.MoveTaskListToFolder;
 using Xunit;
@@ -10,14 +16,16 @@ using Xunit;
 namespace Orbit.Api.Tests.Folders;
 
 /// <summary>
-/// Filing a note or a list. Its own command rather than a field on the update - see
-/// MoveNoteToFolderCommand - and the two checks that keep a card where its owner can find it.
+/// Filing a note, a list, an event or an inventory. Its own command rather than a field on the update -
+/// see MoveNoteToFolderCommand - and the two checks that keep a card where its owner can find it.
 /// </summary>
 public sealed class MoveToFolderTests
 {
     private readonly InMemoryFolderRepository _folders = new();
     private readonly InMemoryNoteRepository _notes = new();
     private readonly InMemoryTaskRepository _taskLists = new();
+    private readonly InMemoryCalendarEventRepository _calendarEvents = new();
+    private readonly InMemoryInventoryRepository _inventories = new();
     private static readonly Guid OwnerUserId = Guid.NewGuid();
 
     [Fact]
@@ -98,6 +106,89 @@ public sealed class MoveToFolderTests
         Assert.False(moved);
         Assert.Null(taskList.FolderId);
     }
+
+    [Fact]
+    public async Task An_event_is_filed_the_same_way()
+    {
+        var folder = await AFolderCalled("Work");
+        var calendarEvent = CalendarEvent.Create(OwnerUserId, Appointment());
+        await _calendarEvents.AddAsync(calendarEvent, CancellationToken.None);
+
+        var moved = await new MoveCalendarEventToFolderCommandHandler(_calendarEvents, _folders).HandleAsync(
+            new MoveCalendarEventToFolderCommand(OwnerUserId, calendarEvent.Id, folder.Id), CancellationToken.None);
+
+        Assert.True(moved);
+        Assert.Equal(folder.Id, calendarEvent.FolderId);
+    }
+
+    [Fact]
+    public async Task An_event_is_not_filed_under_somebody_elses_folder()
+    {
+        var theirFolder = await new CreateFolderCommandHandler(_folders).HandleAsync(
+            new CreateFolderCommand(Guid.NewGuid(), "Theirs", FolderScope.Calendar), CancellationToken.None);
+        var calendarEvent = CalendarEvent.Create(OwnerUserId, Appointment());
+        await _calendarEvents.AddAsync(calendarEvent, CancellationToken.None);
+
+        var moved = await new MoveCalendarEventToFolderCommandHandler(_calendarEvents, _folders).HandleAsync(
+            new MoveCalendarEventToFolderCommand(OwnerUserId, calendarEvent.Id, theirFolder.Id), CancellationToken.None);
+
+        Assert.False(moved);
+        Assert.Null(calendarEvent.FolderId);
+    }
+
+    [Fact]
+    public async Task An_inventory_is_filed_the_same_way()
+    {
+        var folder = await AFolderCalled("Kitchen");
+        var inventory = Inventory.Create(OwnerUserId, "Pantry");
+        await _inventories.AddAsync(inventory, CancellationToken.None);
+
+        var moved = await new MoveInventoryToFolderCommandHandler(_inventories, _folders).HandleAsync(
+            new MoveInventoryToFolderCommand(OwnerUserId, inventory.Id, folder.Id), CancellationToken.None);
+
+        Assert.True(moved);
+        Assert.Equal(folder.Id, inventory.FolderId);
+    }
+
+    /// <summary>
+    /// A private inventory is filed like any other: the folder sits outside the sealed half, so the
+    /// server can move it without a key - see Inventory.FolderId.
+    /// </summary>
+    [Fact]
+    public async Task A_private_inventory_is_filed_without_opening_it()
+    {
+        var folder = await AFolderCalled("Kitchen");
+        var inventory = Inventory.Create(
+            OwnerUserId, string.Empty, isPrivate: true, encryptedContent: new EncryptedPayload("c2VhbGVk", "bm9uY2U="));
+        await _inventories.AddAsync(inventory, CancellationToken.None);
+
+        var moved = await new MoveInventoryToFolderCommandHandler(_inventories, _folders).HandleAsync(
+            new MoveInventoryToFolderCommand(OwnerUserId, inventory.Id, folder.Id), CancellationToken.None);
+
+        Assert.True(moved);
+        Assert.Equal(folder.Id, inventory.FolderId);
+        Assert.True(inventory.IsPrivate);
+        Assert.Equal(string.Empty, inventory.Name);
+    }
+
+    [Fact]
+    public async Task An_inventory_that_is_not_this_readers_is_not_theirs_to_file()
+    {
+        var folder = await AFolderCalled("Kitchen");
+        var inventory = Inventory.Create(Guid.NewGuid(), "Theirs");
+        await _inventories.AddAsync(inventory, CancellationToken.None);
+
+        var moved = await new MoveInventoryToFolderCommandHandler(_inventories, _folders).HandleAsync(
+            new MoveInventoryToFolderCommand(OwnerUserId, inventory.Id, folder.Id), CancellationToken.None);
+
+        Assert.False(moved);
+        Assert.Null(inventory.FolderId);
+    }
+
+    private static CalendarEventDetails Appointment()
+        => new(
+            "Dentist", "Bring the paperwork", null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
+            false, null, [], [15], NotificationChannel.None);
 
     private Task<Folder> AFolderCalled(string name)
         => new CreateFolderCommandHandler(_folders).HandleAsync(

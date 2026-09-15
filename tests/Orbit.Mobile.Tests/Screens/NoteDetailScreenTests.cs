@@ -165,6 +165,25 @@ public sealed partial class NoteDetailScreenTests
         Assert.False(screen.HasUnsavedChanges);
     }
 
+    /// <summary>
+    /// The question at the door reads everything a Save carries, not the words alone: a heading made out
+    /// of a line, a mark put on part of it and a cell written in are all things leaving would lose. They
+    /// were invisible to it while it compared the text - see WhatIsOnTheScreen.
+    /// </summary>
+    [Fact]
+    public async Task Restyling_a_line_is_something_leaving_would_lose()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        screen.Restyle(screen.Lines[0], Orbit.Core.Notes.NoteLineStyle.Heading);
+
+        Assert.True(screen.HasUnsavedChanges);
+        await screen.SaveLinesCommand.ExecuteAsync(null);
+        Assert.False(screen.HasUnsavedChanges);
+    }
+
     /// <summary>A tick is a change like any other, and it is not written until Save either.</summary>
     [Fact]
     public async Task Ticking_a_line_is_something_leaving_would_lose()
@@ -818,6 +837,12 @@ public sealed partial class NoteDetailScreenTests
         /// <summary>The screen's clock - moved on by the tests about which typing joins one undo step.</summary>
         public FakeTimeProvider Clock => _clock;
 
+        /// <summary>Where the screen keeps fetched pictures - a directory of this test's own, gone with it.</summary>
+        public string PictureDirectory { get; } = Path.Combine(Path.GetTempPath(), $"orbit-note-pictures-{Guid.NewGuid():N}");
+
+        /// <summary>A round with the fake server, which is how a note written here gets the server id its pictures are fetched under.</summary>
+        public Task SynchroniseAsync() => _synchronizer.SynchroniseAsync();
+
         /// <summary>
         /// A note somebody else shared in, which is the one kind the offline policy refuses - see
         /// OfflineEditPolicy.
@@ -887,7 +912,8 @@ public sealed partial class NoteDetailScreenTests
                 Notes, _synchronizer, new NotesClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock),
                 new Translations(new InMemoryLanguageStore()), _privateContent,
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)), Navigator,
-                new LocalFolderRepository(_localStore, _clock), _clock);
+                new LocalFolderRepository(_localStore, _clock), _clock,
+                pictures: new NotePictureCache(PictureDirectory, new NotePicturesClient(Server.ToHttpClient()), _privateContent));
 
             screen.Open(localId);
             await screen.LoadCommand.ExecuteAsync(null);
@@ -905,6 +931,10 @@ public sealed partial class NoteDetailScreenTests
         {
             Server.Dispose();
             _localStore.Dispose();
+            if (Directory.Exists(PictureDirectory))
+            {
+                Directory.Delete(PictureDirectory, recursive: true);
+            }
         }
     }
 }

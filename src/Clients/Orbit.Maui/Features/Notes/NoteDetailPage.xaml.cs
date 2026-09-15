@@ -29,6 +29,14 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	private NoteLineRow? _beingWrittenIn;
 
 	/// <summary>
+	/// The cell of a table the caret is in, or null when it is in a line - which is what the table
+	/// button goes by. Set as a cell is focused and cleared as a line is, so a cell somebody left for a
+	/// line does not keep the table's menu open to them; pressing the button itself, like the buttons
+	/// beside it, takes the focus off the cell without clearing this.
+	/// </summary>
+	private NoteTableCellField? _cellBeingWrittenIn;
+
+	/// <summary>
 	/// A line just started whose field does not exist yet, waiting for one so the caret can be put in
 	/// it. Only for the lines where that is actually true: a line started by Enter has its field before
 	/// the command that made it has even returned - see PutTheCaretIn, which is where both cases meet.
@@ -48,12 +56,19 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		JoinTheLineAboveCommand = new Command<Entry>(JoinTheLineAbove);
 		GoToTheLineAboveCommand = new Command<Entry>(field => WalkToAnotherLine(field, upwards: true));
 		GoToTheLineBelowCommand = new Command<Entry>(field => WalkToAnotherLine(field, upwards: false));
+		IndentTheLineCommand = new Command<Entry>(field => Reindent(field, more: true));
+		OutdentTheLineCommand = new Command<Entry>(field => Reindent(field, more: false));
 		OpenForWritingCommand = new Command<NoteLineRow>(OpenForWriting);
 
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 		_translations = translations;
 		ChecklistButton.Command = new Command(PutABoxOnThisLine);
+		IndentButton.Command = new Command(() => ReindentThisLine(more: true));
+		OutdentButton.Command = new Command(() => ReindentThisLine(more: false));
+		StyleButton.Command = new Command(async () => await ChooseAStyleAsync());
+		TableButton.Command = new Command(async () => await UseTheTableToolAsync());
+		SeparatorButton.Command = new Command(async () => await UseTheSeparatorToolAsync());
 		_viewModel.CaretPlaced += OnCaretPlaced;
 	}
 
@@ -125,6 +140,20 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 
 	/// <inheritdoc cref="GoToTheLineAboveCommand"/>
 	public ICommand GoToTheLineBelowCommand { get; }
+
+	/// <summary>
+	/// What Tab means on a line, and Shift+Tab beside it: one level of indentation more at the head of
+	/// the line, or one less. Bound from the template and told which field the press came from, for the
+	/// same reasons as the commands above.
+	///
+	/// Only a hardware keyboard has the key - a soft keyboard does not draw one - so the buttons over
+	/// the note's foot are the way in, and this is the extra for somebody typing on a keyboard. Both
+	/// ends reach the same edit on the view model.
+	/// </summary>
+	public ICommand IndentTheLineCommand { get; }
+
+	/// <inheritdoc cref="IndentTheLineCommand"/>
+	public ICommand OutdentTheLineCommand { get; }
 
 	/// <summary>
 	/// What pressing a ticked line does: opens the field in the struck-through Label's place and puts
@@ -237,6 +266,21 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		if ((sender as Entry)?.BindingContext is NoteLineRow row)
 		{
 			_beingWrittenIn = row;
+			_cellBeingWrittenIn = null;
+		}
+	}
+
+	/// <summary>
+	/// The caret went into a cell of a table. The table's line becomes the line being written in, so the
+	/// buttons that act on that line - the box, the indent, the style - find a table there and do nothing,
+	/// which is what the surface says they do on a table; the table button finds the cell.
+	/// </summary>
+	private void OnCellFocused(object? sender, FocusEventArgs eventArgs)
+	{
+		if ((sender as Entry)?.BindingContext is NoteTableCellField cell)
+		{
+			_cellBeingWrittenIn = cell;
+			_beingWrittenIn = cell.Line;
 		}
 	}
 
@@ -408,6 +452,128 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		=> _viewModel.ToggleChecklistCommand.Execute(_beingWrittenIn ?? _viewModel.Lines.LastOrDefault());
 
 	/// <summary>
+	/// Indents the line the caret is in, for the two buttons over the note's foot. The line the caret is
+	/// in is what the tick-box button beside them acts on too, and for the same reason: these are tools
+	/// for the writing rather than for a line somebody points at.
+	///
+	/// Pressing a button takes the focus off the field, so _beingWrittenIn - which is only ever set when
+	/// a line is focused - still names the line that was being written in, as it does for the tick box.
+	/// A note nobody has written in yet falls back to its last line, exactly as the tick box does.
+	/// </summary>
+	private void ReindentThisLine(bool more)
+	{
+		var line = _beingWrittenIn ?? _viewModel.Lines.LastOrDefault();
+		var command = more ? _viewModel.IndentCommand : _viewModel.OutdentCommand;
+		command.Execute(line);
+	}
+
+	/// <summary>
+	/// Asks what the line being written in should be, and makes it that - the phone's half of the
+	/// browser's "Aa" control. A sheet rather than a row of buttons: eight choices over the writing would
+	/// be most of the writing on a phone. The line is the one with the caret in it, or the last one, as
+	/// the indent buttons take theirs.
+	///
+	/// The names are the view model's (<see cref="NoteDetailViewModel.StyleChoices"/>), so the wording is
+	/// testable; opening the sheet is the platform's and stays here.
+	/// </summary>
+	private async Task ChooseAStyleAsync()
+	{
+		var choices = _viewModel.StyleChoices;
+		var chosen = await DisplayActionSheetAsync(
+			_translations["Text style"], _translations["Cancel"], destruction: null,
+			choices.Select(choice => choice.Name).ToArray());
+
+		if (choices.FirstOrDefault(choice => choice.Name == chosen) is { } style)
+		{
+			_viewModel.Restyle(_beingWrittenIn ?? _viewModel.Lines.LastOrDefault(), style.Style);
+		}
+	}
+
+	/// <summary>
+	/// The table button, which means two things: with the caret in a cell it asks what to do to that
+	/// table and does it (<see cref="NoteDetailViewModel.ReshapeTable"/>); anywhere else it puts a table
+	/// where the line being written in is (<see cref="NoteDetailViewModel.InsertTable"/>), or after the
+	/// last line of a note nobody has written in yet. A sheet for the menu, as the style button opens one.
+	/// </summary>
+	private async Task UseTheTableToolAsync()
+	{
+		if (!_viewModel.CanEdit)
+		{
+			return;
+		}
+
+		if (_cellBeingWrittenIn is null)
+		{
+			_viewModel.InsertTable(_beingWrittenIn ?? _viewModel.Lines.LastOrDefault());
+			return;
+		}
+
+		var choices = _viewModel.TableActions;
+		var chosen = await DisplayActionSheetAsync(
+			_translations["Table"], _translations["Cancel"], destruction: null,
+			choices.Select(choice => choice.Name).ToArray());
+
+		if (choices.FirstOrDefault(choice => choice.Name == chosen) is { } action)
+		{
+			_viewModel.ReshapeTable(_cellBeingWrittenIn, action.Action);
+		}
+	}
+
+	/// <summary>
+	/// The separator button: asks what to write on the rule and then puts one in, where the line being
+	/// written in is or after the last line of a note nobody has written in yet. A sheet rather than two
+	/// buttons, as the style button opens one - and it asks first because a rule has exactly one thing
+	/// to decide (see NoteDetailViewModel.SeparatorChoices).
+	/// </summary>
+	private async Task UseTheSeparatorToolAsync()
+	{
+		if (!_viewModel.CanEdit)
+		{
+			return;
+		}
+
+		var choices = _viewModel.SeparatorChoices;
+		var chosen = await DisplayActionSheetAsync(
+			_translations["Separator"], _translations["Cancel"], destruction: null,
+			choices.Select(choice => choice.Name).ToArray());
+
+		if (choices.FirstOrDefault(choice => choice.Name == chosen) is { } rule)
+		{
+			_viewModel.InsertSeparator(_beingWrittenIn ?? _viewModel.Lines.LastOrDefault(), rule.IsDated);
+		}
+	}
+
+	/// <summary>
+	/// Puts the note's words on the clipboard. Said out loud either way: a copy that quietly did nothing
+	/// is indistinguishable from one that worked, and Android can refuse this - the clipboard is a
+	/// system service and a restricted profile does not hand it over.
+	/// </summary>
+	private async Task CopyTheTextAsync()
+	{
+		try
+		{
+			await Clipboard.Default.SetTextAsync(_viewModel.AsWords());
+			_viewModel.Status = _translations["Copied"];
+		}
+		catch (Exception exception) when (exception is not OperationCanceledException)
+		{
+			_viewModel.Status = _translations["The text could not be copied."];
+		}
+	}
+
+	/// <inheritdoc cref="IndentTheLineCommand"/>
+	private void Reindent(Entry? field, bool more)
+	{
+		if (!_viewModel.CanEdit || field?.BindingContext is not NoteLineRow row)
+		{
+			return;
+		}
+
+		var command = more ? _viewModel.IndentCommand : _viewModel.OutdentCommand;
+		command.Execute(row);
+	}
+
+	/// <summary>
 	/// What the note can be asked, under its own name in the bar: what it is worth, whether it is
 	/// sealed, who else may read it, and getting rid of it. There is no "Back" among them - the phone's
 	/// own gesture is the way out of every detail screen.
@@ -451,11 +617,26 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 			}
 		}
 
+		// The other way out of a list, and immediately above Delete on purpose: somebody reaching for
+		// Delete because they want this out of the way should meet it first - one of the two is
+		// reversible. Only for this reader's own, the way filing is - see BuiltInFolder.Archived.
+		if (!_viewModel.IsSharedWithMe)
+		{
+			entries.Add(new ScreenMenuEntry(
+				_viewModel.IsArchived ? _translations["Put back"] : _translations["Archive"],
+				() => _viewModel.ArchiveCommand.Execute(!_viewModel.IsArchived)));
+		}
+
 		// Somebody else's note is not this reader's to delete: the same press takes it off their own
 		// list and leaves the owner's alone, which is why it is named for what it will actually do.
 		entries.Add(new ScreenMenuEntry(
 			_viewModel.IsSharedWithMe ? _translations["Remove from my list"] : _translations["Delete note"],
 			() => _ = DeleteAsync()));
+
+		// The note's words on the clipboard, as Orbit.Web offers from the same place - the format is
+		// shared (NoteWords) so what is copied here pastes into another note as the same note. Offered
+		// whatever this reader may do to it: copying is reading, and a note shared to read is still read.
+		entries.Add(new ScreenMenuEntry(_translations["Copy the text"], () => _ = CopyTheTextAsync()));
 
 		// Only once there is one, and here rather than in the account's menu: a history belongs to the
 		// thing it is the history of.

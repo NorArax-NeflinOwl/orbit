@@ -1,5 +1,6 @@
 using System.Windows.Input;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Sync;
 using Orbit.Maui.Controls;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Dashboard;
@@ -9,9 +10,12 @@ namespace Orbit.Maui.Features.Dashboard;
 public partial class DashboardPage : ContentPage, ITitleMenu
 {
 	private readonly DashboardViewModel _viewModel;
+
+	/// <summary>Redraws this screen when a sync it did not ask for brings something - see ScreenKeptInStep.</summary>
+	private readonly ScreenKeptInStep _keptInStep;
 	private readonly Translations _translations;
 
-	public DashboardPage(DashboardViewModel viewModel, Translations translations)
+	public DashboardPage(DashboardViewModel viewModel, Translations translations, SyncState syncState)
 	{
 		// Before InitializeComponent, not after: both are bound from the static part of the tree, which
 		// is built there and reads a page's plain property exactly once - see CalendarEventDetailPage,
@@ -22,6 +26,7 @@ public partial class DashboardPage : ContentPage, ITitleMenu
 
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		_keptInStep = new ScreenKeptInStep(syncState, () => _viewModel.ShowStoredSummaryAsync(CancellationToken.None));
 	}
 
 	/// <summary>Typed so the card rows' bindings back up to the page can be compiled.</summary>
@@ -44,6 +49,13 @@ public partial class DashboardPage : ContentPage, ITitleMenu
 	{
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
+		_keptInStep.Listen();
+	}
+
+	protected override void OnDisappearing()
+	{
+		base.OnDisappearing();
+		_keptInStep.StopListening();
 	}
 
 	/// <summary>

@@ -54,5 +54,11 @@ public sealed class PrivateContentKey : IDisposable
         }
     }
 
+    /// <summary>Seals a picture's bytes the way the browser does - see ChatIdentity.SealBytesForSelf.</summary>
+    public byte[] SealBytes(byte[] plainBytes) => _identity.SealBytesForSelf(plainBytes);
+
+    /// <summary>Opens a picture sealed by either client, or null when this key cannot - the same reason <see cref="Open{TContent}"/> gives.</summary>
+    public byte[]? OpenBytes(byte[] sealedBytes) => _identity.OpenBytesForSelf(sealedBytes);
+
     public void Dispose() => _identity.Dispose();
 }

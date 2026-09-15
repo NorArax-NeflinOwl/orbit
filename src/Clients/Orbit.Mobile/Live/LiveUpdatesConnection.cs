@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Logging;
 using Orbit.Core.LiveUpdates;
 using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Live;
 
@@ -23,17 +24,19 @@ public sealed class LiveUpdatesConnection : ILiveUpdates, IAsyncDisposable
 {
     private readonly SessionStore _sessionStore;
     private readonly TokenRefreshService _tokenRefresh;
+    private readonly ServerReachability _reachability;
     private readonly ILogger<LiveUpdatesConnection> _logger;
     private readonly string _hubUrl;
 
     private HubConnection? _connection;
 
     public LiveUpdatesConnection(
-        SessionStore sessionStore, TokenRefreshService tokenRefresh, Uri apiBaseAddress,
-        ILogger<LiveUpdatesConnection> logger)
+        SessionStore sessionStore, TokenRefreshService tokenRefresh, ServerReachability reachability,
+        Uri apiBaseAddress, ILogger<LiveUpdatesConnection> logger)
     {
         _sessionStore = sessionStore;
         _tokenRefresh = tokenRefresh;
+        _reachability = reachability;
         _logger = logger;
         _hubUrl = new Uri(apiBaseAddress, LiveUpdateMessages.Path.TrimStart('/')).ToString();
     }
@@ -55,11 +58,13 @@ public sealed class LiveUpdatesConnection : ILiveUpdates, IAsyncDisposable
     /// signed-in session and when somebody signs in, so calling it twice is not two connections.
     ///
     /// Does nothing when nobody is signed in: the hub refuses an unauthenticated handshake, and trying
-    /// anyway would retry forever behind the sign-in screen.
+    /// anyway would retry forever behind the sign-in screen. Nothing either while the deployment says it
+    /// is paused - a handshake against a stopped server is a request that can only fail, and the next
+    /// sync is what learns the pause is over.
     /// </summary>
     public async Task StartAsync()
     {
-        if (_connection is not null || await _sessionStore.GetAsync() is null)
+        if (_connection is not null || _reachability.IsPaused || await _sessionStore.GetAsync() is null)
         {
             return;
         }
@@ -137,7 +142,7 @@ public sealed class LiveUpdatesConnection : ILiveUpdates, IAsyncDisposable
             // Keeps trying rather than giving up after the default four attempts: a phone that spent an
             // hour in a tunnel should come back to a working app, not to one that quietly went on
             // polling until it was restarted.
-            .WithAutomaticReconnect(new KeepTryingRetryPolicy())
+            .WithAutomaticReconnect(new KeepTryingRetryPolicy(() => _reachability.IsPaused))
             .Build();
 
         connection.Reconnected += _ =>
@@ -159,7 +164,10 @@ public sealed class LiveUpdatesConnection : ILiveUpdates, IAsyncDisposable
         connection.Closed += _ =>
         {
             ConnectionStateChanged?.Invoke();
-            return Task.CompletedTask;
+            // Closed for good because the retry policy stopped over a pause: let go of it, so the next
+            // StartAsync - on the app coming to the front once the server is back - builds a fresh one
+            // rather than finding a dead connection already held and doing nothing.
+            return _reachability.IsPaused ? StopAsync() : Task.CompletedTask;
         };
 
         return connection;
@@ -200,16 +208,33 @@ public sealed class LiveUpdatesConnection : ILiveUpdates, IAsyncDisposable
     /// gives up after about thirty seconds, which is the wrong answer on a phone: the thing it is
     /// waiting for - a train leaving a tunnel, a server finishing a deploy - routinely takes longer, and
     /// giving up means the app is slower for the rest of the session with nothing on screen to say why.
+    ///
+    /// The one thing it does give up on is a pause. A server stopped for the rest of the month is not
+    /// coming back in thirty seconds, and a handshake every half minute against a front door that
+    /// answers 404 is battery spent on nothing; null stops the reconnecting, and the connection is let
+    /// go of in Closed so a later start can try afresh.
     /// </summary>
     private sealed class KeepTryingRetryPolicy : IRetryPolicy
     {
-        public TimeSpan? NextRetryDelay(RetryContext retryContext) => retryContext.PreviousRetryCount switch
+        private readonly Func<bool> _isPaused;
+
+        public KeepTryingRetryPolicy(Func<bool> isPaused) => _isPaused = isPaused;
+
+        public TimeSpan? NextRetryDelay(RetryContext retryContext)
         {
-            0 => TimeSpan.Zero,
-            1 => TimeSpan.FromSeconds(2),
-            2 => TimeSpan.FromSeconds(5),
-            3 => TimeSpan.FromSeconds(10),
-            _ => TimeSpan.FromSeconds(30)
-        };
+            if (_isPaused())
+            {
+                return null;
+            }
+
+            return retryContext.PreviousRetryCount switch
+            {
+                0 => TimeSpan.Zero,
+                1 => TimeSpan.FromSeconds(2),
+                2 => TimeSpan.FromSeconds(5),
+                3 => TimeSpan.FromSeconds(10),
+                _ => TimeSpan.FromSeconds(30)
+            };
+        }
     }
 }

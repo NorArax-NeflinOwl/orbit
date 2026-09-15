@@ -13,6 +13,29 @@ public sealed class CalendarEvent
     public Guid Id { get; private set; }
     public Guid UserId { get; private set; }
     public CalendarEventDetails Details { get; private set; }
+
+    /// <summary>
+    /// The folder its owner filed it under, or null for one they have not filed anywhere - which is not
+    /// "nowhere": an event with no folder is in Public. See Orbit.Core.Folders.BuiltInFolder.
+    ///
+    /// Beside <see cref="Details"/> rather than inside it, because filing is not part of what the event
+    /// is: an update replaces the details wholesale, and a client that had not heard of folders would
+    /// empty this every time it saved. See <see cref="MoveToFolder"/>, and Note.FolderId, which says the
+    /// same about a note.
+    /// </summary>
+    public Guid? FolderId { get; private set; }
+
+    /// <summary>
+    /// Whether this appointment has been put away - see <see cref="Archive"/>. Stored rather than derived,
+    /// unlike the other built-in folders (a sealed thing is private, a ticked-through list is finished),
+    /// because there is nothing else about a appointment that could say it: being put away is a decision
+    /// somebody makes about it rather than something it becomes.
+    ///
+    /// The owner's, and only theirs, exactly as <see cref="FolderId"/> is: one row is one appointment, so a
+    /// recipient archiving it would be putting it away on its owner's own page.
+    /// </summary>
+    public bool IsArchived { get; private set; }
+
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
@@ -44,11 +67,12 @@ public sealed class CalendarEvent
 
     private CalendarEvent(
         Guid id, Guid userId, CalendarEventDetails details, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
+        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc, Guid? folderId)
     {
         Id = id;
         UserId = userId;
         Details = details;
+        FolderId = folderId;
         CreatedAtUtc = createdAtUtc;
         UpdatedAtUtc = updatedAtUtc;
         LockedByUserId = lockedByUserId;
@@ -56,20 +80,26 @@ public sealed class CalendarEvent
         LockExpiresAtUtc = lockExpiresAtUtc;
     }
 
-    public static CalendarEvent Create(Guid userId, CalendarEventDetails details)
+    public static CalendarEvent Create(Guid userId, CalendarEventDetails details, Guid? folderId = null)
     {
         ValidateTimeRange(details);
         ValidateTheWords(details);
         ValidateLocation(details);
         var now = DateTimeOffset.UtcNow;
-        return new CalendarEvent(Guid.NewGuid(), userId, details, now, now, lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
+        return new CalendarEvent(
+            Guid.NewGuid(), userId, details, now, now,
+            lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null, folderId);
     }
 
     /// <summary>Rebuilds an event from already-persisted values, bypassing creation rules.</summary>
     public static CalendarEvent FromPersistence(
         Guid id, Guid userId, CalendarEventDetails details, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
-        => new(id, userId, details, createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc);
+        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc, Guid? folderId = null,
+        bool isArchived = false)
+        => new(id, userId, details, createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc, folderId)
+        {
+            IsArchived = isArchived
+        };
 
     /// <summary>Stamps how the current caller relates to this event - see the class comment. Not persisted.</summary>
     /// <summary>Tells the owner that somebody else holds accepted access - the mirror of <see cref="IsShared"/>.</summary>
@@ -92,6 +122,45 @@ public sealed class CalendarEvent
         ValidateTheWords(details);
         ValidateLocation(details);
         Details = details;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Files this event under a folder, or under none - which puts it back in Public. Its own step
+    /// rather than part of <see cref="Update"/>, for the reason <see cref="FolderId"/> gives.
+    /// </summary>
+    public void MoveToFolder(Guid? folderId)
+    {
+        if (FolderId == folderId)
+        {
+            return;
+        }
+
+        FolderId = folderId;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Put away rather than thrown away - see Orbit.Core.Folders.BuiltInFolder.Archived, which is the
+    /// tab this appointment then gathers under. The one way out of every list that is not deletion, and the
+    /// answer to somebody who wants a appointment gone from in front of them without losing it.
+    ///
+    /// Its own command rather than a field on the update, for the reason <see cref="MoveToFolder"/>
+    /// gives: an update replaces the whole thing, so a client that had not heard of archiving would
+    /// bring back everything its owner had put away, every time it saved.
+    ///
+    /// <see cref="FolderId"/> is left exactly as it was. Archiving is not filing - it is a decision
+    /// about whether this is in front of the reader at all - so bringing it back puts it under the
+    /// folder it was under, rather than somewhere a rule had to choose.
+    /// </summary>
+    public void Archive(bool isArchived)
+    {
+        if (IsArchived == isArchived)
+        {
+            return;
+        }
+
+        IsArchived = isArchived;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 

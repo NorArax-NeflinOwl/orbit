@@ -199,6 +199,24 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     public ObservableCollection<TaskItemRow> Items { get; } = [];
 
     /// <summary>
+    /// How much of this list is done, the way the card on the tasks screen and the dashboard say it
+    /// ("Done: 3 of 7"). On the list's own screen because that is where somebody reading a long one asks
+    /// it - the browser's light view has carried it in the rail's extras since folders arrived, and the
+    /// phone had it everywhere except here. Empty for a list with nothing on it, which has no fraction
+    /// to give and says so on the card instead.
+    ///
+    /// Counted over what is on the screen, so an entry standing for another list counts as done exactly
+    /// when that list is - the rows already carry the answer (see TaskItemRow.IsCompleted).
+    /// </summary>
+    public string Progress
+        => Items.Count == 0
+            ? string.Empty
+            : _translations.Format("Done: {0} of {1}", Items.Count(row => row.IsCompleted), Items.Count);
+
+    /// <summary>Whether there is a fraction to draw - see <see cref="Progress"/>.</summary>
+    public bool HasProgress => Items.Count > 0;
+
+    /// <summary>
     /// Whether this list gathers the lists its items link to rather than holding work of its own -
     /// Orbit.Web's "Group list". It is also what makes the stock check worth asking, and the phone had
     /// no way to set it, so a list made here could never be one.
@@ -1234,6 +1252,26 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         Status = string.Empty;
     }
 
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.IsArchived"/>
+    [ObservableProperty]
+    private bool _isArchived;
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.ArchiveAsync"/>
+    [RelayCommand]
+    private async Task ArchiveAsync(bool isArchived, CancellationToken cancellationToken)
+    {
+        var outcome = await _taskLists.ArchiveAsync(_localId, isArchived, cancellationToken);
+
+        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        {
+            Status = _translations["This one can't be moved while you're offline."];
+            return;
+        }
+
+        IsArchived = isArchived;
+        Status = string.Empty;
+    }
+
     private async Task ShowStoredListAsync(CancellationToken cancellationToken)
     {
         if (await _taskLists.FindAsync(_localId, cancellationToken) is not { } taskList)
@@ -1244,6 +1282,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
         Title = taskList.Title;
         FolderId = taskList.FolderId;
+        IsArchived = taskList.IsArchived;
         Folders = [.. (await _folders.GetAllAsync(FolderScope.Tasks, cancellationToken))];
         Description = taskList.Description;
         _savedDescription = taskList.Description;
@@ -1359,6 +1398,41 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
                 item, _translations, _timeProvider.GetUtcNow(), ReferencesFor(item),
                 _appointmentsWaitingToBeNamed.ContainsKey(item.Description)));
         }
+
+        // The fraction is worked out from the rows, so it is said again whenever they are rebuilt -
+        // which is every tick, every add and every reordering. See Progress.
+        OnPropertyChanged(nameof(Progress));
+        OnPropertyChanged(nameof(HasProgress));
+        SayWhetherItGathersOtherLists();
+    }
+
+    /// <summary>
+    /// Whether something on this list points at another list, which is what makes it a group list
+    /// whatever the switch says - see Orbit.Core.Tasks.TaskList.IsGroup, where the server settles the
+    /// same question for every writer.
+    /// </summary>
+    public bool GathersOtherLists => Items.Any(row => row.Item.AllLinkedTaskListIds.Count > 0);
+
+    /// <summary>
+    /// Whether the switch is the reader's to move. Off while the entries have answered it: a switch that
+    /// sprang back would read as broken, so it is disabled and the line under it says why.
+    /// </summary>
+    public bool CanChooseGroupView => CanEdit && !GathersOtherLists;
+
+    /// <summary>
+    /// Said whenever the rows are rebuilt, because that is when the answer can change - adding an entry
+    /// that names a list, or taking the last one off. Turning the switch on here is what "automatically"
+    /// means: it saves as everything else on this screen saves, unless the screen is filling itself in,
+    /// where the stored answer is already what the server settled.
+    /// </summary>
+    private void SayWhetherItGathersOtherLists()
+    {
+        OnPropertyChanged(nameof(GathersOtherLists));
+        OnPropertyChanged(nameof(CanChooseGroupView));
+        if (GathersOtherLists)
+        {
+            IsGroup = true;
+        }
     }
 
     partial void OnItemOrderChanged(ChecklistOrder value)
@@ -1421,6 +1495,11 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// <summary>True while the screen fills itself in, so loading does not look like a person choosing.</summary>
     private bool _isShowingWhatIsStored;
 
+    /// <summary>
+    /// A press on the switch, or the entries answering it themselves - see
+    /// <see cref="SayWhetherItGathersOtherLists"/>. Either way the list is saved, as everything else on
+    /// this screen is saved as it is chosen.
+    /// </summary>
     partial void OnIsGroupChanged(bool value)
     {
         if (!_isShowingWhatIsStored)

@@ -48,6 +48,12 @@ namespace Orbit.Mobile.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("FolderId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("IsKeptCopy")
                         .HasColumnType("INTEGER");
 
@@ -277,6 +283,12 @@ namespace Orbit.Mobile.Data.Migrations
                     b.Property<string>("EncryptedNonce")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("FolderId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("IsKeptCopy")
                         .HasColumnType("INTEGER");
 
@@ -368,6 +380,9 @@ namespace Orbit.Mobile.Data.Migrations
 
                     b.Property<Guid?>("FolderId")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsKeptCopy")
                         .HasColumnType("INTEGER");
@@ -635,6 +650,9 @@ namespace Orbit.Mobile.Data.Migrations
 
                     b.Property<Guid?>("FolderId")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsCompleted")
                         .HasColumnType("INTEGER");

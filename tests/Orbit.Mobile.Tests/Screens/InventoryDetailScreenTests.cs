@@ -840,6 +840,9 @@ public sealed class InventoryDetailScreenTests
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
+
+        /// <summary>The tabs this screen files into - see FolderTabs.</summary>
+        public LocalFolderRepository Folders { get; }
         private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-27T10:00:00Z"));
         private readonly LocalInventoryRepository _inventories;
         private readonly LocalTaskListRepository _taskLists;
@@ -851,6 +854,7 @@ public sealed class InventoryDetailScreenTests
             _privateContent = privateContent ?? PrivateContent.WithoutAKey();
             Server = new FakeInventoryServer(_clock);
             _inventories = new LocalInventoryRepository(_localStore, _clock, FixedNetworkStatus.Online, _privateContent);
+            Folders = new LocalFolderRepository(_localStore, _clock);
             _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online, _privateContent);
             _synchronizer = new InventorySynchronizer(
                 _localStore, new InventoryClient(Server.ToHttpClient()), _clock, new SyncGate(),
@@ -952,7 +956,7 @@ public sealed class InventoryDetailScreenTests
                 new RestockListSettingsPanel(
                     new InventoryClient(Server.ToHttpClient()), new Translations(new InMemoryLanguageStore()),
                     new ConnectionRequirement(Network, new Translations(new InMemoryLanguageStore()))),
-                _taskLists);
+                _taskLists, Folders);
 
             screen.Open(localId, productId);
             await screen.LoadCommand.ExecuteAsync(null);

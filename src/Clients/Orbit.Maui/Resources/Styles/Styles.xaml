@@ -5,6 +5,7 @@
     xmlns:controls="clr-namespace:Orbit.Maui.Controls">
 
     <controls:IsNotEmptyConverter x:Key="IsNotEmpty" />
+    <controls:PictureBytesConverter x:Key="PictureBytes" />
 
     <Style TargetType="IndicatorView">
         <Setter Property="IndicatorColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray500}}"/>

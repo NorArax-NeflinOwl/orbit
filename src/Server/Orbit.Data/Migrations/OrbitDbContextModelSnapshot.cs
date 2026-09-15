@@ -48,6 +48,10 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("OP_E_ENDUTC");
 
+                    b.Property<Guid?>("FolderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_E_FOLDERID");
+
                     b.Property<string>("GuestsJson")
                         .IsRequired()
                         .HasColumnType("text")
@@ -56,6 +60,10 @@ namespace Orbit.Data.Migrations
                     b.Property<bool>("IsAllDay")
                         .HasColumnType("boolean")
                         .HasColumnName("OP_E_ISALLDAY");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_E_ISARCHIVED");
 
                     b.Property<string>("LocationAddress")
                         .HasMaxLength(300)
@@ -613,6 +621,14 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("OP_I_ENCRYPTEDNONCE");
 
+                    b.Property<Guid?>("FolderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_I_FOLDERID");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_I_ISARCHIVED");
+
                     b.Property<bool>("IsPrivate")
                         .HasColumnType("boolean")
                         .HasColumnName("OP_I_ISPRIVATE");
@@ -928,6 +944,10 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("OP_N_FOLDERID");
 
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_N_ISARCHIVED");
+
                     b.Property<bool>("IsPinned")
                         .HasColumnType("boolean")
                         .HasColumnName("OP_N_ISPINNED");
@@ -989,6 +1009,45 @@ namespace Orbit.Data.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("OP_NOTES");
+                });
+
+            modelBuilder.Entity("Orbit.Data.Entities.NotePictureEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_NP_ID");
+
+                    b.Property<string>("ContentType")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("OP_NP_CONTENTTYPE");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_NP_CREATEDATUTC");
+
+                    b.Property<bool>("IsSealed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_NP_ISSEALED");
+
+                    b.Property<Guid>("NoteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_NP_NOTEID");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_NP_OWNERUSERID");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("OP_NP_SIZEBYTES");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NoteId");
+
+                    b.ToTable("OP_NOTES_PICTURES");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.NoteShareEntity", b =>
@@ -1659,6 +1718,10 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("OP_T_FOLDERID");
 
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_T_ISARCHIVED");
+
                     b.Property<bool>("IsCompleted")
                         .HasColumnType("boolean")
                         .HasColumnName("OP_T_ISCOMPLETED");
@@ -1861,6 +1924,10 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("character varying(300)")
                         .HasDefaultValue("")
                         .HasColumnName("OP_TI_LOCATION");
+
+                    b.Property<bool>("NeedsEveryLinkedList")
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_TI_NEEDSEVERYLINKEDLIST");
 
                     b.Property<string>("Notes")
                         .IsRequired()

@@ -233,7 +233,7 @@ public sealed class NoteFoldersTests
                 Notes, _synchronizer, new NotesClient(_server.ToHttpClient()), FixedNetworkStatus.Online,
                 new Translations(new InMemoryLanguageStore()),
                 new PrivateItemGate(new FixedDeviceAuthentication()),
-                new SyncState(FixedNetworkStatus.Online, _clock), new RecordingScreenNavigator(), _clock,
+                new SyncState(Reachability.Online, _clock), new RecordingScreenNavigator(), _clock,
                 new InMemoryListArrangementStore(), Folders, new InMemoryChosenFolderStore(),
                 TestDoubles.Folders.SynchronizerAgainstNobody(_localStore, _clock));
 

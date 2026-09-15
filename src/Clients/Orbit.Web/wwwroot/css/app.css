@@ -513,6 +513,362 @@ input.note-editor-title {
     box-shadow: 0 6px 18px rgb(0 0 0 / 18%);
 }
 
+/* What a line of a note is, drawn - see Orbit.Core.Notes.NoteLineStyle and the data-style the editor
+   writes onto each line. Read off the attribute rather than a class so one rule per style is the whole
+   of it, and so checklistTextEditor.js can tell whether a line's style changed by comparing one value.
+
+   Every one of these is a size or a face, never a colour: a note is the reader's writing and a heading
+   that arrived in the accent would be Orbit having an opinion about their words. */
+.note-line[data-style="title"] {
+    font-size: 1.7em;
+    font-weight: 700;
+    line-height: 1.25;
+    margin-block: 0.4em 0.2em;
+}
+
+.note-line[data-style="heading"] {
+    font-size: 1.3em;
+    font-weight: 650;
+    line-height: 1.3;
+    margin-block: 0.35em 0.15em;
+}
+
+.note-line[data-style="subheading"] {
+    font-size: 1.08em;
+    font-weight: 600;
+    margin-block: 0.3em 0.1em;
+}
+
+/* For something that has to keep its spacing. Wrapped rather than scrolled: a note is a column of
+   lines and a line that scrolled sideways would be the one thing on the page that does. */
+.note-line[data-style="monospaced"] {
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    font-size: 0.94em;
+    white-space: pre-wrap;
+}
+
+/* The three lists. The mark is drawn rather than typed, so it is never part of the words, never
+   selected with them and never copied - which is what keeps a list a list rather than a paragraph that
+   starts with a dot. The indent is padding on the line, so the mark sits in the space it makes. */
+.note-line[data-style="bulleted"],
+.note-line[data-style="dashed"],
+.note-line[data-style="numbered"] {
+    padding-left: 1.9em;
+    position: relative;
+}
+
+.note-line[data-style="bulleted"]::before,
+.note-line[data-style="dashed"]::before,
+.note-line[data-style="numbered"]::before {
+    position: absolute;
+    left: 0.35em;
+    color: var(--text-secondary);
+    /* Out of the writing entirely: the caret must never be able to land in it, and a copy of the line
+       must never carry it. */
+    user-select: none;
+    pointer-events: none;
+}
+
+.note-line[data-style="bulleted"]::before {
+    content: "•";
+}
+
+.note-line[data-style="dashed"]::before {
+    content: "–";
+}
+
+/* The number is worked out from the lines above and written onto the line by numberTheLists - a CSS
+   counter would have been the other way, and it counts every line in the container rather than each
+   unbroken run, so two lists separated by a paragraph would have gone on counting. */
+.note-line[data-style="numbered"]::before {
+    content: attr(data-number) ".";
+    font-variant-numeric: tabular-nums;
+}
+
+/* A line that is both a box and a list keeps the box, and the mark goes with the style - see
+   NoteLineStyle, which says why a tick box is not one of the styles. The box already indents the line,
+   so the two indents are not added together. */
+.note-line-checklist[data-style="bulleted"],
+.note-line-checklist[data-style="dashed"],
+.note-line-checklist[data-style="numbered"] {
+    padding-left: 0;
+}
+
+.note-line-checklist[data-style="bulleted"]::before,
+.note-line-checklist[data-style="dashed"]::before,
+.note-line-checklist[data-style="numbered"]::before {
+    content: none;
+}
+
+/* A stretch of words carrying a mark - see Orbit.Core.Notes.NoteTextMark. Drawn by the elements the
+   words are wrapped in rather than by classes, so a copy out of the note arrives elsewhere still bold;
+   these rules only settle how much, since a browser's own <strong> is heavier than this app's text. */
+.note-line-text strong {
+    font-weight: 650;
+}
+
+.note-line-text em {
+    font-style: italic;
+}
+
+.note-line-text u {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.note-line-text s {
+    text-decoration: line-through;
+}
+
+/* The same four on a line being read rather than written - see MarkedText.razor, which names them on a
+   span instead of wrapping the words in elements. The sizes are the ones above, said once more rather
+   than shared, because these are a different element for a different reason. */
+.note-marked-bold {
+    font-weight: 650;
+}
+
+.note-marked-italic {
+    font-style: italic;
+}
+
+.note-marked-underlined {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.note-marked-struckthrough {
+    text-decoration: line-through;
+}
+
+/* The four marks, at the head of the format panel: they answer a selection where the styles answer a
+   line. Each is drawn in the mark it puts on, which says what it does without a word. */
+.note-mark-row {
+    display: flex;
+    gap: 4px;
+    padding: 2px 4px 6px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+}
+
+.note-mark {
+    flex: 1;
+    padding: 6px 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.note-mark:hover {
+    background: var(--bg-subtle);
+}
+
+.note-mark-bold {
+    font-weight: 700;
+}
+
+.note-mark-italic {
+    font-style: italic;
+}
+
+.note-mark-underlined {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.note-mark-struckthrough {
+    text-decoration: line-through;
+}
+
+/* A table inside a note - see Orbit.Core.Notes.NoteTable. The same grid whether it is being written
+   in (real cells the caret walks, in the editor) or read (NoteTableView.razor): hairline borders in the
+   border colour, cells that wrap, and never wider than the note - a table that scrolled sideways would
+   be the one thing on the page that does. */
+.note-line-table {
+    padding: 0.35em 0;
+}
+
+.note-table {
+    width: 100%;
+    max-width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 0.95em;
+}
+
+.note-cell {
+    border: 1px solid var(--border);
+    padding: 6px 8px;
+    vertical-align: top;
+    min-width: 3em;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    outline: none;
+}
+
+/* The caret's cell, so which one Tab will leave is plain before it is pressed. */
+.note-cell:focus-within,
+.note-line-table .note-cell:focus {
+    background: var(--bg-subtle);
+}
+
+/* The same marks inside a cell as on a line - the cell holds the same elements the words are wrapped
+   in on the line, so the rules above the styles apply through this selector too. */
+.note-cell strong {
+    font-weight: 650;
+}
+
+.note-cell em {
+    font-style: italic;
+}
+
+.note-cell u {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.note-cell s {
+    text-decoration: line-through;
+}
+
+/* A picture in the flow of a note - see Orbit.Core.Notes.NotePictureLine. Scaled to the width of the
+   note and never wider, as Apple Notes draws one; the space it takes is taken from what the line says
+   before the bytes arrive, so the note does not jump while it is read (NotePictureView, and
+   createPictureElement in checklistTextEditor.js). */
+.note-line-picture {
+    padding: 0.35em 0;
+}
+
+.note-picture {
+    margin: 0;
+    max-width: 100%;
+}
+
+.note-picture img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    cursor: zoom-in;
+}
+
+/* The caret's picture, so which one Backspace will take is plain before it is pressed. */
+.note-line-picture:focus-within .note-picture img {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.note-picture-waiting {
+    width: 100%;
+    max-width: 480px;
+    border-radius: 8px;
+    background: var(--bg-subtle);
+}
+
+/* A rule across the note - see Orbit.Core.Notes.NoteSeparatorLine. The line itself is a border rather
+   than an <hr>, so the stamp can sit on it: the border is drawn across the whole width and the words
+   are lifted onto it with a background of the page, which is how every ruled heading is drawn. */
+.note-separator {
+    position: relative;
+    margin: 0.55em 0;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    line-height: 0;
+    /* Nothing is ever typed into one: a caret standing in it would have nowhere to go. */
+    user-select: none;
+}
+
+.note-separator-stamp {
+    display: inline-block;
+    padding: 0 0.6em;
+    background: var(--bg-elevated);
+    color: var(--text-tertiary);
+    font-size: 0.78rem;
+    line-height: 1.6;
+}
+
+/* A rule with nothing on it still has to be pressable - and reachable by the caret, since Backspace is
+   what takes it away (see NoteContentLine.IsTakenAwayByAKey). Without a height an empty one collapses
+   to its border and there is nothing to stand beside. */
+.note-line-separator {
+    padding: 0.35em 0;
+}
+
+/* The caret's rule, so which one Backspace will take is plain before it is pressed - the same mark a
+   picture gets, and for the same reason. */
+.note-line-separator:focus-within .note-separator {
+    border-top-color: var(--accent);
+}
+
+/* The table's own list, under the table tool rather than under "Aa" - the third button from the left,
+   so the panel sits one button further along than the styles do. */
+.note-table-menu {
+    left: calc(14px + 4px + 2 * 36px + 2 * 2px);
+}
+
+/* And the separator's under the fifth button, which is where its tool sits in the row. */
+.note-separator-menu {
+    left: calc(14px + 4px + 4 * 36px + 4 * 2px);
+}
+
+/* The list of styles, opened by the "Aa" button and sitting on the writing above the row it came from.
+   Each entry is drawn in the style it sets, which is how somebody tells a heading from a subheading
+   without reading the words. */
+.note-style-menu {
+    position: absolute;
+    left: 14px;
+    bottom: calc(14px + 40px + 8px);
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    min-width: 200px;
+    padding: 6px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-elevated);
+    box-shadow: 0 10px 26px rgb(0 0 0 / 22%);
+}
+
+.note-style-menu-item {
+    padding: 7px 10px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-primary);
+    text-align: left;
+    cursor: pointer;
+}
+
+.note-style-menu-item:hover {
+    background: var(--bg-subtle);
+}
+
+.note-style-title {
+    font-size: 1.35em;
+    font-weight: 700;
+}
+
+.note-style-heading {
+    font-size: 1.15em;
+    font-weight: 650;
+}
+
+.note-style-subheading {
+    font-weight: 600;
+}
+
+.note-style-monospaced {
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+/* The "Aa" button while its list is open, so the row says which control the panel belongs to. */
+.note-tool-on {
+    background: var(--bg-subtle);
+}
+
 .note-tool {
     display: inline-flex;
     align-items: center;
@@ -4503,6 +4859,15 @@ input.note-editor-title {
     padding-block: 12px;
 }
 
+/* Naming a list about to go inside a group list - see TaskListChecklist. A card like the ones under it
+   rather than a strip of its own, because what it makes is one of those. */
+.checklist-new-sublist {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
 /* Calendar.razor's event list, sharing the editor row shape so a day's events read the same way an
    editor's items do. */
 .event-list {
@@ -5044,6 +5409,29 @@ input.note-editor-title {
     gap: 12px;
     width: min(520px, 100%);
     overflow-y: auto;
+}
+
+/* Save and Cancel at the top of the form rather than under it, and staying there while the fields
+   scroll - the rule every editor in Orbit follows since the editor rail moved to the top on a phone
+   (see .editor-rail). The panel is the scrolling box, so sticking to its top is what keeps the pair on
+   screen; before this they sat last and a place with six lists on it scrolled its own Create out of
+   reach, which is the very thing .place-form's scroll was added for and only half solved. The markup
+   keeps them last, which is the order a keyboard should meet the form and its buttons in - the same
+   split between reading order and tab order .editor-page makes. Only inside the place form: the map's
+   other confirm rows sit on panels that do not scroll. */
+.place-form > .map-overlay-confirm {
+    order: -1;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding-bottom: 10px;
+    background: var(--bg-elevated);
+}
+
+/* Still above them: what the panel is saying is read before the buttons that answer it. It scrolls away
+   as the fields do, and the row above pins to the top once it has. */
+.place-form > .map-overlay-header {
+    order: -2;
 }
 
 /* How the place is drawn, on one line: a three-item picker and a swatch, neither of which needs a line
@@ -6212,6 +6600,24 @@ p.field-hint {
     color: var(--text-primary);
 }
 
+/* The map itself in the dark theme. OpenStreetMap serves one set of tiles, drawn for a light page, so
+   a map was the one white rectangle left on a dark screen - and at night, on a phone, the brightest
+   thing in the room.
+
+   Turned dark here rather than fetched dark: a second tile source would be a second third-party request
+   to gate (see mapTiles.js, where that gate lives and why there is only one), and the dark styles worth
+   having are keyed services. Inverting and turning the hue back through 180 degrees keeps the map
+   readable and leaves the colours roughly where they were - water stays blue rather than becoming
+   orange - and the brightness and saturation come down because an inverted map is otherwise a page of
+   glowing roads.
+
+   Only the tiles (.leaflet-tile-pane). Everything Orbit draws on top - the pins, their popups, a route
+   between two of them - is drawn in the theme's own colours already, and inverting those would undo
+   exactly the work that made them readable. */
+:root[data-theme="dark"] .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.7);
+}
+
 /* Leaflet paints its popup white whatever the theme is, and the label above takes the theme's text
    colour - so in the dark theme a pin opened on light text on a white card, which was barely readable.
    The card now takes the theme too, which keeps the two in step rather than fixing one colour to match
@@ -6879,33 +7285,70 @@ p.field-hint {
     display: none;
 }
 
-/* No room for a column beside the form, so the panel becomes a bar along the foot of the window: the
-   arrow that opens the rest of it at one end, the three actions at the other. Fixed rather than sticky,
-   because the point of it on a phone is to be under the thumb wherever the form has been scrolled to. */
+/* No room for a column beside the form, so the panel becomes a bar across the top of the window, under
+   the app's own: the arrow that opens the rest of it at one end, the three actions at the other.
+
+   At the top rather than along the foot, which is where it used to sit. Two reasons, and the second is
+   the one that settles it. A bar over the foot covers the last line of whatever is being written -
+   worst on the screens where the writing runs to the bottom of the page, which is every screen this
+   bar is on. And the app's own bar goes away while the reader goes down the page (see stickyBars.js),
+   so the foot was the one place the editor's bar could not follow it: what is left when the first bar
+   hides is a screen with the page's own chrome at the top and the thing to press at the other end of
+   it.
+
+   Sticky rather than fixed, so it takes its own row at the top of the page instead of lying over the
+   first thing on it, and so the rest of the page starts underneath rather than behind. */
 @media (max-width: 680px) {
     .editor-page {
-        display: block;
+        /* A column, so the panel can be lifted above the form it belongs to - see the order below. The
+           markup keeps the form first, which is the order a keyboard should meet the two in. */
+        display: flex;
+        flex-direction: column;
+        /* Stretch, not the flex-start the row above uses: in a column that would leave the bar as wide
+           as the three buttons in it rather than as wide as the page. */
+        align-items: stretch;
     }
 
     .editor-rail {
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        /* Undoes the offset it sticks to on a wide screen: kept, it would hold the bar's top there and
-           stretch it over the whole page. */
-        top: auto;
+        order: -1;
+        position: sticky;
+        /* Under the app's bar while that is there, and at the very top once it has gone - measured
+           rather than written as a number, because the bar's height is padding plus whatever the row
+           holds. See stickyBars.js, which measures it, and the fallback for the moment before it has. */
+        top: var(--topbar-height, 52px);
+        bottom: auto;
         flex-direction: row;
         flex-wrap: wrap;
         align-items: center;
         justify-content: space-between;
-        padding: 8px 12px;
+        /* Edge to edge, as it was along the foot: the page is padded by 16 and the bar is not part of
+           the page's own column, it is chrome over it. The padding takes that 16 back so what is in the
+           bar still lines up with what is under it. */
+        margin-inline: -16px;
+        padding: 8px 28px;
         border-radius: 0;
         border-left: 0;
         border-right: 0;
-        border-bottom: 0;
-        /* Over the page it sits on, and under the menus that hang off the bar at the top. */
+        border-top: 0;
+        /* Over the page it sits on, and under the app's bar and the menus that hang off it. */
         z-index: 20;
+        transition: top 0.2s ease;
+    }
+
+    /* The app's bar has gone, so the editor's takes the top of the screen. */
+    body.topbar-away .editor-rail {
+        top: 0;
+    }
+
+    /* Out of the way while the reader is going down the page, and back the moment they go up - see
+       stickyBars.js, which watches the scroll. Moved rather than hidden, so it slides instead of
+       blinking and so nothing about the page's own height changes as it goes. */
+    .topbar {
+        transition: transform 0.2s ease;
+    }
+
+    body.topbar-away .topbar {
+        transform: translateY(-100%);
     }
 
     .editor-rail-toggle {
@@ -6930,22 +7373,6 @@ p.field-hint {
 
     .editor-rail-open .editor-rail-extras {
         display: flex;
-    }
-
-    /* Room under the last thing on the page for the bar to sit over nothing. */
-    .main-content-page {
-        padding-bottom: 96px;
-    }
-
-    /* The foot belongs to the editor here. Both are position:fixed at bottom:0 and the banner's
-       z-index is the higher of the two, so it sat *over* Save, Back and the menu - on a phone, on the
-       one screen whose whole purpose is a button. There is no stacking either: two fixed bars is most
-       of a phone's height, on the screen somebody is typing into.
-
-       Only below 680px, which is where the panel becomes a bar. Between 681px and 1199px the banner
-       shows and the panel is a column beside the page, so nothing overlaps and the slot is kept. */
-    .app-body:has(.editor-rail) .ad-banner {
-        display: none;
     }
 
     /* Half the size, because a bar that is 60px tall on a phone is a bar and a half. */

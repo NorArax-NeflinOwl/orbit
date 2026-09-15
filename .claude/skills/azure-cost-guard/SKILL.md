@@ -11,6 +11,26 @@ careless `az containerapp create` or a scaled-up revision keeps costing until
 someone notices it. Because of that, mutating commands need the user's explicit
 go-ahead, every time.
 
+## The limits that are supposed to be in place
+
+Two numbers, set up in `info/azure-setup.md` under "Cost limits": **10 € a month warns, 20 € a month
+is the ceiling.** Read that section before changing anything that bills, and know these three things
+about it:
+
+- The `orbit-monthly-budget` budget only notifies. Azure has no spending cap on pay-as-you-go, so
+  nothing stops on its own at 20 €. The mails it triggers are written by the runbook in
+  `orbit-automation` (`scripts/send-cost-instruction-mail.ps1`), whose identity is Reader only - it
+  mails commands and runs none.
+- What actually stops the spending is `scripts/stop-azure-compute.sh`, run by a person. It stops the
+  PostgreSQL server and empties both Container Apps, and `--resume` puts them back.
+- Cost data lags by up to a day, so "we are at 12 €" always means "we were".
+
+Where does this month stand, before proposing anything that adds to it:
+
+```bash
+scripts/stop-azure-compute.sh --status
+```
+
 ## Classify the command first
 
 ### Read-only — run freely
@@ -28,7 +48,8 @@ go-ahead, every time.
 - `az acr create`, `az acr update --sku`, anything ACR Tasks (`az acr build`,
   `az acr task` — deliberately unused in this project, see `ci-pipeline`)
 - `az group create/delete`
-- `az monitor app-insights component create`
+- `az monitor app-insights component create`, `az monitor action-group create`
+- `az rest --method put` / `--method delete` against anything, the budget included
 - `az identity create`, federated credential create/update/delete
 - `az role assignment create`
 - Anything with `delete` or `purge`
@@ -57,6 +78,11 @@ not carry over — permission is per command.
 - Delete anything to "start clean". Re-creation costs time and money.
 - Enable higher-priced SKUs or features (ACR Premium, dedicated workload
   profiles, zone redundancy) — they add recurring cost.
+- Turn on a **Microsoft Defender for Cloud plan** to raise the secure score. Each is a
+  recurring per-resource charge, and the ones that would clear the score come to more per
+  month than everything Orbit runs on — priced out in `info/azure-security.md`. The free
+  hardening on that page is where to go instead; buying a plan is the user's decision,
+  taken against the ceiling.
 
 ## Cheap alternatives to try first
 

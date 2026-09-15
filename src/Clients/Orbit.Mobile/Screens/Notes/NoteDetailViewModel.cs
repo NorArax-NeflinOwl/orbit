@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Notes;
@@ -25,6 +26,27 @@ namespace Orbit.Mobile.Screens.Notes;
 /// one is on this screen exactly as it is in Orbit.Web's editor. A note this device cannot open - no
 /// key, or a key pair since replaced - still opens read-only and says which of those it is.
 /// </summary>
+/// <summary>
+/// One entry of the sheet the "Aa" button opens: a style under the name the reader sees it by.
+/// </summary>
+public sealed record NoteStyleChoice(string Name, NoteLineStyle Style);
+
+/// <summary>One of the two rules the separator tool offers - see NoteDetailViewModel.SeparatorChoices.</summary>
+public sealed record NoteSeparatorChoice(string Name, bool IsDated);
+
+/// <summary>What the table's own menu can do to the table a cell is in - the browser's table menu, on the phone.</summary>
+public enum NoteTableAction
+{
+    AddRowBelow,
+    AddColumnRight,
+    RemoveRow,
+    RemoveColumn,
+    RemoveTable
+}
+
+/// <summary>One entry of the table's menu, worded for the sheet - see <see cref="NoteDetailViewModel.TableActions"/>.</summary>
+public sealed record NoteTableActionChoice(string Name, NoteTableAction Action);
+
 public sealed partial class NoteDetailViewModel : ObservableObject
 {
     private readonly LocalNoteRepository _notes;
@@ -34,6 +56,15 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     private readonly EditLock _editLock;
     private readonly Translations _translations;
     private readonly PrivateContentSealer _privateContent;
+
+    /// <summary>Where a picture's bytes come from - see NotePictureCache. Null on a screen built without one, which draws no pictures.</summary>
+    private readonly NotePictureCache? _pictures;
+
+    /// <summary>The server's id of the note being shown, which is what its pictures are fetched under - null until the note is read in, or for one the server has never seen.</summary>
+    private Guid? _pictureNoteId;
+
+    /// <summary>Whether the note's pictures are sealed - a private note's are, under the account's key.</summary>
+    private bool _picturesAreSealed;
     private readonly IScreenNavigator _navigator;
     private readonly TimeProvider _timeProvider;
 
@@ -127,8 +158,10 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         LocalNoteRepository notes, NoteSynchronizer synchronizer, NotesClient notesClient, EditLock editLock,
         Translations translations, PrivateContentSealer privateContent, SharePanel share, IScreenNavigator navigator,
         LocalFolderRepository folders, TimeProvider timeProvider,
-        LocalTagColourRepository? tagColours = null, TagColourSynchronizer? tagColourSynchronizer = null)
+        LocalTagColourRepository? tagColours = null, TagColourSynchronizer? tagColourSynchronizer = null,
+        NotePictureCache? pictures = null)
     {
+        _pictures = pictures;
         Tags = new Orbit.Mobile.Screens.Tags.TagsForm(translations, tagColours, tagColourSynchronizer);
         _timeProvider = timeProvider;
         _folders = folders;
@@ -185,6 +218,32 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         Status = string.Empty;
     }
 
+    /// <summary>
+    /// Whether this note is put away - see Orbit.Core.Folders.BuiltInFolder.Archived. Read by the page
+    /// only to name the menu entry below, which reads "Archive" or "Put back" for the same command.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isArchived;
+
+    /// <summary>
+    /// Puts it away, or brings it back. Its own kind of change, queued like the filing above and for the
+    /// same reason - see LocalNoteRepository.ArchiveAsync.
+    /// </summary>
+    [RelayCommand]
+    private async Task ArchiveAsync(bool isArchived, CancellationToken cancellationToken)
+    {
+        var outcome = await _notes.ArchiveAsync(_localId, isArchived, cancellationToken);
+
+        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        {
+            Status = _translations["This one can't be moved while you're offline."];
+            return;
+        }
+
+        IsArchived = isArchived;
+        Status = string.Empty;
+    }
+
     [ObservableProperty]
     private Tasks.PriorityChoice _chosenPriority;
 
@@ -192,6 +251,14 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     private string _priority = nameof(Orbit.Core.Abstractions.ItemPriority.Normal);
 
     public ObservableCollection<NoteLineRow> Lines { get; } = [];
+
+    /// <summary>
+    /// The note as plain words, for the clipboard - the format Orbit.Web copies in and a paste reads
+    /// back, so a note copied here lands in another note as the same note. Built here rather than in the
+    /// page because it is what the note says rather than how the page draws it; putting it on the
+    /// clipboard is the page's part, MAUI's Clipboard being a thing Orbit.Mobile cannot see.
+    /// </summary>
+    public string AsWords() => NoteWords.Of(Title, [.. Lines.Select(line => line.ToLine())]);
 
     /// <summary>Offering this to somebody else - see SharePanel.</summary>
     public SharePanel Share { get; }
@@ -369,6 +436,197 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     {
         var index = row is null ? -1 : Lines.IndexOf(row);
         return index < 0 || index >= Lines.Count - 1 ? null : Lines[index + 1];
+    }
+
+    /// <summary>
+    /// One level more at the head of a line. The two buttons over the note's foot, beside undo and redo,
+    /// and a hardware keyboard's Tab - see NoteLineKeys. A soft keyboard has no Tab key at all, so
+    /// without these a note written on the phone could show indentation the browser wrote and carry it
+    /// on to the next line (see <see cref="NoteSurfaceEdits.Enter"/>'s keepsIndentation), but never add
+    /// or take away a level of its own.
+    ///
+    /// The edit is the browser's - Orbit.Core's <see cref="NoteSurfaceEdits.Indent"/> - so a level means
+    /// the same thing wherever a note is written. It is taken at the <b>head</b> of the line rather than
+    /// at the caret, which is the one place this parts from the browser and is deliberate: Tab there
+    /// puts a tab where the caret is, because that is what a Tab key does in a writing surface, while
+    /// the way in here is a button, and a button called Indent means "move this line in a level" rather
+    /// than "type a tab wherever I happen to be". Pressing it also takes the focus off the field, so the
+    /// column the caret was in is not something this could be sure of; and Outdent works off the head
+    /// whatever the caret does, so taking Indent from there is what makes the pair a pair.
+    /// </summary>
+    [RelayCommand]
+    private void Indent(NoteLineRow? row) => Reindent(row, NoteSurfaceEdits.Indent);
+
+    /// <summary>
+    /// One level less, the mirror of <see cref="Indent"/> - the second button, and Shift+Tab. A line with
+    /// no indentation to take away is left alone, and the press is not a step to undo: the history drops
+    /// an edit that changed no writing (see NoteSurfaceHistory.Record).
+    /// </summary>
+    [RelayCommand]
+    private void Outdent(NoteLineRow? row) => Reindent(row, NoteSurfaceEdits.Outdent);
+
+    /// <summary>
+    /// Makes a line a heading, a line of a list, or ordinary writing again - the phone's half of the
+    /// browser's "Aa" control. Works <see cref="NoteSurfaceEdits.Restyle"/> on the surface with the caret
+    /// at the head of <paramref name="row"/>, exactly as the indent buttons do, so the press changes
+    /// that line rather than wherever the caret happens to be. Asking for the style a line already is
+    /// takes it back to ordinary writing, which is the rule the surface itself holds.
+    ///
+    /// A method rather than a command because it takes two things - the line and the style - and the
+    /// page hands it both from the sheet it opened (see NoteDetailPage.ChooseAStyleAsync).
+    /// </summary>
+    public void Restyle(NoteLineRow? row, NoteLineStyle style)
+    {
+        if (row is null || IsReadOnly || Lines.IndexOf(row) is var index && index < 0)
+        {
+            return;
+        }
+
+        var before = Surface(new SurfacePoint(index + 1, 0));
+        Apply(before, NoteSurfaceEdits.Restyle(before, style), SurfaceEditKind.Reshaping);
+    }
+
+    /// <summary>
+    /// The styles the sheet offers, in the order Apple Notes lists them and in the reader's language -
+    /// biggest first, then the plain ones, then the lists. Ordinary writing is among them on purpose: it
+    /// is how somebody takes a heading off without having to know that asking for Heading again does the
+    /// same thing. Built here rather than in the page so the wording is testable.
+    /// </summary>
+    public IReadOnlyList<NoteStyleChoice> StyleChoices =>
+    [
+        new(_translations["Title"], NoteLineStyle.Title),
+        new(_translations["Heading"], NoteLineStyle.Heading),
+        new(_translations["Subheading"], NoteLineStyle.Subheading),
+        new(_translations["Body"], NoteLineStyle.Body),
+        new(_translations["Monospaced"], NoteLineStyle.Monospaced),
+        new(_translations["Bulleted list"], NoteLineStyle.Bulleted),
+        new(_translations["Dashed list"], NoteLineStyle.Dashed),
+        new(_translations["Numbered list"], NoteLineStyle.Numbered)
+    ];
+
+    /// <summary>
+    /// Puts a table where <paramref name="row"/> is - the phone's half of the browser's table tool, for a
+    /// caret that is not in a table. The surface's own rule decides where it lands: an empty plain line
+    /// becomes the table, any other gets it underneath (<see cref="NoteSurfaceEdits.InsertTable"/>). With
+    /// no line to go by it goes after the last one, as the indent buttons take theirs.
+    /// </summary>
+    public void InsertTable(NoteLineRow? row)
+    {
+        if (IsReadOnly)
+        {
+            return;
+        }
+
+        var index = row is null ? Lines.Count - 1 : Lines.IndexOf(row);
+        if (index < 0)
+        {
+            return;
+        }
+
+        var before = Surface(new SurfacePoint(index + 1, 0));
+        Apply(before, NoteSurfaceEdits.InsertTable(before), SurfaceEditKind.Reshaping);
+    }
+
+    /// <summary>
+    /// The two rules the separator tool offers, in the reader's own language - a rule with the moment
+    /// written on it, and a rule with nothing. Built here rather than in the page, so the wording is
+    /// testable, as the styles above are.
+    /// </summary>
+    public IReadOnlyList<NoteSeparatorChoice> SeparatorChoices =>
+    [
+        new(_translations["Date and time"], IsDated: true),
+        new(_translations["Plain line"], IsDated: false)
+    ];
+
+    /// <summary>
+    /// Puts a rule across the note where <paramref name="row"/> is, landing by the surface's own rule
+    /// the way a table does. <paramref name="isDated"/> decides what is written on it, and the stamp is
+    /// worked out **here**, once: see NoteSeparatorLine.Stamp, which says why a date on a separator is
+    /// the day it was drawn rather than the day it is read. Written in the reader's own language and
+    /// format, because it is written by the reader making it.
+    /// </summary>
+    public void InsertSeparator(NoteLineRow? row, bool isDated)
+    {
+        if (IsReadOnly)
+        {
+            return;
+        }
+
+        var index = row is null ? Lines.Count - 1 : Lines.IndexOf(row);
+        if (index < 0)
+        {
+            return;
+        }
+
+        var stamp = isDated
+            ? _timeProvider.GetLocalNow().DateTime.ToString("f", CultureInfo.CurrentCulture)
+            : string.Empty;
+
+        var before = Surface(new SurfacePoint(index + 1, 0));
+        Apply(before, NoteSurfaceEdits.InsertSeparator(before, stamp), SurfaceEditKind.Reshaping);
+    }
+
+    /// <summary>
+    /// Changes the shape of the table <paramref name="cell"/> is in - the browser's table menu, for a
+    /// caret that is in one. A row or a column goes beside the cell's; taking the last row or column
+    /// away takes the table and leaves an empty line to write on, which is the surface's rule. A stale
+    /// cell - one whose line is no longer a table - does nothing.
+    /// </summary>
+    public void ReshapeTable(NoteTableCellField? cell, NoteTableAction action)
+    {
+        if (cell is null || IsReadOnly || Lines.IndexOf(cell.Line) is var index && index < 0)
+        {
+            return;
+        }
+
+        var line = index + 1;
+        var before = Surface(new SurfacePoint(line, 0));
+        var after = action switch
+        {
+            NoteTableAction.AddRowBelow => NoteSurfaceEdits.AddTableRow(before, line, cell.Row),
+            NoteTableAction.AddColumnRight => NoteSurfaceEdits.AddTableColumn(before, line, cell.Column),
+            NoteTableAction.RemoveRow => NoteSurfaceEdits.RemoveTableRow(before, line, cell.Row),
+            NoteTableAction.RemoveColumn => NoteSurfaceEdits.RemoveTableColumn(before, line, cell.Column),
+            NoteTableAction.RemoveTable => NoteSurfaceEdits.RemoveTable(before, line),
+            _ => null
+        };
+
+        if (after is null)
+        {
+            return;
+        }
+
+        Apply(before, after, SurfaceEditKind.Reshaping);
+    }
+
+    /// <summary>
+    /// The table menu's entries, in the browser's order and in the reader's language - what can be added
+    /// first, then what can be taken away, the whole table last. Worded here so the wording is testable.
+    /// </summary>
+    public IReadOnlyList<NoteTableActionChoice> TableActions =>
+    [
+        new(_translations["Add row below"], NoteTableAction.AddRowBelow),
+        new(_translations["Add column right"], NoteTableAction.AddColumnRight),
+        new(_translations["Delete row"], NoteTableAction.RemoveRow),
+        new(_translations["Delete column"], NoteTableAction.RemoveColumn),
+        new(_translations["Delete table"], NoteTableAction.RemoveTable)
+    ];
+
+    /// <summary>
+    /// Works <paramref name="edit"/> on the surface with the caret at the head of <paramref name="row"/>,
+    /// which is what makes both of the two an edit to the line rather than to wherever the caret is.
+    /// </summary>
+    private void Reindent(NoteLineRow? row, Func<SurfaceState, SurfaceState> edit)
+    {
+        if (row is null || IsReadOnly || Lines.IndexOf(row) is var index && index < 0)
+        {
+            return;
+        }
+
+        // Line 0 of the surface is the note's name, so a row's own line is one further down - the same
+        // offset MergeIntoTheLineAbove works from.
+        var before = Surface(new SurfacePoint(index + 1, 0));
+        Apply(before, edit(before), SurfaceEditKind.Reshaping);
     }
 
     /// <summary>
@@ -553,6 +811,7 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             ? _translations.Format("Shared by {0} · {1}", sharedBy, lastChanged)
             : lastChanged;
         FolderId = note.FolderId;
+        IsArchived = note.IsArchived;
         Folders = [.. (await _folders.GetAllAsync(FolderScope.Notes, cancellationToken))];
         _isShowingWhatIsStored = true;
         ChosenPriority = Tasks.PriorityChoice.For(note.Priority, _translations);
@@ -581,6 +840,50 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         await ShowWhetherItCanBeChangedAsync(note, cancellationToken);
 
         ShowTheLines(note.Content);
+
+        _pictureNoteId = note.ServerId;
+        _picturesAreSealed = note.IsPrivate;
+        await ShowThePicturesAsync([.. Lines.Where(row => row.IsAPicture)], cancellationToken);
+    }
+
+    /// <summary>
+    /// Fetches, or opens from the handset, the picture of every line in <paramref name="rows"/> that is
+    /// one - after the lines are on the screen, so the words never wait for the bytes. A picture that
+    /// cannot be had leaves a note in its place saying why: sealed under a key this device has not got,
+    /// or not on the handset and not fetchable now - which reads the same whether the phone is offline
+    /// or the server has lost it, and says what to do about the case that can be helped.
+    /// </summary>
+    private async Task ShowThePicturesAsync(IReadOnlyList<NoteLineRow> rows, CancellationToken cancellationToken)
+    {
+        if (rows.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var row in rows)
+        {
+            row.PictureNote = _translations["Picture"];
+        }
+
+        var sealedWithoutAKey = _picturesAreSealed && !await _privateContent.HasKeyAsync(cancellationToken);
+        foreach (var row in rows)
+        {
+            if (row.Picture is not { } picture)
+            {
+                continue;
+            }
+
+            row.PictureBytes = _pictures is not null && _pictureNoteId is { } noteId && !sealedWithoutAKey
+                ? await _pictures.OpenAsync(noteId, picture.PictureId, _picturesAreSealed, cancellationToken)
+                : null;
+
+            if (row.PictureBytes is null)
+            {
+                row.PictureNote = sealedWithoutAKey
+                    ? _translations["This picture is sealed with an encryption key this device doesn't have."]
+                    : _translations["This picture isn't on this phone yet. Open the note while online to fetch it."];
+            }
+        }
     }
 
     /// <summary>
@@ -595,6 +898,7 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             foreach (var line in Lines)
             {
                 line.PropertyChanged -= WhenALineChanges;
+                line.CellWrittenIn -= WhenACellIsWrittenIn;
             }
 
             Lines.Clear();
@@ -612,6 +916,8 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             {
                 AddLineAfter(null);
             }
+
+            NumberTheLists();
         }
         finally
         {
@@ -652,11 +958,39 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     /// letter and deleting it would leave a note asking to be saved with nothing to save.
     /// </summary>
     private string WhatIsOnTheScreen()
+        => string.Join('\u001f', Lines.Select(Everything).Prepend(Title));
+
+    /// <summary>
+    /// One line as everything a Save carries of it, rather than its words alone. A table line has no
+    /// words at all, so a fingerprint made of the text left writing in a cell invisible to the question
+    /// at the door: the screen said there was nothing to lose and leaving threw the edit away. A style,
+    /// a cross and a mark were invisible to it the same way.
+    /// </summary>
+    private static string Everything(NoteLineRow line)
         => string.Join(
-            '\u001f',
-            Lines
-                .Select(line => $"{line.Text}\u001e{line.IsChecklistItem}\u001e{line.IsChecked}")
-                .Prepend(Title));
+            '\u001e',
+            new[]
+            {
+                line.Text,
+                line.IsChecklistItem.ToString(),
+                line.IsChecked.ToString(),
+                line.IsFailed.ToString(),
+                line.Style.ToString(),
+                Spelled(line.Marks),
+                CellsOf(line.Table),
+                line.Picture?.PictureId.ToString() ?? string.Empty
+            });
+
+    /// <summary>A table's cells in the order they are drawn, words and marks alike - empty for a line that is not one.</summary>
+    private static string CellsOf(NoteTable? table)
+        => table is null
+            ? string.Empty
+            : string.Join(
+                '\u001d',
+                table.Rows.SelectMany(row => row.Cells.Select(cell => $"{cell.Text}\u001c{Spelled(cell.AllMarks)}")));
+
+    private static string Spelled(IReadOnlyList<NoteTextRun> marks)
+        => string.Join(',', marks.Select(mark => $"{mark.Start}:{mark.Length}:{mark.Mark}"));
 
     private void RememberWhatIsWrittenDown() => _writtenDown = WhatIsOnTheScreen();
 
@@ -679,6 +1013,7 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         // A line that arrives while boxes are being chosen can be chosen too, once it has a box.
         row.OffersPicking = IsPickingLines;
         row.PropertyChanged += WhenALineChanges;
+        row.CellWrittenIn += WhenACellIsWrittenIn;
     }
 
     private void WhenALineChanges(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
@@ -706,6 +1041,12 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             return;
         }
 
+        // The marks move along with what was typed - the same arithmetic the browser's surface does
+        // for an edit it owns (NoteTextMarks.Kept) - so a bold word is still bold, and still the same
+        // word, once the field closes and the label draws it again. Done before anything records the
+        // line, so what the history holds is the line as it now is.
+        row.Marks = NoteTextMarks.Kept(row.Marks, change.Start, change.Removed, change.Inserted.Length, row.Text.Length);
+
         if (ReadPastedMarker(row, line, change))
         {
             return;
@@ -713,6 +1054,26 @@ public sealed partial class NoteDetailViewModel : ObservableObject
 
         RecordTyping(line, change);
         ReadTypedMarker(row, line, change);
+    }
+
+    /// <summary>
+    /// Something written in a cell of a table, which the line has already put into the table (see
+    /// NoteLineRow.WhenACellChanges). Recorded as typing on the table's line with the caret at its head -
+    /// a cell is not a point on the surface, so the head of the line is the only place the step can say
+    /// it happened - which is where an undo puts the caret back, and which lets a run of characters
+    /// typed into the cells join one step the way typing in a line does.
+    /// </summary>
+    private void WhenACellIsWrittenIn(object? sender, NoteCellChange written)
+    {
+        if (_applying > 0 || sender is not NoteLineRow row || Lines.IndexOf(row) is var index && index < 0)
+        {
+            return;
+        }
+
+        var at = new SurfacePoint(index + 1, 0);
+        var before = _history.Current with { Anchor = at, Focus = at };
+        var kind = written.Change.Inserted.Length == 0 ? SurfaceEditKind.Erasing : SurfaceEditKind.Typing;
+        Record(before, at, kind, written.Change.Inserted);
     }
 
     /// <summary>
@@ -1068,19 +1429,49 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             for (var gone = changedInPlace; gone < shownBetween; gone++)
             {
                 Lines[same + changedInPlace].PropertyChanged -= WhenALineChanges;
+                Lines[same + changedInPlace].CellWrittenIn -= WhenACellIsWrittenIn;
                 Lines.RemoveAt(same + changedInPlace);
             }
 
+            List<NoteLineRow> arrivedWithAPicture = [];
             for (var added = changedInPlace; added < wantedBetween; added++)
             {
                 var row = NoteLineRow.From(wanted[same + added]);
                 Lines.Insert(same + added, row);
                 Watch(row);
+                if (row.IsAPicture)
+                {
+                    arrivedWithAPicture.Add(row);
+                }
+            }
+
+            NumberTheLists();
+
+            // A picture line an undo brought back is a new row with no bytes; they are fetched after
+            // the lines are shown, as they are when the note is read in, and the screen does not wait.
+            if (arrivedWithAPicture.Count > 0)
+            {
+                _ = ShowThePicturesAsync(arrivedWithAPicture, CancellationToken.None);
             }
         }
         finally
         {
             _applying--;
+        }
+    }
+
+    /// <summary>
+    /// Writes each numbered line's number onto it - see <see cref="NoteLineLook.NumbersFor"/>. Called
+    /// wherever the lines change, because a line's number is a fact about what is above it: inserting one
+    /// in the middle of a list renumbers everything under it. Orbit.Web draws them the same way - see
+    /// numberTheLists in checklistTextEditor.js.
+    /// </summary>
+    private void NumberTheLists()
+    {
+        var numbers = NoteLineLook.NumbersFor([.. Lines.Select(line => line.Style)]);
+        for (var index = 0; index < Lines.Count; index++)
+        {
+            Lines[index].ListNumber = numbers[index];
         }
     }
 
@@ -1198,6 +1589,30 @@ public sealed partial class NoteDetailViewModel : ObservableObject
 
     [RelayCommand(CanExecute = nameof(CanPickLines))]
     private void StartPickingLines() => IsPickingLines = true;
+
+    /// <summary>
+    /// Holding a box starts choosing them and chooses that one, which is the way in somebody reaching for
+    /// several boxes tries first - the menu's "Select boxes" asks for the mode and then for a box, and a
+    /// hold says both at once. Read on Android by LongPresses; a head that does not read the gesture
+    /// still has the menu, which is why this is a second way in rather than the only one.
+    ///
+    /// Nothing happens on a note with fewer than two boxes (<see cref="CanPickLines"/>) or on a line that
+    /// has no box: there is nothing to choose it against, and a mode turned on by accident over a note
+    /// with one box would have to be turned off again by hand.
+    /// </summary>
+    [RelayCommand]
+    private void PickThisLine(NoteLineRow? row)
+    {
+        if (row is not { IsChecklistItem: true } || !CanPickLines)
+        {
+            return;
+        }
+
+        IsPickingLines = true;
+        // The line over the note follows from here on its own: a row is watched, and IsPicked changing is
+        // one of the two things that re-reads it - see WhenALineChanges.
+        row.IsPicked = true;
+    }
 
     /// <summary>Stops choosing and lets every chosen box go.</summary>
     [RelayCommand]

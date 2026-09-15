@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Calendar;
+using Orbit.Core.Folders;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Google;
@@ -26,6 +27,56 @@ namespace Orbit.Mobile.Screens.Calendar;
 public sealed partial class CalendarEventDetailViewModel : ObservableObject
 {
     private readonly LocalCalendarEventRepository _events;
+    private readonly LocalFolderRepository _folderRepository;
+
+    /// <summary>
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.Folders" path="/summary/node()"/>
+    /// </summary>
+    public IReadOnlyList<LocalFolder> Folders { get; private set; } = [];
+
+    /// <summary>Which of them it is in, or null for one in none - see FolderPlacement.</summary>
+    [ObservableProperty]
+    private Guid? _folderId;
+
+    /// <summary>
+    /// Puts it in a folder, or takes it out of one. Written down at once and queued behind whatever else
+    /// is waiting - see LocalCalendarEventRepository.FileAsync, which says why filing is its own kind of
+    /// change rather than part of the save.
+    /// </summary>
+    [RelayCommand]
+    private async Task FileAsync(Guid? folderId, CancellationToken cancellationToken)
+    {
+        var outcome = await _events.FileAsync(_localId, folderId, cancellationToken);
+
+        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        {
+            Status = _translations["This one can't be moved while you're offline."];
+            return;
+        }
+
+        FolderId = folderId;
+        Status = string.Empty;
+    }
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.IsArchived"/>
+    [ObservableProperty]
+    private bool _isArchived;
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.ArchiveAsync"/>
+    [RelayCommand]
+    private async Task ArchiveAsync(bool isArchived, CancellationToken cancellationToken)
+    {
+        var outcome = await _events.ArchiveAsync(_localId, isArchived, cancellationToken);
+
+        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        {
+            Status = _translations["This one can't be moved while you're offline."];
+            return;
+        }
+
+        IsArchived = isArchived;
+        Status = string.Empty;
+    }
 
     /// <summary>Only to say why this is read-only, in the same words the calendar's own rows use.</summary>
     private readonly INetworkStatus _networkStatus;
@@ -232,8 +283,9 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         SharePanel share, IScreenNavigator navigator,
         CalendarClient calendarClient, EditLock editLock, IDeviceLocation deviceLocation,
         ChatRepository contacts, GoogleIntegrationAccess google, INetworkStatus networkStatus,
-        Orbit.Mobile.Location.PlaceSearch places)
+        Orbit.Mobile.Location.PlaceSearch places, LocalFolderRepository folders)
     {
+        _folderRepository = folders;
         _places = places;
         _networkStatus = networkStatus;
         _events = events;
@@ -603,6 +655,9 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         }
 
         _loaded = calendarEvent.Details;
+        FolderId = calendarEvent.FolderId;
+        IsArchived = calendarEvent.IsArchived;
+        Folders = [.. await _folderRepository.GetAllAsync(FolderScope.Calendar, cancellationToken)];
         if (calendarEvent.ServerId is { } serverId)
         {
             Share.Describes(

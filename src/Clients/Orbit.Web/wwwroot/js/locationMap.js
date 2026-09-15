@@ -45,8 +45,14 @@ export async function showLocations(elementId, points, dotNetHelper) {
     // Zoom moved out of the top left, which is where Leaflet puts it and where the page now keeps its
     // own "+" for keeping a place. Two plus signs touching, one of them meaning "closer" and the other
     // "remember this spot", is a corner nobody can read - and of the two the zoom is the one that has
-    // another way in, since a wheel and a pinch both do it already.
-    const map = L.map(elementId, { zoomControl: false }).setView(start, drawn.length > 0 ? 14 : 6);
+    // another way in, since the buttons below and a pinch both do it.
+    //
+    // The wheel is not one of those ways any more (scrollWheelZoom). A map inside a scrolling page
+    // swallows the wheel the page was being read with: the reader scrolls past the map and the map
+    // zooms instead, losing both the place they were looking at and their place on the page. The
+    // buttons, a pinch and a double press all still zoom, so nothing is only reachable by the wheel.
+    const map = L.map(elementId, { zoomControl: false, scrollWheelZoom: false })
+        .setView(start, drawn.length > 0 ? 14 : 6);
     L.control.zoom({ position: 'bottomleft' }).addTo(map);
     // Asked rather than added: the tiles are the one third-party request Orbit cannot serve itself,
     // so they are the one thing "do not share my personal information" turns off - see mapTiles.js.

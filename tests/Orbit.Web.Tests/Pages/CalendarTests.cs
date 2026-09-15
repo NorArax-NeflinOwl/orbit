@@ -205,6 +205,56 @@ public sealed class CalendarTests : OrbitTestContext
                 IsAllDay: false, null, [], [], "None", "None"),
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null, AccessLevel: "ReadOnly", OriginalOwnerUserId: null);
 
+    /// <summary>
+    /// A tab narrows the grid and the list beside it together, so the whole calendar is what is in one
+    /// folder rather than half of it.
+    /// </summary>
+    [Fact]
+    public void Only_the_events_under_the_open_tab_are_on_the_calendar()
+    {
+        var week = Guid.NewGuid();
+        RegisterFolders([new Orbit.Contracts.Folders.FolderDto(
+            week, "This week", nameof(Orbit.Core.Folders.FolderScope.Calendar),
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow)]);
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        var filed = CreateTimedEvent(midMonth, midMonth.AddHours(1), "Dentist") with { FolderId = week };
+        RegisterCalendarApiClient([filed, CreateTimedEvent(midMonth, midMonth.AddHours(1), "Haircut")]);
+
+        var cut = RenderComponent<Calendar>();
+
+        // Public is where a page opens, so the filed one is not on it.
+        Assert.Contains("Haircut", cut.Markup);
+        Assert.DoesNotContain("Dentist", cut.Markup);
+
+        cut.FindAll(".folder-tab").Single(tab => tab.TextContent.Contains("This week")).Click();
+
+        Assert.Contains("Dentist", cut.Markup);
+        Assert.DoesNotContain("Haircut", cut.Markup);
+    }
+
+    /// <summary>The calendar draws no Private tab - an event is never sealed, see FolderPages.HasAPrivateTab.</summary>
+    [Fact]
+    public void The_calendar_offers_no_Private_tab()
+    {
+        RegisterCalendarApiClient([]);
+
+        var cut = RenderComponent<Calendar>();
+
+        Assert.DoesNotContain(
+            "Private",
+            cut.FindAll(".folder-tab").Select(tab => tab.TextContent.Trim()));
+    }
+
+    /// <summary>The tabs this account has made, over the empty set OrbitTestContext registers.</summary>
+    private void RegisterFolders(IReadOnlyList<Orbit.Contracts.Folders.FolderDto> folders)
+    {
+        var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(folders)))
+        {
+            BaseAddress = new Uri("https://example.test/")
+        };
+        Services.AddSingleton(new FolderState(new FoldersApiClient(httpClient)));
+    }
+
     /// <summary>Something that takes the whole of a day and so has no hour of its own.</summary>
     private static CalendarEventDto CreateAllDayEvent(DateTime localDay, string title)
         => CreateTimedEvent(localDay.Date, localDay.Date.AddDays(1), title) is var timed

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Inventories;
+using Orbit.Core.Folders;
 using Orbit.Core.Inventories;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
@@ -27,6 +28,57 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
 
     /// <summary>Only to say why this is read-only, in the same words the inventory's own rows use.</summary>
     private readonly INetworkStatus _networkStatus;
+    private readonly LocalFolderRepository _folderRepository;
+
+    /// <summary>
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.Folders" path="/summary/node()"/>
+    /// </summary>
+    public IReadOnlyList<LocalFolder> Folders { get; private set; } = [];
+
+    /// <summary>Which of them it is in, or null for one in none - see FolderPlacement.</summary>
+    [ObservableProperty]
+    private Guid? _folderId;
+
+    /// <summary>
+    /// Puts it in a folder, or takes it out of one. Written down at once and queued behind whatever else
+    /// is waiting - see LocalInventoryRepository.FileAsync, which says why filing is its own kind of
+    /// change rather than part of the save. A private shelf is filed like any other: its folder is
+    /// outside the sealed half.
+    /// </summary>
+    [RelayCommand]
+    private async Task FileAsync(Guid? folderId, CancellationToken cancellationToken)
+    {
+        var outcome = await _inventories.FileAsync(_localId, folderId, cancellationToken);
+
+        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        {
+            Status = _translations["This one can't be moved while you're offline."];
+            return;
+        }
+
+        FolderId = folderId;
+        Status = string.Empty;
+    }
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.IsArchived"/>
+    [ObservableProperty]
+    private bool _isArchived;
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.ArchiveAsync"/>
+    [RelayCommand]
+    private async Task ArchiveAsync(bool isArchived, CancellationToken cancellationToken)
+    {
+        var outcome = await _inventories.ArchiveAsync(_localId, isArchived, cancellationToken);
+
+        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        {
+            Status = _translations["This one can't be moved while you're offline."];
+            return;
+        }
+
+        IsArchived = isArchived;
+        Status = string.Empty;
+    }
     private readonly InventorySynchronizer _synchronizer;
     private readonly InventoryClient _inventoryClient;
     private readonly EditLock _editLock;
@@ -103,8 +155,10 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
         SharePanel share, IScreenNavigator navigator,
         InventoryClient inventoryClient, EditLock editLock, PrivateContentSealer privateContent,
         NameSuggestions nameSuggestions, NameSuggestions inventoryNameSuggestions,
-        INetworkStatus networkStatus, RestockListSettingsPanel restockList, LocalTaskListRepository taskLists)
+        INetworkStatus networkStatus, RestockListSettingsPanel restockList, LocalTaskListRepository taskLists,
+        LocalFolderRepository folders)
     {
+        _folderRepository = folders;
         _taskLists = taskLists;
         _networkStatus = networkStatus;
         RestockList = restockList;
@@ -461,6 +515,9 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
         }
 
         Name = inventory.Name;
+        FolderId = inventory.FolderId;
+        IsArchived = inventory.IsArchived;
+        Folders = [.. await _folderRepository.GetAllAsync(FolderScope.Inventories, cancellationToken)];
         Description = inventory.Description;
         _savedDescription = inventory.Description;
         // Taken as already looked up, so opening an inventory does not offer completions of its own name

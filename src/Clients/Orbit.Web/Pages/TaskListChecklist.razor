@@ -13,6 +13,7 @@
 @using Orbit.Core.Inventories
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Abstractions
+@using Orbit.Core.Notifications
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
 @inject NavigationManager NavigationManager
@@ -60,6 +61,25 @@ else
     @if (_errorMessage is not null)
     {
         <p class="error">@_errorMessage</p>
+    }
+
+    @* Naming the list about to go inside this one. Unfolded from the menu rather than always there:
+       it is one of the things this page can do, not what the page is - see StartASublist. *@
+    @if (_isNamingASublist)
+    {
+        <div class="card checklist-new-sublist">
+            <label for="newSublistName">@T["New sublist"]<FieldHint>@T["A list of its own, inside this one. It starts where this list is - the same folder - and this list gets an entry standing for it."]</FieldHint></label>
+            <div class="field-row">
+                <input id="newSublistName" type="text" value="@_sublistName" disabled="@_isMakingASublist"
+                       placeholder="@(T["What is it called?"])" aria-label="@(T["New sublist"])"
+                       @oninput="args => _sublistName = args.Value?.ToString() ?? string.Empty"
+                       @onkeydown="OnSublistNameKeyDownAsync" />
+                <button type="button" class="btn-primary" disabled="@(_isMakingASublist || _sublistName.Trim().Length == 0)"
+                        @onclick="MakeTheSublistAsync">@T["Create"]</button>
+                <button type="button" class="btn-secondary" disabled="@_isMakingASublist"
+                        @onclick="() => _isNamingASublist = false">@T["Cancel"]</button>
+            </div>
+        </div>
     }
 
     @* What this list's work costs against an inventory. Offered where the list actually has errands
@@ -215,24 +235,24 @@ else
     }
     else
     {
-    @foreach (var section in _sections)
+    @foreach (var checklistSection in _sections)
     {
-        <div class="card checklist-card" style="--checklist-depth: @section.Depth">
-            @if (section.IsMember)
+        <div class="card checklist-card" style="--checklist-depth: @checklistSection.Depth">
+            @if (checklistSection.IsMember)
             {
                 <div class="card-header">
-                    <span class="card-title">@Written(section.TaskList.Title)</span>
-                    <span class="card-count">@CompletionSummary(section.TaskList)</span>
+                    <span class="card-title">@Written(checklistSection.TaskList.Title)</span>
+                    <span class="card-count">@CompletionSummary(checklistSection.TaskList)</span>
                 </div>
             }
 
-            @if (section.TaskList.Items.Count == 0)
+            @if (checklistSection.TaskList.Items.Count == 0)
             {
                 <p class="checklist-empty">@T["No items."]</p>
             }
             else
             {
-                @foreach (var item in ItemsToShow(section.TaskList))
+                @foreach (var item in ItemsToShow(checklistSection.TaskList))
                 {
                     <div class="check-row @RowMark(item) @(Highlight == item.Id ? "highlighted" : "")">
                         @* An entry standing for other lists is not ticked here - it is done when they
@@ -241,13 +261,13 @@ else
                            not disabled - a disabled box takes no press at all and had nothing to say. *@
                         <TickBox State="@TickOf(item)"
                                  AriaLabel="@T.Format("Done: {0}", Written(item.Description))"
-                                 IsDisabled="@IsItemLocked(section, item)"
-                                 StateChanged="state => PressAsync(section.TaskList, item, state)" />
+                                 IsDisabled="@IsItemLocked(checklistSection, item)"
+                                 StateChanged="state => PressAsync(checklistSection.TaskList, item, state)" />
                         @* Opens the entry to be read rather than ticking it off. Ticking is the
                            checkbox's job, and it was doing both: the row was a <label>, so reading a
                            line by tapping it completed it. *@
                         <button type="button" class="check-row-text check-row-text-opens"
-                                @onclick="() => GoToEntry(section.TaskList.Id, item.Id)">@Written(item.Description)</button>
+                                @onclick="() => GoToEntry(checklistSection.TaskList.Id, item.Id)">@Written(item.Description)</button>
                         @* What it is about, the same marks the cards on /tasks carry - see TaskItem.Categories. *@
                         @foreach (var category in item.AllCategories)
                         {
@@ -298,7 +318,7 @@ else
                     @if (_waitingOn == item.Id)
                     {
                         <div class="check-row-asks">
-                            <span>@T.Format("Waiting for {0}.", WhatItWaitsForNamed(section.TaskList, item))</span>
+                            <span>@T.Format("Waiting for {0}.", WhatItWaitsForNamed(checklistSection.TaskList, item))</span>
                             <button type="button" class="btn-secondary" @onclick="() => _waitingOn = null">@T["OK"]</button>
                         </div>
                     }
@@ -323,7 +343,7 @@ else
                     }
                     @if (_askedAboutWays == item.Id)
                     {
-                        @WaysAsked(section.TaskList, item)
+                        @WaysAsked(checklistSection.TaskList, item)
                     }
                 }
             }
@@ -336,6 +356,14 @@ else
    buttons, because none of it is what somebody came here to do. It stays open while they set how the
    page reads, and the entries that act close it. *@
 <EditorRail OnCancel="LeaveAsync" OnEdit="GoToDeepEditor">
+    <Extras>
+        @* How much of the list is done, which the card on /tasks says and this screen did not - a page
+           read by scrolling through the entries is exactly the one that cannot be counted at a glance.
+           The whole tree, not the section the reader happens to be looking at: the question is about
+           the list they opened, and the cards below each say their own. *@
+        <p class="row-meta">@T.Format("Done: {0} of {1}", DoneOnTheWholeList, EverythingOnTheWholeList)</p>
+    </Extras>
+    <ChildContent>
     <OverflowMenu @ref="_menu" StaysOpen="true">
         <span class="overflow-menu-heading">@T["Sort"]</span>
         @* What order to read the items in. Offered whatever the list looks like: a single long
@@ -363,6 +391,17 @@ else
             @(_savedReading == _reading ? T["View saved"] : T["Save view"])
         </button>
         @* No Edit in here: it is a button of its own on the panel now - see EditorRail.OnEdit. *@
+        @* A list inside this one, made from here. A group list is a list of lists, and until now the
+           only way to add one was to leave for /tasks, make it there, come back, add an entry and point
+           that entry at it - four steps for the thing this page is most obviously for.
+
+           Not offered on a sealed list: its entries are written and sealed by the editor, which owns
+           that machinery, and adding one from here would write it in the clear. Nor on a list shared to
+           read, which is not this reader's to add to. *@
+        @if (CanAddASublist)
+        {
+            <button type="button" class="avatar-dropdown-item" @onclick="StartASublist">@T["New sublist"]</button>
+        }
         @* Deleting the list from the list itself. A note, an inventory and a calendar event have all
            been deletable from the screen that reads them; a task list was the one that could only be
            deleted from the page of cards, which meant leaving the thing to get rid of it. Offered only
@@ -385,6 +424,7 @@ else
             </button>
         }
     </OverflowMenu>
+    </ChildContent>
 </EditorRail>
 </div>
 }
@@ -430,6 +470,115 @@ else
     private bool _isLoading = true;
     private string? _errorMessage;
     private bool _isDeleting;
+
+    /// <summary>Whether the row that names a new sublist is unfolded - see StartASublist.</summary>
+    private bool _isNamingASublist;
+
+    private bool _isMakingASublist;
+    private string _sublistName = string.Empty;
+
+    /// <summary>
+    /// Whether a list can be made inside this one from here. A group list is a list of lists, so this
+    /// is the page where one belongs - but not on a sealed list, whose entries are written and sealed by
+    /// the editor and would be written in the clear from here, and not on one shared to read, which is
+    /// not this reader's to add to.
+    /// </summary>
+    private bool CanAddASublist
+        => _sections.Count > 0
+            && _sections[0].TaskList is { IsGroup: true, IsPrivate: false } group
+            && TaskItemCompletion.CanBeTicked(group);
+
+    private void StartASublist()
+    {
+        _sublistName = string.Empty;
+        _isNamingASublist = true;
+    }
+
+    private async Task OnSublistNameKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter" && _sublistName.Trim().Length > 0 && !_isMakingASublist)
+        {
+            await MakeTheSublistAsync();
+        }
+    }
+
+    /// <summary>
+    /// Makes the list and hangs it under this one. Two calls, because a sublist is two things: a list of
+    /// its own, and an entry on this list standing for it - which is what membership of a group *is*
+    /// here (see BuildSections, which reads the members off the entries' linked lists).
+    ///
+    /// The new list starts where this one is - the same folder - which is the rule everything else on
+    /// both clients follows about making something while standing somewhere. It is not sealed and not a
+    /// group: a sealed one cannot be made from this page at all (see CanAddASublist), and a group of
+    /// groups is a shape nobody asked for and can still be made in the editor.
+    ///
+    /// If the second call fails the list exists and is not hanging anywhere, which is the safe half of
+    /// the two to be left with: it is on /tasks, named, and can be pointed at by hand. The message says
+    /// so rather than pretending nothing happened.
+    /// </summary>
+    private async Task MakeTheSublistAsync()
+    {
+        if (!CanAddASublist || _sublistName.Trim() is not { Length: > 0 } name)
+        {
+            return;
+        }
+
+        var group = _sections[0].TaskList;
+        _isMakingASublist = true;
+        _errorMessage = null;
+        try
+        {
+            var sublistId = await TasksApiClient.CreateTaskListAsync(
+                new CreateTaskRequest(name, [], IsGroup: false, IsPrivate: false, FolderId: group.FolderId));
+
+            // Everything already on the list, plus one entry standing for what was just made. The
+            // endpoint replaces a list wholesale, so the rest has to travel with it - see
+            // TaskItemCompletion, where the same rule is written out.
+            var items = group.Items.Select(TaskItemRequest.From).ToList();
+            // Built rather than copied from an existing entry: the defaults are the editor's own for a
+            // plain new entry (no overdue notice, a push reminder if one is ever turned on), and the
+            // entry names itself the way every other new entry does - see TaskItemIdentity.
+            items.Add(new TaskItemRequest(
+                name, Guid.NewGuid(), DueDateUtc: null, IsCompleted: false, LinkedTaskListId: sublistId,
+                OverdueNotificationChannel: nameof(NotificationChannel.None),
+                RemindDaily: false,
+                DailyReminderNotificationChannel: nameof(NotificationChannel.Push),
+                DailyReminderTimeOfDay: default,
+                LinkedTaskListIds: [sublistId]));
+
+            var outcome = await TasksApiClient.UpdateTaskListAsync(
+                group.Id,
+                new UpdateTaskRequest(
+                    group.Title, items, group.IsGroup, group.IsPrivate,
+                    Priority: group.Priority, Tags: group.AllTags));
+            if (outcome.Kind != EditOutcomeKind.Success)
+            {
+                _errorMessage = outcome.Reason
+                    ?? T.Format("\"{0}\" was made, but it could not be added to this list. It is on your task lists.", name);
+                return;
+            }
+
+            Logger.LogInformation(
+                "User added sublist {SublistId} to group task list {TaskListId}", sublistId, group.Id);
+            _isNamingASublist = false;
+            _sublistName = string.Empty;
+            _allTaskLists = await TasksApiClient.GetTaskListsAsync();
+            _sections = BuildSections();
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to add a sublist to task list {TaskListId}", Id);
+            _errorMessage = T["That didn't work. Try again."];
+        }
+        finally
+        {
+            _isMakingASublist = false;
+        }
+    }
 
     /// <summary>What each inventory errand on this list is about - see TasksApiClient.GetInventoryReferencesAsync.</summary>
     private IReadOnlyList<InventoryReferenceDto> _inventoryReferences = [];
@@ -831,6 +980,17 @@ else
 
     private static string CompletionSummary(TaskDto taskList)
         => $"{taskList.Items.Count(item => item.IsCompleted)}/{taskList.Items.Count}";
+
+    /// <summary>
+    /// How many entries on this list are ticked off, and how many there are - the same count the card on
+    /// /tasks carries, for the panel beside the reading. Every section, so a group list answers for the
+    /// whole tree rather than for its own first page.
+    /// </summary>
+    private int DoneOnTheWholeList
+        => _sections.Sum(section => section.TaskList.Items.Count(item => item.IsCompleted));
+
+    /// <inheritdoc cref="DoneOnTheWholeList"/>
+    private int EverythingOnTheWholeList => _sections.Sum(section => section.TaskList.Items.Count);
 
     /// <summary>
     /// Ticks one entry off, through the same service the entry's own page ticks it off with - see

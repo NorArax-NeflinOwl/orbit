@@ -6,4 +6,74 @@ namespace Orbit.Contracts.Notes;
 /// a client written before the cross existed sends nothing here, which reads as a line nobody crossed
 /// out, and one reading a crossed-out line without knowing the field sees a line still to do.
 /// </param>
-public sealed record NoteContentLineDto(string Text, bool IsChecklistItem, bool IsChecked, bool IsFailed = false);
+/// <param name="Style">
+/// What the line is - "Body", "Title", "Heading", "Subheading", "Monospaced", "Bulleted", "Dashed" or
+/// "Numbered". See Orbit.Core.Notes.NoteLineStyle. Sent as the word rather than the number, the way every
+/// other enum on this wire is, so a build that does not know a style can say which one it did not know.
+///
+/// Defaulted and last for the reason IsFailed is: a client written before styles existed sends nothing
+/// here and its lines read as Body, which is what they were. A word this build does not know reads as
+/// Body too - a line drawn plainly is a line, where a refused save would lose the writing.
+/// </param>
+/// <param name="Marks">
+/// The marks on stretches of words inside the line - see <see cref="NoteTextRunDto"/>. Null for a line
+/// with none, and for every line a client written before marks existed sends.
+/// </param>
+/// <param name="Table">
+/// The table this line is, when it is one - see <see cref="NoteTableDto"/>. A line that carries a
+/// table is the table: its text is empty and it has no box. Null for ordinary writing, and for every
+/// line a client written before tables existed sends.
+/// </param>
+/// <param name="Picture">The picture this line is, when it is one - see <see cref="NotePictureLineDto"/>. Null for everything else.</param>
+/// <param name="Separator">
+/// The rule across the note this line is, when it is one - see <see cref="NoteSeparatorLineDto"/>. Null
+/// for everything else, and for every line a client written before separators existed sends.
+/// </param>
+public sealed record NoteContentLineDto(
+    string Text, bool IsChecklistItem, bool IsChecked, bool IsFailed = false, string Style = "Body",
+    IReadOnlyList<NoteTextRunDto>? Marks = null, NoteTableDto? Table = null, NotePictureLineDto? Picture = null,
+    NoteSeparatorLineDto? Separator = null)
+{
+    /// <summary>The marks as something to read without a null check - see <see cref="Marks"/>.</summary>
+    public IReadOnlyList<NoteTextRunDto> AllMarks => Marks ?? [];
+}
+
+/// <summary>
+/// A rule across a note - see Orbit.Core.Notes.NoteSeparatorLine. What is written on it travels with it
+/// as the words it was made with, because the date on a separator is the day it was drawn rather than
+/// the day it is read.
+/// </summary>
+/// <param name="Stamp">Empty for a plain rule; the date and time it was made for the dated one.</param>
+public sealed record NoteSeparatorLineDto(string Stamp = "");
+
+/// <summary>
+/// A picture in the flow of a note - see Orbit.Core.Notes.NotePictureLine. It names the bytes (uploaded
+/// first, to POST /api/notes/{id}/pictures) and says what they are and how big they draw; for a private
+/// note this travels inside the sealed content, which is the only place a sealed picture's kind is
+/// written.
+/// </summary>
+public sealed record NotePictureLineDto(Guid PictureId, string ContentType, int WidthPixels = 0, int HeightPixels = 0);
+
+/// <summary>What an upload answers: the id the line names the picture by, and how much of the note's 50 MB it took.</summary>
+public sealed record NotePictureDto(Guid Id, long SizeBytes);
+
+/// <summary>A table inside a note - see Orbit.Core.Notes.NoteTable. Rows of cells; the server squares it up.</summary>
+public sealed record NoteTableDto(IReadOnlyList<NoteTableRowDto> Rows);
+
+public sealed record NoteTableRowDto(IReadOnlyList<NoteTableCellDto> Cells);
+
+/// <summary>One cell: its words and the marks on stretches of them, the same shape a line's words travel in.</summary>
+public sealed record NoteTableCellDto(string Text, IReadOnlyList<NoteTextRunDto>? Marks = null)
+{
+    public IReadOnlyList<NoteTextRunDto> AllMarks => Marks ?? [];
+}
+
+/// <summary>
+/// One mark over one stretch of a line's characters - see Orbit.Core.Notes.NoteTextRun, which is this
+/// with the mark as an enum rather than a word.
+/// </summary>
+/// <param name="Mark">
+/// "Bold", "Italic", "Underlined" or "StruckThrough". The word rather than the number, as every other
+/// enum on this wire; one this build does not know draws nothing rather than refusing the line.
+/// </param>
+public sealed record NoteTextRunDto(int Start, int Length, string Mark);

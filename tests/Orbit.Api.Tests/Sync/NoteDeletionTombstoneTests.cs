@@ -167,7 +167,7 @@ public sealed class NoteDeletionTombstoneTests
         }
 
         public Task<bool> DeleteAsync(Guid noteId)
-            => new DeleteNoteCommandHandler(Notes, Shares, Tombstones)
+            => new DeleteNoteCommandHandler(Notes, Shares, Tombstones, new InMemoryNotePictureRepository(), new InMemoryNotePictureStore())
                 .HandleAsync(new DeleteNoteCommand(UserId, noteId), CancellationToken.None);
     }
 }

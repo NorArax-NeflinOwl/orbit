@@ -288,6 +288,16 @@ else
                     {
                         <span class="card-badge card-badge-priority-@priority.ToLowerInvariant()">@DescribePriority(priority)</span>
                     }
+                    @* A route from or to this place, without hunting for its pin first - the same
+                       press its popup carries, and the same one button that changes from "start" to
+                       "to here" once a start has been chosen. See OnPinRoute. *@
+                    <button type="button" class="icon-btn map-share-open" title="@RouteLabel"
+                            aria-label="@RouteLabel"
+                            @onclick="() => OnPinRoute(PlaceMapKey(place.Id))" @onclick:stopPropagation="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none"
+                             stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+                             aria-hidden="true"><circle cx="5" cy="15" r="2" /><circle cx="15" cy="5" r="2" /><path d="M7 15h4a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h4" /></svg>
+                    </button>
                     <button type="button" class="icon-btn map-share-open" title="@(T["Take me there"])"
                             aria-label="@(T["Take me there"])"
                             @onclick="() => AskHowToGetTo(TargetFor(place))" @onclick:stopPropagation="true">
@@ -337,8 +347,9 @@ else
            where people are and nothing about where the reader is going. Pressing a row centres the map
            on its pin, the same press a name in the list above answers to.
 
-           Kept while the past is being shown even with nothing in it, because then the box holds the one
-           field that can change that answer - how far back to look. *@
+           Two boxes since 2026-09-14: what is ahead here, and what is behind in one of its own below,
+           which appears only once the reader asks for the past. Kept while the past is being shown even
+           with nothing ahead, because the second box is where "how far back" is asked. *@
         @if (_placed.Count > 0 || _showsPastPlaces)
         {
         <section class="map-panel-section @PinnedClass(MapPanelPins.PanelList.YourPlans)">
@@ -347,54 +358,42 @@ else
                 <h2 class="map-panel-heading">@T["Where your plans are"]</h2>
                 @RenderPinToggle(MapPinVisibility.PinGroup.YourPlans, T["Show these on the map"], T["Hide these from the map"])
             </div>
-            @* Only while the past is being shown at all, because it is a question about the past: how
-               far back to go. Without it, asking for what is behind you on an account with a year of
-               appointments in it buries the two that were worth seeing. *@
-            @if (_showsPastPlaces)
-            {
-                <div class="field">
-                    <label for="mapPastFrom">@T["Show from"]<FieldHint>@T["Leave it empty for everything that has been and gone."]</FieldHint></label>
-                    <input type="date" id="mapPastFrom" value="@(_showsPastPlacesFrom?.ToString("yyyy-MM-dd"))"
-                           @onchange="OnShowPastFromChangedAsync" aria-label="@(T["Show from"])" />
-                </div>
-            }
-            @if (_placed.Count == 0)
+            @if (!PlansAhead.Any())
             {
                 <p class="empty-hint empty-list">@T["Nothing in your calendar or your lists says where it happens."]</p>
             }
-            @foreach (var placed in _placed)
+            @foreach (var placed in PlansAhead)
             {
-                @* The mark for a row the bell is talking about - the same outline a dashboard row takes,
-                   see .row-unseen. Without it this list said what was planned and nothing about which
-                   of them somebody had just been told something about. *@
-                <div class="map-share-row map-share-row-opens @(HasNewsAbout(placed) ? "row-unseen" : "")"
-                     role="button" tabindex="0"
-                     @onclick="() => FocusOnPlaceAsync(placed)"
-                     @onkeydown="args => FocusOnPlaceOnEnterOrSpaceAsync(args, placed)">
-                    @* The same colour as its pin, which is what says which pin is which without
-                       pressing any of them - the sharers' names above are coloured for the same reason. *@
-                    <span class="map-place-dot" style="background:@placed.Color" aria-hidden="true"></span>
-                    <span class="row-title @(placed.IsBehindYou ? "map-place-past" : "")">@placed.Title</span>
-                    <span class="row-meta">@placed.When</span>
-                    @* The same offer the shared positions carry, on the plans that are most of what
-                       somebody has to get to. *@
-                    <button type="button" class="icon-btn map-share-open" title="@(T["Take me there"])"
-                            aria-label="@(T["Take me there"])"
-                            @onclick="() => AskHowToGetTo(TargetFor(placed))" @onclick:stopPropagation="true">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none"
-                             stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
-                             aria-hidden="true"><path d="M17 3 3 9l6 2.2L11.2 17 17 3Z" /></svg>
-                    </button>
-                    @* Where the thing itself is opened, and it comes back here afterwards - see ReturnTo. *@
-                    <a class="icon-btn map-share-open" href="@placed.OpenUrl" title="@(T["Open"])"
-                       aria-label="@(T["Open"])" @onclick:stopPropagation="true">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none"
-                             stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
-                             aria-hidden="true"><path d="M8 4h8v8" /><path d="M16 4 8 12" /><path d="M14 12v4H4V6h4" /></svg>
-                    </a>
-                </div>
+                @RenderPlacedPlan(placed)
             }
         </section>
+
+        @* Where the plans behind the reader go, once they have asked to see them - a list of its own
+           rather than greyed-out rows among what is coming. The two answer different questions, and read
+           in one list the past pushed what is coming down the page. Newest first: the near past is the
+           half anybody looks back at. *@
+        @if (_showsPastPlaces)
+        {
+        <section class="map-panel-section">
+            <div class="map-panel-heading-row">
+                <h2 class="map-panel-heading">@T["Where your plans were"]</h2>
+            </div>
+            @* How far back to go, here rather than above, because it is a question about this list. *@
+            <div class="field">
+                <label for="mapPastFrom">@T["Show from"]<FieldHint>@T["Leave it empty for everything that has been and gone."]</FieldHint></label>
+                <input type="date" id="mapPastFrom" value="@(_showsPastPlacesFrom?.ToString("yyyy-MM-dd"))"
+                       @onchange="OnShowPastFromChangedAsync" aria-label="@(T["Show from"])" />
+            </div>
+            @if (!PlansBehind.Any())
+            {
+                <p class="empty-hint empty-list">@T["Nothing behind you since then."]</p>
+            }
+            @foreach (var placed in PlansBehind)
+            {
+                @RenderPlacedPlan(placed)
+            }
+        </section>
+        }
         }
         </div>
         }
@@ -495,7 +494,8 @@ else
             </div>
         }
 
-        @* A route between two pins, chosen from their popups - see OnPinRoute. Along the foot of the map
+        @* A route between two places, each chosen from its pin's popup or from its row in the panel -
+           see OnPinRoute, which both go through. Along the foot of the map
            with the other questions about pins, because it is about two of them. *@
         @if (_routeStart is { } routeStart)
         {
@@ -510,7 +510,7 @@ else
                 }
                 else
                 {
-                    <span class="map-create-event-question">@T.Format("Route from {0}. Open another pin and choose where it goes.", routeStart.Address)</span>
+                    <span class="map-create-event-question">@T.Format("Route from {0}. Choose where it goes - another pin, or a row in the panel.", routeStart.Address)</span>
                 }
                 <button type="button" class="btn-secondary" @onclick="ClearTheRouteAsync">@T["Clear the route"]</button>
             </div>
@@ -1449,6 +1449,50 @@ else
     private RenderFragment RenderPanelPin(MapPanelPins.PanelList list)
         => @<PinButton IsPinned="PanelPins.IsPinned(list)"
                        OnPinnedChanged="pinned => SetPanelPinnedAsync(list, pinned)" />;
+
+    /// <summary>
+    /// One row of a plan with a place on it. Written once and drawn by both lists - what is ahead and
+    /// what is behind - because the two differ in which plans they hold and in what order, and in
+    /// nothing about a row itself.
+    ///
+    /// A row the bell is talking about takes the outline a dashboard row takes (.row-unseen). Without it
+    /// this list said what was planned and nothing about which of them somebody had just been told
+    /// something about.
+    /// </summary>
+    private RenderFragment RenderPlacedPlan(PlacedPlan placed)
+        => @<div class="map-share-row map-share-row-opens @(HasNewsAbout(placed) ? "row-unseen" : "")"
+                 role="button" tabindex="0"
+                 @onclick="() => FocusOnPlaceAsync(placed)"
+                 @onkeydown="args => FocusOnPlaceOnEnterOrSpaceAsync(args, placed)">
+                @* The same colour as its pin, which is what says which pin is which without pressing any
+                   of them - the sharers' names above are coloured for the same reason. *@
+                <span class="map-place-dot" style="background:@placed.Color" aria-hidden="true"></span>
+                <span class="row-title @(placed.IsBehindYou ? "map-place-past" : "")">@placed.Title</span>
+                <span class="row-meta">@placed.When</span>
+                @* A route from or to it, as the places above carry - see OnPinRoute. *@
+                <button type="button" class="icon-btn map-share-open" title="@RouteLabel" aria-label="@RouteLabel"
+                        @onclick="() => OnPinRoute(placed.Key)" @onclick:stopPropagation="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none"
+                         stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+                         aria-hidden="true"><circle cx="5" cy="15" r="2" /><circle cx="15" cy="5" r="2" /><path d="M7 15h4a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h4" /></svg>
+                </button>
+                @* The same offer the shared positions carry, on the plans that are most of what somebody
+                   has to get to. *@
+                <button type="button" class="icon-btn map-share-open" title="@(T["Take me there"])"
+                        aria-label="@(T["Take me there"])"
+                        @onclick="() => AskHowToGetTo(TargetFor(placed))" @onclick:stopPropagation="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none"
+                         stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+                         aria-hidden="true"><path d="M17 3 3 9l6 2.2L11.2 17 17 3Z" /></svg>
+                </button>
+                @* Where the thing itself is opened, and it comes back here afterwards - see ReturnTo. *@
+                <a class="icon-btn map-share-open" href="@placed.OpenUrl" title="@(T["Open"])"
+                   aria-label="@(T["Open"])" @onclick:stopPropagation="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none"
+                         stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+                         aria-hidden="true"><path d="M8 4h8v8" /><path d="M16 4 8 12" /><path d="M14 12v4H4V6h4" /></svg>
+                </a>
+            </div>;
 
     /// <summary>What lifts a pinned box past the others - see .map-panel-lists, where the order lives.</summary>
     private string? PinnedClass(MapPanelPins.PanelList list)
@@ -2512,6 +2556,15 @@ else
     private async Task ShowOrHidePastPlacesAsync()
     {
         _showsPastPlaces = !_showsPastPlaces;
+        // A month back, unless the reader has already named a day. "Show me the past" on an account with
+        // a year of appointments in it is a list nobody reads and a screen of pins nobody is going to
+        // again - which is what the option was worth turning off for in the first place. The field below
+        // still takes any day, and emptying it still means all of it.
+        if (_showsPastPlaces && _showsPastPlacesFrom is null)
+        {
+            _showsPastPlacesFrom = DateTime.Today.AddMonths(-1);
+        }
+
         await MapPins.SetPastPlacesAsync(_showsPastPlaces, _showsPastPlacesFrom);
         ChooseWhichPlacesAreShown();
         // The map draws what the list shows, so the pins for what is no longer listed have to go with
@@ -2531,6 +2584,24 @@ else
         => _placed = _showsPastPlaces
             ? [.. _allPlaced.Where(plan => !plan.IsBehindYou || IsRecentEnough(plan))]
             : [.. _allPlaced.Where(plan => !plan.IsBehindYou)];
+
+    /// <summary>
+    /// What is still ahead, soonest first - which is the order <see cref="_allPlaced"/> is already in.
+    /// The list a map is mostly read for.
+    /// </summary>
+    private IEnumerable<PlacedPlan> PlansAhead => _placed.Where(plan => !plan.IsBehindYou);
+
+    /// <summary>
+    /// What is behind, newest first - a list of its own rather than greyed-out rows among the plans
+    /// ahead. The two answer different questions ("where am I going" and "where was I"), and read in one
+    /// list the past pushed what is coming down the page. Newest first because the near past is the half
+    /// anybody looks back at; the plans ahead run the other way for the same reason.
+    ///
+    /// Empty unless the past is being shown at all - see ChooseWhichPlacesAreShown, which is what lets
+    /// anything behind the reader into _placed.
+    /// </summary>
+    private IEnumerable<PlacedPlan> PlansBehind
+        => _placed.Where(plan => plan.IsBehindYou).OrderByDescending(plan => plan.At);
 
     /// <summary>
     /// Whether something behind the reader is recent enough to be worth drawing. Everything, until they
