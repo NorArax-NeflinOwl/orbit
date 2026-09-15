@@ -1,28 +1,32 @@
 # Session handover: orbit-web-12
 
 Previous session: orbit-web-11's successor, working the branch below (no worktree; the main checkout)
-Date: 2026-09-14
+Date: 2026-09-14, kept current through 2026-09-15
 
 ## Branch and PR
 
 - Branch: `feat/future-plan-leftovers-without-sdk-or-android`, all pushed.
-- Open PR: **#288 — "[Web] A note's lines get a style, an entry stands for any of its lists, the
-  sixteen-item round"** (draft, `Coding` from that branch). The new session **inherits it** rather than
-  opening its own - see `pr-workflow` - and keeps extending its description, which is written in batches
-  (four so far). It is a **draft on purpose**: nothing on this branch has ever been compiled.
+- Open PR: **#288 — "[Web+Phone] Folders for events and inventories; a note's content model: styles,
+  marks, tables, pictures; the sixteen-item round; the 2026-09-15 audit and its leftovers"** (draft,
+  `Coding` from that branch). The new session **inherits it** rather than opening its own - see
+  `pr-workflow` - and keeps extending its description, which is written in batches (seven so far). It is
+  a **draft on purpose**: nothing on this branch has ever been compiled.
 - Uncommitted changes: none.
 
 ## Goal of the work
 
 A long round that began as "implement what future-plan says you can do without me", grew a sixteen-item
-list of web and phone fixes, and ended in one large piece: **a note's content model**. The user asked for
-"formatting, checkboxes, tables and attachments up to 50 MB a note, following Apple Notes", and then
-answered four design questions that decide the rest of it (recorded in `info/future-plan.md`, *Settled
-2026-09-14: what was asked and answered*).
+list of web and phone fixes, and then a note's content model; on 2026-09-15 it gained folders for the
+calendar and the shelves, an audit of a twenty-four-item list the user read back, and two things about
+the phone the user reported. The note model came with four design questions the user answered
+(recorded in `info/future-plan.md`, *Settled 2026-09-14: what was asked and answered*).
+
+**The PR description is the record**, batch by batch, and is kept current as the branch grows. What
+follows is only what a successor needs that the description does not say.
 
 ## Done
 
-Twenty-nine commits; PR #288 carries them in full. The four that shape the code:
+Sixty-odd commits; PR #288 carries them in full. The four that shape the code:
 
 - **A line says what kind of line it is** (`NoteLineStyle`): Title, Heading, Subheading, Body,
   Monospaced and the three lists, which is Apple Notes' own Format menu. The "Aa" tool opens them in the
@@ -46,8 +50,9 @@ Twenty-nine commits; PR #288 carries them in full. The four that shape the code:
 ### Verified (there is no compiler in these sessions)
 
 - `node ci/verify-diagrams.mjs` - 18 diagrams, 0 failed.
-- The Polish dictionary checked against its own test's rules: 1728 keys, 0 duplicates, 0 blanks, 0
-  placeholder mismatches, every new key present.
+- The Polish dictionary checked against its own test's rules: 1746 keys by the end, 0 duplicates,
+  0 blanks, every string either client asks to translate present in it, and the sweep for text a page
+  states rather than asks for at 0.
 - `node --check` on `checklistTextEditor.js` after every change to it; a brace/comment balance pass over
   `app.css`; both changed XAML files parsed.
 - **The mark arithmetic was reimplemented in Python and run** against the same 22 expectations the C#
@@ -87,11 +92,20 @@ Twenty-nine commits; PR #288 carries them in full. The four that shape the code:
 
 ## Next step
 
-**Get the branch compiled and green before anything else is built on it.** Tables (commit `854d9fb`)
-and pictures (`b16f49c`) went in after this handover was first written, both uncompiled like everything
-before them; the branch now carries a real EF migration (`20260914210000_ANoteKeepsItsPictures`) and a
-new NuGet package (`Azure.Storage.Blobs 12.29.2`). On a machine with the SDK: `dotnet test
-Orbit.CI.slnf`, fix what it says, and only then go on.
+**Get the branch compiled and green before anything else is built on it.** It has grown a great deal
+since this handover was first written and none of it has been compiled either: tables (`854d9fb`),
+pictures (`b16f49c`), folders for the calendar and the shelves, the audit's leftovers, and the phone's
+periodic sync. The branch now carries **two** server EF migrations
+(`20260914210000_ANoteKeepsItsPictures`, `20260915090000_EventsAndShelvesAreFiledInFolders`), one phone
+migration (`20260915100000_FileEventsAndShelvesInFoldersOnThePhone`) and a new NuGet package
+(`Azure.Storage.Blobs 12.29.2`). On a machine with the SDK: `dotnet test Orbit.CI.slnf`, fix what it
+says, and only then go on.
+
+Where to look first if it does not build, in the order the risk sits: the six page constructors that
+gained a `SyncState` (`ScreenKeptInStep`); `PeriodicSync`'s registration in `MauiProgram`, which is
+built by hand rather than resolved; the `UpcomingThing` rework of the phone's Upcoming card; and the two
+hand-written migrations' `.Designer.cs`, which were generated from the model snapshot by hand and diffed
+rather than by `dotnet ef`.
 
 Then, in order:
 
@@ -107,6 +121,8 @@ Then, in order:
    pictures~~ (all three done 2026-09-15 - `NoteTableCellField`, `MarkedLabel`, `NotePictureCache`),
    setting a mark on the phone, putting a picture into a note from the phone - each written down in
    `info/future-plan.md` with what it takes.
+4. **Ask about the seven open questions** from the audit above. There is no more of that list to build
+   without an answer, so a successor that starts guessing is building the wrong thing.
 
 **Also carried on this branch, asked for on 2026-09-15**: folders for calendar events and for
 inventories, done the way the notes and the lists have them, and folders carried through the export and
@@ -118,6 +134,43 @@ are worth knowing before touching it again: `FolderPages` now answers a third qu
 (`HasAPrivateTab`, false only for the calendar, an event being one of the kinds Orbit never seals), and
 the archive names a folder **by name** because a file carries no ids - a name the file did not carry
 comes back unfiled.
+
+## The 2026-09-15 audit, and what it leaves for the user
+
+The user read back a **twenty-four-item list** and asked which were built. Most were. Everything the
+check found missing is written into `info/future-plan.md` under *What the user's list of 2026-09-15
+still leaves open*, **with the evidence each was checked against**, so a successor does not have to look
+again: anything not listed there was found built and is described in `info/functionality.md`.
+
+Everything on that list that needed **no decision** has since been built (the phone's Upcoming horizon,
+"needs all of them" on the phone, "copy the text" and the done count on the phone, the place form's
+sticky Save, tests for "New sublist", and the deadlines the phone's Upcoming card was missing).
+
+**What is left there each wants an answer before it is worth starting**, and a successor should ask
+rather than guess: the Options page's rail (a rail carries one Save and that page has three that do
+different things); archiving as protection against deleting (a built-in folder, or a state of its own
+beside them); a note's date-and-time separator (stamped once, or re-read on every draw); the Group View
+box ticking itself (in the form, or in `TaskList`, which changes stored data); choosing several things
+at once; filtered copy and paste-from-the-clipboard; and editing a group list's children in the heavy
+editor. Each is written out with what the choice costs.
+
+## The phone's second list, 2026-09-15
+
+Two things the user reported, both fixed the same day and worth knowing because the second changes how
+the app behaves at rest:
+
+- **The Upcoming card was showing work already finished.** Three faults at once - an appointment whose
+  end had passed, a repeat drawn at the date it is stored under rather than at its next turn, and an
+  appointment a task list raised and has since ticked off. The phone asked none of the three, on a
+  comment claiming the divergence was deliberate and giving "Orbit.Web shows the lot" as the reason,
+  which is not what Orbit.Web does. `DashboardViewModel.StillToDo` now asks all three.
+- **Syncing lagged by days.** The only thing that synchronised was a screen being opened.
+  **`PeriodicSync`** now runs everything every five minutes and once immediately, started and stopped
+  with the window beside the presence heartbeat; a screen left open redraws itself when a run brings
+  something down (`SyncState.BroughtSomethingNew`, `ScreenKeptInStep`, attached by the page rather than
+  the view model - see its comment for why). The platform's own background sync (Android's
+  `WorkManager`, iOS's app-refresh task or a silent push) is **still not built**, and
+  `info/orbit-maui-plan.md` §5.6 says so.
 
 ## Environment facts confirmed this session
 
