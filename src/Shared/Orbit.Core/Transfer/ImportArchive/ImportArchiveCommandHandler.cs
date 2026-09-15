@@ -150,6 +150,10 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
                         NoteLineStyles.Read(line.Style), ReadMarks(line.AllMarks, line.Text))).ToList(),
                 archived.IsPrivate, ToPayload(archived.EncryptedContent),
                 folderId: folders.IdOf(FolderScope.Notes, archived.Folder), tags: archived.AllTags);
+
+            // Put away if it was put away when the file was written, so a round trip through a file
+            // leaves the archive tab holding what it held - see BuiltInFolder.Archived.
+            note.Archive(archived.IsArchived);
             await _noteRepository.AddAsync(note, cancellationToken);
         }
 
@@ -175,6 +179,10 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
                 userId, archived.Title, [], archived.IsGroup, archived.IsPrivate, ToPayload(archived.EncryptedContent),
                 ParsePriority(archived.Priority), folderId: folders.IdOf(FolderScope.Tasks, archived.Folder),
                 tags: archived.AllTags);
+
+            // Put away if it was put away when the file was written, so a round trip through a file
+            // leaves the archive tab holding what it held - see BuiltInFolder.Archived.
+            taskList.Archive(archived.IsArchived);
             await _taskRepository.AddAsync(taskList, cancellationToken);
             created.Add(taskList);
             createdTaskLists.Add(archived, taskList.Id);
@@ -224,9 +232,13 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
                 // made, so importing one must not either.
                 ParseChannel(archived.ReminderNotificationChannel));
 
-            await _calendarEventRepository.AddAsync(
-                CalendarEvent.Create(userId, details, folders.IdOf(FolderScope.Calendar, archived.Folder)),
-                cancellationToken);
+            var calendarEvent = CalendarEvent.Create(
+                userId, details, folders.IdOf(FolderScope.Calendar, archived.Folder));
+
+            // Put away if it was put away when the file was written, so a round trip through a file
+            // leaves the archive tab holding what it held - see BuiltInFolder.Archived.
+            calendarEvent.Archive(archived.IsArchived);
+            await _calendarEventRepository.AddAsync(calendarEvent, cancellationToken);
         }
 
         return archive.CalendarEvents.Count;
@@ -240,6 +252,10 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
             var inventory = Inventory.Create(
                 userId, archived.Name, archived.IsPrivate, ToPayload(archived.EncryptedContent),
                 folderId: folders.IdOf(FolderScope.Inventories, archived.Folder));
+
+            // Put away if it was put away when the file was written, so a round trip through a file
+            // leaves the archive tab holding what it held - see BuiltInFolder.Archived.
+            inventory.Archive(archived.IsArchived);
             await _inventoryRepository.AddAsync(inventory, cancellationToken);
 
             if (archived.IsPrivate)

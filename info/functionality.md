@@ -586,6 +586,10 @@ is, and the first that applies wins:
    the list for having been tidied away would read as having been edited. Something put away before the
    server ever saw it is archived in the pass straight after its create goes up, since a create has no
    room for the flag.
+
+   **The export carries it** (`ArchivedNote.IsArchived` and its three siblings, defaulted and last, as
+   every late field is), so a round trip through a file leaves the Archived tab holding what it held
+   rather than emptying it back onto the pages.
 2. **The folder its owner filed it under**, finished or not. Filing beats finishing: where something
    goes is a decision somebody made, and finishing the work is not a decision to file it somewhere else.
    A list put in "Renovation" used to leave that tab the moment its last entry was ticked off, which

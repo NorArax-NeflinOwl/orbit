@@ -81,9 +81,14 @@ public sealed record OrbitArchive(
 /// <see cref="ArchivedFolder"/>, which says why a name rather than an id. Defaulted and last: a file
 /// written before folders were exported says nothing here.
 /// </param>
+/// <param name="IsArchived">
+/// Whether it was put away rather than left on its page - see Orbit.Core.Folders.BuiltInFolder.Archived.
+/// Defaulted and last: a file written before things could be put away says nothing here, and reads as
+/// one that was not, which is what it was.
+/// </param>
 public sealed record ArchivedNote(
     string Title, IReadOnlyList<ArchivedNoteLine> Content, bool IsPrivate, ArchivedEncryptedContent? EncryptedContent,
-    IReadOnlyList<string>? Tags = null, string? Folder = null)
+    IReadOnlyList<string>? Tags = null, string? Folder = null, bool IsArchived = false)
 {
     /// <summary>The tags as something to read without a null check - see <see cref="Tags"/>.</summary>
     public IReadOnlyList<string> AllTags => Tags ?? [];
@@ -138,10 +143,11 @@ public sealed record ArchivedTextRun(int Start, int Length, string Mark);
 
 /// <param name="Tags">The words it is tagged with - see <see cref="ArchivedNote.Tags"/>, which says the same.</param>
 /// <param name="Folder">The folder it is filed under, by name - see <see cref="ArchivedNote.Folder"/>.</param>
+/// <param name="IsArchived">Whether it was put away - see <see cref="ArchivedNote.IsArchived"/>.</param>
 public sealed record ArchivedTaskList(
     string Title, IReadOnlyList<ArchivedTaskItem> Items, bool IsGroup, bool IsPrivate,
     ArchivedEncryptedContent? EncryptedContent, string Priority, IReadOnlyList<string>? Tags = null,
-    string? Folder = null)
+    string? Folder = null, bool IsArchived = false)
 {
     /// <summary>The tags as something to read without a null check - see <see cref="Tags"/>.</summary>
     public IReadOnlyList<string> AllTags => Tags ?? [];
@@ -207,17 +213,20 @@ public sealed record ArchivedTaskItem(
 /// opens in an older Orbit.
 /// </param>
 /// <param name="Folder">The folder it is filed under, by name - see <see cref="ArchivedNote.Folder"/>.</param>
+/// <param name="IsArchived">Whether it was put away - see <see cref="ArchivedNote.IsArchived"/>.</param>
 public sealed record ArchivedCalendarEvent(
     string Title, string? Description, string? Color, DateTimeOffset StartUtc, DateTimeOffset EndUtc, bool IsAllDay,
     ArchivedEventLocation? Location, IReadOnlyList<int> ReminderMinutesBeforeStart,
-    string CreationNotificationChannel, string ReminderNotificationChannel, string? Folder = null);
+    string CreationNotificationChannel, string ReminderNotificationChannel, string? Folder = null,
+    bool IsArchived = false);
 
 public sealed record ArchivedEventLocation(string Address, double? Latitude, double? Longitude);
 
 /// <param name="Folder">The folder it is filed under, by name - see <see cref="ArchivedNote.Folder"/>.</param>
+/// <param name="IsArchived">Whether it was put away - see <see cref="ArchivedNote.IsArchived"/>.</param>
 public sealed record ArchivedInventory(
     string Name, bool IsPrivate, ArchivedEncryptedContent? EncryptedContent, IReadOnlyList<ArchivedInventoryItem> Items,
-    string? Folder = null);
+    string? Folder = null, bool IsArchived = false);
 
 /// <param name="Unit">
 /// Defaulted, and last, so an archive written before units existed still imports - it says nothing about

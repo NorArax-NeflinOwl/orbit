@@ -1965,20 +1965,21 @@ It is **not** on the two other places somebody edits in the browser:
   reason the date itself is the point: re-formatting it in another reader's locale would be re-reading it
   in a different way, which is the thing this decision rules out.
 
-- **Archiving, as protection against deleting** - **the server and the browser are built (2026-09-15);
-  the phone is not.** What exists: `IsArchived` on all four aggregates with `Archive(bool)` beside
-  `MoveToFolder`, `BuiltInFolder.Archived` at the head of `FolderPlacement`, one command and one
-  `PUT .../{id}/archived` per kind, the column on each of the four tables
-  (`ThingsCanBePutAwayRatherThanDeleted`), the flag on each DTO, the tab in both clients' tab rows, and
-  the browser's whole half - `SetArchivedAsync` on all four API clients, an Archive/Put back line in
+- ~~**Archiving, as protection against deleting.**~~ Done 2026-09-15, all three halves. The server:
+  `IsArchived` on all four aggregates with `Archive(bool)` beside `MoveToFolder`,
+  `BuiltInFolder.Archived` at the head of `FolderPlacement`, one command and one `PUT .../{id}/archived`
+  per kind, the column on each of the four tables (`ThingsCanBePutAwayRatherThanDeleted`), and the flag
+  on each DTO. The browser: `SetArchivedAsync` on all four API clients, an Archive/Put back line in
   every card's menu (`ObjectMenu.ArchiveLabel`, above Delete), and every placement call reading the flag
-  so an archived card actually leaves its tab.
-
-  What is **missing** is the phone and the archive file. The phone has no local column, no outbox
-  operation and no migration for it, and nothing there sets it - so a thing archived in a browser comes
-  down to the phone and stays where it was, on whichever tab it was on. The export carries nothing about
-  it either, so a round trip through a file brings everything back out of the archive. The original
-  entry, for the reasoning: 
+  so an archived card actually leaves its tab. The phone: the local column on all four rows
+  (`PutThingsAwayOnThePhone`), `OutboxOperation.Archive` and `ArchiveAsync` on each local repository,
+  `ArchiveAsync` on each API client, the flag on the way down in every `CopyInto`, the same
+  Archive/Put back line above Delete in each detail page's menu, and `isArchived` passed into every
+  `FolderTabs.Where`. Something put away before the server ever saw it is archived immediately after
+  its create goes up, in the same pass - a create has no room for the flag, deliberately, for the reason
+  `ArchiveRequest` gives. The archive file carries it too (`ArchivedNote.IsArchived` and its three
+  siblings, defaulted and last), so a round trip through a file leaves the tab holding what it held.
+  The original entry, for the reasoning: 
   put something away rather than lose it. Nothing of it exists on those four - deletion is a real delete
   plus a sync tombstone, and the only `IsArchived` in Orbit is on a conversation and on a group
   membership (done 2026-09-09, and the shape to copy). It is a column on each of the four, a command per

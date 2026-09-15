@@ -126,7 +126,8 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
                     item.Name, item.ProductType, item.Categories.FirstOrDefault() ?? string.Empty, item.Quantity,
                     item.MinimumQuantity, item.ExpiryDate, item.ExpiryNotificationChannel.ToString(),
                     item.Unit.ToString(), item.Categories)).ToList(),
-                filing.NameOf(inventory.FolderId)));
+                filing.NameOf(inventory.FolderId),
+                inventory.IsArchived));
         }
 
         return archived;
@@ -149,7 +150,8 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
             note.IsPrivate,
             ToArchived(note.EncryptedContent),
             note.Tags,
-            filing.NameOf(note.FolderId));
+            filing.NameOf(note.FolderId),
+            note.IsArchived);
 
     private static ArchivedTaskList ToArchived(TaskList taskList, TaskListLinks links, ExportedFolders filing)
         => new(
@@ -175,7 +177,8 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
             ToArchived(taskList.EncryptedContent),
             taskList.Priority.ToString(),
             taskList.Tags,
-            filing.NameOf(taskList.FolderId));
+            filing.NameOf(taskList.FolderId),
+            taskList.IsArchived);
 
     /// <summary>
     /// How a link to one of the exported lists is written, because a file has no ids worth keeping - it
@@ -220,7 +223,8 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
             // Nothing announces an event to its own owner any more - see ArchivedCalendarEvent.
             CreationNotificationChannel: nameof(Orbit.Core.Notifications.NotificationChannel.None),
             details.ReminderNotificationChannel.ToString(),
-            filing.NameOf(calendarEvent.FolderId));
+            filing.NameOf(calendarEvent.FolderId),
+            calendarEvent.IsArchived);
     }
 
     private static ArchivedEncryptedContent? ToArchived(EncryptedPayload? encryptedContent)

@@ -571,6 +571,52 @@ public sealed class ArchiveRoundTripTests
     private static readonly TaskItemReminders NineOClock =
         new(NotificationChannel.None, Daily: false, NotificationChannel.None, new TimeOnly(9, 0));
 
+    /// <summary>
+    /// Putting something away is a decision its owner took, so a file that dropped it would hand back an
+    /// account whose Archived tab had been emptied onto its pages - the opposite of what was asked for.
+    /// </summary>
+    [Fact]
+    public async Task Importing_leaves_what_was_put_away_put_away()
+    {
+        var source = new ArchiveTestContext();
+        await source.AddPutAwayAsync("Old receipts");
+        await source.AddNoteAsync("Still on the page", "Milk");
+        var archive = await source.ExportAsync();
+
+        Assert.True(archive.Notes.Single(note => note.Title == "Old receipts").IsArchived);
+        Assert.False(archive.Notes.Single(note => note.Title == "Still on the page").IsArchived);
+        Assert.True(Assert.Single(archive.TaskLists).IsArchived);
+        Assert.True(Assert.Single(archive.CalendarEvents).IsArchived);
+        Assert.True(Assert.Single(archive.Inventories).IsArchived);
+
+        var destination = new ArchiveTestContext();
+        await destination.ImportAsync(archive);
+
+        Assert.True((await destination.OwnNotesAsync()).Single(note => note.Title == "Old receipts").IsArchived);
+        Assert.False((await destination.OwnNotesAsync()).Single(note => note.Title == "Still on the page").IsArchived);
+        Assert.True((await destination.OwnTaskListsAsync()).Single().IsArchived);
+        Assert.True((await destination.OwnCalendarEventsAsync()).Single().IsArchived);
+        Assert.True((await destination.OwnInventoriesAsync()).Single().IsArchived);
+    }
+
+    /// <summary>
+    /// A file written before things could be put away says nothing about it, and that reads as an account
+    /// that had put nothing away - not as a refusal, and not as everything archived.
+    /// </summary>
+    [Fact]
+    public async Task A_file_that_says_nothing_about_archiving_imports_nothing_archived()
+    {
+        var context = new ArchiveTestContext();
+        var archive = new OrbitArchive(
+            OrbitArchive.CurrentVersion, DateTimeOffset.UtcNow,
+            [new ArchivedNote("Shopping list", [], IsPrivate: false, EncryptedContent: null)],
+            [], [], []);
+
+        await context.ImportAsync(archive);
+
+        Assert.False((await context.OwnNotesAsync()).Single().IsArchived);
+    }
+
     private sealed class ArchiveTestContext
     {
         private readonly InMemoryNoteRepository _noteRepository = new();
@@ -725,6 +771,29 @@ public sealed class ArchiveRoundTripTests
         public async Task AddInventoryInAsync(string name, Guid folderId)
             => await _inventoryRepository.AddAsync(
                 Inventory.Create(UserId, name, folderId: folderId), CancellationToken.None);
+
+        /// <summary>One of each kind, put away - the state the file has to carry back out again.</summary>
+        public async Task AddPutAwayAsync(string name)
+        {
+            var note = Note.Create(UserId, name, [NoteContentLine.PlainText("Milk")]);
+            note.Archive(true);
+            await _noteRepository.AddAsync(note, CancellationToken.None);
+
+            var taskList = TaskList.Create(UserId, name, []);
+            taskList.Archive(true);
+            await _taskRepository.AddAsync(taskList, CancellationToken.None);
+
+            var details = new CalendarEventDetails(
+                name, null, null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
+                false, null, [], [], NotificationChannel.None);
+            var calendarEvent = CalendarEvent.Create(UserId, details, folderId: null);
+            calendarEvent.Archive(true);
+            await _calendarEventRepository.AddAsync(calendarEvent, CancellationToken.None);
+
+            var inventory = Inventory.Create(UserId, name);
+            inventory.Archive(true);
+            await _inventoryRepository.AddAsync(inventory, CancellationToken.None);
+        }
 
         public Task<IReadOnlyList<Note>> OwnNotesAsync() => _noteRepository.GetAllAsync(UserId, updatedSinceUtc: null, CancellationToken.None);
 
