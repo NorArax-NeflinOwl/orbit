@@ -153,7 +153,7 @@ public sealed class PeriodicSyncTests
         public SyncingContext(bool signedIn = true)
         {
             Clock = new FakeTimeProvider(Now);
-            State = new SyncState(Network, Clock);
+            State = new SyncState(Reachability.Over(Network), Clock);
             var sessionStore = new SessionStore(new InMemorySessionStorage(signedIn ? SignedIn : null));
             Sync = new PeriodicSync(
                 _ =>

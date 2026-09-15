@@ -353,6 +353,10 @@ try
     // ForwardedCallerTests runs the one that ships.
     app.UseForwardedHeaders(ForwardedCaller.Options());
 
+    // Every answer from here on is marked as Orbit's - a 429, a 401, a 500 and a 200 alike - which is
+    // what lets the phone tell a stopped app's front door from the API refusing it. See AnswerHeader.
+    app.UseAnswerHeader();
+
     app.UseSerilogRequestLogging(options =>
     {
         // Whose request it was, to the nearest network rather than the nearest person - see

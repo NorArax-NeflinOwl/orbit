@@ -558,6 +558,49 @@ since been closed; what is left is recorded below with the same honesty about wh
   approval gate is then about *deliberateness* (did a human mean to ship this now) rather than being
   the only thing standing between a bug and production.
 
+- **Letting the 20 € ceiling enforce itself.** The spending limit is written down and all but one
+  step built: a subscription budget fires at 10 € and at 20 €, the runbook in `orbit-automation`
+  (`scripts/send-cost-instruction-mail.ps1`) mails what to run at each, and on the last day of the
+  month mails the resume commands if anything is still stopped - but a *person* runs them, because
+  the runbook's identity is Reader only and an Azure budget on a pay-as-you-go subscription notifies
+  and nothing more (see [Azure setup — Cost limits](azure-setup.md#cost-limits)). Closing the last gap
+  is small now: Contributor on the resource group for that identity, and a runbook that runs the five
+  stop commands at 20 € instead of mailing them. **Not done deliberately, for two reasons worth
+  weighing before it is:** an automatic block takes the deployment down unattended, possibly over a
+  rating batch nobody has looked at, and Azure restarts a stopped Flexible Server by itself after
+  seven days - so even the automatic version is not a block that holds, just one that fires faster.
+  The forecast notification, which warns when the *month* is projected to reach 20 € rather than when
+  it has, is what makes the manual path workable in the meantime.
+
+- **The phone through a paused server.** The cost stop makes a switched-off `orbit-api` an expected,
+  days-long state, and the phone as it stands does the worst thing available in it: a stopped Container
+  App's address still answers - the environment's front door says 404 - and the phone reads that as
+  the API's opinion, so `TokenRefreshService` signs everyone out within fifteen minutes and
+  `OutboxReplay` starts discarding queued edits after five syncs, on a phone whose database holds
+  everything the reader needs. Both are right against a live server and wrong against a paused one.
+  Analysed 2026-09-14 in [Orbit.Maui — Plan, §15](orbit-maui-plan.md#15-living-without-the-server),
+  and **the two defects were closed on 2026-09-15** (§15.6): the API stamps every answer as its own,
+  the phone lets nothing without the stamp through, and the stop script leaves `status.json` on
+  `orbitdownloads` so the phone says *"Orbit is paused"* and behaves as it does offline. Still open
+  there: watching a real phone against a really stopped server (the 404 assumption is untested),
+  reminders that ring from the phone (all four are server background services today), suggestions from
+  the local database, and a sign-in screen that admits the notes are still on the phone. Chat, sharing
+  and identity stay off, as agreed.
+- **nginx in `orbit-web` runs as root.** The image is `nginx:alpine`, whose master process starts as
+  root so it can bind port 80 - `orbit-api` already drops to `$APP_UID` in its own Dockerfile, so this
+  is the only container in the deployment that does not. The fix is `nginxinc/nginx-unprivileged`,
+  which listens on 8080 instead, so it also means changing the target port on `orbit-web`'s ingress and
+  in `nginx.azure.conf`, and re-verifying the `/api/` proxy path end to end. A real change with a real
+  test rather than a setting, which is why it is written down instead of done - see
+  [Azure security](azure-security.md#deliberately-accepted-and-why).
+- **Whether to buy Defender for open-source relational databases.** Of the paid Defender plans, this is
+  the only one worth weighing here: the PostgreSQL server holds every user's data, it is the one
+  resource with a public endpoint and a password, and at roughly $15 a month it is the cheapest of
+  them - but that is still more than the 10 € warning threshold, spent on monitoring rather than on
+  running anything. The rest of the plans, and what each would close, are costed in
+  [Azure security](azure-security.md#what-the-remaining-points-cost). A decision to take deliberately
+  against the [cost limits](azure-setup.md#cost-limits), not a default.
+
 ## What the footer could grow into
 
 **Re-read against the code on 2026-09-07, and most of this section had already happened.** What it
