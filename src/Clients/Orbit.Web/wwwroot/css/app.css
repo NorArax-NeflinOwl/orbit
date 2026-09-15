@@ -5371,6 +5371,29 @@ input.note-editor-title {
     overflow-y: auto;
 }
 
+/* Save and Cancel at the top of the form rather than under it, and staying there while the fields
+   scroll - the rule every editor in Orbit follows since the editor rail moved to the top on a phone
+   (see .editor-rail). The panel is the scrolling box, so sticking to its top is what keeps the pair on
+   screen; before this they sat last and a place with six lists on it scrolled its own Create out of
+   reach, which is the very thing .place-form's scroll was added for and only half solved. The markup
+   keeps them last, which is the order a keyboard should meet the form and its buttons in - the same
+   split between reading order and tab order .editor-page makes. Only inside the place form: the map's
+   other confirm rows sit on panels that do not scroll. */
+.place-form > .map-overlay-confirm {
+    order: -1;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding-bottom: 10px;
+    background: var(--bg-elevated);
+}
+
+/* Still above them: what the panel is saying is read before the buttons that answer it. It scrolls away
+   as the fields do, and the row above pins to the top once it has. */
+.place-form > .map-overlay-header {
+    order: -2;
+}
+
 /* How the place is drawn, on one line: a three-item picker and a swatch, neither of which needs a line
    of its own. Wraps on a narrow screen rather than squeezing, since the picker holds real words. */
 .place-form-look {

@@ -328,12 +328,14 @@ drawn only when there is something behind it. As a fragment they could not be co
 screen passed one holding two conditionals, so a fragment existed whether or not either was true, and
 every screen where nothing was wrong carried an arrow that opened onto nothing.
 
-**The bar gives way to an editor's own bar.** Below 680px the editing screens' panel becomes a bar
-across the foot too (see `EditorRail`), and both are fixed to the bottom edge - so the advert sat over
-Save, Back and the menu, on a phone, on the screens whose whole purpose is those buttons. The banner is
-left out where a panel is on screen. Not stacked: two bars is most of a phone's height, on the screen
-somebody is typing into. Between 681px and 1199px the panel is a column beside the page instead, so
-nothing overlaps and the slot is kept.
+**The bar and an editor's own bar keep opposite ends.** Below 680px the editing screens' panel becomes a
+bar too (see `EditorRail`), and for a while both were along the foot - so the advert sat over Save, Back
+and the menu, on a phone, on the screens whose whole purpose is those buttons. Stacking them was not the
+answer either: two bars is most of a phone's height, on the screen somebody is typing into. So the
+editor's bar went to the top instead, under the app's own bar and at the very top once that has slid
+away (`.editor-rail`, `stickyBars.js`), and the advert's banner kept the foot. Nothing overlaps, so
+neither has to be left out. Between 681px and 1199px the panel is a column beside the page, and the slot
+is kept there too.
 
 What they show comes from `Orbit.Core.Advertising.HouseAds` - Orbit's own pages, written in English
 there and translated like every other string. Every advert leads to a path on this Orbit, never to
@@ -1865,7 +1867,11 @@ point are both required** — the name because a row on the panel with nothing i
 tell from the next one, the point because without it there is nothing to draw and nothing to hand a map
 app, which is the same pair `Place.Refuse` enforces on the server. The address box takes typed words and
 the pin beside it opens the same picker overlay the task editor uses; a confirmed pin replaces the words
-only when the box is empty, so "the back entrance" survives.
+only when the box is empty, so "the back entrance" survives. **Save and Cancel sit at the top of the
+panel and stay there** while the fields scroll under them (`.place-form > .map-overlay-confirm`), which
+is the promise the editor's bar makes on the pages that have one: the panel is capped in height and a
+place named on six lists used to push its own Create out of reach. In the markup they are still last,
+so a keyboard meets the form before the buttons that answer it.
 
 **The dashboard gives them a card of their own**, keyed `places`, between Inventory and Groups: its own
 card rather than a corner of Upcoming, which is a list of things happening at a time — a place has none,

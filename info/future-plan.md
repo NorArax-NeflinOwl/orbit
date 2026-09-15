@@ -1848,12 +1848,18 @@ The sticky editor rail - Save, Back and the menu under the avatar bar, staying p
 slides away (`stickyBars.js`, `.editor-rail`) - is on the four object editors and the four read screens.
 It is **not** on the two other places somebody edits in the browser:
 
-- **The place editor** (`PlaceForm`), whose Save sits at the bottom of a scrolling overlay panel.
+- ~~**The place editor** (`PlaceForm`), whose Save sits at the bottom of a scrolling overlay panel.~~
+  Done 2026-09-15, not by giving it the rail - it is an overlay rather than a page, and the rail is a
+  page's furniture - but by the rule the rail follows: its Save and Cancel are first in the panel and
+  stick to its top while the fields scroll (`.place-form > .map-overlay-confirm`). The panel is the
+  scrolling box, so that is the same promise on a different surface.
 - **The Options page**, whose three sections (profile, password, unlock code) each carry their own inline
-  Save that scrolls away with the section.
-
-Both would need the same `editor-page` wrapper and an `EditorRail`; the place form is the harder of the
-two, since it lives inside the map's overlay rather than on a page of its own.
+  Save that scrolls away with the section. **This one wants a decision before it is built**: a rail
+  carries one Save, and this page has three that do different things. Either the rail saves whichever
+  section is open (which means the page has to know, and the sections become tabs in fact rather than
+  headings), or each section keeps its own button and the rail carries only Back and the menu - which is
+  less than the other editors offer and may be the honest answer for a page that is not an editor of one
+  thing.
 
 ### Said one way in one place and another way in another
 
