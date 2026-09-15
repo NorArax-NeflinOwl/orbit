@@ -236,8 +236,11 @@ public sealed partial class DashboardViewModel : ObservableObject
         var shownTaskLists = taskLists.Where(list => Passes(DashboardCardKind.Tasks, list.IsPinned)).ToList();
         // Split in two, the way Orbit.Web splits its own: what is coming up at all decides whether the
         // card is on the page, and what survives the filter and the horizon is what it draws.
-        var everythingUpcoming = StillToDo(events, everyTaskList);
-        var shownEvents = everythingUpcoming.Where(PassesPriority).Where(IsInsideTheHorizon).ToList();
+        var everythingUpcoming = WhatIsComingUp(events, everyTaskList);
+        var shownUpcoming = everythingUpcoming
+            .Where(thing => PassesPriority(thing.Priority))
+            .Where(thing => IsInsideTheHorizon(thing.At))
+            .ToList();
 
         // The account's tag colours, read from this phone like everything else on the page, for the two
         // cards whose rows draw tags - see DashboardRow.Tags.
@@ -254,7 +257,7 @@ public sealed partial class DashboardViewModel : ObservableObject
             DashboardCardKind.Tasks, _translations["Tasks"], DescribeTaskLists(shownTaskLists, tagColours), shownTaskLists.Count(CanBeShown),
             taskLists.Any(CanBeShown));
         AddCardIfAnything(
-            DashboardCardKind.Upcoming, _translations["Upcoming"], DescribeEvents(shownEvents), shownEvents.Count,
+            DashboardCardKind.Upcoming, _translations["Upcoming"], SoonestFirst(shownUpcoming), shownUpcoming.Count,
             everythingUpcoming.Count > 0);
         // Between what is coming up and who is around, which is where Orbit.Web puts it. The card
         // rather than a row carries the news: something about to go off says "/inventory" and names no
@@ -316,6 +319,13 @@ public sealed partial class DashboardViewModel : ObservableObject
 
             case DashboardCardKind.Tasks:
                 _navigator.ShowTaskList(row.LocalId);
+                break;
+
+            // A deadline opens the entry it is owed by - the list is where the work is done, which is
+            // the rule Orbit.Web's own card follows and the one the phone's calendar already follows
+            // for the same rows. An appointment opens the calendar, as it always has.
+            case DashboardCardKind.Upcoming when row.EntryId is { } entryId:
+                _navigator.ShowTaskItem(row.LocalId, entryId);
                 break;
 
             case DashboardCardKind.Upcoming:
@@ -436,18 +446,50 @@ public sealed partial class DashboardViewModel : ObservableObject
         => FilterFor(kind) is not DashboardCardFilter.Pinned || isPinned;
 
     /// <summary>
-    /// Whether an event survives the Upcoming card's filter. Priority travels as a name - see
-    /// CalendarEventDetailsDto.Priority - and one this build does not know lets the event through
-    /// rather than hiding it, because a hidden event is worse than an unfiltered one.
+    /// Whether something survives the Upcoming card's filter. Priority travels as a name - see
+    /// CalendarEventDetailsDto.Priority and TaskDto.Priority - and one this build does not know lets the
+    /// row through rather than hiding it, because a hidden row is worse than an unfiltered one.
     /// </summary>
-    private bool PassesPriority(LocalCalendarEvent calendarEvent)
+    private bool PassesPriority(string priority)
         => FilterFor(DashboardCardKind.Upcoming) switch
         {
-            DashboardCardFilter.HighPriority => calendarEvent.Details.Priority == "High",
-            DashboardCardFilter.NormalPriority => calendarEvent.Details.Priority == "Normal",
-            DashboardCardFilter.LowPriority => calendarEvent.Details.Priority == "Low",
+            DashboardCardFilter.HighPriority => priority == "High",
+            DashboardCardFilter.NormalPriority => priority == "Normal",
+            DashboardCardFilter.LowPriority => priority == "Low",
             _ => true
         };
+
+    /// <summary>
+    /// One thing on the Upcoming card, whichever of the two it came from - an appointment, or an entry
+    /// with a deadline. Both, because the card and the calendar answer the same question and were
+    /// answering it differently: the calendar shows deadlines beside appointments, and a card headed
+    /// "Upcoming" that left them out was not what is coming up. Orbit.Web gathers the same pair, in its
+    /// own UpcomingEntry.
+    ///
+    /// The moment and the priority are carried beside the row because the card is filtered and sorted on
+    /// them, and a row is words: an appointment's priority is its own, a deadline's is the list's.
+    /// </summary>
+    private sealed record UpcomingThing(DateTimeOffset At, string Priority, DashboardRow Row);
+
+    /// <summary>Everything coming up, from both sources - see <see cref="UpcomingThing"/>.</summary>
+    /// <param name="taskLists">
+    /// Every list on the phone rather than the ones under the open folder. Deadlines are a fact about
+    /// what is owed, not about the tab somebody is standing on - the same reason StillToDo is given them.
+    /// </param>
+    private List<UpcomingThing> WhatIsComingUp(
+        IReadOnlyList<LocalCalendarEvent> events, IReadOnlyList<LocalTaskList> taskLists)
+    {
+        var appointments = StillToDo(events, taskLists);
+        return [.. appointments.Select(ToUpcomingAppointment).Concat(DeadlinesComingUp(taskLists, appointments))];
+    }
+
+    /// <summary>
+    /// The rows the card draws, soonest first - the two sources sorted as one, because "what is coming
+    /// up" is one question and an appointment on Tuesday comes before a deadline on Wednesday whichever
+    /// list it is on.
+    /// </summary>
+    private static IReadOnlyList<DashboardRow> SoonestFirst(IReadOnlyList<UpcomingThing> coming)
+        => [.. coming.OrderBy(thing => thing.At).Take(RowsPerCard).Select(thing => thing.Row)];
 
     /// <summary>
     /// What the Upcoming card is about: appointments still ahead of the reader and not already dealt
@@ -525,13 +567,130 @@ public sealed partial class DashboardViewModel : ObservableObject
                 .FirstOrDefault(occurrence => occurrence.Details.EndUtc >= nowUtc);
 
     /// <summary>
-    /// Whether an event is near enough for the Upcoming card - see UpcomingHorizon, which the reader
+    /// The entries with a deadline still ahead of them, as rows for the same card. The rules are
+    /// Orbit.Web's, in UpcomingDeadlines:
+    ///
+    /// - a list somebody closed is closed, whatever is still unticked on it. Marking one finished with
+    ///   work left is a way of saying "no more of this" (TaskList.IsMarkedCompleted), and a card headed
+    ///   "what is coming up" that kept listing its deadlines would be arguing;
+    /// - an entry ticked off or crossed out is finished with either way;
+    /// - an entry standing for other lists has no deadline of its own to own: its tick comes from them;
+    /// - and a date already past is not coming up.
+    ///
+    /// Two rules are this screen's rather than Orbit.Web's. A **sealed** list is skipped: its entries are
+    /// sealed with it, so there is nothing here to read, let alone name. And a list this reader has not
+    /// unlocked is left out by the same gate every other card asks (see CanBeShown) - a deadline names
+    /// the list it is on, so drawing one would say out loud what the gate is there to keep quiet.
+    /// </summary>
+    /// <param name="appointments">
+    /// What the card is already showing as appointments, to leave out an entry that <b>is</b> one of
+    /// them: an entry with both a date and an appointment would otherwise be written twice, one line
+    /// under the other. The same rule the phone's calendar applies - see
+    /// CalendarDeadline.IsAlreadyDrawnAsItsEvent - and on the same terms: only where the appointment
+    /// falls on the day the deadline does, since on any other day nothing else stands for it.
+    /// </param>
+    private IEnumerable<UpcomingThing> DeadlinesComingUp(
+        IReadOnlyList<LocalTaskList> taskLists, IReadOnlyList<LocalCalendarEvent> appointments)
+    {
+        var nowUtc = _timeProvider.GetUtcNow();
+        var zone = _timeProvider.LocalTimeZone;
+        var daysTheirAppointmentIsOn = appointments
+            .Where(appointment => appointment.ServerId is not null)
+            .GroupBy(appointment => appointment.ServerId!.Value)
+            .ToDictionary(
+                byEvent => byEvent.Key,
+                byEvent => byEvent.Select(appointment => TimeZoneInfo.ConvertTime(appointment.Details.StartUtc, zone).Date).ToHashSet());
+
+        return taskLists
+            .Where(taskList => !taskList.IsCompleted && !taskList.IsSealed && CanBeShown(taskList))
+            .SelectMany(taskList => taskList.Items.Select(item => (taskList, item)))
+            .Where(pair => !pair.item.IsCompleted
+                && !pair.item.IsFailed
+                && pair.item.AllLinkedTaskListIds.Count == 0
+                && pair.item.DueDateUtc is { } due
+                && due >= nowUtc
+                && !IsAlreadyAnAppointmentThatDay(pair.item, due, daysTheirAppointmentIsOn, zone))
+            .Select(pair => ToUpcomingDeadline(pair.taskList, pair.item));
+    }
+
+    /// <inheritdoc cref="DeadlinesComingUp"/>
+    private static bool IsAlreadyAnAppointmentThatDay(
+        Orbit.Contracts.Tasks.TaskItemDto item, DateTimeOffset due,
+        IReadOnlyDictionary<Guid, HashSet<DateTime>> daysTheirAppointmentIsOn, TimeZoneInfo zone)
+        => item.LinkedCalendarEventId is { } eventId
+            && daysTheirAppointmentIsOn.TryGetValue(eventId, out var days)
+            && days.Contains(TimeZoneInfo.ConvertTime(due, zone).Date);
+
+    /// <summary>
+    /// One appointment as the card draws it. The dot is the event's own colour, which is what Orbit.Web
+    /// draws here too.
+    /// </summary>
+    private UpcomingThing ToUpcomingAppointment(LocalCalendarEvent calendarEvent)
+        => new(
+            calendarEvent.Details.StartUtc,
+            calendarEvent.Details.Priority,
+            new DashboardRow(
+                calendarEvent.LocalId,
+                TitleOrPlaceholder(calendarEvent.Details.Title, _translations["Untitled event"]),
+                DescribeWhen(calendarEvent.Details.StartUtc, calendarEvent.Details.IsAllDay))
+            {
+                HasColourDot = true,
+                Colour = calendarEvent.Details.Color,
+                Priority = PriorityWorthSaying(calendarEvent.Details.Priority),
+                // A reminder is the event's own and says so - see EventReminderPushContent.
+                HasNews = calendarEvent.ServerId is { } serverId
+                    && UnreadNews.About(_unreadUrls, $"/calendar/{serverId}")
+            });
+
+    /// <summary>
+    /// One deadline as the card draws it. Named after its list - "Shopping: Milk" - because this card
+    /// gathers things from everywhere and a row that does not say where it came from is the one row on it
+    /// that has lost something; Orbit.Web names it the same way, and so does the phone's own calendar.
+    ///
+    /// How much it matters is the <b>list's</b> answer, as Orbit.Web reads it: an entry carries no
+    /// priority of its own. The dot carries no colour, so the app's accent stands in - the same thing
+    /// that stands in for an appointment nobody coloured. A deadline has no colour to have: colour on
+    /// this card means an event's own, and painting one in would be inventing it.
+    /// </summary>
+    private UpcomingThing ToUpcomingDeadline(LocalTaskList taskList, Orbit.Contracts.Tasks.TaskItemDto item)
+        => new(
+            item.DueDateUtc!.Value,
+            taskList.Priority,
+            new DashboardRow(
+                taskList.LocalId,
+                NamedAfterItsList(_translations.Written(taskList.Title), _translations.Written(item.Description)),
+                DescribeWhen(item.DueDateUtc!.Value, isAllDay: false))
+            {
+                // Which is what makes the row open the entry rather than the calendar - see OpenAsync.
+                EntryId = item.Id,
+                HasColourDot = true,
+                Priority = PriorityWorthSaying(taskList.Priority),
+                // A deadline and an overdue notice both point at the list the entry sits on
+                // (DailyTaskReminderPushContent, OverdueTaskPushContent) rather than at the entry.
+                HasNews = taskList.ServerId is { } serverId && UnreadNews.About(_unreadUrls, $"/tasks/{serverId}")
+            });
+
+    /// <summary>The list, then what it says - and only what it says where the list has no name.</summary>
+    private static string NamedAfterItsList(string listTitle, string description)
+        => listTitle.Trim().Length == 0 ? description : $"{listTitle}: {description}";
+
+    /// <summary>
+    /// How much something matters, where that is worth saying at all. Normal is what everything is unless
+    /// somebody said otherwise, so it is drawn as nothing rather than as a badge on every row.
+    /// </summary>
+    private string PriorityWorthSaying(string priority)
+        => Tasks.PriorityChoice.For(priority, _translations) is { IsWorthSaying: true } worthSaying
+            ? worthSaying.Name
+            : string.Empty;
+
+    /// <summary>
+    /// Whether something is near enough for the Upcoming card - see UpcomingHorizon, which the reader
     /// sets on the account screen's Preferences tab. What falls outside is not lost: the card's own name
     /// opens the calendar, which is where a longer view is read.
     /// </summary>
-    private bool IsInsideTheHorizon(LocalCalendarEvent calendarEvent)
+    private bool IsInsideTheHorizon(DateTimeOffset at)
         => _upcomingHorizon is null
-            || _upcomingHorizon.Holds(calendarEvent.Details.StartUtc, _timeProvider.GetUtcNow(), _timeProvider.LocalTimeZone);
+            || _upcomingHorizon.Holds(at, _timeProvider.GetUtcNow(), _timeProvider.LocalTimeZone);
 
     private DashboardCardFilter FilterFor(DashboardCardKind kind)
         => _filters.TryGetValue(kind, out var filter) ? filter : DashboardCardFilter.All;
@@ -885,33 +1044,6 @@ public sealed partial class DashboardViewModel : ObservableObject
                 Tags = list.IsSealed
                     ? Screens.Tags.TagChips.None
                     : Screens.Tags.TagChips.For(list.AllTags, tagColours)
-            })
-            .ToList();
-
-    /// <summary>
-    /// The card's rows, soonest first. What reaches this is already only what is coming up and not done
-    /// with - see StillToDo, which is where that is decided.
-    /// </summary>
-    private IReadOnlyList<DashboardRow> DescribeEvents(IReadOnlyList<LocalCalendarEvent> events)
-        => events
-            .OrderBy(calendarEvent => calendarEvent.Details.StartUtc)
-            .Take(RowsPerCard)
-            .Select(calendarEvent => new DashboardRow(
-                calendarEvent.LocalId,
-                TitleOrPlaceholder(calendarEvent.Details.Title, _translations["Untitled event"]),
-                DescribeWhen(calendarEvent.Details.StartUtc, calendarEvent.Details.IsAllDay))
-            {
-                // The dot Orbit.Web draws here too, in the event's own colour.
-                HasColourDot = true,
-                Colour = calendarEvent.Details.Color,
-                // And the badge it draws on this card's rows, on the same terms as the other two cards.
-                Priority = Tasks.PriorityChoice.For(calendarEvent.Details.Priority, _translations)
-                    is { IsWorthSaying: true } priority
-                    ? priority.Name
-                    : string.Empty,
-                // A reminder is the event's own and says so - see EventReminderPushContent.
-                HasNews = calendarEvent.ServerId is { } serverId
-                    && UnreadNews.About(_unreadUrls, $"/calendar/{serverId}")
             })
             .ToList();
 

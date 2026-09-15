@@ -299,6 +299,99 @@ public sealed class DashboardScreenTests
         Assert.Equal(["This week", "Next year"], events.Rows.Select(row => row.Title));
     }
 
+    /// <summary>
+    /// The card gathers deadlines beside appointments, as Orbit.Web's does and for the reason its own
+    /// comment gives: the calendar shows both, and a card headed "Upcoming" that left entries out was not
+    /// what is coming up. The phone's card was appointments only.
+    /// </summary>
+    [Fact]
+    public async Task A_deadline_is_on_the_upcoming_card_beside_the_appointments()
+    {
+        using var context = new DashboardContext();
+        await context.AddEventAsync("Standup", Now.AddDays(3));
+        await context.AddTaskListAsync("Errands", ("Post the parcel", Now.AddDays(2), false));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var upcoming = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+        // Sorted as one question: the parcel is owed before the standup happens, whichever list it is on.
+        // And named after the list it sits on, because a card gathering things from everywhere has to say
+        // where each row came from.
+        Assert.Equal(["Errands: Post the parcel", "Standup"], upcoming.Rows.Select(row => row.Title));
+    }
+
+    [Fact]
+    public async Task A_deadline_already_met_or_already_past_is_not_coming_up()
+    {
+        using var context = new DashboardContext();
+        await context.AddTaskListAsync(
+            "Errands",
+            ("Still owed", Now.AddDays(2), false),
+            ("Already done", Now.AddDays(3), true),
+            ("Long overdue", Now.AddDays(-4), false));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var upcoming = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+        Assert.Equal(["Errands: Still owed"], upcoming.Rows.Select(row => row.Title));
+    }
+
+    /// <summary>
+    /// Marking a list finished with work still on it is a way of saying "no more of this"
+    /// (TaskList.IsMarkedCompleted), and a card headed "what is coming up" that kept listing its
+    /// deadlines would be arguing with the reader.
+    /// </summary>
+    [Fact]
+    public async Task A_deadline_on_a_list_somebody_closed_is_not_coming_up()
+    {
+        using var context = new DashboardContext();
+        var closed = await context.AddTaskListAsync("Errands", ("Post the parcel", Now.AddDays(2), false));
+        await context.CloseTaskListAsync(closed);
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.DoesNotContain(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+    }
+
+    /// <summary>
+    /// An entry that <b>is</b> an appointment would otherwise be written twice, one line under the other:
+    /// once as the appointment and once as its own deadline. See DashboardViewModel.DeadlinesComingUp,
+    /// and CalendarDeadline, which leaves it off the same day on the calendar for the same reason.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_that_is_also_an_appointment_is_written_once()
+    {
+        using var context = new DashboardContext();
+        var dentist = await context.AddEventAsync("Dentist", Now.AddDays(2));
+        await context.RaiseFromAnEntryDueAsync("Health", dentist, Now.AddDays(2));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var upcoming = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+        Assert.Equal(["Dentist"], upcoming.Rows.Select(row => row.Title));
+    }
+
+    [Fact]
+    public async Task Pressing_a_deadline_opens_the_entry_it_is_owed_by()
+    {
+        using var context = new DashboardContext();
+        var errands = await context.AddTaskListAsync("Errands", ("Post the parcel", Now.AddDays(2), false));
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var upcoming = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+        await screen.OpenCommand.ExecuteAsync(Assert.Single(upcoming.Rows));
+
+        // The list is where the work is done, so that is where the row goes - not to the calendar, which
+        // is where an appointment's row still goes.
+        Assert.Equal("ShowTaskItem", context.Navigator.LastDestination);
+        Assert.Equal(errands, context.Navigator.LastTaskItem!.Value.TaskListLocalId);
+    }
+
     [Fact]
     public async Task Chats_are_listed_twice_for_two_different_questions()
     {
@@ -1684,7 +1777,18 @@ public sealed class DashboardScreenTests
         /// The event is stamped with a server id here because a server id is what an entry names
         /// (`TaskItemDto.LinkedCalendarEventId`) and nothing in these tests has pushed anything.
         /// </summary>
-        public async Task RaiseFromATickedEntryAsync(string listTitle, Guid eventLocalId)
+        public Task RaiseFromATickedEntryAsync(string listTitle, Guid eventLocalId)
+            => RaiseFromAnEntryAsync(listTitle, eventLocalId, dueUtc: null, isCompleted: true);
+
+        /// <summary>
+        /// The same list, with the entry still owed and carrying a deadline of its own - which is the
+        /// entry that would be written twice if the card did not notice that it is the appointment.
+        /// </summary>
+        public Task RaiseFromAnEntryDueAsync(string listTitle, Guid eventLocalId, DateTimeOffset dueUtc)
+            => RaiseFromAnEntryAsync(listTitle, eventLocalId, dueUtc, isCompleted: false);
+
+        private async Task RaiseFromAnEntryAsync(
+            string listTitle, Guid eventLocalId, DateTimeOffset? dueUtc, bool isCompleted)
         {
             var serverId = Guid.NewGuid();
             await using (var dbContext = _localStore.CreateDbContext())
@@ -1697,9 +1801,20 @@ public sealed class DashboardScreenTests
                 listTitle,
                 [
                     new TaskItemDto(
-                        Guid.NewGuid(), "Book it", null, IsCompleted: true, null, "None", false, "None",
+                        Guid.NewGuid(), "Dentist", dueUtc, isCompleted, null, "None", false, "None",
                         new TimeOnly(9, 0), Kind: "Calendar", LinkedCalendarEventId: serverId)
                 ]);
+        }
+
+        /// <summary>
+        /// Marks a list finished, as its own screen's box does - which closes it whatever is still
+        /// unticked on it. Written straight into the store: this context has no task-list screen.
+        /// </summary>
+        public async Task CloseTaskListAsync(Guid taskListLocalId)
+        {
+            await using var dbContext = _localStore.CreateDbContext();
+            dbContext.TaskLists.First(stored => stored.LocalId == taskListLocalId).IsCompleted = true;
+            await dbContext.SaveChangesAsync();
         }
 
         /// <summary>

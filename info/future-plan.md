@@ -1865,12 +1865,13 @@ same feature owing its second client.
   stands for two or more, and `ToRequests` now says the rule instead of saying nothing about it. The
   fake tasks server had to learn the field first - it answered every save with the default, which would
   have let a phone that never sent it pass.
-- **Deadlines on the phone's Upcoming card.** The browser's card gathers appointments **and task entries
-  with a deadline** (`Dashboard.UpcomingDeadlines`), on the reasoning its own comment gives: a card headed
-  "Upcoming" that left deadlines out was not what is coming up. The phone's card is appointments only, so
-  the two answer the same question differently. What it would need is the phone's equivalent of
-  `UpcomingEntry` - one row type over two sources - and a row that opens the entry rather than the event.
-  Noticed 2026-09-15 while taking finished appointments off that card.
+- ~~**Deadlines on the phone's Upcoming card.** The browser's card gathers appointments **and task entries
+  with a deadline** (`Dashboard.UpcomingDeadlines`); the phone's card is appointments only, so the two
+  answer the same question differently.~~ Noticed and done on 2026-09-15: `UpcomingThing` is the phone's
+  equivalent of `UpcomingEntry` - one row type over two sources, sorted and filtered as one - and a
+  deadline row opens the entry rather than the calendar (`DashboardRow.EntryId`). The dedupe went further
+  than the browser's: an entry that **is** one of the appointments already on the card that day is left
+  off, which is what the phone's calendar already did (`CalendarDeadline.IsAlreadyDrawnAsItsEvent`).
 - **"New sublist".** Built in `TaskListChecklist` on 2026-09-14. ~~It has **no test** on either side.~~
   Covered in the browser on 2026-09-15: that the two calls are made - the list in the group's own folder,
   then the group saved whole with one entry more standing for it - and that the action is offered only on

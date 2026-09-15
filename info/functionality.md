@@ -4299,6 +4299,19 @@ which it has not since 2026-09-06. A card with nothing coming up is not drawn at
 from one a filter emptied: the filter is in the card's own header and can be widened, and the horizon
 that emptied it cannot make a past appointment future.
 
+**Both clients' cards gather deadlines beside appointments**, because this card and the calendar answer
+the same question and were answering it differently: the calendar shows entries with a date beside the
+appointments, and a card headed "Upcoming" that left them out was not what is coming up. A deadline is
+named after the list it sits on - "Shopping: Milk" - and opens the entry rather than the calendar,
+because the list is where the work is done. It is left out where the list has been closed (marking one
+finished with work still on it says "no more of this"), where the entry is ticked off or crossed out,
+where the entry stands for other lists (its tick comes from them), and where it **is** one of the
+appointments already on the card that day, which would otherwise write the same thing twice, one line
+under the other. How much a deadline matters is the list's answer: an entry carries no priority of its
+own. The phone gained this on 2026-09-15 (`DashboardViewModel.DeadlinesComingUp`), and there a sealed
+list is skipped as well, its entries being sealed with it, and a private one while private things are
+locked - a deadline names the list it is on.
+
 **The phone offers the same five** on the account screen's Preferences tab and applies them to
 its own card (`UpcomingHorizon`, `DashboardViewModel.IsInsideTheHorizon`), kept in that phone's
 preferences rather than shared with the browser - a horizon is how one screen is read on one device, the
