@@ -1830,13 +1830,15 @@ same feature owing its second client.
   `DashboardViewModel.IsInsideTheHorizon` over `shownEvents`. Kept in the phone's own preferences rather
   than shared with the browser, the way the theme is - the two lists of horizons are written out on both
   sides, which is what the kinds of entry beside them already do.
-- **"Copy the text" on a note.** `NoteSummary` puts it in the note's menu and writes the round-trippable
+- ~~**"Copy the text" on a note.** `NoteSummary` puts it in the note's menu and writes the round-trippable
   format (`[x] ` and `- `). The phone's note screen has no clipboard action at all - "copy" there means
-  `CopyForEditingAsync`, which is the copy-to-edit-offline feature and a different thing.
-- **How much of a list is done, in its light view.** `TaskListChecklist` draws "Done: {0} of {1}" in the
+  `CopyForEditingAsync`, which is the copy-to-edit-offline feature and a different thing.~~ Done
+  2026-09-15: the note screen's menu carries "Copy the text", and the format both clients write is one
+  piece of code they share (`NoteWords`) rather than the browser's copy of it.
+- ~~**How much of a list is done, in its light view.** `TaskListChecklist` draws "Done: {0} of {1}" in the
   rail's extras. The phone shows the same fraction on the dashboard card and on the tasks list row
   (`TaskListRow.Progress`) but not on the list's own screen, which is the one place somebody reading a
-  long list wants it.
+  long list wants it.~~ Done 2026-09-15: `TaskListDetailViewModel.Progress`, above the status line.
 - ~~**"Needs all of them".** The rule itself is shared (`TaskItem.NeedsEveryLinkedList`), and the phone
   sends null for it, which the server reads as "keep what is stored" - so nothing is lost. But the phone
   offers no way to set it, so an entry standing for several lists can only be switched to "all of them"
@@ -1872,9 +1874,9 @@ It is **not** on the two other places somebody edits in the browser:
 
 ### Said one way in one place and another way in another
 
-- **The phone's notification feed still calls it "Clear".** The browser's notifications page and bell
+- ~~**The phone's notification feed still calls it "Clear".** The browser's notifications page and bell
   panel were renamed to "Delete history" on 2026-09-14, because the button deletes rather than dismisses.
-  `NotificationFeedPage` was missed; the translation it needs already exists.
+  `NotificationFeedPage` was missed; the translation it needs already exists.~~ Renamed 2026-09-15.
 
 ### Not built at all
 
