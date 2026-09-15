@@ -85,6 +85,15 @@ public sealed class CalendarClient : ILockableItems
         return ReadOutcome(response);
     }
 
+    /// <inheritdoc cref="NotesClient.ArchiveAsync"/>
+    public async Task<WriteOutcome> ArchiveAsync(
+        Guid calendarEventId, bool isArchived, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/calendar-events/{calendarEventId}/archived", new ArchiveRequest(isArchived), cancellationToken);
+        return ReadOutcome(response);
+    }
+
     public async Task<WriteOutcome> DeleteAsync(Guid calendarEventId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.DeleteAsync($"api/calendar-events/{calendarEventId}", cancellationToken);

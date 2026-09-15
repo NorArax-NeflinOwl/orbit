@@ -223,14 +223,17 @@ public sealed partial class DashboardViewModel : ObservableObject
 
         FolderChoices.Clear();
         foreach (var choice in Folders.Describe(
-            notes.Select(note => Folders.Where(note.FolderId, note.IsPrivate, isFinished: false))
-                .Concat(taskLists.Select(list => Folders.Where(list.FolderId, list.IsPrivate, list.IsCompleted)))))
+            notes.Select(note => Folders.Where(note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived))
+                .Concat(taskLists.Select(list => Folders.Where(
+                    list.FolderId, list.IsPrivate, list.IsCompleted, list.IsArchived)))))
         {
             FolderChoices.Add(choice);
         }
 
-        notes = [.. notes.Where(note => Folders.Holds(Folders.Where(note.FolderId, note.IsPrivate, isFinished: false)))];
-        taskLists = [.. taskLists.Where(list => Folders.Holds(Folders.Where(list.FolderId, list.IsPrivate, list.IsCompleted)))];
+        notes = [.. notes.Where(note => Folders.Holds(
+            Folders.Where(note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived)))];
+        taskLists = [.. taskLists.Where(list => Folders.Holds(
+            Folders.Where(list.FolderId, list.IsPrivate, list.IsCompleted, list.IsArchived)))];
 
         var shownNotes = notes.Where(note => Passes(DashboardCardKind.Notes, note.IsPinned)).ToList();
         var shownTaskLists = taskLists.Where(list => Passes(DashboardCardKind.Tasks, list.IsPinned)).ToList();

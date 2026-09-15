@@ -67,6 +67,15 @@ public sealed class InventoryClient : ILockableItems
         return ReadOutcome(response);
     }
 
+    /// <inheritdoc cref="NotesClient.ArchiveAsync"/>
+    public async Task<WriteOutcome> ArchiveAsync(
+        Guid inventoryId, bool isArchived, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/inventories/{inventoryId}/archived", new ArchiveRequest(isArchived), cancellationToken);
+        return ReadOutcome(response);
+    }
+
     /// <summary>
     /// Offers a copy to another account. The server records the offer; telling the recipient is this
     /// client's job, because the message that does it is end-to-end encrypted and only a client holds

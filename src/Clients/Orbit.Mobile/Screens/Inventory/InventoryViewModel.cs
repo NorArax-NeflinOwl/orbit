@@ -421,7 +421,8 @@ public sealed partial class InventoryViewModel : ObservableObject
         // question a task list is asked here is not asked of it - see FolderPlacement.
         var placements = held.ToDictionary(
             inventory => inventory.LocalId,
-            inventory => Folders.Where(inventory.FolderId, inventory.IsPrivate, isFinished: false));
+            inventory => Folders.Where(
+                inventory.FolderId, inventory.IsPrivate, isFinished: false, inventory.IsArchived));
 
         FolderChoices.Clear();
         foreach (var choice in Folders.Describe(placements.Values))

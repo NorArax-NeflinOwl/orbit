@@ -311,7 +311,7 @@ public sealed partial class TasksViewModel : ObservableObject
 
     /// <summary>Which folder one list is under - see FolderTabs.Where, and FolderPlacement.</summary>
     private FolderKey Where(LocalTaskList taskList)
-        => Folders.Where(taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted);
+        => Folders.Where(taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted, taskList.IsArchived);
 
     /// <inheritdoc cref="Notes.NotesViewModel.ChooseFolderAsync"/>
     [RelayCommand]

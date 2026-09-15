@@ -592,6 +592,16 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 			}
 		}
 
+		// The other way out of a list, and immediately above Delete on purpose: somebody reaching for
+		// Delete because they want this out of the way should meet it first - one of the two is
+		// reversible. Only for this reader's own, the way filing is - see BuiltInFolder.Archived.
+		if (!_viewModel.IsSharedWithMe)
+		{
+			entries.Add(new ScreenMenuEntry(
+				_viewModel.IsArchived ? _translations["Put back"] : _translations["Archive"],
+				() => _viewModel.ArchiveCommand.Execute(!_viewModel.IsArchived)));
+		}
+
 		// Somebody else's note is not this reader's to delete: the same press takes it off their own
 		// list and leaves the owner's alone, which is why it is named for what it will actually do.
 		entries.Add(new ScreenMenuEntry(

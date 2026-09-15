@@ -89,6 +89,7 @@ public sealed class CalendarEventSynchronizer
         {
             OutboxOperation.Create => await SendCreateAsync(dbContext, calendarEvent, cancellationToken),
             OutboxOperation.File => await SendFilingAsync(dbContext, calendarEvent, cancellationToken),
+            OutboxOperation.Archive => await SendArchivingAsync(calendarEvent, cancellationToken),
             _ => await SendUpdateAsync(calendarEvent, cancellationToken)
         };
     }
@@ -139,6 +140,30 @@ public sealed class CalendarEventSynchronizer
         return SendResult.Sent;
     }
 
+    /// <summary>
+    /// Tells the server this was put away, or brought back - see
+    /// Orbit.Core.Folders.BuiltInFolder.Archived. Nothing to translate here, unlike the filing above: a
+    /// flag means the same on both sides, where a folder id does not.
+    /// </summary>
+    private async Task<SendResult> SendArchivingAsync(LocalCalendarEvent calendarEvent, CancellationToken cancellationToken)
+    {
+        if (calendarEvent.ServerId is not { } serverId)
+        {
+            // Its create is still queued ahead of this, and that create carries the flag itself.
+            return SendResult.Abandoned;
+        }
+
+        var outcome = await _calendarClient.ArchiveAsync(serverId, calendarEvent.IsArchived, cancellationToken);
+        if (outcome is not WriteOutcome.Applied)
+        {
+            _logger.LogInformation(
+                "The server refused an archiving of event {ServerId}: {Outcome}", serverId, outcome);
+            return SendResult.Refused;
+        }
+
+        return SendResult.Sent;
+    }
+
     private async Task<SendResult> SendCreateAsync(
         OrbitLocalDbContext dbContext, LocalCalendarEvent calendarEvent, CancellationToken cancellationToken)
     {
@@ -168,6 +193,16 @@ public sealed class CalendarEventSynchronizer
 
         calendarEvent.ServerId = serverId;
         calendarEvent.LastSyncedAtUtc = _timeProvider.GetUtcNow();
+
+        if (calendarEvent.IsArchived)
+        {
+            // Archiving has no room on a create and deliberately - see ArchiveRequest - so one put away
+            // before the server ever heard of it arrives on its page and is put away a moment later, in
+            // this same pass. A refusal here is not the create's to carry: the event exists now, and
+            // handing back anything but Sent would replay the create and make a second one.
+            await SendArchivingAsync(calendarEvent, cancellationToken);
+        }
+
         return SendResult.Sent;
     }
 
@@ -266,6 +301,9 @@ public sealed class CalendarEventSynchronizer
         calendarEvent.CreatedAtUtc = incoming.CreatedAtUtc;
         calendarEvent.UpdatedAtUtc = incoming.UpdatedAtUtc;
         calendarEvent.IsShared = incoming.IsShared;
+        // Whether it is put away travels with everything else, so a tidy-up done in a browser
+        // moves it here too - see Orbit.Core.Folders.BuiltInFolder.Archived.
+        calendarEvent.IsArchived = incoming.IsArchived;
         calendarEvent.SharedByUserName = incoming.SharedByUserName;
         calendarEvent.IsSharedWithOthers = incoming.IsSharedWithOthers;
         calendarEvent.AccessLevel = incoming.AccessLevel;

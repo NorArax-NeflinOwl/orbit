@@ -85,6 +85,7 @@ public sealed class TaskListSynchronizer
         {
             OutboxOperation.Create => await SendCreateAsync(dbContext, taskList, cancellationToken),
             OutboxOperation.File => await SendFilingAsync(dbContext, taskList, cancellationToken),
+            OutboxOperation.Archive => await SendArchivingAsync(taskList, cancellationToken),
             _ => await SendUpdateAsync(taskList, cancellationToken)
         };
     }
@@ -129,6 +130,30 @@ public sealed class TaskListSynchronizer
         return SendResult.Sent;
     }
 
+    /// <summary>
+    /// Tells the server this was put away, or brought back - see
+    /// Orbit.Core.Folders.BuiltInFolder.Archived. Nothing to translate here, unlike the filing above: a
+    /// flag means the same on both sides, where a folder id does not.
+    /// </summary>
+    private async Task<SendResult> SendArchivingAsync(LocalTaskList taskList, CancellationToken cancellationToken)
+    {
+        if (taskList.ServerId is not { } serverId)
+        {
+            // Its create is still queued ahead of this, and that create carries the flag itself.
+            return SendResult.Abandoned;
+        }
+
+        var outcome = await _tasksClient.ArchiveAsync(serverId, taskList.IsArchived, cancellationToken);
+        if (outcome is not WriteOutcome.Applied)
+        {
+            _logger.LogInformation(
+                "The server refused an archiving of task list {ServerId}: {Outcome}", serverId, outcome);
+            return SendResult.Refused;
+        }
+
+        return SendResult.Sent;
+    }
+
     private async Task<SendResult> SendCreateAsync(
         OrbitLocalDbContext dbContext, LocalTaskList taskList, CancellationToken cancellationToken)
     {
@@ -152,6 +177,16 @@ public sealed class TaskListSynchronizer
                 Tags: taskList.Tags),
             cancellationToken);
         taskList.LastSyncedAtUtc = _timeProvider.GetUtcNow();
+
+        if (taskList.IsArchived)
+        {
+            // Archiving has no room on a create and deliberately - see ArchiveRequest - so one put away
+            // before the server ever heard of it arrives on its page and is put away a moment later, in
+            // this same pass. A refusal here is not the create's to carry: the list exists now, and
+            // handing back anything but Sent would replay the create and make a second one.
+            await SendArchivingAsync(taskList, cancellationToken);
+        }
+
         return SendResult.Sent;
     }
 
@@ -271,6 +306,9 @@ public sealed class TaskListSynchronizer
         taskList.CreatedAtUtc = incoming.CreatedAtUtc;
         taskList.UpdatedAtUtc = incoming.UpdatedAtUtc;
         taskList.IsShared = incoming.IsShared;
+        // Whether it is put away travels with everything else, so a tidy-up done in a browser
+        // moves it here too - see Orbit.Core.Folders.BuiltInFolder.Archived.
+        taskList.IsArchived = incoming.IsArchived;
         taskList.SharedByUserName = incoming.SharedByUserName;
         taskList.IsSharedWithOthers = incoming.IsSharedWithOthers;
         taskList.AccessLevel = incoming.AccessLevel;

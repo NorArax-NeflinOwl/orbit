@@ -59,6 +59,26 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
         FolderId = folderId;
         Status = string.Empty;
     }
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.IsArchived"/>
+    [ObservableProperty]
+    private bool _isArchived;
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.ArchiveAsync"/>
+    [RelayCommand]
+    private async Task ArchiveAsync(bool isArchived, CancellationToken cancellationToken)
+    {
+        var outcome = await _inventories.ArchiveAsync(_localId, isArchived, cancellationToken);
+
+        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        {
+            Status = _translations["This one can't be moved while you're offline."];
+            return;
+        }
+
+        IsArchived = isArchived;
+        Status = string.Empty;
+    }
     private readonly InventorySynchronizer _synchronizer;
     private readonly InventoryClient _inventoryClient;
     private readonly EditLock _editLock;
@@ -496,6 +516,7 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
 
         Name = inventory.Name;
         FolderId = inventory.FolderId;
+        IsArchived = inventory.IsArchived;
         Folders = [.. await _folderRepository.GetAllAsync(FolderScope.Inventories, cancellationToken)];
         Description = inventory.Description;
         _savedDescription = inventory.Description;

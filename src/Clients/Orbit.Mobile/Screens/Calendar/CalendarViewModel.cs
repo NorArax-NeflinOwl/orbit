@@ -661,7 +661,9 @@ public sealed partial class CalendarViewModel : ObservableObject
             .GroupBy(calendarEvent => calendarEvent.LocalId)
             .ToDictionary(
                 occurrences => occurrences.Key,
-                occurrences => Folders.Where(occurrences.First().FolderId, isPrivate: false, isFinished: false));
+                occurrences => Folders.Where(
+                    occurrences.First().FolderId, isPrivate: false, isFinished: false,
+                    occurrences.First().IsArchived));
 
         FolderChoices.Clear();
         foreach (var choice in Folders.Describe(placements.Values))

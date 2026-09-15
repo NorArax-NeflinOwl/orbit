@@ -137,6 +137,12 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
             return await FileAsync(request, path, cancellationToken);
         }
 
+        // Archiving has its own endpoint too, and for the same reason - see ArchiveRequest.
+        if (path.EndsWith("/archived", StringComparison.Ordinal))
+        {
+            return await ArchiveAsync(request, path, cancellationToken);
+        }
+
         return request.Method.Method switch
         {
             "POST" => await CreateAsync(request, cancellationToken),
@@ -190,6 +196,21 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
 
         var body = await ReadAsync<Orbit.Contracts.Folders.MoveToFolderRequest>(request, cancellationToken);
         _inventories[id] = existing with { FolderId = body!.FolderId, UpdatedAtUtc = _timeProvider.GetUtcNow() };
+        return new HttpResponseMessage(HttpStatusCode.NoContent);
+    }
+
+    /// <summary>Whether it is put away - applied to the stored one, so a test can tell it was sent.</summary>
+    private async Task<HttpResponseMessage> ArchiveAsync(
+        HttpRequestMessage request, string path, CancellationToken cancellationToken)
+    {
+        var id = Guid.Parse(path.Split('/')[^2]);
+        if (!_inventories.TryGetValue(id, out var existing))
+        {
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        var body = await ReadAsync<Orbit.Contracts.Folders.ArchiveRequest>(request, cancellationToken);
+        _inventories[id] = existing with { IsArchived = body!.IsArchived, UpdatedAtUtc = _timeProvider.GetUtcNow() };
         return new HttpResponseMessage(HttpStatusCode.NoContent);
     }
 

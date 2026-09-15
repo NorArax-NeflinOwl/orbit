@@ -214,6 +214,32 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         Status = string.Empty;
     }
 
+    /// <summary>
+    /// Whether this note is put away - see Orbit.Core.Folders.BuiltInFolder.Archived. Read by the page
+    /// only to name the menu entry below, which reads "Archive" or "Put back" for the same command.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isArchived;
+
+    /// <summary>
+    /// Puts it away, or brings it back. Its own kind of change, queued like the filing above and for the
+    /// same reason - see LocalNoteRepository.ArchiveAsync.
+    /// </summary>
+    [RelayCommand]
+    private async Task ArchiveAsync(bool isArchived, CancellationToken cancellationToken)
+    {
+        var outcome = await _notes.ArchiveAsync(_localId, isArchived, cancellationToken);
+
+        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        {
+            Status = _translations["This one can't be moved while you're offline."];
+            return;
+        }
+
+        IsArchived = isArchived;
+        Status = string.Empty;
+    }
+
     [ObservableProperty]
     private Tasks.PriorityChoice _chosenPriority;
 
@@ -742,6 +768,7 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             ? _translations.Format("Shared by {0} · {1}", sharedBy, lastChanged)
             : lastChanged;
         FolderId = note.FolderId;
+        IsArchived = note.IsArchived;
         Folders = [.. (await _folders.GetAllAsync(FolderScope.Notes, cancellationToken))];
         _isShowingWhatIsStored = true;
         ChosenPriority = Tasks.PriorityChoice.For(note.Priority, _translations);

@@ -114,7 +114,11 @@ folder ahead of it has.
 
 Filing itself is queued as its own kind of change (`OutboxOperation.File`) and travels to its own
 endpoint, because a save carries the whole thing — an update that also carried the folder would empty it
-for any client that had not heard of folders.
+for any client that had not heard of folders. **Archiving is queued the same way**
+(`OutboxOperation.Archive`, `PUT .../{id}/archived`) and for the same reason, one step stronger: a save
+that carried the flag would bring back everything its owner had put away. Something archived before the
+server ever saw it has nothing to send the archiving against, so its create is queued again and the
+archiving goes out in the pass straight after that create succeeds.
 
 ## Chat that the server cannot read
 

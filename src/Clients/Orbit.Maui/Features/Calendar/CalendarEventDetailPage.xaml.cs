@@ -56,8 +56,15 @@ public partial class CalendarEventDetailPage : ContentPage, ITitleMenu
 			new(_translations["Share"], () => Sharing.IsVisible = !Sharing.IsVisible, Sharing.IsVisible)
 		];
 
+		// The other way out of a list, and immediately above Delete on purpose: somebody reaching for
+		// Delete because they want this out of the way should meet it first - one of the two is
+		// reversible. Only for this reader's own, the way filing is - see BuiltInFolder.Archived.
 		if (_viewModel.CanEdit)
 		{
+			entries.Add(new ScreenMenuEntry(
+				_viewModel.IsArchived ? _translations["Put back"] : _translations["Archive"],
+				() => _viewModel.ArchiveCommand.Execute(!_viewModel.IsArchived)));
+
 			entries.Add(new ScreenMenuEntry(_translations["Delete event"], () => _viewModel.DeleteCommand.Execute(null)));
 		}
 

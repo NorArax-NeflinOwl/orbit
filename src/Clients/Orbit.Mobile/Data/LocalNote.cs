@@ -68,6 +68,13 @@ public sealed class LocalNote : Orbit.Mobile.Sync.ISharedState, ICopyableForEdit
     /// </summary>
     public Guid? FolderId { get; set; }
 
+    /// <summary>
+    /// Whether its owner has put it away - see Orbit.Core.Folders.BuiltInFolder.Archived, the tab it
+    /// gathers under while it is away. The one built-in folder this phone stores, because nothing else
+    /// about the row could say it.
+    /// </summary>
+    public bool IsArchived { get; set; }
+
     /// <summary>True when this note reached the phone through somebody else's share.</summary>
     public bool IsShared { get; set; }
 

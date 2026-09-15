@@ -59,6 +59,18 @@ public sealed class TasksClient : ILockableItems
     }
 
     /// <summary>
+    /// Puts this list away, or brings it back - see Orbit.Core.Folders.BuiltInFolder.Archived. Its own
+    /// request to its own endpoint, exactly as filing above is, and for the same reason.
+    /// </summary>
+    public async Task<WriteOutcome> ArchiveAsync(
+        Guid taskListId, bool isArchived, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/tasks/{taskListId}/archived", new ArchiveRequest(isArchived), cancellationToken);
+        return ReadOutcome(response);
+    }
+
+    /// <summary>
     /// Offers a copy to another account. The server records the offer; telling the recipient is this
     /// client's job, because the message that does it is end-to-end encrypted and only a client holds
     /// the key - see SharedItemSharing.

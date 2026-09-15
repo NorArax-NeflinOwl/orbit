@@ -17,7 +17,17 @@ public enum OutboxOperation
     /// Last in the enum on purpose: the value is stored as a number, so an existing queue on somebody's
     /// phone keeps meaning what it meant.
     /// </summary>
-    File
+    File,
+
+    /// <summary>
+    /// Putting something away, or bringing it back - see Orbit.Core.Folders.BuiltInFolder.Archived. Its
+    /// own operation for the same reason <see cref="File"/> is: it travels on its own endpoint, because
+    /// a save carries the whole item and would bring back everything its owner had put away.
+    ///
+    /// After File, and last, for the reason File is last: the value is a number in a queue somebody's
+    /// phone may already be holding.
+    /// </summary>
+    Archive
 }
 
 /// <summary>

@@ -58,6 +58,26 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         Status = string.Empty;
     }
 
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.IsArchived"/>
+    [ObservableProperty]
+    private bool _isArchived;
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.ArchiveAsync"/>
+    [RelayCommand]
+    private async Task ArchiveAsync(bool isArchived, CancellationToken cancellationToken)
+    {
+        var outcome = await _events.ArchiveAsync(_localId, isArchived, cancellationToken);
+
+        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        {
+            Status = _translations["This one can't be moved while you're offline."];
+            return;
+        }
+
+        IsArchived = isArchived;
+        Status = string.Empty;
+    }
+
     /// <summary>Only to say why this is read-only, in the same words the calendar's own rows use.</summary>
     private readonly INetworkStatus _networkStatus;
 
@@ -636,6 +656,7 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
 
         _loaded = calendarEvent.Details;
         FolderId = calendarEvent.FolderId;
+        IsArchived = calendarEvent.IsArchived;
         Folders = [.. await _folderRepository.GetAllAsync(FolderScope.Calendar, cancellationToken)];
         if (calendarEvent.ServerId is { } serverId)
         {

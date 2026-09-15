@@ -1252,6 +1252,26 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         Status = string.Empty;
     }
 
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.IsArchived"/>
+    [ObservableProperty]
+    private bool _isArchived;
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.ArchiveAsync"/>
+    [RelayCommand]
+    private async Task ArchiveAsync(bool isArchived, CancellationToken cancellationToken)
+    {
+        var outcome = await _taskLists.ArchiveAsync(_localId, isArchived, cancellationToken);
+
+        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        {
+            Status = _translations["This one can't be moved while you're offline."];
+            return;
+        }
+
+        IsArchived = isArchived;
+        Status = string.Empty;
+    }
+
     private async Task ShowStoredListAsync(CancellationToken cancellationToken)
     {
         if (await _taskLists.FindAsync(_localId, cancellationToken) is not { } taskList)
@@ -1262,6 +1282,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
         Title = taskList.Title;
         FolderId = taskList.FolderId;
+        IsArchived = taskList.IsArchived;
         Folders = [.. (await _folders.GetAllAsync(FolderScope.Tasks, cancellationToken))];
         Description = taskList.Description;
         _savedDescription = taskList.Description;

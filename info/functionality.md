@@ -575,6 +575,17 @@ is, and the first that applies wins:
    say different things, and one of them is reversible. Left out on something reached through a share.
    The card stays where it is until the page is read again - it has not moved anywhere, it is under
    another tab now - and a refusal leaves the page as it was rather than redrawing a lie.
+
+   **On the phone it is the same line in the same place** - in each detail page's menu, immediately
+   above Delete - because the phone's lists gave up their per-row menus and everything that can be done
+   to one thing is under its own name once it is open. It is its own kind of queued change
+   (`OutboxOperation.Archive`, `LocalNoteRepository.ArchiveAsync` and its three counterparts), so it
+   goes out offline and arrives on its own endpoint like the filing beside it, and it is refused offline
+   for something somebody else can change, exactly as an edit is. `UpdatedAtUtc` is left alone: putting
+   something away changes where it is kept rather than what it says, and one that jumped to the top of
+   the list for having been tidied away would read as having been edited. Something put away before the
+   server ever saw it is archived in the pass straight after its create goes up, since a create has no
+   room for the flag.
 2. **The folder its owner filed it under**, finished or not. Filing beats finishing: where something
    goes is a decision somebody made, and finishing the work is not a decision to file it somewhere else.
    A list put in "Renovation" used to leave that tab the moment its last entry was ticked off, which

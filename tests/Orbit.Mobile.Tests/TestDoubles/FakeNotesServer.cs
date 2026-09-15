@@ -111,6 +111,8 @@ internal sealed class FakeNotesServer : HttpMessageHandler
             // Orbit.Contracts.Folders.MoveToFolderRequest.
             "PUT" when path.EndsWith("/folder", StringComparison.Ordinal)
                 => await FileAsync(request, path, cancellationToken),
+            "PUT" when path.EndsWith("/archived", StringComparison.Ordinal)
+                => await ArchiveAsync(request, path, cancellationToken),
             "PUT" => await UpdateAsync(request, path, cancellationToken),
             "DELETE" => Delete(path),
             _ => Json(_notes.Values.ToList())
@@ -189,6 +191,21 @@ internal sealed class FakeNotesServer : HttpMessageHandler
 
         var body = await ReadAsync<MoveToFolderRequest>(request, cancellationToken);
         _notes[id] = existing with { FolderId = body!.FolderId, UpdatedAtUtc = _timeProvider.GetUtcNow() };
+        return new HttpResponseMessage(HttpStatusCode.NoContent);
+    }
+
+    /// <summary>Whether it is put away - applied to the stored one, so a test can tell it was sent.</summary>
+    private async Task<HttpResponseMessage> ArchiveAsync(
+        HttpRequestMessage request, string path, CancellationToken cancellationToken)
+    {
+        var id = Guid.Parse(path.Split('/')[^2]);
+        if (!_notes.TryGetValue(id, out var existing))
+        {
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        var body = await ReadAsync<ArchiveRequest>(request, cancellationToken);
+        _notes[id] = existing with { IsArchived = body!.IsArchived, UpdatedAtUtc = _timeProvider.GetUtcNow() };
         return new HttpResponseMessage(HttpStatusCode.NoContent);
     }
 

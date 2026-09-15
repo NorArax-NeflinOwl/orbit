@@ -241,7 +241,7 @@ public sealed partial class NotesViewModel : ObservableObject
         // question a task list is asked here is not asked of it. See FolderPlacement.
         var placements = stored.ToDictionary(
             note => note.LocalId,
-            note => Folders.Where(note.FolderId, note.IsPrivate, isFinished: false));
+            note => Folders.Where(note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived));
 
         FolderChoices.Clear();
         foreach (var choice in Folders.Describe(placements.Values))
