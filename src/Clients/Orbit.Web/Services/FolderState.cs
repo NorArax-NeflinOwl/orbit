@@ -144,8 +144,9 @@ public sealed class FolderState
     /// Whether a card belongs under the tab open on this page - the question every page made of cards
     /// asks of every card it holds. See FolderPlacement for the rule itself.
     /// </summary>
-    public bool ShowsUnderTheChosenTab(FolderPage page, Guid? folderId, bool isPrivate, bool isFinished = false)
-        => PlacementOn(page, folderId, isPrivate, isFinished) == ChosenOn(page);
+    public bool ShowsUnderTheChosenTab(
+        FolderPage page, Guid? folderId, bool isPrivate, bool isFinished = false, bool isArchived = false)
+        => PlacementOn(page, folderId, isPrivate, isFinished, isArchived) == ChosenOn(page);
 
     /// <summary>
     /// Which of this page's tabs a card is under. The page is asked rather than told whether the card is

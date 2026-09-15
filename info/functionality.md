@@ -568,6 +568,13 @@ is, and the first that applies wins:
    would bring back everything its owner had put away, every time it saved. A recipient is told nothing
    about it and never sets it, exactly as with the filing - and for a stronger reason, since a decision
    that was never theirs would take the thing off their own pages.
+
+   **In the browser it is a line in every card's menu** ("Archive", or "Put back" for something already
+   away), immediately above Delete and deliberately so: it is the other way out of a list, and somebody
+   reaching for Delete because they want a thing gone from in front of them meets it on the way. The two
+   say different things, and one of them is reversible. Left out on something reached through a share.
+   The card stays where it is until the page is read again - it has not moved anywhere, it is under
+   another tab now - and a refusal leaves the page as it was rather than redrawing a lie.
 2. **The folder its owner filed it under**, finished or not. Filing beats finishing: where something
    goes is a decision somebody made, and finishing the work is not a decision to file it somewhere else.
    A list put in "Renovation" used to leave that tab the moment its last entry was ticked off, which

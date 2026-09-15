@@ -477,7 +477,7 @@ else
     /// </summary>
     private IReadOnlyList<NoteDto> NotesUnderTheOpenTab =>
         [.. (_notes ?? [])
-            .Where(note => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, note.FolderId, note.IsPrivate))];
+            .Where(note => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived))];
 
     private IReadOnlyList<NoteDto> NotesToShow =>
         [.. NotesUnderTheOpenTab.Where(note => Matches("notes", note.IsPinned, note.Priority))];
@@ -496,7 +496,7 @@ else
     /// <inheritdoc cref="NotesUnderTheOpenTab"/>
     private IReadOnlyList<TaskDto> TaskListsUnderTheOpenTab =>
         [.. (_taskLists ?? [])
-            .Where(taskList => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, taskList.FolderId, taskList.IsPrivate))
+            .Where(taskList => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, taskList.FolderId, taskList.IsPrivate, isFinished: false, taskList.IsArchived))
             .Where(taskList => !taskList.IsCompleted || taskList.IsPinned)];
 
     private IReadOnlyList<TaskDto> TaskListsToShow =>
@@ -510,7 +510,7 @@ else
     /// <inheritdoc cref="NotesUnderTheOpenTab"/>
     private IReadOnlyList<InventoryDto> InventoriesUnderTheOpenTab =>
         [.. (_inventories ?? [])
-            .Where(inventory => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, inventory.FolderId, inventory.IsPrivate))];
+            .Where(inventory => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, inventory.FolderId, inventory.IsPrivate, isFinished: false, inventory.IsArchived))];
 
     private IReadOnlyList<UpcomingEntry> UpcomingToShow =>
         [.. Upcoming()

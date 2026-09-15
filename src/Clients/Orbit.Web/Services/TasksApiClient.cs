@@ -55,6 +55,14 @@ public sealed class TasksApiClient
         return response.IsSuccessStatusCode;
     }
 
+    /// <inheritdoc cref="NotesApiClient.SetArchivedAsync"/>
+    public async Task<bool> SetArchivedAsync(Guid taskListId, bool isArchived, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/tasks/{taskListId}/archived", new ArchiveRequest(isArchived), cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
     /// <summary>
     /// Builds the shelf this list's work needs - one entry per distinct thing it calls for, each as the
     /// entry that named it describes it - and points the list at it. Returns the new inventory's id.

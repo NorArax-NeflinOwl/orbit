@@ -133,6 +133,8 @@
                                     OnEdit="() => GoToEditEvent(calendarEvent.Id)"
                                     DuplicateLabel="@(calendarEvent.IsShared ? null : T["Duplicate"])"
                                     OnDuplicate="() => DuplicateEventAsync(calendarEvent)"
+                                    ArchiveLabel="@(calendarEvent.IsShared ? null : ArchiveLabelFor(calendarEvent.IsArchived))"
+                                    OnArchive="() => SetArchivedAsync(calendarEvent, !calendarEvent.IsArchived)"
                                     DeleteLabel="@T["Delete"]" OnDelete="() => DeleteEventAsync(calendarEvent)" />
                         </Menu>
                         <Body>
@@ -613,7 +615,7 @@
     /// </summary>
     private IReadOnlyList<CalendarEventDto> EventsUnderTheOpenTab
         => [.. (_events ?? []).Where(calendarEvent =>
-            Folders.ShowsUnderTheChosenTab(FolderPage.Calendar, calendarEvent.FolderId, isPrivate: false))];
+            Folders.ShowsUnderTheChosenTab(FolderPage.Calendar, calendarEvent.FolderId, isPrivate: false, isFinished: false, calendarEvent.IsArchived))];
 
     /// <summary>
     /// How many events are under each tab, drawn on the tab itself. Everything the calendar holds, not
@@ -622,7 +624,7 @@
     /// </summary>
     private int CountIn(FolderKey folder)
         => (_events ?? []).Count(calendarEvent =>
-            Folders.PlacementOn(FolderPage.Calendar, calendarEvent.FolderId, isPrivate: false) == folder);
+            Folders.PlacementOn(FolderPage.Calendar, calendarEvent.FolderId, isPrivate: false, isFinished: false, calendarEvent.IsArchived) == folder);
 
     /// <inheritdoc cref="EventsOnTheGrid"/>
     private IReadOnlyList<DueTaskDto> DueTasksOnTheGrid
@@ -758,6 +760,44 @@
     /// calendar is read again afterwards: the copy has to land in the grid as well as in the list, and
     /// where it lands is not this page's to work out.
     /// </summary>
+    /// <summary>
+    /// "Archive", or "Put back" for something already put away - see
+    /// Orbit.Core.Folders.BuiltInFolder.Archived. The notes page says the same thing the same way.
+    /// </summary>
+    private string ArchiveLabelFor(bool isArchived) => isArchived ? T["Put back"] : T["Archive"];
+
+    /// <summary>
+    /// Puts one appointment away, or brings it back - see Orbit.Core.Folders.BuiltInFolder.Archived. The card
+    /// stays where it is until the page is read again: it has not moved anywhere, it is under another tab
+    /// now. A refusal leaves everything as it was rather than redrawing a lie.
+    /// </summary>
+    private async Task SetArchivedAsync(CalendarEventDto calendarEvent, bool isArchived)
+    {
+        Logger.LogInformation(
+            "User clicked '{Action}' for calendar event {Id}", isArchived ? "Archive" : "Put back", calendarEvent.Id);
+        try
+        {
+            if (!await CalendarApiClient.SetArchivedAsync(calendarEvent.Id, isArchived))
+            {
+                return;
+            }
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to archive calendar event {Id}", calendarEvent.Id);
+            return;
+        }
+
+        _events = _events!
+            .Select(existing => existing.Id == calendarEvent.Id ? existing with { IsArchived = isArchived } : existing)
+            .ToList();
+    }
+
     private async Task DuplicateEventAsync(CalendarEventDto calendarEvent)
     {
         Logger.LogInformation("User clicked 'Duplicate' for calendar event {EventId}", calendarEvent.Id);

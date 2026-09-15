@@ -758,7 +758,7 @@ public sealed class CalendarScreenTests
         await context.Events.FileAsync(dentist, week.LocalId);
         await screen.LoadCommand.ExecuteAsync(null);
 
-        Assert.Equal(["Public", "This week", "Someday"], screen.FolderChoices.Select(choice => choice.Name));
+        Assert.Equal(["Public", "Archived", "This week", "Someday"], screen.FolderChoices.Select(choice => choice.Name));
         Assert.Equal(1, screen.FolderChoices.Single(choice => choice.Name == "This week").Count);
         Assert.Equal(0, screen.FolderChoices.Single(choice => choice.Name == "Someday").Count);
     }

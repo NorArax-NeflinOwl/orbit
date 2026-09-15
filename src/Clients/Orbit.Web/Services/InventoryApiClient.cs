@@ -201,6 +201,18 @@ public sealed class InventoryApiClient
         return response.IsSuccessStatusCode;
     }
 
+    /// <summary>
+    /// Puts one shelf away, or brings it back - see Orbit.Core.Folders.BuiltInFolder.Archived. False
+    /// where the server refused, which the caller says out loud: the shelf is where it was, and a page
+    /// that redrew as though it had moved would be lying about it.
+    /// </summary>
+    public async Task<bool> SetArchivedAsync(Guid inventoryId, bool isArchived, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/inventories/{inventoryId}/archived", new ArchiveRequest(isArchived), cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
     public async Task DeleteInventoryAsync(Guid inventoryId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.DeleteAsync($"api/inventories/{inventoryId}", cancellationToken);

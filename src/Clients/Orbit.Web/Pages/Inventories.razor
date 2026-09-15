@@ -120,6 +120,8 @@
                                     DuplicateLabel="@(!inventory.IsShared ? T["Duplicate"] : null)"
                                     OnDuplicate="() => DuplicateInventoryAsync(inventory)"
                                     ShareLabel="@(CanShare(inventory) ? T["Share"] : null)" OnShare="() => ToggleSharePanel(inventory.Id)"
+                                    ArchiveLabel="@(!inventory.IsShared ? ArchiveLabelFor(inventory.IsArchived) : null)"
+                                    OnArchive="() => SetArchivedAsync(inventory, !inventory.IsArchived)"
                                     DeleteLabel="@(!inventory.IsShared ? T["Delete"] : null)" OnDelete="() => DeleteInventoryAsync(inventory)" />
                     </Menu>
                     <Tags>
@@ -341,7 +343,7 @@
     private IReadOnlyList<InventoryDto> ArrangedInventories
         => [.. Arrangement.Arrange(
             (_inventories ?? []).Where(inventory =>
-                Folders.ShowsUnderTheChosenTab(FolderPage.Inventories, inventory.FolderId, inventory.IsPrivate)),
+                Folders.ShowsUnderTheChosenTab(FolderPage.Inventories, inventory.FolderId, inventory.IsPrivate, isFinished: false, inventory.IsArchived)),
             inventory => inventory.Id)];
 
     /// <summary>
@@ -350,7 +352,7 @@
     /// </summary>
     private int CountIn(FolderKey folder)
         => (_inventories ?? []).Count(inventory =>
-            Folders.PlacementOn(FolderPage.Inventories, inventory.FolderId, inventory.IsPrivate) == folder);
+            Folders.PlacementOn(FolderPage.Inventories, inventory.FolderId, inventory.IsPrivate, isFinished: false, inventory.IsArchived) == folder);
 
     /// <summary>The card being dragged to a new place, while one is - see RowArrangement.</summary>
     private readonly RowArrangement<InventoryDto> _cardOrder = new();
@@ -396,6 +398,44 @@
     /// A sealed storage keeps its name, because that name is inside a payload the browser would have to
     /// re-seal to change - see DuplicateRequest.Name.
     /// </summary>
+    /// <summary>
+    /// "Archive", or "Put back" for something already put away - see
+    /// Orbit.Core.Folders.BuiltInFolder.Archived. The notes page says the same thing the same way.
+    /// </summary>
+    private string ArchiveLabelFor(bool isArchived) => isArchived ? T["Put back"] : T["Archive"];
+
+    /// <summary>
+    /// Puts one shelf away, or brings it back - see Orbit.Core.Folders.BuiltInFolder.Archived. The card
+    /// stays where it is until the page is read again: it has not moved anywhere, it is under another tab
+    /// now. A refusal leaves everything as it was rather than redrawing a lie.
+    /// </summary>
+    private async Task SetArchivedAsync(InventoryDto inventory, bool isArchived)
+    {
+        Logger.LogInformation(
+            "User clicked '{Action}' for inventory {Id}", isArchived ? "Archive" : "Put back", inventory.Id);
+        try
+        {
+            if (!await InventoryApiClient.SetArchivedAsync(inventory.Id, isArchived))
+            {
+                return;
+            }
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to archive inventory {Id}", inventory.Id);
+            return;
+        }
+
+        _inventories = _inventories!
+            .Select(existing => existing.Id == inventory.Id ? existing with { IsArchived = isArchived } : existing)
+            .ToList();
+    }
+
     private async Task DuplicateInventoryAsync(InventoryDto inventory)
     {
         Logger.LogInformation("User clicked 'Duplicate' for inventory {InventoryId}", inventory.Id);

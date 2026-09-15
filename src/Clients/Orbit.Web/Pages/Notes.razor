@@ -71,6 +71,8 @@
                     <ObjectMenu EditLabel="@(CanBeChanged(note) ? T["Edit"] : T["View"])" OnEdit="() => GoToEditNote(note.Id)"
                                 DuplicateLabel="@(note.IsShared ? null : T["Duplicate"])"
                                 OnDuplicate="() => DuplicateNoteAsync(note)"
+                                ArchiveLabel="@(note.IsShared ? null : ArchiveLabelFor(note.IsArchived))"
+                                OnArchive="() => SetArchivedAsync(note, !note.IsArchived)"
                                 DeleteLabel="@(note.IsShared ? T["Remove from my list"] : T["Delete"])"
                                 OnDelete="() => DeleteNoteAsync(note)" DeleteDisabled="@(_deletingNoteId == note.Id)" />
                 </Menu>
@@ -134,7 +136,7 @@
     /// when it is sealed - see FolderPlacement, which decides it for every page made of cards.
     /// </summary>
     private IReadOnlyList<NoteDto> VisibleNotes
-        => [.. (_notes ?? []).Where(note => Folders.ShowsUnderTheChosenTab(FolderPage.Notes, note.FolderId, note.IsPrivate))];
+        => [.. (_notes ?? []).Where(note => Folders.ShowsUnderTheChosenTab(FolderPage.Notes, note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived))];
 
     /// <summary>
     /// How many notes are under each tab, drawn on the tab itself. There is no Finished tab here: a
@@ -143,7 +145,7 @@
     /// </summary>
     private int CountIn(FolderKey folder)
         => (_notes ?? []).Count(note =>
-            Folders.PlacementOn(FolderPage.Notes, note.FolderId, note.IsPrivate) == folder);
+            Folders.PlacementOn(FolderPage.Notes, note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived) == folder);
 
     /// <summary>
     /// Pinned notes first, and the rest in the order the API sent them - most recently updated first.
@@ -273,6 +275,44 @@
 
         _notes = _notes!
             .Select(existingNote => existingNote.Id == note.Id ? existingNote with { IsPinned = isPinned } : existingNote)
+            .ToList();
+    }
+
+    /// <summary>
+    /// "Archive", or "Put back" for something already put away - see
+    /// Orbit.Core.Folders.BuiltInFolder.Archived, the tab it gathers under while it is away.
+    /// </summary>
+    private string ArchiveLabelFor(bool isArchived) => isArchived ? T["Put back"] : T["Archive"];
+
+    /// <summary>
+    /// Puts a note away, or brings it back. The card stays on the page until the list is read again -
+    /// the note has not moved anywhere, it is under another tab now, and the page draws whichever tab
+    /// is open. A refusal leaves everything as it was rather than redrawing a lie.
+    /// </summary>
+    private async Task SetArchivedAsync(NoteDto note, bool isArchived)
+    {
+        Logger.LogInformation(
+            "User clicked '{Action}' for note {NoteId}", isArchived ? "Archive" : "Put back", note.Id);
+        try
+        {
+            if (!await NotesApiClient.SetArchivedAsync(note.Id, isArchived))
+            {
+                return;
+            }
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to archive note {NoteId}", note.Id);
+            return;
+        }
+
+        _notes = _notes!
+            .Select(existingNote => existingNote.Id == note.Id ? existingNote with { IsArchived = isArchived } : existingNote)
             .ToList();
     }
 
