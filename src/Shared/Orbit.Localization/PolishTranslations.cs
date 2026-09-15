@@ -183,7 +183,9 @@ public static class PolishTranslations
         ["Push and email"] = "Push i e-mail",
         ["Check every round"] = "Sprawdzaj co obchód",
         ["Always on the restock list, however much there is"] = "Zawsze na liście uzupełnień, niezależnie od stanu",
-        ["Archive"] = "Archiwum",
+        // A verb everywhere it is used - the button that puts one thing away, never a heading over
+        // the ones already there. That tab is named by "Archived" below.
+        ["Archive"] = "Archiwizuj",
         ["Put back"] = "Przywróć",
         ["Nothing put away."] = "Nic nie odłożono.",
         ["Could not put that away. Check your connection and try again."] = "Nie udało się odłożyć. Sprawdź połączenie i spróbuj ponownie.",
