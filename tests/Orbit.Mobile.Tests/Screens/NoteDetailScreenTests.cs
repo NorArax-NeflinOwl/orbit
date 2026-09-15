@@ -165,6 +165,25 @@ public sealed partial class NoteDetailScreenTests
         Assert.False(screen.HasUnsavedChanges);
     }
 
+    /// <summary>
+    /// The question at the door reads everything a Save carries, not the words alone: a heading made out
+    /// of a line, a mark put on part of it and a cell written in are all things leaving would lose. They
+    /// were invisible to it while it compared the text - see WhatIsOnTheScreen.
+    /// </summary>
+    [Fact]
+    public async Task Restyling_a_line_is_something_leaving_would_lose()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        screen.Restyle(screen.Lines[0], Orbit.Core.Notes.NoteLineStyle.Heading);
+
+        Assert.True(screen.HasUnsavedChanges);
+        await screen.SaveLinesCommand.ExecuteAsync(null);
+        Assert.False(screen.HasUnsavedChanges);
+    }
+
     /// <summary>A tick is a change like any other, and it is not written until Save either.</summary>
     [Fact]
     public async Task Ticking_a_line_is_something_leaving_would_lose()

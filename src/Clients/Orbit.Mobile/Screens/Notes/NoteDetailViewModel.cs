@@ -915,11 +915,39 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     /// letter and deleting it would leave a note asking to be saved with nothing to save.
     /// </summary>
     private string WhatIsOnTheScreen()
+        => string.Join('\u001f', Lines.Select(Everything).Prepend(Title));
+
+    /// <summary>
+    /// One line as everything a Save carries of it, rather than its words alone. A table line has no
+    /// words at all, so a fingerprint made of the text left writing in a cell invisible to the question
+    /// at the door: the screen said there was nothing to lose and leaving threw the edit away. A style,
+    /// a cross and a mark were invisible to it the same way.
+    /// </summary>
+    private static string Everything(NoteLineRow line)
         => string.Join(
-            '\u001f',
-            Lines
-                .Select(line => $"{line.Text}\u001e{line.IsChecklistItem}\u001e{line.IsChecked}")
-                .Prepend(Title));
+            '\u001e',
+            new[]
+            {
+                line.Text,
+                line.IsChecklistItem.ToString(),
+                line.IsChecked.ToString(),
+                line.IsFailed.ToString(),
+                line.Style.ToString(),
+                Spelled(line.Marks),
+                CellsOf(line.Table),
+                line.Picture?.PictureId.ToString() ?? string.Empty
+            });
+
+    /// <summary>A table's cells in the order they are drawn, words and marks alike - empty for a line that is not one.</summary>
+    private static string CellsOf(NoteTable? table)
+        => table is null
+            ? string.Empty
+            : string.Join(
+                '\u001d',
+                table.Rows.SelectMany(row => row.Cells.Select(cell => $"{cell.Text}\u001c{Spelled(cell.AllMarks)}")));
+
+    private static string Spelled(IReadOnlyList<NoteTextRun> marks)
+        => string.Join(',', marks.Select(mark => $"{mark.Start}:{mark.Length}:{mark.Mark}"));
 
     private void RememberWhatIsWrittenDown() => _writtenDown = WhatIsOnTheScreen();
 
