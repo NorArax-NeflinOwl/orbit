@@ -72,8 +72,8 @@ public sealed class TaskItem
     ///
     /// Several rather than one because a step is often more than one list - "the flat is ready" means
     /// the kitchen and the bathroom and the hall - and writing that as three entries saying the same
-    /// thing loses that they are one step. It is done when every list it names is done: any other rule
-    /// would let the entry read as finished while work it stands for is still outstanding.
+    /// thing loses that they are one step. Whether one of them finishes it or all of them have to is
+    /// <see cref="NeedsEveryLinkedList"/>: any one of them, unless the entry says otherwise.
     /// </summary>
     public IReadOnlyList<Guid> LinkedTaskListIds { get; private set; }
 
