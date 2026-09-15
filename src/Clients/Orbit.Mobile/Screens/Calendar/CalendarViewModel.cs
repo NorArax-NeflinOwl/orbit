@@ -651,9 +651,17 @@ public sealed partial class CalendarViewModel : ObservableObject
         // Where each event is, by the rule both clients share. Nothing on the calendar is sealed or
         // finished, so neither question is asked of it - see FolderPlacement, and FolderPages, which is
         // why the calendar draws no Private tab.
-        var placements = held.ToDictionary(
-            calendarEvent => calendarEvent.LocalId,
-            calendarEvent => Folders.Where(calendarEvent.FolderId, isPrivate: false, isFinished: false));
+        //
+        // One entry per event rather than per occurrence. A repeat comes back from OnTheDaysTheyFallOn
+        // as a copy for every day it falls on, each carrying the original's id (see CalendarOccurrences),
+        // and every one of them is in the same folder - a folder is the event's, not the day's. Keyed
+        // straight off the list, a weekly standup threw the dictionary on its second occurrence, which
+        // took the whole screen down; and a tab's count would have counted that standup once a week.
+        var placements = held
+            .GroupBy(calendarEvent => calendarEvent.LocalId)
+            .ToDictionary(
+                occurrences => occurrences.Key,
+                occurrences => Folders.Where(occurrences.First().FolderId, isPrivate: false, isFinished: false));
 
         FolderChoices.Clear();
         foreach (var choice in Folders.Describe(placements.Values))
