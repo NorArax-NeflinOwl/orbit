@@ -470,8 +470,12 @@ public sealed class NavigationBarTests
         private readonly SessionStore _sessionStore;
 
         public BarContext(string displayName)
-            => _sessionStore = new SessionStore(new InMemorySessionStorage(
+        {
+            _sessionStore = new SessionStore(new InMemorySessionStorage(
                 new UserSession("access", "refresh", Guid.NewGuid(), "me@orbit.example", displayName)));
+            Reachability = TestDoubles.Reachability.Over(Network, PauseNotice);
+            SyncState = new SyncState(Reachability, new FakeTimeProvider(DateTimeOffset.Parse("2026-08-27T09:00:00Z")));
+        }
 
         public LocalStore LocalStore { get; } = new();
 
@@ -527,9 +531,14 @@ public sealed class NavigationBarTests
         /// <summary>Whether the phone is on a network, which is what decides the Reconnect button.</summary>
         public FixedNetworkStatus Network { get; } = FixedNetworkStatus.Online;
 
+        /// <summary>What the deployment says about itself - nothing, unless a test writes a pause notice here.</summary>
+        public FixedPauseNotice PauseNotice { get; } = new();
+
+        /// <summary>Whether Orbit can be reached: the network above, and no pause - see ServerReachability.</summary>
+        public ServerReachability Reachability { get; }
+
         /// <summary>Whether the app is in step, which the bar now says beside the name in its menu.</summary>
-        public SyncState SyncState { get; } = new(
-            FixedNetworkStatus.Online, new FakeTimeProvider(DateTimeOffset.Parse("2026-08-27T09:00:00Z")));
+        public SyncState SyncState { get; }
 
         /// <summary>
         /// What the app already knows about its own version, which is where the bar's update badge
@@ -566,7 +575,7 @@ public sealed class NavigationBarTests
                 Synchronizers.AgainstNobody(
                     LocalStore, new ChatRepository(LocalStore, TimeProvider.System),
                     UnlockedPermissions.For(LocalStore), _sessionStore),
-                Network,
+                Reachability,
                 [Notes],
                 LiveUpdates,
                 Banners,

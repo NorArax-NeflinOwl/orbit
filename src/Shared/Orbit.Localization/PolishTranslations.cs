@@ -1719,6 +1719,9 @@ public static class PolishTranslations
         ["Couldn't sync"] = "Nie udało się zsynchronizować",
         ["Just now"] = "Przed chwilą",
         ["No connection"] = "Bez połączenia",
+        // The corner while the deployment is stopped on purpose - see ServerReachability. Neither "no
+        // connection" (the phone has one) nor "couldn't sync" (nothing went wrong).
+        ["Orbit is paused"] = "Orbit jest wstrzymany",
         ["Synced"] = "Zsynchronizowano",
         ["Syncing…"] = "Synchronizowanie…",
         ["Unavailable"] = "Niedostępny",

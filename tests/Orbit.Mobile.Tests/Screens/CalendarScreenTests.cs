@@ -812,7 +812,7 @@ public sealed class CalendarScreenTests
         public async Task<CalendarViewModel> OpenAsync()
         {
             var screen = new CalendarViewModel(
-                _events, _synchronizer, FixedNetworkStatus.Online, _clock, new SyncState(FixedNetworkStatus.Online, _clock),
+                _events, _synchronizer, FixedNetworkStatus.Online, _clock, new SyncState(Reachability.Online, _clock),
                 Navigator, new Translations(new InMemoryLanguageStore()), _taskLists, ListOrder);
 
             await screen.LoadCommand.ExecuteAsync(null);
