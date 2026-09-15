@@ -1844,9 +1844,12 @@ same feature owing its second client.
   stands for two or more, and `ToRequests` now says the rule instead of saying nothing about it. The
   fake tasks server had to learn the field first - it answered every save with the default, which would
   have let a phone that never sent it pass.
-- **"New sublist".** Built in `TaskListChecklist` on 2026-09-14, and it has **no test** on either side.
-  The phone's checklist draws one list at a time rather than the tree (see the entry below about
-  flattening), so the action would need the tree first.
+- **"New sublist".** Built in `TaskListChecklist` on 2026-09-14. ~~It has **no test** on either side.~~
+  Covered in the browser on 2026-09-15: that the two calls are made - the list in the group's own folder,
+  then the group saved whole with one entry more standing for it - and that the action is offered only on
+  a group this reader may add to. Still nothing on the phone, because there is nothing there to test: its
+  checklist draws one list at a time rather than the tree (see the entry below about flattening), so the
+  action would need the tree first.
 
 ### Where the editor's bar is not
 
