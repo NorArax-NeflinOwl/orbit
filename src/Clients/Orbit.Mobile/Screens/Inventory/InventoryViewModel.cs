@@ -395,7 +395,14 @@ public sealed partial class InventoryViewModel : ObservableObject
     private bool CanBeSearched(LocalInventory inventory)
         => !inventory.IsSealed && (!inventory.IsPrivate || _privateItems.IsUnlocked);
 
-    private async Task ShowStoredInventoriesAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Draws the shelves from what is on the phone, asking the server nothing.
+    ///
+    /// Public for one caller beyond this class: the page calls it when a sync that nobody on this
+    /// screen asked for has brought something down, so a screen left open stops showing what it was
+    /// shown when it was opened - see PeriodicSync and SyncState.BroughtSomethingNew.
+    /// </summary>
+    public async Task ShowStoredInventoriesAsync(CancellationToken cancellationToken)
     {
         var held = await _inventories.GetAllAsync(cancellationToken);
         var pending = await _inventories.GetPendingLocalIdsAsync(cancellationToken);

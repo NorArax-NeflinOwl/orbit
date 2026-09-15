@@ -1810,6 +1810,25 @@ its shared controls. What that pass left, all of it now overtaken:
   screen hands over a label that hides itself, and an arrow that opens an empty line is a control that
   does nothing.
 
+## What the user asked for on 2026-09-15, second list
+
+Two things about Orbit.Maui, both now done.
+
+- ~~**The Upcoming card shows events and tasks already done.**~~ Fixed the same day, and it was three
+  faults wearing one hat: an appointment whose end had passed, a repeat drawn at the date it is stored
+  under rather than at its next turn, and an appointment a task list raised and has since ticked off or
+  crossed out. Orbit.Web has asked all three since 2026-09-06; the phone asked none, on a comment
+  claiming the divergence was deliberate and giving "Orbit.Web shows the lot" as the reason, which is not
+  what Orbit.Web does. See `DashboardViewModel.StillToDo`. What the card still does not gather is task
+  deadlines - written down above.
+- ~~**Syncing with the browser lags by days; it should run every few minutes in the background while
+  online.**~~ Done the same day: `PeriodicSync`, five minutes, started and stopped with the window beside
+  the presence heartbeat, with a run at once on being started. A screen left open redraws itself when a
+  run brings something down (`SyncState.BroughtSomethingNew`, `ScreenKeptInStep`). Written up in
+  `info/orbit-maui-plan.md` §5.6, where the two **platform** background-sync paths - Android's
+  `WorkManager` and iOS's `BGAppRefreshTask` or a silent push - are still open: this one runs only while
+  the app is in front of somebody, which is the reliable half rather than the whole of it.
+
 ## What the user's list of 2026-09-15 still leaves open
 
 The user read back a list of twenty-three things on 2026-09-15 and asked which were built. Most were:
@@ -1846,6 +1865,12 @@ same feature owing its second client.
   stands for two or more, and `ToRequests` now says the rule instead of saying nothing about it. The
   fake tasks server had to learn the field first - it answered every save with the default, which would
   have let a phone that never sent it pass.
+- **Deadlines on the phone's Upcoming card.** The browser's card gathers appointments **and task entries
+  with a deadline** (`Dashboard.UpcomingDeadlines`), on the reasoning its own comment gives: a card headed
+  "Upcoming" that left deadlines out was not what is coming up. The phone's card is appointments only, so
+  the two answer the same question differently. What it would need is the phone's equivalent of
+  `UpcomingEntry` - one row type over two sources - and a row that opens the entry rather than the event.
+  Noticed 2026-09-15 while taking finished appointments off that card.
 - **"New sublist".** Built in `TaskListChecklist` on 2026-09-14. ~~It has **no test** on either side.~~
   Covered in the browser on 2026-09-15: that the two calls are made - the list in the group's own folder,
   then the group saved whole with one entry more standing for it - and that the action is offered only on

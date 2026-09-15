@@ -39,6 +39,20 @@ public sealed class SyncState
 
     public event EventHandler? Changed;
 
+    /// <summary>
+    /// A run finished with something the screens have not drawn yet. Apart from <see cref="Changed"/>,
+    /// which is about the word in the corner: that fires for every attempt, and a screen redrawing
+    /// itself on each of them would be rebuilding its list every few minutes for nothing.
+    ///
+    /// Raised by <see cref="PeriodicSync"/> and by nothing else. A screen that asked for a sync itself
+    /// re-reads what it got straight afterwards, so it has no use for a second telling; this is for the
+    /// run that happened while somebody was looking at a screen they had not touched.
+    /// </summary>
+    public event EventHandler? BroughtSomethingNew;
+
+    /// <summary>Says so - see <see cref="BroughtSomethingNew"/>.</summary>
+    public void RecordBroughtSomethingNew() => BroughtSomethingNew?.Invoke(this, EventArgs.Empty);
+
     public SyncCondition Condition { get; private set; } = SyncCondition.Unknown;
 
     /// <summary>When the last attempt actually succeeded, or null if none has since launch.</summary>

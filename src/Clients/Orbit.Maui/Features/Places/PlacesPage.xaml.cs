@@ -1,6 +1,7 @@
 using System.Windows.Input;
 using Orbit.Maui.Controls;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Sync;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Places;
 
@@ -9,12 +10,15 @@ namespace Orbit.Maui.Features.Places;
 public partial class PlacesPage : ContentPage, ITitleMenu
 {
 	private readonly PlacesViewModel _viewModel;
+
+	/// <summary>Redraws this screen when a sync it did not ask for brings something - see ScreenKeptInStep.</summary>
+	private readonly ScreenKeptInStep _keptInStep;
 	private readonly Translations _translations;
 
 	/// <summary>Typed so the list rows' bindings back up to the page can be compiled.</summary>
 	public PlacesViewModel ViewModel => _viewModel;
 
-	public PlacesPage(PlacesViewModel viewModel, Translations translations)
+	public PlacesPage(PlacesViewModel viewModel, Translations translations, SyncState syncState)
 	{
 		// Before InitializeComponent, for the reason NotesPage gives.
 		_translations = translations;
@@ -22,6 +26,7 @@ public partial class PlacesPage : ContentPage, ITitleMenu
 
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		_keptInStep = new ScreenKeptInStep(syncState, () => _viewModel.ShowLocalPlacesAsync(CancellationToken.None));
 		AddButton.Command = NewItemForm.Toggling(AddRow, AddField);
 	}
 
@@ -35,6 +40,13 @@ public partial class PlacesPage : ContentPage, ITitleMenu
 	{
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
+		_keptInStep.Listen();
+	}
+
+	protected override void OnDisappearing()
+	{
+		base.OnDisappearing();
+		_keptInStep.StopListening();
 	}
 
 	/// <inheritdoc cref="Notes.NotesPage.ShowTheListMenu"/>

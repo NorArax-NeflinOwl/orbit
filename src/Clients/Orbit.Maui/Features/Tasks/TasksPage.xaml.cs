@@ -1,6 +1,7 @@
 using System.Windows.Input;
 using Orbit.Maui.Controls;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Sync;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Tasks;
 
@@ -9,9 +10,12 @@ namespace Orbit.Maui.Features.Tasks;
 public partial class TasksPage : ContentPage, ITitleMenu
 {
 	private readonly TasksViewModel _viewModel;
+
+	/// <summary>Redraws this screen when a sync it did not ask for brings something - see ScreenKeptInStep.</summary>
+	private readonly ScreenKeptInStep _keptInStep;
 	private readonly Translations _translations;
 
-	public TasksPage(TasksViewModel viewModel, Translations translations)
+	public TasksPage(TasksViewModel viewModel, Translations translations, SyncState syncState)
 	{
 		// Before InitializeComponent, not after: it is bound from the static part of the tree, which is
 		// built there and reads a page's plain property exactly once - see CalendarEventDetailPage,
@@ -21,6 +25,7 @@ public partial class TasksPage : ContentPage, ITitleMenu
 
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		_keptInStep = new ScreenKeptInStep(syncState, () => _viewModel.ShowStoredListsAsync(CancellationToken.None));
 		_translations = translations;
 		AddButton.Command = NewItemForm.Toggling(AddRow, AddField);
 		_nameAFolder = NewItemForm.Toggling(FolderRow, FolderField);
@@ -51,6 +56,13 @@ public partial class TasksPage : ContentPage, ITitleMenu
 	{
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
+		_keptInStep.Listen();
+	}
+
+	protected override void OnDisappearing()
+	{
+		base.OnDisappearing();
+		_keptInStep.StopListening();
 	}
 
 	/// <summary>

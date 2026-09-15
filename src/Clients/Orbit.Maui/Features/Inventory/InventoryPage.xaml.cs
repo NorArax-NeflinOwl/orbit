@@ -1,6 +1,7 @@
 using System.Windows.Input;
 using Orbit.Maui.Controls;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Sync;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Inventory;
 
@@ -9,12 +10,15 @@ namespace Orbit.Maui.Features.Inventory;
 public partial class InventoryPage : ContentPage, ITitleMenu
 {
 	private readonly InventoryViewModel _viewModel;
+
+	/// <summary>Redraws this screen when a sync it did not ask for brings something - see ScreenKeptInStep.</summary>
+	private readonly ScreenKeptInStep _keptInStep;
 	private readonly Translations _translations;
 
 	/// <summary>Typed so the list rows' bindings back up to the page can be compiled.</summary>
 	public InventoryViewModel ViewModel => _viewModel;
 
-	public InventoryPage(InventoryViewModel viewModel, Translations translations)
+	public InventoryPage(InventoryViewModel viewModel, Translations translations, SyncState syncState)
 	{
 		// Before InitializeComponent, not after: the overlay that draws a card's menu is in the static
 		// tree, which reads a page's plain property exactly once - see CalendarEventDetailPage.
@@ -24,6 +28,7 @@ public partial class InventoryPage : ContentPage, ITitleMenu
 
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		_keptInStep = new ScreenKeptInStep(syncState, () => _viewModel.ShowStoredInventoriesAsync(CancellationToken.None));
 		AddButton.Command = NewItemForm.Toggling(AddRow, AddField);
 		_nameAFolder = NewItemForm.Toggling(FolderRow, FolderField);
 	}
@@ -128,6 +133,13 @@ public partial class InventoryPage : ContentPage, ITitleMenu
 	{
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
+		_keptInStep.Listen();
+	}
+
+	protected override void OnDisappearing()
+	{
+		base.OnDisappearing();
+		_keptInStep.StopListening();
 	}
 
 	/// <summary>

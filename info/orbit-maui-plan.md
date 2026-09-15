@@ -524,6 +524,32 @@ Two concrete rules, both consequences of §4.1:
 Both are platform-specific code under `Platforms/`, not shared MAUI surface. Foreground sync on app
 resume is the reliable path; background sync is an optimisation on top of it.
 
+**Foreground sync on a timer is built** (`PeriodicSync`, 2026-09-15), and neither of the two above is.
+Until it existed, the only thing that synchronised was a screen being opened: each screen brings its own
+feature up to date in its `LoadAsync`, which is enough for somebody moving about the app and nothing at
+all for somebody sitting on one. A phone left on the dashboard went on showing what it had been shown
+whenever that screen was last opened, so what was written in a browser reached it when somebody happened
+to visit that section again — days rather than minutes, which is how it was reported.
+
+`PeriodicSync` runs `EverythingSynchronizer` every five minutes, and once immediately on being started,
+which is the moment the screen on display is furthest out of date. It is started and stopped with the
+window beside the presence heartbeat and the live connection (`App.CreateWindow`): a phone in a pocket
+has nobody to be current for, and a timer behind a locked screen is one Android puts to sleep anyway.
+Nothing is attempted with nobody signed in, or while the phone believes it has no connection — a run
+offline would put "couldn't sync" in the corner every few minutes for a reader working offline on
+purpose, which is the app behaving as designed.
+
+**A screen left open redraws itself** when such a run brings something down, and only then
+(`SyncState.BroughtSomethingNew`, `ScreenKeptInStep`). The redraw reads the phone's own store and asks
+the server nothing: running the screen's own load would mean a second full synchronisation behind every
+tick, which is the work it is reacting to. It is attached by the page rather than by the view model,
+because the page has a lifecycle to let go on — a view model is built per screen and nothing disposes
+it, so one that listened would go on redrawing lists nobody is looking at — and because the redraw has
+to be marshalled onto the UI thread, which `Orbit.Mobile` has no MAUI to do with.
+
+Five minutes is the slow half. Chat and the notifications do not wait for it: they arrive over the live
+connection (`ILiveUpdates`), and a push arrives whether the app is open or not.
+
 ## 6. Proposed architecture
 
 ```

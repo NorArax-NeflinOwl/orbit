@@ -159,7 +159,14 @@ public sealed partial class DashboardViewModel : ObservableObject
         }
     }
 
-    private async Task ShowStoredSummaryAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Draws the cards from what is on the phone, asking the server nothing.
+    ///
+    /// Public for one caller beyond this class: the page calls it when a sync that nobody on this
+    /// screen asked for has brought something down, so a screen left open stops showing what it was
+    /// shown when it was opened - see PeriodicSync and SyncState.BroughtSomethingNew.
+    /// </summary>
+    public async Task ShowStoredSummaryAsync(CancellationToken cancellationToken)
     {
         var notes = await _notes.GetAllAsync(cancellationToken);
         var taskLists = await _taskLists.GetAllAsync(cancellationToken);

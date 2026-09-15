@@ -1,6 +1,7 @@
 using System.Collections.Specialized;
 using System.Windows.Input;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Sync;
 using Microsoft.Maui.Layouts;
 using Orbit.Maui.Controls;
 using Orbit.Mobile.Screens;
@@ -17,9 +18,12 @@ public partial class CalendarPage : ContentPage, ITitleMenu
 	private const double HourHeight = 46;
 
 	private readonly CalendarViewModel _viewModel;
+
+	/// <summary>Redraws this screen when a sync it did not ask for brings something - see ScreenKeptInStep.</summary>
+	private readonly ScreenKeptInStep _keptInStep;
 	private readonly Translations _translations;
 
-	public CalendarPage(CalendarViewModel viewModel, Translations translations)
+	public CalendarPage(CalendarViewModel viewModel, Translations translations, SyncState syncState)
 	{
 		_translations = translations;
 		// Assigned before InitializeComponent, which is where the binding to it is built - see
@@ -29,6 +33,7 @@ public partial class CalendarPage : ContentPage, ITitleMenu
 
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		_keptInStep = new ScreenKeptInStep(syncState, () => _viewModel.ShowStoredEventsAsync(CancellationToken.None));
 		AddButton.Command = NewItemForm.Toggling(AddRow, AddField);
 		_nameAFolder = NewItemForm.Toggling(FolderRow, FolderField);
 		_viewModel.DayBlocks.CollectionChanged += OnTheDayChanged;
@@ -211,6 +216,13 @@ public partial class CalendarPage : ContentPage, ITitleMenu
 	{
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
+		_keptInStep.Listen();
+	}
+
+	protected override void OnDisappearing()
+	{
+		base.OnDisappearing();
+		_keptInStep.StopListening();
 	}
 
 	private void OnTheDayChanged(object? sender, NotifyCollectionChangedEventArgs eventArgs) => DrawTheDay();

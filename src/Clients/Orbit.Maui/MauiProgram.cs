@@ -212,6 +212,16 @@ public static class MauiProgram
 		// bar reads the same presence, and every section reports into the same sync state.
 		services.AddSingleton<Orbit.Mobile.Presence.Presence>();
 		services.AddSingleton<SyncState>();
+		// And one timer for the app, started and stopped with the window beside the presence heartbeat -
+		// see PeriodicSync. Built by hand because it takes the synchronizer as something to build per run
+		// rather than as an instance to hold: each run wants its own database context.
+		services.AddSingleton(provider => new PeriodicSync(
+			cancellationToken => provider.GetRequiredService<EverythingSynchronizer>().SynchroniseAsync(cancellationToken),
+			provider.GetRequiredService<SessionStore>(),
+			provider.GetRequiredService<INetworkStatus>(),
+			provider.GetRequiredService<SyncState>(),
+			provider.GetRequiredService<TimeProvider>(),
+			provider.GetRequiredService<ILogger<PeriodicSync>>()));
 		// One instance: every screen reads the same chosen language.
 		services.AddSingleton<Translations>();
 		// One instance: the navigation bar, the screens it leads to and the account screen all have to

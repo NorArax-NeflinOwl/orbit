@@ -1,0 +1,197 @@
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Time.Testing;
+using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Sync;
+using Orbit.Mobile.Tests.TestDoubles;
+using Xunit;
+
+namespace Orbit.Mobile.Tests.Sync;
+
+/// <summary>
+/// The timer that keeps the phone in step while the app is open. Every screen synchronises what it shows
+/// when it is opened, which is enough for somebody moving about the app and nothing at all for somebody
+/// sitting on one screen - which is how a phone came to be days behind a browser.
+/// </summary>
+public sealed class PeriodicSyncTests
+{
+    private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-09-15T09:00:00Z");
+
+    private static readonly UserSession SignedIn =
+        new("access", "refresh", Guid.NewGuid(), "me@orbit.example", "Me");
+
+    [Fact]
+    public async Task A_run_happens_at_once_rather_than_one_interval_later()
+    {
+        var context = new SyncingContext();
+
+        context.Sync.Start();
+        // Coming back to the app is the moment the screen on display is furthest out of date, so waiting
+        // five minutes to do anything about it is the whole problem over again.
+        await context.SettleAsync();
+
+        Assert.Equal(1, context.Runs);
+    }
+
+    [Fact]
+    public async Task And_again_every_interval_after_that()
+    {
+        var context = new SyncingContext();
+        context.Sync.Start();
+        await context.SettleAsync();
+
+        context.Clock.Advance(PeriodicSync.Interval);
+        await context.SettleAsync();
+        context.Clock.Advance(PeriodicSync.Interval);
+        await context.SettleAsync();
+
+        Assert.Equal(3, context.Runs);
+    }
+
+    [Fact]
+    public async Task Stopping_stops_it()
+    {
+        var context = new SyncingContext();
+        context.Sync.Start();
+        await context.SettleAsync();
+
+        context.Sync.Stop();
+        context.Clock.Advance(PeriodicSync.Interval);
+        await context.SettleAsync();
+
+        // A phone in a pocket has nobody to be current for - see App.CreateWindow, which stops this
+        // beside the presence heartbeat.
+        Assert.Equal(1, context.Runs);
+    }
+
+    [Fact]
+    public async Task Starting_twice_is_not_two_timers()
+    {
+        var context = new SyncingContext();
+
+        context.Sync.Start();
+        context.Sync.Start();
+        await context.SettleAsync();
+
+        Assert.Equal(1, context.Runs);
+    }
+
+    [Fact]
+    public async Task Nothing_is_attempted_with_nobody_signed_in()
+    {
+        var context = new SyncingContext(signedIn: false);
+
+        await context.Sync.SynchroniseAsync();
+
+        Assert.Equal(0, context.Runs);
+    }
+
+    [Fact]
+    public async Task Nothing_is_attempted_while_the_phone_believes_it_is_offline()
+    {
+        var context = new SyncingContext();
+        context.Network.Becomes(false);
+
+        await context.Sync.SynchroniseAsync();
+
+        // Working offline is the app behaving as designed; a run every few minutes would put
+        // "couldn't sync" in the corner for somebody doing exactly what Orbit offers.
+        Assert.Equal(0, context.Runs);
+        Assert.Equal(SyncCondition.Unknown, context.State.Condition);
+    }
+
+    [Fact]
+    public async Task A_run_that_brought_something_tells_the_screens()
+    {
+        var context = new SyncingContext { Result = new SyncResult(0, 3, 0, 0, ReachedTheServer: true) };
+        var told = 0;
+        context.State.BroughtSomethingNew += (_, _) => told++;
+
+        await context.Sync.SynchroniseAsync();
+
+        Assert.Equal(1, told);
+        Assert.Equal(SyncCondition.Synced, context.State.Condition);
+    }
+
+    [Fact]
+    public async Task A_run_that_changed_nothing_leaves_the_screens_alone()
+    {
+        var context = new SyncingContext { Result = new SyncResult(0, 0, 0, 0, ReachedTheServer: true) };
+        var told = 0;
+        context.State.BroughtSomethingNew += (_, _) => told++;
+
+        await context.Sync.SynchroniseAsync();
+
+        // A screen redrawing itself every five minutes for nothing is work nobody asked for, and a list
+        // that rebuilds under somebody's finger is worse than one that does not.
+        Assert.Equal(0, told);
+    }
+
+    [Fact]
+    public async Task A_run_that_did_not_get_through_says_so_in_the_corner()
+    {
+        var context = new SyncingContext { Result = new SyncResult(0, 0, 0, 0, ReachedTheServer: false) };
+
+        await context.Sync.SynchroniseAsync();
+
+        Assert.Equal(SyncCondition.Failed, context.State.Condition);
+    }
+
+    [Fact]
+    public async Task A_refusal_is_reported_rather_than_thrown()
+    {
+        var context = new SyncingContext { Fails = new HttpRequestException("Session has expired") };
+
+        // Nothing catches this: it is started without being awaited, from a timer with no screen behind
+        // it. AppNavigator watches the session store and moves to sign-in when that is what happened.
+        await context.Sync.SynchroniseAsync();
+
+        Assert.Equal(SyncCondition.Failed, context.State.Condition);
+    }
+
+    private sealed class SyncingContext
+    {
+        public SyncingContext(bool signedIn = true)
+        {
+            Clock = new FakeTimeProvider(Now);
+            State = new SyncState(Network, Clock);
+            var sessionStore = new SessionStore(new InMemorySessionStorage(signedIn ? SignedIn : null));
+            Sync = new PeriodicSync(
+                _ =>
+                {
+                    Runs++;
+                    return Fails is null ? Task.FromResult(Result) : throw Fails;
+                },
+                sessionStore, Network, State, Clock, NullLogger<PeriodicSync>.Instance);
+        }
+
+        public FakeTimeProvider Clock { get; }
+
+        public FixedNetworkStatus Network { get; } = FixedNetworkStatus.Online;
+
+        public SyncState State { get; }
+
+        public PeriodicSync Sync { get; }
+
+        /// <summary>How many runs the timer has asked for - the thing every test here counts.</summary>
+        public int Runs { get; private set; }
+
+        /// <summary>What a run answers with. The default is a run that got through and changed nothing.</summary>
+        public SyncResult Result { get; init; } = new(0, 0, 0, 0, ReachedTheServer: true);
+
+        /// <summary>What a run throws instead of answering, or null when it answers.</summary>
+        public HttpRequestException? Fails { get; init; }
+
+        /// <summary>
+        /// Lets the loop get as far as it is going to. The run is started without being awaited - there is
+        /// no screen behind a timer to await it - so a test has to give the scheduler its turns back
+        /// before it counts anything. A handful of them, because one run is several awaits deep.
+        /// </summary>
+        public async Task SettleAsync()
+        {
+            for (var turn = 0; turn < 8; turn++)
+            {
+                await Task.Yield();
+            }
+        }
+    }
+}
