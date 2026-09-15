@@ -1890,13 +1890,13 @@ It is **not** on the two other places somebody edits in the browser:
   page's furniture - but by the rule the rail follows: its Save and Cancel are first in the panel and
   stick to its top while the fields scroll (`.place-form > .map-overlay-confirm`). The panel is the
   scrolling box, so that is the same promise on a different surface.
-- **The Options page**, whose three sections (profile, password, unlock code) each carry their own inline
-  Save that scrolls away with the section. **This one wants a decision before it is built**: a rail
-  carries one Save, and this page has three that do different things. Either the rail saves whichever
-  section is open (which means the page has to know, and the sections become tabs in fact rather than
-  headings), or each section keeps its own button and the rail carries only Back and the menu - which is
-  less than the other editors offer and may be the honest answer for a page that is not an editor of one
-  thing.
+- ~~**The Options page**, whose three sections (profile, password, unlock code) each carry their own
+  inline Save that scrolls away with the section.~~ **Settled 2026-09-15: leave it as it is.** A rail
+  carries one Save and that page has three that do different things, so a rail there would either have
+  to know which section is open - turning headings into tabs, and showing one section at a time on a page
+  whose whole shape is that they are all on it - or carry no Save at all, which is furniture pretending
+  to be an editor. Three buttons that stay beside the three things they save is the honest answer for a
+  page that is not an editor of one thing. Nothing to build; written down so nobody proposes it again.
 
 ### Said one way in one place and another way in another
 
@@ -1911,19 +1911,33 @@ It is **not** on the two other places somebody edits in the browser:
   date-and-time separator. Nothing of it exists: no button, and no line kind for it. It is another kind
   of line (`NoteContentLine`, the shape a table and a picture already use) rather than a style, since it
   carries no words of its own and cannot be written in - which means it wants the same guards in
-  `NoteSurfaceEdits` those two needed. A date-and-time separator has a question in it worth settling
-  first: whether the stamp is written once, when the separator is made, or re-read every time the note is
-  drawn. Written once is what a reader means by "when I got here"; re-read would make yesterday's
-  separator say today.
+  `NoteSurfaceEdits` those two needed.
+
+  **Settled 2026-09-15: the stamp is written once, when the separator is made.** That is what somebody
+  means by putting a date in a note - "this is where I got to on Tuesday" - and it is the only reading
+  that survives being read again: a stamp worked out at draw time would make yesterday's separator say
+  today, and there would be no way to tell from the note when anything was actually written. Being part
+  of the line, it travels with the note into the export, onto the phone and into a shared link, and says
+  the same thing in a year. It is stored as the words it was made with rather than as an instant, for the
+  reason the date itself is the point: re-formatting it in another reader's locale would be re-reading it
+  in a different way, which is the thing this decision rules out.
 
 - **Archiving, as protection against deleting.** Asked for on notes, task lists, events and inventories:
   put something away rather than lose it. Nothing of it exists on those four - deletion is a real delete
   plus a sync tombstone, and the only `IsArchived` in Orbit is on a conversation and on a group
   membership (done 2026-09-09, and the shape to copy). It is a column on each of the four, a command per
   aggregate, a place to read what is archived, and a decision about what archiving means beside the
-  folders: whether Archived is a built-in folder (which would make it a tab, and free on both clients and
-  in the dashboard's narrowing) or a state of its own beside them. **The folder reading is the cheaper
-  one and probably the right one** - it already has tabs, counts, a phone menu and an export.
+  folders.
+
+  **Settled 2026-09-15: Archived is a built-in folder** (`BuiltInFolder`, beside Public, Private and
+  Finished), not a state of its own beside them. Everything a reader needs of it then exists already -
+  a tab on every page that has tabs, a count beside it, an entry in the phone's folder menu, the
+  dashboard's narrowing, and a name in the archive file - rather than being written a second time as a
+  parallel mechanism with its own list screen and its own filters. The cost is stated rather than
+  discovered: **a thing is in one folder**, so archiving something takes it out of the folder it was in,
+  and taking it out of the archive has to put it somewhere - the built-in one it would have had. Where
+  that matters more than the saving, the second reading is still the other one, and this entry is where
+  to come back to.
 
 - **Choosing several things at once, and doing one thing to all of them.** Asked for as: select several
   notes, lists, events or shelves and then file them into a folder, archive them, or share them. Nothing
@@ -1938,11 +1952,19 @@ It is **not** on the two other places somebody edits in the browser:
   list, so the box should tick itself once there is at least one such entry, and stay unticked only
   because somebody unticked it. Today it is a plain manual toggle in both clients. The signal is already
   there (`TaskItem.IsALinkToOtherLists`), and the neighbouring "the list is done" box already does
-  exactly this trick, so the shape to copy is one file away. What has to be settled is where the
-  self-tick lives: doing it in the editor's form means it only happens where somebody is looking, and
-  doing it in `TaskList` means a save from an old client turns the box on for them too - which is
-  probably right, but it changes stored data and so wants the same care `EntryStandsForAnyOfItsLists`
-  needed.
+  exactly this trick, so the shape to copy is one file away.
+
+  **Settled 2026-09-15: the self-tick lives in `TaskList`**, not in the editor's form. A rule that only
+  holds where somebody is looking is not a rule: a list made from the phone, or saved by a browser tab
+  opened before this existed, would gather other lists and not say so, and the group view somebody
+  turned on in one client would be turned off by the next save from another. In the domain it holds for
+  every writer there has ever been.
+
+  It changes stored data, so it gets the care `EntryStandsForAnyOfItsLists` got: a migration that says
+  what it did, marking the lists that already have such an entry, rather than letting them change
+  silently on whatever save happens to come next. **Unticking stays possible** - the box is the reader's
+  to turn off and the tick only ever adds - which is the half that makes this safe to apply to
+  everything: nothing is taken away from somebody who said no.
 
 ### Half-built, and the missing half is the interesting one
 
