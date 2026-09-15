@@ -130,6 +130,13 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
             return Json(ItemsIn(inventoryId).ToList());
         }
 
+        // Filing has its own endpoint, and this fake has to have it too - the real one keeps it off the
+        // save so that a client which had never heard of folders cannot empty it. See MoveToFolderRequest.
+        if (path.EndsWith("/folder", StringComparison.Ordinal))
+        {
+            return await FileAsync(request, path, cancellationToken);
+        }
+
         return request.Method.Method switch
         {
             "POST" => await CreateAsync(request, cancellationToken),
@@ -164,9 +171,26 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
         {
             EncryptedContent = body.EncryptedContent,
             // As the real endpoint stores it - see FakeTasksServer for the same two rules.
-            Description = body.IsPrivate ? string.Empty : body.Description ?? string.Empty
+            Description = body.IsPrivate ? string.Empty : body.Description ?? string.Empty,
+            // The folder travels on the create, and only on the create - see SaveInventoryRequest.
+            FolderId = body.FolderId
         };
         return Json(created.Id, HttpStatusCode.Created);
+    }
+
+    /// <summary>Where the inventory is filed - applied to the stored row, so a test can tell it was sent.</summary>
+    private async Task<HttpResponseMessage> FileAsync(
+        HttpRequestMessage request, string path, CancellationToken cancellationToken)
+    {
+        var id = Guid.Parse(path.Split('/')[^2]);
+        if (!_inventories.TryGetValue(id, out var existing))
+        {
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        var body = await ReadAsync<Orbit.Contracts.Folders.MoveToFolderRequest>(request, cancellationToken);
+        _inventories[id] = existing with { FolderId = body!.FolderId, UpdatedAtUtc = _timeProvider.GetUtcNow() };
+        return new HttpResponseMessage(HttpStatusCode.NoContent);
     }
 
     private async Task<HttpResponseMessage> SaveAsync(HttpRequestMessage request, string path, CancellationToken cancellationToken)

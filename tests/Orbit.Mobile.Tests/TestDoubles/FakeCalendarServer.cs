@@ -30,6 +30,9 @@ internal sealed class FakeCalendarServer : HttpMessageHandler
 
     public IReadOnlyCollection<CalendarEventDto> Events => _events.Values;
 
+    /// <summary>An event changed on the server, as the next pull would bring it down - see FakeNotesServer.</summary>
+    public void ReplaceForTest(CalendarEventDto calendarEvent) => _events[calendarEvent.Id] = calendarEvent;
+
     public CalendarEventDto AddEvent(string title, bool isShared = false, bool isSharedWithOthers = false)
     {
         var now = _timeProvider.GetUtcNow();
@@ -80,6 +83,13 @@ internal sealed class FakeCalendarServer : HttpMessageHandler
                 _timeProvider.GetUtcNow().UtcDateTime.ToString("O")));
         }
 
+        // Filing has its own endpoint, and this fake has to have it too - the real one keeps it off the
+        // save so that a client which had never heard of folders cannot empty it. See MoveToFolderRequest.
+        if (path.EndsWith("/folder", StringComparison.Ordinal))
+        {
+            return await FileAsync(request, path, cancellationToken);
+        }
+
         return request.Method.Method switch
         {
             "POST" => await CreateAsync(request, cancellationToken),
@@ -98,8 +108,25 @@ internal sealed class FakeCalendarServer : HttpMessageHandler
         }
 
         var created = AddEvent(body.Details.Title);
-        _events[created.Id] = created with { Details = ToDto(body.Details) };
+        // Stored as the real endpoint stores it: the folder travels on the create, so a fake that
+        // dropped it would answer the next pull with an unfiled event and look like lost filing.
+        _events[created.Id] = created with { Details = ToDto(body.Details), FolderId = body.FolderId };
         return Json(created.Id, HttpStatusCode.Created);
+    }
+
+    /// <summary>Where the event is filed - applied to the stored event, so a test can tell it was sent.</summary>
+    private async Task<HttpResponseMessage> FileAsync(
+        HttpRequestMessage request, string path, CancellationToken cancellationToken)
+    {
+        var id = Guid.Parse(path.Split('/')[^2]);
+        if (!_events.TryGetValue(id, out var existing))
+        {
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        var body = await ReadAsync<Orbit.Contracts.Folders.MoveToFolderRequest>(request, cancellationToken);
+        _events[id] = existing with { FolderId = body!.FolderId, UpdatedAtUtc = _timeProvider.GetUtcNow() };
+        return new HttpResponseMessage(HttpStatusCode.NoContent);
     }
 
     private async Task<HttpResponseMessage> UpdateAsync(HttpRequestMessage request, string path, CancellationToken cancellationToken)

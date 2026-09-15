@@ -80,12 +80,62 @@ public sealed class InventorySynchronizer
             return SendResult.Abandoned;
         }
 
-        return entry.Operation is OutboxOperation.Create
-            ? await SendCreateAsync(inventory, cancellationToken)
-            : await SendUpdateAsync(inventory, cancellationToken);
+        return entry.Operation switch
+        {
+            OutboxOperation.Create => await SendCreateAsync(dbContext, inventory, cancellationToken),
+            OutboxOperation.File => await SendFilingAsync(dbContext, inventory, cancellationToken),
+            _ => await SendUpdateAsync(inventory, cancellationToken)
+        };
     }
 
-    private async Task<SendResult> SendCreateAsync(LocalInventory inventory, CancellationToken cancellationToken)
+    /// <summary>
+    /// Which folder the server should be told, for something filed into one of this phone's. Null both
+    /// for one in no folder and for one whose folder has since gone - and a folder the server has not
+    /// been told about yet stops the send instead, so the filing waits for it rather than being lost.
+    /// The same rule NoteSynchronizer follows, the folders being pushed ahead of everything filed.
+    /// </summary>
+    private static async Task<Guid?> ServerFolderIdAsync(
+        OrbitLocalDbContext dbContext, Guid? folderLocalId, CancellationToken cancellationToken)
+    {
+        if (folderLocalId is not { } localId)
+        {
+            return null;
+        }
+
+        var folder = await dbContext.Folders.FirstOrDefaultAsync(
+            candidate => candidate.LocalId == localId, cancellationToken);
+
+        return folder is null ? null : folder.ServerId ?? throw new FolderNotOnTheServerYet(localId);
+    }
+
+    /// <summary>
+    /// Puts the inventory in its folder, or takes it out of one. Its own request to its own endpoint -
+    /// see InventoryClient.FileAsync, and MoveToFolderRequest, which says why a save must not carry it.
+    /// </summary>
+    private async Task<SendResult> SendFilingAsync(
+        OrbitLocalDbContext dbContext, LocalInventory inventory, CancellationToken cancellationToken)
+    {
+        if (inventory.ServerId is not { } serverId)
+        {
+            // Its create is still queued ahead of this, and that create carries the folder itself.
+            return SendResult.Abandoned;
+        }
+
+        var outcome = await _inventoryClient.FileAsync(
+            serverId, await ServerFolderIdAsync(dbContext, inventory.FolderId, cancellationToken), cancellationToken);
+
+        if (outcome is not WriteOutcome.Applied)
+        {
+            _logger.LogInformation("The server refused a filing of inventory {ServerId}: {Outcome}", serverId, outcome);
+            return SendResult.Refused;
+        }
+
+        inventory.LastSyncedAtUtc = _timeProvider.GetUtcNow();
+        return SendResult.Sent;
+    }
+
+    private async Task<SendResult> SendCreateAsync(
+        OrbitLocalDbContext dbContext, LocalInventory inventory, CancellationToken cancellationToken)
     {
         if (inventory.ServerId is not null)
         {
@@ -97,8 +147,11 @@ public sealed class InventorySynchronizer
         // inventory's name is in EncryptedContent and its readable fields are empty, which is how the
         // row is already stored - see LocalInventoryRepository.
         inventory.ServerId = await _inventoryClient.CreateAsync(
+            // The folder travels on the create and only on the create: one the server has never seen has
+            // nothing to file, so LocalInventoryRepository queues no filing for one.
             new SaveInventoryRequest(
-                inventory.Name, [], inventory.IsPrivate, inventory.EncryptedContent, inventory.Description),
+                inventory.Name, [], inventory.IsPrivate, inventory.EncryptedContent, inventory.Description,
+                await ServerFolderIdAsync(dbContext, inventory.FolderId, cancellationToken)),
             cancellationToken);
         inventory.LastSyncedAtUtc = _timeProvider.GetUtcNow();
         return SendResult.Sent;
@@ -143,6 +196,12 @@ public sealed class InventorySynchronizer
             .Distinct()
             .ToListAsync(cancellationToken);
 
+        // A folder is known here by an id of this phone's own, and arrives named by the server's - see
+        // LocalFolder.LocalId. Read once for the run rather than per inventory.
+        var foldersByServerId = await dbContext.Folders
+            .Where(folder => folder.ServerId != null)
+            .ToDictionaryAsync(folder => folder.ServerId!.Value, folder => folder.LocalId, cancellationToken);
+
         var received = 0;
         foreach (var incoming in feed.Changed)
         {
@@ -161,7 +220,7 @@ public sealed class InventorySynchronizer
             var itemsMayHaveChanged = existing is null || existing.UpdatedAtUtc != incoming.UpdatedAtUtc;
 
             var inventory = existing ?? NewLocalInventory(dbContext, incoming.Id);
-            CopyInto(inventory, incoming);
+            CopyInto(inventory, incoming, foldersByServerId);
 
             if (itemsMayHaveChanged)
             {
@@ -205,8 +264,15 @@ public sealed class InventorySynchronizer
         return inventory;
     }
 
-    private void CopyInto(LocalInventory inventory, InventoryDto incoming)
+    private void CopyInto(
+        LocalInventory inventory, InventoryDto incoming, IReadOnlyDictionary<Guid, Guid> foldersByServerId)
     {
+        // A folder this phone has not heard of leaves it unfiled rather than pointing at nothing - see
+        // NoteSynchronizer, which says why.
+        inventory.FolderId = incoming.FolderId is { } folderServerId
+            && foldersByServerId.TryGetValue(folderServerId, out var folderLocalId)
+                ? folderLocalId
+                : null;
         inventory.Name = incoming.Name;
         inventory.Description = incoming.Description;
         inventory.IsPrivate = incoming.IsPrivate;

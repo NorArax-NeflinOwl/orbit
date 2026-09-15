@@ -23,6 +23,9 @@ public sealed class LocalCalendarEvent : ISharedState, ICopyableForEditing
 
     public DateTimeOffset UpdatedAtUtc { get; set; }
 
+    /// <inheritdoc cref="LocalNote.FolderId"/>
+    public Guid? FolderId { get; set; }
+
     public bool IsShared { get; set; }
 
     public string? SharedByUserName { get; set; }
