@@ -47,6 +47,29 @@ public sealed record ThemeChoice(ChosenTheme Value, string Name, bool IsChosen)
     };
 }
 
+/// <summary>
+/// One horizon the Upcoming card can be given, as the strip of them shows it - see UpcomingHorizon.
+/// Named here rather than in the markup because a horizon is said as a phrase rather than as a number
+/// and a unit: zero is not "0 days" but the absence of a horizon, and a count of days needs a plural
+/// rule Polish has three of.
+/// </summary>
+public sealed record UpcomingHorizonChoice(int Days, string Name, bool IsChosen)
+{
+    /// <summary>
+    /// The list is UpcomingHorizon.Horizons, so every case here is reachable and the fallback is not -
+    /// it is there so a horizon added to that list is drawn as something rather than as nothing.
+    /// </summary>
+    public static string Describe(int days, Translations translations) => days switch
+    {
+        0 => translations["Everything"],
+        1 => translations["A day"],
+        7 => translations["A week"],
+        30 => translations["A month"],
+        90 => translations["Three months"],
+        _ => days.ToString(System.Globalization.CultureInfo.InvariantCulture)
+    };
+}
+
 /// <summary>One tab on the account screen: what it is called and whether it is the one showing.</summary>
 public sealed record AccountTabRow(AccountTab Tab, string Name, bool IsChosen)
 {

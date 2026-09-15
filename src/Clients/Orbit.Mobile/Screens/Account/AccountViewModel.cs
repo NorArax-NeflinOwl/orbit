@@ -31,6 +31,12 @@ public sealed partial class AccountViewModel : ObservableObject
     /// else need not build one; the application always has it, and without it every kind reads as on.
     /// </summary>
     private readonly Orbit.Mobile.Screens.Suggestions.EntryFilling? _entryFilling;
+
+    /// <summary>
+    /// How far ahead the dashboard's Upcoming card looks - see UpcomingHorizon. Optional for the same
+    /// reason as the line above; without it the strip is left out rather than drawn over nothing.
+    /// </summary>
+    private readonly Orbit.Mobile.Screens.Dashboard.UpcomingHorizon? _upcomingHorizon;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
     private readonly SessionStore _sessionStore;
     private readonly Translations _translations;
@@ -182,9 +188,11 @@ public sealed partial class AccountViewModel : ObservableObject
         LocalStoreReset localStore,
         Notifications.NotificationSettingsViewModel notifications, IScreenNavigator navigator,
         GoogleAccountLink googleLink, GoogleExtras googleExtras,
-        Orbit.Mobile.Screens.Suggestions.EntryFilling? entryFilling = null)
+        Orbit.Mobile.Screens.Suggestions.EntryFilling? entryFilling = null,
+        Orbit.Mobile.Screens.Dashboard.UpcomingHorizon? upcomingHorizon = null)
     {
         _entryFilling = entryFilling;
+        _upcomingHorizon = upcomingHorizon;
         _accountClient = accountClient;
         _encryptionKeyProvider = encryptionKeyProvider;
         Connection = connection;
@@ -318,6 +326,36 @@ public sealed partial class AccountViewModel : ObservableObject
 
         _entryFilling.SetFills(kind, fills);
         OnPropertyChanged(property);
+    }
+
+    /// <summary>
+    /// How far ahead the dashboard's Upcoming card looks, as the strip of choices shows it - the same
+    /// five Orbit.Web offers under Options, and chosen the same way: one press, with the four not chosen
+    /// part of the answer. Empty where there is no store to keep it in, which leaves the strip off the
+    /// tab rather than drawing one that cannot remember what it was told.
+    /// </summary>
+    public IReadOnlyList<UpcomingHorizonChoice> UpcomingHorizons
+        => _upcomingHorizon is null
+            ? []
+            : [.. Orbit.Mobile.Screens.Dashboard.UpcomingHorizon.Horizons.Select(days =>
+                new UpcomingHorizonChoice(
+                    days,
+                    UpcomingHorizonChoice.Describe(days, _translations),
+                    days == _upcomingHorizon.Days))];
+
+    public bool HasUpcomingHorizons => UpcomingHorizons.Count > 0;
+
+    /// <summary>Picking one from that strip - see <see cref="UpcomingHorizons"/>.</summary>
+    [RelayCommand]
+    private void ChooseUpcomingHorizon(UpcomingHorizonChoice? choice)
+    {
+        if (choice is null || _upcomingHorizon is null || choice.Days == _upcomingHorizon.Days)
+        {
+            return;
+        }
+
+        _upcomingHorizon.SetDays(choice.Days);
+        OnPropertyChanged(nameof(UpcomingHorizons));
     }
 
     public bool IsShowingPermissions => Tab is AccountTab.Permissions;

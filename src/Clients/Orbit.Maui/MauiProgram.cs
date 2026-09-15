@@ -224,6 +224,9 @@ public static class MauiProgram
 		// Which kinds of entry a picked name fills in - see EntryFilling and the account's Preferences tab.
 		services.AddSingleton<Orbit.Mobile.Screens.Suggestions.IEntryFillingStore, PreferencesEntryFillingStore>();
 		services.AddSingleton<Orbit.Mobile.Screens.Suggestions.EntryFilling>();
+		// How far ahead the dashboard's Upcoming card looks - see UpcomingHorizon and the same tab.
+		services.AddSingleton<Orbit.Mobile.Screens.Dashboard.IUpcomingHorizonStore, PreferencesUpcomingHorizonStore>();
+		services.AddSingleton<Orbit.Mobile.Screens.Dashboard.UpcomingHorizon>();
 		services.AddSingleton<Orbit.Mobile.Google.GoogleIntegrationAccess>();
 		// One heartbeat for the app, started and stopped with the window - see PresenceReporter.
 		// One banner for the app, so a push arriving while somebody is looking at it is not silently

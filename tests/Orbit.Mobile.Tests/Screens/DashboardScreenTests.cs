@@ -196,6 +196,55 @@ public sealed class DashboardScreenTests
     }
 
     [Fact]
+    public async Task The_upcoming_card_stops_at_the_horizon()
+    {
+        using var context = new DashboardContext();
+        context.Horizon.SetDays(7);
+        await context.AddEventAsync("This week", Now.AddDays(3));
+        await context.AddEventAsync("Next month", Now.AddDays(30));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var events = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+        Assert.Equal(["This week"], events.Rows.Select(row => row.Title));
+        // The count is of what the card is showing rather than of what the account has - the same rule
+        // every other card on this page follows.
+        Assert.Equal("1", events.Count);
+    }
+
+    [Fact]
+    public async Task A_horizon_that_empties_the_upcoming_card_leaves_the_card_where_it_was()
+    {
+        using var context = new DashboardContext();
+        context.Horizon.SetDays(1);
+        await context.AddEventAsync("Next month", Now.AddDays(30));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        // Gated on whether the account has anything coming up at all, not on what the horizon leaves -
+        // a card that vanished would take the reader's only way back to it with it.
+        var events = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+        Assert.True(events.HasNothingMatching);
+    }
+
+    [Fact]
+    public async Task No_horizon_at_all_puts_everything_back_on_the_upcoming_card()
+    {
+        using var context = new DashboardContext();
+        context.Horizon.SetDays(0);
+        await context.AddEventAsync("This week", Now.AddDays(3));
+        await context.AddEventAsync("Next year", Now.AddDays(365));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var events = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+        Assert.Equal(["This week", "Next year"], events.Rows.Select(row => row.Title));
+    }
+
+    [Fact]
     public async Task Chats_are_listed_twice_for_two_different_questions()
     {
         // As Orbit.Web does: "Recent chats" answers who you were just talking to, "Contacts" is a
@@ -1429,7 +1478,22 @@ public sealed class DashboardScreenTests
             => new(_notes, _taskLists, _calendarEvents, _inventories, _places, _chat, _clock, new Translations(new InMemoryLanguageStore()),
                 PrivateItems, _synchronizer, _syncState, _permissions,
                 Pins, Visibility, SharedPositions(), Notifications, Navigator,
-                Folders, ChosenFolders, TagColours);
+                Folders, ChosenFolders, TagColours, Horizon);
+
+        /// <summary>
+        /// How far ahead the Upcoming card looks on this phone - see UpcomingHorizon. A test that says
+        /// nothing about it gets the default week, which is what the application gets too.
+        /// </summary>
+        public UpcomingHorizon Horizon { get; } = new(new InMemoryUpcomingHorizonStore());
+
+        private sealed class InMemoryUpcomingHorizonStore : IUpcomingHorizonStore
+        {
+            private int? _days;
+
+            public int? ReadDays() => _days;
+
+            public void WriteDays(int days) => _days = days;
+        }
 
         /// <summary>The account's tag colours on this phone - see LocalTagColourRepository.</summary>
         public LocalTagColourRepository TagColours => new(_localStore);

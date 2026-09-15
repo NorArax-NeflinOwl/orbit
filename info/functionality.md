@@ -4280,7 +4280,11 @@ months / everything, on Options' Preferences tab and kept on the device). The ca
 glanced down, and without a horizon it drew everything that would ever happen with next Tuesday somewhere
 inside it. Nothing is lost by it: what falls outside is still in the calendar, which the card's own name
 opens. Measured from the start of today, so something happening this morning is still on a card read this
-afternoon.
+afternoon. **The phone offers the same five** on the account screen's Preferences tab and applies them to
+its own card (`UpcomingHorizon`, `DashboardViewModel.IsInsideTheHorizon`), kept in that phone's
+preferences rather than shared with the browser - a horizon is how one screen is read on one device, the
+same as the theme beside it. A horizon that empties the card leaves the card where it was, as a filter
+that empties one does: it is the account having nothing coming up that takes a card off the page.
 
 **An event a task list raised is named after the list**, "Health: Dentist", the way a deadline on that
 list already was. This card gathers things from everywhere, so a row that does not say where it came

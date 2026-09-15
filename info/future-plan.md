@@ -1823,10 +1823,13 @@ listed here was found built and is described in `info/functionality.md`.
 Each of these is finished where it was asked for and absent on the phone. None is a bug; each is the
 same feature owing its second client.
 
-- **The Upcoming horizon.** `DevicePreferences.UpcomingDays` (7 by default, chosen from
+- ~~**The Upcoming horizon.** `DevicePreferences.UpcomingDays` (7 by default, chosen from
   `UpcomingHorizons` on the Preferences tab) narrows the browser's card; the phone's Upcoming card shows
-  everything, and the phone has no preferences screen entry for it. Its card is built in
-  `DashboardViewModel` from `shownEvents`, which is filtered by priority and nothing else.
+  everything, and the phone has no preferences screen entry for it.~~ Done 2026-09-15: `UpcomingHorizon`
+  beside `EntryFilling`, the same five choices as a strip on the account screen's Preferences tab, and
+  `DashboardViewModel.IsInsideTheHorizon` over `shownEvents`. Kept in the phone's own preferences rather
+  than shared with the browser, the way the theme is - the two lists of horizons are written out on both
+  sides, which is what the kinds of entry beside them already do.
 - **"Copy the text" on a note.** `NoteSummary` puts it in the note's menu and writes the round-trippable
   format (`[x] ` and `- `). The phone's note screen has no clipboard action at all - "copy" there means
   `CopyForEditingAsync`, which is the copy-to-edit-offline feature and a different thing.

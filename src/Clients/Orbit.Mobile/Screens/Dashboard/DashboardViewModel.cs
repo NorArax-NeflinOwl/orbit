@@ -52,6 +52,12 @@ public sealed partial class DashboardViewModel : ObservableObject
     /// <summary>The account's tag colours - see LocalTagColourRepository. Null in a test that is not about them.</summary>
     private readonly LocalTagColourRepository? _tagColours;
 
+    /// <summary>
+    /// How far ahead the Upcoming card looks - see UpcomingHorizon. Null in a test that is not about it,
+    /// which leaves the card showing everything, as it did before there was a horizon.
+    /// </summary>
+    private readonly UpcomingHorizon? _upcomingHorizon;
+
     [ObservableProperty]
     private TodaySummary _today = TodaySummary.Nothing;
 
@@ -76,9 +82,10 @@ public sealed partial class DashboardViewModel : ObservableObject
         IDashboardCardPreferenceStore visibility, SharedLocations sharedLocations,
         LocalNotificationRepository notifications, IScreenNavigator navigator,
         LocalFolderRepository folders, IChosenFolderStore chosenFolder,
-        LocalTagColourRepository? tagColours = null)
+        LocalTagColourRepository? tagColours = null, UpcomingHorizon? upcomingHorizon = null)
     {
         _tagColours = tagColours;
+        _upcomingHorizon = upcomingHorizon;
         Folders = new FolderTabs(folders, chosenFolder, translations, FolderPage.Dashboard);
         _notes = notes;
         _taskLists = taskLists;
@@ -216,7 +223,7 @@ public sealed partial class DashboardViewModel : ObservableObject
 
         var shownNotes = notes.Where(note => Passes(DashboardCardKind.Notes, note.IsPinned)).ToList();
         var shownTaskLists = taskLists.Where(list => Passes(DashboardCardKind.Tasks, list.IsPinned)).ToList();
-        var shownEvents = events.Where(PassesPriority).ToList();
+        var shownEvents = events.Where(PassesPriority).Where(IsInsideTheHorizon).ToList();
 
         // The account's tag colours, read from this phone like everything else on the page, for the two
         // cards whose rows draw tags - see DashboardRow.Tags.
@@ -427,6 +434,15 @@ public sealed partial class DashboardViewModel : ObservableObject
             DashboardCardFilter.LowPriority => calendarEvent.Details.Priority == "Low",
             _ => true
         };
+
+    /// <summary>
+    /// Whether an event is near enough for the Upcoming card - see UpcomingHorizon, which the reader
+    /// sets on the account screen's Preferences tab. What falls outside is not lost: the card's own name
+    /// opens the calendar, which is where a longer view is read.
+    /// </summary>
+    private bool IsInsideTheHorizon(LocalCalendarEvent calendarEvent)
+        => _upcomingHorizon is null
+            || _upcomingHorizon.Holds(calendarEvent.Details.StartUtc, _timeProvider.GetUtcNow(), _timeProvider.LocalTimeZone);
 
     private DashboardCardFilter FilterFor(DashboardCardKind kind)
         => _filters.TryGetValue(kind, out var filter) ? filter : DashboardCardFilter.All;
