@@ -1319,13 +1319,64 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.Contains("Dentist", FindColumn(cut, "Upcoming").TextContent);
     }
 
-    /// <summary>An entry that stands for an appointment - what the task editor writes for a Calendar row.</summary>
-    private static TaskItemDto EntryFor(Guid calendarEventId, bool isCompleted)
+    /// <summary>
+    /// An entry that stands for an appointment - what the task editor writes for a Calendar row.
+    /// </summary>
+    /// <param name="dueDateUtc">
+    /// A date of its own as well, which such an entry may carry: the editor has a date field and an
+    /// appointment, and nothing stops somebody filling in both.
+    /// </param>
+    private static TaskItemDto EntryFor(Guid calendarEventId, bool isCompleted, DateTimeOffset? dueDateUtc = null)
         => new(
-            Guid.NewGuid(), "Dentist", DueDateUtc: null, isCompleted, LinkedTaskListId: null,
+            Guid.NewGuid(), "Dentist", dueDateUtc, isCompleted, LinkedTaskListId: null,
             OverdueNotificationChannel: "None", RemindDaily: false,
             DailyReminderNotificationChannel: "None", DailyReminderTimeOfDay: new TimeOnly(9, 0),
             Kind: "Calendar", Location: "", LinkedCalendarEventId: calendarEventId);
+
+    /// <summary>
+    /// An entry can carry both a date and an appointment, and the card drew it twice: once as the
+    /// appointment and once as its own deadline - the same words, from the same list, at two times
+    /// nobody had said were different.
+    /// </summary>
+    [Fact]
+    public void An_entry_that_is_also_an_appointment_is_written_once()
+    {
+        var when = DateTimeOffset.UtcNow.AddDays(1);
+        var appointment = Event("Dentist", when);
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterCalendarApiClient([appointment]);
+        RegisterTasksApiClient([TaskList("Health", EntryFor(appointment.Id, isCompleted: false, dueDateUtc: when))]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Single(
+            FindColumn(cut, "Upcoming").QuerySelectorAll(".list-row-button"),
+            row => row.TextContent.Contains("Dentist"));
+    }
+
+    /// <summary>
+    /// On any other day it stays: nothing else on the card stands for it there, and hiding it would lose
+    /// the deadline rather than tidy it. The same rule the calendar applies to the same pair.
+    /// </summary>
+    [Fact]
+    public void A_deadline_on_another_day_from_its_appointment_is_still_its_own_row()
+    {
+        var appointment = Event("Dentist", DateTimeOffset.UtcNow.AddDays(1));
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterCalendarApiClient([appointment]);
+        RegisterTasksApiClient(
+        [
+            TaskList("Health", EntryFor(appointment.Id, isCompleted: false, dueDateUtc: DateTimeOffset.UtcNow.AddDays(4)))
+        ]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Equal(
+            2,
+            FindColumn(cut, "Upcoming").QuerySelectorAll(".list-row-button").Count(row => row.TextContent.Contains("Dentist")));
+    }
 
     [Fact]
     public void A_row_that_matters_more_than_the_rest_says_so()

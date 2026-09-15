@@ -4308,9 +4308,15 @@ finished with work still on it says "no more of this"), where the entry is ticke
 where the entry stands for other lists (its tick comes from them), and where it **is** one of the
 appointments already on the card that day, which would otherwise write the same thing twice, one line
 under the other. How much a deadline matters is the list's answer: an entry carries no priority of its
-own. The phone gained this on 2026-09-15 (`DashboardViewModel.DeadlinesComingUp`), and there a sealed
-list is skipped as well, its entries being sealed with it, and a private one while private things are
-locked - a deadline names the list it is on.
+own.
+
+Two of those are newer than the rest. **The phone gained the deadlines on 2026-09-15**
+(`DashboardViewModel.DeadlinesComingUp`), and there a sealed list is skipped as well, its entries being
+sealed with it, and a private one while private things are locked - a deadline names the list it is on.
+**Both cards learnt the same day not to write an entry twice**: the editor has a date field and an
+appointment, nothing stops somebody filling in both, and until then the card drew the same words from
+the same list at two times nobody had said were different. On any other day the deadline stays, because
+nothing else on the card stands for it there and hiding it would lose it rather than tidy it.
 
 **The phone offers the same five** on the account screen's Preferences tab and applies them to
 its own card (`UpcomingHorizon`, `DashboardViewModel.IsInsideTheHorizon`), kept in that phone's
