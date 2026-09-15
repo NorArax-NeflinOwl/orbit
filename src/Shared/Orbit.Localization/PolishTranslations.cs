@@ -1060,6 +1060,9 @@ public static class PolishTranslations
         // Taking what a note says out of Orbit altogether, from its menu - next to Copy, which makes a
         // second note inside it. The label says which of the two it is.
         ["Copy the text"] = "Kopiuj tekst",
+        // The phone's own wording: it has no browser to blame, and Android refuses the clipboard for
+        // reasons the reader can do nothing about either way.
+        ["The text could not be copied."] = "Nie udało się skopiować tekstu.",
         ["The text could not be copied. Your browser did not allow it."] =
             "Nie udało się skopiować tekstu. Przeglądarka na to nie pozwoliła.",
         ["None"] = "Brak",

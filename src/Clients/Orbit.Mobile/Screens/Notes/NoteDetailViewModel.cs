@@ -222,6 +222,14 @@ public sealed partial class NoteDetailViewModel : ObservableObject
 
     public ObservableCollection<NoteLineRow> Lines { get; } = [];
 
+    /// <summary>
+    /// The note as plain words, for the clipboard - the format Orbit.Web copies in and a paste reads
+    /// back, so a note copied here lands in another note as the same note. Built here rather than in the
+    /// page because it is what the note says rather than how the page draws it; putting it on the
+    /// clipboard is the page's part, MAUI's Clipboard being a thing Orbit.Mobile cannot see.
+    /// </summary>
+    public string AsWords() => NoteWords.Of(Title, [.. Lines.Select(line => line.ToLine())]);
+
     /// <summary>Offering this to somebody else - see SharePanel.</summary>
     public SharePanel Share { get; }
 

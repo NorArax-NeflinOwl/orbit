@@ -151,16 +151,7 @@ else
     /// line of the writing - and a note pasted somewhere without it is a note nobody can tell from
     /// another.
     /// </summary>
-    private string AsWords()
-        => string.Join("\n", new[] { _note?.Title ?? string.Empty }.Concat(_lines.Select(AsALine)));
-
-    private static string AsALine(NoteContentLineDto line)
-        => line switch
-        {
-            { IsChecklistItem: false } => line.Text,
-            { IsChecked: true } => $"[x] {line.Text}",
-            _ => $"- {line.Text}"
-        };
+    private string AsWords() => NoteWords.Of(_note?.Title ?? string.Empty, _lines.ToSurfaceLines());
 
     /// <summary>
     /// A denied clipboard permission - some mobile browsers, a restricted webview - throws rather than

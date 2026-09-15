@@ -518,6 +518,24 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		}
 	}
 
+	/// <summary>
+	/// Puts the note's words on the clipboard. Said out loud either way: a copy that quietly did nothing
+	/// is indistinguishable from one that worked, and Android can refuse this - the clipboard is a
+	/// system service and a restricted profile does not hand it over.
+	/// </summary>
+	private async Task CopyTheTextAsync()
+	{
+		try
+		{
+			await Clipboard.Default.SetTextAsync(_viewModel.AsWords());
+			_viewModel.Status = _translations["Copied"];
+		}
+		catch (Exception exception) when (exception is not OperationCanceledException)
+		{
+			_viewModel.Status = _translations["The text could not be copied."];
+		}
+	}
+
 	/// <inheritdoc cref="IndentTheLineCommand"/>
 	private void Reindent(Entry? field, bool more)
 	{
@@ -579,6 +597,11 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		entries.Add(new ScreenMenuEntry(
 			_viewModel.IsSharedWithMe ? _translations["Remove from my list"] : _translations["Delete note"],
 			() => _ = DeleteAsync()));
+
+		// The note's words on the clipboard, as Orbit.Web offers from the same place - the format is
+		// shared (NoteWords) so what is copied here pastes into another note as the same note. Offered
+		// whatever this reader may do to it: copying is reading, and a note shared to read is still read.
+		entries.Add(new ScreenMenuEntry(_translations["Copy the text"], () => _ = CopyTheTextAsync()));
 
 		// Only once there is one, and here rather than in the account's menu: a history belongs to the
 		// thing it is the history of.

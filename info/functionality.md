@@ -1336,10 +1336,16 @@ marked form of another, "ł" among them, are listed by hand. Asked by everything
 what is typed: the suggestion browser behind every used-value field, the tag field, the task entry
 filter, both shelf searches, and the conversation and group searches.
 
-**A note's text can be copied out of its menu** ("Copy the text", `NoteSummary`). Written the way the
-note's own editor copies a selection out of itself - a box is `- ` and a ticked one `[x] `, both of which
-a paste reads back as a box - so a note copied here and pasted into another note arrives as the same
-note. The name is the first line, which is what a note's name already is on both clients.
+**A note's text can be copied out of its menu** ("Copy the text", `NoteSummary` in the browser and the
+note's own menu on the phone since 2026-09-15). Written the way the note's own editor copies a selection
+out of itself - a box is `- ` and a ticked one `[x] `, both of which a paste reads back as a box - so a
+note copied here and pasted into another note arrives as the same note. The name is the first line, which
+is what a note's name already is on both clients. **The format itself is shared** (`NoteWords` in
+Orbit.Core) rather than written once per client, because two copies of it would drift and a note copied
+on a phone would paste differently from the same note copied in a browser; a line that is not words at
+all - a table, a picture - is left out rather than written as a blank. The phone says whether it worked:
+Android can refuse the clipboard outright, and a copy that quietly did nothing looks exactly like one
+that worked.
 
 ### Sharing notes and task lists
 
@@ -2730,7 +2736,10 @@ A task list can be opened at either of two depths, both reachable from the task 
 
 - **Shallow** (`/tasks/{id}`, `TaskListChecklist.razor`) — the whole list as nothing but tickable rows.
   The only thing it can change is whether an item is checked off, which is what lets it show the entire
-  list at once. It deliberately takes **no** edit lock: ticking items off is not an editing session, and
+  list at once. It says **how much of the list is done** ("Done: 3 of 7") where the card that opened it
+  says the same, because that is the question somebody reading a long list asks; the phone's own list
+  screen says it too since 2026-09-15 (`TaskListDetailViewModel.Progress`), having had the fraction on
+  every card and nowhere on the list itself. It deliberately takes **no** edit lock: ticking items off is not an editing session, and
   two people doing it at the same time is normal rather than a conflict. It still goes through the same
   `PUT /api/tasks/{id}`, so it does respect someone else's lock — a save during another user's deep edit
   comes back 409 and the checkbox snaps back to what the server holds.
@@ -4741,7 +4750,8 @@ same `NotificationList` component and offer the same **Delete history**, which e
 *and* this browser's captured errors, because the panel presents them as one list and clearing half would
 look broken. It discards rather than marks read — it is about getting rid of the list, not the badge —
 and it says so: it used to read "Clear", which sounds like tidying a list away rather than deleting
-entries nothing brings back.
+entries nothing brings back. **The phone's feed menu says the same thing** as of 2026-09-15; it was
+renamed on the browser alone and kept the old word for a day.
 
 **Badges mark where a notification came from, not just that one arrived.** The 10-second poll fetches the
 unread *entries* (`GET /api/notifications/unread`) rather than a bare count and puts them in

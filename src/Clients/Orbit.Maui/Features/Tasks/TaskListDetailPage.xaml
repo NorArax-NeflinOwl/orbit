@@ -40,6 +40,12 @@
         </VerticalStackLayout>
 
         <VerticalStackLayout Grid.Row="1" Spacing="4">
+            <!-- How much of the list is done, as the card that opened it says it - see
+                 TaskListDetailViewModel.Progress. On the screen itself because that is where somebody
+                 reading a long list asks the question. -->
+            <Label Text="{Binding Progress}" IsVisible="{Binding HasProgress}"
+                   FontSize="12" LineBreakMode="TailTruncation"
+                   Style="{StaticResource SubtleLabel}" />
             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
                    FontSize="12" TextColor="{DynamicResource Accent}" LineBreakMode="WordWrap" />
             <controls:CopyOffer IsOffered="{Binding IsCopyOffered}"

@@ -199,6 +199,24 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     public ObservableCollection<TaskItemRow> Items { get; } = [];
 
     /// <summary>
+    /// How much of this list is done, the way the card on the tasks screen and the dashboard say it
+    /// ("Done: 3 of 7"). On the list's own screen because that is where somebody reading a long one asks
+    /// it - the browser's light view has carried it in the rail's extras since folders arrived, and the
+    /// phone had it everywhere except here. Empty for a list with nothing on it, which has no fraction
+    /// to give and says so on the card instead.
+    ///
+    /// Counted over what is on the screen, so an entry standing for another list counts as done exactly
+    /// when that list is - the rows already carry the answer (see TaskItemRow.IsCompleted).
+    /// </summary>
+    public string Progress
+        => Items.Count == 0
+            ? string.Empty
+            : _translations.Format("Done: {0} of {1}", Items.Count(row => row.IsCompleted), Items.Count);
+
+    /// <summary>Whether there is a fraction to draw - see <see cref="Progress"/>.</summary>
+    public bool HasProgress => Items.Count > 0;
+
+    /// <summary>
     /// Whether this list gathers the lists its items link to rather than holding work of its own -
     /// Orbit.Web's "Group list". It is also what makes the stock check worth asking, and the phone had
     /// no way to set it, so a list made here could never be one.
@@ -1359,6 +1377,11 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
                 item, _translations, _timeProvider.GetUtcNow(), ReferencesFor(item),
                 _appointmentsWaitingToBeNamed.ContainsKey(item.Description)));
         }
+
+        // The fraction is worked out from the rows, so it is said again whenever they are rebuilt -
+        // which is every tick, every add and every reordering. See Progress.
+        OnPropertyChanged(nameof(Progress));
+        OnPropertyChanged(nameof(HasProgress));
     }
 
     partial void OnItemOrderChanged(ChecklistOrder value)
