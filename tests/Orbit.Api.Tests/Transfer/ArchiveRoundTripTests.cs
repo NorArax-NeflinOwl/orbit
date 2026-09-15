@@ -1,6 +1,7 @@
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
+using Orbit.Core.Folders;
 using Orbit.Core.Inventories;
 using Orbit.Core.Notes;
 using Orbit.Core.Notifications;
@@ -447,6 +448,125 @@ public sealed class ArchiveRoundTripTests
         await Assert.ThrowsAsync<InvalidRequestException>(() => context.ImportAsync(archive));
     }
 
+    /// <summary>
+    /// An export carries the tabs themselves, not only what is filed in them: a folder somebody made and
+    /// has not put anything in yet is still a tab, and an import that invented folders out of what it
+    /// found filed would lose it.
+    /// </summary>
+    [Fact]
+    public async Task An_export_carries_the_folders_and_says_what_is_filed_in_them()
+    {
+        var context = new ArchiveTestContext();
+        var work = await context.AddFolderAsync("Work", FolderScope.Notes);
+        await context.AddFolderAsync("Empty", FolderScope.Tasks);
+        var week = await context.AddFolderAsync("This week", FolderScope.Calendar);
+        var kitchen = await context.AddFolderAsync("Kitchen", FolderScope.Inventories);
+        await context.AddNoteInAsync("Shopping list", work);
+        await context.AddCalendarEventInAsync("Dentist", week);
+        await context.AddInventoryInAsync("Pantry", kitchen);
+        await context.AddNoteAsync("Filed nowhere", "Milk");
+
+        var archive = await context.ExportAsync();
+
+        Assert.Equal(
+            [("Work", "Notes"), ("Empty", "Tasks"), ("This week", "Calendar"), ("Kitchen", "Inventories")],
+            archive.AllFolders.Select(folder => (folder.Name, folder.Scope)));
+        Assert.Equal("Work", archive.Notes.Single(note => note.Title == "Shopping list").Folder);
+        Assert.Null(archive.Notes.Single(note => note.Title == "Filed nowhere").Folder);
+        Assert.Equal("This week", Assert.Single(archive.CalendarEvents).Folder);
+        Assert.Equal("Kitchen", Assert.Single(archive.Inventories).Folder);
+    }
+
+    [Fact]
+    public async Task Importing_puts_everything_back_in_the_folder_it_came_from()
+    {
+        var source = new ArchiveTestContext();
+        var work = await source.AddFolderAsync("Work", FolderScope.Notes);
+        var week = await source.AddFolderAsync("This week", FolderScope.Calendar);
+        var kitchen = await source.AddFolderAsync("Kitchen", FolderScope.Inventories);
+        var moving = await source.AddFolderAsync("Moving", FolderScope.Tasks);
+        await source.AddNoteInAsync("Shopping list", work);
+        await source.AddCalendarEventInAsync("Dentist", week);
+        await source.AddInventoryInAsync("Pantry", kitchen);
+        await source.AddTaskListInAsync("Errands", moving);
+        var archive = await source.ExportAsync();
+
+        var destination = new ArchiveTestContext();
+        await destination.ImportAsync(archive);
+
+        var folders = await destination.OwnFoldersAsync();
+        var noteFolder = folders.Single(folder => folder is { Name: "Work", Scope: FolderScope.Notes });
+        var eventFolder = folders.Single(folder => folder is { Name: "This week", Scope: FolderScope.Calendar });
+        var inventoryFolder = folders.Single(folder => folder is { Name: "Kitchen", Scope: FolderScope.Inventories });
+        var taskListFolder = folders.Single(folder => folder is { Name: "Moving", Scope: FolderScope.Tasks });
+        Assert.Equal(noteFolder.Id, (await destination.OwnNotesAsync()).Single().FolderId);
+        Assert.Equal(eventFolder.Id, (await destination.OwnCalendarEventsAsync()).Single().FolderId);
+        Assert.Equal(inventoryFolder.Id, (await destination.OwnInventoriesAsync()).Single().FolderId);
+        Assert.Equal(taskListFolder.Id, (await destination.OwnTaskListsAsync()).Single().FolderId);
+    }
+
+    /// <summary>
+    /// A tab the account already has is used rather than made a second time - two tabs called "Work" on
+    /// one page is a mess nobody asked for, and nothing about the existing one is changed by it.
+    /// </summary>
+    [Fact]
+    public async Task Importing_files_into_a_folder_this_account_already_has()
+    {
+        var source = new ArchiveTestContext();
+        var work = await source.AddFolderAsync("Work", FolderScope.Notes);
+        await source.AddNoteInAsync("Shopping list", work);
+        var archive = await source.ExportAsync();
+
+        var destination = new ArchiveTestContext();
+        var theirWork = await destination.AddFolderAsync("Work", FolderScope.Notes);
+        await destination.ImportAsync(archive);
+
+        Assert.Equal("Work", Assert.Single(await destination.OwnFoldersAsync()).Name);
+        Assert.Equal(theirWork, (await destination.OwnNotesAsync()).Single().FolderId);
+    }
+
+    /// <summary>
+    /// The same name on two pages is two folders, so a note's "Work" never resolves to the task lists'.
+    /// </summary>
+    [Fact]
+    public async Task A_folder_name_is_only_read_on_its_own_page()
+    {
+        var context = new ArchiveTestContext();
+        var theirs = await context.AddFolderAsync("Work", FolderScope.Tasks);
+        var archive = new OrbitArchive(
+            OrbitArchive.CurrentVersion, DateTimeOffset.UtcNow,
+            [new ArchivedNote("Shopping list", [], IsPrivate: false, EncryptedContent: null, Tags: null, Folder: "Work")],
+            [], [], [], Folders: [new ArchivedFolder("Work", nameof(FolderScope.Notes))]);
+
+        await context.ImportAsync(archive);
+
+        var folders = await context.OwnFoldersAsync();
+        Assert.Equal(2, folders.Count);
+        Assert.NotEqual(theirs, (await context.OwnNotesAsync()).Single().FolderId);
+        Assert.Equal(
+            folders.Single(folder => folder.Scope == FolderScope.Notes).Id,
+            (await context.OwnNotesAsync()).Single().FolderId);
+    }
+
+    /// <summary>
+    /// A folder the file does not carry leaves what named it unfiled, rather than filed at random - the
+    /// rule a link to a list that did not come along follows.
+    /// </summary>
+    [Fact]
+    public async Task Something_naming_a_folder_the_file_does_not_carry_comes_back_unfiled()
+    {
+        var context = new ArchiveTestContext();
+        var archive = new OrbitArchive(
+            OrbitArchive.CurrentVersion, DateTimeOffset.UtcNow,
+            [new ArchivedNote("Shopping list", [], IsPrivate: false, EncryptedContent: null, Tags: null, Folder: "Gone")],
+            [], [], []);
+
+        await context.ImportAsync(archive);
+
+        Assert.Empty(await context.OwnFoldersAsync());
+        Assert.Null((await context.OwnNotesAsync()).Single().FolderId);
+    }
+
     /// <summary>What these lists say when they are late, and when they say it daily - the same for all of them.</summary>
     private static readonly TaskItemReminders NineOClock =
         new(NotificationChannel.None, Daily: false, NotificationChannel.None, new TimeOnly(9, 0));
@@ -460,6 +580,7 @@ public sealed class ArchiveRoundTripTests
         private readonly InMemoryInventoryItemRepository _inventoryItemRepository = new();
         private readonly InMemoryPlaceRepository _placeRepository = new();
         private readonly InMemoryTagColourRepository _tagColourRepository = new();
+        private readonly InMemoryFolderRepository _folderRepository = new();
 
         private Guid UserId { get; } = Guid.NewGuid();
 
@@ -566,20 +687,53 @@ public sealed class ArchiveRoundTripTests
         public Task<OrbitArchive> ExportAsync()
             => new ExportArchiveQueryHandler(
                     _noteRepository, _taskRepository, _calendarEventRepository, _inventoryRepository, _inventoryItemRepository,
-                    _placeRepository, _tagColourRepository)
+                    _placeRepository, _tagColourRepository, _folderRepository)
                 .HandleAsync(new ExportArchiveQuery(UserId), CancellationToken.None);
 
         public Task<ImportArchiveResult> ImportAsync(OrbitArchive archive)
             => new ImportArchiveCommandHandler(
                     _noteRepository, _taskRepository, _calendarEventRepository, _inventoryRepository, _inventoryItemRepository,
-                    _placeRepository, _tagColourRepository)
+                    _placeRepository, _tagColourRepository, _folderRepository)
                 .HandleAsync(new ImportArchiveCommand(UserId, archive), CancellationToken.None);
+
+        /// <summary>A tab of this account's own, on <paramref name="scope"/>'s page.</summary>
+        public async Task<Guid> AddFolderAsync(string name, FolderScope scope)
+        {
+            var folder = Folder.Create(UserId, name, scope);
+            await _folderRepository.AddAsync(folder, CancellationToken.None);
+            return folder.Id;
+        }
+
+        public Task<IReadOnlyList<Folder>> OwnFoldersAsync() => _folderRepository.GetAllAsync(UserId, CancellationToken.None);
+
+        public async Task AddNoteInAsync(string title, Guid folderId)
+            => await _noteRepository.AddAsync(
+                Note.Create(UserId, title, [NoteContentLine.PlainText("Milk")], folderId: folderId), CancellationToken.None);
+
+        public async Task AddTaskListInAsync(string title, Guid folderId)
+            => await _taskRepository.AddAsync(
+                TaskList.Create(UserId, title, [], folderId: folderId), CancellationToken.None);
+
+        public async Task AddCalendarEventInAsync(string title, Guid folderId)
+        {
+            var details = new CalendarEventDetails(
+                title, "Bring the paperwork", null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
+                false, null, [], [15], NotificationChannel.None);
+            await _calendarEventRepository.AddAsync(CalendarEvent.Create(UserId, details, folderId), CancellationToken.None);
+        }
+
+        public async Task AddInventoryInAsync(string name, Guid folderId)
+            => await _inventoryRepository.AddAsync(
+                Inventory.Create(UserId, name, folderId: folderId), CancellationToken.None);
 
         public Task<IReadOnlyList<Note>> OwnNotesAsync() => _noteRepository.GetAllAsync(UserId, updatedSinceUtc: null, CancellationToken.None);
 
         public Task<IReadOnlyList<TaskList>> OwnTaskListsAsync() => _taskRepository.GetAllAsync(UserId, updatedSinceUtc: null, CancellationToken.None);
 
         public Task<IReadOnlyList<Inventory>> OwnInventoriesAsync() => _inventoryRepository.GetAllAsync(UserId, updatedSinceUtc: null, CancellationToken.None);
+
+        public Task<IReadOnlyList<CalendarEvent>> OwnCalendarEventsAsync()
+            => _calendarEventRepository.GetAllAsync(UserId, updatedSinceUtc: null, CancellationToken.None);
 
         public Task<IReadOnlyList<InventoryItem>> ItemsInAsync(Guid inventoryId)
             => _inventoryItemRepository.GetAllAsync(inventoryId, CancellationToken.None);

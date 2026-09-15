@@ -481,6 +481,19 @@ folder would be answering a question nobody asked there (`FolderPages.ScopesOn`)
 **Nothing is finished on the calendar or the shelves.** The Finished tab stays the task lists' alone
 (`FolderPages.HasAFinishedTab`): an event is over rather than done, and a shelf is never either.
 
+**An export carries the folders, and an import files everything back into them** (2026-09-15,
+`OrbitArchive.Folders`, `ArchivedFolder`, and a `Folder` on each of the four kinds - defaulted and last,
+as every late field is). The tabs travel **in their own right** rather than being worked out from what is
+filed in them, so a folder somebody made and has not put anything in yet is still a tab afterwards.
+Everything names its folder **by name**, its page being decided by what it is - a note's folder is a
+folder of notes - because a file carries no ids at all; the same name on two pages is two folders and
+never resolves across. On the way in the folders are made first, since an item needs an id to be filed
+under: a name the account **already has a tab for on that page is used rather than made again** (an
+import adds and never overwrites, and a second tab called "Work" beside the first is a mess nobody asked
+for), a scope this build does not know is left out, and anything naming a folder the file did not carry
+comes back unfiled rather than filed at random - the rule a link to a list that did not come along
+follows.
+
 **Something new is made where the reader is standing.** A note or list made while a folder of the
 reader's own is open is filed in it; made on **Private** it starts sealed, since being sealed is what
 puts it there; and a list made on **Finished** starts marked finished (`CreateTaskRequest.Completion`,
