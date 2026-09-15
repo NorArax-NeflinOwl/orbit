@@ -57,15 +57,16 @@
                                 <!-- A heading read through a link is the heading it was written as. The
                                      bold half is a trigger because Orbit.Mobile is plain net10.0 and
                                      knows nothing about MAUI's own types - see SharedLine.IsDrawnBold. -->
-                                <Label Grid.Column="1" Text="{Binding Text}" LineBreakMode="WordWrap"
-                                       IsVisible="{Binding ShowsWords}"
-                                       FontSize="{Binding DrawnFontSize}" VerticalOptions="Center">
+                                <!-- The words with their marks, where a note's line has any - see MarkedLabel. -->
+                                <controls:MarkedLabel Grid.Column="1" Words="{Binding Text}" Marks="{Binding AllMarks}"
+                                                      LineBreakMode="WordWrap" IsVisible="{Binding ShowsWords}"
+                                                      FontSize="{Binding DrawnFontSize}" VerticalOptions="Center">
                                     <Label.Triggers>
-                                        <DataTrigger TargetType="Label" Binding="{Binding IsDrawnBold}" Value="True">
+                                        <DataTrigger TargetType="controls:MarkedLabel" Binding="{Binding IsDrawnBold}" Value="True">
                                             <Setter Property="FontAttributes" Value="Bold" />
                                         </DataTrigger>
                                     </Label.Triggers>
-                                </Label>
+                                </controls:MarkedLabel>
 
                                 <!-- A table, drawn as the grid of its cells' words - see NoteLineRow.TableRows /
                                      SharedLine.TableRows. Two nested BindableLayouts rather than a Grid, because

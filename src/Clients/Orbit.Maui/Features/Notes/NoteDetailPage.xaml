@@ -132,6 +132,28 @@
                                 </Label>
 
 
+                                <!-- Words with marks on stretches of them - bold, italic, underlined,
+                                     struck through - drawn by MarkedLabel while the line is not being
+                                     written in, because a field renders one face for the whole of it.
+                                     Pressing it opens the field, as pressing a struck-through line does;
+                                     the marks are kept over the right words while somebody types and
+                                     come back with the label - see NoteLineRow.Marks. -->
+                                <controls:MarkedLabel Grid.Column="1" Words="{Binding Text}" Marks="{Binding Marks}"
+                                                      IsVisible="{Binding ShowsMarkedWords}" Margin="0,10"
+                                                      FontSize="{Binding DrawnFontSize}" VerticalOptions="Center"
+                                                      LineBreakMode="WordWrap">
+                                    <Label.Triggers>
+                                        <DataTrigger TargetType="controls:MarkedLabel" Binding="{Binding IsDrawnBold}" Value="True">
+                                            <Setter Property="FontAttributes" Value="Bold" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                    <Label.GestureRecognizers>
+                                        <TapGestureRecognizer
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=OpenForWritingCommand, x:DataType=notes:NoteDetailPage}"
+                                            CommandParameter="{Binding .}" />
+                                    </Label.GestureRecognizers>
+                                </controls:MarkedLabel>
+
                                 <!-- A table, drawn as the grid of its cells' words - see NoteLineRow.TableRows /
                                      SharedLine.TableRows. Two nested BindableLayouts rather than a Grid, because
                                      a Grid's rows and columns are declared and a table's are whatever the note

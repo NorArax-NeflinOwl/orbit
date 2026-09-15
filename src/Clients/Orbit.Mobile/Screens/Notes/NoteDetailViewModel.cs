@@ -796,6 +796,12 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             return;
         }
 
+        // The marks move along with what was typed - the same arithmetic the browser's surface does
+        // for an edit it owns (NoteTextMarks.Kept) - so a bold word is still bold, and still the same
+        // word, once the field closes and the label draws it again. Done before anything records the
+        // line, so what the history holds is the line as it now is.
+        row.Marks = NoteTextMarks.Kept(row.Marks, change.Start, change.Removed, change.Inserted.Length, row.Text.Length);
+
         if (ReadPastedMarker(row, line, change))
         {
             return;

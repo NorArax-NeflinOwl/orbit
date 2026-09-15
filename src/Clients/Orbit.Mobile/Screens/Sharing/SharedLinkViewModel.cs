@@ -25,12 +25,17 @@ namespace Orbit.Mobile.Screens.Sharing;
 /// The table this line is, where it is one - each row the words of its cells - and nothing for a line
 /// of writing. See Orbit.Core.Notes.NoteTable; only a note ever sends one.
 /// </param>
+/// <param name="Marks">The marks on stretches of the words, drawn by MarkedLabel - see Orbit.Core.Notes.NoteTextRun.</param>
 public sealed record SharedLine(
     string Text, string Detail, bool IsChecklistItem, bool IsTicked,
     NoteLineStyle Style = NoteLineStyle.Body, int ListNumber = 0,
-    IReadOnlyList<IReadOnlyList<string>>? TableRows = null, bool IsAPicture = false)
+    IReadOnlyList<IReadOnlyList<string>>? TableRows = null, bool IsAPicture = false,
+    IReadOnlyList<NoteTextRun>? Marks = null)
 {
     public bool HasDetail => Detail.Length > 0;
+
+    /// <summary>The marks as something to bind without a null check - see <see cref="Marks"/>.</summary>
+    public IReadOnlyList<NoteTextRun> AllMarks => Marks ?? NoteTextMarks.None;
 
     /// <summary>Whether this line is a table, which shows the grid instead of the words.</summary>
     public bool IsATable => TableRows is { Count: > 0 };
@@ -220,7 +225,10 @@ public sealed partial class SharedLinkViewModel : ObservableObject
                 line.Text, line.Detail ?? string.Empty, line.IsChecklistItem, line.IsChecked,
                 styles[index], numbers[index],
                 line.Table?.Rows.Select(row => (IReadOnlyList<string>)[.. row.Cells.Select(cell => cell.Text)]).ToList(),
-                line.Picture is not null));
+                line.Picture is not null,
+                NoteTextMarks.Normalized(
+                    line.AllMarks.Select(run => new NoteTextRun(run.Start, run.Length, NoteTextMarks.Read(run.Mark))),
+                    line.Text.Length)));
         }
 
         OnPropertyChanged(nameof(HasNothingInIt));

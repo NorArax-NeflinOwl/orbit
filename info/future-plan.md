@@ -1590,11 +1590,18 @@ Paragraph styles landed on 2026-09-14 - `NoteLineStyle`, the "Aa" tool, and the 
   note. **The browser is done** the same day: the surface draws a stretch in real elements and reads the
   marks back out of what it drew, the four buttons sit at the head of the format panel, Ctrl+B and its
   friends are routed through the same edit, and a line being read draws them too (`MarkedText`).
-  **What is left is the phone**, where a MAUI `Entry` renders one face for the whole field: it carries
+  ~~**What is left is the phone**, where a MAUI `Entry` renders one face for the whole field: it carries
   marks through every edit and hands them back unchanged, so nothing is lost there, but drawing them
   wants a `Label` with a `FormattedString` for a line nobody is writing in - the note screen already
   swaps a `Label` in for a struck-through line, which is the seam - plus a converter in Orbit.Maui, since
-  Orbit.Mobile is plain net10.0 and knows nothing about MAUI's `Span`.
+  Orbit.Mobile is plain net10.0 and knows nothing about MAUI's `Span`.~~ **Drawn 2026-09-15** exactly
+  along that seam (`MarkedLabel`, `NoteLineRow.ShowsMarkedWords`), and the field now moves the marks
+  with each change instead of merely keeping them (`NoteTextMarks.Kept` in
+  `NoteDetailViewModel.WhenALineChanges`). **Still left: setting a mark on the phone.** The `Entry`
+  reports a caret but not a selection, so the four buttons have nothing to work on; either read the
+  selection through a handler on Android (`EditText.SelectionStart`/`SelectionEnd`), or let a bare
+  caret mean the whole line - a rule `NoteSurfaceEdits.Mark` does not have today (a collapsed selection
+  is left alone there), so it would be a rule for both clients, not a phone-only one.
 - ~~**A control to set a style on the phone.**~~ Done 2026-09-14, the same day and exactly as this said:
   an "Aa" button in the bar over the note's foot, beside undo, redo and the indent buttons, opening a
   sheet of the eight (`NoteDetailViewModel.StyleChoices`, worded there so the wording is testable) and

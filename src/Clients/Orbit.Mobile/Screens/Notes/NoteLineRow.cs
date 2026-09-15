@@ -48,12 +48,20 @@ public sealed partial class NoteLineRow : ObservableObject
     private int _listNumber;
 
     /// <summary>
-    /// The marks on stretches of words inside this line - see Orbit.Core.Notes.NoteTextRun. Carried
-    /// rather than drawn for now: a MAUI Entry renders one face for the whole field, so the phone keeps
-    /// what the browser wrote and hands it back unchanged, which is what stops an edit here from
-    /// flattening a note written there.
+    /// The marks on stretches of words inside this line - see Orbit.Core.Notes.NoteTextRun. Drawn by a
+    /// MarkedLabel while the line is not being written in (see <see cref="ShowsMarkedWords"/>): a MAUI
+    /// Entry renders one face for the whole field, so the field shows the words plainly while the caret
+    /// is in them, and the marks are moved along with what is typed (NoteDetailViewModel.WhenALineChanges)
+    /// so they are still over the right words when the label comes back.
     /// </summary>
-    public IReadOnlyList<NoteTextRun> Marks { get; set; } = NoteTextMarks.None;
+    [ObservableProperty]
+    private IReadOnlyList<NoteTextRun> _marks = NoteTextMarks.None;
+
+    /// <summary>Whether any stretch of the words carries a mark - which is what decides the label from the field.</summary>
+    public bool HasMarks => Marks.Count > 0;
+
+    /// <summary>Whether this line is something other than words - a table or a picture. See NoteContentLine.IsAnElement.</summary>
+    public bool IsAnElement => IsATable || IsAPicture;
 
     /// <summary>
     /// The table this line is, when it is one - see Orbit.Core.Notes.NoteTable. Drawn on the screen as a
@@ -200,14 +208,22 @@ public sealed partial class NoteLineRow : ObservableObject
     private bool _isBeingWrittenIn;
 
     /// <summary>
-    /// Whether the editor shows this line as something to write in rather than as something already
-    /// done - which of the two controls is showing. A ticked line opens while it is being written in; a
-    /// table never does, since its words are in its cells and the field would be an empty line over it.
+    /// Whether the editor shows this line as something to write in rather than as words drawn - which of
+    /// the controls is showing. A ticked line and a line with marks on it are drawn as words until they
+    /// are being written in, since a field can strike nothing through and bold nothing; a table or a
+    /// picture never opens, its words being in its cells or none at all.
     /// </summary>
-    public bool IsOpenForWriting => !IsATable && !IsAPicture && (!IsCompleted || IsBeingWrittenIn);
+    public bool IsOpenForWriting => !IsAnElement && (IsBeingWrittenIn || (!IsCompleted && !HasMarks));
 
     /// <summary>Struck through: done, and not currently being written in.</summary>
     public bool IsStruckThrough => IsCompleted && !IsBeingWrittenIn;
+
+    /// <summary>
+    /// Drawn as words with their marks - see MarkedLabel: not done (a done line is struck through whole,
+    /// which says more than a bold word inside it), and not being written in. Pressing it opens the
+    /// field in its place, the way a struck-through line opens.
+    /// </summary>
+    public bool ShowsMarkedWords => HasMarks && !IsCompleted && !IsBeingWrittenIn && !IsAnElement;
 
     partial void OnIsChecklistItemChanged(bool value) => SayHowItIsDrawn();
 
@@ -224,6 +240,7 @@ public sealed partial class NoteLineRow : ObservableObject
     partial void OnTableChanged(NoteTable? value)
     {
         OnPropertyChanged(nameof(IsATable));
+        OnPropertyChanged(nameof(IsAnElement));
         OnPropertyChanged(nameof(TableRows));
         SayHowItIsDrawn();
     }
@@ -231,6 +248,13 @@ public sealed partial class NoteLineRow : ObservableObject
     partial void OnPictureChanged(NotePictureLine? value)
     {
         OnPropertyChanged(nameof(IsAPicture));
+        OnPropertyChanged(nameof(IsAnElement));
+        SayHowItIsDrawn();
+    }
+
+    partial void OnMarksChanged(IReadOnlyList<NoteTextRun> value)
+    {
+        OnPropertyChanged(nameof(HasMarks));
         SayHowItIsDrawn();
     }
 
@@ -266,5 +290,6 @@ public sealed partial class NoteLineRow : ObservableObject
         OnPropertyChanged(nameof(IsDrawnBold));
         OnPropertyChanged(nameof(ListMark));
         OnPropertyChanged(nameof(ShowsListMark));
+        OnPropertyChanged(nameof(ShowsMarkedWords));
     }
 }

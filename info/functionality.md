@@ -1083,10 +1083,16 @@ disagree in.
     link): one span naming its marks rather than nested elements, since nothing is read back there. Each
     stretch still goes through `TextWithLinks`, so an address inside bold words is as pressable as one
     outside them.
-  - **The phone carries them but does not draw them yet.** A MAUI `Entry` renders one face for the whole
-    field, so the note screen keeps what the browser wrote and hands it back unchanged - which is what
-    stops an edit there from flattening a marked note. See `info/future-plan.md` for what drawing them
-    would take.
+  - **The phone draws them on a line nobody is writing in** (`MarkedLabel` in Orbit.Maui, a `Label`
+    whose `FormattedString` is rebuilt from `NoteTextMarks.Pieces`; the converter has to live there,
+    since Orbit.Mobile is plain net10.0 and knows nothing about MAUI's `Span`). A MAUI `Entry` renders one
+    face for the whole field, so a marked line shows as words until it is tapped, becomes the field while
+    it is written in, and goes back to words when writing ends - the seam the struck-through line already
+    used. While the field is open the marks are kept beside the words and moved with each change
+    (`NoteTextMarks.Kept`, the same arithmetic the browser's edits use), so bold words stay bold after a
+    letter is typed before them, and a stretch deleted takes its mark with it. A share link's lines are
+    drawn the same way. Nothing on the phone sets a mark yet: that wants a selection the `Entry` does
+    not expose - see `info/future-plan.md`.
 - **A table is a kind of line** (`NoteTable`, `NoteContentLine.Table`, 2026-09-14 - settled with the
   user as such rather than as a block of its own). A line that carries a table *is* the table: no words,
   no box, ordinary style (`NoteContentLine.OfTable`), and the note stays a list of lines. Always
