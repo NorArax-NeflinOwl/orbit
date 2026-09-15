@@ -4,6 +4,7 @@ using Orbit.Contracts;
 using Orbit.Core.Calendar.DuplicateCalendarEvent;
 using Orbit.Api.Permissions;
 using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
 using Orbit.Api.Sync;
@@ -15,6 +16,7 @@ using Orbit.Core.Calendar.CreateCalendarEvent;
 using Orbit.Core.Calendar.DeleteCalendarEvent;
 using Orbit.Core.Calendar.GetCalendarEventById;
 using Orbit.Core.Calendar.GetCalendarEvents;
+using Orbit.Core.Calendar.MoveCalendarEventToFolder;
 using Orbit.Core.Calendar.GetCalendarEventShareStatus;
 using Orbit.Core.Calendar.ReleaseCalendarEventLock;
 using Orbit.Core.Calendar.ShareCalendarEvent;
@@ -63,7 +65,8 @@ public static class CalendarEndpoints
             CreateCalendarEventRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var id = await dispatcher.SendAsync(
-                new CreateCalendarEventCommand(GetUserId(user), ToDomainDetails(request.Details)), cancellationToken);
+                new CreateCalendarEventCommand(GetUserId(user), ToDomainDetails(request.Details), request.FolderId),
+                cancellationToken);
             return Results.Created($"/api/calendar-events/{id}", id);
         });
 
@@ -84,6 +87,18 @@ public static class CalendarEndpoints
             var copyId = await dispatcher.SendAsync(
                 new DuplicateCalendarEventCommand(GetUserId(user), id, request?.Name), cancellationToken);
             return copyId is { } newId ? Results.Created($"/api/calendar-events/{newId}", newId) : Results.NotFound();
+        });
+
+        // Filing is its own endpoint rather than a field on the save, the way a note's is - see
+        // MoveCalendarEventToFolderCommand. NotFound covers both refusals it can give: not the caller's
+        // event, and not the caller's folder.
+        calendarEvents.MapPut("/{id:guid}/folder", async (
+            Guid id, MoveToFolderRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var moved = await dispatcher.SendAsync(
+                new MoveCalendarEventToFolderCommand(GetUserId(user), id, request.FolderId), cancellationToken);
+            return moved ? Results.NoContent() : Results.NotFound();
         });
 
         calendarEvents.MapDelete("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
@@ -198,7 +213,10 @@ public static class CalendarEndpoints
             calendarEvent.Id, detailsDto, calendarEvent.CreatedAtUtc, calendarEvent.UpdatedAtUtc,
             calendarEvent.IsShared, calendarEvent.SharedByUserName, calendarEvent.AccessLevel.ToString(),
             calendarEvent.IsShared ? calendarEvent.UserId : null,
-            calendarEvent.IsSharedWithOthers);
+            calendarEvent.IsSharedWithOthers,
+            // Never the owner's filing: a folder is where they keep their own things, and the recipient
+            // files this wherever they like on their own calendar. Mirrors NoteEndpoints.
+            calendarEvent.IsShared ? null : calendarEvent.FolderId);
     }
 
     private static EventLocationDto? ToLocationDto(EventLocation? location)

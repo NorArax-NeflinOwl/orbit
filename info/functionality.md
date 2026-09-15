@@ -451,16 +451,35 @@ has not coloured since - an import never overwrites.
 
 ## Folders
 
-Every page made of cards - the dashboard, the notes and the task lists - is read under a **row of
-tabs**: the built-in ones plus whatever the reader has made on that page.
+Every page made of cards - the dashboard, the notes, the task lists, the calendar and the inventories -
+is read under a **row of tabs**: the built-in ones plus whatever the reader has made on that page.
 
 **A folder belongs to one page** (`Orbit.Core.Folders.FolderScope`, `OP_F_SCOPE`, stored by name). A tab
 called "Work" on the notes and a tab called "Work" on the task lists are two folders, not one seen
 twice - which is what makes the tab worth pressing, since a folder made for notes was otherwise an empty
 tab on a page that could never file anything into it. The **dashboard has no scope of its own**: it
-shows both kinds of card, so it draws both pages' tabs and offers no way to make, rename or delete one
+shows cards of several kinds, so it draws their tabs and offers no way to make, rename or delete one
 (`FolderPage`, `FolderPages` on the client). Which tab is open is the page's own answer as well
 (`FolderState.ChosenOn`), for the same reason.
+
+**An event and a shelf are filed the same way** (2026-09-15, `FolderScope.Calendar`,
+`FolderScope.Inventories`; `OP_E_FOLDERID`, `OP_I_FOLDERID`). Everything the notes and the lists had
+applies to them unchanged: filing is its own command and its own endpoint
+(`MoveCalendarEventToFolderCommand`, `MoveInventoryToFolderCommand`, `PUT .../{id}/folder`) rather than a
+field on the save, for the reason `Note.MoveToFolder` gives; a new one is made under the tab the reader
+is standing on; a copy is made where the original stands; deleting a folder empties it rather than
+taking what was in it; and a folder id belonging to somebody else is refused, since filing something
+under a tab its owner cannot see is the same thing as losing it. A private shelf is filed without being
+opened - its folder sits outside the sealed half, as a private note's does - and somebody reading either
+through a share never sees the owner's filing.
+
+**The calendar's folders are not tabs on the dashboard**, although the notes', the lists' and the
+shelves' are. What the dashboard says about the calendar is what is on today and what is coming, and
+those two cards answer *when*; an event's folder answers *which*, so a tab narrowing "today" to one
+folder would be answering a question nobody asked there (`FolderPages.ScopesOn`).
+
+**Nothing is finished on the calendar or the shelves.** The Finished tab stays the task lists' alone
+(`FolderPages.HasAFinishedTab`): an event is over rather than done, and a shelf is never either.
 
 **Something new is made where the reader is standing.** A note or list made while a folder of the
 reader's own is open is filed in it; made on **Private** it starts sealed, since being sealed is what

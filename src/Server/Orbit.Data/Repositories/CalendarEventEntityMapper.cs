@@ -45,7 +45,7 @@ internal static class CalendarEventEntityMapper
 
         return CalendarEvent.FromPersistence(
             entity.Id, entity.UserId, details, entity.CreatedAtUtc, entity.UpdatedAtUtc,
-            entity.LockedByUserId, entity.LockedByUserName, entity.LockExpiresAtUtc);
+            entity.LockedByUserId, entity.LockedByUserName, entity.LockExpiresAtUtc, entity.FolderId);
     }
 
     public static CalendarEventEntity ToEntity(CalendarEvent calendarEvent)
@@ -55,6 +55,7 @@ internal static class CalendarEventEntityMapper
         {
             Id = calendarEvent.Id,
             UserId = calendarEvent.UserId,
+            FolderId = calendarEvent.FolderId,
             Title = details.Title,
             Description = details.Description,
             LocationAddress = details.Location?.Address,

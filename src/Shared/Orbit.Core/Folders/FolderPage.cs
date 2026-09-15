@@ -1,38 +1,49 @@
 namespace Orbit.Core.Folders;
 
 /// <summary>
-/// A page made of cards, as far as the folders on it are concerned. Three of them, and they are not
-/// interchangeable: what a page offers as tabs, whether it can make one, and whether it has a Finished
-/// tab at all are three answers that differ page by page, and every one of them used to be the same
-/// answer given three times.
+/// A page made of cards, as far as the folders on it are concerned. They are not interchangeable: what
+/// a page offers as tabs, whether it can make one, and whether it has a Finished tab at all are three
+/// answers that differ page by page, and every one of them used to be the same answer given three times.
 ///
-/// "Page" is the browser's word for it; on the phone the same three are screens and the tabs are
-/// entries in a menu. The rules are the same either way, which is why this lives in Orbit.Core beside
+/// "Page" is the browser's word for it; on the phone the same ones are screens and the tabs are entries
+/// in a menu. The rules are the same either way, which is why this lives in Orbit.Core beside
 /// FolderPlacement rather than next to one client's drawing of them.
 /// </summary>
 public enum FolderPage
 {
     Dashboard,
     Notes,
-    Tasks
+    Tasks,
+
+    /// <summary>The calendar, whose events are filed the way notes are - added 2026-09-15.</summary>
+    Calendar,
+
+    /// <summary>The inventories, whose shelves are filed the same way.</summary>
+    Inventories
 }
 
 /// <summary>
-/// What each page does with folders. Kept beside the enum rather than in each page, because the three
-/// pages have to disagree consistently - a rule spelled out on the notes and forgotten on the dashboard
-/// is how the Finished tab ended up on a page where nothing can be finished.
+/// What each page does with folders. Kept beside the enum rather than in each page, because the pages
+/// have to disagree consistently - a rule spelled out on the notes and forgotten on the dashboard is
+/// how the Finished tab ended up on a page where nothing can be finished.
 /// </summary>
 public static class FolderPages
 {
     /// <summary>
-    /// Which stored folders are tabs here. The dashboard draws both, because it shows notes and task
-    /// lists side by side and a card has to have a tab to be under; the other two draw their own.
+    /// Which stored folders are tabs here. Every page but the dashboard draws its own; the dashboard
+    /// draws the scopes of the cards it is made of, because a card has to have a tab to be under.
+    ///
+    /// The calendar is not among the dashboard's, although the dashboard says what is on today and what
+    /// is coming: those two cards answer <em>when</em>, and an event's folder answers <em>which</em>. A
+    /// tab that narrowed "today" to one folder would be answering a question nobody asked there.
     /// </summary>
     public static IReadOnlyList<FolderScope> ScopesOn(this FolderPage page) => page switch
     {
         FolderPage.Notes => [FolderScope.Notes],
         FolderPage.Tasks => [FolderScope.Tasks],
-        _ => [FolderScope.Notes, FolderScope.Tasks]
+        FolderPage.Calendar => [FolderScope.Calendar],
+        FolderPage.Inventories => [FolderScope.Inventories],
+        _ => [FolderScope.Notes, FolderScope.Tasks, FolderScope.Inventories]
     };
 
     /// <summary>
@@ -44,13 +55,16 @@ public static class FolderPages
     {
         FolderPage.Notes => FolderScope.Notes,
         FolderPage.Tasks => FolderScope.Tasks,
+        FolderPage.Calendar => FolderScope.Calendar,
+        FolderPage.Inventories => FolderScope.Inventories,
         _ => null
     };
 
     /// <summary>
     /// Whether finished things gather under a tab of their own here. Only on the task lists: a note has
-    /// nothing to finish, and the dashboard's answer to a finished list is to stop showing it rather
-    /// than to file it somewhere - see Dashboard.razor.
+    /// nothing to finish, an event is over rather than done and a shelf is never either, and the
+    /// dashboard's answer to a finished list is to stop showing it rather than to file it somewhere -
+    /// see Dashboard.razor.
     ///
     /// A page without the tab does not merely hide it. It never asks whether something is finished at
     /// all, so a finished list is in Public or Private there like anything else, instead of being in a

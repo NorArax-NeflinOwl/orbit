@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Orbit.Api.Permissions;
 using Orbit.Contracts;
 using Orbit.Core.Inventories.DuplicateInventory;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
@@ -18,6 +19,7 @@ using Orbit.Core.Inventories.GetInventoryItems;
 using Orbit.Core.Inventories.GetInventoryById;
 using Orbit.Core.Inventories.GetInventories;
 using Orbit.Core.Inventories.GetInventoryShareStatus;
+using Orbit.Core.Inventories.MoveInventoryToFolder;
 using Orbit.Core.Inventories.ReleaseInventoryLock;
 using Orbit.Core.Inventories.ShareInventory;
 using Orbit.Core.Inventories.UpdateInventory;
@@ -75,7 +77,7 @@ public static class InventoryEndpoints
         {
             var id = await dispatcher.SendAsync(new CreateInventoryCommand(
                     GetUserId(user), request.Name, request.IsPrivate, ToDomainPayload(request.EncryptedContent),
-                    request.Description, ToDomainItems(request.Items)), cancellationToken);
+                    request.Description, ToDomainItems(request.Items), request.FolderId), cancellationToken);
             return Results.Created($"/api/inventories/{id}", id);
         });
 
@@ -99,6 +101,18 @@ public static class InventoryEndpoints
             var copyId = await dispatcher.SendAsync(
                 new DuplicateInventoryCommand(GetUserId(user), inventoryId, request?.Name), cancellationToken);
             return copyId is { } newId ? Results.Created($"/api/inventories/{newId}", newId) : Results.NotFound();
+        });
+
+        // Filing is its own endpoint rather than a field on the save, the way a note's is - see
+        // MoveInventoryToFolderCommand. NotFound covers both refusals: not the caller's inventory, and
+        // not the caller's folder.
+        inventories.MapPut("/{inventoryId:guid}/folder", async (
+            Guid inventoryId, MoveToFolderRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var moved = await dispatcher.SendAsync(
+                new MoveInventoryToFolderCommand(GetUserId(user), inventoryId, request.FolderId), cancellationToken);
+            return moved ? Results.NoContent() : Results.NotFound();
         });
 
         inventories.MapDelete("/{inventoryId:guid}", async (
@@ -230,7 +244,9 @@ public static class InventoryEndpoints
             inventory.IsPrivate,
             ToDto(inventory.EncryptedContent),
             inventory.IsSharedWithOthers,
-            inventory.Description);
+            inventory.Description,
+            // Never the owner's filing - see NoteEndpoints, which says the same about a shared note.
+            inventory.IsShared ? null : inventory.FolderId);
 
 
     /// <summary>Both halves travel together or not at all, so a request carrying only one is treated as carrying neither.</summary>

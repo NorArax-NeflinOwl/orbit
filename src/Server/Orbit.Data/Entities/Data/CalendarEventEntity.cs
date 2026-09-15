@@ -9,6 +9,13 @@ public sealed class CalendarEventEntity
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
+
+    /// <summary>
+    /// The folder the owner filed it under - see <see cref="FolderEntity"/>. Null for one filed nowhere,
+    /// which is a built-in folder rather than none at all (Orbit.Core.Folders.BuiltInFolder).
+    /// </summary>
+    public Guid? FolderId { get; set; }
+
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
 

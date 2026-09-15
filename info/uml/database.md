@@ -104,6 +104,8 @@ erDiagram
     OS_USERS ||--o{ OP_FOLDERS : owns
     OP_FOLDERS ||--o{ OP_NOTES : "files"
     OP_FOLDERS ||--o{ OP_TASKS : "files"
+    OP_FOLDERS ||--o{ OP_EVENTS : "files"
+    OP_FOLDERS ||--o{ OP_INVENTORIES : "files"
 
     OP_FOLDERS {
         uuid OP_F_ID PK
@@ -166,14 +168,16 @@ the note for them (`NoteAccessResolver`, `TaskListAccessResolver`). Nothing is s
 carries one `IsPinned`, and which row it came from depends on who asked.
 
 **`OP_FOLDERS` holds only the folders somebody made**, each on exactly one page (`OP_F_SCOPE` -
-`Orbit.Core.Folders.FolderScope`, `Notes` or `Tasks`). Three more exist without a row - Public, Private
-and Finished (`Orbit.Core.Folders.BuiltInFolder`) - and which of them something is in is decided from
-what it already is: something filed under one of this page's folders is in that folder finished or not,
-an unfiled finished list is in Finished, an unfiled sealed one in Private, everything else unfiled in
-Public. Nothing about them is stored, which is why folders arrived without a backfill and why
-`OP_N_FOLDERID`/`OP_T_FOLDERID` are nullable rather than defaulted. There is no foreign-key cascade
-either: `FolderRepository.DeleteAsync` empties the folder first (both columns back to null) and then
-removes the row, so deleting a tab can never delete what was under it.
+`Orbit.Core.Folders.FolderScope`, `Notes`, `Tasks`, `Calendar` or `Inventories`). Three more exist
+without a row - Public, Private and Finished (`Orbit.Core.Folders.BuiltInFolder`) - and which of them
+something is in is decided from what it already is: something filed under one of this page's folders is
+in that folder finished or not, an unfiled finished list is in Finished, an unfiled sealed one in
+Private, everything else unfiled in Public. Nothing about them is stored, which is why folders arrived
+without a backfill and why `OP_N_FOLDERID`/`OP_T_FOLDERID`/`OP_E_FOLDERID`/`OP_I_FOLDERID` are nullable
+rather than defaulted - and why the two scopes added on 2026-09-15 needed no migration of their own, the
+scope being stored by name. There is no foreign-key cascade either: `FolderRepository.DeleteAsync`
+empties the folder first (all four columns back to null) and then removes the row, so deleting a tab can
+never delete what was under it.
 
 **`OL_PS_ITEMTYPE` stores an enum by name and must never be renamed.** It sits in rows already written
 and inside chat payloads already delivered; renaming the member orphans every share link that used it.
