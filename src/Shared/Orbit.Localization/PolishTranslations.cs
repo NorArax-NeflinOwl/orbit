@@ -618,6 +618,10 @@ public static class PolishTranslations
         ["Due again"] = "Znów do zrobienia",
         ["Items"] = "Pozycje",
         ["Group View"] = "Widok grupowy",
+        // Said beside that box while it is ticked and will not move - see Orbit.Core.Tasks.TaskList.IsGroup.
+        // A box that cannot be pressed and does not say why reads as broken.
+        ["On, because an entry on this list stands for another list. Take that entry off to turn it back off."] =
+            "Włączone, bo wpis na tej liście odpowiada za inną listę. Usuń ten wpis, żeby móc je wyłączyć.",
         ["Type"] = "Typ",
         ["Calendar event"] = "Wydarzenie w kalendarzu",
         ["Back to Calendar"] = "Wróć do kalendarza",

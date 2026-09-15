@@ -89,8 +89,30 @@ public sealed class TaskList
     /// and the checklist view renders them inline underneath it so the whole group can be worked
     /// through in one place. Purely a presentation flag - completion still follows the same rules,
     /// with each linked item resolving to its list's completion (see LinkedTaskCompletionResolver).
+    ///
+    /// <b>True whenever an entry stands for another list, whatever the caller said.</b> A list that
+    /// gathers other lists <i>is</i> a group list, and a stored "no" beside an entry pointing somewhere
+    /// would be an answer the checklist has to disagree with - it draws the members either way, so the
+    /// two would say different things about the same list and nothing would say which to believe. It was
+    /// a plain manual toggle until 2026-09-15, so a list somebody built by adding entries that point at
+    /// lists gathered nothing until they noticed a box.
+    ///
+    /// The rule lives here rather than in the editor's form, which is the user's decision of that date:
+    /// a rule that only holds where somebody is looking is not a rule, and a save from the phone or from
+    /// a browser tab opened before this existed would otherwise turn the box back off.
+    ///
+    /// Taking the last such entry off gives the answer back: nothing forces it then, so what is stored
+    /// is what was last asked for, and the reader may turn it off. See <see cref="GathersOtherLists"/>,
+    /// which is what the clients draw the box's disabled state from.
     /// </summary>
     public bool IsGroup { get; private set; }
+
+    /// <summary>
+    /// Whether something on this list points at another list - the signal behind <see cref="IsGroup"/>.
+    /// Drawn on as well as stored on: while it is true the box is ticked and cannot be unticked, and the
+    /// clients say why rather than leaving a box that springs back.
+    /// </summary>
+    public bool GathersOtherLists => Items.Any(item => item.IsALinkToOtherLists);
 
     /// <summary>
     /// The inventory this list's work is measured against, when one has been chosen - see
@@ -142,7 +164,7 @@ public sealed class TaskList
         Id = id;
         UserId = userId;
         (Title, Items, IsPrivate, EncryptedContent) = ReadableOrSealed(title, items, isPrivate, encryptedContent);
-        IsGroup = isGroup;
+        IsGroup = IsGroupGiven(isGroup);
         // Nothing to assign: IsCompleted asks the items itself now - see the property.
         Priority = priority;
         IsPinned = isPinned;
@@ -246,7 +268,7 @@ public sealed class TaskList
         {
             Tags = [];
         }
-        IsGroup = isGroup;
+        IsGroup = IsGroupGiven(isGroup);
         // Nothing to assign: IsCompleted asks the items itself now - see the property.
         Priority = priority;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
@@ -498,4 +520,12 @@ public sealed class TaskList
     /// </summary>
     private static bool ComputeIsCompleted(IReadOnlyList<TaskItem> items)
         => items.Count > 0 && items.All(item => item.IsResolved);
+
+    /// <summary>
+    /// What was asked for, or true anyway where the entries settle it - see <see cref="IsGroup"/>.
+    /// Read off <see cref="Items"/> rather than off what was handed in, because a sealed list's items
+    /// are not the ones the caller passed (see ReadableOrSealed) and a private list must not be made a
+    /// group by entries nobody here can read.
+    /// </summary>
+    private bool IsGroupGiven(bool isGroup) => isGroup || GathersOtherLists;
 }

@@ -656,10 +656,19 @@ else
                     </div>
                 }
 
+                @* Ticked and unpressable while something on the form points at another list: a list that
+                   gathers other lists is a group list, and the checklist draws the members either way -
+                   see TaskList.IsGroup, which settles it on the server whatever is sent. Said in words
+                   beside the box rather than left as a box that will not move. *@
                 <div class="field">
                     <label>
-                        <input type="checkbox" checked="@_formModel.IsGroup"
+                        <input type="checkbox" checked="@(_formModel.IsGroup || GathersOtherLists)"
+                               disabled="@GathersOtherLists"
                                @onchange="args => _formModel.IsGroup = args.Value is true" />@T["Group View"]<FieldHint>@T["A group list's checklist also shows every list it gathers, so the whole group fits on one screen."]</FieldHint></label>
+                    @if (GathersOtherLists)
+                    {
+                        <p class="empty-hint">@T["On, because an entry on this list stands for another list. Take that entry off to turn it back off."]</p>
+                    }
                 </div>
 
                 @* Whether the list is finished, asked once for both ways of being it. The box ticks itself once
@@ -3033,6 +3042,15 @@ else
         Logger.LogInformation(
             "User set task list completion to {Completion}", _formModel.Completion);
     }
+
+    /// <summary>
+    /// Whether anything on the form points at another list, which is what makes this a group list
+    /// whatever the box says - see TaskList.IsGroup, where the server settles the same question. Read off
+    /// the form rather than off the list that was loaded, so the box answers what is on screen: adding an
+    /// entry that names a list ticks it in the same press, which is what "automatically" has to mean on
+    /// a form nobody has saved yet. The Completed box beside it is read the same way.
+    /// </summary>
+    private bool GathersOtherLists => _formModel.Items.Any(item => item.IsALinkToOtherLists);
 
     /// <summary>An answer this browser doesn't recognise reads as "the entries decide", which is where every list starts.</summary>
     private static TaskListCompletion ParseCompletion(string completion)

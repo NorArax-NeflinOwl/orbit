@@ -1948,9 +1948,8 @@ It is **not** on the two other places somebody edits in the browser:
   a server side that is happy to be asked the same thing many times - filing is already one call per
   item, so a first version can loop rather than grow bulk endpoints.
 
-- **The Group View box ticking itself.** Asked for: a list whose entries stand for other lists is a group
-  list, so the box should tick itself once there is at least one such entry, and stay unticked only
-  because somebody unticked it. Today it is a plain manual toggle in both clients. The signal is already
+- ~~**The Group View box ticking itself.**~~ **Done 2026-09-15.** Asked for: a list whose entries stand
+  for other lists is a group list, so the box should tick itself once there is at least one such entry. Today it is a plain manual toggle in both clients. The signal is already
   there (`TaskItem.IsALinkToOtherLists`), and the neighbouring "the list is done" box already does
   exactly this trick, so the shape to copy is one file away.
 
@@ -1962,9 +1961,14 @@ It is **not** on the two other places somebody edits in the browser:
 
   It changes stored data, so it gets the care `EntryStandsForAnyOfItsLists` got: a migration that says
   what it did, marking the lists that already have such an entry, rather than letting them change
-  silently on whatever save happens to come next. **Unticking stays possible** - the box is the reader's
-  to turn off and the tick only ever adds - which is the half that makes this safe to apply to
-  everything: nothing is taken away from somebody who said no.
+  silently on whatever save happens to come next.
+
+  **And while such an entry is on the list the box cannot be unticked**, which is what was asked for and
+  is the part that makes the rule worth having. A list gathering other lists *is* a group list, whatever
+  a box says; a box that could deny it would be a way to make the checklist draw the group wrongly, and
+  the reader would have no way to tell which of the two answers the page was following. The box is drawn
+  ticked and disabled, saying why. Taking the last such entry off gives it back: the stored answer is
+  then the reader's again, and they may turn it off.
 
 ### Half-built, and the missing half is the interesting one
 

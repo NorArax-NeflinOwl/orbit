@@ -1382,6 +1382,36 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         // which is every tick, every add and every reordering. See Progress.
         OnPropertyChanged(nameof(Progress));
         OnPropertyChanged(nameof(HasProgress));
+        SayWhetherItGathersOtherLists();
+    }
+
+    /// <summary>
+    /// Whether something on this list points at another list, which is what makes it a group list
+    /// whatever the switch says - see Orbit.Core.Tasks.TaskList.IsGroup, where the server settles the
+    /// same question for every writer.
+    /// </summary>
+    public bool GathersOtherLists => Items.Any(row => row.Item.AllLinkedTaskListIds.Count > 0);
+
+    /// <summary>
+    /// Whether the switch is the reader's to move. Off while the entries have answered it: a switch that
+    /// sprang back would read as broken, so it is disabled and the line under it says why.
+    /// </summary>
+    public bool CanChooseGroupView => CanEdit && !GathersOtherLists;
+
+    /// <summary>
+    /// Said whenever the rows are rebuilt, because that is when the answer can change - adding an entry
+    /// that names a list, or taking the last one off. Turning the switch on here is what "automatically"
+    /// means: it saves as everything else on this screen saves, unless the screen is filling itself in,
+    /// where the stored answer is already what the server settled.
+    /// </summary>
+    private void SayWhetherItGathersOtherLists()
+    {
+        OnPropertyChanged(nameof(GathersOtherLists));
+        OnPropertyChanged(nameof(CanChooseGroupView));
+        if (GathersOtherLists)
+        {
+            IsGroup = true;
+        }
     }
 
     partial void OnItemOrderChanged(ChecklistOrder value)
@@ -1444,6 +1474,11 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// <summary>True while the screen fills itself in, so loading does not look like a person choosing.</summary>
     private bool _isShowingWhatIsStored;
 
+    /// <summary>
+    /// A press on the switch, or the entries answering it themselves - see
+    /// <see cref="SayWhetherItGathersOtherLists"/>. Either way the list is saved, as everything else on
+    /// this screen is saved as it is chosen.
+    /// </summary>
     partial void OnIsGroupChanged(bool value)
     {
         if (!_isShowingWhatIsStored)

@@ -2876,8 +2876,18 @@ map, rather than dropping a pin in the wrong country.
 
 ### Group lists
 
-Setting `isGroup` marks a list as one that gathers other lists. It changes nothing about completion —
-the flag is purely about how the list is presented — but in the shallow checklist view a group list is
+Setting `isGroup` marks a list as one that gathers other lists. **It sets itself**: a list with an entry
+that points at another list is a group list whatever the caller sent (`TaskList.IsGroup`, 2026-09-15),
+because the checklist draws the members either way and a stored "no" beside such an entry would be an
+answer the page has to disagree with. Both editors draw the box ticked and unpressable while that is so,
+with a line saying why, and taking the last such entry off gives the answer back to the reader. It was a
+plain manual toggle until then, so a list somebody built by adding entries that name lists gathered
+nothing until they noticed a box - and a save from a client that has never drawn one turned it off
+again. The rule is in the domain rather than in an editor's form on purpose: one that only holds where
+somebody is looking is not a rule. What was already stored was brought into line by a migration that
+says so (`AListThatGathersListsSaysSo`) rather than by whatever save came next.
+
+It changes nothing about completion — the flag is purely about how the list is presented — but in the shallow checklist view a group list is
 rendered together with **every list its own items link to** via `linkedTaskListId`, each as its own
 card with its items tickable in place. Ticking an item there saves that member list, not the group,
 and the group's own linked row then follows it automatically through the usual completion resolution:
