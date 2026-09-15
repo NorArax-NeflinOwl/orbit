@@ -16,7 +16,7 @@ flowchart TB
         end
         pg[("<b>PostgreSQL Flexible Server</b><br/>orbit-postgres-*")]
         acr["<b>orbitcontainerregistry</b><br/>images tagged by commit SHA"]
-        blob["<b>orbitdownloads</b> / apps<br/>orbit-android.apk"]
+        blob["<b>orbitdownloads</b> / apps<br/>orbit-android.apk<br/>status.json <i>while paused</i>"]
         insights["<b>appinsights-orbit</b><br/>+ Log Analytics"]
         identity["<b>identity-orbit</b><br/>managed identity, OIDC"]
         budget["<b>orbit-monthly-budget</b><br/><i>subscription scope, not this group</i><br/>10 € warns, 20 € is the ceiling"]
@@ -37,7 +37,7 @@ flowchart TB
     browser -->|HTTPS| web
     web -->|"/api/ → orbit-api, internal FQDN"| api
     phone -->|"HTTPS, direct"| api
-    phone -.->|downloads updates| blob
+    phone -.->|"downloads updates; reads the pause notice"| blob
 
     api --> pg
     api --> insights
@@ -60,6 +60,7 @@ flowchart TB
     smtp -.-> owner
     owner -.->|"stops and starts again"| pg
     owner -.->|"stops and starts again"| env
+    owner -.->|"writes and removes status.json"| blob
 ```
 
 ## What the picture is trying to settle
@@ -104,9 +105,17 @@ at 20 €, and on the last day of the month, if anything is still stopped, the c
 again - over the same SMTP account `orbit-api` sends reminders with. A budget on a pay-as-you-go
 subscription is a notification and nothing more, and the runbook's identity holds Reader and nothing
 more, so what actually stops the meter is someone running those commands
-(`scripts/stop-azure-compute.sh` is their short form). That is why the last two arrows are dotted and
-start outside Azure: nothing in the picture enforces the ceiling by itself. See
+(`scripts/stop-azure-compute.sh` is their short form). That is why those arrows are dotted and start
+outside Azure: nothing in the picture enforces the ceiling by itself. See
 [azure-setup.md, Cost limits](../azure-setup.md#cost-limits).
+
+**A stopped `orbit-api` still answers, and the phone has to know it was not Orbit.** The address is a
+wildcard on the environment, so with the app stopped the front door says 404 in its place - which a phone
+reads as the API's refusal unless told otherwise. So every answer from `orbit-api` carries
+`Orbit-Api: <version>` (`AnswerHeader`), the phone lets nothing without it through
+(`OrbitAnswerHandler`), and the stop script leaves `status.json` on `orbitdownloads` for the phone to
+read the reason from. That is the third dotted arrow from the owner, and the second thing the phone
+fetches from the blob. See [orbit-maui-plan.md, §15](../orbit-maui-plan.md#15-living-without-the-server).
 
 ## The pipeline, and why it is shaped that way
 

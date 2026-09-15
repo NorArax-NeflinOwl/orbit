@@ -26,6 +26,10 @@ case "$1 $2 $3" in
         [ -f "$state/postgres-fails" ] && exit 1
         exit 0 ;;
     "containerapp ingress disable"|"containerapp ingress enable") record "$*"; exit 0 ;;
+    "storage blob upload"|"storage blob delete")
+        record "$1 $2 $3 $(echo "$*" | grep -o -- '--name [^ ]*')"
+        if [[ "$*" == *"--file "* ]]; then cp "$(echo "$*" | grep -o -- '--file [^ ]*' | cut -d' ' -f2)" "$state/notice.json"; fi
+        exit 0 ;;
     "containerapp update -n") record "$*"; exit 0 ;;
     "containerapp show -n")
         if [[ "$*" == *"minReplicas"* ]]; then echo "1"; else echo "true"; fi
@@ -79,21 +83,27 @@ output=$(run_subject --dry-run)
 check "no mutating call reached az" "0" "$(call_count)"
 check_contains "says what it would stop" "would run: az postgres flexible-server stop" "$output"
 check_contains "would close both ingresses" "would run: az containerapp ingress disable -n orbit-web" "$output"
+check_contains "would leave the pause notice" "would run: az storage blob upload" "$output"
 
-echo "--yes stops the database and both apps"
+echo "--yes stops the database and both apps, leaving the pause notice first"
 new_state
 run_subject --yes > /dev/null
-check "five mutating calls" "5" "$(call_count)"
+check "six mutating calls" "6" "$(call_count)"
+check_contains "leaves the pause notice before anything stops" "storage blob upload --name status.json" "$(head -1 "$FAKE_AZURE_STATE/calls.txt")"
+check_contains "the notice says it is paused" '"paused": true' "$(cat "$FAKE_AZURE_STATE/notice.json")"
+check_contains "the notice says since when" '"since": "20' "$(cat "$FAKE_AZURE_STATE/notice.json")"
+check_contains "the notice has a sentence for the reader" "still on this phone" "$(cat "$FAKE_AZURE_STATE/notice.json")"
 check_contains "stops PostgreSQL" "postgres flexible-server stop" "$(calls)"
 check_contains "closes the api ingress" "containerapp ingress disable -n orbit-api" "$(calls)"
 check_contains "closes the web ingress" "containerapp ingress disable -n orbit-web" "$(calls)"
 check_contains "empties orbit-api" "containerapp update -n orbit-api -g Orbit --min-replicas 0" "$(calls)"
 check_contains "empties orbit-web" "containerapp update -n orbit-web -g Orbit --min-replicas 0" "$(calls)"
 
-echo "--resume puts back exactly what azure-setup.md records"
+echo "--resume puts back exactly what azure-setup.md records, and removes the notice last"
 new_state
 run_subject --resume --yes > /dev/null
-check "five mutating calls" "5" "$(call_count)"
+check "six mutating calls" "6" "$(call_count)"
+check_contains "removes the pause notice after the apps are back" "storage blob delete --name status.json" "$(tail -1 "$FAKE_AZURE_STATE/calls.txt")"
 check_contains "starts PostgreSQL first" "postgres flexible-server start" "$(head -1 "$FAKE_AZURE_STATE/calls.txt")"
 check_contains "orbit-api keeps a warm replica" "containerapp update -n orbit-api -g Orbit --min-replicas 1" "$(calls)"
 check_contains "orbit-web goes back to scaling to zero" "containerapp update -n orbit-web -g Orbit --min-replicas 0" "$(calls)"

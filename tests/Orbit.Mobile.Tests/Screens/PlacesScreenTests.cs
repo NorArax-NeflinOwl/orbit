@@ -281,7 +281,7 @@ public sealed class PlacesScreenTests
             NullLogger<PlaceSynchronizer>.Instance);
 
         public PlacesViewModel OpenList() => new(
-            Places, Synchronizer, Network, _translations, new SyncState(Network, TimeProvider.System), Navigator, Maps,
+            Places, Synchronizer, Network, _translations, new SyncState(Reachability.Over(Network), TimeProvider.System), Navigator, Maps,
             TimeProvider.System, new InMemoryListArrangementStore());
 
         public PlaceDetailViewModel OpenDetail(Guid localId)

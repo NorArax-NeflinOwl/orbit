@@ -759,21 +759,26 @@ scripts/stop-azure-compute.sh --dry-run     # read what it is about to do
 scripts/stop-azure-compute.sh               # and do it
 ```
 
-It stops the PostgreSQL Flexible Server, closes both Container Apps' ingress and sets them to
-`min-replicas 0`. Both apps then hold no replicas, so they bill nothing; the database keeps only its
-storage charge. **Nothing is deleted** - not the database, not the images, not the configuration - so
-this is a pause, not a teardown.
+It leaves the pause notice first - `status.json` in the `apps` container of `orbitdownloads`, which the
+phone reads to learn the stop was on purpose - then stops the PostgreSQL Flexible Server, closes both
+Container Apps' ingress and sets them to `min-replicas 0`. Both apps then hold no replicas, so they bill
+nothing; the database keeps only its storage charge. **Nothing is deleted** - not the database, not the
+images, not the configuration - so this is a pause, not a teardown. Writing the notice needs the
+account's key, which the subscription's owner can list; `az storage blob upload` fetches it on its own
+when no `--auth-mode` is given.
 
 Four things to know before running it:
 
 - Orbit goes down for everyone, web and phone alike, until it is resumed.
-- **The phone does not yet cope with this.** It was built to work offline, but a stopped Container App
-  is not "offline": its address still answers (the environment's front door says 404), and the phone
-  reads that as the API's word - so within fifteen minutes every signed-in phone is signed out, and
-  after five syncs it starts discarding edits queued while the server was away. Nothing on the phone
-  is deleted; it is behind the sign-in screen until the server is back. The plan that fixes it is
-  [Orbit.Maui — Plan, §15](orbit-maui-plan.md#15-living-without-the-server); until it is built, expect
-  the phone to be as down as the web.
+- **The phone copes with this only from the build that knows how.** A stopped Container App is not
+  "offline": its address still answers (the environment's front door says 404), and a phone built
+  before 2026-09-15 reads that as the API's word - so within fifteen minutes it is signed out, and after
+  five syncs it starts discarding edits queued while the server was away; nothing is deleted, but it is
+  behind the sign-in screen until the server is back. From that date the API stamps every answer as its
+  own and the phone lets nothing else through, and the script leaves `status.json` on `orbitdownloads`
+  so the phone can say *"Orbit is paused"* and behave as it does offline - see
+  [Orbit.Maui — Plan, §15](orbit-maui-plan.md#15-living-without-the-server). Expect an older APK to be as
+  down as the web.
 - Closing the ingress is not decoration. `orbit-api` is kept awake by the phone syncing against it, so
   `min-replicas 0` on its own would never let it empty.
 - **Azure starts a stopped Flexible Server again by itself after seven days.** That is Flexible Server

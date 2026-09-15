@@ -560,12 +560,14 @@ since been closed; what is left is recorded below with the same honesty about wh
   the API's opinion, so `TokenRefreshService` signs everyone out within fifteen minutes and
   `OutboxReplay` starts discarding queued edits after five syncs, on a phone whose database holds
   everything the reader needs. Both are right against a live server and wrong against a paused one.
-  Analysed 2026-09-14 in [Orbit.Maui — Plan, §15](orbit-maui-plan.md#15-living-without-the-server):
-  the offline design already covers reading and editing; what is missing is telling "Azure answered"
-  from "Orbit answered", a pause signal the stop script can leave on `orbitdownloads`, and reminders
-  that ring from the phone (all four are server background services today). Worth building, narrowly -
-  items 1-3 there cost days and turn the stop into what §5 already promised; chat, sharing and identity
-  stay off, as agreed. Not started; item 1 is to verify the 404 assumption on the test environment.
+  Analysed 2026-09-14 in [Orbit.Maui — Plan, §15](orbit-maui-plan.md#15-living-without-the-server),
+  and **the two defects were closed on 2026-09-15** (§15.6): the API stamps every answer as its own,
+  the phone lets nothing without the stamp through, and the stop script leaves `status.json` on
+  `orbitdownloads` so the phone says *"Orbit is paused"* and behaves as it does offline. Still open
+  there: watching a real phone against a really stopped server (the 404 assumption is untested),
+  reminders that ring from the phone (all four are server background services today), suggestions from
+  the local database, and a sign-in screen that admits the notes are still on the phone. Chat, sharing
+  and identity stay off, as agreed.
 - **nginx in `orbit-web` runs as root.** The image is `nginx:alpine`, whose master process starts as
   root so it can bind port 80 - `orbit-api` already drops to `$APP_UID` in its own Dockerfile, so this
   is the only container in the deployment that does not. The fix is `nginxinc/nginx-unprivileged`,

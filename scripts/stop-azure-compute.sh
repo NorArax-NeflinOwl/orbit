@@ -25,6 +25,14 @@ set -uo pipefail
 resource_group="Orbit"
 budget_name="orbit-monthly-budget"
 
+# The pause notice: a small public file the phone reads when the API stops answering as itself, so it
+# can say "Orbit is paused" rather than "couldn't sync" and behave as it does offline - see
+# info/orbit-maui-plan.md, "Living without the server". It lives on the storage account that serves the
+# APK, which costs pennies and stays up through the stop. Written on stop, removed on resume.
+pause_notice_account="orbitdownloads"
+pause_notice_container="apps"
+pause_notice_blob="status.json"
+
 # Ingress and scale exactly as "5. Confirm ingress" in info/azure-setup.md records them, because
 # --resume puts these values back rather than remembering what it found. A deployment that has moved
 # away from them has to be corrected here first.
@@ -101,9 +109,27 @@ report_status() {
     report_spend
 }
 
+# The phone reads this file as the reason the API stopped answering. Written before anything is
+# stopped, so no phone meets a dark server without the notice already there to explain it.
+leave_pause_notice() {
+    local notice_file
+    notice_file=$(mktemp)
+    printf '{"paused": true, "since": "%s", "message": "Orbit is paused until the monthly budget resets. Your notes, lists and calendar are still on this phone."}\n' \
+        "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$notice_file"
+    run_azure storage blob upload --account-name "$pause_notice_account" --container-name "$pause_notice_container" \
+        --name "$pause_notice_blob" --file "$notice_file" --overwrite --only-show-errors
+    rm -f "$notice_file"
+}
+
+remove_pause_notice() {
+    run_azure storage blob delete --account-name "$pause_notice_account" --container-name "$pause_notice_container" \
+        --name "$pause_notice_blob" --only-show-errors
+}
+
 stop_everything() {
     local server="$1" application
     say "Stopping. Both apps go dark and the database stops answering; nothing is deleted."
+    leave_pause_notice
     if [ -n "$server" ]; then
         run_azure postgres flexible-server stop -g "$resource_group" -n "$server"
     else
@@ -128,6 +154,10 @@ resume_everything() {
     run_azure containerapp ingress enable -n orbit-api -g "$resource_group" --type external --target-port "$api_target_port" --transport auto
     run_azure containerapp update -n orbit-web -g "$resource_group" --min-replicas "$web_minimum_replicas"
     run_azure containerapp ingress enable -n orbit-web -g "$resource_group" --type external --target-port "$web_target_port" --transport auto
+    # Last, once the API is answering again: a phone that reads the notice gone before the API is back
+    # would report "couldn't sync" for the minutes in between, which is the sentence the notice exists to
+    # avoid. The API answering as itself ends the pause on the phone regardless - see ServerReachability.
+    remove_pause_notice
     say "Back up. max-replicas was left alone, so whatever the autoscale workflow last chose still holds."
     say "Verify it the way a deploy is verified - see info/azure-setup.md, \"Verifying a deploy\"."
 }

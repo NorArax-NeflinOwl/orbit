@@ -1023,3 +1023,54 @@ along without the server - those are the server, and the honest phone says so.
 The other way to read the question is as a challenge to the stop itself: if the phone needs this much
 care to survive a pause, perhaps pause less. That is the cost decision's to answer, and 15.4's items
 1-3 are cheap enough that the phone should not be the reason it is answered either way.
+
+### 15.6 Built on 2026-09-15: items 1 to 3, less the verification
+
+Items 2 and 3 of 15.4 are built, in `Orbit.Mobile` where a test can reach them; item 1 - watching a real
+phone against a really stopped server - is still to be done, and is the one thing below that is an
+assumption rather than a test.
+
+**The server marks every answer as its own.** `AnswerHeader` in `Orbit.Api` stamps `Orbit-Api: <version>`
+on every response - a 429, a 401, a 500 and a 200 alike, since a refusal is the case that matters. The
+name lives in `Orbit.Contracts.OrbitAnswerHeader`, shared by both ends.
+
+**The phone lets an answer through only if Orbit gave it.** `OrbitAnswerHandler` is the innermost handler
+on every client that talks to Orbit - the twenty-two typed clients, the refresh client, the version gate.
+An answer without the header is disposed and replaced by `AnswerNotFromOrbitException`, whose
+`StatusCode` is deliberately empty: that is the property every rule reads, so `SyncFailure` calls it
+worth retrying and unanswered, `OutboxReplay` neither drops nor counts it, and `TokenRefreshService`
+never sees a status to sign out over. The two defects of 15.2 are closed by the exception's shape, not
+by a special case in either - and Orbit's own 404 or 401, which carry the header, are still what they
+were. Pinned in `OrbitAnswerHandlerTests`, including a refresh answered 404 by nobody keeping the session
+and one answered 401 by Orbit still ending it.
+
+**The phone knows it is paused, and is told rather than guessing.** `scripts/stop-azure-compute.sh` now
+writes `status.json` to the `apps` container on `orbitdownloads` before it stops anything, and deletes it
+after everything is back - `{"paused": true, "since": …, "message": …}`. `PauseNoticeReader` reads it,
+only after an answer that was not Orbit's, and `ServerReachability` believes it for ten minutes at a time
+(`RecheckInterval`) before reading again; Orbit answering as itself ends the pause on the spot whatever
+the file says. A file that is absent, unreadable or says `paused: false` is no notice - the direction of
+every doubt is "not paused". The address is baked into the build like the API's
+(`-p:OrbitPauseNoticeAddress=…`, `OrbitPauseNoticeSettings`), derived in `android-release.yml` from the
+same variables the APK is published with; a build told nothing never reports a pause and reads a stopped
+server as it did before this change - as offline in everything but the network, which is still safe.
+
+**One question, one answer.** `ServerReachability` is the `INetworkStatus` the app registers: online means
+a network *and* no pause. Every screen that greys out, refuses an offline edit or offers to reconnect
+follows from that without knowing why - the thirty-three consumers of `INetworkStatus` were not touched.
+What did change: `SyncCondition` gained `Paused`, and the corner says *"Orbit is paused"* with the
+notice's sentence rather than "Couldn't sync" or "No connection"; Reconnect stays offered, because trying
+is how a phone finds out the server is back. `LiveUpdatesConnection` does not open while paused and stops
+reconnecting when a pause begins, so a stopped month is not a handshake every thirty seconds.
+
+**Order of release, and the one bad combination.** The server must carry the header before a phone that
+requires it is released - which the pipeline's order already gives, since `main` deploys the API and the
+APK is built from the same commit afterwards. A *new* phone against an *old* server would read every
+answer as "not Orbit": never signed out, never dropping the outbox, and never succeeding either. That
+window closes with the first deploy of this change, and `MobileVersion:Android:MinimumSupportedVersion`
+is not the tool for it, since it governs the other direction.
+
+**Still to do:** item 1 (verify the 404 assumption on the test environment - twenty minutes with the
+diagnostic log open, the day this is deployed), item 4 (reminders that ring from the phone), item 5
+(suggestions from the local database) and item 6 (the sign-in screen admitting the notes are still on the
+phone). Items 4 to 6 are platform work and polish, unchanged from 15.4.
