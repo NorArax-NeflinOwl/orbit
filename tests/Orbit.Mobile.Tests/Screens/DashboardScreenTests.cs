@@ -82,6 +82,25 @@ public sealed class DashboardScreenTests
     }
 
     /// <summary>
+    /// Today is the reader's day, not UTC's. An entry due at half past midnight two hours east of
+    /// Greenwich falls on the previous UTC day, and counting it there made the strip say the day held
+    /// more than it did - which is how this was reported. Orbit.Web has always asked it locally.
+    /// </summary>
+    [Fact]
+    public async Task Today_is_counted_in_the_readers_own_day_rather_than_in_UTC()
+    {
+        using var context = new DashboardContext();
+        context.Clock.SetLocalTimeZone(TimeZoneInfo.CreateCustomTimeZone("Two ahead", TimeSpan.FromHours(2), "Two ahead", "Two ahead"));
+        // 00:30 on the 28th where the reader is, and still the 27th in UTC.
+        await context.AddTaskListAsync("Errands", ("Post the parcel", DateTimeOffset.Parse("2026-08-27T22:30:00Z"), false));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, screen.Today.TasksDueToday);
+    }
+
+    /// <summary>
     /// The count says how far through the day the reader is, which is the question a strip of numbers
     /// over a date is asked. It used to say only what was left, so a day whose work was all ticked off
     /// read "0 tasks due today" - three tasks that disappeared rather than three that were done.
@@ -1214,6 +1233,10 @@ public sealed class DashboardScreenTests
     {
         private readonly LocalStore _localStore = new();
         private readonly FakeTimeProvider _clock = new(Now);
+
+        /// <summary>The screen's clock - a test about which day "today" is sets its zone on this.</summary>
+        public FakeTimeProvider Clock => _clock;
+
         private readonly LocalNoteRepository _notes;
         private readonly LocalTaskListRepository _taskLists;
         private readonly LocalCalendarEventRepository _calendarEvents;

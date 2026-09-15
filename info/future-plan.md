@@ -1810,6 +1810,121 @@ its shared controls. What that pass left, all of it now overtaken:
   screen hands over a label that hides itself, and an arrow that opens an empty line is a control that
   does nothing.
 
+## What the user's list of 2026-09-15 still leaves open
+
+The user read back a list of twenty-three things on 2026-09-15 and asked which were built. Most were:
+the sixteen-item round of 2026-09-14 covers fifteen of them, pictures in a note and folders on the
+events and the shelves cover several more. What follows is only what the check found **missing**, with
+the evidence it was checked against, so the next session does not have to look again. Anything not
+listed here was found built and is described in `info/functionality.md`.
+
+### Built for nobody but the browser
+
+Each of these is finished where it was asked for and absent on the phone. None is a bug; each is the
+same feature owing its second client.
+
+- **The Upcoming horizon.** `DevicePreferences.UpcomingDays` (7 by default, chosen from
+  `UpcomingHorizons` on the Preferences tab) narrows the browser's card; the phone's Upcoming card shows
+  everything, and the phone has no preferences screen entry for it. Its card is built in
+  `DashboardViewModel` from `shownEvents`, which is filtered by priority and nothing else.
+- **"Copy the text" on a note.** `NoteSummary` puts it in the note's menu and writes the round-trippable
+  format (`[x] ` and `- `). The phone's note screen has no clipboard action at all - "copy" there means
+  `CopyForEditingAsync`, which is the copy-to-edit-offline feature and a different thing.
+- **How much of a list is done, in its light view.** `TaskListChecklist` draws "Done: {0} of {1}" in the
+  rail's extras. The phone shows the same fraction on the dashboard card and on the tasks list row
+  (`TaskListRow.Progress`) but not on the list's own screen, which is the one place somebody reading a
+  long list wants it.
+- **"Needs all of them".** The rule itself is shared (`TaskItem.NeedsEveryLinkedList`), and the phone
+  sends null for it, which the server reads as "keep what is stored" - so nothing is lost. But the phone
+  offers no way to set it, so an entry standing for several lists can only be switched to "all of them"
+  from a browser.
+- **"New sublist".** Built in `TaskListChecklist` on 2026-09-14, and it has **no test** on either side.
+  The phone's checklist draws one list at a time rather than the tree (see the entry below about
+  flattening), so the action would need the tree first.
+
+### Where the editor's bar is not
+
+The sticky editor rail - Save, Back and the menu under the avatar bar, staying put while the avatar bar
+slides away (`stickyBars.js`, `.editor-rail`) - is on the four object editors and the four read screens.
+It is **not** on the two other places somebody edits in the browser:
+
+- **The place editor** (`PlaceForm`), whose Save sits at the bottom of a scrolling overlay panel.
+- **The Options page**, whose three sections (profile, password, unlock code) each carry their own inline
+  Save that scrolls away with the section.
+
+Both would need the same `editor-page` wrapper and an `EditorRail`; the place form is the harder of the
+two, since it lives inside the map's overlay rather than on a page of its own.
+
+### Said one way in one place and another way in another
+
+- **The phone's notification feed still calls it "Clear".** The browser's notifications page and bell
+  panel were renamed to "Delete history" on 2026-09-14, because the button deletes rather than dismisses.
+  `NotificationFeedPage` was missed; the translation it needs already exists.
+
+### Not built at all
+
+- **A separator in a note, with modes.** Asked for as a button in the note's format panel beside the
+  styles, the marks, the table and the attachment, inserting a separator line - the first mode being a
+  date-and-time separator. Nothing of it exists: no button, and no line kind for it. It is another kind
+  of line (`NoteContentLine`, the shape a table and a picture already use) rather than a style, since it
+  carries no words of its own and cannot be written in - which means it wants the same guards in
+  `NoteSurfaceEdits` those two needed. A date-and-time separator has a question in it worth settling
+  first: whether the stamp is written once, when the separator is made, or re-read every time the note is
+  drawn. Written once is what a reader means by "when I got here"; re-read would make yesterday's
+  separator say today.
+
+- **Archiving, as protection against deleting.** Asked for on notes, task lists, events and inventories:
+  put something away rather than lose it. Nothing of it exists on those four - deletion is a real delete
+  plus a sync tombstone, and the only `IsArchived` in Orbit is on a conversation and on a group
+  membership (done 2026-09-09, and the shape to copy). It is a column on each of the four, a command per
+  aggregate, a place to read what is archived, and a decision about what archiving means beside the
+  folders: whether Archived is a built-in folder (which would make it a tab, and free on both clients and
+  in the dashboard's narrowing) or a state of its own beside them. **The folder reading is the cheaper
+  one and probably the right one** - it already has tabs, counts, a phone menu and an export.
+
+- **Choosing several things at once, and doing one thing to all of them.** Asked for as: select several
+  notes, lists, events or shelves and then file them into a folder, archive them, or share them. Nothing
+  of it exists at list level: every card menu acts on one object, and the phone's lists are
+  `SelectionMode="Single"`. Picking several *lines inside one note* exists and is a different thing.
+  It needs a selection mode on each list page (the phone already has the gesture for it - holding a box
+  starts choosing several inside a note), a bar of actions that appears while something is selected, and
+  a server side that is happy to be asked the same thing many times - filing is already one call per
+  item, so a first version can loop rather than grow bulk endpoints.
+
+- **The Group View box ticking itself.** Asked for: a list whose entries stand for other lists is a group
+  list, so the box should tick itself once there is at least one such entry, and stay unticked only
+  because somebody unticked it. Today it is a plain manual toggle in both clients. The signal is already
+  there (`TaskItem.IsALinkToOtherLists`), and the neighbouring "the list is done" box already does
+  exactly this trick, so the shape to copy is one file away. What has to be settled is where the
+  self-tick lives: doing it in the editor's form means it only happens where somebody is looking, and
+  doing it in `TaskList` means a save from an old client turns the box on for them too - which is
+  probably right, but it changes stored data and so wants the same care `EntryStandsForAnyOfItsLists`
+  needed.
+
+### Half-built, and the missing half is the interesting one
+
+- **Editing a group list together with its children.** The light view already draws the whole tree, each
+  child list under a card carrying its name, and ticks in place. The **full editor** (`TaskEditor`) edits
+  only the group's own entries - a child's entries cannot be renamed, added or removed from there. The
+  phone draws one list at a time and has no tree at all (already written down below, "The phone cannot
+  flatten a tree of lists").
+
+- **Copying what a list or a note holds, filtered.** Asked for as: copy only what is done, only what is
+  not, only what failed - from the light view and the heavy one, for notes and for task lists. What
+  exists is one unfiltered copy, on a note's light view only. The states to filter on are all there
+  (`IsCompleted`, `IsFailed`, `IsResolved`); what is missing is the menu that offers the four choices,
+  the same menu on a task list, the same on both heavy editors, and the phone's half - it has no
+  clipboard action at all.
+
+- **Pasting a list back in.** Asked for as an option inside note and task-list editing that turns copied
+  text into lines or entries. The **conversion** exists for notes and is good: a paste of
+  `[x] ` / `- ` lines becomes boxes and lines on both clients, which is exactly what the copy above
+  writes. What is missing is (a) an *option* - nothing ever reads the clipboard, it only reacts to the
+  system's paste, so there is nothing to press - and (b) task lists, whose entry field is deliberately a
+  one-line input to stop a multi-line paste arriving as one entry. Together with the point above these
+  two are one feature: copy a filtered list out of one thing and paste it into another, which is what the
+  user said it was for.
+
 ## Smaller identified follow-ups
 
 - ~~**The phone's wait does not look like the web's yet.**~~ Fixed 2026-09-11: `OrbitLoading` (Controls) is

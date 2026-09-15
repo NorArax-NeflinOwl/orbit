@@ -680,10 +680,17 @@ public sealed partial class DashboardViewModel : ObservableObject
         IReadOnlyList<LocalContact> contacts)
     {
         var now = _timeProvider.GetUtcNow();
-        var today = now.Date;
-        var dueToday = EntriesDueOn(taskLists, today);
+        // The reader's own day, not UTC's. Everything is stored as an instant and was compared here as a
+        // UTC date, so anything falling on the far side of midnight in the reader's zone - an entry due
+        // at 01:00 east of Greenwich, one due at 23:00 west of it - was counted on the wrong day, and the
+        // strip read more (or fewer) than the day actually held. Orbit.Web has always asked it locally
+        // (Dashboard.EntriesDueToday); this is the phone saying the same thing. Through the clock's own
+        // zone rather than the machine's, so what the strip says can be tested.
+        var zone = _timeProvider.LocalTimeZone;
+        var today = TimeZoneInfo.ConvertTime(now, zone).Date;
+        var dueToday = EntriesDueOn(taskLists, today, zone);
         var eventsToday = events
-            .Where(calendarEvent => calendarEvent.Details.StartUtc.Date == today)
+            .Where(calendarEvent => TimeZoneInfo.ConvertTime(calendarEvent.Details.StartUtc, zone).Date == today)
             .ToList();
 
         return new TodaySummary(
@@ -710,12 +717,14 @@ public sealed partial class DashboardViewModel : ObservableObject
     /// of a list whose entries simply all got ticked, and those are exactly the entries the fraction
     /// exists to show.
     /// </summary>
+    /// <param name="day">The reader's own day - see SummariseToday, which says why not UTC's.</param>
+    /// <param name="zone">The zone that day is in, so a due instant is read as the reader reads it.</param>
     private static IReadOnlyList<Orbit.Contracts.Tasks.TaskItemDto> EntriesDueOn(
-        IReadOnlyList<LocalTaskList> taskLists, DateTime day)
+        IReadOnlyList<LocalTaskList> taskLists, DateTime day, TimeZoneInfo zone)
         => [.. taskLists
             .Where(list => !(list.IsCompleted && list.Items.Any(item => !item.IsCompleted && !item.IsFailed)))
             .SelectMany(list => list.Items)
-            .Where(item => item.DueDateUtc?.Date == day)];
+            .Where(item => item.DueDateUtc is { } due && TimeZoneInfo.ConvertTime(due, zone).Date == day)];
 
     /// <summary>
     /// A private note's title is the thing the gate hides, and the dashboard shows titles - so leaving
