@@ -42,6 +42,9 @@ internal sealed class FakeNotesServer : HttpMessageHandler
 
     public IReadOnlyCollection<NoteDto> Notes => _notes.Values;
 
+    /// <summary>The bytes of each picture the server holds, by picture id - what GET .../pictures/{id} answers with.</summary>
+    public Dictionary<Guid, byte[]> Pictures { get; } = [];
+
     public NoteDto AddNote(string title, bool isShared = false, bool isSharedWithOthers = false)
     {
         var now = _timeProvider.GetUtcNow();
@@ -86,6 +89,13 @@ internal sealed class FakeNotesServer : HttpMessageHandler
         if (path.EndsWith("/changes", StringComparison.Ordinal))
         {
             return BuildChangeFeed(request.RequestUri.Query);
+        }
+
+        if (path.Contains("/pictures/", StringComparison.Ordinal))
+        {
+            return Pictures.TryGetValue(ReadId(path), out var bytes)
+                ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes) }
+                : new HttpResponseMessage(HttpStatusCode.NotFound);
         }
 
         if (ForcedWriteFailure is { } writeFailure && request.Method.Method is "POST" or "PUT" or "DELETE")

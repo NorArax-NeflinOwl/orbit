@@ -1,6 +1,7 @@
 using Orbit.Contracts.Sharing;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Notifications;
 using Orbit.Mobile.Screens.Sharing;
@@ -153,6 +154,31 @@ public sealed class SharedLinkScreenTests
         Assert.Contains("Try again", screen.Message);
     }
 
+    /// <summary>A note's picture is fetched through the link and drawn in its line's place; one that cannot be says so.</summary>
+    [Fact]
+    public async Task A_shared_notes_picture_is_fetched_through_the_link()
+    {
+        using var context = new SharedLinkContext();
+        var pictureId = Guid.NewGuid();
+        var lost = Guid.NewGuid();
+        context.Server.Pictures[pictureId] = [1, 2, 3];
+        context.Publish(new PublicSharedItemDto(
+            "Note", "Holiday", null,
+            [
+                new PublicSharedItemLineDto(string.Empty, false, false, null, Picture: new Orbit.Contracts.Notes.NotePictureLineDto(pictureId, "image/jpeg")),
+                new PublicSharedItemLineDto(string.Empty, false, false, null, Picture: new Orbit.Contracts.Notes.NotePictureLineDto(lost, "image/jpeg"))
+            ],
+            "Ala", DateTimeOffset.UtcNow));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.True(screen.Lines[0].ShowsPicture);
+        Assert.Equal([1, 2, 3], screen.Lines[0].PictureBytes);
+        Assert.True(screen.Lines[1].ShowsPictureNote);
+        Assert.Contains("fetched", screen.Lines[1].PictureNote);
+    }
+
     private sealed class SharedLinkContext : IDisposable
     {
         public SharedLinkContext(bool signedIn = true)
@@ -177,16 +203,27 @@ public sealed class SharedLinkScreenTests
                 "Note", "A shared note", null, [new PublicSharedItemLineDto("Some words", false, false, null)],
                 "Ala", DateTimeOffset.UtcNow));
 
+        /// <summary>Where the screen keeps fetched pictures - a directory of this test's own, gone with it.</summary>
+        public string PictureDirectory { get; } = Path.Combine(Path.GetTempPath(), $"orbit-shared-pictures-{Guid.NewGuid():N}");
+
         public SharedLinkViewModel Open()
         {
             var screen = new SharedLinkViewModel(
                 new PublicShareClient(Server.ToHttpClient()), new SessionStore(Storage),
-                FixedNetworkStatus.Online, new Translations(new InMemoryLanguageStore()), Navigator);
+                FixedNetworkStatus.Online, new Translations(new InMemoryLanguageStore()), Navigator,
+                new NotePictureCache(PictureDirectory, new NotePicturesClient(Server.ToHttpClient()), PrivateContent.WithoutAKey()));
 
             screen.Open(Token);
             return screen;
         }
 
-        public void Dispose() => LocalStore.Dispose();
+        public void Dispose()
+        {
+            LocalStore.Dispose();
+            if (Directory.Exists(PictureDirectory))
+            {
+                Directory.Delete(PictureDirectory, recursive: true);
+            }
+        }
     }
 }

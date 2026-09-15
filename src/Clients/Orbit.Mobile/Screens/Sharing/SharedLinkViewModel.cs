@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Sharing;
 using Orbit.Core.Notes;
 using Orbit.Mobile.Api;
+using Orbit.Mobile.Data;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Notes;
@@ -26,13 +27,23 @@ namespace Orbit.Mobile.Screens.Sharing;
 /// of writing. See Orbit.Core.Notes.NoteTable; only a note ever sends one.
 /// </param>
 /// <param name="Marks">The marks on stretches of the words, drawn by MarkedLabel - see Orbit.Core.Notes.NoteTextRun.</param>
+/// <param name="PictureId">Which picture this line is, where it is one - what its bytes are fetched by.</param>
+/// <param name="PictureBytes">The picture's bytes once fetched, null until then - see NotePictureCache.</param>
+/// <param name="PictureNote">What stands in the picture's place while there are no bytes: that it is on its way, or why it is not.</param>
 public sealed record SharedLine(
     string Text, string Detail, bool IsChecklistItem, bool IsTicked,
     NoteLineStyle Style = NoteLineStyle.Body, int ListNumber = 0,
     IReadOnlyList<IReadOnlyList<string>>? TableRows = null, bool IsAPicture = false,
-    IReadOnlyList<NoteTextRun>? Marks = null)
+    IReadOnlyList<NoteTextRun>? Marks = null, Guid? PictureId = null, byte[]? PictureBytes = null,
+    string PictureNote = "")
 {
     public bool HasDetail => Detail.Length > 0;
+
+    /// <summary>The picture drawn, once fetched - a line is replaced by one carrying the bytes, see SharedLinkViewModel.ShowThePicturesAsync.</summary>
+    public bool ShowsPicture => IsAPicture && PictureBytes is not null;
+
+    /// <summary>What stands in the picture's place until it is fetched, or when it cannot be.</summary>
+    public bool ShowsPictureNote => IsAPicture && PictureBytes is null;
 
     /// <summary>The marks as something to bind without a null check - see <see cref="Marks"/>.</summary>
     public IReadOnlyList<NoteTextRun> AllMarks => Marks ?? NoteTextMarks.None;
@@ -110,14 +121,18 @@ public sealed partial class SharedLinkViewModel : ObservableObject
 
     public SharedLinkViewModel(
         PublicShareClient publicShares, SessionStore sessionStore, INetworkStatus networkStatus,
-        Translations translations, IScreenNavigator navigator)
+        Translations translations, IScreenNavigator navigator, NotePictureCache? pictures = null)
     {
         _publicShares = publicShares;
         _sessionStore = sessionStore;
         _networkStatus = networkStatus;
         _translations = translations;
         _navigator = navigator;
+        _pictures = pictures;
     }
+
+    /// <summary>Where a picture's bytes come from - see NotePictureCache. Null on a screen built without one, which draws no pictures.</summary>
+    private readonly NotePictureCache? _pictures;
 
     public ObservableCollection<SharedLine> Lines { get; } = [];
 
@@ -144,6 +159,7 @@ public sealed partial class SharedLinkViewModel : ObservableObject
         {
             var item = await _publicShares.ReadAsync(_token, cancellationToken);
             Show(item);
+            await ShowThePicturesAsync(cancellationToken);
 
             // Asked after the link, not before: somebody with no account is meant to be able to read
             // this, and only the offer to keep it depends on being signed in.
@@ -228,10 +244,39 @@ public sealed partial class SharedLinkViewModel : ObservableObject
                 line.Picture is not null,
                 NoteTextMarks.Normalized(
                     line.AllMarks.Select(run => new NoteTextRun(run.Start, run.Length, NoteTextMarks.Read(run.Mark))),
-                    line.Text.Length)));
+                    line.Text.Length),
+                line.Picture?.PictureId,
+                PictureNote: _translations["Picture"]));
         }
 
         OnPropertyChanged(nameof(HasNothingInIt));
+    }
+
+    /// <summary>
+    /// Fetches each picture after the lines are shown, so the words never wait for the bytes, and
+    /// puts a line carrying them in the place of the one that named it - the lines are records, so a
+    /// fetched picture is a new line rather than a changed one. A picture through a link is never
+    /// sealed, so the one reason it cannot be shown is that it could not be fetched.
+    /// </summary>
+    private async Task ShowThePicturesAsync(CancellationToken cancellationToken)
+    {
+        if (_pictures is null)
+        {
+            return;
+        }
+
+        for (var index = 0; index < Lines.Count; index++)
+        {
+            if (Lines[index].PictureId is not { } pictureId)
+            {
+                continue;
+            }
+
+            var bytes = await _pictures.OpenSharedAsync(_token, pictureId, cancellationToken);
+            Lines[index] = bytes is null
+                ? Lines[index] with { PictureNote = _translations["This picture couldn't be fetched. Try again when you are back online."] }
+                : Lines[index] with { PictureBytes = bytes };
+        }
     }
 
     /// <summary>

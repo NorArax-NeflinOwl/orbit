@@ -185,11 +185,18 @@
                                     </BindableLayout.ItemTemplate>
                                 </VerticalStackLayout>
 
-                                                <!-- A picture the note holds, which the phone does not fetch yet - see
-                                     NoteLineRow.Picture. Said rather than left blank, so the reader knows
-                                     there is something here the browser shows. -->
-                                <Label Grid.Column="1" Text="{controls:Translate 'Picture (open in a browser to see it)'}"
-                                       IsVisible="{Binding IsAPicture}" Margin="0,10"
+                                <!-- A picture the note holds, fetched once and kept on the handset - see
+                                     NoteLineRow.PictureBytes and NotePictureCache. Drawn at the note's
+                                     width and no taller than a screen's worth, as the browser draws it.
+                                     While there are no bytes - on their way, or not to be had - a line
+                                     says so in its place (NoteLineRow.PictureNote), so the reader knows
+                                     there is something here rather than seeing a blank. -->
+                                <Image Grid.Column="1" Aspect="AspectFit" HorizontalOptions="Start"
+                                       MaximumHeightRequest="360" Margin="0,8"
+                                       IsVisible="{Binding ShowsPicture}"
+                                       Source="{Binding PictureBytes, Converter={StaticResource PictureBytes}}" />
+                                <Label Grid.Column="1" Text="{Binding PictureNote}"
+                                       IsVisible="{Binding ShowsPictureNote}" Margin="0,10"
                                        Style="{StaticResource SubtleLabel}" />
 
                                 <!-- The mark that chooses a box to change together with the others,

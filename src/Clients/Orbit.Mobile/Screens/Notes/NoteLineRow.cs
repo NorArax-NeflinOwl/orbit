@@ -93,13 +93,30 @@ public sealed partial class NoteLineRow : ObservableObject
 
     /// <summary>
     /// The picture this line is, when it is one - see Orbit.Core.Notes.NotePictureLine. Carried through
-    /// every edit unchanged and drawn as a placeholder: the phone fetches no picture bytes yet (they
-    /// would have to be cached for offline reading), see info/future-plan.md.
+    /// every edit unchanged; what the line holds is the picture's id and kind, and the bytes come
+    /// separately (<see cref="PictureBytes"/>), fetched by the view model through NotePictureCache.
     /// </summary>
     [ObservableProperty]
     private NotePictureLine? _picture;
 
     public bool IsAPicture => Picture is not null;
+
+    /// <summary>
+    /// The picture ready to draw, once the view model has fetched or opened it, and null until then or
+    /// when it cannot be had - in which case <see cref="PictureNote"/> says why. Bytes rather than a
+    /// path, because a private note's picture is kept sealed on the handset and only ever opened into
+    /// memory; the page turns them into an image (PictureBytesConverter in Orbit.Maui).
+    /// </summary>
+    [ObservableProperty]
+    private byte[]? _pictureBytes;
+
+    /// <summary>What is said in the picture's place while there is nothing to draw - fetching, or why it cannot be shown.</summary>
+    [ObservableProperty]
+    private string _pictureNote = string.Empty;
+
+    public bool ShowsPicture => IsAPicture && PictureBytes is not null;
+
+    public bool ShowsPictureNote => IsAPicture && PictureBytes is null;
 
     /// <summary>The table's rows as the screen draws and writes in them: each a list of its cells' fields.</summary>
     public IReadOnlyList<IReadOnlyList<NoteTableCellField>> TableRows => _tableRows;
@@ -352,7 +369,15 @@ public sealed partial class NoteLineRow : ObservableObject
     {
         OnPropertyChanged(nameof(IsAPicture));
         OnPropertyChanged(nameof(IsAnElement));
+        OnPropertyChanged(nameof(ShowsPicture));
+        OnPropertyChanged(nameof(ShowsPictureNote));
         SayHowItIsDrawn();
+    }
+
+    partial void OnPictureBytesChanged(byte[]? value)
+    {
+        OnPropertyChanged(nameof(ShowsPicture));
+        OnPropertyChanged(nameof(ShowsPictureNote));
     }
 
     partial void OnMarksChanged(IReadOnlyList<NoteTextRun> value)

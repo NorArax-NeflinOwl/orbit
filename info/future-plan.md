@@ -1395,8 +1395,15 @@ descriptions, and answering it once answers both.
 ### Still open
 
 - **The phone's half.** `LocalNote.Content` is the same list of lines in SQLite. Pictures have to sync
-  offline: fetched, cached on the handset, and whatever was pasted without a signal pushed later. That is
-  machinery `NoteSynchronizer` does not have.
+  offline: ~~fetched, cached on the handset~~ (done 2026-09-15 - `NotePictureCache`, in the app's cache
+  directory, bytes kept as the server holds them so a sealed picture stays sealed on disk; see
+  `info/functionality.md`), and whatever was pasted without a signal pushed later. That is machinery
+  `NoteSynchronizer` does not have: a picture line in the outbox whose bytes are still on the handset,
+  sent before the note that names it (`AddNotePictureCommand` needs the note to exist), and the sweep
+  the save does (`UpdateNoteRequest.PictureIds`) told about pictures the phone has not sent yet. Two
+  smaller things beside it: the cache is never swept by the app (a picture the note no longer names
+  stays until the OS clears the directory), and a picture is drawn at its natural size capped at a
+  screen's worth rather than scaled to the note's width as the browser does.
 - **Migrations on both sides**, and a `NoteContentLineDto` that older installed phones still read.
 
 ~~**A first version that respects all of the above** would be: web only, blob storage, sealed pictures

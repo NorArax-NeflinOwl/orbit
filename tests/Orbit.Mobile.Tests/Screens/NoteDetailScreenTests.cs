@@ -818,6 +818,12 @@ public sealed partial class NoteDetailScreenTests
         /// <summary>The screen's clock - moved on by the tests about which typing joins one undo step.</summary>
         public FakeTimeProvider Clock => _clock;
 
+        /// <summary>Where the screen keeps fetched pictures - a directory of this test's own, gone with it.</summary>
+        public string PictureDirectory { get; } = Path.Combine(Path.GetTempPath(), $"orbit-note-pictures-{Guid.NewGuid():N}");
+
+        /// <summary>A round with the fake server, which is how a note written here gets the server id its pictures are fetched under.</summary>
+        public Task SynchroniseAsync() => _synchronizer.SynchroniseAsync();
+
         /// <summary>
         /// A note somebody else shared in, which is the one kind the offline policy refuses - see
         /// OfflineEditPolicy.
@@ -887,7 +893,8 @@ public sealed partial class NoteDetailScreenTests
                 Notes, _synchronizer, new NotesClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock),
                 new Translations(new InMemoryLanguageStore()), _privateContent,
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)), Navigator,
-                new LocalFolderRepository(_localStore, _clock), _clock);
+                new LocalFolderRepository(_localStore, _clock), _clock,
+                pictures: new NotePictureCache(PictureDirectory, new NotePicturesClient(Server.ToHttpClient()), _privateContent));
 
             screen.Open(localId);
             await screen.LoadCommand.ExecuteAsync(null);
@@ -905,6 +912,10 @@ public sealed partial class NoteDetailScreenTests
         {
             Server.Dispose();
             _localStore.Dispose();
+            if (Directory.Exists(PictureDirectory))
+            {
+                Directory.Delete(PictureDirectory, recursive: true);
+            }
         }
     }
 }

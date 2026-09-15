@@ -365,6 +365,14 @@ public static class MauiProgram
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<PublicShareClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+		services.AddHttpClient<NotePicturesClient>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+		// One cache for the app, in the cache directory the OS may clear when short of room - a picture
+		// cleared that way is fetched again next time. See NotePictureCache for why the bytes stay sealed.
+		services.AddSingleton(provider => new NotePictureCache(
+			Path.Combine(FileSystem.CacheDirectory, "note-pictures"),
+			provider.GetRequiredService<NotePicturesClient>(),
+			provider.GetRequiredService<PrivateContentSealer>()));
 		services.AddHttpClient<ShareOfferClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<TransferClient>(client => client.BaseAddress = apiSettings.BaseAddress)

@@ -1154,7 +1154,10 @@ public static class PolishTranslations
         ["Unlock your encryption key to add a picture to a private note."] = "Odblokuj klucz szyfrowania, aby dodać zdjęcie do prywatnej notatki.",
         ["This note already holds all the pictures it may - 50 MB."] = "Ta notatka ma już tyle zdjęć, ile może - 50 MB.",
         ["The picture could not be stored. Try again."] = "Nie udało się zapisać zdjęcia. Spróbuj ponownie.",
-        ["Picture (open in a browser to see it)"] = "Zdjęcie (otwórz w przeglądarce, aby je zobaczyć)",
+        ["Picture"] = "Zdjęcie",
+        ["This picture isn't on this phone yet. Open the note while online to fetch it."] = "Tego zdjęcia nie ma jeszcze na tym telefonie. Otwórz notatkę, gdy będziesz online, aby je pobrać.",
+        ["This picture is sealed with an encryption key this device doesn't have."] = "To zdjęcie jest zaszyfrowane kluczem, którego to urządzenie nie ma.",
+        ["This picture couldn't be fetched. Try again when you are back online."] = "Nie udało się pobrać tego zdjęcia. Spróbuj ponownie, gdy będziesz online.",
         ["Attachment"] = "Załącznik",
         ["{0}: not implemented yet."] = "{0}: jeszcze niezaimplementowane.",
         // Several boxes selected in a note's writing - see NoteSurfaceEdits.Cycle. The first is the

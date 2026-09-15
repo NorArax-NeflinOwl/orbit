@@ -91,8 +91,13 @@
                                     </BindableLayout.ItemTemplate>
                                 </VerticalStackLayout>
 
-                                <Label Grid.Column="1" Text="{controls:Translate 'Picture (open in a browser to see it)'}"
-                                       IsVisible="{Binding IsAPicture}" VerticalOptions="Center"
+                                <!-- A picture of the note, fetched through the link - see SharedLine.PictureBytes. -->
+                                <Image Grid.Column="1" Aspect="AspectFit" HorizontalOptions="Start"
+                                       MaximumHeightRequest="360" Margin="0,8"
+                                       IsVisible="{Binding ShowsPicture}"
+                                       Source="{Binding PictureBytes, Converter={StaticResource PictureBytes}}" />
+                                <Label Grid.Column="1" Text="{Binding PictureNote}"
+                                       IsVisible="{Binding ShowsPictureNote}" VerticalOptions="Center"
                                        Style="{StaticResource SubtleLabel}" />
                                 <Label Grid.Column="2" Text="{Binding Detail}" IsVisible="{Binding HasDetail}"
                                        FontSize="12" VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />

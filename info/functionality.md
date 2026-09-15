@@ -1168,9 +1168,17 @@ disagree in.
     note takes them all, bytes and rows.
   - **Not in an export.** A file cannot carry the bytes, and a line naming bytes that are not there would
     be a broken picture on import, so picture lines are left out of `ExportArchive`.
-  - **The phone carries a picture line unchanged and draws a placeholder** ("Picture - open in a browser
-    to see it"): fetching the bytes for a handset means caching them for offline reading, which is the
-    phone's own round - `info/future-plan.md`.
+  - **The phone fetches a picture once and keeps it** (2026-09-15, `NotePicturesClient`,
+    `NotePictureCache`): after the lines are on the screen - the words never wait for the bytes - each
+    picture line asks the cache, which reads the handset's cache directory and fetches what is not there.
+    The bytes are kept **as the server holds them**, so a private note's picture stays sealed on disk and
+    is opened into memory each time (`PrivateContentKey.OpenBytes`, the browser's `sealBytesForSelf`
+    layout: nonce, then ciphertext with the tag on its end - `SealedBytesTests` pins it), for the reason
+    `LocalNote` keeps a private note's words sealed. A line with no bytes says why in the picture's
+    place (`NoteLineRow.PictureNote`): sealed under a key this device has not got, or not on the phone
+    and not fetchable now. A share link's pictures come the same way, by the token. The OS may clear the
+    cache directory when short of room; nothing else sweeps it. The phone still puts no picture into a
+    note - `info/future-plan.md`.
 - **Not in a list's or an inventory's name and description** (`TitledDescription`,
   `ChecklistTextEditor.TakesStyles` off): those store two plain strings, so a style set there would be
   dropped by the save - the same reason `[]` stays words there. Giving descriptions the note's own

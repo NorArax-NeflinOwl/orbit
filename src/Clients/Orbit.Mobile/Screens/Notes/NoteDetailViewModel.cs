@@ -52,6 +52,15 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     private readonly EditLock _editLock;
     private readonly Translations _translations;
     private readonly PrivateContentSealer _privateContent;
+
+    /// <summary>Where a picture's bytes come from - see NotePictureCache. Null on a screen built without one, which draws no pictures.</summary>
+    private readonly NotePictureCache? _pictures;
+
+    /// <summary>The server's id of the note being shown, which is what its pictures are fetched under - null until the note is read in, or for one the server has never seen.</summary>
+    private Guid? _pictureNoteId;
+
+    /// <summary>Whether the note's pictures are sealed - a private note's are, under the account's key.</summary>
+    private bool _picturesAreSealed;
     private readonly IScreenNavigator _navigator;
     private readonly TimeProvider _timeProvider;
 
@@ -145,8 +154,10 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         LocalNoteRepository notes, NoteSynchronizer synchronizer, NotesClient notesClient, EditLock editLock,
         Translations translations, PrivateContentSealer privateContent, SharePanel share, IScreenNavigator navigator,
         LocalFolderRepository folders, TimeProvider timeProvider,
-        LocalTagColourRepository? tagColours = null, TagColourSynchronizer? tagColourSynchronizer = null)
+        LocalTagColourRepository? tagColours = null, TagColourSynchronizer? tagColourSynchronizer = null,
+        NotePictureCache? pictures = null)
     {
+        _pictures = pictures;
         Tags = new Orbit.Mobile.Screens.Tags.TagsForm(translations, tagColours, tagColourSynchronizer);
         _timeProvider = timeProvider;
         _folders = folders;
@@ -751,6 +762,50 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         await ShowWhetherItCanBeChangedAsync(note, cancellationToken);
 
         ShowTheLines(note.Content);
+
+        _pictureNoteId = note.ServerId;
+        _picturesAreSealed = note.IsPrivate;
+        await ShowThePicturesAsync([.. Lines.Where(row => row.IsAPicture)], cancellationToken);
+    }
+
+    /// <summary>
+    /// Fetches, or opens from the handset, the picture of every line in <paramref name="rows"/> that is
+    /// one - after the lines are on the screen, so the words never wait for the bytes. A picture that
+    /// cannot be had leaves a note in its place saying why: sealed under a key this device has not got,
+    /// or not on the handset and not fetchable now - which reads the same whether the phone is offline
+    /// or the server has lost it, and says what to do about the case that can be helped.
+    /// </summary>
+    private async Task ShowThePicturesAsync(IReadOnlyList<NoteLineRow> rows, CancellationToken cancellationToken)
+    {
+        if (rows.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var row in rows)
+        {
+            row.PictureNote = _translations["Picture"];
+        }
+
+        var sealedWithoutAKey = _picturesAreSealed && !await _privateContent.HasKeyAsync(cancellationToken);
+        foreach (var row in rows)
+        {
+            if (row.Picture is not { } picture)
+            {
+                continue;
+            }
+
+            row.PictureBytes = _pictures is not null && _pictureNoteId is { } noteId && !sealedWithoutAKey
+                ? await _pictures.OpenAsync(noteId, picture.PictureId, _picturesAreSealed, cancellationToken)
+                : null;
+
+            if (row.PictureBytes is null)
+            {
+                row.PictureNote = sealedWithoutAKey
+                    ? _translations["This picture is sealed with an encryption key this device doesn't have."]
+                    : _translations["This picture isn't on this phone yet. Open the note while online to fetch it."];
+            }
+        }
     }
 
     /// <summary>
@@ -1272,14 +1327,26 @@ public sealed partial class NoteDetailViewModel : ObservableObject
                 Lines.RemoveAt(same + changedInPlace);
             }
 
+            List<NoteLineRow> arrivedWithAPicture = [];
             for (var added = changedInPlace; added < wantedBetween; added++)
             {
                 var row = NoteLineRow.From(wanted[same + added]);
                 Lines.Insert(same + added, row);
                 Watch(row);
+                if (row.IsAPicture)
+                {
+                    arrivedWithAPicture.Add(row);
+                }
             }
 
             NumberTheLists();
+
+            // A picture line an undo brought back is a new row with no bytes; they are fetched after
+            // the lines are shown, as they are when the note is read in, and the screen does not wait.
+            if (arrivedWithAPicture.Count > 0)
+            {
+                _ = ShowThePicturesAsync(arrivedWithAPicture, CancellationToken.None);
+            }
         }
         finally
         {
