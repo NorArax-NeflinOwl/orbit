@@ -720,8 +720,14 @@ which way round the default goes.
 (`EntryStandsForAnyOfItsLists`) marks every entry that already points at a list, so each of them keeps
 saying "all of them"; only entries written afterwards get the new default. And a client that has never
 heard of the rule keeps it rather than resetting it - the eighth field to follow that rule
-(`UpdateTaskListCommand.EntriesKeepingTheirListRule`, `TaskItem.KeepListRuleOf`), which is what stops a
-save from the phone turning an entry somebody set to "all of them" back to the default.
+(`UpdateTaskListCommand.EntriesKeepingTheirListRule`, `TaskItem.KeepListRuleOf`), which is what stopped a
+save from an older phone turning an entry somebody set to "all of them" back to the default.
+
+**The phone asks it too**, as a switch under the lists an entry stands for and on the same terms - only
+where there are two to choose between (`TaskItemEditor.NeedsEveryLinkedList`,
+`CanChooseHowManyListsAreNeeded`). It now says what the rule is rather than saying nothing about it
+(`TaskListSynchronizer.ToRequests`); the keep-what-is-stored rule above is still what covers a build
+installed before this, which is the case it was written for.
 
 - **Rebuilds keep everything.** Resolving an entry now keeps every field it carries. The resolver used
   to rebuild a linked entry from its id, words, date and reminders alone, so a read handed it back

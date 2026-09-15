@@ -1951,6 +1951,45 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// Which of the lists an entry stands for have to be done - see TaskItem.NeedsEveryLinkedList. Any
+    /// one of them unless the form says otherwise, and the phone could only read that answer: an entry
+    /// standing for several could be switched to "all of them" from a browser and nowhere else.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_can_be_told_it_needs_every_list_it_stands_for()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Shopping");
+        context.OpenTaskList("Chemist");
+        var screen = context.OpenTaskList("This week");
+        screen.NewItemDescription = "The errands";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        var editor = screen.BeingEdited!;
+        // Nothing to ask while it stands for one list: the question has one answer.
+        editor.LinkToCommand.Execute(editor.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
+        Assert.False(editor.CanChooseHowManyListsAreNeeded);
+
+        editor.LinkToCommand.Execute(editor.LinkableTaskLists.Single(choice => choice.Name == "Chemist"));
+        Assert.True(editor.CanChooseHowManyListsAreNeeded);
+        editor.NeedsEveryLinkedList = true;
+
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+
+        var thisWeek = context.Server.TaskLists.Single(list => list.Title == "This week");
+        Assert.True(Assert.Single(thisWeek.Items).NeedsEveryLinkedList);
+
+        // And the form opens on the answer it was given rather than on the default.
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        Assert.True(screen.BeingEdited!.NeedsEveryLinkedList);
+    }
+
+    /// <summary>
     /// An entry can be done any one of several ways, set in its form: a line of its own and another list
     /// both reach the server. While it has ways it is not offered lists to stand for - "any one of these"
     /// and "every one of these" are two different entries. See TaskItem.Alternatives.

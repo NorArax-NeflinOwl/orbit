@@ -541,7 +541,14 @@ internal sealed class FakeTasksServer : HttpMessageHandler
                 : item.CompletedAtUtc
                     ?? (storedById.GetValueOrDefault(item.Id ?? Guid.Empty) is { IsCompleted: true } wasDone
                         ? wasDone.CompletedAtUtc
-                        : nowUtc))).ToList());
+                        : nowUtc),
+            // Whether every list the entry stands for has to be done. Null means "nothing to say" and
+            // keeps what is stored - UpdateTaskListCommand.EntriesKeepingTheirListRule, the same rule the
+            // notes above follow. A fake that wrote the null through would answer a client that says
+            // nothing with "any one of them", which is not what the server does.
+            NeedsEveryLinkedList: item.NeedsEveryLinkedList
+                ?? (item.Id is { } ruled && storedById.TryGetValue(ruled, out var ruledAsStored)
+                    && ruledAsStored.NeedsEveryLinkedList))).ToList());
     }
 
     /// <summary>

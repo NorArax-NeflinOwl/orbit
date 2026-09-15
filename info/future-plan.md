@@ -1837,10 +1837,13 @@ same feature owing its second client.
   rail's extras. The phone shows the same fraction on the dashboard card and on the tasks list row
   (`TaskListRow.Progress`) but not on the list's own screen, which is the one place somebody reading a
   long list wants it.
-- **"Needs all of them".** The rule itself is shared (`TaskItem.NeedsEveryLinkedList`), and the phone
+- ~~**"Needs all of them".** The rule itself is shared (`TaskItem.NeedsEveryLinkedList`), and the phone
   sends null for it, which the server reads as "keep what is stored" - so nothing is lost. But the phone
   offers no way to set it, so an entry standing for several lists can only be switched to "all of them"
-  from a browser.
+  from a browser.~~ Done 2026-09-15: a switch under the lists in the entry's form, drawn only where it
+  stands for two or more, and `ToRequests` now says the rule instead of saying nothing about it. The
+  fake tasks server had to learn the field first - it answered every save with the default, which would
+  have let a phone that never sent it pass.
 - **"New sublist".** Built in `TaskListChecklist` on 2026-09-14, and it has **no test** on either side.
   The phone's checklist draws one list at a time rather than the tree (see the entry below about
   flattening), so the action would need the tree first.

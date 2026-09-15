@@ -345,5 +345,10 @@ public sealed class TaskListSynchronizer
             item.RequiredQuantity,
             // When it was done, as this phone recorded it at the tick - offline included. The server
             // keeps a time it is sent, and records one itself only for a tick that arrives without.
-            item.CompletedAtUtc)).ToList();
+            item.CompletedAtUtc,
+            // Whether every list the entry stands for has to be done, as the local copy holds it - which
+            // this phone now writes as well as reads (see TaskItemEditor.NeedsEveryLinkedList). Said
+            // rather than left null: null keeps what the server stores, which was the right answer only
+            // while there was no way to change it here.
+            item.NeedsEveryLinkedList)).ToList();
 }
