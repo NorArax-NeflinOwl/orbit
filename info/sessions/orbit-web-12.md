@@ -108,6 +108,17 @@ Then, in order:
    setting a mark on the phone, putting a picture into a note from the phone - each written down in
    `info/future-plan.md` with what it takes.
 
+**Also carried on this branch, asked for on 2026-09-15**: folders for calendar events and for
+inventories, done the way the notes and the lists have them, and folders carried through the export and
+the import. Four commits, server first, then the browser, then the phone's data and its screens. This
+**reverses a decision the user made on 2026-09-09** ("calendar events are not filed in folders, and will
+not be"); the entry in `info/future-plan.md` says so and says what was kept from it - a calendar tab
+narrows the grid and the list together, and the dashboard draws no calendar tabs. Two things about it
+are worth knowing before touching it again: `FolderPages` now answers a third question
+(`HasAPrivateTab`, false only for the calendar, an event being one of the kinds Orbit never seals), and
+the archive names a folder **by name** because a file carries no ids - a name the file did not carry
+comes back unfiled.
+
 ## Environment facts confirmed this session
 
 - No .NET SDK, no Android SDK; the proxy refuses the .NET download with 403.

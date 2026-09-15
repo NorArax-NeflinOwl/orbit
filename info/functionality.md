@@ -884,10 +884,10 @@ of counts above the tabs stays whatever is open - it is about the day rather tha
 **Private narrows it the same way** (2026-09-10). Private is about one thing too - what is sealed - and
 only three kinds of card can hold anything that is: notes, task lists and shelves. An appointment, a
 person, a group and a shared position are none of them sealed, so the tab used to answer "show me what
-is private" with a page mostly made of things that are not. The shelves are the part that needed more
-than hiding: an inventory is not filed into a folder - there is no tab for one on the inventory page -
-but it can be sealed, so the two built-in tabs now tell shelves apart by that (`Dashboard`'s
-`InventoriesUnderTheOpenTab`), where before the Private tab drew every shelf the account had.
+is private" with a page mostly made of things that are not. The shelves are told apart by it the same
+way the notes and the lists are (`Dashboard`'s `InventoriesUnderTheOpenTab`), where before the Private
+tab drew every shelf the account had - and since 2026-09-15 a shelf is filed into a folder as well, so
+that card narrows to a folder somebody made just as the other two do.
 
 **A card is drawn only where it has something under the open tab.** It used to be drawn whenever the
 account had one of that kind anywhere, and then said "Nothing here matches the filter" - which named the

@@ -280,12 +280,19 @@ the session can read the address off the same page. The stronger answer is to as
 Explicitly called out in the functionality documentation as deliberate limitations of this first
 version, so they aren't mistaken for oversights:
 
-- **Calendar events are not filed in folders, and will not be.** Decided by the user on 2026-09-09,
+- ~~**Calendar events are not filed in folders, and will not be.** Decided by the user on 2026-09-09,
   when folders were given a page of their own (`FolderScope`). A folder holds notes and task lists;
   an event is found by when it happens, which is what the calendar is. Written down because it looks
   like an omission from the outside - the Finished tab's own wording used to say it "concerns tasks and
   events" - and because the change is not a small one: `OP_EVENTS` has no folder column, so this would
-  be a migration, a third `FolderScope`, and a field on the event form.
+  be a migration, a third `FolderScope`, and a field on the event form.~~
+  **Reversed by the user on 2026-09-15**, who asked for folders on the events *and* on the inventories,
+  done the way the notes and the lists have them. It cost exactly what this said it would - one
+  migration (`OP_E_FOLDERID`, `OP_I_FOLDERID`), two more `FolderScope`s and a field on both forms - plus
+  the phone's half and the archive's. What the old decision was right about is kept: a tab on the
+  calendar narrows the grid **and** the list together, so it is still a way of reading the whole
+  calendar rather than a second index of it, and the dashboard draws no calendar tabs, because what it
+  says about the calendar is when things are. See `info/functionality.md`, "Folders".
 - **The month and year calendar views stay filtered to what is still to come.** Also confirmed by the
   user on 2026-09-09, alongside making the week account for everything the way a day does (see
   `Calendar.ShowsEverythingInThisView`). They are read to find something rather than to account for a
