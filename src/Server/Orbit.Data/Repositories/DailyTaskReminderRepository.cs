@@ -16,13 +16,20 @@ public sealed class DailyTaskReminderRepository : IDailyTaskReminderRepository
 
     public async Task<IReadOnlyList<DailyTaskReminderCandidate>> GetEligibleAsync(CancellationToken cancellationToken)
     {
+        // Which lists an inventory keeps for itself - the one place an entry that comes round again
+        // lives, and the only thing here that is work rather than an errand. See ComesRoundAgain below.
+        //
+        // Read first and matched against in memory rather than left as a subquery: there is one row per
+        // inventory, so the set is small, and it keeps the query below to the one shape every provider
+        // translates the same way.
+        var managedTaskListIds = await _dbContext.InventoryManagedTaskLists
+            .AsNoTracking()
+            .Select(managed => managed.TaskListId)
+            .ToListAsync(cancellationToken);
+
         // TaskItemEntity has no navigation back to its owning TaskEntity (see OrbitDbContext - only the
         // reverse Items navigation exists), so the owner's UserId and the list's Title are pulled in via
         // an explicit join on TaskId rather than a navigation property (mirrors OverdueTaskNotificationRepository).
-        // Which lists an inventory keeps for itself - the one place an entry that comes round again
-        // lives, and the only thing here that is work rather than an errand. See ComesRoundAgain below.
-        var managedTaskListIds = _dbContext.InventoryManagedTaskLists.AsNoTracking().Select(managed => managed.TaskListId);
-
         var rows = await (
             from item in _dbContext.Set<TaskItemEntity>().AsNoTracking()
             join task in _dbContext.Tasks.AsNoTracking() on item.TaskId equals task.Id
@@ -47,8 +54,7 @@ public sealed class DailyTaskReminderRepository : IDailyTaskReminderRepository
                 item.Description,
                 item.DueDateUtc,
                 item.DailyReminderNotificationChannel,
-                item.DailyReminderTimeOfDayMinutes,
-                ComesRoundAgain = item.Description == StandingRoundDescription && managedTaskListIds.Contains(item.TaskId)
+                item.DailyReminderTimeOfDayMinutes
             }).ToListAsync(cancellationToken);
 
         return rows
@@ -61,7 +67,7 @@ public sealed class DailyTaskReminderRepository : IDailyTaskReminderRepository
                 row.DueDateUtc,
                 Enum.Parse<NotificationChannel>(row.DailyReminderNotificationChannel, ignoreCase: true),
                 TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(row.DailyReminderTimeOfDayMinutes)),
-                row.ComesRoundAgain))
+                ComesRoundAgain(row.Description, row.TaskId, managedTaskListIds)))
             .ToList();
     }
 
@@ -73,6 +79,15 @@ public sealed class DailyTaskReminderRepository : IDailyTaskReminderRepository
     /// somebody happens to name the same thing on a list of their own is still their errand.
     /// </summary>
     private const string StandingRoundDescription = Orbit.Core.Inventories.RestockTaskNaming.UpdateStockReminderDescription;
+
+    /// <summary>
+    /// Whether this entry is the standing round rather than an errand - see
+    /// <see cref="StandingRoundDescription"/>, and DailyTaskReminderCandidate.ComesRoundAgain for what
+    /// it decides. Both halves are asked, here and in the query above, so the two cannot disagree about
+    /// which entries are which.
+    /// </summary>
+    private static bool ComesRoundAgain(string description, Guid taskListId, List<Guid> managedTaskListIds)
+        => description == StandingRoundDescription && managedTaskListIds.Contains(taskListId);
 
     public Task<bool> HasBeenSentAsync(Guid taskItemId, DateOnly reminderDate, CancellationToken cancellationToken)
     {
