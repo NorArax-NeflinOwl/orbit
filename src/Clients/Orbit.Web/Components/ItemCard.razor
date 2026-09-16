@@ -19,8 +19,8 @@
     <div class="item-card-head">
         @* The mark that chooses this card to be acted on with the others, first in the row and only
            while the page is choosing - see PickedThings, and the phone's own ShowsPickMark, which puts
-           its mark in the same place for the same reason. Its own control rather than a press on the
-           card, so a reader who wants to open one while choosing still can. *@
+           its mark in the same place for the same reason. It says which cards are chosen; choosing one
+           is done by pressing it anywhere, since while the mode is on that is all a press means. *@
         @if (OffersPicking)
         {
             <span class="item-card-pick">
@@ -89,9 +89,9 @@
         @* Pressable like the unfolded one below, and for the same reason. It was a plain block, so
            folding a card took away the one press its body answered: the line saying what is still to be
            done sat there looking like every other row in the app and did nothing at all. *@
-        <div class="item-card-body @(OnBodySelected.HasDelegate ? "item-card-body-opens" : "")"
-             role="@(OnBodySelected.HasDelegate ? "button" : null)"
-             tabindex="@(OnBodySelected.HasDelegate ? 0 : null)"
+        <div class="item-card-body @(BodyAnswersAPress ? "item-card-body-opens" : "")"
+             role="@(BodyAnswersAPress ? "button" : null)"
+             tabindex="@(BodyAnswersAPress ? 0 : null)"
              @onclick="BodySelectedAsync" @onkeydown="OpenOnEnterOrSpaceAsync">
             @CollapsedBody
         </div>
@@ -102,9 +102,9 @@
         @* The whole area opens the light editor, not just a link inside it: on a card this size the
            text is the target, and asking somebody to hit a word rather than the block it sits in is
            the difference between one tap and three. *@
-        <div class="item-card-body @(OnBodySelected.HasDelegate ? "item-card-body-opens" : "")"
-             role="@(OnBodySelected.HasDelegate ? "button" : null)"
-             tabindex="@(OnBodySelected.HasDelegate ? 0 : null)"
+        <div class="item-card-body @(BodyAnswersAPress ? "item-card-body-opens" : "")"
+             role="@(BodyAnswersAPress ? "button" : null)"
+             tabindex="@(BodyAnswersAPress ? 0 : null)"
              @onclick="BodySelectedAsync" @onkeydown="OpenOnEnterOrSpaceAsync">
             @Body
         </div>
@@ -213,6 +213,14 @@
     /// </summary>
     private Task NameSelectedAsync()
         => OffersPicking ? OnPickedChanged.InvokeAsync() : OnNameSelected.InvokeAsync();
+
+    /// <summary>
+    /// Whether a press on the body does anything - it opens the thing, or, while the page is choosing,
+    /// it chooses this card. Asked rather than <see cref="OnBodySelected"/> alone so that a card with no
+    /// body press of its own is still reachable by keyboard while choosing: without it the body took
+    /// the press but was marked as nothing, and a reader on the keyboard could not reach it at all.
+    /// </summary>
+    private bool BodyAnswersAPress => OffersPicking || OnBodySelected.HasDelegate;
 
     /// <inheritdoc cref="NameSelectedAsync"/>
     private Task BodySelectedAsync()
