@@ -435,8 +435,14 @@ public sealed partial class InventoryViewModel : ObservableObject
         _everyShelf = held;
         _stored = [.. held.Where(inventory => Folders.Holds(placements[inventory.LocalId]))];
         _pending = pending;
+        OnPropertyChanged(nameof(NothingHereMessage));
         ShowRows();
     }
+
+    /// <inheritdoc cref="Notes.NotesViewModel.NothingHereMessage"/>
+    public string NothingHereMessage => _everyShelf.Count > 0
+        ? _translations["Nothing in this folder."]
+        : _translations["No inventories yet."];
 
     /// <summary>
     /// Rebuilds the rows from what is already held. Separate from the read, so unlocking private things

@@ -106,6 +106,18 @@ public sealed partial class NotesViewModel : ObservableObject
     /// </summary>
     public bool HasNotes => Notes.Count > 0;
 
+    /// <summary>
+    /// What an empty screen means: an account with no notes at all, or a folder tab with none under it.
+    /// "No notes." over an empty Archived tab read as the notes having gone - the browser has always told
+    /// the two apart (Notes.razor).
+    /// </summary>
+    public string NothingHereMessage => _holdsAnyNote
+        ? _translations["Nothing in this folder."]
+        : _translations["No notes."];
+
+    /// <summary>Whether this phone holds a note under any tab - see <see cref="NothingHereMessage"/>.</summary>
+    private bool _holdsAnyNote;
+
     /// <inheritdoc cref="Tasks.TasksViewModel.HasMessage"/>
     public bool HasMessage => Message.Length > 0;
 
@@ -235,6 +247,8 @@ public sealed partial class NotesViewModel : ObservableObject
     {
         var stored = await _notes.GetAllAsync(cancellationToken);
         var pending = await _notes.GetPendingNoteLocalIdsAsync(cancellationToken);
+        _holdsAnyNote = stored.Count > 0;
+        OnPropertyChanged(nameof(NothingHereMessage));
         await Folders.ReadAsync(cancellationToken);
 
         // Where each note is, by the rule both clients share - a note has nothing to finish, so the

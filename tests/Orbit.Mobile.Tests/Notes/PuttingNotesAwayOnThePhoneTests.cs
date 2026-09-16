@@ -41,9 +41,22 @@ public sealed class PuttingNotesAwayOnThePhoneTests
 
         screen.ChooseFolderCommand.Execute(FolderKey.Of(work.LocalId));
         Assert.Empty(screen.Notes);
+        // Said about the folder, not the account: "No notes." here read as the note having gone.
+        Assert.Equal("Nothing in this folder.", screen.NothingHereMessage);
 
         screen.ChooseFolderCommand.Execute(FolderKey.Of(BuiltInFolder.Archived));
         Assert.Equal("Old receipts", Assert.Single(screen.Notes).DisplayTitle);
+    }
+
+    /// <summary>And an account with no notes at all is told that, rather than about a folder.</summary>
+    [Fact]
+    public async Task An_account_with_no_notes_is_told_it_has_none()
+    {
+        using var context = new ScreenContext();
+
+        var screen = await context.OpenAsync();
+
+        Assert.Equal("No notes.", screen.NothingHereMessage);
     }
 
     /// <summary>
