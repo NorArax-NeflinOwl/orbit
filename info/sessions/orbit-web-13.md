@@ -54,8 +54,11 @@ duplicate check and both translation sweeps.
   is Batch 15 in PR #288's description - two real defects (`IsArchived` dropped by
   `LinkedTaskCompletionResolver`; an unawaited group save on the phone that crashed the test host), the
   compile errors, and tests behind the code. `GroupMembers` (the static class) is `GroupMemberLists` now.
-- **Nothing has been seen in a browser or on a device.** It matters most for batches 12-14, which are
-  almost entirely markup. The riskiest single file is `ItemCard.razor`: every list in the app uses it.
+- **Used in a browser on 2026-09-16** against `orbit_pr288`, a copy of the local database (Batch 16 in
+  PR #288). Three faults found and fixed: a note's rule dropped by the editor JS, no way out of choosing
+  on an empty list, and the bar's folder picker unusable twice. **Enter adding the next entry could not be
+  checked** - the browser pane's synthetic Enter never triggers a form's implicit submit.
+- **Nothing has been seen on a device.**
 
 ## Rejected approaches (do not retry)
 
@@ -74,9 +77,10 @@ duplicate check and both translation sweeps.
 
 ## Next step
 
-**Look at batches 12-14 in a running browser** (choosing several cards, filtered copy, a group's member
-sections) and batches 10-12 on the phone, then take PR #288 out of draft. PR #288's description is
-current as of Batch 15.
+**Look at batches 10-12 on the phone** (archiving, the rule across a note, filtered copy), then take PR
+#288 out of draft. To run the branch locally without touching the `orbit` database: start `orbit-postgres`
+alone (`docker compose -p orbit up -d --no-deps postgres`, with the root's `.env` and override copied in),
+point the API at `orbit_pr288` on port 5080, and serve Orbit.Web on 5081.
 
 ## Environment facts confirmed this session
 
