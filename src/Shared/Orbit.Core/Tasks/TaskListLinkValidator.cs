@@ -46,43 +46,15 @@ public sealed class TaskListLinkValidator
                 throw new InvalidRequestException("A linked task list must exist and belong to the same user.");
             }
 
-            if (taskListId is { } currentListId && Reaches(linkedListId, currentListId, taskListsById))
+            if (taskListId is { } currentListId
+                && TaskListLinks.WouldCloseALoop(
+                    listId => taskListsById.TryGetValue(listId, out var list)
+                        ? list.Items.SelectMany(item => item.TaskListIdsItPointsAt)
+                        : null,
+                    currentListId, linkedListId))
             {
                 throw new InvalidRequestException("This link would create a cycle between task lists.");
             }
         }
-    }
-
-    /// <summary>
-    /// True if, starting from <paramref name="fromId"/> and following linked items transitively, the
-    /// walk ever reaches <paramref name="toId"/> - i.e. whether linking toId's item to fromId would
-    /// close a loop back to where it started.
-    /// </summary>
-    private static bool Reaches(Guid fromId, Guid toId, IReadOnlyDictionary<Guid, TaskList> taskListsById)
-    {
-        var visited = new HashSet<Guid>();
-        var toVisit = new Queue<Guid>();
-        toVisit.Enqueue(fromId);
-
-        while (toVisit.Count > 0)
-        {
-            var currentId = toVisit.Dequeue();
-            if (currentId == toId)
-            {
-                return true;
-            }
-
-            if (!visited.Add(currentId) || !taskListsById.TryGetValue(currentId, out var currentList))
-            {
-                continue;
-            }
-
-            foreach (var linkedId in currentList.Items.SelectMany(item => item.TaskListIdsItPointsAt))
-            {
-                toVisit.Enqueue(linkedId);
-            }
-        }
-
-        return false;
     }
 }

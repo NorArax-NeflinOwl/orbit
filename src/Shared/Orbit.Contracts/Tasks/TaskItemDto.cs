@@ -163,6 +163,18 @@ public sealed record TaskItemDto(
     public IReadOnlyList<Guid> AllLinkedTaskListIds
         => LinkedTaskListIds is { Count: > 0 } ids ? ids : LinkedTaskListId is { } single ? [single] : [];
 
+    /// <summary>
+    /// Every other list this entry points at - one it stands for, or a way of doing it that is a list.
+    /// The DTO's side of Orbit.Core.Tasks.TaskItem.TaskListIdsItPointsAt, which is what the server checks
+    /// for loops (see Orbit.Core.Tasks.TaskListLinks), so a client asking the same question reads the
+    /// same answer. Not sent: it is worked out from two fields that are.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IEnumerable<Guid> TaskListIdsItPointsAt
+        => AllLinkedTaskListIds
+            .Concat(AllAlternatives.Where(way => way.LinkedTaskListId is not null).Select(way => way.LinkedTaskListId!.Value))
+            .Distinct();
+
     /// <summary>The categories as something to read without a null check - see <see cref="Categories"/>.</summary>
     public IReadOnlyList<string> AllCategories => Categories ?? [];
 

@@ -2600,13 +2600,21 @@ validation failure throws `InvalidRequestException` and comes back as a **400 ca
 see [Refusing a request](#refusing-a-request).
 
 **The editor asks the same question before it offers the link.** Its "link to list" dropdown leaves out
-every list that links back to the one being edited, however long the chain (`TaskListLinkCycle`, which
-walks the saved lists exactly as the server does) - so a link that would be refused is never offered in
+every list that links back to the one being edited, however long the chain - so a link that would be
+refused is never offered in
 the first place, which is how every other rule the server enforces is handled on this side. What it
 replaced was a failed save naming a rule nothing on screen had mentioned, and the deeper the chain the
 less obvious what had gone wrong: A links to B, B to C, and the row offering C a link back to A looked
 like any other. The "move to list" dropdown is not narrowed this way - moving a row is not linking, and
 carries none of linking's rules.
+
+**One walk, on all three sides** (`Orbit.Core.Tasks.TaskListLinks.WouldCloseALoop`): the server's
+validator, the browser's `TaskListLinkCycle` and the phone's link and "or a list" pickers all ask it,
+each handing it what a list points at from the shape it holds lists in. It follows a way of doing an
+entry that is a list as well as a list the entry stands for (`TaskItemDto.TaskListIdsItPointsAt`), since
+the server refuses a loop through either. Until 2026-09-16 the browser followed links alone, so it offered
+a loop through a way, and the phone checked nothing - a link it offered went into the queue and came back
+from the sync as a notice that a change could not be saved.
 
 Each **item** also says what it is: `kind` is `Checklist` (the default), `Calendar`, `Location` or
 `Inventory`. Two of them have somewhere to be and so carry a `location`: a `Calendar` entry, which is

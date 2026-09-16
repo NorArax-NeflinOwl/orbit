@@ -1913,6 +1913,33 @@ public sealed class TaskListDetailScreenTests
     /// offered and then rejected, which is what Orbit.Web's editor does too.
     /// </summary>
     [Fact]
+    public async Task A_list_that_already_points_back_here_is_not_offered_to_link_to()
+    {
+        // Today stands for Shopping; Shopping pointing at Today would close a loop the server refuses.
+        // Seen on a device: the phone offered it, the save went into the queue, and the refusal came
+        // back as a notice about a change that could not be saved.
+        using var context = new ScreenContext();
+        var shopping = context.OpenTaskList("Shopping");
+        await AddAsync(shopping, "Milk");
+        var today = context.OpenTaskList("Today");
+        await AddAsync(today, "The shopping");
+        await context.SynchroniseAsync();
+        await today.LoadCommand.ExecuteAsync(null);
+        today.EditItemCommand.Execute(today.Items.Single());
+        today.BeingEdited!.LinkToCommand.Execute(
+            today.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
+        await today.SaveItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+
+        await shopping.LoadCommand.ExecuteAsync(null);
+        shopping.EditItemCommand.Execute(shopping.Items.Single());
+
+        Assert.DoesNotContain(shopping.BeingEdited!.LinkableTaskLists, choice => choice.Name == "Today");
+        // Moving an entry there closes no loop, so it stays somewhere the entry can go.
+        Assert.Contains(shopping.MoveTargetsForTheEntry, target => target.Name == "Today");
+    }
+
+    [Fact]
     public async Task A_list_the_entry_stands_for_is_not_offered_as_somewhere_to_move_it()
     {
         using var context = new ScreenContext();

@@ -517,12 +517,31 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         LinkTargets.Clear();
         LinkTargets.Add(TaskListChoice.NoList(_translations));
 
+        // Which lists each one points at, for the loop question below.
+        var itemsByServerId = others
+            .Where(list => list.ServerId is not null)
+            .ToDictionary(list => list.ServerId!.Value, list => list.Items);
+        var thisServerId = others.FirstOrDefault(list => list.LocalId == _localId)?.ServerId;
+
         // By the id an entry names a list with, so a row standing for one can say which and open it.
         var byServerId = new Dictionary<Guid, TaskItemReference>();
         foreach (var other in others.Where(list => list.LocalId != _localId && list.ServerId is not null))
         {
             MoveTargets.Add(new TaskListChoice(other.ServerId!.Value, other.Title));
-            LinkTargets.Add(new TaskListChoice(other.ServerId!.Value, other.Title));
+
+            // Not offered to point at when it already points back here, however far along: the server
+            // refuses the loop, and a refusal comes back from the sync minutes later as a notice about a
+            // change that could not be saved. Moving an entry there closes no loop, so that stays on offer.
+            if (thisServerId is not { } editedServerId
+                || !TaskListLinks.WouldCloseALoop(
+                    listId => itemsByServerId.TryGetValue(listId, out var items)
+                        ? items.SelectMany(item => item.TaskListIdsItPointsAt)
+                        : null,
+                    editedServerId, other.ServerId!.Value))
+            {
+                LinkTargets.Add(new TaskListChoice(other.ServerId!.Value, other.Title));
+            }
+
             byServerId[other.ServerId!.Value] = new(
                 other.Title, other.LocalId, TaskItemReferenceTarget.TaskList);
         }

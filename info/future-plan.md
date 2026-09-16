@@ -408,7 +408,8 @@ version, so they aren't mistaken for oversights:
   looked at yet. The same seen signal (`ChatReadState`) could drive it.
 - ~~**Task list cycle validation is server-side only.**~~ Done: the editor's "link to list" dropdown now
   leaves out every list that links back to the one being edited, however long the chain
-  (`TaskListLinkCycle`), so a link the save would refuse is never offered. `TaskListLinkValidator` stays
+  (`TaskListLinks`, which the phone's pickers ask too since 2026-09-16), so a link the save would refuse is
+  never offered. `TaskListLinkValidator` stays
   the authority — this only stops the editor asking for something it already knows the answer to.
 
 ## Testing gaps
