@@ -39,6 +39,25 @@ public sealed class TasksApiClient
         _privateContentSealer = privateContentSealer;
     }
 
+    /// <summary>The filters this account made for the dashboard's Tasks card - see Orbit.Core.Tasks.TagFilters.TaskTagFilter.</summary>
+    public async Task<IReadOnlyList<TaskTagFilterDto>> GetTagFiltersAsync(CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<List<TaskTagFilterDto>>("api/task-filters", cancellationToken) ?? [];
+
+    /// <summary>Makes one, and answers it as the server stored it - or null when it was refused.</summary>
+    public async Task<TaskTagFilterDto?> CreateTagFilterAsync(
+        IReadOnlyList<string> tags, bool matchesAll, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/task-filters", new CreateTaskTagFilterRequest(tags, matchesAll), cancellationToken);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<TaskTagFilterDto>(cancellationToken)
+            : null;
+    }
+
+    /// <summary>Takes one away. False when it was not there to take.</summary>
+    public async Task<bool> DeleteTagFilterAsync(Guid filterId, CancellationToken cancellationToken = default)
+        => (await _httpClient.DeleteAsync($"api/task-filters/{filterId}", cancellationToken)).IsSuccessStatusCode;
+
     /// <summary>Pins or unpins one list. Returns false when it isn't the caller's to pin - see SetTaskListPinnedCommandHandler.</summary>
     public async Task<bool> SetPinnedAsync(Guid taskListId, bool isPinned, CancellationToken cancellationToken = default)
     {

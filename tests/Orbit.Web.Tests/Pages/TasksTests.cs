@@ -35,6 +35,9 @@ public sealed class TasksTests : OrbitTestContext
 
     private readonly NotificationFeedState _notifications = new();
 
+    /// <summary>What the page asked the server to make, when it asked - see TagFilterDialog.</summary>
+    private CreateTaskTagFilterRequest? _madeFilter;
+
     /// <summary>Opens the menu the sort orders live behind, and picks one by the words on it.</summary>
     /// <summary>
     /// A card's actions live in its overflow menu now - see ItemCard's Menu slot - and OverflowMenu
@@ -54,6 +57,38 @@ public sealed class TasksTests : OrbitTestContext
         cut.FindAll(".overflow-menu-dropdown .avatar-dropdown-item")
             .First(option => option.TextContent.Contains(label))
             .Click();
+    }
+
+    /// <summary>
+    /// "Create filter" offers the tags already on the lists as a checklist, a new word ticked as it is
+    /// added, and "And" to need every tag - and Save sends exactly that.
+    /// </summary>
+    [Fact]
+    public void A_filter_is_made_from_ticked_tags_a_new_one_and_the_and_switch()
+    {
+        RegisterTasksApiClient(
+        [
+            TaskList("Groceries") with { Tags = ["shopping"] },
+            TaskList("Hall") with { Tags = ["home", "Shopping"] }
+        ]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        cut.FindAll("button").First(button => button.TextContent.Trim() == "Create filter").Click();
+        var offered = cut.FindAll(".tag-filter-list label").Select(label => label.TextContent.Trim());
+        Assert.Equal(["home", "shopping"], offered);
+
+        cut.FindAll(".tag-filter-list label").First(label => label.TextContent.Contains("home"))
+            .QuerySelector("input")!.Change(true);
+        cut.Find(".tag-filter-new input").Input("garden");
+        cut.FindAll(".tag-filter-new button").Single().Click();
+        cut.Find(".tag-filter-and").Click();
+        cut.Find(".dialog-footer button[aria-label='Save']").Click();
+
+        var body = Assert.IsType<CreateTaskTagFilterRequest>(_madeFilter);
+        Assert.Equal(["home", "garden"], body.Tags);
+        Assert.True(body.MatchesAll);
+        Assert.Empty(cut.FindAll(".tag-filter-dialog"));
+        Assert.Contains("home and garden", cut.Markup);
     }
 
     [Fact]
@@ -1121,6 +1156,16 @@ public sealed class TasksTests : OrbitTestContext
             // Kept so a test can say what the page sent as well as what it drew - see the shared pin,
             // which travels to the server on the same request an owned list's does.
             _requests.Add(request);
+            // A filter made in TagFilterDialog, answered as the server stores it.
+            if (request.Method == HttpMethod.Post && request.RequestUri!.AbsolutePath.EndsWith("/api/task-filters", StringComparison.Ordinal))
+            {
+                var made = _madeFilter = request.Content!.ReadFromJsonAsync<CreateTaskTagFilterRequest>().GetAwaiter().GetResult()!;
+                return new HttpResponseMessage(HttpStatusCode.Created)
+                {
+                    Content = JsonContent.Create(new TaskTagFilterDto(Guid.NewGuid(), made.Tags, made.MatchesAll, DateTimeOffset.UtcNow))
+                };
+            }
+
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(_servedTaskLists) };
         });
         Services.AddSingleton(new TasksApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }));

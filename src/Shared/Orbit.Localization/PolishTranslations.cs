@@ -448,6 +448,19 @@ public static class PolishTranslations
         ["How far ahead"] = "Zakres",
         ["Show 7 days"] = "Pokaż 7 dni",
         ["Show 30 days"] = "Pokaż 30 dni",
+        // Filters an account makes for the Tasks card out of list tags - see Orbit.Core.Tasks.TagFilters.TaskTagFilter.
+        // "and" joins a filter's tags in its name the way "or" (above, with the sign-in) already does.
+        ["Create filter"] = "Utwórz filtr",
+        ["And"] = "Oraz",
+        ["and"] = "oraz",
+        ["Lists carrying every chosen tag."] = "Listy z każdym wybranym tagiem.",
+        ["Lists carrying any chosen tag."] = "Listy z dowolnym wybranym tagiem.",
+        ["No tags yet - add one below."] = "Nie ma jeszcze tagów - dodaj pierwszy poniżej.",
+        ["New tag"] = "Nowy tag",
+        ["That filter could not be saved."] = "Nie udało się zapisać filtru.",
+        ["Filter \"{0}\" saved - choose it from the Tasks card's menu on the dashboard."] = "Zapisano filtr \"{0}\" - wybierzesz go w menu kafelka Zadania na pulpicie.",
+        ["Your filters"] = "Twoje filtry",
+        ["Delete this filter"] = "Usuń ten filtr",
         // How far ahead that card looks, on Options' Preferences tab - see DevicePreferences.UpcomingDays.
         // A phrase each rather than a number and a unit: Polish counts days three different ways, and
         // "everything" is the absence of a horizon rather than a length.

@@ -7,9 +7,10 @@
     <span class="overflow-menu-heading">@T["Show"]</span>
     @foreach (var option in Options)
     {
-        <button type="button" class="avatar-dropdown-item @(option == Filter ? "chosen" : "")"
+        var isChosen = option == Filter && !IsAnotherAnswerChosen;
+        <button type="button" class="avatar-dropdown-item @(isChosen ? "chosen" : "")"
                 @onclick="() => FilterChanged.InvokeAsync(option)">
-            <span class="card-filter-mark">@(option == Filter ? "✓" : "")</span>
+            <span class="card-filter-mark">@(isChosen ? "✓" : "")</span>
             @T[NameOf(option)]
         </button>
     }
@@ -24,6 +25,12 @@
     [Parameter, EditorRequired] public IReadOnlyList<DashboardCardFilter> Options { get; set; } = [];
 
     [Parameter, EditorRequired] public EventCallback<DashboardCardFilter> FilterChanged { get; set; }
+
+    /// <summary>
+    /// Whether the card is showing something one of the further groups chose instead - a tag filter on the
+    /// Tasks card - so none of the options above is ticked.
+    /// </summary>
+    [Parameter] public bool IsAnotherAnswerChosen { get; set; }
 
     /// <summary>Further groups of choices, drawn under the filter's own - see the Upcoming card.</summary>
     [Parameter] public RenderFragment? ChildContent { get; set; }
