@@ -126,12 +126,23 @@ public partial class DashboardPage : ContentPage, ITitleMenu
 
 		// The one in force is marked, because a menu of four with no answer among them leaves the
 		// reader guessing what the card is currently showing.
-		Menu.Show(
-			choices.Select(choice => new ScreenMenuEntry(
+		List<ScreenMenuGroup> groups =
+		[
+			new(_translations["Show"], choices.Select(choice => new ScreenMenuEntry(
 				choice.Name,
 				() => _ = _viewModel.ChooseFilterCommand.ExecuteAsync(choice),
-				choice.IsChosen)),
-			_translations["Show"],
-			placement: MenuPlacement.FromTheFoot);
+				choice.IsChosen)))
+		];
+
+		// How far ahead Upcoming looks, as a group of its own - see DashboardViewModel.HorizonChoicesFor.
+		if (_viewModel.HorizonChoicesFor(card.Kind) is { Count: > 0 } horizons)
+		{
+			groups.Add(new(_translations["How far ahead"], horizons.Select(horizon => new ScreenMenuEntry(
+				horizon.Name,
+				() => _ = _viewModel.ChooseHorizonCommand.ExecuteAsync(horizon),
+				horizon.IsChosen))));
+		}
+
+		Menu.ShowGroups(groups, placement: MenuPlacement.FromTheFoot);
 	}
 }

@@ -756,6 +756,34 @@ public sealed partial class DashboardViewModel : ObservableObject
         await ShowStoredSummaryAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// How far ahead a card looks, as its own menu offers it - Upcoming only, and only the two a reader
+    /// switches between while looking at the card: a week and a month. The full five are on the
+    /// Preferences tab (UpcomingHorizon.Horizons); both write the same setting, so either says what the
+    /// other chose. Empty for every other card, and in a test that hands over no horizon.
+    /// </summary>
+    public IReadOnlyList<Account.UpcomingHorizonChoice> HorizonChoicesFor(DashboardCardKind kind)
+        => kind is DashboardCardKind.Upcoming && _upcomingHorizon is { } horizon
+            ? [.. CardHorizons.Select(days => new Account.UpcomingHorizonChoice(
+                days, days == 7 ? _translations["Show 7 days"] : _translations["Show 30 days"], days == horizon.Days))]
+            : [];
+
+    /// <inheritdoc cref="HorizonChoicesFor"/>
+    private static readonly int[] CardHorizons = [7, 30];
+
+    /// <summary>Chooses how far ahead Upcoming looks, from the card - see <see cref="HorizonChoicesFor"/>.</summary>
+    [RelayCommand]
+    private async Task ChooseHorizonAsync(Account.UpcomingHorizonChoice? choice, CancellationToken cancellationToken)
+    {
+        if (choice is null || _upcomingHorizon is null)
+        {
+            return;
+        }
+
+        _upcomingHorizon.SetDays(choice.Days);
+        await ShowStoredSummaryAsync(cancellationToken);
+    }
+
     /// <summary>Where everything unread points, so a card or a row can ask whether any of it means it.</summary>
     private IReadOnlyList<string> _unreadUrls = [];
 

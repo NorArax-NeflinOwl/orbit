@@ -13,6 +13,8 @@
             @T[NameOf(option)]
         </button>
     }
+    @* Whatever else a card narrows by, as a group of its own under its own heading - Upcoming's horizon. *@
+    @ChildContent
 </OverflowMenu>
 
 @code {
@@ -22,6 +24,9 @@
     [Parameter, EditorRequired] public IReadOnlyList<DashboardCardFilter> Options { get; set; } = [];
 
     [Parameter, EditorRequired] public EventCallback<DashboardCardFilter> FilterChanged { get; set; }
+
+    /// <summary>Further groups of choices, drawn under the filter's own - see the Upcoming card.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
 
     private static string NameOf(DashboardCardFilter filter) => filter switch
     {

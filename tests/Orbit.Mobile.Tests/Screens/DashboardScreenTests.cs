@@ -268,6 +268,32 @@ public sealed class DashboardScreenTests
         Assert.Equal("1", events.Count);
     }
 
+    /// <summary>
+    /// The card's own menu offers a week and a month, as a group apart from its priority filter, and
+    /// choosing one is the same setting the Preferences tab writes.
+    /// </summary>
+    [Fact]
+    public async Task The_upcoming_cards_own_menu_widens_it_to_thirty_days()
+    {
+        using var context = new DashboardContext();
+        await context.AddEventAsync("This week", Now.AddDays(3));
+        await context.AddEventAsync("Later this month", Now.AddDays(20));
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var choices = screen.HorizonChoicesFor(DashboardCardKind.Upcoming);
+        Assert.Equal(["Show 7 days", "Show 30 days"], choices.Select(choice => choice.Name));
+        Assert.True(choices[0].IsChosen);
+        Assert.Empty(screen.HorizonChoicesFor(DashboardCardKind.Notes));
+
+        await screen.ChooseHorizonCommand.ExecuteAsync(choices[1]);
+
+        var events = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+        Assert.Equal(["This week", "Later this month"], events.Rows.Select(row => row.Title));
+        Assert.Equal(30, context.Horizon.Days);
+        Assert.True(screen.HorizonChoicesFor(DashboardCardKind.Upcoming)[1].IsChosen);
+    }
+
     [Fact]
     public async Task A_horizon_that_empties_the_upcoming_card_leaves_the_card_where_it_was()
     {

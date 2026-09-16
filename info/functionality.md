@@ -1080,6 +1080,12 @@ the shape the phone's note screen has had since the redesign: the first line is 
 drawn as one, everything under it is the note, and there is no separate title box for the two to
 disagree in.
 
+**Turning editing on puts the caret at the end of the writing** (`ChecklistTextEditor.FocusesAtTheEnd`):
+after the last line's words, or in the last cell of a table the note ends in, or - past a closing picture
+or rule - after the last line that has words. The phone has no editing switch to turn on: a note opens
+writable, and a caret put there on opening would raise the keyboard over a note somebody only meant to
+read.
+
 - **The tools sit over the writing's bottom-left corner**, not above it - a toolbar at the top of a note
   is a strip of the page given to controls before a word has been written. Four of them, as the design
   draws: text style, checklist, table, attachment - and since 2026-09-14 **all four work**.
@@ -2345,7 +2351,8 @@ answers rather than a row of three buttons, because they are three answers to on
 **Create** and **Cancel** finish it:
 
 - **A place worth keeping** (the default) opens the place form on that pin, with the address already in
-  it and the name left empty for the reader - see [Places](#places). Save waits for a name; since
+  it and the name left empty for the reader - see [Places](#places). Save waits for a name, and the form
+  says so under the empty box ("Give the place a name to keep it."); since
   2026-09-16 neither the pin nor a point picked on the map writes its address in as one, on either client. It is the default because it is the least somebody can mean by pressing a
   map: it says where and nothing else, and the other two are that plus a time or plus a job.
 - **An event in the calendar** opens `/calendar/new` with the address and its pin set.
@@ -4507,7 +4514,9 @@ months / everything, on Options' Preferences tab and kept on the device). The ca
 glanced down, and without a horizon it drew everything that would ever happen with next Tuesday somewhere
 inside it. Nothing is lost by it: what falls outside is still in the calendar, which the card's own name
 opens. Measured from the start of today, so something happening this morning is still on a card read this
-afternoon.
+afternoon. **The card's own menu offers two of them** (2026-09-16), "Show 7 days" and "Show 30 days", as a
+group under "How far ahead" beneath the priority filter - on both clients, writing the same setting as
+Options and the phone's Preferences tab, so either place ticks what the other chose.
 
 **What reaches that card is what is still ahead and not dealt with.** An appointment whose end has passed
 is not coming up; a repeat is taken at its next occurrence rather than at the date it is stored under

@@ -575,7 +575,31 @@ public sealed class DashboardTests : OrbitTestContext
         // The tick beside the chosen one is part of the row, so compare what each row says after it.
         var entries = cut.FindAll(".overflow-menu-dropdown button")
             .Select(entry => entry.TextContent.Replace("✓", "").Trim());
-        Assert.Equal(["All", "High", "Normal", "Low"], entries);
+        Assert.Equal(["All", "High", "Normal", "Low", "Show 7 days", "Show 30 days"], entries);
+    }
+
+    /// <summary>
+    /// How far ahead Upcoming looks is offered on the card itself, a week or a month, as a group under
+    /// its own heading - the same setting Options writes.
+    /// </summary>
+    [Fact]
+    public void The_upcoming_cards_own_menu_widens_it_to_thirty_days()
+    {
+        RegisterCalendarApiClient(
+        [
+            Event("Dentist", DateTimeOffset.UtcNow.AddDays(2)),
+            Event("Passport office", DateTimeOffset.UtcNow.AddDays(20))
+        ]);
+        RegisterChatApiClient([]);
+        var cut = RenderComponent<Dashboard>();
+        Assert.Equal(["Dentist"], RowTitlesIn(cut, "Upcoming"));
+
+        FindColumn(cut, "Upcoming").QuerySelector(".overflow-menu-trigger")!.Click();
+        Assert.Contains(cut.FindAll(".overflow-menu-heading"), heading => heading.TextContent == "How far ahead");
+        cut.FindAll(".overflow-menu-dropdown button").First(entry => entry.TextContent.Contains("Show 30 days")).Click();
+
+        Assert.Equal(["Dentist", "Passport office"], RowTitlesIn(cut, "Upcoming"));
+        Assert.Equal(30, Services.GetRequiredService<DevicePreferences>().UpcomingDays);
     }
 
     private static IReadOnlyList<string> RowTitlesIn(IRenderedComponent<Dashboard> cut, string heading)

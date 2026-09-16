@@ -443,6 +443,11 @@ public static class PolishTranslations
         ["Recent chats"] = "Ostatnie rozmowy",
         ["Groups"] = "Grupy",
         ["Upcoming"] = "Nadchodzące",
+        // The card's own menu, beside its priority filter: how far ahead it looks, the same setting
+        // Options sets (DevicePreferences.UpcomingDays, UpcomingHorizon on the phone).
+        ["How far ahead"] = "Zakres",
+        ["Show 7 days"] = "Pokaż 7 dni",
+        ["Show 30 days"] = "Pokaż 30 dni",
         // How far ahead that card looks, on Options' Preferences tab - see DevicePreferences.UpcomingDays.
         // A phrase each rather than a number and a unit: Polish counts days three different ways, and
         // "everything" is the absence of a horizon rather than a length.
@@ -844,6 +849,8 @@ public static class PolishTranslations
         ["A place worth keeping"] = "Miejsce warte zapisania",
         ["This place"] = "To miejsce",
         ["What this place is"] = "Czym jest to miejsce",
+        // Under the name while there is none - Create waits for one, see PlaceForm.CanSave.
+        ["Give the place a name to keep it."] = "Nadaj miejscu nazwę, aby je zapisać.",
         ["Anything worth remembering about it"] = "Co warto o nim pamiętać",
         ["Pick it on the map - a place with no point cannot be drawn on one."] =
             "Wskaż je na mapie - miejsca bez punktu nie da się na niej narysować.",

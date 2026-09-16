@@ -194,7 +194,20 @@ else
                     <PinButton IsPinned='DashboardPins.IsPinned("upcoming")' OnPinnedChanged='pinned => SetCardPinnedAsync("upcoming", pinned)' />
                 </Pin>
                 <Menu>
-                    <CardFilterMenu Filter='FilterFor("upcoming")' Options="PriorityOptions" FilterChanged='filter => SetCardFilterAsync("upcoming", filter)' />
+                    <CardFilterMenu Filter='FilterFor("upcoming")' Options="PriorityOptions" FilterChanged='filter => SetCardFilterAsync("upcoming", filter)'>
+                        @* How far ahead the card looks, from the card itself - the same setting Options
+                           offers in full (DevicePreferences.UpcomingDays); here only the two a reader
+                           switches between while looking at the card. *@
+                        <span class="overflow-menu-heading">@T["How far ahead"]</span>
+                        @foreach (var (days, label) in CardHorizons)
+                        {
+                            <button type="button" class="avatar-dropdown-item @(DevicePreferences.UpcomingDays == days ? "chosen" : "")"
+                                    @onclick="() => SetUpcomingDaysAsync(days)">
+                                <span class="card-filter-mark">@(DevicePreferences.UpcomingDays == days ? "✓" : "")</span>
+                                @T[label]
+                            </button>
+                        }
+                    </CardFilterMenu>
                 </Menu>
                 <Extras>
                     <span class="card-count">@(UpcomingToShow.Count)</span>
@@ -731,6 +744,16 @@ else
     /// </summary>
     private DashboardCardFilter FilterFor(string cardKey)
         => CardPreferences.FilterFor(cardKey, Folders.ChosenOn(FolderPage.Dashboard));
+
+    /// <summary>The two horizons the Upcoming card's own menu offers - see its markup.</summary>
+    private static readonly IReadOnlyList<(int Days, string Label)> CardHorizons = [(7, "Show 7 days"), (30, "Show 30 days")];
+
+    /// <summary>How far ahead Upcoming looks, chosen from the card - see DevicePreferences.UpcomingDays.</summary>
+    private async Task SetUpcomingDaysAsync(int days)
+    {
+        Logger.LogInformation("User set the Upcoming card to {Days} days from the card", days);
+        await DevicePreferences.SetUpcomingDaysAsync(days);
+    }
 
     private async Task SetCardFilterAsync(string cardKey, DashboardCardFilter filter)
     {
