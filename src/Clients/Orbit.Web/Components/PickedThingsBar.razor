@@ -20,7 +20,10 @@
 
         @* Where they go. Built-in folders are not offered: a thing is put back into one by being taken
            out of the folder it is in, which "No folder" is - see FolderPlacement. *@
-        <select value="" disabled="@(!Picked.HasAny || IsWorking)" @onchange="OnFolderChosenAsync"
+        @* Drawn afresh after every choice (see _choices): the value it is bound to never changes, so
+           Blazor left the browser's own selection standing, and choosing the same folder for the next
+           cards fired no change at all. *@
+        <select @key="_choices" value="" disabled="@(!Picked.HasAny || IsWorking)" @onchange="OnFolderChosenAsync"
                 aria-label="@T["Move to folder"]">
             <option value="" disabled selected>@T["Move to folder"]</option>
             <option value="@NoFolder">@T["No folder"]</option>
@@ -74,8 +77,12 @@
 
     [Parameter] public EventCallback OnStopped { get; set; }
 
+    /// <summary>How many folders have been chosen here, which keys the picker so each choice gets a new one.</summary>
+    private int _choices;
+
     private Task OnFolderChosenAsync(ChangeEventArgs args)
     {
+        _choices++;
         var chosen = args.Value?.ToString();
         return chosen switch
         {
