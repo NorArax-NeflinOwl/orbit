@@ -314,9 +314,27 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         }
 
         var body = await ReadAsync<UpdateTaskRequest>(request, cancellationToken);
+
+        // Refused as TaskListLinkValidator refuses it, with the same words: a fake that took a loop made a
+        // phone that offered one look correct, and the refusal a device met was never met by a test.
+        var pointedAt = body!.Items
+            .SelectMany(item => item.AllLinkedTaskListIds.Concat((item.Alternatives ?? [])
+                .Where(way => way.LinkedTaskListId is not null)
+                .Select(way => way.LinkedTaskListId!.Value)))
+            .Distinct();
+        if (pointedAt.Any(listId => TaskListLinks.WouldCloseALoop(
+                other => _taskLists.TryGetValue(other, out var list) ? list.Items.SelectMany(item => item.TaskListIdsItPointsAt) : null,
+                id, listId)))
+        {
+            return new HttpResponseMessage(HttpStatusCode.BadRequest)
+            {
+                Content = JsonContent.Create(new { message = "This link would create a cycle between task lists." })
+            };
+        }
+
         _taskLists[id] = existing with
         {
-            Title = body!.Title,
+            Title = body.Title,
             // Placed before the list is written, as UpdateTaskListCommandHandler places them.
             Items = PlaceProductEntries(existing, ToDtos(body.Items, existing.Items, _timeProvider.GetUtcNow()), body.IsPrivate),
             // Sent on every update and stored by the real endpoint - a fake that dropped it made

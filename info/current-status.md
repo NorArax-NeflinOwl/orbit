@@ -208,6 +208,11 @@ rename, a review's "keep mine" - queues the create again rather than an update t
 for, for every kind of thing (`LostCreates`). A row nobody edits again stays on the phone alone, and
 the feed says exactly that - "Kept on this phone only", with editing named as the way to try again -
 rather than the "no longer waiting to be sent" a dropped edit gets, which read as the thing being gone.
+Since 2026-09-16 a dropped edit also stops showing on the phone: the refusal left the server's row
+unchanged, so no pull of what changed ever brought it back, and the phone kept an entry nobody else had -
+found on a device, with a link the server refused as a loop. Dropping a change now forgets that kind's
+sync cursor (`SyncCursors.ForgetAsync`), and the pull straight after is a full one that puts the server's
+version back.
 
 Phase 7 is built: the in-app feed, notification settings, deep links from a notification, uploadable
 diagnostic logs, and **push delivered on Android** — the app obtains an FCM registration token,
