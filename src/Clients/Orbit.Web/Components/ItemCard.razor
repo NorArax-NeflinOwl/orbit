@@ -17,6 +17,17 @@
 <article class="item-card @(IsCollapsed ? "item-card-collapsed" : "") @(AccentColour is null ? null : "item-card-accented") @(HasUnseenAction ? "item-card-unseen" : null) @ExtraClass"
          style="@(AccentColour is null ? null : $"--item-card-accent:{AccentColour};")">
     <div class="item-card-head">
+        @* The mark that chooses this card to be acted on with the others, first in the row and only
+           while the page is choosing - see PickedThings, and the phone's own ShowsPickMark, which puts
+           its mark in the same place for the same reason. It says which cards are chosen; choosing one
+           is done by pressing it anywhere, since while the mode is on that is all a press means. *@
+        @if (OffersPicking)
+        {
+            <span class="item-card-pick">
+                <input type="checkbox" checked="@IsPicked" aria-label="@T.Format("Select {0}", Name)"
+                       @onchange="OnPickedChanged" @onclick:stopPropagation="true" />
+            </span>
+        }
         @if (Handle is not null)
         {
             <span class="item-card-handle">@Handle</span>
@@ -38,7 +49,8 @@
            whole card (see .item-card-name::after) makes a press anywhere on it open the thing, so nobody
            has to aim at the words. The buttons around it - the handle, the pin, the collapse, the menu -
            and the body sit above that overlay and keep their own presses. *@
-        <button type="button" class="item-card-name" @onclick="OnNameSelected" disabled="@(!OnNameSelected.HasDelegate)">
+        <button type="button" class="item-card-name" @onclick="NameSelectedAsync"
+                disabled="@(!OffersPicking && !OnNameSelected.HasDelegate)">
             @* The name's own span, because the two lines it is cut off after need overflow:hidden, and
                that would clip the overlay along with the third line. *@
             <span class="item-card-name-text">@Name</span>
@@ -77,10 +89,10 @@
         @* Pressable like the unfolded one below, and for the same reason. It was a plain block, so
            folding a card took away the one press its body answered: the line saying what is still to be
            done sat there looking like every other row in the app and did nothing at all. *@
-        <div class="item-card-body @(OnBodySelected.HasDelegate ? "item-card-body-opens" : "")"
-             role="@(OnBodySelected.HasDelegate ? "button" : null)"
-             tabindex="@(OnBodySelected.HasDelegate ? 0 : null)"
-             @onclick="OnBodySelected" @onkeydown="OpenOnEnterOrSpaceAsync">
+        <div class="item-card-body @(BodyAnswersAPress ? "item-card-body-opens" : "")"
+             role="@(BodyAnswersAPress ? "button" : null)"
+             tabindex="@(BodyAnswersAPress ? 0 : null)"
+             @onclick="BodySelectedAsync" @onkeydown="OpenOnEnterOrSpaceAsync">
             @CollapsedBody
         </div>
     }
@@ -90,10 +102,10 @@
         @* The whole area opens the light editor, not just a link inside it: on a card this size the
            text is the target, and asking somebody to hit a word rather than the block it sits in is
            the difference between one tap and three. *@
-        <div class="item-card-body @(OnBodySelected.HasDelegate ? "item-card-body-opens" : "")"
-             role="@(OnBodySelected.HasDelegate ? "button" : null)"
-             tabindex="@(OnBodySelected.HasDelegate ? 0 : null)"
-             @onclick="OnBodySelected" @onkeydown="OpenOnEnterOrSpaceAsync">
+        <div class="item-card-body @(BodyAnswersAPress ? "item-card-body-opens" : "")"
+             role="@(BodyAnswersAPress ? "button" : null)"
+             tabindex="@(BodyAnswersAPress ? 0 : null)"
+             @onclick="BodySelectedAsync" @onkeydown="OpenOnEnterOrSpaceAsync">
             @Body
         </div>
     }
@@ -176,9 +188,43 @@
     /// </summary>
     private async Task OpenOnEnterOrSpaceAsync(KeyboardEventArgs args)
     {
-        if (OnBodySelected.HasDelegate && args.Key is "Enter" or " ")
+        if (args.Key is "Enter" or " ")
         {
-            await OnBodySelected.InvokeAsync();
+            await BodySelectedAsync();
         }
     }
+
+    /// <summary>
+    /// Whether the page is choosing cards to act on together, which puts a mark on this one and turns
+    /// every press that would open it into a press that chooses it - see PickedThings. A card that is
+    /// not offered says nothing about choosing and behaves exactly as it always did.
+    /// </summary>
+    [Parameter] public bool OffersPicking { get; set; }
+
+    [Parameter] public bool IsPicked { get; set; }
+
+    /// <summary>Chosen, or unchosen - the page decides which, since it is the page that holds the set.</summary>
+    [Parameter] public EventCallback OnPickedChanged { get; set; }
+
+    /// <summary>
+    /// While the page is choosing, a press on the name or the body chooses this card rather than
+    /// opening it. That is the whole of what the mode changes about a card: one press means one thing,
+    /// and a reader who has said "I am choosing" should not have to aim at a small box to do it.
+    /// </summary>
+    private Task NameSelectedAsync()
+        => OffersPicking ? OnPickedChanged.InvokeAsync() : OnNameSelected.InvokeAsync();
+
+    /// <summary>
+    /// Whether a press on the body does anything - it opens the thing, or, while the page is choosing,
+    /// it chooses this card. Asked rather than <see cref="OnBodySelected"/> alone so that a card with no
+    /// body press of its own is still reachable by keyboard while choosing: without it the body took
+    /// the press but was marked as nothing, and a reader on the keyboard could not reach it at all.
+    /// </summary>
+    private bool BodyAnswersAPress => OffersPicking || OnBodySelected.HasDelegate;
+
+    /// <inheritdoc cref="NameSelectedAsync"/>
+    private Task BodySelectedAsync()
+        => OffersPicking
+            ? OnPickedChanged.InvokeAsync()
+            : OnBodySelected.HasDelegate ? OnBodySelected.InvokeAsync() : Task.CompletedTask;
 }

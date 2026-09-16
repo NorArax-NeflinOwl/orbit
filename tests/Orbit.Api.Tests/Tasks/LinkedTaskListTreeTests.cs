@@ -58,12 +58,23 @@ public sealed class LinkedTaskListTreeTests
     public void A_list_that_is_not_a_group_is_the_whole_tree()
     {
         var other = List("Other", isGroup: false, Work("Something"));
-        var plain = List("Plain", isGroup: false, Work("Screw"), TaskItem.Create("Ignored link", null, false, [other.Id]));
+        var plain = List("Plain", isGroup: false, Work("Screw"));
 
         var gathered = LinkedTaskListTree.Flatten(plain, [plain, other]);
 
-        // A link on a list that is not a group is not followed - only a group list gathers members.
         Assert.Equal(["Plain"], gathered.Select(list => list.Title));
+    }
+
+    [Fact]
+    public void A_list_with_an_entry_pointing_at_another_gathers_it_without_being_asked_to()
+    {
+        var other = List("Other", isGroup: false, Work("Something"));
+        var plain = List("Plain", isGroup: false, Work("Screw"), TaskItem.Create("Link", null, false, [other.Id]));
+
+        var gathered = LinkedTaskListTree.Flatten(plain, [plain, other]);
+
+        // Such a list is a group whatever it was created as - see TaskList.IsGroup.
+        Assert.Equal(["Plain", "Other"], gathered.Select(list => list.Title));
     }
 
     [Fact]

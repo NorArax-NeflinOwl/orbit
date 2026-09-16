@@ -27,6 +27,9 @@ internal sealed class FakePublicShareServer : HttpMessageHandler
     /// <summary>What a reader following a link is shown, keyed by the token in it. Missing means the link does not work.</summary>
     public Dictionary<string, PublicSharedItemDto> Published { get; } = [];
 
+    /// <summary>The bytes of each picture a published note holds, by picture id - what GET api/public/{token}/pictures/{id} answers with.</summary>
+    public Dictionary<Guid, byte[]> Pictures { get; } = [];
+
     /// <summary>Answers a claim as "you already had this", which is what a second claim gets.</summary>
     public bool ClaimFindsItAlreadyHeld { get; set; }
 
@@ -88,6 +91,13 @@ internal sealed class FakePublicShareServer : HttpMessageHandler
             return RefusesToBeClaimed
                 ? Task.FromResult(new HttpResponseMessage(HttpStatusCode.Unauthorized))
                 : Json(new ClaimPublicShareLinkResponse("Note", Guid.NewGuid(), ClaimFindsItAlreadyHeld));
+        }
+
+        if (rest.Contains("/pictures/", StringComparison.Ordinal))
+        {
+            return Task.FromResult(Pictures.TryGetValue(Guid.Parse(rest.Split('/')[^1]), out var bytes)
+                ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes) }
+                : new HttpResponseMessage(HttpStatusCode.NotFound));
         }
 
         return Published.TryGetValue(rest, out var item)

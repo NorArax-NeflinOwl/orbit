@@ -1,3 +1,4 @@
+using Orbit.Core.Folders;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Calendar;
@@ -716,9 +717,61 @@ public sealed class CalendarScreenTests
         Assert.Equal(screen.Days[0].Date, screen.Days.Min(day => day.Date));
     }
 
+    /// <summary>
+    /// A tab narrows the whole calendar - the grid, the list beside it and the year - rather than half
+    /// of it, which is what makes pressing one a way of looking at the calendar.
+    /// </summary>
+    [Fact]
+    public async Task Only_the_events_under_the_open_folder_are_on_the_calendar()
+    {
+        using var context = new ScreenContext();
+        var dentist = await context.LocalIdOfAsync(await context.AddEventAsync("Dentist", new DateTime(2026, 8, 20, 9, 0, 0)));
+        await context.AddEventAsync("Haircut", new DateTime(2026, 8, 21, 9, 0, 0));
+        var screen = await context.OpenAsync();
+        var week = await context.Folders.CreateAsync("This week", FolderScope.Calendar);
+
+        await context.Events.FileAsync(dentist, week.LocalId);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.DoesNotContain(screen.Listed, entry => entry.Name == "Dentist");
+        Assert.Contains(screen.Listed, entry => entry.Name == "Haircut");
+
+        screen.ChooseFolderCommand.Execute(FolderKey.Of(week.LocalId));
+
+        Assert.Contains(screen.Listed, entry => entry.Name == "Dentist");
+        Assert.DoesNotContain(screen.Listed, entry => entry.Name == "Haircut");
+    }
+
+    /// <summary>
+    /// Every folder is offered whether or not it holds anything, with the count beside it - a tab that
+    /// appeared only once something was in it could never be filed into in the first place.
+    /// </summary>
+    [Fact]
+    public async Task The_menu_offers_every_folder_with_what_is_in_it()
+    {
+        using var context = new ScreenContext();
+        var dentist = await context.LocalIdOfAsync(await context.AddEventAsync("Dentist", new DateTime(2026, 8, 20, 9, 0, 0)));
+        var screen = await context.OpenAsync();
+        var week = await context.Folders.CreateAsync("This week", FolderScope.Calendar);
+        await context.Folders.CreateAsync("Someday", FolderScope.Calendar);
+
+        await context.Events.FileAsync(dentist, week.LocalId);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal(["Public", "Archived", "Someday", "This week"], screen.FolderChoices.Select(choice => choice.Name));
+        Assert.Equal(1, screen.FolderChoices.Single(choice => choice.Name == "This week").Count);
+        Assert.Equal(0, screen.FolderChoices.Single(choice => choice.Name == "Someday").Count);
+    }
+
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
+
+        /// <summary>The tabs this screen reads under - see FolderTabs.</summary>
+        public LocalFolderRepository Folders { get; }
+
+        /// <summary>The events themselves, for a test that files one without going through the screen.</summary>
+        public LocalCalendarEventRepository Events => _events;
         private readonly FakeTimeProvider _clock;
 
         /// <summary>The day the screen calls today, which is the fake clock's rather than the machine's.</summary>
@@ -745,6 +798,7 @@ public sealed class CalendarScreenTests
             _server = new FakeCalendarServer(_clock);
             _events = new LocalCalendarEventRepository(_localStore, _clock, FixedNetworkStatus.Online);
             _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
+            Folders = new LocalFolderRepository(_localStore, _clock);
             _synchronizer = new CalendarEventSynchronizer(
                 _localStore, new CalendarClient(_server.ToHttpClient()), _clock, new SyncGate(),
                 new PendingCalendarLinkResolver(_clock, NullLogger<PendingCalendarLinkResolver>.Instance),
@@ -806,14 +860,26 @@ public sealed class CalendarScreenTests
             return stored.ServerId.Value;
         }
 
+        /// <summary>
+        /// The id this phone keeps an event under, from the one AddEventAsync returns - filing takes the
+        /// former, and handed the server's id it files nothing and says only NotFound.
+        /// </summary>
+        public async Task<Guid> LocalIdOfAsync(Guid serverId)
+        {
+            await using var dbContext = _localStore.CreateDbContext();
+            return dbContext.CalendarEvents.Single(candidate => candidate.ServerId == serverId).LocalId;
+        }
+
         /// <summary>What order the list is read in, kept across the screens one test opens.</summary>
         public InMemoryCalendarListOrderStore ListOrder { get; } = new();
 
         public async Task<CalendarViewModel> OpenAsync()
         {
             var screen = new CalendarViewModel(
-                _events, _synchronizer, FixedNetworkStatus.Online, _clock, new SyncState(FixedNetworkStatus.Online, _clock),
-                Navigator, new Translations(new InMemoryLanguageStore()), _taskLists, ListOrder);
+                _events, _synchronizer, FixedNetworkStatus.Online, _clock, new SyncState(Reachability.Online, _clock),
+                Navigator, new Translations(new InMemoryLanguageStore()), _taskLists, ListOrder,
+                Folders, new InMemoryChosenFolderStore(),
+                TestDoubles.Folders.SynchronizerAgainstNobody(_localStore, _clock));
 
             await screen.LoadCommand.ExecuteAsync(null);
             return screen;

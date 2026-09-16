@@ -24,6 +24,7 @@ internal static class OrbitStorageNames
         // OP_ - what the user works on.
         [typeof(NoteEntity)] = new("OP_NOTES", "OP_N_"),
         [typeof(NoteShareEntity)] = new("OP_NOTES_SHARED", "OP_NS_"),
+        [typeof(NotePictureEntity)] = new("OP_NOTES_PICTURES", "OP_NP_"),
         [typeof(TaskEntity)] = new("OP_TASKS", "OP_T_"),
         [typeof(TaskItemEntity)] = new("OP_TASKS_ITEMS", "OP_TI_"),
         [typeof(TaskItemCategoryEntity)] = new("OP_TASKS_CATEGORIES", "OP_TC_"),
@@ -63,6 +64,7 @@ internal static class OrbitStorageNames
         [typeof(PermissionCodeEntity)] = new("OS_PERMISSIONS_CODES", "OS_PC_"),
         [typeof(NotificationSettingsEntity)] = new("OS_NOTIFICATIONS_SETTINGS", "OS_NTFS_"),
         [typeof(TagColourEntity)] = new("OS_TAGS_COLOURS", "OS_TC_"),
+        [typeof(TaskTagFilterEntity)] = new("OS_TASKS_TAG_FILTERS", "OS_TTF_"),
         [typeof(PushSubscriptionEntity)] = new("OS_PUSH_SUBSCRIPTIONS", "OS_PS_"),
         [typeof(DiagnosticLogEntryEntity)] = new("OS_DIAGNOSTICS", "OS_D_"),
         [typeof(SyncTombstoneEntity)] = new("OS_SYNC_TOMBSTONES", "OS_ST_"),

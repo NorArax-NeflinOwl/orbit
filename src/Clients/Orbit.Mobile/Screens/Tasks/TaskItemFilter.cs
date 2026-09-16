@@ -1,3 +1,4 @@
+using Orbit.Core.Text;
 using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Data;
 
@@ -67,7 +68,7 @@ public sealed class TaskItemFilter
     {
         var wanted = Search.Trim();
         return wanted.Length == 0
-            || item.Description.Contains(wanted, StringComparison.CurrentCultureIgnoreCase);
+            || LooseText.Holds(item.Description, wanted);
     }
 
     private bool MatchesCategories(TaskItemDto item)

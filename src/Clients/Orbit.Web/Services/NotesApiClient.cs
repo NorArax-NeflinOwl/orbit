@@ -179,6 +179,18 @@ public sealed class NotesApiClient
         return response.IsSuccessStatusCode;
     }
 
+    /// <summary>
+    /// Puts one note away, or brings it back - see Orbit.Core.Folders.BuiltInFolder.Archived. False
+    /// where the server refused, which the caller says out loud: the note is where it was, and a page
+    /// that redrew as though it had moved would be lying about it.
+    /// </summary>
+    public async Task<bool> SetArchivedAsync(Guid noteId, bool isArchived, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/notes/{noteId}/archived", new ArchiveRequest(isArchived), cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
     /// <inheritdoc cref="TasksApiClient.DuplicateTaskListAsync"/>
     public async Task<Guid?> DuplicateNoteAsync(Guid id, string? name, CancellationToken cancellationToken = default)
     {

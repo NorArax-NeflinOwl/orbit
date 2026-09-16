@@ -89,7 +89,7 @@ public sealed class NotesScreenTests
                 Notes, _synchronizer, new NotesClient(_server.ToHttpClient()), FixedNetworkStatus.Online,
                 new Translations(new InMemoryLanguageStore()),
                 new PrivateItemGate(new FixedDeviceAuthentication()),
-                new SyncState(FixedNetworkStatus.Online, _clock), new RecordingScreenNavigator(), _clock,
+                new SyncState(Reachability.Online, _clock), new RecordingScreenNavigator(), _clock,
                 new InMemoryListArrangementStore(),
                 new LocalFolderRepository(_localStore, _clock), new InMemoryChosenFolderStore(),
                 Folders.SynchronizerAgainstNobody(_localStore, _clock));

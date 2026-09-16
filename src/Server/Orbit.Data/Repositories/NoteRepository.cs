@@ -100,7 +100,8 @@ public sealed class NoteRepository : INoteRepository
             entity.LockedByUserId, entity.LockedByUserName, entity.LockExpiresAtUtc, entity.IsPinned,
             Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal,
             entity.FolderId,
-            StoredTags.Read(entity.TagsJson));
+            StoredTags.Read(entity.TagsJson),
+            entity.IsArchived);
 
     private static NoteEntity ToEntity(Note note)
         => new()
@@ -119,6 +120,7 @@ public sealed class NoteRepository : INoteRepository
             LockedByUserName = note.LockedByUserName,
             LockExpiresAtUtc = note.LockExpiresAtUtc,
             FolderId = note.FolderId,
+            IsArchived = note.IsArchived,
             CreatedAtUtc = note.CreatedAtUtc,
             UpdatedAtUtc = note.UpdatedAtUtc
         };

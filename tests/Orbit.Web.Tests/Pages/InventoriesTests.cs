@@ -42,6 +42,31 @@ public sealed class InventoriesTests : OrbitTestContext
         Assert.Contains("Garage", cut.Markup);
     }
 
+    /// <summary>
+    /// A shelf filed under a folder is only on the page while that tab is open - the notes' and the
+    /// lists' rule, reached from the inventories since 2026-09-15.
+    /// </summary>
+    [Fact]
+    public void Only_the_shelves_under_the_open_tab_are_drawn()
+    {
+        var kitchen = Guid.NewGuid();
+        RegisterFolders([new Orbit.Contracts.Folders.FolderDto(
+            kitchen, "Kitchen", nameof(Orbit.Core.Folders.FolderScope.Inventories),
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow)]);
+        RegisterApiClients([Inventory("Pantry", folderId: kitchen), Inventory("Garage")]);
+
+        var cut = RenderComponent<Web.Pages.Inventories>();
+
+        // Public is where a page opens, so the filed one is not on it.
+        Assert.Contains("Garage", cut.Markup);
+        Assert.DoesNotContain("Pantry", cut.Markup);
+
+        cut.FindAll(".folder-tab").Single(tab => tab.TextContent.Contains("Kitchen")).Click();
+
+        Assert.Contains("Pantry", cut.Markup);
+        Assert.DoesNotContain("Garage", cut.Markup);
+    }
+
     [Fact]
     public void An_account_with_no_inventories_is_told_what_to_do_about_it()
     {
@@ -50,6 +75,38 @@ public sealed class InventoriesTests : OrbitTestContext
         var cut = RenderComponent<Web.Pages.Inventories>();
 
         Assert.Contains("No inventories yet", cut.Markup);
+    }
+
+    /// <summary>
+    /// Several chosen shelves can be shared at once from the bar - asked for on the list of 2026-09-16. A
+    /// shelf somebody else shared with this reader is not theirs to hand on from here, so the dialog says it is left out rather than failing on it.
+    /// </summary>
+    [Fact]
+    public void Sharing_the_chosen_shelves_says_which_cannot_be_shared()
+    {
+        RegisterApiClients([Inventory("Pantry"), Inventory("Garage", isShared: true, sharedByUserName: "Anna")]);
+        var cut = RenderComponent<Web.Pages.Inventories>();
+
+        cut.FindAll("button").Single(button => button.TextContent.Trim() == "Select").Click();
+        cut.FindAll(".picked-bar button").Single(button => button.TextContent.Contains("All of them")).Click();
+        cut.FindAll(".picked-bar button").Single(button => button.TextContent.Trim() == "Share").Click();
+
+        Assert.Contains("1 of the chosen can't be shared", cut.Markup);
+    }
+
+    /// <summary>
+    /// And choosing there still offers the way back out - the bar used to be drawn inside the list, which
+    /// an account with nothing in it never reaches. See Notes.razor, which says the same.
+    /// </summary>
+    [Fact]
+    public void Selecting_with_no_inventories_still_offers_the_way_out()
+    {
+        RegisterApiClients([]);
+        var cut = RenderComponent<Web.Pages.Inventories>();
+
+        cut.FindAll("button").Single(button => button.TextContent.Trim() == "Select").Click();
+
+        Assert.Single(cut.FindAll(".picked-bar button"), button => button.TextContent.Contains("Stop selecting"));
     }
 
     [Fact]
@@ -70,6 +127,8 @@ public sealed class InventoriesTests : OrbitTestContext
         RegisterApiClients([Inventory("Medicine", isPrivate: true)]);
 
         var cut = RenderComponent<Web.Pages.Inventories>();
+        // A sealed shelf is under Private, not under Public where the page opens - see FolderPlacement.
+        cut.FindAll(".folder-tab").Single(tab => tab.TextContent.Contains("Private")).Click();
 
         Assert.Contains("only you can read it", cut.Markup);
         Assert.DoesNotContain("Share", ActionsOf(cut));
@@ -225,11 +284,11 @@ public sealed class InventoriesTests : OrbitTestContext
 
     private static InventoryDto Inventory(
         string name, bool isPrivate = false, bool isShared = false, string? sharedByUserName = null,
-        string accessLevel = "CanEdit", string? lockedByUserName = null)
+        string accessLevel = "CanEdit", string? lockedByUserName = null, Guid? folderId = null)
         => new(
             Guid.NewGuid(), name, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             isShared, sharedByUserName, accessLevel, lockedByUserName,
-            OriginalOwnerUserId: isShared ? Guid.NewGuid() : null, isPrivate);
+            OriginalOwnerUserId: isShared ? Guid.NewGuid() : null, isPrivate, FolderId: folderId);
 
     /// <param name="inventories">Null stands for a request that never came back.</param>
     private void RegisterApiClients(IReadOnlyList<InventoryDto>? inventories)
@@ -251,6 +310,17 @@ public sealed class InventoriesTests : OrbitTestContext
         };
         Services.AddSingleton(new InventoryApiClient(httpClient));
         Services.AddSingleton(new ChatApiClient(httpClient));
+    }
+
+    /// <summary>The tabs this account has made, over the empty set OrbitTestContext registers.</summary>
+    private void RegisterFolders(IReadOnlyList<Orbit.Contracts.Folders.FolderDto> folders)
+    {
+        var httpClient = new HttpClient(new StubHttpMessageHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(folders) }))
+        {
+            BaseAddress = new Uri("https://example.test/")
+        };
+        Services.AddSingleton(new FolderState(new FoldersApiClient(httpClient)));
     }
 
     /// <summary>

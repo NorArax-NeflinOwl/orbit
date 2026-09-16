@@ -2,9 +2,12 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Calendar;
+using Orbit.Core.Folders;
 using Orbit.Core.Notifications;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Screens.Folders;
+using Orbit.Mobile.Screens.Sharing;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Calendar;
@@ -17,6 +20,13 @@ namespace Orbit.Mobile.Screens.Calendar;
 public sealed partial class CalendarViewModel : ObservableObject
 {
     private readonly LocalCalendarEventRepository _events;
+    private readonly LocalFolderRepository _folders;
+
+    /// <summary>
+    /// <inheritdoc cref="Notes.NotesViewModel.Folders" path="/summary/node()"/> Pushed before the events
+    /// on every sync, for the reason FolderNotOnTheServerYet gives.
+    /// </summary>
+    private readonly FolderSynchronizer _folderSynchronizer;
     private readonly LocalTaskListRepository _taskLists;
     private readonly CalendarEventSynchronizer _synchronizer;
     private readonly INetworkStatus _networkStatus;
@@ -28,6 +38,9 @@ public sealed partial class CalendarViewModel : ObservableObject
 
     /// <summary>What is on the shown days, before it is put in the reader's chosen order.</summary>
     private readonly List<CalendarListEntry> _listed = [];
+
+    /// <summary>The events of the folder being read, as last drawn - what choosing several acts on.</summary>
+    private IReadOnlyList<LocalCalendarEvent> _heldEvents = [];
 
     [ObservableProperty]
     private string _newEventTitle = string.Empty;
@@ -49,8 +62,27 @@ public sealed partial class CalendarViewModel : ObservableObject
     public CalendarViewModel(
         LocalCalendarEventRepository events, CalendarEventSynchronizer synchronizer, INetworkStatus networkStatus,
         TimeProvider timeProvider, SyncState syncState, IScreenNavigator navigator, Translations translations,
-        LocalTaskListRepository taskLists, ICalendarListOrderStore listOrder)
+        LocalTaskListRepository taskLists, ICalendarListOrderStore listOrder,
+        LocalFolderRepository folders, IChosenFolderStore chosenFolder, FolderSynchronizer folderSynchronizer,
+        SharingSeveral? sharingSeveral = null)
     {
+        Picking = new PickingSeveral(
+            translations,
+            new PickingActions(
+                Orbit.Mobile.Chat.SharedItemKind.CalendarEvent,
+                (localId, folderId, token) => events.FileAsync(localId, folderId, token),
+                (localId, isArchived, token) => events.ArchiveAsync(localId, isArchived, token),
+                async token =>
+                {
+                    await ShowStoredEventsAsync(token);
+                    await SynchroniseAsync(token);
+                },
+                () => Folders!.Made),
+            sharingSeveral);
+        Picking.Changed += (_, _) => MarkThePicked();
+        _folders = folders;
+        _folderSynchronizer = folderSynchronizer;
+        Folders = new FolderTabs(folders, chosenFolder, translations, FolderPage.Calendar);
         _events = events;
         _listOrder = listOrder;
         var reading = listOrder.Read();
@@ -79,7 +111,142 @@ public sealed partial class CalendarViewModel : ObservableObject
     /// appointments and deadlines share one list. A deadline is read-only here: it belongs to the list
     /// it sits on, and tapping it opens that list, which is where it can be ticked.
     /// </summary>
+    /// <summary>
+    /// <inheritdoc cref="Notes.NotesViewModel.Folders" path="/summary/node()"/>
+    /// </summary>
+    public FolderTabs Folders { get; }
+
+    /// <summary>Those folders as the menu draws them, with how many events are in each.</summary>
+    public ObservableCollection<FolderChoice> FolderChoices { get; } = [];
+
+    /// <inheritdoc cref="Notes.NotesViewModel.ChosenFolderName"/>
+    public string ChosenFolderName
+        => FolderChoices.FirstOrDefault(choice => choice.IsChosen)?.Name ?? string.Empty;
+
+    /// <inheritdoc cref="Notes.NotesViewModel.NewFolderName"/>
+    [ObservableProperty]
+    private string _newFolderName = string.Empty;
+
+    /// <inheritdoc cref="Notes.NotesViewModel.FolderBeingRenamed"/>
+    [ObservableProperty]
+    private Guid? _folderBeingRenamed;
+
+    /// <inheritdoc cref="Notes.NotesViewModel.FolderRowAction"/>
+    public string FolderRowAction => FolderBeingRenamed is null ? _translations["Add"] : _translations["Rename"];
+
+    partial void OnFolderBeingRenamedChanged(Guid? value) => OnPropertyChanged(nameof(FolderRowAction));
+
+    /// <inheritdoc cref="Notes.NotesViewModel.StartRenamingTheOpenFolder"/>
+    public void StartRenamingTheOpenFolder()
+    {
+        if (Folders.Chosen.FolderId is { } folderId)
+        {
+            FolderBeingRenamed = folderId;
+            NewFolderName = ChosenFolderName;
+        }
+    }
+
+    /// <inheritdoc cref="Notes.NotesViewModel.StartNamingANewFolder"/>
+    public void StartNamingANewFolder()
+    {
+        FolderBeingRenamed = null;
+        NewFolderName = string.Empty;
+    }
+
+    /// <summary>Reading the calendar under another folder - chosen from the menu under its name.</summary>
+    [RelayCommand]
+    private async Task ChooseFolderAsync(FolderKey key, CancellationToken cancellationToken)
+    {
+        Folders.Choose(key);
+        await ShowStoredEventsAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// A new folder, made and shown at once whether or not there is a connection - a folder is a name,
+    /// so nothing about it waits on a server. The screen moves to it, because making one is how somebody
+    /// says where the next thing goes. The same row renames the open folder - see FolderBeingRenamed.
+    /// </summary>
+    [RelayCommand]
+    private async Task MakeFolderAsync(string? name, CancellationToken cancellationToken)
+    {
+        if (name?.Trim() is not { Length: > 0 } wanted)
+        {
+            return;
+        }
+
+        if (FolderBeingRenamed is { } renamed)
+        {
+            await _folders.RenameAsync(renamed, wanted, cancellationToken);
+            FolderBeingRenamed = null;
+        }
+        else
+        {
+            var folder = await _folders.CreateAsync(wanted, FolderScope.Calendar, cancellationToken);
+            Folders.Choose(FolderKey.Of(folder.LocalId));
+        }
+
+        NewFolderName = string.Empty;
+        await ShowStoredEventsAsync(cancellationToken);
+        await SynchroniseAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Takes the folder being read away and leaves everything that was in it, which is what the server
+    /// does too: getting rid of the place is not a decision to get rid of what was in it.
+    /// </summary>
+    [RelayCommand]
+    private async Task DeleteFolderAsync(CancellationToken cancellationToken)
+    {
+        if (Folders.Chosen.FolderId is not { } folderId)
+        {
+            return;
+        }
+
+        await _folders.DeleteAsync(folderId, cancellationToken);
+        Folders.Choose(FolderKey.Default);
+
+        await ShowStoredEventsAsync(cancellationToken);
+        await SynchroniseAsync(cancellationToken);
+    }
+
     public ObservableCollection<CalendarListEntry> Listed { get; } = [];
+
+    /// <summary>
+    /// Several events chosen to be filed, put away or shared together - see PickingSeveral. Chosen from
+    /// the list under the grid; the day's clock is drawn from the same events and is read, not chosen from.
+    /// </summary>
+    public PickingSeveral Picking { get; }
+
+    /// <summary>The menu's "Select": starts choosing events, or stops.</summary>
+    [RelayCommand]
+    private void ToggleChoosing()
+    {
+        if (Picking.IsPicking)
+        {
+            Picking.Stop();
+            return;
+        }
+
+        Picking.Start();
+    }
+
+    /// <summary>Puts the mark on every event's row, or takes it off, for what is chosen now - see NotesViewModel.</summary>
+    private void MarkThePicked()
+    {
+        for (var index = 0; index < Listed.Count; index++)
+        {
+            var entry = Listed[index];
+            var marked = entry with
+            {
+                OffersPicking = Picking.IsPicking && entry.Event is not null,
+                IsPicked = entry.Event is { } calendarEvent && Picking.Holds(calendarEvent.LocalId)
+            };
+            if (marked != entry)
+            {
+                Listed[index] = marked;
+            }
+        }
+    }
 
     /// <summary>What order that list is read in, kept on this device - see ICalendarListOrderStore.</summary>
     [ObservableProperty]
@@ -498,6 +665,13 @@ public sealed partial class CalendarViewModel : ObservableObject
     [RelayCommand]
     private void OpenListed(CalendarListEntry? entry)
     {
+        // While choosing, a press on an event's row chooses it - see PickingSeveral. A deadline is not
+        // chosen, and so opens as it always does.
+        if (entry?.Event is { } picked && Picking.Toggle(picked.LocalId))
+        {
+            return;
+        }
+
         if (entry?.Event is { } calendarEvent)
         {
             Open(calendarEvent);
@@ -523,11 +697,49 @@ public sealed partial class CalendarViewModel : ObservableObject
         }
     }
 
-    private async Task ShowStoredEventsAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Draws the events from what is on the phone, asking the server nothing.
+    ///
+    /// Public for one caller beyond this class: the page calls it when a sync that nobody on this
+    /// screen asked for has brought something down, so a screen left open stops showing what it was
+    /// shown when it was opened - see PeriodicSync and SyncState.BroughtSomethingNew.
+    /// </summary>
+    public async Task ShowStoredEventsAsync(CancellationToken cancellationToken)
     {
         var pending = await _events.GetPendingLocalIdsAsync(cancellationToken);
         var today = _timeProvider.GetUtcNow().LocalDateTime;
-        var stored = OnTheDaysTheyFallOn(await _events.GetAllAsync(cancellationToken));
+        var held = OnTheDaysTheyFallOn(await _events.GetAllAsync(cancellationToken));
+        await Folders.ReadAsync(cancellationToken);
+
+        // Where each event is, by the rule both clients share. Nothing on the calendar is sealed or
+        // finished, so neither question is asked of it - see FolderPlacement, and FolderPages, which is
+        // why the calendar draws no Private tab.
+        //
+        // One entry per event rather than per occurrence. A repeat comes back from OnTheDaysTheyFallOn
+        // as a copy for every day it falls on, each carrying the original's id (see CalendarOccurrences),
+        // and every one of them is in the same folder - a folder is the event's, not the day's. Keyed
+        // straight off the list, a weekly standup threw the dictionary on its second occurrence, which
+        // took the whole screen down; and a tab's count would have counted that standup once a week.
+        var placements = held
+            .GroupBy(calendarEvent => calendarEvent.LocalId)
+            .ToDictionary(
+                occurrences => occurrences.Key,
+                occurrences => Folders.Where(
+                    occurrences.First().FolderId, isPrivate: false, isFinished: false,
+                    occurrences.First().IsArchived));
+
+        FolderChoices.Clear();
+        foreach (var choice in Folders.Describe(placements.Values))
+        {
+            FolderChoices.Add(choice);
+        }
+
+        OnPropertyChanged(nameof(ChosenFolderName));
+
+        // Narrowed once, here, so the grid, the list beside it and the year are all the one folder
+        // rather than half of it.
+        var stored = held.Where(calendarEvent => Folders.Holds(placements[calendarEvent.LocalId])).ToList();
+        _heldEvents = stored;
         var deadlines = CalendarDeadline.From(
             await _taskLists.GetAllAsync(cancellationToken), stored, _translations);
 
@@ -579,6 +791,15 @@ public sealed partial class CalendarViewModel : ObservableObject
         {
             Listed.Add(entry);
         }
+
+        // Also what marks the rows just drawn, through Changed. One thing per event rather than per
+        // occurrence: a repeat is on the list once for every day it falls on, and is one event.
+        Picking.Shows(_heldEvents
+            .Where(calendarEvent => Listed.Any(entry => entry.Event?.LocalId == calendarEvent.LocalId))
+            .DistinctBy(calendarEvent => calendarEvent.LocalId)
+            .Select(calendarEvent => new PickableThing(
+                calendarEvent.LocalId, calendarEvent.ServerId, calendarEvent.Details.Title,
+                calendarEvent.IsShared, IsPrivate: false, calendarEvent.IsArchived)));
 
         // The half of the day that has no hour - see WithoutAnHour. Taken from the same list rather
         // than gathered separately, so it obeys the same order and the same "what is over" rule.
@@ -687,6 +908,9 @@ public sealed partial class CalendarViewModel : ObservableObject
         _syncState.RecordStarted();
         try
         {
+            // The folders first, and always - see NotesViewModel, which says why.
+            await _folderSynchronizer.SynchroniseAsync(cancellationToken);
+
             var result = await _synchronizer.SynchroniseAsync(cancellationToken);
             RecordSync(result);
 

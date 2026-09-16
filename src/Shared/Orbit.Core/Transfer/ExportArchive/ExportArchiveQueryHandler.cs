@@ -1,5 +1,6 @@
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
+using Orbit.Core.Folders;
 using Orbit.Core.Inventories;
 using Orbit.Core.Notes;
 using Orbit.Core.Places;
@@ -22,6 +23,7 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
     private readonly IInventoryItemRepository _inventoryItemRepository;
     private readonly IPlaceRepository _placeRepository;
     private readonly Orbit.Core.Tags.ITagColourRepository _tagColourRepository;
+    private readonly IFolderRepository _folderRepository;
 
     public ExportArchiveQueryHandler(
         INoteRepository noteRepository,
@@ -30,7 +32,8 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
         IInventoryRepository inventoryRepository,
         IInventoryItemRepository inventoryItemRepository,
         IPlaceRepository placeRepository,
-        Orbit.Core.Tags.ITagColourRepository tagColourRepository)
+        Orbit.Core.Tags.ITagColourRepository tagColourRepository,
+        IFolderRepository folderRepository)
     {
         _noteRepository = noteRepository;
         _taskRepository = taskRepository;
@@ -39,6 +42,7 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
         _inventoryItemRepository = inventoryItemRepository;
         _placeRepository = placeRepository;
         _tagColourRepository = tagColourRepository;
+        _folderRepository = folderRepository;
     }
 
     public async Task<OrbitArchive> HandleAsync(ExportArchiveQuery request, CancellationToken cancellationToken)
@@ -49,19 +53,41 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
         var inventories = await _inventoryRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
         var places = await _placeRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
         var tagColours = await _tagColourRepository.GetAllAsync(request.UserId, cancellationToken);
+        var folders = await _folderRepository.GetAllAsync(request.UserId, cancellationToken);
 
         var ownTaskLists = taskLists.Where(taskList => taskList.UserId == request.UserId).ToList();
         var links = new TaskListLinks(ownTaskLists);
+        var filing = new ExportedFolders(folders);
 
         return new OrbitArchive(
             OrbitArchive.CurrentVersion,
             DateTimeOffset.UtcNow,
-            notes.Where(note => note.UserId == request.UserId).Select(ToArchived).ToList(),
-            ownTaskLists.Select(taskList => ToArchived(taskList, links)).ToList(),
-            calendarEvents.Where(calendarEvent => calendarEvent.UserId == request.UserId).Select(ToArchived).ToList(),
-            await ToArchivedInventoriesAsync(inventories, request.UserId, cancellationToken),
+            notes.Where(note => note.UserId == request.UserId).Select(note => ToArchived(note, filing)).ToList(),
+            ownTaskLists.Select(taskList => ToArchived(taskList, links, filing)).ToList(),
+            calendarEvents.Where(calendarEvent => calendarEvent.UserId == request.UserId)
+                .Select(calendarEvent => ToArchived(calendarEvent, filing)).ToList(),
+            await ToArchivedInventoriesAsync(inventories, request.UserId, filing, cancellationToken),
             places.Where(place => place.UserId == request.UserId).Select(place => ToArchived(place, links)).ToList(),
-            tagColours.Select(colour => new ArchivedTagColour(colour.Tag, colour.Colour)).ToList());
+            tagColours.Select(colour => new ArchivedTagColour(colour.Tag, colour.Colour)).ToList(),
+            folders.Select(folder => new ArchivedFolder(folder.Name, folder.Scope.ToString())).ToList());
+    }
+
+    /// <summary>
+    /// The account's folders, ready to be named by whatever is filed in them. A name rather than an id,
+    /// because the file carries none (see OrbitArchive) - and a folder that has since been deleted is
+    /// named by nothing at all, the way a link to a list that did not come along in the same file is.
+    /// </summary>
+    private sealed class ExportedFolders
+    {
+        private readonly Dictionary<Guid, string> _namesById;
+
+        public ExportedFolders(IReadOnlyList<Folder> folders)
+            => _namesById = folders
+                .GroupBy(folder => folder.Id)
+                .ToDictionary(group => group.Key, group => group.First().Name);
+
+        public string? NameOf(Guid? folderId)
+            => folderId is { } id && _namesById.TryGetValue(id, out var name) ? name : null;
     }
 
     /// <summary>
@@ -81,7 +107,7 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
             links.SealedOnesOf(place.TaskListIds));
 
     private async Task<IReadOnlyList<ArchivedInventory>> ToArchivedInventoriesAsync(
-        IReadOnlyList<Inventory> inventories, Guid userId, CancellationToken cancellationToken)
+        IReadOnlyList<Inventory> inventories, Guid userId, ExportedFolders filing, CancellationToken cancellationToken)
     {
         var archived = new List<ArchivedInventory>();
         foreach (var inventory in inventories.Where(inventory => inventory.UserId == userId))
@@ -99,21 +125,36 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
                     // still imports into one that predates several - see ArchivedInventoryItem.Category.
                     item.Name, item.ProductType, item.Categories.FirstOrDefault() ?? string.Empty, item.Quantity,
                     item.MinimumQuantity, item.ExpiryDate, item.ExpiryNotificationChannel.ToString(),
-                    item.Unit.ToString(), item.Categories)).ToList()));
+                    item.Unit.ToString(), item.Categories)).ToList(),
+                filing.NameOf(inventory.FolderId),
+                inventory.IsArchived));
         }
 
         return archived;
     }
 
-    private static ArchivedNote ToArchived(Note note)
+    private static ArchivedNote ToArchived(Note note, ExportedFolders filing)
         => new(
             note.Title,
-            note.Content.Select(line => new ArchivedNoteLine(line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed)).ToList(),
+            // A picture's bytes are not in the file, and a line naming bytes that are not there would be
+            // a broken picture on import - so pictures are left out of an export, and said so in
+            // info/functionality.md.
+            note.Content.Where(line => !line.IsAPicture).Select(line => new ArchivedNoteLine(
+                line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed, line.Style.ToString(),
+                ArchivedMarks(line.AllMarks),
+                line.Table?.Rows
+                    .Select(row => (IReadOnlyList<ArchivedTableCell>)row.Cells
+                        .Select(cell => new ArchivedTableCell(cell.Text, ArchivedMarks(cell.AllMarks))).ToList())
+                    .ToList(),
+                line.Separator is null ? null : new ArchivedSeparator(line.Separator.Stamp)))
+                .ToList(),
             note.IsPrivate,
             ToArchived(note.EncryptedContent),
-            note.Tags);
+            note.Tags,
+            filing.NameOf(note.FolderId),
+            note.IsArchived);
 
-    private static ArchivedTaskList ToArchived(TaskList taskList, TaskListLinks links)
+    private static ArchivedTaskList ToArchived(TaskList taskList, TaskListLinks links, ExportedFolders filing)
         => new(
             taskList.Title,
             taskList.Items.Select(item => new ArchivedTaskItem(
@@ -136,7 +177,9 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
             taskList.IsPrivate,
             ToArchived(taskList.EncryptedContent),
             taskList.Priority.ToString(),
-            taskList.Tags);
+            taskList.Tags,
+            filing.NameOf(taskList.FolderId),
+            taskList.IsArchived);
 
     /// <summary>
     /// How a link to one of the exported lists is written, because a file has no ids worth keeping - it
@@ -168,7 +211,7 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
             => [.. taskListIds.Select(id => _noncesById.GetValueOrDefault(id)).OfType<string>()];
     }
 
-    private static ArchivedCalendarEvent ToArchived(CalendarEvent calendarEvent)
+    private static ArchivedCalendarEvent ToArchived(CalendarEvent calendarEvent, ExportedFolders filing)
     {
         var details = calendarEvent.Details;
 
@@ -180,9 +223,17 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
             details.ReminderMinutesBeforeStart,
             // Nothing announces an event to its own owner any more - see ArchivedCalendarEvent.
             CreationNotificationChannel: nameof(Orbit.Core.Notifications.NotificationChannel.None),
-            details.ReminderNotificationChannel.ToString());
+            details.ReminderNotificationChannel.ToString(),
+            filing.NameOf(calendarEvent.FolderId),
+            calendarEvent.IsArchived);
     }
 
     private static ArchivedEncryptedContent? ToArchived(EncryptedPayload? encryptedContent)
         => encryptedContent is null ? null : new ArchivedEncryptedContent(encryptedContent.Ciphertext, encryptedContent.Nonce);
+
+    /// <summary>A line's or a cell's marks as the file carries them - nothing at all for none, so the field is absent.</summary>
+    private static IReadOnlyList<ArchivedTextRun>? ArchivedMarks(IReadOnlyList<NoteTextRun> marks)
+        => marks.Count == 0
+            ? null
+            : marks.Select(run => new ArchivedTextRun(run.Start, run.Length, run.Mark.ToString())).ToList();
 }

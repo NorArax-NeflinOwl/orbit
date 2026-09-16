@@ -1,5 +1,6 @@
 using Orbit.Core.Abstractions;
 using Orbit.Core.Chat.Groups;
+using Orbit.Core.Notes;
 
 namespace Orbit.Core.Users.DeleteAccount;
 
@@ -12,6 +13,15 @@ public sealed class DeleteAccountCommandHandler : IRequestHandler<DeleteAccountC
     private readonly IGoogleIdentityVerifier _googleIdentityVerifier;
 
     /// <summary>
+    /// The note pictures this account owns, so their bytes go with it - see NotePictureSweeper. Optional
+    /// because they are: a build with no picture store configured has nothing to sweep, and a test about
+    /// proving who the owner is need not stand one up. Both are supplied together or not at all.
+    /// </summary>
+    private readonly INotePictureRepository? _notePictures;
+
+    private readonly INotePictureStore? _notePictureStore;
+
+    /// <summary>
     /// How recent a Google sign-in has to be to count as the owner confirming it now. A token is good for
     /// an hour, and one kept from the sign-in that opened this session proves only that the session was
     /// once the owner's - which is the thing a stolen session also has.
@@ -21,13 +31,16 @@ public sealed class DeleteAccountCommandHandler : IRequestHandler<DeleteAccountC
     public DeleteAccountCommandHandler(
         IUserRepository userRepository, IPasswordHasher passwordHasher,
         IAccountDeletionRepository accountDeletionRepository, IChatGroupRepository chatGroupRepository,
-        IGoogleIdentityVerifier googleIdentityVerifier)
+        IGoogleIdentityVerifier googleIdentityVerifier,
+        INotePictureRepository? notePictures = null, INotePictureStore? notePictureStore = null)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
         _accountDeletionRepository = accountDeletionRepository;
         _chatGroupRepository = chatGroupRepository;
         _googleIdentityVerifier = googleIdentityVerifier;
+        _notePictures = notePictures;
+        _notePictureStore = notePictureStore;
     }
 
     /// <summary>
@@ -64,9 +77,20 @@ public sealed class DeleteAccountCommandHandler : IRequestHandler<DeleteAccountC
         }
 
         await LeaveEveryChatGroupAsync(request.UserId, cancellationToken);
+        // Before the rows go, because after that nothing names the bytes again: a picture's blob is
+        // found by its row's id and by nothing else, so an account deleted first and swept second would
+        // leave its pictures in the store for as long as the store lives - sealed ones included, which
+        // is the half that matters most. See NotePictureSweeper.
+        await SweepNotePicturesAsync(request.UserId, cancellationToken);
         await _accountDeletionRepository.DeleteAllDataForUserAsync(request.UserId, cancellationToken);
         return true;
     }
+
+    /// <inheritdoc cref="NotePictureSweeper.RemoveEverythingOwnedByAsync"/>
+    private Task SweepNotePicturesAsync(Guid userId, CancellationToken cancellationToken)
+        => _notePictures is { } pictures && _notePictureStore is { } store
+            ? NotePictureSweeper.RemoveEverythingOwnedByAsync(userId, pictures, store, cancellationToken)
+            : Task.CompletedTask;
 
     /// <summary>
     /// Whether the token is a genuine Google sign-in, for the Google identity this account is linked to,

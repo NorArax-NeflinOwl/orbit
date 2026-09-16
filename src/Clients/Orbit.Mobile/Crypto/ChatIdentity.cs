@@ -119,6 +119,47 @@ public sealed class ChatIdentity : IDisposable
     public string? DecryptForSelf(EncryptedText encrypted) => Decrypt(PublicKeyBase64, encrypted);
 
     /// <summary>
+    /// Seals bytes - a picture - into the one buffer the browser's <c>sealBytesForSelf</c> writes and
+    /// reads: the 12-byte nonce, then the ciphertext with WebCrypto's tag on its end. The same key as
+    /// <see cref="EncryptForSelf"/>, so a picture sealed by either client opens on the other.
+    /// </summary>
+    public byte[] SealBytesForSelf(byte[] plainBytes)
+    {
+        var nonce = RandomNumberGenerator.GetBytes(NonceSizeBytes);
+        var ciphertext = new byte[plainBytes.Length];
+        var tag = new byte[TagSizeBytes];
+
+        using var cipher = new AesGcm(AgreeKey(PublicKeyBase64), TagSizeBytes);
+        cipher.Encrypt(nonce, plainBytes, ciphertext, tag);
+        return [.. nonce, .. ciphertext, .. tag];
+    }
+
+    /// <summary>Opens what <see cref="SealBytesForSelf"/> or the browser produced, or null when this key cannot.</summary>
+    public byte[]? OpenBytesForSelf(byte[] sealedBytes)
+    {
+        if (sealedBytes.Length < NonceSizeBytes + TagSizeBytes)
+        {
+            return null;
+        }
+
+        var nonce = sealedBytes[..NonceSizeBytes];
+        var ciphertext = sealedBytes[NonceSizeBytes..^TagSizeBytes];
+        var tag = sealedBytes[^TagSizeBytes..];
+        var plainBytes = new byte[ciphertext.Length];
+
+        try
+        {
+            using var cipher = new AesGcm(AgreeKey(PublicKeyBase64), TagSizeBytes);
+            cipher.Decrypt(nonce, ciphertext, tag, plainBytes);
+            return plainBytes;
+        }
+        catch (CryptographicException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     /// The private key as JWK - how this device stores it, and what the backup carries. The same format
     /// the browser exports, so a key written by either side can be read by the other.
     /// </summary>

@@ -34,6 +34,7 @@
 @inject NavigationManager NavigationManager
 @inject NavigationTrail NavigationTrail
 @inject ILogger<TaskEditor> Logger
+@inject Clipboard Clipboard
 @inject Translations T
 @inject TimeProvider TimeProvider
 @inject ChosenPlace ChosenPlace
@@ -189,63 +190,11 @@ else
                                 <option value="@nameof(TaskItemKind.Inventory)">@T["Inventory"]</option>
                             </select>
                         </label>
-                        @* What the entry is about, whatever kind it is - as many words as apply rather
-                           than making somebody pick the truest one. It was one box holding
-                           "shopping, car", which asked the reader to know that the comma was the
-                           separator; it is now a word at a time, with every category already in use on
-                           this account listed under the box - see TagField.
-
-                           For an inventory entry this is also what the product it stands for is filed
-                           under: the shelf form below leaves its own box out, because the two sat one
-                           above the other with the same label and the same placeholder, and nothing
-                           said which was which. See KnownCategoriesFor and ProductAsked. *@
-                        <div class="editor-item-tags">
-                            <span class="editor-item-tags-label">@T["Categories"]</span>
-                            <TagField Values="item.Categories" ValuesChanged="values => item.Categories = [.. values]"
-                                      Known="KnownCategoriesFor(item)" Placeholder="@(T["Add a category"])"
-                                      AriaLabel="@(T["Categories"])"
-                                      IsReadOnly="@(_isSharedReadOnly || _lockedByUserName is not null)" />
-                        </div>
-                        @* What the entry is about, as opposed to what it is called. A calendar entry has
-                           always had one - it was the event's - and nothing else did, so a checklist
-                           line or a restock errand could only ever be as long as its own row. It is the
-                           same box for every kind now, and on a calendar entry it is still the event's:
-                           the appointment's own form leaves its copy out (EventFields.ShowsDescription)
-                           rather than asking twice. Prose, so a textarea rather than a line. *@
-                        <div class="field editor-item-notes">
-                            <label for="@($"item{_formModel.Items.IndexOf(item)}Notes")">@T["Description"]</label>
-                            <textarea id="@($"item{_formModel.Items.IndexOf(item)}Notes")" rows="2"
-                                      placeholder="@(T["What this is about"])" value="@item.Notes"
-                                      disabled="@(_isSharedReadOnly || _lockedByUserName is not null)"
-                                      @oninput="args => item.Notes = args.Value?.ToString() ?? string.Empty"></textarea>
-                        </div>
-                        @* A day to be done by is a checklist entry's question and nobody else's: an
-                           appointment already says when it is, in the event's own start and end below,
-                           and a restock errand is about an amount rather than a date. Asking all three
-                           for it left two answers about when a Calendar entry happens. *@
-                        @if (item.Kind == nameof(TaskItemKind.Checklist))
-                        {
-                            <label>@T["Due date"]<DateField @bind-Value="item.DueDate" AriaLabel="@(T["Due date"])" />
-                            </label>
-                            <label>@T["Due time"]<TimeField @bind-Value="item.DueTime" AriaLabel="@(T["Due time"])" />
-                            </label>
-                        }
-                        @* When it was done, offered only once it is: a day for something not done yet is
-                           not a fact about it, and unticking clears it (see TaskItemFormModel.Tick). Every
-                           kind has one - an appointment or an errand is done at some moment the same as a
-                           checklist line. Editable, because "did it yesterday, ticked it today" is the usual
-                           case. *@
-                        @if (item.IsCompleted)
-                        {
-                            <label>@T["Completed on"]<DateField @bind-Value="item.CompletedDate" AriaLabel="@(T["Completed on"])" />
-                            </label>
-                            <label>@T["Time completed"]<TimeField @bind-Value="item.CompletedTime" AriaLabel="@(T["Time completed"])" />
-                            </label>
-                        }
+                        @(WhatAndWhen(item, $"item{_formModel.Items.IndexOf(item)}", _isSharedReadOnly || _lockedByUserName is not null))
                         @* Offered for every saved entry, including one this account has nowhere to move -
                            the control saying so is an answer, where leaving it out looked like a setting
                            that had gone missing. *@
-                        @if (item.Id is { } persistedItemId)
+                        @if (item is { WasStored: true, Id: { } persistedItemId })
                         {
                             var moveTargets = MoveTargetsFor(item);
                             <label>@T["Move to list"]<select @onchange="@(changeArgs => MoveItemAsync(item, persistedItemId, changeArgs.Value))"
@@ -258,38 +207,7 @@ else
                                 </select>
                             </label>
                         }
-                        @* How much this one matters and what colour it is drawn in. The list has a
-                           priority of its own and this is not it: a list of ten errands usually has one
-                           that has to happen and nine that can wait, and until now saying so meant
-                           splitting the list in two. Beside Move to list and Waits for, because all
-                           three are true of every kind of entry - see TaskItem.Priority. *@
-                        <label>@T["Entry priority"]
-                            <select value="@item.Priority"
-                                    @onchange="args => item.Priority = args.Value?.ToString() ?? item.Priority"
-                                    aria-label="@(T["Entry priority"])">
-                                <option value="Low">@T["Low"]</option>
-                                <option value="Normal">@T["Normal"]</option>
-                                <option value="High">@T["High"]</option>
-                            </select>
-                        </label>
-                        @* The same colour well an appointment is given (see EventFields), and beside it
-                           the way back out of it: a colour input always holds a colour, and "no colour
-                           of its own" is a real answer here - an entry nobody chose one for is drawn in
-                           whatever its kind is drawn in, and a default would quietly overrule that. The
-                           way out is only offered once there is something to undo. *@
-                        <label>@T["Entry colour"]
-                            <span class="field-with-note">
-                                <input type="color" value="@(item.Colour.Length > 0 ? item.Colour : DefaultEntryColour)"
-                                       aria-label="@(T["Entry colour"])"
-                                       @onchange="args => item.Colour = args.Value?.ToString() ?? item.Colour" />
-                                @if (item.Colour.Length > 0)
-                                {
-                                    <button type="button" class="btn-secondary" @onclick="() => item.Colour = string.Empty">
-                                        @T["No colour of its own"]
-                                    </button>
-                                }
-                            </span>
-                        </label>
+                        @(PriorityAndColour(item))
                         @* The order the work on this list has to be done in - "hang the door" after "fit
                            the hinges". The entry cannot be ticked until every step it names is; crossing
                            it out is still allowed, because giving up on something blocked by a step that
@@ -475,6 +393,17 @@ else
                                     </select>
                                 </label>
                             }
+                            @* Which of the lists have to be done. Any one of them unless this is ticked -
+                               the user's rule, settled 2026-09-14: one entry for two ways of getting a
+                               thing is what somebody usually means by writing it once. Only where there
+                               are two to choose between: with one list the question has one answer. *@
+                            @if (item.LinkedTaskListIds.Count > 1)
+                            {
+                                <span class="field-break"></span>
+                                <label>
+                                    <input type="checkbox" checked="@item.NeedsEveryLinkedList"
+                                           @onchange="args => item.NeedsEveryLinkedList = args.Value is true" />@T["Needs all of them"]<FieldHint>@T["Off, this entry is done as soon as any one of the lists it stands for is. On, every one of them has to be done."]</FieldHint></label>
+                            }
                             @if (item.IsALinkToOtherLists)
                             {
                                 <span class="field-break"></span>
@@ -535,31 +464,7 @@ else
                                     </div>
                                 </div>
                             }
-                            <label>@T["Overdue notification"]<select @bind="item.OverdueNotificationChannel">
-                                    @foreach (var option in NotificationChannelOption.All)
-                                    {
-                                        <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
-                                    }
-                                </select>
-                            </label>
-                            <label>
-                                <InputCheckbox @bind-Value="item.RemindDaily" />@T["Remind daily"]</label>
-                            @if (item.RemindDaily)
-                            {
-                                <label>@T["Daily reminder channel"]<select @bind="item.DailyReminderNotificationChannel">
-                                        @foreach (var option in NotificationChannelOption.All)
-                                        {
-                                            <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
-                                        }
-                                    </select>
-                                </label>
-                                @* Required, not optional: a daily reminder with no hour has nothing to
-                                   arrive at, and the scheduler would send it at midnight - see
-                                   ValidateItems, which refuses the save rather than picking an hour
-                                   nobody asked for. *@
-                                <label>@T["Daily reminder time"]<TimeField @bind-Value="item.DailyReminderTimeOfDay" AriaLabel="@(T["Daily reminder time"])" />
-                                </label>
-                            }
+                            @(Reminders(item))
                             @if (item.IsALinkToOtherLists)
                             {
                                 <span class="field-break"></span>
@@ -604,6 +509,71 @@ else
             <button type="submit" class="btn-secondary">@T["Add item"]</button>
         </div>
 
+        @* The lists this one gathers, each under its own name, so a member's entries can be renamed,
+           added and removed without leaving the form - what the user asked for on 2026-09-16. Saved by
+           the same press: see SaveTheMembersAsync, which writes each list on its own.
+
+           A row is the entry's words and its box, and behind its toggle the same fields this form's own
+           entries open onto that belong to the entry alone - what it is filed under and about, when it is
+           due and was done, how much it matters, its colour and its reminders (see WhatAndWhen,
+           PriorityAndColour and Reminders, which both places draw). What reaches past the entry -
+           its kind, an event or a shelf behind it, the lists it stands for, its ways, what it waits for,
+           moving it - is edited in the member's own editor, one press away at the head of the section:
+           each of those saves something beside the list, and this form saves only the lists. *@
+        @foreach (var member in _memberForms)
+        {
+            var memberIndex = _memberForms.ToList().IndexOf(member);
+            <section class="editor-member" @key="member.Source.Id">
+                <div class="editor-member-head">
+                    <h3>@MemberName(member)</h3>
+                    <a class="btn-secondary" href="@ReturnTo.Link($"/tasks/{member.Source.Id}/edit", ThisForm)">
+                        @T["Open this list"]
+                    </a>
+                </div>
+
+                @* Said rather than left as a section that quietly does nothing: each of these has
+                   somewhere the reader can go and do it, and the words say which. *@
+                @if (!member.CanBeWrittenIn)
+                {
+                    <p class="empty-hint">@WhyThisOneIsReadOnly(member)</p>
+                }
+
+                <fieldset disabled="@(!member.CanBeWrittenIn || _isSaving)">
+                    @foreach (var item in member.Form.Items)
+                    {
+                        <div class="editor-member-item" @key="item">
+                            <input type="checkbox" checked="@item.IsCompleted"
+                                   aria-label="@T.Format("Done: {0}", item.Description)"
+                                   @onchange="args => item.IsCompleted = args.Value is true" />
+                            <input type="text" class="editor-member-item-text" @bind="item.Description"
+                                   @bind:event="oninput" aria-label="@T["What needs doing"]" />
+                            <button type="button" class="editor-item-toggle @(IsExpanded(item) ? "open" : "")"
+                                    title="@(IsExpanded(item) ? T["Hide this item's other settings"] : T["Show this item's other settings"])"
+                                    aria-expanded="@(IsExpanded(item) ? "true" : "false")"
+                                    @onclick="() => ToggleExpanded(item)">
+                                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
+                            </button>
+                            <button type="button" class="btn-secondary"
+                                    @onclick="() => member.Form.Items.Remove(item)">@T["Remove"]</button>
+                        </div>
+                        @if (IsExpanded(item))
+                        {
+                            <div class="editor-item-details editor-member-item-details">
+                                @(WhatAndWhen(item, $"member{memberIndex}item{member.Form.Items.IndexOf(item)}", !member.CanBeWrittenIn))
+                                @(PriorityAndColour(item))
+                                @if (item.Kind == nameof(TaskItemKind.Checklist))
+                                {
+                                    @(Reminders(item))
+                                }
+                            </div>
+                        }
+                    }
+                    <button type="button" class="btn-secondary"
+                            @onclick="() => AddItemTo(member)">@T["Add item"]</button>
+                </fieldset>
+            </section>
+        }
+
     </fieldset>
     </EditForm>
 }
@@ -645,6 +615,10 @@ else
                     </div>
                 }
 
+                @* Ticks itself when an entry on the form first comes to stand for another list (see
+                   LinkToTheList), and is the reader's to untick after that - see TaskList.IsGroup, where the
+                   server applies the same rule for every writer. It was locked on while any such entry
+                   stood, until the user's list of 2026-09-16 asked for it to be theirs. *@
                 <div class="field">
                     <label>
                         <input type="checkbox" checked="@_formModel.IsGroup"
@@ -709,6 +683,26 @@ else
                     </select>
                 </div>
                 </div>
+
+                @* The list on the clipboard, whole or narrowed to one state of its entries - the same
+                   four the checklist offers (TaskListChecklist), because the reader writing the list is
+                   as likely to want the errands still to do as the reader only reading it. What is
+                   copied is what the form holds, unsaved entries included: it is the list in front of
+                   them, which is also why this one is offered on a list that has never been saved. *@
+                <div class="editor-settings-divider"></div>
+                @foreach (var what in CopiedParts.All)
+                {
+                    <button type="button" class="avatar-dropdown-item"
+                            @onclick="() => CopyTheTextAsync(what)">@(_copied == what ? T["Copied"] : T[what.Label()])</button>
+                }
+                @* The other half of the copies above: what is on the clipboard, line by line, as entries at
+                   the foot of the list - see PasteFromTheClipboardAsync. Not offered where the list cannot
+                   be written in. *@
+                @if (!_isSharedReadOnly && _lockedByUserName is null)
+                {
+                    <button type="button" class="avatar-dropdown-item"
+                            @onclick="PasteFromTheClipboardAsync">@T["Paste from the clipboard"]</button>
+                }
 
                 @* Only for a list that exists: nothing below the line can act on one that has never
                    been saved, and a divider over nothing is a line for its own sake. *@
@@ -880,6 +874,73 @@ else
     /// make changing two a chore - see OverflowMenu, where both halves of that rule live.
     /// </summary>
     private OverflowMenu? _menu;
+
+    /// <summary>Which of the four was copied, so that entry says so until the menu is left.</summary>
+    private WhatToCopy? _copied;
+
+    /// <summary>
+    /// The list being written, on the clipboard - see TaskListChecklist.CopyTheTextAsync, which is the
+    /// same action on the same list from the screen that only reads it. The entries are taken from the
+    /// form rather than from what was last saved, since the form is the list in front of the reader.
+    ///
+    /// An entry that only points at other lists is left out, as it is there: a row holding a group
+    /// together is not work anybody copies, and its state is the pointed-at list's anyway.
+    /// </summary>
+    private async Task CopyTheTextAsync(WhatToCopy what)
+    {
+        var words = TaskListWords.Of(
+            _formModel.Title,
+            _formModel.Items
+                .Where(item => !item.IsALinkToOtherLists)
+                .Select(item => new TickedLine(item.Description, Ticks.Read(item.IsCompleted, item.IsFailed))),
+            what);
+
+        if (await Clipboard.TryWriteAsync(words))
+        {
+            _copied = what;
+            return;
+        }
+
+        _saveErrorMessage = T["The text could not be copied. Your browser did not allow it."];
+    }
+
+    /// <summary>
+    /// What is on the clipboard, as entries at the foot of the list - every line one entry, a line copied
+    /// as done ("[x] ") coming in done, and the list's own name left out when it heads the paste (see
+    /// TaskListWords.ReadBack, which the phone reads it with too). So a list copied out of anything Orbit
+    /// writes - filtered or whole - comes back in as the entries it was, and a long list typed elsewhere
+    /// comes in without a press of Add item per line. Nothing is saved until Save, like every other change
+    /// on this form.
+    /// </summary>
+    private async Task PasteFromTheClipboardAsync()
+    {
+        _menu?.Close();
+        if (await Clipboard.TryReadAsync() is not { } pasted)
+        {
+            _saveErrorMessage = T["The clipboard could not be read. Your browser did not allow it."];
+            return;
+        }
+
+        var entries = TaskListWords.ReadBack(pasted, _formModel.Title);
+        if (entries.Count == 0)
+        {
+            _saveErrorMessage = T["There is nothing on the clipboard to paste."];
+            return;
+        }
+
+        foreach (var (text, isDone) in entries)
+        {
+            _formModel.Items.Add(new TaskItemFormModel
+            {
+                Id = Guid.NewGuid(),
+                Description = text,
+                IsCompleted = isDone,
+                Event = new EventFormModel(TimeProvider) { Color = TaskItemFormModel.AppointmentColor }
+            });
+        }
+
+        _saveErrorMessage = null;
+    }
 
     /// <summary>
     /// Whether this reader may hand the list to a contact: a saved list, a share that allows passing it
@@ -1079,11 +1140,21 @@ else
     private IReadOnlyList<TaskDto> LinkableListsFor(TaskItemFormModel item)
         => [.. _linkableTaskLists.Where(candidate => !item.LinkedTaskListIds.Contains(candidate.Id))];
 
-    private static void LinkToTheList(TaskItemFormModel item, object? chosenValue)
+    /// <summary>
+    /// Points an entry at a list. The first entry on the form to do so turns the list into a group list,
+    /// in the same press, as the server does when that save arrives (TaskList.IsGroup) - so the box says
+    /// what will be saved. Only the first: once the list gathers others the box is the reader's.
+    /// </summary>
+    private void LinkToTheList(TaskItemFormModel item, object? chosenValue)
     {
         if (Guid.TryParse(chosenValue?.ToString(), out var taskListId) && !item.LinkedTaskListIds.Contains(taskListId))
         {
+            var gatheredBefore = GathersOtherLists;
             item.LinkedTaskListIds.Add(taskListId);
+            if (!gatheredBefore)
+            {
+                _formModel.IsGroup = true;
+            }
         }
     }
 
@@ -1206,11 +1277,16 @@ else
     /// for and minus itself. Nothing is checked for a chain that comes back round - an entry waiting on
     /// something that waits on it can never be ticked, and neither can be ticked to begin with, so the
     /// list simply says so rather than a save being refused.
+    ///
+    /// An entry typed a moment ago is among them. It used to be left out because it had no id until the
+    /// save minted one, so building a list and ordering its steps meant saving in the middle of doing
+    /// it - and on a list being written for the first time, nothing could wait for anything. Every entry
+    /// names itself now (see TaskItemFormModel.Id), which is what the phone already did.
     /// </summary>
     private IReadOnlyList<TaskItemFormModel> StepsAvailableTo(TaskItemFormModel item)
         => [.. _formModel.Items.Where(candidate =>
-            candidate != item && !item.WaitsForTaskItemIds.Contains(candidate.Id ?? Guid.Empty)
-            && candidate.Id is not null)];
+            candidate != item && candidate.Id is { } candidateId
+            && !item.WaitsForTaskItemIds.Contains(candidateId))];
 
     private static void WaitForTheEntry(TaskItemFormModel item, object? chosenValue)
     {
@@ -1489,73 +1565,7 @@ else
                             .Where(other => other.Id != taskListId && other.LinkedInventoryId is not null)
                             .Select(other => other.LinkedInventoryId!.Value)
                     ];
-                    _formModel = new TaskListFormModel
-                    {
-                        Title = taskList.Title,
-                        Description = taskList.Description,
-                        Tags = [.. taskList.AllTags],
-                        IsGroup = taskList.IsGroup,
-                        Completion = ParseCompletion(taskList.Completion),
-                        IsPrivate = taskList.IsPrivate,
-                        Priority = taskList.Priority,
-                        FolderId = taskList.FolderId,
-                        Items = taskList.Items
-                            .Select(item => new TaskItemFormModel
-                            {
-                                Event = new EventFormModel(TimeProvider) { Color = TaskItemFormModel.AppointmentColor },
-                                Id = item.Id,
-                                Description = item.Description,
-                                DueDate = item.DueDateUtc is { } dueDateUtc ? DateOnly.FromDateTime(dueDateUtc.LocalDateTime) : null,
-                                DueTime = item.DueDateUtc is { } dueTimeUtc ? TimeOnly.FromDateTime(dueTimeUtc.LocalDateTime) : null,
-                                IsCompleted = item.IsCompleted,
-                                IsFailed = item.IsFailed,
-                                CompletedDate = item.IsCompleted && item.CompletedAtUtc is { } doneUtc
-                                    ? DateOnly.FromDateTime(doneUtc.LocalDateTime)
-                                    : null,
-                                CompletedTime = item.IsCompleted && item.CompletedAtUtc is { } doneAtUtc
-                                    ? TimeOnly.FromDateTime(doneAtUtc.LocalDateTime)
-                                    : null,
-                                WaitsForTaskItemIds = [.. item.AllWaitsForTaskItemIds],
-                                Kind = item.Kind,
-                                Location = item.Location,
-                                LinkedInventoryItemId = item.LinkedInventoryItemId,
-                                LinkedCalendarEventId = item.LinkedCalendarEventId?.ToString() ?? string.Empty,
-                                LinkedTaskListIds = [.. item.AllLinkedTaskListIds],
-                                Alternatives = [.. item.AllAlternatives.Select(way => new TaskItemAlternativeFormModel
-                                {
-                                    Description = way.Description,
-                                    LinkedTaskListId = way.LinkedTaskListId,
-                                    IsDone = way.IsDone
-                                })],
-                                ReferencesTaskItemId = item.ReferencesTaskItemId,
-                                RequiredQuantity = item.RequiredQuantity,
-                                Categories = [.. CategoriesOf(item)],
-                                Notes = item.AllNotes,
-                                // Both may be absent from an entry stored before they existed, and both
-                                // then read as "nobody said" rather than as a hole - see TaskItemDto.
-                                Priority = item.Priority ?? nameof(ItemPriority.Normal),
-                                Colour = item.Colour ?? string.Empty,
-                                OverdueNotificationChannel = item.OverdueNotificationChannel,
-                                RemindDaily = item.RemindDaily,
-                                DailyReminderNotificationChannel = item.DailyReminderNotificationChannel,
-                                // Midnight reads as "never set". The wire carries a plain TimeOnly and so
-                                // cannot say "none"; an entry reminded daily at exactly 00:00 is far more
-                                // likely to be one nobody chose an hour for than one somebody wanted at
-                                // midnight - and being asked is a smaller cost than a reminder arriving
-                                // while everybody is asleep. See WhatIsWrongWithTheItems.
-                                DailyReminderTimeOfDay =
-                                    item.RemindDaily && item.DailyReminderTimeOfDay == default
-                                        ? null
-                                        : item.DailyReminderTimeOfDay,
-                                // What the entry already asks for, or a blank form for one that asks for
-                                // nothing yet - an entry standing for a real shelf item carries no
-                                // description of its own, since that item is the answer.
-                                Product = item.Product is { } product
-                                    ? InventoryItemFormModel.FromTaskItemProduct(product)
-                                    : new InventoryItemFormModel()
-                            })
-                            .ToList()
-                    };
+                    _formModel = ToFormModel(taskList);
                     _savedFolderId = taskList.FolderId;
                     _isShared = taskList.IsShared;
                     _access = SharedItemAccess.For(taskList.IsShared, taskList.AccessLevel);
@@ -1573,6 +1583,15 @@ else
                         {
                             StartLockHeartbeat(taskListId);
                         }
+                    }
+
+                    // The lists this one gathers, each in a form of its own under the group's entries -
+                    // what the user asked for, so that a member's entries can be renamed, added and
+                    // removed without leaving. Only for a list this reader may write in at all: reading
+                    // a group shared to read draws its members from the light view instead.
+                    if (!_isSharedReadOnly && _lockedByUserName is null)
+                    {
+                        await LoadTheMembersAsync(taskListId, allTaskLists);
                     }
                 }
 
@@ -1633,6 +1652,9 @@ else
 
         var entry = new TaskItemFormModel
         {
+            // As every new entry is - see TaskItemFormModel.Id. This one has a second reason: the place
+            // it is about answers to the entry by id.
+            Id = Guid.NewGuid(),
             Event = new EventFormModel(TimeProvider) { Color = TaskItemFormModel.AppointmentColor },
             Kind = nameof(TaskItemKind.Location),
             Location = place.Address,
@@ -1672,6 +1694,136 @@ else
     }
 
     private bool IsExpanded(TaskItemFormModel item) => ReferenceEquals(_expandedItem, item);
+
+    /// <summary>
+    /// The first half of an entry's own fields: what it is filed under, what it is about, when it is due
+    /// and when it was done. Drawn for this list's entries and for a member's under the same toggle - see
+    /// the member sections - so one entry's fields read the same in both places and cannot drift apart.
+    /// </summary>
+    /// <param name="idPrefix">Tells the description box's id apart from every other on the form.</param>
+    private RenderFragment WhatAndWhen(TaskItemFormModel item, string idPrefix, bool isReadOnly) => __builder =>
+    {
+        @* What the entry is about, whatever kind it is - as many words as apply rather
+           than making somebody pick the truest one. It was one box holding
+           "shopping, car", which asked the reader to know that the comma was the
+           separator; it is now a word at a time, with every category already in use on
+           this account listed under the box - see TagField.
+
+           For an inventory entry this is also what the product it stands for is filed
+           under: the shelf form below leaves its own box out, because the two sat one
+           above the other with the same label and the same placeholder, and nothing
+           said which was which. See KnownCategoriesFor and ProductAsked. *@
+        <div class="editor-item-tags">
+            <span class="editor-item-tags-label">@T["Categories"]</span>
+            <TagField Values="item.Categories" ValuesChanged="values => item.Categories = [.. values]"
+                      Known="KnownCategoriesFor(item)" Placeholder="@(T["Add a category"])"
+                      AriaLabel="@(T["Categories"])"
+                      IsReadOnly="@isReadOnly" />
+        </div>
+        @* What the entry is about, as opposed to what it is called. A calendar entry has
+           always had one - it was the event's - and nothing else did, so a checklist
+           line or a restock errand could only ever be as long as its own row. It is the
+           same box for every kind now, and on a calendar entry it is still the event's:
+           the appointment's own form leaves its copy out (EventFields.ShowsDescription)
+           rather than asking twice. Prose, so a textarea rather than a line. *@
+        <div class="field editor-item-notes">
+            <label for="@($"{idPrefix}Notes")">@T["Description"]</label>
+            <textarea id="@($"{idPrefix}Notes")" rows="2"
+                      placeholder="@(T["What this is about"])" value="@item.Notes"
+                      disabled="@isReadOnly"
+                      @oninput="args => item.Notes = args.Value?.ToString() ?? string.Empty"></textarea>
+        </div>
+        @* A day to be done by is a checklist entry's question and nobody else's: an
+           appointment already says when it is, in the event's own start and end below,
+           and a restock errand is about an amount rather than a date. Asking all three
+           for it left two answers about when a Calendar entry happens. *@
+        @if (item.Kind == nameof(TaskItemKind.Checklist))
+        {
+            <label>@T["Due date"]<DateField @bind-Value="item.DueDate" AriaLabel="@(T["Due date"])" />
+            </label>
+            <label>@T["Due time"]<TimeField @bind-Value="item.DueTime" AriaLabel="@(T["Due time"])" />
+            </label>
+        }
+        @* When it was done, offered only once it is: a day for something not done yet is
+           not a fact about it, and unticking clears it (see TaskItemFormModel.Tick). Every
+           kind has one - an appointment or an errand is done at some moment the same as a
+           checklist line. Editable, because "did it yesterday, ticked it today" is the usual
+           case. *@
+        @if (item.IsCompleted)
+        {
+            <label>@T["Completed on"]<DateField @bind-Value="item.CompletedDate" AriaLabel="@(T["Completed on"])" />
+            </label>
+            <label>@T["Time completed"]<TimeField @bind-Value="item.CompletedTime" AriaLabel="@(T["Time completed"])" />
+            </label>
+        }
+    };
+
+    /// <summary>How much an entry matters and what colour it is drawn in - see WhatAndWhen.</summary>
+    private RenderFragment PriorityAndColour(TaskItemFormModel item) => __builder =>
+    {
+        @* How much this one matters and what colour it is drawn in. The list has a
+           priority of its own and this is not it: a list of ten errands usually has one
+           that has to happen and nine that can wait, and until now saying so meant
+           splitting the list in two. Beside Move to list and Waits for, because all
+           three are true of every kind of entry - see TaskItem.Priority. *@
+        <label>@T["Entry priority"]
+            <select value="@item.Priority"
+                    @onchange="args => item.Priority = args.Value?.ToString() ?? item.Priority"
+                    aria-label="@(T["Entry priority"])">
+                <option value="Low">@T["Low"]</option>
+                <option value="Normal">@T["Normal"]</option>
+                <option value="High">@T["High"]</option>
+            </select>
+        </label>
+        @* The same colour well an appointment is given (see EventFields), and beside it
+           the way back out of it: a colour input always holds a colour, and "no colour
+           of its own" is a real answer here - an entry nobody chose one for is drawn in
+           whatever its kind is drawn in, and a default would quietly overrule that. The
+           way out is only offered once there is something to undo. *@
+        <label>@T["Entry colour"]
+            <span class="field-with-note">
+                <input type="color" value="@(item.Colour.Length > 0 ? item.Colour : DefaultEntryColour)"
+                       aria-label="@(T["Entry colour"])"
+                       @onchange="args => item.Colour = args.Value?.ToString() ?? item.Colour" />
+                @if (item.Colour.Length > 0)
+                {
+                    <button type="button" class="btn-secondary" @onclick="() => item.Colour = string.Empty">
+                        @T["No colour of its own"]
+                    </button>
+                }
+            </span>
+        </label>
+    };
+
+    /// <summary>A checklist entry's reminders - when it is late, and every day - see WhatAndWhen.</summary>
+    private RenderFragment Reminders(TaskItemFormModel item) => __builder =>
+    {
+        <label>@T["Overdue notification"]<select @bind="item.OverdueNotificationChannel">
+                @foreach (var option in NotificationChannelOption.All)
+                {
+                    <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
+                }
+            </select>
+        </label>
+        <label>
+            <InputCheckbox @bind-Value="item.RemindDaily" />@T["Remind daily"]</label>
+        @if (item.RemindDaily)
+        {
+            <label>@T["Daily reminder channel"]<select @bind="item.DailyReminderNotificationChannel">
+                    @foreach (var option in NotificationChannelOption.All)
+                    {
+                        <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
+                    }
+                </select>
+            </label>
+            @* Required, not optional: a daily reminder with no hour has nothing to
+               arrive at, and the scheduler would send it at midnight - see
+               WhatIsWrongWithTheItems, which refuses the save rather than picking an hour
+               nobody asked for. *@
+            <label>@T["Daily reminder time"]<TimeField @bind-Value="item.DailyReminderTimeOfDay" AriaLabel="@(T["Daily reminder time"])" />
+            </label>
+        }
+    };
 
     private void ToggleExpanded(TaskItemFormModel item) => _expandedItem = IsExpanded(item) ? null : item;
 
@@ -2230,7 +2382,10 @@ else
     /// </summary>
     private string? WhatIsWrongWithTheItems()
     {
-        var withoutAnHour = _formModel.Items.FirstOrDefault(item =>
+        // A member's entries too, since the same press saves them and the same reminder would go out.
+        var withoutAnHour = _formModel.Items
+            .Concat(_memberForms.Where(member => member.CanBeWrittenIn).SelectMany(member => member.Form.Items))
+            .FirstOrDefault(item =>
             item.Kind == nameof(TaskItemKind.Checklist) && item.RemindDaily && item.DailyReminderTimeOfDay is null);
         if (withoutAnHour is not null)
         {
@@ -2378,6 +2533,9 @@ else
         // Its appointment, should it become one, starts now by the page's clock - see EventFormModel.
         var item = new TaskItemFormModel
         {
+            // Named here rather than by the save, so the entries already on the form can wait for it and
+            // it can wait for them - see TaskItemFormModel.Id.
+            Id = Guid.NewGuid(),
             Event = new EventFormModel(TimeProvider) { Color = TaskItemFormModel.AppointmentColor }
         };
         _formModel.Items.Add(item);
@@ -2506,12 +2664,16 @@ else
     }
 
     /// <summary>
-    /// Every entry as the server takes it back. One mapping, because two callers need it: saving the
-    /// list, and building a storage from it - which saves first, so that what is on screen is what the
-    /// shelf gets built from.
+    /// Every entry as the server takes it back. One mapping, because three callers need it: saving the
+    /// list, building a storage from it - which saves first, so that what is on screen is what the
+    /// shelf gets built from - and saving each of the lists this one gathers, whose entries are written
+    /// in this same form (see SaveTheMembersAsync).
     /// </summary>
-    private IReadOnlyList<TaskItemRequest> ItemsAsSaved()
-        => _formModel.Items
+    private IReadOnlyList<TaskItemRequest> ItemsAsSaved() => ItemsAsSaved(_formModel);
+
+    /// <inheritdoc cref="ItemsAsSaved()"/>
+    private IReadOnlyList<TaskItemRequest> ItemsAsSaved(TaskListFormModel form)
+        => form.Items
             .Select(item => new TaskItemRequest(
                 item.Description,
                 item.Id,
@@ -2542,7 +2704,10 @@ else
                 AlternativesAsSaved(item),
                 item.ReferencesTaskItemId,
                 RequiredQuantityAsSaved(item),
-                ToCompletedAtUtc(item)))
+                ToCompletedAtUtc(item),
+                // Said outright rather than left null, for the reason Priority above gives: null means
+                // "leave what is stored", which is the answer for a client with no control for it.
+                item.NeedsEveryLinkedList))
             .ToList();
 
     /// <summary>
@@ -2622,6 +2787,83 @@ else
     /// <summary>The folder the list was in when it was read, so a save knows whether it has been moved.</summary>
     private Guid? _savedFolderId;
 
+    /// <summary>
+    /// One list as the form holds it. Written out once and used for the list being edited and for every
+    /// list it gathers (see <see cref="MemberForms"/>): a group's members are edited in this same form,
+    /// so they are read into the same shape - two copies of sixty lines of mapping would drift the
+    /// moment a field was added to one.
+    /// </summary>
+    private TaskListFormModel ToFormModel(TaskDto taskList)
+        => new()
+            {
+                Title = taskList.Title,
+                Description = taskList.Description,
+                Tags = [.. taskList.AllTags],
+                IsGroup = taskList.IsGroup,
+                Completion = ParseCompletion(taskList.Completion),
+                IsPrivate = taskList.IsPrivate,
+                Priority = taskList.Priority,
+                FolderId = taskList.FolderId,
+                Items = taskList.Items
+                    .Select(item => new TaskItemFormModel
+                    {
+                        Event = new EventFormModel(TimeProvider) { Color = TaskItemFormModel.AppointmentColor },
+                        Id = item.Id,
+                        WasStored = true,
+                        NeedsEveryLinkedList = item.NeedsEveryLinkedList,
+                        Description = item.Description,
+                        DueDate = item.DueDateUtc is { } dueDateUtc ? DateOnly.FromDateTime(dueDateUtc.LocalDateTime) : null,
+                        DueTime = item.DueDateUtc is { } dueTimeUtc ? TimeOnly.FromDateTime(dueTimeUtc.LocalDateTime) : null,
+                        IsCompleted = item.IsCompleted,
+                        IsFailed = item.IsFailed,
+                        CompletedDate = item.IsCompleted && item.CompletedAtUtc is { } doneUtc
+                            ? DateOnly.FromDateTime(doneUtc.LocalDateTime)
+                            : null,
+                        CompletedTime = item.IsCompleted && item.CompletedAtUtc is { } doneAtUtc
+                            ? TimeOnly.FromDateTime(doneAtUtc.LocalDateTime)
+                            : null,
+                        WaitsForTaskItemIds = [.. item.AllWaitsForTaskItemIds],
+                        Kind = item.Kind,
+                        Location = item.Location,
+                        LinkedInventoryItemId = item.LinkedInventoryItemId,
+                        LinkedCalendarEventId = item.LinkedCalendarEventId?.ToString() ?? string.Empty,
+                        LinkedTaskListIds = [.. item.AllLinkedTaskListIds],
+                        Alternatives = [.. item.AllAlternatives.Select(way => new TaskItemAlternativeFormModel
+                        {
+                            Description = way.Description,
+                            LinkedTaskListId = way.LinkedTaskListId,
+                            IsDone = way.IsDone
+                        })],
+                        ReferencesTaskItemId = item.ReferencesTaskItemId,
+                        RequiredQuantity = item.RequiredQuantity,
+                        Categories = [.. CategoriesOf(item)],
+                        Notes = item.AllNotes,
+                        // Both may be absent from an entry stored before they existed, and both
+                        // then read as "nobody said" rather than as a hole - see TaskItemDto.
+                        Priority = item.Priority ?? nameof(ItemPriority.Normal),
+                        Colour = item.Colour ?? string.Empty,
+                        OverdueNotificationChannel = item.OverdueNotificationChannel,
+                        RemindDaily = item.RemindDaily,
+                        DailyReminderNotificationChannel = item.DailyReminderNotificationChannel,
+                        // Midnight reads as "never set". The wire carries a plain TimeOnly and so
+                        // cannot say "none"; an entry reminded daily at exactly 00:00 is far more
+                        // likely to be one nobody chose an hour for than one somebody wanted at
+                        // midnight - and being asked is a smaller cost than a reminder arriving
+                        // while everybody is asleep. See WhatIsWrongWithTheItems.
+                        DailyReminderTimeOfDay =
+                            item.RemindDaily && item.DailyReminderTimeOfDay == default
+                                ? null
+                                : item.DailyReminderTimeOfDay,
+                        // What the entry already asks for, or a blank form for one that asks for
+                        // nothing yet - an entry standing for a real shelf item carries no
+                        // description of its own, since that item is the answer.
+                        Product = item.Product is { } product
+                            ? InventoryItemFormModel.FromTaskItemProduct(product)
+                            : new InventoryItemFormModel()
+                    })
+                    .ToList()
+            };
+
     private async Task SaveAsync()
     {
         Logger.LogInformation(
@@ -2640,13 +2882,14 @@ else
             return;
         }
 
-        // A Location entry is about to keep a place, which answers to it by id - so one added in this
-        // sitting is named here, the way the phone names its own entries, rather than by the save. The
-        // server keeps an id a client gives an entry (see TaskItemIdentity).
-        foreach (var newLocationEntry in _formModel.Items.Where(item =>
-                     item.Id is null && item.Kind == nameof(TaskItemKind.Location)))
+        // A Location entry is about to keep a place, which answers to it by id. It has one already:
+        // every entry names itself as it is made now (see TaskItemFormModel.Id), which this used to do
+        // here for Location entries alone. An entry read back from an older client may still have none,
+        // and is named now for the same reason - the server keeps an id a client gives an entry, see
+        // TaskItemIdentity.
+        foreach (var unnamedEntry in _formModel.Items.Where(item => item.Id is null))
         {
-            newLocationEntry.Id = Guid.NewGuid();
+            unnamedEntry.Id = Guid.NewGuid();
         }
 
         var items = ItemsAsSaved();
@@ -2728,6 +2971,16 @@ else
                 // only useful if the change reaches the inventory, and a corrected amount can settle an
                 // errand or raise one. See SaveTheShelfAsync.
                 await SaveTheShelfAsync();
+
+                // Then every list this one gathers that was written in. After the group's own save, so
+                // that a group whose save was refused has not already written its members.
+                if (await SaveTheMembersAsync() is { } refused)
+                {
+                    _saveErrorMessage = refused;
+                    return;
+                }
+
+                await ReleaseTheMembersAsync();
                 await ReleaseLockAsync(Id.Value);
             }
         }
@@ -2764,6 +3017,7 @@ else
         Logger.LogInformation("User clicked 'Cancel'");
         if (Id is { } taskListId)
         {
+            await ReleaseTheMembersAsync();
             await ReleaseLockAsync(taskListId);
         }
 
@@ -2807,10 +3061,215 @@ else
             _isDeleting = false;
         }
 
+        await ReleaseTheMembersAsync();
         await ReleaseLockAsync(taskListId);
         // Where the form was opened from - unless that was one of this list's own pages, which have
         // nothing left to show: then the page of lists, with them taken out of the history too.
         await NavigationTrail.FinishAfterDeletingAsync($"/tasks/{taskListId}", WhenFinished, "/tasks");
+    }
+
+    /// <summary>
+    /// Writes every member that was actually written in, one list at a time - each is its own list with
+    /// its own lock and its own history, and there is no request that takes several.
+    ///
+    /// Answers what to say when one of them did not go, or null when they all did. **The round is not
+    /// stopped by a refusal**: the rest are still written, for the reason OnePressEach gives - a list
+    /// somebody else took the lock on since this form opened is no reason to throw away what was typed
+    /// into the other three. What is said names the lists that did not go, since "something failed" over
+    /// a form holding five lists tells the reader nothing about which to look at.
+    ///
+    /// A member nobody changed is not written at all: an untouched list would otherwise come back with a
+    /// new UpdatedAtUtc, which is what every other client syncs against.
+    /// </summary>
+    private async Task<string?> SaveTheMembersAsync()
+    {
+        var refused = new List<string>();
+
+        foreach (var member in _memberForms.Where(member => member.CanBeWrittenIn && WasWrittenIn(member)))
+        {
+            foreach (var unnamedEntry in member.Form.Items.Where(item => item.Id is null))
+            {
+                unnamedEntry.Id = Guid.NewGuid();
+            }
+
+            var outcome = await TasksApiClient.UpdateTaskListAsync(member.Source.Id, new UpdateTaskRequest(
+                member.Form.Title, ItemsAsSaved(member.Form), member.Form.IsGroup, member.Form.IsPrivate,
+                Priority: member.Form.Priority, Description: member.Form.Description,
+                // Left alone rather than echoed back: null is "not provided" here, and whether a member
+                // is finished is not a question this section asks - see UpdateTaskRequest.Completion.
+                Completion: null, Tags: member.Form.Tags));
+
+            if (outcome.Kind is not EditOutcomeKind.Success)
+            {
+                Logger.LogInformation(
+                    "A member list {TaskListId} was not saved with its group: {Kind}", member.Source.Id, outcome.Kind);
+                refused.Add(MemberName(member));
+                continue;
+            }
+
+            Logger.LogInformation("Member list {TaskListId} updated with its group", member.Source.Id);
+        }
+
+        return refused.Count == 0
+            ? null
+            : T.Format("These lists could not be saved: {0}", string.Join(", ", refused));
+    }
+
+    /// <summary>
+    /// Whether anything in this member's section was actually typed in - compared against what was read
+    /// rather than tracked with a flag, the rule NoteDetailViewModel.HasUnsavedChanges follows and for
+    /// the same reason: something touched and put back is not a change.
+    /// </summary>
+    private static bool WasWrittenIn(MemberForm member) => WhatTheSectionSays(member.Form) != member.ReadAs;
+
+    /// <summary>
+    /// Everything a member's section can change, as one string: the row's words and box, and the fields
+    /// behind its toggle. Taken from the form as it was read and again at the save - see WasWrittenIn.
+    /// </summary>
+    private static string WhatTheSectionSays(TaskListFormModel form)
+        => string.Join("\n", form.Items.Select(item => string.Join("",
+            item.Id, item.Description, item.IsCompleted, item.IsFailed, item.Notes,
+            string.Join("", item.Categories), item.DueDate, item.DueTime, item.CompletedDate, item.CompletedTime,
+            item.Priority, item.Colour, item.OverdueNotificationChannel, item.RemindDaily,
+            item.DailyReminderNotificationChannel, item.DailyReminderTimeOfDay)));
+
+    /// <summary>
+    /// This form's own address, so a member opened from here comes back to it - see ReturnTo. Only for
+    /// a list that exists: the members are read for one that does, and a new list gathers nothing yet.
+    /// </summary>
+    private string ThisForm => Id is { } taskListId ? $"/tasks/{taskListId}/edit" : "/tasks";
+
+    /// <summary>
+    /// Why this member's section cannot be written in, in the reader's own words - each of these has
+    /// somewhere they can go and do it, which is what the words say.
+    /// </summary>
+    private string WhyThisOneIsReadOnly(MemberForm member) => member.ReadOnlyBecause switch
+    {
+        WhyAMemberIsReadOnly.Sealed => T["Sealed - open this list to write in it."],
+        WhyAMemberIsReadOnly.SharedToRead => T["Shared with you to read."],
+        WhyAMemberIsReadOnly.HeldBySomebodyElse =>
+            T.Format("{0} is currently editing this task list - you can't edit it right now.", member.LockedByUserName),
+        _ => string.Empty
+    };
+
+    /// <summary>
+    /// A new entry at the foot of a member's section. Named as it is made, the way this form names its
+    /// own (see SaveAsync): the server keeps an id a client gives an entry.
+    /// </summary>
+    private void AddItemTo(MemberForm member)
+        => member.Form.Items.Add(new TaskItemFormModel
+        {
+            Id = Guid.NewGuid(),
+            Event = new EventFormModel(TimeProvider) { Color = TaskItemFormModel.AppointmentColor }
+        });
+
+    /// <summary>
+    /// One list this group gathers, as this form holds it: what it was when it was read, the form it is
+    /// written in, and why it cannot be written in where that is the case (see GroupMemberLists).
+    /// </summary>
+    private sealed record MemberForm(TaskDto Source, TaskListFormModel Form, WhyAMemberIsReadOnly ReadOnlyBecause)
+    {
+        /// <summary>Who holds its edit lock, said beside the list rather than as a number.</summary>
+        public string? LockedByUserName { get; init; }
+
+        /// <summary>What the section said when it was read - see WasWrittenIn.</summary>
+        public string ReadAs { get; } = WhatTheSectionSays(Form);
+
+        public bool CanBeWrittenIn => ReadOnlyBecause == WhyAMemberIsReadOnly.None;
+    }
+
+    /// <summary>
+    /// The lists this one gathers, in the order its entries name them - empty for a list that gathers
+    /// none, which is nearly every list. Read once when the form opens: a member added to the form by
+    /// pointing a new entry at it is edited after the save, since until then the group does not gather
+    /// it yet.
+    /// </summary>
+    private IReadOnlyList<MemberForm> _memberForms = [];
+
+    /// <summary>What a member's own words are, for the section's heading.</summary>
+    private string MemberName(MemberForm member) => Written(member.Form.Title);
+
+    /// <summary>
+    /// Reads every list this group gathers into a form of its own, and takes its edit lock where it can
+    /// be written in at all. The lock is taken now rather than at the first keystroke: this form is
+    /// about these lists, which is exactly what a lock says, and taking it later would mean telling
+    /// somebody their typing cannot be kept after they had done it.
+    ///
+    /// A member that cannot be written in is still read: it is part of what the group says, and a
+    /// section saying "sealed - open it to write in it" is worth more than a gap.
+    /// </summary>
+    private async Task LoadTheMembersAsync(Guid groupId, IReadOnlyList<TaskDto> allTaskLists)
+    {
+        var memberIds = GroupMemberLists.IdsUnder(groupId, _formModel.Items.Select(item => item.LinkedTaskListIds));
+        var members = new List<MemberForm>();
+
+        foreach (var memberId in memberIds)
+        {
+            // Read on its own rather than taken from the list of lists: that one carries no entries,
+            // and the entries are the whole point of holding a member here.
+            var member = allTaskLists.Any(candidate => candidate.Id == memberId)
+                ? await TasksApiClient.GetTaskListByIdAsync(memberId)
+                : null;
+            if (member is null)
+            {
+                // A list this reader cannot see, or one deleted since the entry was written. The entry
+                // still points at it and says so on its own row - see TitleOfTaskList.
+                continue;
+            }
+
+            var lockedBy = GroupMemberLists.WhyReadOnly(member, lockedByUserName: null) == WhyAMemberIsReadOnly.None
+                ? await LockedByAsync(memberId)
+                : null;
+
+            members.Add(new MemberForm(member, ToFormModel(member), GroupMemberLists.WhyReadOnly(member, lockedBy))
+            {
+                LockedByUserName = lockedBy
+            });
+        }
+
+        _memberForms = members;
+    }
+
+    /// <summary>
+    /// Takes a member's edit lock and answers who has it, or null for "this browser now holds it". No
+    /// heartbeat of its own: the group's own heartbeat is what keeps this form alive, and a member's
+    /// lock is refreshed with it - see StartLockHeartbeat.
+    /// </summary>
+    private async Task<string?> LockedByAsync(Guid taskListId)
+    {
+        try
+        {
+            var outcome = await TasksApiClient.AcquireTaskListLockAsync(taskListId);
+            return outcome.Kind == EditOutcomeKind.Locked ? outcome.LockedByUserName : null;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Lets go of every member's lock. Called wherever the group's own is let go, so leaving the form by
+    /// any door leaves the lists it was holding.
+    /// </summary>
+    private async Task ReleaseTheMembersAsync()
+    {
+        foreach (var member in _memberForms.Where(member => member.CanBeWrittenIn))
+        {
+            try
+            {
+                await TasksApiClient.ReleaseTaskListLockAsync(member.Source.Id);
+            }
+            catch (HttpRequestException exception)
+            {
+                // Leaving is not stopped by a lock that would not let go: it expires on its own, and
+                // the reader is already on their way somewhere else.
+                Logger.LogWarning(exception, "Failed to release the lock on member list {TaskListId}", member.Source.Id);
+            }
+        }
+
+        _memberForms = [];
     }
 
     /// <summary>Mirrors NoteEditor's method of the same name - see its comment.</summary>
@@ -2887,6 +3346,7 @@ else
     {
         if (Id is { } taskListId)
         {
+            await ReleaseTheMembersAsync();
             await ReleaseLockAsync(taskListId);
         }
         else
@@ -3006,6 +3466,13 @@ else
             "User set task list completion to {Completion}", _formModel.Completion);
     }
 
+    /// <summary>
+    /// Whether anything on the form points at another list - read off the form rather than off the list
+    /// that was loaded, so the first entry to name a list can tick the group box in the same press (see
+    /// LinkToTheList and TaskList.IsGroup).
+    /// </summary>
+    private bool GathersOtherLists => _formModel.Items.Any(item => item.IsALinkToOtherLists);
+
     /// <summary>An answer this browser doesn't recognise reads as "the entries decide", which is where every list starts.</summary>
     private static TaskListCompletion ParseCompletion(string completion)
         => Enum.TryParse<TaskListCompletion>(completion, out var parsed) ? parsed : TaskListCompletion.FromTheEntries;
@@ -3054,8 +3521,23 @@ else
 
     private sealed class TaskItemFormModel
     {
-        /// <summary>Null for an item added in this editing session that hasn't been saved yet - "Move to another list" only applies once an item actually has a persisted id to move.</summary>
+        /// <summary>
+        /// The entry's id, minted here the moment the entry exists rather than by the save - the way the
+        /// phone names its own entries, and the way the server expects them to arrive (see
+        /// TaskItemIdentity). That is what lets one entry be pointed at before either has been stored:
+        /// "Waits for" offers an entry typed a second ago, and a Location entry can keep a place.
+        ///
+        /// Null only for an entry read back from a client older than this rule.
+        /// </summary>
         public Guid? Id { get; set; }
+
+        /// <summary>
+        /// Whether the server has this entry, which is a different question from whether it has an id
+        /// and is the one anything server-side has to ask. "Move to list" and "Copy to list" are the two:
+        /// both are requests about an entry the server holds, and neither means anything for one that
+        /// exists only on this form.
+        /// </summary>
+        public bool WasStored { get; set; }
         public string Description { get; set; } = string.Empty;
         public DateOnly? DueDate { get; set; }
         public TimeOnly? DueTime { get; set; }
@@ -3070,6 +3552,13 @@ else
 
         /// <inheritdoc cref="CompletedDate"/>
         public TimeOnly? CompletedTime { get; set; }
+
+        /// <summary>
+        /// Whether every list this entry stands for has to be done before it is - see
+        /// TaskItem.NeedsEveryLinkedList. False, which is "any one of them", for a new entry and for one
+        /// read back from a server that has not learned the rule.
+        /// </summary>
+        public bool NeedsEveryLinkedList { get; set; }
 
         /// <summary>How much this entry matters, which is its own answer rather than the list's - see TaskItem.Priority.</summary>
         public string Priority { get; set; } = nameof(ItemPriority.Normal);

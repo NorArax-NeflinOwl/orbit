@@ -4,13 +4,18 @@
 @page "/notes/{Id:guid}/edit"
 @attribute [Authorize]
 @implements IAsyncDisposable
+@using System.Globalization
 @using System.Text.Json
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Notes
 @using Orbit.Core.Abstractions
 @using Orbit.Core.Folders
+@using Orbit.Core.Notes
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient
+@inject NotePicturesApiClient NotePicturesApiClient
+@inject NotePictureSource NotePictureSource
+@inject PrivateContentSealer PrivateContentSealer
 @inject FolderState Folders
 @inject ChatApiClient ChatApiClient
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
@@ -18,6 +23,7 @@
 @inject NavigationManager NavigationManager
 @inject NavigationTrail NavigationTrail
 @inject ILogger<NoteEditor> Logger
+@inject Clipboard Clipboard
 @inject Translations T
 
 <PageTitle>@(IsNewNote ? T["New note"] : T["Edit note"])</PageTitle>
@@ -89,17 +95,70 @@ else
             <div class="note-editor-surface">
                 <ChecklistTextEditor @ref="_checklistEditorRef" CssClass="note-editor-content note-editor-titled note-editor-page"
                                      IsReadOnly="@(_isSharedReadOnly || _lockedByUserName is not null)"
-                                     TakesTab="true"
+                                     TakesTab="true" TakesStyles="true" FocusesAtTheEnd="true"
                                      SelectedTicksChanged="count => _selectedTicks = count"
+                                     CaretInTableChanged="inTable => OnCaretInTableChanged(inTable)"
+                                     PicturePasted="OnPicturePastedAsync"
+                                     PictureUrlFor="ResolvePictureUrlAsync"
                                      @bind-Lines="_formModel.Lines" />
 
                 @* Over the corner of the writing rather than above it: a toolbar at the top of a note
-                   is a strip of the page given to controls before a word has been written. Only the
-                   tick box does anything today - the other three are drawn because the row they belong
-                   to is the row this design has, and each says so when it is pressed rather than being
-                   greyed out with nothing to explain it. *@
+                   is a strip of the page given to controls before a word has been written. The styles
+                   and the tick box work; the table and the attachment are drawn because the row they
+                   belong to is the row this design has, and each says so when it is pressed rather than
+                   being greyed out with nothing to explain it. *@
                 @if (!_isSharedReadOnly && _lockedByUserName is null)
                 {
+                    @if (_isEditingTable)
+                    {
+                        @* What can be done to the table the caret is in. The same panel the styles use,
+                           because it is the same kind of thing: a short list over the writing, opened
+                           from the row. *@
+                        <div class="note-style-menu note-table-menu" role="menu">
+                            @foreach (var (action, name) in TableActions)
+                            {
+                                <button type="button" role="menuitem" class="note-style-menu-item"
+                                        @onclick="() => EditTableAsync(action)">@name</button>
+                            }
+                        </div>
+                    }
+                    @if (_isChoosingStyle)
+                    {
+                        @* Each entry drawn in the style it sets, which is how a reader tells a heading
+                           from a subheading without reading the words. Pressing the one a line already
+                           is takes it back to Body - see NoteSurfaceEdits.Restyle. *@
+                        <div class="note-style-menu" role="menu">
+                            @* The four marks first, as Apple Notes has them: they answer a selection,
+                               where the styles answer a line, and a press with nothing selected does
+                               nothing (see NoteSurfaceEdits.Mark). Drawn as the letter each one makes,
+                               which is how every editor draws them. *@
+                            <div class="note-mark-row">
+                                @foreach (var mark in MarksOffered)
+                                {
+                                    <button type="button" class="note-mark @MarkClass(mark)"
+                                            title="@DescribeMark(mark)" aria-label="@DescribeMark(mark)"
+                                            @onclick="() => MarkAsync(mark)">A</button>
+                                }
+                            </div>
+                            @foreach (var style in StylesOffered)
+                            {
+                                <button type="button" role="menuitem"
+                                        class="note-style-menu-item note-style-@style.ToString().ToLowerInvariant()"
+                                        @onclick="() => SetStyleAsync(style)">@DescribeStyle(style)</button>
+                            }
+                        </div>
+                    }
+                    @if (_isChoosingSeparator)
+                    {
+                        @* What to write on the rule, which is the whole of what a separator has to
+                           decide. The same panel again, for the same reason the table's uses it. *@
+                        <div class="note-style-menu note-separator-menu" role="menu">
+                            <button type="button" role="menuitem" class="note-style-menu-item"
+                                    @onclick="() => InsertSeparatorAsync(dated: true)">@T["Date and time"]</button>
+                            <button type="button" role="menuitem" class="note-style-menu-item"
+                                    @onclick="() => InsertSeparatorAsync(dated: false)">@T["Plain line"]</button>
+                        </div>
+                    }
                     <div class="note-editor-tools">
                         @* The same bubble says what a press on one of several selected boxes will do,
                            while they are selected - see SelectionHint. *@
@@ -107,8 +166,14 @@ else
                         {
                             <span class="note-tool-bubble" role="status">@explained</span>
                         }
-                        <button type="button" class="note-tool note-tool-letters" title="@TextStyleLabel"
-                                aria-label="@TextStyleLabel" @onclick="() => NotImplementedYet(TextStyleLabel)">Aa</button>
+                        @* What a line is - a heading, a list, monospaced. Apple Notes' own Format menu,
+                           which is what this follows; the styles themselves are NoteLineStyle. Opened
+                           from the row rather than laid out in it: eight choices in a bar over the
+                           writing is a bar that is most of the writing. *@
+                        <button type="button" class="note-tool note-tool-letters @(_isChoosingStyle ? "note-tool-on" : null)"
+                                title="@TextStyleLabel" aria-label="@TextStyleLabel"
+                                aria-expanded="@_isChoosingStyle.ToString().ToLowerInvariant()"
+                                @onclick="() => { _isChoosingStyle = !_isChoosingStyle; _isEditingTable = false; _isChoosingSeparator = false; }">Aa</button>
                         @* The one that works: it types "[]", which the surface turns into a tick box -
                            the same way somebody who never finds this row gets one. *@
                         <button type="button" class="note-tool" title="@T["Checklist item"]"
@@ -119,18 +184,36 @@ else
                                 <circle cx="5" cy="14" r="2.6" /><path d="M10 14h7" />
                             </svg>
                         </button>
-                        <button type="button" class="note-tool" title="@TableLabel" aria-label="@TableLabel"
-                                @onclick="() => NotImplementedYet(TableLabel)">
+                        @* Outside a table the tool inserts one; inside a table it opens what can be
+                           done to this one - the two things a table button means, told apart by where
+                           the caret is (see ChecklistTextEditor.CaretInTableChanged). *@
+                        <button type="button" class="note-tool @(_isEditingTable ? "note-tool-on" : null)"
+                                title="@TableLabel" aria-label="@TableLabel"
+                                aria-expanded="@(_caretIsInATable ? _isEditingTable.ToString().ToLowerInvariant() : null)"
+                                @onclick="OnTableToolPressedAsync">
                             <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor"
                                  stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                                 <rect x="2.5" y="4" width="15" height="12" rx="1.5" /><path d="M2.5 8.5h15" /><path d="M10 8.5V16" />
                             </svg>
                         </button>
+                        @* A picture, from a file - the same road a pasted or dropped one takes once it
+                           is chosen (see OnPicturePastedAsync). *@
                         <button type="button" class="note-tool" title="@AttachmentLabel" aria-label="@AttachmentLabel"
-                                @onclick="() => NotImplementedYet(AttachmentLabel)">
+                                @onclick="PickPictureAsync">
                             <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor"
                                  stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M14.5 9.5 9 15a3 3 0 0 1-4.2-4.2l6.4-6.4a2 2 0 0 1 2.8 2.8l-6.4 6.4a1 1 0 0 1-1.4-1.4l5.7-5.7" />
+                            </svg>
+                        </button>
+                        @* A rule across the note, opened from the row because it has something to
+                           decide - what is written on it. See NoteSeparatorLine. *@
+                        <button type="button" class="note-tool @(_isChoosingSeparator ? "note-tool-on" : null)"
+                                title="@SeparatorLabel" aria-label="@SeparatorLabel"
+                                aria-expanded="@_isChoosingSeparator.ToString().ToLowerInvariant()"
+                                @onclick="OnSeparatorToolPressed">
+                            <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor"
+                                 stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M2.5 10h15" /><path d="M5 5.5h10" stroke-opacity="0.45" /><path d="M5 14.5h10" stroke-opacity="0.45" />
                             </svg>
                         </button>
                     </div>
@@ -202,6 +285,25 @@ else
                         </div>
                     }
                 </div>
+
+                @* The note on the clipboard, whole or narrowed to one state of its boxes - the same four
+                   the light view offers (NoteSummary), because the reader who is writing the note is as
+                   likely to want the shopping still to do as the reader who is only reading it. What is
+                   copied is what the form holds, unsaved lines included: it is the note in front of
+                   them. Under a line with the actions, being one. *@
+                <div class="editor-settings-divider"></div>
+                @foreach (var what in CopiedParts.All)
+                {
+                    <button type="button" class="avatar-dropdown-item"
+                            @onclick="() => CopyTheTextAsync(what)">@(_copied == what ? T["Copied"] : T[what.Label()])</button>
+                }
+                @* The other half of the copies above - see PasteFromTheClipboardAsync. Not offered where the
+                   note cannot be written in. *@
+                @if (!_isSharedReadOnly && _lockedByUserName is null)
+                {
+                    <button type="button" class="avatar-dropdown-item"
+                            @onclick="PasteFromTheClipboardAsync">@T["Paste from the clipboard"]</button>
+                }
 
                 @* The two ways of handing the note on, under a line because they are actions rather than
                    settings: each closes the menu and opens its panel over the page. They used to be two
@@ -328,6 +430,52 @@ else
     /// <summary>The panel's menu, so the two entries that open something over the page can close it behind them.</summary>
     private OverflowMenu? _menu;
 
+    /// <summary>Which of the four was copied, so that entry says so until the menu is left.</summary>
+    private WhatToCopy? _copied;
+
+    /// <summary>
+    /// The note being written, on the clipboard - see NoteSummary.CopyTheTextAsync, which is the same
+    /// action on the same note from the screen that only reads it. The lines are taken from the form
+    /// rather than from what was last saved, since the form is the note in front of the reader.
+    /// </summary>
+    private async Task CopyTheTextAsync(WhatToCopy what)
+    {
+        var words = NoteWords.Of(_formModel.Title, _formModel.Lines.ToSurfaceLines(), what);
+
+        if (await Clipboard.TryWriteAsync(words))
+        {
+            _copied = what;
+            return;
+        }
+
+        _saveErrorMessage = T["The text could not be copied. Your browser did not allow it."];
+    }
+
+    /// <summary>
+    /// What is on the clipboard, put into the note where the caret was - or at its end, which is where a
+    /// press on the menu leaves it - as a paste would put it: "[x] " and "- " lines come in as boxes, so a
+    /// list or a note copied out of Orbit comes back as the lines it was. Asked for as a menu entry because
+    /// the system's paste needs the caret in the note first and a keyboard to press it with.
+    /// </summary>
+    private async Task PasteFromTheClipboardAsync()
+    {
+        _menu?.Close();
+        if (await Clipboard.TryReadAsync() is not { } pasted)
+        {
+            _saveErrorMessage = T["The clipboard could not be read. Your browser did not allow it."];
+            return;
+        }
+
+        if (pasted.Trim().Length == 0 || _checklistEditorRef is null)
+        {
+            _saveErrorMessage = T["There is nothing on the clipboard to paste."];
+            return;
+        }
+
+        _saveErrorMessage = null;
+        await _checklistEditorRef.PasteTextAsync(pasted);
+    }
+
     /// <summary>
     /// Whether this reader may hand the note to a contact: a saved note, a share that allows passing it
     /// on, and not sealed - the server refuses to share a private note, so it is not offered.
@@ -376,8 +524,245 @@ else
     private void OnPriorityChosen(ChangeEventArgs args)
         => _formModel.Priority = args.Value?.ToString() is { Length: > 0 } chosen ? chosen : NoteFormModel.NormalPriority;
 
-    private void NotImplementedYet(string tool)
-        => _toolBeingExplained = T.Format("{0}: not implemented yet.", tool);
+    /// <summary>
+    /// A picture pasted, dropped or picked: stored first, sealed if the note is, then put where the
+    /// caret is. A note that has never been saved has nowhere to keep one - a picture belongs to a note,
+    /// and there is no note yet - so it says to save first, which is the one thing Apple Notes does not
+    /// have to say because it saves as you type.
+    /// </summary>
+    private async Task OnPicturePastedAsync(ChecklistTextEditor.PastedPicture pasted)
+    {
+        if (IsNewNote)
+        {
+            _toolBeingExplained = T["Save the note first, then add pictures."];
+            return;
+        }
+
+        var bytes = pasted.Bytes;
+        if (_formModel.IsPrivate)
+        {
+            try
+            {
+                bytes = await PrivateContentSealer.SealBytesAsync(bytes);
+            }
+            catch (EncryptionKeyLockedException)
+            {
+                _toolBeingExplained = T["Unlock your encryption key to add a picture to a private note."];
+                return;
+            }
+        }
+
+        var outcome = await NotePicturesApiClient.UploadAsync(Id!.Value, bytes, pasted.ContentType, _formModel.IsPrivate);
+        if (outcome.Kind == NotePictureUploadOutcomeKind.TooLarge)
+        {
+            _toolBeingExplained = T["This note already holds all the pictures it may - 50 MB."];
+            return;
+        }
+
+        if (outcome.Picture is null)
+        {
+            _toolBeingExplained = T["The picture could not be stored. Try again."];
+            return;
+        }
+
+        if (_checklistEditorRef is not null)
+        {
+            await _checklistEditorRef.InsertPictureAsync(
+                new NotePictureLineDto(outcome.Picture.Id, pasted.ContentType, pasted.WidthPixels, pasted.HeightPixels));
+        }
+    }
+
+    /// <summary>Where a picture's bytes are drawn from - see NotePictureSource, which opens a sealed one.</summary>
+    private Task<string?> ResolvePictureUrlAsync(Guid pictureId)
+    {
+        if (Id is null)
+        {
+            return Task.FromResult<string?>(null);
+        }
+
+        var line = _formModel.Lines.Select(line => line.Picture).FirstOrDefault(picture => picture?.PictureId == pictureId);
+        return line is null
+            ? Task.FromResult<string?>(null)
+            : NotePictureSource.UrlForAsync(Id.Value, line, _formModel.IsPrivate);
+    }
+
+    private async Task PickPictureAsync()
+    {
+        if (IsNewNote)
+        {
+            _toolBeingExplained = T["Save the note first, then add pictures."];
+            return;
+        }
+
+        if (_checklistEditorRef is not null)
+        {
+            await _checklistEditorRef.PickPictureAsync();
+        }
+    }
+
+    /// <summary>The pictures the note still names, told to the save so the rest are swept - see UpdateNoteRequest.PictureIds.</summary>
+    private IReadOnlyList<Guid> PictureIdsKept
+        => [.. _formModel.Lines.Where(line => line.Picture is not null).Select(line => line.Picture!.PictureId)];
+
+    /// <summary>Whether the list of styles is open under the "Aa" button.</summary>
+    private bool _isChoosingStyle;
+
+    /// <summary>Whether the caret is inside a table, which is what the table tool's press means by.</summary>
+    private bool _caretIsInATable;
+
+    /// <summary>Whether the table's own list - rows, columns, taking it away - is open under the table tool.</summary>
+    private bool _isEditingTable;
+
+    /// <summary>
+    /// What can be done to the table the caret is in, as the commands ChecklistTextEditor.Edit knows
+    /// them, under the words the reader sees. Rows and columns are added after the caret's, which is
+    /// what "below" and "right" mean.
+    /// </summary>
+    private IReadOnlyList<(string Action, string Name)> TableActions =>
+    [
+        ("tableRowBelow", T["Add row below"]),
+        ("tableColumnRight", T["Add column right"]),
+        ("tableRowRemoved", T["Delete row"]),
+        ("tableColumnRemoved", T["Delete column"]),
+        ("tableRemoved", T["Delete table"])
+    ];
+
+    private void OnCaretInTableChanged(bool inTable)
+    {
+        _caretIsInATable = inTable;
+        if (!inTable)
+        {
+            _isEditingTable = false;
+        }
+    }
+
+    /// <summary>
+    /// The table tool: inserts a table where the caret is, or - with the caret already in one - opens
+    /// what can be done to it. Closes the styles, since one list over the writing at a time is enough.
+    /// </summary>
+    private async Task OnTableToolPressedAsync()
+    {
+        _isChoosingStyle = false;
+        _isChoosingSeparator = false;
+        if (_caretIsInATable)
+        {
+            _isEditingTable = !_isEditingTable;
+            return;
+        }
+
+        if (_checklistEditorRef is not null)
+        {
+            await _checklistEditorRef.InsertTableAsync();
+        }
+    }
+
+    /// <summary>Whether the separator's two choices are open over the writing - see <see cref="OnSeparatorToolPressed"/>.</summary>
+    private bool _isChoosingSeparator;
+
+    /// <summary>
+    /// The separator tool opens its choices rather than inserting one straight away: a rule can be
+    /// plain or carry a date, and which of the two is the only thing there is to say about it.
+    /// </summary>
+    private void OnSeparatorToolPressed()
+    {
+        _isChoosingStyle = false;
+        _isEditingTable = false;
+        _isChoosingSeparator = !_isChoosingSeparator;
+    }
+
+    /// <summary>
+    /// Puts a rule where the caret is and closes the choices. The stamp is worked out **here**, once,
+    /// and travels with the line from now on - see NoteSeparatorLine.Stamp, which says why: a date
+    /// re-read at draw time would make yesterday's separator say today. Written in the reader's own
+    /// language and format, because it is written by the reader making it.
+    /// </summary>
+    private async Task InsertSeparatorAsync(bool dated)
+    {
+        _isChoosingSeparator = false;
+        if (_checklistEditorRef is not null)
+        {
+            await _checklistEditorRef.InsertSeparatorAsync(
+                dated ? DateTime.Now.ToString("f", CultureInfo.CurrentCulture) : string.Empty);
+        }
+    }
+
+    /// <summary>One change to the table's shape, and the list closes: a shape is changed once and then written into.</summary>
+    private async Task EditTableAsync(string action)
+    {
+        _isEditingTable = false;
+        if (_checklistEditorRef is not null)
+        {
+            await _checklistEditorRef.EditTableAsync(action);
+        }
+    }
+
+    /// <summary>
+    /// The styles offered, in the order Apple Notes lists them - biggest first, then the plain ones,
+    /// then the lists. Body is in it on purpose: it is how somebody takes a heading off without having
+    /// to know that pressing Heading again does the same thing.
+    /// </summary>
+    private static readonly IReadOnlyList<NoteLineStyle> StylesOffered =
+    [
+        NoteLineStyle.Title, NoteLineStyle.Heading, NoteLineStyle.Subheading, NoteLineStyle.Body,
+        NoteLineStyle.Monospaced, NoteLineStyle.Bulleted, NoteLineStyle.Dashed, NoteLineStyle.Numbered
+    ];
+
+    /// <summary>
+    /// The marks offered, in the order every editor puts them in. None is not among them: it is what a
+    /// mark this build does not know reads as, never something to ask for - see NoteTextMark.
+    /// </summary>
+    private static readonly IReadOnlyList<NoteTextMark> MarksOffered =
+    [
+        NoteTextMark.Bold, NoteTextMark.Italic, NoteTextMark.Underlined, NoteTextMark.StruckThrough
+    ];
+
+    private string DescribeMark(NoteTextMark mark) => mark switch
+    {
+        NoteTextMark.Italic => T["Italic"],
+        NoteTextMark.Underlined => T["Underline"],
+        NoteTextMark.StruckThrough => T["Strikethrough"],
+        _ => T["Bold"]
+    };
+
+    /// <summary>Each button is drawn in the mark it puts on, which is what says what it does without a word.</summary>
+    private static string MarkClass(NoteTextMark mark) => $"note-mark-{mark.ToString().ToLowerInvariant()}";
+
+    /// <summary>
+    /// Puts a mark on the selected words, or takes it off. The list stays open, unlike a style: marks are
+    /// pressed together - bold and italic - and a panel that closed after each would be reopened twice.
+    /// </summary>
+    private async Task MarkAsync(NoteTextMark mark)
+    {
+        if (_checklistEditorRef is not null)
+        {
+            await _checklistEditorRef.MarkAsync(mark);
+        }
+    }
+
+    private string DescribeStyle(NoteLineStyle style) => style switch
+    {
+        NoteLineStyle.Title => T["Title"],
+        NoteLineStyle.Heading => T["Heading"],
+        NoteLineStyle.Subheading => T["Subheading"],
+        NoteLineStyle.Monospaced => T["Monospaced"],
+        NoteLineStyle.Bulleted => T["Bulleted list"],
+        NoteLineStyle.Dashed => T["Dashed list"],
+        NoteLineStyle.Numbered => T["Numbered list"],
+        _ => T["Body"]
+    };
+
+    /// <summary>
+    /// Sets the style and closes the list. Closed because a style is chosen once and then written in -
+    /// unlike the tick box, whose button is a switch that stays on while a checklist is being typed.
+    /// </summary>
+    private async Task SetStyleAsync(NoteLineStyle style)
+    {
+        _isChoosingStyle = false;
+        if (_checklistEditorRef is not null)
+        {
+            await _checklistEditorRef.SetStyleAsync(style);
+        }
+    }
 
     @* Read once each rather than written into the attributes: a string in quotes inside an attribute's
        own quotes is what Razor cannot parse - see the same trap in the task editor. *@
@@ -386,6 +771,8 @@ else
     private string TableLabel => T["Table"];
 
     private string AttachmentLabel => T["Attachment"];
+
+    private string SeparatorLabel => T["Separator"];
 
     /// <summary>Who else currently holds the edit lock, if anyone - see AcquireLockAsync. Null means this browser holds it (or the note isn't editable at all, so no lock was ever sought).</summary>
     private string? _lockedByUserName;
@@ -671,7 +1058,9 @@ else
             }
             else
             {
-                var outcome = await NotesApiClient.UpdateNoteAsync(Id!.Value, new UpdateNoteRequest(_formModel.Title, _formModel.Content, _formModel.IsPrivate, Priority: _formModel.Priority, Tags: _formModel.Tags));
+                var outcome = await NotesApiClient.UpdateNoteAsync(Id!.Value, new UpdateNoteRequest(
+                    _formModel.Title, _formModel.Content, _formModel.IsPrivate, Priority: _formModel.Priority, Tags: _formModel.Tags,
+                    PictureIds: PictureIdsKept));
                 if (outcome.Kind == EditOutcomeKind.Locked)
                 {
                     _lockedByUserName = outcome.LockedByUserName;

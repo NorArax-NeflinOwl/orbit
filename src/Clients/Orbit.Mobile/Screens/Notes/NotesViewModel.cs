@@ -5,9 +5,11 @@ using Orbit.Contracts.Sync;
 using Orbit.Core.Folders;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Chat;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Folders;
+using Orbit.Mobile.Screens.Sharing;
 using Orbit.Mobile.Security;
 using Orbit.Mobile.Sync;
 
@@ -62,8 +64,23 @@ public sealed partial class NotesViewModel : ObservableObject
         Translations translations, PrivateItemGate privateItems,
         SyncState syncState, IScreenNavigator navigator, TimeProvider clock,
         IListArrangementStore arrangements, LocalFolderRepository folders, IChosenFolderStore chosenFolder,
-        FolderSynchronizer folderSynchronizer, LocalTagColourRepository? tagColours = null)
+        FolderSynchronizer folderSynchronizer, LocalTagColourRepository? tagColours = null,
+        SharingSeveral? sharingSeveral = null)
     {
+        Picking = new PickingSeveral(
+            translations,
+            new PickingActions(
+                SharedItemKind.Note,
+                (localId, folderId, token) => notes.FileAsync(localId, folderId, token),
+                (localId, isArchived, token) => notes.ArchiveAsync(localId, isArchived, token),
+                async token =>
+                {
+                    await ShowLocalNotesAsync(token);
+                    await SynchroniseAsync(token);
+                },
+                () => Folders!.Made),
+            sharingSeveral);
+        Picking.Changed += (_, _) => MarkThePicked();
         _tagColours = tagColours;
         _folderSynchronizer = folderSynchronizer;
         Folders = new FolderTabs(folders, chosenFolder, translations, FolderPage.Notes);
@@ -83,6 +100,39 @@ public sealed partial class NotesViewModel : ObservableObject
     }
 
     public ObservableCollection<NoteListItem> Notes { get; } = [];
+
+    /// <summary>Several notes chosen to be filed, put away or shared together - see PickingSeveral.</summary>
+    public PickingSeveral Picking { get; }
+
+    /// <summary>The menu's "Select": starts choosing notes, or stops.</summary>
+    [RelayCommand]
+    private void ToggleChoosing()
+    {
+        if (Picking.IsPicking)
+        {
+            Picking.Stop();
+            return;
+        }
+
+        Picking.Start();
+    }
+
+    /// <summary>
+    /// Puts the mark on every row, or takes it off, for what is chosen now. The rows are records, so a
+    /// changed one is swapped in rather than told.
+    /// </summary>
+    private void MarkThePicked()
+    {
+        for (var index = 0; index < Notes.Count; index++)
+        {
+            var row = Notes[index];
+            var marked = row with { OffersPicking = Picking.IsPicking, IsPicked = Picking.Holds(row.LocalId) };
+            if (marked != row)
+            {
+                Notes[index] = marked;
+            }
+        }
+    }
 
     /// <summary>
     /// The folders this screen offers and which of them is being read - see FolderTabs. The browser
@@ -105,6 +155,18 @@ public sealed partial class NotesViewModel : ObservableObject
     /// words "No notes."
     /// </summary>
     public bool HasNotes => Notes.Count > 0;
+
+    /// <summary>
+    /// What an empty screen means: an account with no notes at all, or a folder tab with none under it.
+    /// "No notes." over an empty Archived tab read as the notes having gone - the browser has always told
+    /// the two apart (Notes.razor).
+    /// </summary>
+    public string NothingHereMessage => _holdsAnyNote
+        ? _translations["Nothing in this folder."]
+        : _translations["No notes."];
+
+    /// <summary>Whether this phone holds a note under any tab - see <see cref="NothingHereMessage"/>.</summary>
+    private bool _holdsAnyNote;
 
     /// <inheritdoc cref="Tasks.TasksViewModel.HasMessage"/>
     public bool HasMessage => Message.Length > 0;
@@ -175,6 +237,12 @@ public sealed partial class NotesViewModel : ObservableObject
     [RelayCommand]
     private void Open(NoteListItem? row)
     {
+        // While choosing, a press anywhere on a row chooses it - see PickingSeveral.
+        if (row is not null && Picking.Toggle(row.LocalId))
+        {
+            return;
+        }
+
         if (row is { CanBeOpened: true })
         {
             _navigator.ShowNote(row.LocalId);
@@ -224,17 +292,26 @@ public sealed partial class NotesViewModel : ObservableObject
 
     private bool CanAddNote => NewNoteTitle.Trim().Length > 0;
 
-    private async Task ShowLocalNotesAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Draws the notes from what is on the phone, asking the server nothing.
+    ///
+    /// Public for one caller beyond this class: the page calls it when a sync that nobody on this
+    /// screen asked for has brought something down, so a screen left open stops showing what it was
+    /// shown when it was opened - see PeriodicSync and SyncState.BroughtSomethingNew.
+    /// </summary>
+    public async Task ShowLocalNotesAsync(CancellationToken cancellationToken)
     {
         var stored = await _notes.GetAllAsync(cancellationToken);
         var pending = await _notes.GetPendingNoteLocalIdsAsync(cancellationToken);
+        _holdsAnyNote = stored.Count > 0;
+        OnPropertyChanged(nameof(NothingHereMessage));
         await Folders.ReadAsync(cancellationToken);
 
         // Where each note is, by the rule both clients share - a note has nothing to finish, so the
         // question a task list is asked here is not asked of it. See FolderPlacement.
         var placements = stored.ToDictionary(
             note => note.LocalId,
-            note => Folders.Where(note.FolderId, note.IsPrivate, isFinished: false));
+            note => Folders.Where(note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived));
 
         FolderChoices.Clear();
         foreach (var choice in Folders.Describe(placements.Values))
@@ -246,8 +323,8 @@ public sealed partial class NotesViewModel : ObservableObject
 
         // The account's tag colours, read from this phone like everything else on the screen.
         var tagColours = _tagColours is null ? null : await _tagColours.ColoursAsync(cancellationToken);
-        var rows = stored
-            .Where(note => Folders.Holds(placements[note.LocalId]))
+        var shown = stored.Where(note => Folders.Holds(placements[note.LocalId])).ToList();
+        var rows = shown
             .Select(note => NoteListItem.From(
                 note, pending.Contains(note.LocalId), _networkStatus, _privateItems.IsUnlocked,
                 _translations, _clock.GetUtcNow(), _translations["Private"], tagColours));
@@ -257,6 +334,10 @@ public sealed partial class NotesViewModel : ObservableObject
         {
             Notes.Add(row);
         }
+
+        // Also what marks the rows just drawn, through Changed.
+        Picking.Shows(shown.Select(note => new PickableThing(
+            note.LocalId, note.ServerId, note.Title, note.IsShared, note.IsPrivate, note.IsArchived)));
     }
 
     /// <summary>Reading the screen under another folder - chosen from the menu under its name.</summary>

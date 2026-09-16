@@ -1,3 +1,5 @@
+using Orbit.Contracts.Notes;
+
 namespace Orbit.Contracts.Sharing;
 
 /// <param name="ItemType">One of "Note", "TaskList", "CalendarEvent", "Inventory".</param>
@@ -16,7 +18,27 @@ public sealed record PublicSharedItemDto(
     DateTimeOffset UpdatedAtUtc);
 
 /// <param name="IsFailed">Crossed out rather than ticked - see Orbit.Core.Tasks.TaskItem.IsFailed.</param>
-public sealed record PublicSharedItemLineDto(string Text, bool IsChecklistItem, bool IsChecked, string? Detail, bool IsFailed = false);
+/// <param name="Style">
+/// What the line is, where the item is a note - a heading, a line of a list, ordinary writing. The word
+/// Orbit.Core.Notes.NoteLineStyle is named by; anything else reads as "Body" (see NoteLineStyles.Read).
+/// Last and defaulted, because every other kind of item is a list of things and says nothing here.
+/// </param>
+/// <param name="Marks">
+/// The marks on stretches of words inside the line, where the item is a note - see
+/// Orbit.Contracts.Notes.NoteTextRunDto, which is the same shape a note's own lines travel with. Null for
+/// everything else, as for a line nobody marked.
+/// </param>
+/// <param name="Table">The table this line is, where the item is a note and the line one of its tables - see NoteTableDto.</param>
+/// <param name="Picture">The picture this line is, where the item is a note - its bytes are at GET /api/public/{token}/pictures/{id}.</param>
+/// <param name="Separator">The rule this line is, where the item is a note - see NoteSeparatorLineDto.</param>
+public sealed record PublicSharedItemLineDto(
+    string Text, bool IsChecklistItem, bool IsChecked, string? Detail, bool IsFailed = false,
+    string Style = "Body", IReadOnlyList<NoteTextRunDto>? Marks = null, NoteTableDto? Table = null,
+    NotePictureLineDto? Picture = null, NoteSeparatorLineDto? Separator = null)
+{
+    /// <summary>The marks as something to read without a null check - see <see cref="Marks"/>.</summary>
+    public IReadOnlyList<NoteTextRunDto> AllMarks => Marks ?? [];
+}
 
 /// <param name="AlreadyHeld">The caller already had access, so nothing new was granted.</param>
 public sealed record ClaimPublicShareLinkResponse(string ItemType, Guid ItemId, bool AlreadyHeld);

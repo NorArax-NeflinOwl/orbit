@@ -30,6 +30,9 @@ public static class PolishTranslations
         ["Notifications"] = "Powiadomienia",
         ["Log out"] = "Wyloguj się",
         ["Clear"] = "Wyczyść",
+        // What the bell's panel and the notifications page call emptying the feed. Not "Clear": the
+        // press deletes the entries rather than hiding them, and nothing brings them back.
+        ["Delete history"] = "Usuń historię",
         ["See all notifications"] = "Zobacz wszystkie powiadomienia",
         ["Nothing yet."] = "Na razie nic.",
         ["Loading…"] = "Wczytywanie…",
@@ -47,6 +50,15 @@ public static class PolishTranslations
         ["Retry"] = "Spróbuj ponownie",
         ["Remove"] = "Usuń",
         ["Copied"] = "Skopiowano",
+        ["Paste from the clipboard"] = "Wklej ze schowka",
+        ["Could not load your contacts."] = "Nie udało się wczytać kontaktów.",
+        ["Share {0} with one contact."] = "Udostępnij jednemu kontaktowi: {0}.",
+        ["{0} of the chosen can't be shared - private, or shared with you by somebody else."] = "Nie da się udostępnić {0} z wybranych - są prywatne albo ktoś inny udostępnił je tobie.",
+        ["Shared {0} - they'll see them in your chat."] = "Udostępniono: {0} - zobaczą je w waszym czacie.",
+        ["Shared {0}. {1} could not be shared."] = "Udostępniono: {0}. Nie udało się udostępnić: {1}.",
+        ["The clipboard could not be read."] = "Nie udało się odczytać schowka.",
+        ["The clipboard could not be read. Your browser did not allow it."] = "Nie udało się odczytać schowka. Przeglądarka na to nie pozwoliła.",
+        ["There is nothing on the clipboard to paste."] = "W schowku nie ma nic do wklejenia.",
         ["Private"] = "Prywatne",
         ["Shared"] = "Udostępnione",
         ["Group"] = "Grupowa",
@@ -180,8 +192,12 @@ public static class PolishTranslations
         ["Push and email"] = "Push i e-mail",
         ["Check every round"] = "Sprawdzaj co obchód",
         ["Always on the restock list, however much there is"] = "Zawsze na liście uzupełnień, niezależnie od stanu",
-        ["Archive"] = "Archiwum",
+        // A verb everywhere it is used - the button that puts one thing away, never a heading over
+        // the ones already there. That tab is named by "Archived" below.
+        ["Archive"] = "Archiwizuj",
         ["Put back"] = "Przywróć",
+        ["Archived - it is under the Archived tab now."] = "Zarchiwizowano - jest teraz w zakładce Zarchiwizowane.",
+        ["Put back where it was."] = "Przywrócono tam, gdzie było.",
         ["Nothing put away."] = "Nic nie odłożono.",
         ["Could not put that away. Check your connection and try again."] = "Nie udało się odłożyć. Sprawdź połączenie i spróbuj ponownie.",
         ["Could not put that back. Check your connection and try again."] = "Nie udało się przywrócić. Sprawdź połączenie i spróbuj ponownie.",
@@ -195,6 +211,11 @@ public static class PolishTranslations
         ["The name is yours to write - the pin keeps its exact position either way."] = "Nazwę piszesz sam - pinezka i tak trzyma swoje dokładne położenie.",
         ["Point at this place on the map so the calendar knows where it is - a name on its own stays as words."] = "Wskaż to miejsce na mapie, żeby kalendarz wiedział, gdzie jest - sama nazwa zostaje słowami.",
         ["Stands for these lists"] = "Odpowiada za listy",
+        // Which of them have to be done. Any one of them unless this is ticked - see
+        // TaskItem.NeedsEveryLinkedList. Offered only where the entry stands for two or more.
+        ["Needs all of them"] = "Wymaga wszystkich",
+        ["Off, this entry is done as soon as any one of the lists it stands for is. On, every one of them has to be done."] =
+            "Wyłączone: pozycja jest zrobiona, gdy zrobiona jest dowolna z list, za które odpowiada. Włączone: muszą być zrobione wszystkie.",
         ["Add another…"] = "Dodaj kolejną…",
         // An entry done any one of several ways - see TaskItem.Alternatives.
         ["Ways to get it done"] = "Sposoby wykonania",
@@ -264,9 +285,12 @@ public static class PolishTranslations
         // A route between two pins on the map, chosen from their popups - see MapPage.OnPinRoute.
         ["Start a route here"] = "Zacznij trasę tutaj",
         ["Route to here"] = "Trasa do tego miejsca",
-        ["Route from {0}. Open another pin and choose where it goes."] =
-            "Trasa od: {0}. Otwórz inną pinezkę i wybierz, dokąd prowadzi.",
+        ["Route from {0}. Choose where it goes - another pin, or a row in the panel."] =
+            "Trasa od: {0}. Wybierz, dokąd prowadzi - inną pinezkę albo wiersz na panelu.",
         ["Clear the route"] = "Wyczyść trasę",
+        ["Add a stop here"] = "Dodaj tu postój",
+        ["Add a stop from another pin, or a row in the panel."] = "Dodaj postój z innej pinezki albo wiersza w panelu.",
+        ["Remove the stop at {0}"] = "Usuń postój: {0}",
         ["in a straight line"] = "w linii prostej",
         ["about {0} min"] = "ok. {0} min",
         ["The restock list already asks for exactly what it should."] = "Lista uzupełnień prosi dokładnie o to, o co powinna.",
@@ -419,6 +443,36 @@ public static class PolishTranslations
         ["Recent chats"] = "Ostatnie rozmowy",
         ["Groups"] = "Grupy",
         ["Upcoming"] = "Nadchodzące",
+        // The card's own menu, beside its priority filter: how far ahead it looks, the same setting
+        // Options sets (DevicePreferences.UpcomingDays, UpcomingHorizon on the phone).
+        ["How far ahead"] = "Zakres",
+        ["Show 7 days"] = "Pokaż 7 dni",
+        ["Show 30 days"] = "Pokaż 30 dni",
+        // Filters an account makes for the Tasks card out of list tags - see Orbit.Core.Tasks.TagFilters.TaskTagFilter.
+        // "and" joins a filter's tags in its name the way "or" (above, with the sign-in) already does.
+        ["Create filter"] = "Utwórz filtr",
+        ["And"] = "Oraz",
+        ["and"] = "oraz",
+        ["Lists carrying every chosen tag."] = "Listy z każdym wybranym tagiem.",
+        ["Lists carrying any chosen tag."] = "Listy z dowolnym wybranym tagiem.",
+        ["No tags yet - add one below."] = "Nie ma jeszcze tagów - dodaj pierwszy poniżej.",
+        ["New tag"] = "Nowy tag",
+        ["That filter could not be saved."] = "Nie udało się zapisać filtru.",
+        ["That filter could not be saved. Making one needs a connection."] = "Nie udało się zapisać filtru. Do utworzenia filtru potrzebne jest połączenie.",
+        ["That filter could not be deleted. Deleting one needs a connection."] = "Nie udało się usunąć filtru. Do usunięcia filtru potrzebne jest połączenie.",
+        ["Filter \"{0}\" saved - choose it from the Tasks card's menu on the dashboard."] = "Zapisano filtr \"{0}\" - wybierzesz go w menu kafelka Zadania na pulpicie.",
+        ["Your filters"] = "Twoje filtry",
+        ["Delete this filter"] = "Usuń ten filtr",
+        // How far ahead that card looks, on Options' Preferences tab - see DevicePreferences.UpcomingDays.
+        // A phrase each rather than a number and a unit: Polish counts days three different ways, and
+        // "everything" is the absence of a horizon rather than a length.
+        ["How far ahead Upcoming looks"] = "Jak daleko w przód patrzy kafelek Nadchodzące",
+        ["The dashboard's Upcoming card shows what is happening inside this many days. Anything further off is still in your calendar, which the card's own name opens. Kept on this device."] =
+            "Kafelek Nadchodzące na pulpicie pokazuje to, co dzieje się w tylu dniach. Dalsze rzeczy nadal są w kalendarzu, który otwiera nazwa kafelka. Zapamiętane na tym urządzeniu.",
+        ["A day"] = "Dzień",
+        ["A week"] = "Tydzień",
+        ["A month"] = "Miesiąc",
+        ["Three months"] = "Trzy miesiące",
         ["Nothing to show."] = "Nie ma nic do pokazania.",
         ["Done"] = "Ukończone",
         ["Admin"] = "Administrator",
@@ -810,6 +864,8 @@ public static class PolishTranslations
         ["A place worth keeping"] = "Miejsce warte zapisania",
         ["This place"] = "To miejsce",
         ["What this place is"] = "Czym jest to miejsce",
+        // Under the name while there is none - Create waits for one, see PlaceForm.CanSave.
+        ["Give the place a name to keep it."] = "Nadaj miejscu nazwę, aby je zapisać.",
         ["Anything worth remembering about it"] = "Co warto o nim pamiętać",
         ["Pick it on the map - a place with no point cannot be drawn on one."] =
             "Wskaż je na mapie - miejsca bez punktu nie da się na niej narysować.",
@@ -832,6 +888,17 @@ public static class PolishTranslations
         ["Nothing in your calendar or your lists says where it happens."] =
             "Nic w Twoim kalendarzu ani na listach nie mówi, gdzie się odbywa.",
         ["Show places already past"] = "Pokaż miejsca już minione",
+        // The plans behind the reader, in a box of their own under the ones ahead - see MapPage. Turning
+        // the past on starts a month back, so the box opens on the near past rather than on all of it.
+        // A list made inside a group list, from the group's own page - see TaskListChecklist.
+        ["New sublist"] = "Nowa podlista",
+        ["What is it called?"] = "Jak się nazywa?",
+        ["A list of its own, inside this one. It starts where this list is - the same folder - and this list gets an entry standing for it."] =
+            "Osobna lista wewnątrz tej. Powstaje tam, gdzie jest ta lista - w tym samym folderze - a ta lista dostaje pozycję odpowiadającą za nią.",
+        ["\"{0}\" was made, but it could not be added to this list. It is on your task lists."] =
+            "Lista \"{0}\" powstała, ale nie udało się dodać jej do tej listy. Znajdziesz ją wśród swoich list zadań.",
+        ["Where your plans were"] = "Gdzie były twoje plany",
+        ["Nothing behind you since then."] = "Nic za tobą od tego dnia.",
         // The eye on a map panel's heading, and the day to show the past from - see MapPinVisibility.
         ["Show these on the map"] = "Pokaż je na mapie",
         // The places task lists' Location entries keep - see TaskEntryPlaces and the map's own list.
@@ -852,6 +919,28 @@ public static class PolishTranslations
         ["This one can't be moved while you're offline."] = "Tego nie da się przenieść bez połączenia.",
         // The menu entry that unfolds the row a folder is named in - see NotesPage.
         ["Move to folder"] = "Przenieś do folderu",
+        // Choosing several cards to act on at once - see Orbit.Core.Folders.PickedThings. "Zakończ
+        // zaznaczanie" rather than "Gotowe": this leaves the mode, and "Done" already means "ticked
+        // off" everywhere else in the app.
+        // The lists a group gathers, written in from the group's own form - see TaskEditor. Each reason
+        // a section is read-only names somewhere the reader can go and do it instead.
+        ["Open this list"] = "Otwórz tę listę",
+        ["Sealed - open this list to write in it."] = "Zapieczętowana - otwórz tę listę, aby w niej pisać.",
+        ["Shared with you to read."] = "Udostępniona Tobie do odczytu.",
+        ["These lists could not be saved: {0}"] = "Nie udało się zapisać tych list: {0}",
+        ["What needs doing"] = "Co jest do zrobienia",
+        ["Select"] = "Zaznacz",
+        ["Select {0}"] = "Zaznacz: {0}",
+        ["{0} chosen"] = "Zaznaczone: {0}",
+        ["All of them"] = "Wszystkie",
+        ["What to do with the chosen ones"] = "Co zrobić z zaznaczonymi",
+        ["Stop selecting"] = "Zakończ zaznaczanie",
+        // The phone's own words for the same bar - see Orbit.Mobile.Screens.Folders.PickingSeveral. The
+        // heading over the menu entry that starts choosing, and what a round says it left alone.
+        ["Several at once"] = "Kilka naraz",
+        ["{0} of the chosen couldn't be changed while you're offline."] = "Nie udało się zmienić bez połączenia: {0}.",
+        ["{0} of the chosen are somebody else's, so they were left as they are."] = "Należą do kogoś innego, więc zostały bez zmian: {0}.",
+        ["{0} of the chosen can't be shared - private, somebody else's, or not on the server yet."] = "Nie da się udostępnić: {0} - prywatne, cudze albo jeszcze niewysłane na serwer.",
         ["No folder"] = "Bez folderu",
         // Said before a folder goes, because "delete folder" reads as though its notes go too.
         ["Delete the folder \"{0}\"? Nothing in it is deleted - it goes back to Public, or to Private if it is sealed."]
@@ -861,6 +950,10 @@ public static class PolishTranslations
         ["Folder name"] = "Nazwa folderu",
         ["Public"] = "Publiczne",
         ["Finished"] = "Ukończone",
+        // The fourth built-in folder - things put away rather than deleted, see
+        // Orbit.Core.Folders.BuiltInFolder.Archived. The button that puts something there says "Archive"
+        // and the one that takes it out says "Put back", both of which the conversations already had.
+        ["Archived"] = "Zarchiwizowane",
         ["New folder"] = "Nowy folder",
         ["Rename folder"] = "Zmień nazwę folderu",
         // The folder row's button on the phone while a folder is being renamed rather than made.
@@ -886,6 +979,9 @@ public static class PolishTranslations
             "Zaznaczone samo, bo wszystkie pozycje są odhaczone. Odznacz, aby powiedzieć, że sama lista nie jest jeszcze gotowa - dostanie wtedy status \"niezakończona\".",
         ["Without one it is in Public, or in Private when it is sealed."] =
             "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych.",
+        // An event is never sealed, so the calendar has no Private tab to send it to - see
+        // FolderPages.HasAPrivateTab.
+        ["Without one it is in Public."] = "Bez folderu trafia do Publicznych.",
         ["Without one it is in Public, or in Private when it is sealed - and it moves to Finished on its own once everything is ticked off. A list you file somewhere stays in that folder, finished or not."] =
             "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych, i sama przechodzi do Ukończonych, gdy wszystkie pozycje zostaną odhaczone. Lista włożona do folderu zostaje w nim, ukończona czy nie.",
 
@@ -1025,6 +1121,20 @@ public static class PolishTranslations
         ["Back"] = "Wróć",
         ["Confirm"] = "Potwierdź",
         ["Copy"] = "Kopiuj",
+        // Taking what a note says out of Orbit altogether, from its menu - next to Copy, which makes a
+        // second note inside it. The label says which of the two it is.
+        ["Copy the text"] = "Kopiuj tekst",
+        // The same copy, narrowed to one state of the boxes - see Orbit.Core.Abstractions.WhatToCopy,
+        // which hands these out as keys rather than as words. Each names what it takes, not what it
+        // leaves: "to, co zostało" is what is still owed, and a crossed-out entry is not in it.
+        ["Copy what is done"] = "Kopiuj to, co zrobione",
+        ["Copy what is still to do"] = "Kopiuj to, co zostało",
+        ["Copy what was given up on"] = "Kopiuj to, co odpuszczone",
+        // The phone's own wording: it has no browser to blame, and Android refuses the clipboard for
+        // reasons the reader can do nothing about either way.
+        ["The text could not be copied."] = "Nie udało się skopiować tekstu.",
+        ["The text could not be copied. Your browser did not allow it."] =
+            "Nie udało się skopiować tekstu. Przeglądarka na to nie pozwoliła.",
         ["None"] = "Brak",
         ["Every"] = "Co",
         ["Custom"] = "Własne",
@@ -1095,8 +1205,42 @@ public static class PolishTranslations
         // The row of tools over the corner of a note - see NoteEditor. Three of the four are drawn for
         // the design that has them rather than for anything they do yet, and say so when pressed.
         ["Text style"] = "Styl tekstu",
+        // What a line of a note is - Apple Notes' own Format menu, which this follows. See
+        // Orbit.Core.Notes.NoteLineStyle. "Title" is not here: the dictionary has had one since the
+        // pages did, and it is the same word for the same thing.
+        ["Heading"] = "Nagłówek",
+        ["Subheading"] = "Podnagłówek",
+        ["Body"] = "Tekst",
+        ["Monospaced"] = "Stała szerokość",
+        ["Bulleted list"] = "Lista punktowana",
+        ["Dashed list"] = "Lista z myślnikami",
+        ["Numbered list"] = "Lista numerowana",
+        ["Bold"] = "Pogrubienie",
+        ["Italic"] = "Kursywa",
+        ["Underline"] = "Podkreślenie",
+        ["Strikethrough"] = "Przekreślenie",
         ["Table"] = "Tabela",
+        ["Insert table"] = "Wstaw tabelę",
+        ["Add row below"] = "Dodaj wiersz poniżej",
+        ["Add column right"] = "Dodaj kolumnę po prawej",
+        ["Delete row"] = "Usuń wiersz",
+        ["Delete column"] = "Usuń kolumnę",
+        ["Delete table"] = "Usuń tabelę",
+        ["Save the note first, then add pictures."] = "Najpierw zapisz notatkę, potem dodaj zdjęcia.",
+        ["Unlock your encryption key to add a picture to a private note."] = "Odblokuj klucz szyfrowania, aby dodać zdjęcie do prywatnej notatki.",
+        ["This note already holds all the pictures it may - 50 MB."] = "Ta notatka ma już tyle zdjęć, ile może - 50 MB.",
+        ["The picture could not be stored. Try again."] = "Nie udało się zapisać zdjęcia. Spróbuj ponownie.",
+        ["Picture"] = "Zdjęcie",
+        ["This picture isn't on this phone yet. Open the note while online to fetch it."] = "Tego zdjęcia nie ma jeszcze na tym telefonie. Otwórz notatkę, gdy będziesz online, aby je pobrać.",
+        ["This picture is sealed with an encryption key this device doesn't have."] = "To zdjęcie jest zaszyfrowane kluczem, którego to urządzenie nie ma.",
+        ["This picture couldn't be fetched. Try again when you are back online."] = "Nie udało się pobrać tego zdjęcia. Spróbuj ponownie, gdy będziesz online.",
         ["Attachment"] = "Załącznik",
+        // The rule across a note, and the two things it can carry - see
+        // Orbit.Core.Notes.NoteSeparatorLine. "Data i godzina" is what is written on the dated one, so
+        // it names the choice rather than describing it.
+        ["Separator"] = "Separator",
+        ["Date and time"] = "Data i godzina",
+        ["Plain line"] = "Sama linia",
         ["{0}: not implemented yet."] = "{0}: jeszcze niezaimplementowane.",
         // Several boxes selected in a note's writing - see NoteSurfaceEdits.Cycle. The first is the
         // bubble over the tools while they are selected, the second each box's own tooltip.
@@ -1105,6 +1249,11 @@ public static class PolishTranslations
         // The phone's note screen has no Ctrl+Z, so undo and redo are two buttons beside its tick box.
         ["Undo"] = "Cofnij",
         ["Redo"] = "Ponów",
+        // And no Tab key on a soft keyboard, so the two levels of indentation are two more buttons in
+        // the same row. Said as what the press does rather than as the noun, which is what a screen
+        // reader is being told - see NoteDetailViewModel.Indent.
+        ["Indent"] = "Zwiększ wcięcie",
+        ["Outdent"] = "Zmniejsz wcięcie",
         // Several boxes chosen on the phone's note screen, where there is no Shift+click: an entry in the
         // note's menu, a mark beside each box, and a line over the note saying what a press will do.
         ["Select boxes"] = "Zaznacz pola",
@@ -1275,6 +1424,10 @@ public static class PolishTranslations
             "Lista została zapisana, ale nie udało się umieścić jej w tym folderze. Wybierz go ponownie.",
         ["The note was saved, but it couldn't be filed under that folder. Choose it again."] =
             "Notatka została zapisana, ale nie udało się umieścić jej w tym folderze. Wybierz go ponownie.",
+        ["The event was saved, but it couldn't be filed under that folder. Choose it again."] =
+            "Wydarzenie zostało zapisane, ale nie udało się umieścić go w tym folderze. Wybierz go ponownie.",
+        ["The inventory was saved, but it couldn't be filed under that folder. Choose it again."] =
+            "Magazyn został zapisany, ale nie udało się umieścić go w tym folderze. Wybierz go ponownie.",
         ["Failed to save the inventory. Try again."] = "Nie udało się zapisać magazynu. Spróbuj ponownie.",
         ["Couldn't save that change. Try again."] = "Nie udało się zapisać tej zmiany. Spróbuj ponownie.",
         ["Couldn't save your profile. Try again."] = "Nie udało się zapisać profilu. Spróbuj ponownie.",
@@ -1719,6 +1872,9 @@ public static class PolishTranslations
         ["Couldn't sync"] = "Nie udało się zsynchronizować",
         ["Just now"] = "Przed chwilą",
         ["No connection"] = "Bez połączenia",
+        // The corner while the deployment is stopped on purpose - see ServerReachability. Neither "no
+        // connection" (the phone has one) nor "couldn't sync" (nothing went wrong).
+        ["Orbit is paused"] = "Orbit jest wstrzymany",
         ["Synced"] = "Zsynchronizowano",
         ["Syncing…"] = "Synchronizowanie…",
         ["Unavailable"] = "Niedostępny",

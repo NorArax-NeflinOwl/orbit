@@ -104,8 +104,8 @@ public sealed class AccountDeletionSweepTests : IDisposable
     /// <summary>Every entity type this test plants a row in - kept beside the seeding so the two can't drift.</summary>
     private static readonly string[] SeededEntityTypeNames =
     [
-        nameof(NoteEntity), nameof(TaskEntity), nameof(FolderEntity), nameof(PlaceEntity), nameof(CalendarEventEntity), nameof(InventoryEntity),
-        nameof(RefreshTokenEntity), nameof(PushSubscriptionEntity), nameof(NotificationSettingsEntity), nameof(TagColourEntity),
+        nameof(NoteEntity), nameof(NotePictureEntity), nameof(TaskEntity), nameof(FolderEntity), nameof(PlaceEntity), nameof(CalendarEventEntity), nameof(InventoryEntity),
+        nameof(RefreshTokenEntity), nameof(PushSubscriptionEntity), nameof(NotificationSettingsEntity), nameof(TagColourEntity), nameof(TaskTagFilterEntity),
         nameof(NotificationEntryEntity), nameof(UserVerificationCodeEntity), nameof(ChatGroupMemberEntity),
         nameof(DiagnosticLogEntryEntity), nameof(SyncTombstoneEntity), nameof(UserPermissionEntity),
         nameof(NoteShareEntity), nameof(TaskShareEntity), nameof(CalendarEventShareEntity), nameof(InventoryShareEntity),
@@ -115,7 +115,15 @@ public sealed class AccountDeletionSweepTests : IDisposable
     private async Task SeedEverythingOwnedByAsync(Guid userId)
     {
         var now = DateTimeOffset.UtcNow;
-        _dbContext.Notes.Add(new NoteEntity { Id = Guid.NewGuid(), UserId = userId, Title = "Note", ContentJson = "[]", CreatedAtUtc = now, UpdatedAtUtc = now });
+        var noteId = Guid.NewGuid();
+        _dbContext.Notes.Add(new NoteEntity { Id = noteId, UserId = userId, Title = "Note", ContentJson = "[]", CreatedAtUtc = now, UpdatedAtUtc = now });
+        // On the note above, and owned by the same account - which is the column this one is found by:
+        // nothing cascades a picture row, so it outlived the account until 2026-09-15.
+        _dbContext.NotePictures.Add(new NotePictureEntity
+        {
+            Id = Guid.NewGuid(), NoteId = noteId, OwnerUserId = userId, SizeBytes = 12,
+            ContentType = "image/png", IsSealed = false, CreatedAtUtc = now
+        });
         _dbContext.Tasks.Add(new TaskEntity { Id = Guid.NewGuid(), UserId = userId, Title = "Tasks", CreatedAtUtc = now, UpdatedAtUtc = now });
         _dbContext.Folders.Add(new FolderEntity { Id = Guid.NewGuid(), UserId = userId, Name = "Work", CreatedAtUtc = now, UpdatedAtUtc = now });
         _dbContext.Places.Add(new PlaceEntity { Id = Guid.NewGuid(), UserId = userId, Name = "Bakery", CreatedAtUtc = now, UpdatedAtUtc = now });
@@ -125,6 +133,7 @@ public sealed class AccountDeletionSweepTests : IDisposable
         _dbContext.PushSubscriptions.Add(new PushSubscriptionEntity { Id = Guid.NewGuid(), UserId = userId, Endpoint = $"https://push.example/{userId}", P256dhBase64 = "k", AuthBase64 = "a", CreatedAtUtc = now });
         _dbContext.NotificationSettings.Add(new NotificationSettingsEntity { Id = Guid.NewGuid(), UserId = userId });
         _dbContext.TagColours.Add(new TagColourEntity { UserId = userId, NormalizedTag = "work", Tag = "Work", Colour = "#aa3355", UpdatedAtUtc = now });
+        _dbContext.TaskTagFilters.Add(new TaskTagFilterEntity { Id = Guid.NewGuid(), UserId = userId, TagsJson = "[\"work\"]", CreatedAtUtc = now });
         _dbContext.NotificationEntries.Add(new NotificationEntryEntity { Id = Guid.NewGuid(), UserId = userId, Kind = "Chat", Title = "Hi", Body = "Body", CreatedAtUtc = now });
         _dbContext.UserPermissions.Add(new UserPermissionEntity { UserId = userId, Permission = nameof(ApplicationPermission.Contacts), GrantedAtUtc = now });
         _dbContext.UserVerificationCodes.Add(new UserVerificationCodeEntity { Id = Guid.NewGuid(), UserId = userId, Purpose = "EmailVerification", CodeHash = "h", EmailAddress = "a@example.com", CreatedAtUtc = now, ExpiresAtUtc = now });
@@ -151,6 +160,7 @@ public sealed class AccountDeletionSweepTests : IDisposable
     private async Task<IReadOnlyList<(string Table, int Remaining)>> CountRowsPerTableAsync(Guid userId) =>
     [
         (nameof(_dbContext.Notes), await _dbContext.Notes.CountAsync(row => row.UserId == userId)),
+        (nameof(_dbContext.NotePictures), await _dbContext.NotePictures.CountAsync(row => row.OwnerUserId == userId)),
         (nameof(_dbContext.Tasks), await _dbContext.Tasks.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.Places), await _dbContext.Places.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.CalendarEvents), await _dbContext.CalendarEvents.CountAsync(row => row.UserId == userId)),
@@ -159,6 +169,7 @@ public sealed class AccountDeletionSweepTests : IDisposable
         (nameof(_dbContext.PushSubscriptions), await _dbContext.PushSubscriptions.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.NotificationSettings), await _dbContext.NotificationSettings.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.TagColours), await _dbContext.TagColours.CountAsync(row => row.UserId == userId)),
+        (nameof(_dbContext.TaskTagFilters), await _dbContext.TaskTagFilters.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.NotificationEntries), await _dbContext.NotificationEntries.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.UserPermissions), await _dbContext.UserPermissions.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.UserVerificationCodes), await _dbContext.UserVerificationCodes.CountAsync(row => row.UserId == userId)),

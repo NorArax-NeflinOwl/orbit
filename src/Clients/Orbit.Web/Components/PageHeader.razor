@@ -32,6 +32,11 @@
        rather than through a parameter (see PageToolbarTrigger), so this has to be here whether or not the
        page has actions of its own - and the promise that a page with no actions draws no empty row there
        is about that row, not this one. Empty, this collapses to nothing and is hidden outright. *@
+    @* What a page puts ahead of its folder button rather than after it - the Tasks page's "Create filter". *@
+    @if (LeadingActions is not null)
+    {
+        <div class="page-header-actions">@LeadingActions</div>
+    }
     <div class="page-header-toolbar"><SectionOutlet SectionName="@PageToolbarTrigger.SectionName" /></div>
     @if (Actions is not null)
     {
@@ -48,6 +53,9 @@
     [Parameter] public RenderFragment? LeadingAction { get; set; }
 
     [Parameter, EditorRequired] public RenderFragment? Title { get; set; }
+
+    /// <summary>Actions drawn before the phone's folder button rather than after it - see the markup.</summary>
+    [Parameter] public RenderFragment? LeadingActions { get; set; }
 
     /// <summary>
     /// What the page is for, folded behind a "?" beside the title rather than stated under it - see

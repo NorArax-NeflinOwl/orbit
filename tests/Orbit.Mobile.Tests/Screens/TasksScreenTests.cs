@@ -514,7 +514,7 @@ public sealed class TasksScreenTests : IDisposable
                 NullLogger<TaskListSynchronizer>.Instance),
             new TasksClient(_server.ToHttpClient()), FixedNetworkStatus.Online, Arrangement,
             new PrivateItemGate(new FixedDeviceAuthentication()),
-            new SyncState(FixedNetworkStatus.Online, _clock), new RecordingScreenNavigator(),
+            new SyncState(Reachability.Online, _clock), new RecordingScreenNavigator(),
             new Translations(new InMemoryLanguageStore()), Notifications,
             new LocalFolderRepository(_localStore, _clock), new InMemoryChosenFolderStore(),
             Folders.SynchronizerAgainstNobody(_localStore, _clock));

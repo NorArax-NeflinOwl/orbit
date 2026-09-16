@@ -53,9 +53,10 @@ public sealed class TaskItem
     /// Only ever set on a completed entry: the constructor drops one given to an entry that is not, and
     /// taking the tick back - <see cref="Reopen"/>, or <see cref="TaskListSteps"/> refusing it - clears
     /// it. A cross is not a completion and carries none. Recorded by <see cref="RecordWhenItWasDone"/>
-    /// on a save, and by <see cref="Complete"/> when Orbit crosses an entry off itself. An entry done
-    /// one of several ways carries one too: its tick is the ways', and when it was done is when the way
-    /// that was taken was.
+    /// on a save, by <see cref="Complete"/> when Orbit crosses an entry off itself, and by
+    /// <see cref="KeepAlternativesOf"/>, which moves the tick and so has to move this with it. An entry
+    /// done one of several ways carries one too: its tick is the ways', and when it was done is when the
+    /// way that was taken was.
     /// </summary>
     public DateTimeOffset? CompletedAtUtc { get; private set; }
 
@@ -71,8 +72,8 @@ public sealed class TaskItem
     ///
     /// Several rather than one because a step is often more than one list - "the flat is ready" means
     /// the kitchen and the bathroom and the hall - and writing that as three entries saying the same
-    /// thing loses that they are one step. It is done when every list it names is done: any other rule
-    /// would let the entry read as finished while work it stands for is still outstanding.
+    /// thing loses that they are one step. Whether one of them finishes it or all of them have to is
+    /// <see cref="NeedsEveryLinkedList"/>: any one of them, unless the entry says otherwise.
     /// </summary>
     public IReadOnlyList<Guid> LinkedTaskListIds { get; private set; }
 
@@ -81,6 +82,22 @@ public sealed class TaskItem
     /// two everywhere: a link is not counted as work, not ticked by hand, and not reopened.
     /// </summary>
     public bool IsALinkToOtherLists => LinkedTaskListIds.Count > 0;
+
+    /// <summary>
+    /// Whether every one of <see cref="LinkedTaskListIds"/> has to be done before this entry is, or any
+    /// one of them is enough. <b>Any one of them, unless this says otherwise</b> - the user's rule,
+    /// settled 2026-09-14.
+    ///
+    /// "Buy a cake" stands for "bake one" and "go to the baker": either finishes the errand, and that is
+    /// what somebody writing one entry for two ways of getting a thing means most of the time. Needing
+    /// all of them is the rarer reading - a checklist made of whole lists, done when the last of them is -
+    /// so it is the one that is asked for rather than the one you get.
+    ///
+    /// It was "all of them" and nothing else until this existed. An entry stored before that is left
+    /// meaning what it meant: the migration marks every entry that already points at a list, so this
+    /// changes what nothing already saved says - see EntryStandsForAnyOfItsLists.
+    /// </summary>
+    public bool NeedsEveryLinkedList { get; private set; }
 
     /// <summary>
     /// The entries <b>on this same list</b> that have to be done before this one can be - "hang the
@@ -243,9 +260,11 @@ public sealed class TaskItem
         ItemPriority priority = ItemPriority.Normal, string? colour = null,
         IReadOnlyList<TaskItemAlternative>? alternatives = null,
         DateTimeOffset? createdAtUtc = null, Guid? referencesTaskItemId = null, decimal? requiredQuantity = null,
-        DateTimeOffset? completedAtUtc = null)
+        DateTimeOffset? completedAtUtc = null, bool needsEveryLinkedList = false)
     {
         Id = id;
+        // Any one of them unless asked otherwise - see the property.
+        NeedsEveryLinkedList = needsEveryLinkedList;
         Description = description;
         Notes = notes ?? string.Empty;
         Priority = priority;
@@ -387,6 +406,12 @@ public sealed class TaskItem
     /// sixth field to follow this rule (see UpdateTaskListCommand.EntriesKeepingTheirAlternatives). The
     /// tick follows them back: a client that knows nothing of ways cannot have meant its own tick on an
     /// entry whose tick is theirs.
+    ///
+    /// And when it was done follows the tick, here rather than in the caller. Moving the tick without
+    /// moving the time leaves the pair disagreeing - a time on an entry that is not done, or none on one
+    /// that is - which <see cref="CompletedAtUtc"/> says can never happen. The two save handlers call
+    /// <see cref="RecordWhenItWasDone"/> afterwards and always corrected it; a third caller that forgot
+    /// would have stored the disagreement.
     /// </summary>
     public void KeepAlternativesOf(TaskItem stored)
     {
@@ -400,8 +425,22 @@ public sealed class TaskItem
         {
             IsCompleted = Alternatives.Any(way => way.IsDone);
             IsFailed = IsFailed && !IsCompleted;
+            // The same rule a save settles by, applied to the tick this has just moved: a time sent for
+            // this entry stands, an entry the stored one was already done by keeps that time, and a way
+            // the stored entry was not yet done by is stamped now - which is what Complete does for the
+            // tick it moves itself. Calling RecordWhenItWasDone again after this - which both save
+            // handlers do - changes nothing it left.
+            RecordWhenItWasDone(stored, DateTimeOffset.UtcNow);
         }
     }
+
+    /// <summary>
+    /// Keeps whether every list this entry stands for has to be done, for a caller that said nothing
+    /// about it - the eighth field to follow this rule (see
+    /// UpdateTaskListCommand.EntriesKeepingTheirListRule). Without it a save from a client that has never
+    /// heard of the rule would turn an entry somebody set to "all of them" back to the default.
+    /// </summary>
+    public void KeepListRuleOf(TaskItem stored) => NeedsEveryLinkedList = stored.NeedsEveryLinkedList;
 
     /// <summary>
     /// Keeps what this entry is the same thing as, and how much of it it needs, for a caller that said
@@ -522,7 +561,7 @@ public sealed class TaskItem
         ItemPriority priority = ItemPriority.Normal, string? colour = null,
         IReadOnlyList<TaskItemAlternative>? alternatives = null,
         Guid? referencesTaskItemId = null, decimal? requiredQuantity = null,
-        DateTimeOffset? completedAtUtc = null)
+        DateTimeOffset? completedAtUtc = null, bool needsEveryLinkedList = false)
     {
         // Here rather than in the constructor, which FromPersistence also uses: a row already stored
         // fits by definition, and rejecting one on the way back out would make an old entry unreadable
@@ -559,7 +598,7 @@ public sealed class TaskItem
             Guid.NewGuid(), description, dueDateUtc, standsOnItsOwn && isCompleted, linkedTaskListIds,
             reminders, subject, categories, product, notes, standsOnItsOwn && isFailed, waitsForTaskItemIds,
             priority, colour, ways, DateTimeOffset.UtcNow, referencesTaskItemId, requiredQuantity,
-            completedAtUtc);
+            completedAtUtc, needsEveryLinkedList);
     }
 
     /// <summary>
@@ -571,7 +610,8 @@ public sealed class TaskItem
         => new(
             Guid.NewGuid(), Description, DueDateUtc, IsCompleted, LinkedTaskListIds,
             Reminders, Subject, Categories, Product, Notes, IsFailed, WaitsForTaskItemIds, Priority, Colour,
-            Alternatives, CreatedAtUtc, ReferencesTaskItemId, RequiredQuantity, CompletedAtUtc);
+            Alternatives, CreatedAtUtc, ReferencesTaskItemId, RequiredQuantity, CompletedAtUtc,
+            NeedsEveryLinkedList);
 
     /// <summary>
     /// This entry with its completion worked out from the lists it points at: every one of them for an
@@ -579,14 +619,21 @@ public sealed class TaskItem
     /// it carries comes along. The resolver used to rebuild a linked entry from its id, words, date and
     /// reminders alone, so a read handed back a linked entry without its notes, kind, colour or priority.
     /// </summary>
+    /// <summary>
+    /// Whether the lists this entry stands for say it is done - any one of them, or every one, as
+    /// <see cref="NeedsEveryLinkedList"/> has it.
+    /// </summary>
+    private bool IsDoneByItsLists(Func<Guid, bool> isListDone)
+        => NeedsEveryLinkedList ? LinkedTaskListIds.All(isListDone) : LinkedTaskListIds.Any(isListDone);
+
     internal TaskItem ResolvedAgainst(Func<Guid, bool> isListDone)
         => new(
             Id, Description, DueDateUtc,
-            IsALinkToOtherLists ? LinkedTaskListIds.All(isListDone) : IsCompleted,
+            IsALinkToOtherLists ? IsDoneByItsLists(isListDone) : IsCompleted,
             LinkedTaskListIds, Reminders, Subject, Categories, Product, Notes, IsFailed, WaitsForTaskItemIds,
             Priority, Colour,
             [.. Alternatives.Select(way => way.IsAList ? way with { IsDone = isListDone(way.LinkedTaskListId!.Value) } : way)],
-            CreatedAtUtc, ReferencesTaskItemId, RequiredQuantity, CompletedAtUtc);
+            CreatedAtUtc, ReferencesTaskItemId, RequiredQuantity, CompletedAtUtc, NeedsEveryLinkedList);
 
     /// <summary>
     /// Rebuilds a checklist entry from already-known values, bypassing the completion override above -
@@ -601,11 +648,11 @@ public sealed class TaskItem
         ItemPriority priority = ItemPriority.Normal, string? colour = null,
         IReadOnlyList<TaskItemAlternative>? alternatives = null,
         DateTimeOffset? createdAtUtc = null, Guid? referencesTaskItemId = null, decimal? requiredQuantity = null,
-        DateTimeOffset? completedAtUtc = null)
+        DateTimeOffset? completedAtUtc = null, bool needsEveryLinkedList = false)
         => new(
             id, description, dueDateUtc, isCompleted, linkedTaskListIds, reminders, subject, categories, product,
             notes, isFailed, waitsForTaskItemIds, priority, colour, alternatives,
-            createdAtUtc, referencesTaskItemId, requiredQuantity, completedAtUtc);
+            createdAtUtc, referencesTaskItemId, requiredQuantity, completedAtUtc, needsEveryLinkedList);
 
     /// <summary>
     /// Takes the tick back off an entry that may not carry one yet, because something it waits for is

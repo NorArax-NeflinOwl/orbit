@@ -72,7 +72,23 @@ public sealed class TaskListLinkCycleTests
         Assert.False(TaskListLinkCycle.WouldClose(lists, ShoppingId, UnrelatedId));
     }
 
-    /// <summary>Party → Recipes → Shopping, plus one list off on its own.</summary>
+    [Fact]
+    public void A_list_that_points_back_through_a_way_would_close_a_loop_too()
+    {
+        // Recipes is done one way by Shopping. The server counts a way as it counts a link (see
+        // TaskItem.TaskListIdsItPointsAt), and this helper once followed links alone - so it offered
+        // Recipes, and the save was refused.
+        var byAWay = new TaskItemDto(
+            Guid.NewGuid(), "Get the ingredients", DueDateUtc: null, IsCompleted: false, LinkedTaskListId: null,
+            OverdueNotificationChannel: "None", RemindDaily: false,
+            DailyReminderNotificationChannel: "None", DailyReminderTimeOfDay: new TimeOnly(9, 0),
+            Alternatives: [new TaskItemAlternativeDto("From the shopping", ShoppingId)]);
+        var lists = new List<TaskDto> { List(ShoppingId, "Shopping"), List(RecipesId, "Recipes", byAWay) };
+
+        Assert.True(TaskListLinkCycle.WouldClose(lists, ShoppingId, RecipesId));
+    }
+
+    /// <summary>Party→ Recipes → Shopping, plus one list off on its own.</summary>
     private static IReadOnlyList<TaskDto> Lists()
         =>
         [

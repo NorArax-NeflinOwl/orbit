@@ -93,6 +93,13 @@
 		  dotnet publish ... -p:OrbitWebBaseAddress=https://orbit-web.example.azurecontainerapps.io/ -->
 		<OrbitWebBaseAddress Condition="'$(OrbitWebBaseAddress)' == ''"></OrbitWebBaseAddress>
 
+		<!-- Where the deployment says it is paused on purpose: the status.json the stop script leaves
+		on the storage account that serves the APK - see OrbitPauseNoticeSettings. Empty means the
+		build never reports a pause and reads a stopped server as offline, which is still safe.
+
+		  dotnet publish ... -p:OrbitPauseNoticeAddress=https://orbitdownloads.blob.core.windows.net/apps/status.json -->
+		<OrbitPauseNoticeAddress Condition="'$(OrbitPauseNoticeAddress)' == ''"></OrbitPauseNoticeAddress>
+
 		<!-- The host public share links are served from, which is what lets Android hand one to Orbit
 		instead of opening a browser (see MainActivity's intent filter and info/functionality.md's
 		"A link opened on a phone"). It is the deployment's own address with the scheme taken off, so a
@@ -138,6 +145,12 @@
 						   Condition="'$(OrbitWebBaseAddress)' != ''">
 			<_Parameter1>OrbitWebBaseAddress</_Parameter1>
 			<_Parameter2>$(OrbitWebBaseAddress)</_Parameter2>
+		</AssemblyAttribute>
+		<!-- Absent means "this build was told of no pause notice", read as never paused - see above. -->
+		<AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute"
+						   Condition="'$(OrbitPauseNoticeAddress)' != ''">
+			<_Parameter1>OrbitPauseNoticeAddress</_Parameter1>
+			<_Parameter2>$(OrbitPauseNoticeAddress)</_Parameter2>
 		</AssemblyAttribute>
 	</ItemGroup>
 

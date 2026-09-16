@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Orbit.Core.Suggestions;
+using Orbit.Core.Text;
 
 namespace Orbit.Data.Repositories;
 
@@ -18,6 +19,11 @@ public sealed class NameSuggestionRepository : INameSuggestionRepository
 {
     private readonly OrbitDbContext _dbContext;
 
+    /// <summary>The Polish letters with marks, and at the same place in <see cref="PlainPolishLetters"/> the letter typed for each.</summary>
+    private const string MarkedPolishLetters = "ąćęłńóśźżĄĆĘŁŃÓŚŹŻ";
+
+    private const string PlainPolishLetters = "acelnoszzACELNOSZZ";
+
     public NameSuggestionRepository(OrbitDbContext dbContext)
     {
         _dbContext = dbContext;
@@ -29,9 +35,19 @@ public sealed class NameSuggestionRepository : INameSuggestionRepository
     {
         var names = NamesFor(userId, kind);
 
+        // Compared without the marks on Polish letters, on both sides, so "maka" suggests "mąka" and
+        // "mąka" still finds a row somebody wrote as "maka" - the rule the clients' own searches follow
+        // (Orbit.Core.Text.LooseText). Trigrams already ignore case. The typed side is folded here with
+        // that same rule; the stored side in SQL, letter for letter, since it cannot leave the database.
+        var foldedTyped = LooseText.Folded(typed);
         var found = await names
             .Where(name => name != string.Empty)
-            .Select(name => new { Name = name, Similarity = EF.Functions.TrigramsSimilarity(name, typed) })
+            .Select(name => new
+            {
+                Name = name,
+                Similarity = EF.Functions.TrigramsSimilarity(
+                    OrbitDbContext.Translate(name, MarkedPolishLetters, PlainPolishLetters), foldedTyped)
+            })
             .Where(candidate => candidate.Similarity >= minimumSimilarity)
             .OrderByDescending(candidate => candidate.Similarity)
             .ThenBy(candidate => candidate.Name)

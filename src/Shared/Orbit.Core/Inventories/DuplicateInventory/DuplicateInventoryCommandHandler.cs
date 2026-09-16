@@ -44,7 +44,10 @@ public sealed class DuplicateInventoryCommandHandler : IRequestHandler<Duplicate
             inventory.IsPrivate ? inventory.Name : request.Name ?? inventory.Name,
             inventory.IsPrivate,
             inventory.EncryptedContent,
-            inventory.Description);
+            inventory.Description,
+            // The copy is made where the original stands, as a duplicated note is - see
+            // DuplicateNoteCommandHandler.
+            inventory.FolderId);
         await _inventoryRepository.AddAsync(copy, cancellationToken);
 
         if (copy.IsPrivate)

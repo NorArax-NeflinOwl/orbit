@@ -28,6 +28,7 @@
 @inject TimeProvider TimeProvider
 @inject DashboardPinService DashboardPins
 @inject DashboardCardPreferences CardPreferences
+@inject DevicePreferences DevicePreferences
 @inject NotificationFeedState NotificationFeed
 
 <PageTitle>@T["Orbit — Dashboard"]</PageTitle>
@@ -132,7 +133,7 @@ else
             </ItemCard>
         }
 
-        @if (TaskListsUnderTheOpenTab.Count > 0 && ShowsCard("tasks"))
+        @if (HasATasksCard && ShowsCard("tasks"))
         {
                         <ItemCard Name="@(T["Tasks"])" OnNameSelected='() => NavigationManager.NavigateTo("/tasks")'
                       HasUnseenAction="@TaskListsToShow.Any(taskList => HasNewsAbout(taskList.Id, "/tasks"))"
@@ -141,7 +142,32 @@ else
                     <PinButton IsPinned='DashboardPins.IsPinned("tasks")' OnPinnedChanged='pinned => SetCardPinnedAsync("tasks", pinned)' />
                 </Pin>
                 <Menu>
-                    <CardFilterMenu Filter='FilterFor("tasks")' Options="PinnableOptions" FilterChanged='filter => SetCardFilterAsync("tasks", filter)' />
+                    <CardFilterMenu Filter='FilterFor("tasks")' Options="PinnableOptions" IsAnotherAnswerChosen="@(ChosenTagFilter is not null)"
+                                    FilterChanged='filter => ChooseTasksFilterAsync(filter)'>
+                        @* The account's own filters, made on the Tasks page out of list tags - see
+                           TagFilterDialog. Only once there is one: a heading over nothing says less than
+                           no heading. *@
+                        @if (_tagFilters.Count > 0)
+                        {
+                            <span class="overflow-menu-heading">@T["Your filters"]</span>
+                            @foreach (var tagFilter in _tagFilters)
+                            {
+                                var isChosen = ChosenTagFilter?.Id == tagFilter.Id;
+                                <button type="button" class="avatar-dropdown-item @(isChosen ? "chosen" : "")"
+                                        @onclick="() => ChooseTagFilterAsync(isChosen ? null : tagFilter.Id)">
+                                    <span class="card-filter-mark">@(isChosen ? "✓" : "")</span>
+                                    @NameOf(tagFilter)
+                                </button>
+                            }
+                            @if (ChosenTagFilter is not null)
+                            {
+                                <button type="button" class="avatar-dropdown-item" @onclick="DeleteTheChosenTagFilterAsync">
+                                    <span class="card-filter-mark"></span>
+                                    @T["Delete this filter"]
+                                </button>
+                            }
+                        }
+                    </CardFilterMenu>
                 </Menu>
                 <Extras>
                     <span class="card-count">@(T.Format("{0} lists", TaskListsToShow.Count))</span>
@@ -193,7 +219,20 @@ else
                     <PinButton IsPinned='DashboardPins.IsPinned("upcoming")' OnPinnedChanged='pinned => SetCardPinnedAsync("upcoming", pinned)' />
                 </Pin>
                 <Menu>
-                    <CardFilterMenu Filter='FilterFor("upcoming")' Options="PriorityOptions" FilterChanged='filter => SetCardFilterAsync("upcoming", filter)' />
+                    <CardFilterMenu Filter='FilterFor("upcoming")' Options="PriorityOptions" FilterChanged='filter => SetCardFilterAsync("upcoming", filter)'>
+                        @* How far ahead the card looks, from the card itself - the same setting Options
+                           offers in full (DevicePreferences.UpcomingDays); here only the two a reader
+                           switches between while looking at the card. *@
+                        <span class="overflow-menu-heading">@T["How far ahead"]</span>
+                        @foreach (var (days, label) in CardHorizons)
+                        {
+                            <button type="button" class="avatar-dropdown-item @(DevicePreferences.UpcomingDays == days ? "chosen" : "")"
+                                    @onclick="() => SetUpcomingDaysAsync(days)">
+                                <span class="card-filter-mark">@(DevicePreferences.UpcomingDays == days ? "✓" : "")</span>
+                                @T[label]
+                            </button>
+                        }
+                    </CardFilterMenu>
                 </Menu>
                 <Extras>
                     <span class="card-count">@(UpcomingToShow.Count)</span>
@@ -476,7 +515,7 @@ else
     /// </summary>
     private IReadOnlyList<NoteDto> NotesUnderTheOpenTab =>
         [.. (_notes ?? [])
-            .Where(note => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, note.FolderId, note.IsPrivate))];
+            .Where(note => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived))];
 
     private IReadOnlyList<NoteDto> NotesToShow =>
         [.. NotesUnderTheOpenTab.Where(note => Matches("notes", note.IsPinned, note.Priority))];
@@ -495,23 +534,62 @@ else
     /// <inheritdoc cref="NotesUnderTheOpenTab"/>
     private IReadOnlyList<TaskDto> TaskListsUnderTheOpenTab =>
         [.. (_taskLists ?? [])
-            .Where(taskList => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, taskList.FolderId, taskList.IsPrivate))
+            .Where(taskList => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, taskList.FolderId, taskList.IsPrivate, isFinished: false, taskList.IsArchived))
             .Where(taskList => !taskList.IsCompleted || taskList.IsPinned)];
 
-    private IReadOnlyList<TaskDto> TaskListsToShow =>
-        [.. TaskListsUnderTheOpenTab.Where(taskList => Matches("tasks", taskList.IsPinned, taskList.Priority))];
+    /// <summary>
+    /// What the Tasks card draws. Under a tag filter, every list the filter finds - whatever folder it is
+    /// in, finished or not, put away or not: the filter is a way of finding lists by what they are about,
+    /// which is a different question from the one a folder tab answers. See TaskTagFilter.
+    /// </summary>
+    private IReadOnlyList<TaskDto> TaskListsToShow => ChosenTagFilter is { } tagFilter
+        ? [.. (_taskLists ?? []).Where(taskList =>
+            new Orbit.Core.Tasks.TagFilters.TaskTagFilter(tagFilter.Id, tagFilter.Tags, tagFilter.MatchesAll, tagFilter.CreatedAtUtc)
+                .Matches(taskList.AllTags))]
+        : [.. TaskListsUnderTheOpenTab.Where(taskList => Matches("tasks", taskList.IsPinned, taskList.Priority))];
+
+    /// <summary>Whether the Tasks card is on the page: something under the open tab, or a tag filter chosen over any list at all.</summary>
+    private bool HasATasksCard
+        => TaskListsUnderTheOpenTab.Count > 0 || (ChosenTagFilter is not null && (_taskLists?.Count ?? 0) > 0);
 
     /// <summary>
-    /// The shelves under the open tab. An inventory is not filed into a folder somebody made - there is
-    /// no tab for one on the inventory page - but it can be sealed, so Public and Private tell them
-    /// apart here the same way they tell notes and lists apart. Without this the Private tab drew every
-    /// shelf the account has, which is the opposite of what the tab says.
+    /// The shelves under the open tab. Filed like everything else here since 2026-09-15: a folder
+    /// somebody made on the inventories is a tab on this page too, and Public and Private tell the rest
+    /// apart the way they do for notes and lists.
     /// </summary>
+    /// <inheritdoc cref="NotesUnderTheOpenTab"/>
     private IReadOnlyList<InventoryDto> InventoriesUnderTheOpenTab =>
-        [.. (_inventories ?? []).Where(inventory => inventory.IsPrivate == IsReadingWhatIsPrivate)];
+        [.. (_inventories ?? [])
+            .Where(inventory => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, inventory.FolderId, inventory.IsPrivate, isFinished: false, inventory.IsArchived))];
 
     private IReadOnlyList<UpcomingEntry> UpcomingToShow =>
-        [.. Upcoming().Where(entry => Matches("upcoming", isPinned: false, entry.Priority))];
+        [.. Upcoming()
+            .Where(entry => IsInsideTheHorizon(entry.At))
+            .Where(entry => Matches("upcoming", isPinned: false, entry.Priority))];
+
+    /// <summary>
+    /// Whether something coming up is near enough for this card to say so - a week ahead unless the
+    /// reader chose otherwise on Options, and everything when they chose no horizon at all (see
+    /// DevicePreferences.UpcomingDays).
+    ///
+    /// The card holds six rows and is glanced down, so without a horizon it was not "what is coming up"
+    /// but "everything that will ever happen", with next Tuesday somewhere inside it. What falls outside
+    /// is not lost: the card's own name opens the calendar, which is where a longer view is read.
+    ///
+    /// Measured from the start of today rather than from this moment, so something happening this
+    /// morning is still on a card read this afternoon - a horizon that quietly drops what is happening
+    /// today would be worse than no horizon.
+    /// </summary>
+    private bool IsInsideTheHorizon(DateTimeOffset at)
+    {
+        var days = DevicePreferences.UpcomingDays;
+        if (days <= 0)
+        {
+            return true;
+        }
+
+        return at.ToLocalTime().Date <= TimeProvider.GetUtcNow().ToLocalTime().Date.AddDays(days);
+    }
 
     /// <summary>
     /// One thing coming up - an event, or a task item with a deadline. Both, because this card and the
@@ -539,12 +617,18 @@ else
     private IEnumerable<UpcomingEntry> Upcoming()
     {
         var nowUtc = TimeProvider.GetUtcNow();
-        var entries = (_events ?? [])
+        // Held as a list rather than piped straight into the rows: the deadlines below are asked which
+        // of them is one of these already, and answering that needs the occurrences as this card has
+        // settled them rather than the events as they are stored.
+        var appointments = (_events ?? [])
             .Where(IsStillToDo)
             .Select(calendarEvent => NextOccurrenceOf(calendarEvent, nowUtc))
             .OfType<CalendarEventDto>()
+            .ToList();
+
+        var entries = appointments
             .Select(ToUpcomingEntry)
-            .Concat(UpcomingDeadlines(nowUtc));
+            .Concat(UpcomingDeadlines(nowUtc, appointments));
         return entries.OrderBy(entry => entry.At);
     }
 
@@ -608,8 +692,24 @@ else
     /// behind it still points at the list, so the two addresses differ here and both are carried: see
     /// NewsUrl, which is what decides whether the row is marked.
     /// </summary>
-    private IEnumerable<UpcomingEntry> UpcomingDeadlines(DateTimeOffset nowUtc)
-        => (_taskLists ?? [])
+    /// <param name="appointments">
+    /// What the card is already showing as appointments, to leave out an entry that <b>is</b> one of
+    /// them. An entry can carry both a date and an appointment, and then the card wrote it twice, one
+    /// line under the other - the same words, from the same list, at two times nobody had said were
+    /// different. Only where the appointment falls on the day the deadline does: on any other day
+    /// nothing else on the card stands for it, and hiding it would lose the deadline rather than tidy
+    /// it. The same rule the calendar applies to the same pair.
+    /// </param>
+    private IEnumerable<UpcomingEntry> UpcomingDeadlines(
+        DateTimeOffset nowUtc, IReadOnlyList<CalendarEventDto> appointments)
+    {
+        var daysTheirAppointmentIsOn = appointments
+            .GroupBy(appointment => appointment.Id)
+            .ToDictionary(
+                byEvent => byEvent.Key,
+                byEvent => byEvent.Select(appointment => appointment.Details.StartUtc.ToLocalTime().Date).ToHashSet());
+
+        return (_taskLists ?? [])
             .SelectMany(taskList => taskList.Items.Select(item => (taskList, item)))
             // A list somebody closed is closed, whatever is still unticked on it. Marking one finished
             // with work still on it is a way of saying "no more of this" (TaskList.IsMarkedCompleted),
@@ -617,7 +717,8 @@ else
             .Where(pair => !pair.taskList.IsCompleted)
             .Where(pair => !pair.item.IsCompleted && !pair.item.IsFailed
                 && pair.item.AllLinkedTaskListIds.Count == 0
-                && pair.item.DueDateUtc is { } dueDate && dueDate >= nowUtc)
+                && pair.item.DueDateUtc is { } dueDate && dueDate >= nowUtc
+                && !IsAlreadyAnAppointmentThatDay(pair.item, dueDate, daysTheirAppointmentIsOn))
             .Select(pair => new UpcomingEntry(
                 pair.item.DueDateUtc!.Value,
                 $"{Written(pair.taskList.Title)}: {Written(pair.item.Description)}",
@@ -627,6 +728,14 @@ else
                 $"/tasks/{pair.taskList.Id}/items/{pair.item.Id}",
                 // A deadline's reminder points at the list it is on, not at the entry the row opens.
                 $"/tasks/{pair.taskList.Id}"));
+    }
+
+    /// <inheritdoc cref="UpcomingDeadlines"/>
+    private static bool IsAlreadyAnAppointmentThatDay(
+        TaskItemDto item, DateTimeOffset dueDate, IReadOnlyDictionary<Guid, HashSet<DateTime>> daysTheirAppointmentIsOn)
+        => item.LinkedCalendarEventId is { } eventId
+            && daysTheirAppointmentIsOn.TryGetValue(eventId, out var days)
+            && days.Contains(dueDate.ToLocalTime().Date);
 
     /// <summary>
     /// The High/Low mark beside a row, when a reader has said this one is not like the others. Normal is
@@ -672,6 +781,23 @@ else
     /// </summary>
     private DashboardCardFilter FilterFor(string cardKey)
         => CardPreferences.FilterFor(cardKey, Folders.ChosenOn(FolderPage.Dashboard));
+
+    /// <summary>The two horizons the Upcoming card's own menu offers - see its markup.</summary>
+    private static readonly IReadOnlyList<(int Days, string Label)> CardHorizons = [(7, "Show 7 days"), (30, "Show 30 days")];
+
+    /// <summary>How far ahead Upcoming looks, chosen from the card - see DevicePreferences.UpcomingDays.</summary>
+    private async Task SetUpcomingDaysAsync(int days)
+    {
+        Logger.LogInformation("User set the Upcoming card to {Days} days from the card", days);
+        await DevicePreferences.SetUpcomingDaysAsync(days);
+    }
+
+    /// <summary>The Tasks card's own filter - which also stops any tag filter, since the menu ticks one answer.</summary>
+    private async Task ChooseTasksFilterAsync(DashboardCardFilter filter)
+    {
+        await CardPreferences.SetTasksTagFilterAsync(null);
+        await SetCardFilterAsync("tasks", filter);
+    }
 
     private async Task SetCardFilterAsync(string cardKey, DashboardCardFilter filter)
     {
@@ -771,6 +897,9 @@ else
         {
             FolderScope.Notes => cardKey == "notes",
             FolderScope.Tasks => cardKey == "tasks",
+            FolderScope.Inventories => cardKey == "inventories",
+            // The calendar's folders are not tabs here at all - see FolderPages.ScopesOn - so a card
+            // can never be about one.
             _ => false
         };
     }
@@ -847,7 +976,7 @@ else
             // slowest single call instead of the sum of all of them.
             await Task.WhenAll(
                 LoadNotesAsync(), LoadTaskListsAsync(), LoadEventsAsync(), LoadContactsAsync(), LoadGroupsAsync(),
-                LoadSharedLocationsAsync(), LoadInventoriesAsync(), LoadPlacesAsync());
+                LoadSharedLocationsAsync(), LoadInventoriesAsync(), LoadPlacesAsync(), LoadTagFiltersAsync());
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -947,6 +1076,66 @@ else
     /// </summary>
     private async Task LoadPlacesAsync()
         => _places = Permissions.Has(ApplicationPermission.Location) ? await PlacesApiClient.GetPlacesAsync() : [];
+
+    /// <summary>
+    /// The filters this account made for the Tasks card - see TagFilterDialog. A failure here costs the
+    /// card its extra menu group and nothing else: the page is several separate questions, and this one
+    /// is the least of them.
+    /// </summary>
+    private async Task LoadTagFiltersAsync()
+    {
+        try
+        {
+            _tagFilters = await TasksApiClient.GetTagFiltersAsync();
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode != HttpStatusCode.Unauthorized)
+        {
+            Logger.LogWarning(exception, "Could not load the Tasks card's filters");
+            _tagFilters = [];
+        }
+    }
+
+    private IReadOnlyList<TaskTagFilterDto> _tagFilters = [];
+
+    /// <summary>The tag filter the Tasks card is showing, when it is one this account still has.</summary>
+    private TaskTagFilterDto? ChosenTagFilter
+        => CardPreferences.TasksTagFilterId is { } chosen ? _tagFilters.FirstOrDefault(filter => filter.Id == chosen) : null;
+
+    private string NameOf(TaskTagFilterDto filter)
+        => new Orbit.Core.Tasks.TagFilters.TaskTagFilter(filter.Id, filter.Tags, filter.MatchesAll, filter.CreatedAtUtc)
+            .Describe(T["or"], T["and"]);
+
+    /// <summary>
+    /// Shows the lists one of the account's tag filters finds, or stops. Choosing one sets the card's own
+    /// pinned filter back to everything: the two would otherwise narrow each other, and the menu can only
+    /// tick one answer to "what is this card showing".
+    /// </summary>
+    private async Task ChooseTagFilterAsync(Guid? filterId)
+    {
+        Logger.LogInformation("User set the Tasks card's tag filter to {FilterId}", filterId);
+        if (filterId is not null)
+        {
+            await CardPreferences.SetFilterAsync("tasks", Folders.ChosenOn(FolderPage.Dashboard), DashboardCardFilter.All);
+        }
+
+        await CardPreferences.SetTasksTagFilterAsync(filterId);
+    }
+
+    /// <summary>Takes the chosen tag filter off the account - from the card whose menu it is on.</summary>
+    private async Task DeleteTheChosenTagFilterAsync()
+    {
+        if (ChosenTagFilter is not { } chosen)
+        {
+            return;
+        }
+
+        if (await TasksApiClient.DeleteTagFilterAsync(chosen.Id))
+        {
+            _tagFilters = [.. _tagFilters.Where(filter => filter.Id != chosen.Id)];
+        }
+
+        await CardPreferences.SetTasksTagFilterAsync(null);
+    }
 
     /// <summary>
     /// Only who is sharing, not where they are. Opening a position means decrypting it, which is the

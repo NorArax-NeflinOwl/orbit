@@ -71,6 +71,12 @@ public sealed class LocalInventory : ISharedState, ICopyableForEditing
 
     public DateTimeOffset UpdatedAtUtc { get; set; }
 
+    /// <inheritdoc cref="LocalNote.FolderId"/>
+    public Guid? FolderId { get; set; }
+
+    /// <inheritdoc cref="LocalNote.IsArchived"/>
+    public bool IsArchived { get; set; }
+
     public bool IsShared { get; set; }
 
     public string? SharedByUserName { get; set; }

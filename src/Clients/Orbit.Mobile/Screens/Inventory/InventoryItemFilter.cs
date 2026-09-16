@@ -1,3 +1,4 @@
+using Orbit.Core.Text;
 using Orbit.Contracts.Inventories;
 
 namespace Orbit.Mobile.Screens.Inventory;
@@ -44,5 +45,5 @@ public sealed class InventoryItemFilter
 
     private static bool Contains(string typed, string itemName)
         => typed.Trim() is not { Length: > 0 } wanted
-            || itemName.Contains(wanted, StringComparison.CurrentCultureIgnoreCase);
+            || LooseText.Holds(itemName, wanted);
 }

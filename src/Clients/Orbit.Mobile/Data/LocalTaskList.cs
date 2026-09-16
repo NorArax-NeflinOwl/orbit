@@ -84,6 +84,9 @@ public sealed class LocalTaskList : Orbit.Mobile.Sync.ISharedState, ICopyableFor
     /// </summary>
     public Guid? FolderId { get; set; }
 
+    /// <inheritdoc cref="LocalNote.IsArchived"/>
+    public bool IsArchived { get; set; }
+
     public bool IsShared { get; set; }
 
     public string? SharedByUserName { get; set; }

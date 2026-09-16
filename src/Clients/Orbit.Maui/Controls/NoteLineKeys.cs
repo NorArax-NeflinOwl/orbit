@@ -52,4 +52,31 @@ public static class NoteLineKeys
 
 	public static void SetGoesToTheLineBelow(BindableObject field, ICommand? value)
 		=> field.SetValue(GoesToTheLineBelowProperty, value);
+
+	/// <summary>
+	/// Tab: one level more at the head of this line, the same edit the buttons over the note's foot make
+	/// - see NoteDetailViewModel.Indent. Only a hardware keyboard has the key; a soft one does not draw
+	/// it, which is why the buttons exist and this is the extra rather than the way in.
+	///
+	/// Answering it is also what stops Android doing what Tab means everywhere else on a screen - moving
+	/// the focus to the next control, which here takes the writer out of the writing altogether.
+	/// </summary>
+	public static readonly BindableProperty IndentsTheLineProperty =
+		BindableProperty.CreateAttached("IndentsTheLine", typeof(ICommand), typeof(NoteLineKeys), null);
+
+	public static ICommand? GetIndentsTheLine(BindableObject field)
+		=> (ICommand?)field.GetValue(IndentsTheLineProperty);
+
+	public static void SetIndentsTheLine(BindableObject field, ICommand? value)
+		=> field.SetValue(IndentsTheLineProperty, value);
+
+	/// <summary>Shift+Tab: one level less, the mirror of <see cref="IndentsTheLineProperty"/>.</summary>
+	public static readonly BindableProperty OutdentsTheLineProperty =
+		BindableProperty.CreateAttached("OutdentsTheLine", typeof(ICommand), typeof(NoteLineKeys), null);
+
+	public static ICommand? GetOutdentsTheLine(BindableObject field)
+		=> (ICommand?)field.GetValue(OutdentsTheLineProperty);
+
+	public static void SetOutdentsTheLine(BindableObject field, ICommand? value)
+		=> field.SetValue(OutdentsTheLineProperty, value);
 }

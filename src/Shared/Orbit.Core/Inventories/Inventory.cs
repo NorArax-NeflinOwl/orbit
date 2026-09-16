@@ -43,6 +43,29 @@ public sealed class Inventory
 
     /// <summary>The sealed name and items of a private inventory; null for an ordinary one.</summary>
     public EncryptedPayload? EncryptedContent { get; private set; }
+
+    /// <summary>
+    /// The folder its owner filed it under, or null for one they have not filed anywhere - which is
+    /// Public, or Private when it is sealed. See Orbit.Core.Folders.BuiltInFolder.
+    ///
+    /// Outside the sealed payload even for a private inventory, exactly as Note.FolderId is: which tab
+    /// something is under is the owner's own filing rather than part of what the shelf holds, and the
+    /// server has to be able to answer it without a key. It is only ever the owner's - somebody reading
+    /// this through a share files it nowhere, the way they cannot pin it.
+    /// </summary>
+    public Guid? FolderId { get; private set; }
+
+    /// <summary>
+    /// Whether this shelf has been put away - see <see cref="Archive"/>. Stored rather than derived,
+    /// unlike the other built-in folders (a sealed thing is private, a ticked-through list is finished),
+    /// because there is nothing else about a shelf that could say it: being put away is a decision
+    /// somebody makes about it rather than something it becomes.
+    ///
+    /// The owner's, and only theirs, exactly as <see cref="FolderId"/> is: one row is one shelf, so a
+    /// recipient archiving it would be putting it away on its owner's own page.
+    /// </summary>
+    public bool IsArchived { get; private set; }
+
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
@@ -75,11 +98,12 @@ public sealed class Inventory
     private Inventory(
         Guid id, Guid userId, string name, bool isPrivate, EncryptedPayload? encryptedContent,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
+        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc, Guid? folderId)
     {
         Id = id;
         UserId = userId;
         (Name, IsPrivate, EncryptedContent) = ReadableOrSealed(name, isPrivate, encryptedContent);
+        FolderId = folderId;
         CreatedAtUtc = createdAtUtc;
         UpdatedAtUtc = updatedAtUtc;
         LockedByUserId = lockedByUserId;
@@ -89,7 +113,7 @@ public sealed class Inventory
 
     public static Inventory Create(
         Guid userId, string name, bool isPrivate = false, EncryptedPayload? encryptedContent = null,
-        string description = "")
+        string description = "", Guid? folderId = null)
     {
         StoredTextLimits.OrRefuse(name, StoredTextLimits.Title, "inventory's name");
         StoredTextLimits.OrRefuse(description, StoredTextLimits.EventDescription, "inventory's description");
@@ -98,7 +122,7 @@ public sealed class Inventory
         return Described(
             new Inventory(
                 Guid.NewGuid(), userId, name, isPrivate, encryptedContent, now, now,
-                lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null),
+                lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null, folderId),
             description);
     }
 
@@ -107,10 +131,13 @@ public sealed class Inventory
         Guid id, Guid userId, string name, bool isPrivate, EncryptedPayload? encryptedContent,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc,
-        string description = "")
+        string description = "", Guid? folderId = null, bool isArchived = false)
         => Described(
             new(id, userId, name, isPrivate, encryptedContent, createdAtUtc, updatedAtUtc,
-                lockedByUserId, lockedByUserName, lockExpiresAtUtc),
+                lockedByUserId, lockedByUserName, lockExpiresAtUtc, folderId)
+            {
+                IsArchived = isArchived
+            },
             description);
 
     /// <summary>
@@ -177,6 +204,46 @@ public sealed class Inventory
 
         // No check for a missing payload here - see EnsureSealedWhenPrivate for where that lives and why.
         return (string.Empty, true, encryptedContent);
+    }
+
+    /// <summary>
+    /// Files this inventory under a folder, or under none - which puts it back in whichever built-in
+    /// folder its privacy says. Its own step rather than part of <see cref="Update"/>, for the reason
+    /// <see cref="FolderId"/> gives.
+    /// </summary>
+    public void MoveToFolder(Guid? folderId)
+    {
+        if (FolderId == folderId)
+        {
+            return;
+        }
+
+        FolderId = folderId;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Put away rather than thrown away - see Orbit.Core.Folders.BuiltInFolder.Archived, which is the
+    /// tab this shelf then gathers under. The one way out of every list that is not deletion, and the
+    /// answer to somebody who wants a shelf gone from in front of them without losing it.
+    ///
+    /// Its own command rather than a field on the update, for the reason <see cref="MoveToFolder"/>
+    /// gives: an update replaces the whole thing, so a client that had not heard of archiving would
+    /// bring back everything its owner had put away, every time it saved.
+    ///
+    /// <see cref="FolderId"/> is left exactly as it was. Archiving is not filing - it is a decision
+    /// about whether this is in front of the reader at all - so bringing it back puts it under the
+    /// folder it was under, rather than somewhere a rule had to choose.
+    /// </summary>
+    public void Archive(bool isArchived)
+    {
+        if (IsArchived == isArchived)
+        {
+            return;
+        }
+
+        IsArchived = isArchived;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 
     public bool IsLockedByAnotherUser(Guid callerId, DateTimeOffset nowUtc)

@@ -190,6 +190,10 @@ public sealed class MapPageTests : OrbitTestContext
         MakeItA(cut, "Place");
 
         Assert.Equal("Długa 4, Warszawa", cut.Find("#placeFormWhere").GetAttribute("value"));
+        // The name is the reader's to give: the address used to be written in as one, and a place was
+        // saved under the street already shown beside it. Save waits for a name.
+        Assert.True(string.IsNullOrEmpty(cut.Find("#placeFormName").GetAttribute("value")));
+        Assert.Contains(cut.FindAll(".btn-primary"), button => button.HasAttribute("disabled"));
     }
 
     /// <summary>
@@ -761,6 +765,34 @@ public sealed class MapPageTests : OrbitTestContext
 
         var bar = cut.Find(".map-route").TextContent;
         Assert.Contains("Długa 4, Warszawa → Wały Piastowskie 1, Gdańsk", bar, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Once both ends are chosen, a press on another pin adds a stop before the end - asked for on the list
+    /// of 2026-09-16 - and the route hands itself to Google Maps with the stop as a waypoint. A stop can be
+    /// taken off again.
+    /// </summary>
+    [Fact]
+    public async Task A_pin_pressed_after_both_ends_is_a_stop_on_the_way()
+    {
+        GrantLocations();
+        _ownLocationJson = OwnLocation();
+        var cut = RenderComponent<MapPage>();
+        await cut.InvokeAsync(() => cut.Instance.OnPinRoute("own"));
+        await cut.InvokeAsync(() => cut.Instance.OnMapPressed(54.35, 18.65));
+        await cut.InvokeAsync(() => cut.Instance.OnPinRoute("pressed"));
+
+        await cut.InvokeAsync(() => cut.Instance.OnMapPressed(53.12, 18.01));
+        await cut.InvokeAsync(() => cut.Instance.OnPinRoute("pressed"));
+
+        var bar = cut.Find(".map-route");
+        Assert.Equal(3, bar.QuerySelector(".map-create-event-place")!.TextContent.Split('→').Length);
+        Assert.Contains("waypoints=53.12%2C18.01", cut.Find(".map-route a").GetAttribute("href"), StringComparison.Ordinal);
+
+        cut.Find(".map-route-stop").Click();
+
+        Assert.Empty(cut.FindAll(".map-route-stop"));
+        Assert.DoesNotContain("waypoints", cut.Find(".map-route a").GetAttribute("href"), StringComparison.Ordinal);
     }
 
     /// <summary>And clearing it takes the bar away, leaving the pins where they were.</summary>

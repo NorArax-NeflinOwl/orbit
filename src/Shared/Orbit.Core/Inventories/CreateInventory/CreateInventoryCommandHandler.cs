@@ -27,7 +27,7 @@ public sealed class CreateInventoryCommandHandler : IRequestHandler<CreateInvent
     {
         var inventory = Inventory.Create(
             request.UserId, request.Name, request.IsPrivate, request.EncryptedContent,
-            request.Description ?? string.Empty);
+            request.Description ?? string.Empty, request.FolderId);
         await _inventoryRepository.AddAsync(inventory, cancellationToken);
 
         if (!inventory.IsPrivate && request.Items is { Count: > 0 } items)

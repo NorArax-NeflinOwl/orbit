@@ -105,13 +105,16 @@ public sealed class InventoryRepository : IInventoryRepository
             entity.Id, entity.UserId, entity.Name, entity.IsPrivate,
             ToEncryptedPayload(entity.EncryptedCiphertext, entity.EncryptedNonce),
             entity.CreatedAtUtc, entity.UpdatedAtUtc,
-            entity.LockedByUserId, entity.LockedByUserName, entity.LockExpiresAtUtc, entity.Description);
+            entity.LockedByUserId, entity.LockedByUserName, entity.LockExpiresAtUtc, entity.Description,
+            entity.FolderId, entity.IsArchived);
 
     private static InventoryEntity ToEntity(Inventory inventory)
         => new()
         {
             Id = inventory.Id,
             UserId = inventory.UserId,
+            FolderId = inventory.FolderId,
+            IsArchived = inventory.IsArchived,
             Name = inventory.Name,
             Description = inventory.Description,
             IsPrivate = inventory.IsPrivate,

@@ -12,6 +12,7 @@ using Orbit.Contracts.Chat;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Sharing;
 using Orbit.Contracts.Users;
+using Orbit.Web.Components;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
@@ -40,6 +41,7 @@ public sealed class NoteEditorTests : OrbitTestContext
     public NoteEditorTests()
     {
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+        Services.AddScoped<Clipboard>();
 
         // The content field is a ChecklistTextEditor, which loads its own JS module and hands it the
         // note's lines. bUnit refuses any interop call it hasn't been told about, so both the module and
@@ -48,6 +50,17 @@ public sealed class NoteEditorTests : OrbitTestContext
         var checklistEditorModule = JSInterop.SetupModule("./js/checklistTextEditor.js");
         checklistEditorModule.SetupVoid("initialize", _ => true).SetVoidResult();
         checklistEditorModule.SetupVoid("dispose", _ => true).SetVoidResult();
+
+        // The two the style control makes: the surface is told what to be, and the lines are pulled back
+        // into Blazor afterwards - see ChecklistTextEditor.SetStyleAsync. The browser is what draws them,
+        // so an empty answer is the right one here.
+        checklistEditorModule.SetupVoid("setStyle", _ => true).SetVoidResult();
+        checklistEditorModule.SetupVoid("mark", _ => true).SetVoidResult();
+        checklistEditorModule.SetupVoid("insertTable", _ => true).SetVoidResult();
+        checklistEditorModule.SetupVoid("editTable", _ => true).SetVoidResult();
+        checklistEditorModule.SetupVoid("pickPicture", _ => true).SetVoidResult();
+        checklistEditorModule.SetupVoid("insertPicture", _ => true).SetVoidResult();
+        checklistEditorModule.Setup<string>("getLinesAsJson", _ => true).SetResult("[]");
 
         // The same wiring CalendarEventEditorTests uses, for the same reason: the editor injects a
         // collaborator graph that only its save path exercises, and it just has to resolve.
@@ -77,6 +90,10 @@ public sealed class NoteEditorTests : OrbitTestContext
         Services.AddSingleton(new EncryptedChatMessageSender(
             jsRuntime, ownEncryptionKeyProvider, usersApiClient,
             new ChatApiClient(new HttpClient { BaseAddress = new Uri("https://example.test/") })));
+        // The editor seals a private note's picture before uploading it, and draws pictures through
+        // NotePictureSource; neither is exercised here beyond having to resolve.
+        Services.AddSingleton(new PrivateContentSealer(ownEncryptionKeyProvider, authenticationStateProvider, jsRuntime));
+        Services.AddScoped<NotePictureSource>();
     }
 
     [Fact]
@@ -436,24 +453,172 @@ public sealed class NoteEditorTests : OrbitTestContext
     }
 
     /// <summary>
-    /// The row of tools sits over the corner of the writing rather than above it, and three of its four
-    /// are drawn for a design that has them rather than for anything they do yet. Each says so when it
-    /// is pressed: a greyed-out button explains nothing, and a row of them explains less.
+    /// The row of tools sits over the corner of the writing rather than above it, and all five of them
+    /// work. The attachment is a file picker, opened by the surface, whose choice comes back the way a
+    /// pasted picture does.
     /// </summary>
     [Fact]
-    public void The_tools_over_the_writing_say_when_there_is_nothing_behind_them()
+    public void The_attachment_tool_opens_the_picker_on_a_note_that_has_been_saved()
     {
         var note = Note("Shopping");
         RegisterApiClients(note);
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
 
-        Assert.Equal(4, cut.FindAll(".note-editor-tools .note-tool").Count);
+        Assert.Equal(5, cut.FindAll(".note-editor-tools .note-tool").Count);
         Assert.Empty(cut.FindAll(".note-tool-bubble"));
+
+        cut.FindAll(".note-editor-tools .note-tool")
+            .First(tool => tool.GetAttribute("aria-label") == "Attachment").Click();
+
+        JSInterop.VerifyInvoke("pickPicture");
+        Assert.Empty(cut.FindAll(".note-tool-bubble"));
+    }
+
+    /// <summary>
+    /// A note that has never been saved has nowhere to keep a picture - a picture belongs to a note, and
+    /// there is no note yet - so the tool says to save first rather than opening a picker for nothing.
+    /// </summary>
+    [Fact]
+    public void The_attachment_tool_asks_for_a_save_first_on_a_new_note()
+    {
+        RegisterApiClients(note: null);
+        var cut = RenderComponent<NoteEditor>();
+
+        cut.FindAll(".note-editor-tools .note-tool")
+            .First(tool => tool.GetAttribute("aria-label") == "Attachment").Click();
+
+        Assert.Contains("Save the note first", cut.Find(".note-tool-bubble").TextContent);
+        Assert.DoesNotContain(JSInterop.Invocations, invocation => invocation.Identifier == "pickPicture");
+    }
+
+    /// <summary>Outside a table the table tool inserts one - the surface is told, and the lines pulled back.</summary>
+    [Fact]
+    public void The_table_tool_inserts_a_table_where_the_caret_is()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
 
         cut.FindAll(".note-editor-tools .note-tool")
             .First(tool => tool.GetAttribute("aria-label") == "Table").Click();
 
-        Assert.Contains("not implemented yet", cut.Find(".note-tool-bubble").TextContent);
+        JSInterop.VerifyInvoke("insertTable");
+        Assert.Empty(cut.FindAll(".note-table-menu"));
+    }
+
+    /// <summary>
+    /// Inside a table the same button opens what can be done to this one, and choosing one tells the
+    /// surface which. The caret's whereabouts arrive from the browser - see
+    /// ChecklistTextEditor.OnCaretInTableChanged - so the test says so the way the browser would.
+    /// </summary>
+    [Fact]
+    public async Task Inside_a_table_the_table_tool_offers_what_can_be_done_to_it()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+        var editor = cut.FindComponent<ChecklistTextEditor>().Instance;
+        await cut.InvokeAsync(() => editor.OnCaretInTableChanged(true));
+
+        cut.FindAll(".note-editor-tools .note-tool")
+            .First(tool => tool.GetAttribute("aria-label") == "Table").Click();
+
+        var offered = cut.FindAll(".note-table-menu .note-style-menu-item");
+        Assert.Equal(
+            ["Add row below", "Add column right", "Delete row", "Delete column", "Delete table"],
+            offered.Select(entry => entry.TextContent.Trim()));
+
+        offered.First(entry => entry.TextContent.Trim() == "Delete column").Click();
+
+        Assert.Equal("tableColumnRemoved", JSInterop.VerifyInvoke("editTable").Arguments[1]);
+        Assert.Empty(cut.FindAll(".note-table-menu"));
+    }
+
+    /// <summary>
+    /// The "Aa" tool opens the eight styles rather than doing something to the line at once: a note is
+    /// mostly ordinary writing, and a control that changes what a line is on a single press is one
+    /// nobody can put down. Each entry is drawn in the style it sets, which is how somebody tells a
+    /// heading from a subheading without reading the words.
+    /// </summary>
+    [Fact]
+    public void The_styles_are_offered_by_name_under_the_letters_tool()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        Assert.Empty(cut.FindAll(".note-style-menu"));
+
+        cut.FindAll(".note-editor-tools .note-tool")
+            .First(tool => tool.GetAttribute("aria-label") == "Text style").Click();
+
+        var offered = cut.FindAll(".note-style-menu-item");
+        Assert.Equal(8, offered.Count);
+        Assert.Equal(
+            ["Title", "Heading", "Subheading", "Body", "Monospaced", "Bulleted list", "Dashed list", "Numbered list"],
+            offered.Select(entry => entry.TextContent.Trim()));
+        Assert.Contains("note-style-heading", offered.ElementAt(1).GetAttribute("class"));
+    }
+
+    /// <summary>
+    /// The four marks sit at the head of the same panel, as Apple Notes has them: they answer a
+    /// selection where a style answers a line. Each is drawn in the mark it puts on, which is what says
+    /// what it does without a word.
+    /// </summary>
+    [Fact]
+    public void The_marks_are_offered_at_the_head_of_the_same_panel()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        cut.FindAll(".note-editor-tools .note-tool")
+            .First(tool => tool.GetAttribute("aria-label") == "Text style").Click();
+
+        var marks = cut.FindAll(".note-mark");
+        Assert.Equal(4, marks.Count);
+        Assert.Equal(
+            ["Bold", "Italic", "Underline", "Strikethrough"],
+            marks.Select(button => button.GetAttribute("aria-label")));
+    }
+
+    /// <summary>
+    /// Pressing one tells the surface and leaves the panel open: marks are pressed together - bold and
+    /// italic - and a panel that closed after each would be reopened twice.
+    /// </summary>
+    [Fact]
+    public void Pressing_a_mark_tells_the_writing_surface_and_leaves_the_panel_open()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        cut.FindAll(".note-editor-tools .note-tool")
+            .First(tool => tool.GetAttribute("aria-label") == "Text style").Click();
+        cut.FindAll(".note-mark").First(button => button.GetAttribute("aria-label") == "Italic").Click();
+
+        Assert.Equal("Italic", JSInterop.VerifyInvoke("mark").Arguments[1]);
+        Assert.NotEmpty(cut.FindAll(".note-style-menu"));
+    }
+
+    /// <summary>
+    /// Choosing one tells the surface and closes the list. Closed, because a style is chosen once and
+    /// then written in - unlike the tick box, whose button is a switch that stays on while a checklist
+    /// is being typed.
+    /// </summary>
+    [Fact]
+    public void Choosing_a_style_tells_the_writing_surface_and_closes_the_list()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        cut.FindAll(".note-editor-tools .note-tool")
+            .First(tool => tool.GetAttribute("aria-label") == "Text style").Click();
+        cut.FindAll(".note-style-menu-item").First(entry => entry.TextContent.Trim() == "Numbered list").Click();
+
+        Assert.Equal("Numbered", JSInterop.VerifyInvoke("setStyle").Arguments[1]);
+        Assert.Empty(cut.FindAll(".note-style-menu"));
     }
 
     /// <summary>
@@ -691,6 +856,7 @@ public sealed class NoteEditorTests : OrbitTestContext
 
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
         Services.AddSingleton(new NotesApiClient(httpClient));
+        Services.AddSingleton(new NotePicturesApiClient(httpClient));
         Services.AddSingleton(new PublicShareApiClient(httpClient));
         Services.AddSingleton(new ChatApiClient(httpClient));
         // Over the one the constructor registered, so the sealed message goes somewhere a test can read

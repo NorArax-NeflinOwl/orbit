@@ -44,13 +44,25 @@ public sealed class OrbitDbContext : DbContext
 
     /// <summary>The colour each of an account's tags is drawn in - see Orbit.Core.Tags.TagColour.</summary>
     public DbSet<TagColourEntity> TagColours => Set<TagColourEntity>();
+
+    /// <summary>The filters an account made for the dashboard's Tasks card - see Orbit.Core.Tasks.TagFilters.TaskTagFilter.</summary>
+    public DbSet<TaskTagFilterEntity> TaskTagFilters => Set<TaskTagFilterEntity>();
     public DbSet<NotificationEntryEntity> NotificationEntries => Set<NotificationEntryEntity>();
     public DbSet<DiagnosticLogEntryEntity> DiagnosticLogEntries => Set<DiagnosticLogEntryEntity>();
     public DbSet<SyncTombstoneEntity> SyncTombstones => Set<SyncTombstoneEntity>();
     public DbSet<PublicShareLinkEntity> PublicShareLinks => Set<PublicShareLinkEntity>();
+    public DbSet<NotePictureEntity> NotePictures => Set<NotePictureEntity>();
     public DbSet<UserPermissionEntity> UserPermissions => Set<UserPermissionEntity>();
     public DbSet<PermissionCodeEntity> PermissionCodes => Set<PermissionCodeEntity>();
     public DbSet<RateLimitWindowEntity> RateLimitWindows => Set<RateLimitWindowEntity>();
+
+    /// <summary>
+    /// PostgreSQL's translate(text, from, to): every character of <paramref name="from"/> in
+    /// <paramref name="text"/> replaced by the one at the same place in <paramref name="to"/>. Only for use
+    /// inside a query - see OnModelCreating, which maps it.
+    /// </summary>
+    public static string Translate(string text, string from, string to)
+        => throw new InvalidOperationException("translate() runs in PostgreSQL, inside a query.");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -58,6 +70,13 @@ public sealed class OrbitDbContext : DbContext
         // name - see NameSuggestionRepository. Declared here so a fresh database gets the extension with
         // its first migration rather than needing a hand-run CREATE EXTENSION.
         modelBuilder.HasPostgresExtension("pg_trgm");
+
+        // PostgreSQL's built-in translate(), for folding Polish letters out of a name before it is compared -
+        // see NameSuggestionRepository. Built in rather than the unaccent extension, which a managed server
+        // only runs once it has been allow-listed in its configuration.
+        modelBuilder.HasDbFunction(typeof(OrbitDbContext).GetMethod(nameof(Translate))!)
+            .HasName("translate")
+            .IsBuiltIn();
 
         modelBuilder.Entity<PermissionCodeEntity>(entity =>
         {
@@ -104,6 +123,15 @@ public sealed class OrbitDbContext : DbContext
             // the default rather than as an unparseable empty string.
             entity.Property(row => row.Priority).IsRequired().HasMaxLength(10)
                 .HasDefaultValue(nameof(Orbit.Core.Abstractions.ItemPriority.Normal));
+        });
+
+        modelBuilder.Entity<NotePictureEntity>(entity =>
+        {
+            entity.HasKey(picture => picture.Id);
+            // A MIME type is short; this is a bound against a caller that is not the app, not a size.
+            entity.Property(picture => picture.ContentType).HasMaxLength(128);
+            // Every read is by note: what a note holds, and how much of its 50 MB that is.
+            entity.HasIndex(picture => picture.NoteId);
         });
 
         modelBuilder.Entity<FolderEntity>(entity =>
@@ -661,6 +689,14 @@ public sealed class OrbitDbContext : DbContext
             entity.Property(row => row.NormalizedTag).IsRequired().HasMaxLength(StoredTextLimits.Category);
             entity.Property(row => row.Tag).IsRequired().HasMaxLength(StoredTextLimits.Category);
             entity.Property(row => row.Colour).IsRequired().HasMaxLength(StoredTextLimits.Color);
+        });
+
+        modelBuilder.Entity<TaskTagFilterEntity>(entity =>
+        {
+            entity.HasKey(row => row.Id);
+            // Read by account and nothing else - see TaskTagFilterRepository.GetAllAsync.
+            entity.HasIndex(row => row.UserId);
+            entity.Property(row => row.TagsJson).IsRequired().HasDefaultValue("[]");
         });
 
         modelBuilder.Entity<NotificationSettingsEntity>(entity =>

@@ -1,4 +1,5 @@
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Tasks;
 
 namespace Orbit.Web.Services;
 
@@ -10,8 +11,9 @@ namespace Orbit.Web.Services;
 /// nothing on screen had mentioned - and the longer the chain, the less obvious what had gone wrong:
 /// A links to B, B to C, and offering C a link back to A looks like any other row in the list.
 ///
-/// A loop would make completion resolution walk forever (see LinkedTaskCompletionResolver), which is
-/// why the rule exists at all rather than being a matter of taste.
+/// The walk itself is Orbit.Core.Tasks.TaskListLinks, shared with the server and the phone. It used to be
+/// written out here following links alone, so a loop closed through a way of doing an entry was offered
+/// and then refused.
 /// </summary>
 public static class TaskListLinkCycle
 {
@@ -24,37 +26,11 @@ public static class TaskListLinkCycle
     public static bool WouldClose(
         IReadOnlyList<TaskDto> allTaskLists, Guid editedTaskListId, Guid candidateId)
     {
-        if (candidateId == editedTaskListId)
-        {
-            return true;
-        }
-
         var itemsById = allTaskLists.ToDictionary(taskList => taskList.Id, taskList => taskList.Items);
-        var visited = new HashSet<Guid>();
-        var toVisit = new Queue<Guid>([candidateId]);
-
-        while (toVisit.Count > 0)
-        {
-            var currentId = toVisit.Dequeue();
-            if (currentId == editedTaskListId)
-            {
-                return true;
-            }
-
-            // A list already walked, or one this reader cannot see, ends that branch rather than the
-            // walk: an unreadable list cannot be followed, and the server will refuse a link to it
-            // for its own reasons.
-            if (!visited.Add(currentId) || !itemsById.TryGetValue(currentId, out var items))
-            {
-                continue;
-            }
-
-            foreach (var linkedId in items.SelectMany(item => item.AllLinkedTaskListIds))
-            {
-                toVisit.Enqueue(linkedId);
-            }
-        }
-
-        return false;
+        return TaskListLinks.WouldCloseALoop(
+            listId => itemsById.TryGetValue(listId, out var items)
+                ? items.SelectMany(item => item.TaskListIdsItPointsAt)
+                : null,
+            editedTaskListId, candidateId);
     }
 }

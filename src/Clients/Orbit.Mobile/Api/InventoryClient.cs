@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Sync;
 using Orbit.Contracts.Sharing;
@@ -54,6 +55,24 @@ public sealed class InventoryClient : ILockableItems
         Guid inventoryId, SaveInventoryRequest request, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PutAsJsonAsync($"api/inventories/{inventoryId}", request, cancellationToken);
+        return ReadOutcome(response);
+    }
+
+    /// <inheritdoc cref="NotesClient.FileAsync"/>
+    public async Task<WriteOutcome> FileAsync(
+        Guid inventoryId, Guid? folderId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/inventories/{inventoryId}/folder", new MoveToFolderRequest(folderId), cancellationToken);
+        return ReadOutcome(response);
+    }
+
+    /// <inheritdoc cref="NotesClient.ArchiveAsync"/>
+    public async Task<WriteOutcome> ArchiveAsync(
+        Guid inventoryId, bool isArchived, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/inventories/{inventoryId}/archived", new ArchiveRequest(isArchived), cancellationToken);
         return ReadOutcome(response);
     }
 

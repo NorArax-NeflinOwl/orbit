@@ -45,7 +45,29 @@ public sealed class DashboardCardPreferences(IJSRuntime jsRuntime)
         _filterByCardKey = storedFilters
             .Where(stored => Enum.TryParse<DashboardCardFilter>(stored.Value, out _))
             .ToDictionary(stored => stored.Key, stored => Enum.Parse<DashboardCardFilter>(stored.Value));
+        _tasksTagFilterId = storedFilters.TryGetValue(TasksTagFilterKey, out var storedTagFilter) && Guid.TryParse(storedTagFilter, out var id)
+            ? id
+            : null;
     }
+
+    /// <summary>
+    /// Which of the account's tag filters the Tasks card is showing, or null for none - see
+    /// Orbit.Core.Tasks.TagFilters.TaskTagFilter. The filters are the account's; which one this card
+    /// shows is a choice about one page on one device, so it is kept here beside the other filters, and
+    /// under one key whatever tab is open: a tag filter reads every list, in every folder.
+    /// </summary>
+    public Guid? TasksTagFilterId => _tasksTagFilterId;
+
+    public async Task SetTasksTagFilterAsync(Guid? filterId)
+    {
+        _tasksTagFilterId = filterId;
+        await WriteFiltersAsync();
+    }
+
+    private Guid? _tasksTagFilterId;
+
+    /// <summary>Where <see cref="TasksTagFilterId"/> is stored among the filters - not a card key any card has.</summary>
+    private const string TasksTagFilterKey = "tasks#tag-filter";
 
     public bool IsVisible(string cardKey) => !_hiddenCardKeys.Contains(cardKey);
 
@@ -114,9 +136,20 @@ public sealed class DashboardCardPreferences(IJSRuntime jsRuntime)
             _filterByCardKey[storedKey] = filter;
         }
 
+        await WriteFiltersAsync();
+    }
+
+    /// <summary>Every card's filter and the Tasks card's tag filter, written as the one object they are stored as.</summary>
+    private async Task WriteFiltersAsync()
+    {
+        var stored = _filterByCardKey.ToDictionary(entry => entry.Key, entry => entry.Value.ToString());
+        if (_tasksTagFilterId is { } tagFilterId)
+        {
+            stored[TasksTagFilterKey] = tagFilterId.ToString();
+        }
+
         await using var module = await ImportModuleAsync();
-        await module.InvokeVoidAsync(
-            "setCardFilters", _filterByCardKey.ToDictionary(entry => entry.Key, entry => entry.Value.ToString()));
+        await module.InvokeVoidAsync("setCardFilters", stored);
     }
 
     /// <summary>

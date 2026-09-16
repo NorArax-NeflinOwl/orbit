@@ -33,6 +33,27 @@ public sealed partial class NoteDetailScreenTests
     }
 
     /// <summary>
+    /// "Paste from the clipboard" in the note's menu: the words go at the end, on lines of their own, and
+    /// "[x] " and "- " come in as boxes - so a list copied out of Orbit comes back as its lines.
+    /// </summary>
+    [Fact]
+    public async Task Pasting_from_the_clipboard_adds_the_lines_at_the_end()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        screen.PasteFromTheClipboard("Errands\r\n[x] eggs\r\n- flour\r\n");
+
+        Assert.Equal(["milk", "Errands", "eggs", "flour"], screen.Lines.Select(line => line.Text));
+        Assert.False(screen.Lines[1].IsChecklistItem);
+        Assert.True(screen.Lines[2].IsChecklistItem);
+        Assert.True(screen.Lines[2].IsChecked);
+        Assert.True(screen.Lines[3].IsChecklistItem);
+        Assert.False(screen.Lines[3].IsChecked);
+    }
+
+    /// <summary>
     /// Enter at the end of a line starts the next one, which is what the editor is: one surface being
     /// typed on rather than a field with an Add button beside it.
     /// </summary>
@@ -163,6 +184,58 @@ public sealed partial class NoteDetailScreenTests
 
         await screen.SaveLinesCommand.ExecuteAsync(null);
         Assert.False(screen.HasUnsavedChanges);
+    }
+
+    /// <summary>
+    /// The question at the door reads everything a Save carries, not the words alone: a heading made out
+    /// of a line, a mark put on part of it and a cell written in are all things leaving would lose. They
+    /// were invisible to it while it compared the text - see WhatIsOnTheScreen.
+    /// </summary>
+    [Fact]
+    public async Task Restyling_a_line_is_something_leaving_would_lose()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        screen.Restyle(screen.Lines[0], Orbit.Core.Notes.NoteLineStyle.Heading);
+
+        Assert.True(screen.HasUnsavedChanges);
+        await screen.SaveLinesCommand.ExecuteAsync(null);
+        Assert.False(screen.HasUnsavedChanges);
+    }
+
+    /// <summary>
+    /// The note's words on the clipboard, whole or narrowed to one state of its boxes - the browser's
+    /// four, offered here from the same menu and in the reader's own language. A line with no box
+    /// travels only in the whole thing, the three narrow choices being questions about boxes.
+    /// </summary>
+    [Fact]
+    public async Task The_note_can_be_copied_whole_or_by_what_is_done()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "For Sunday", "Milk", "Bread");
+        var screen = await context.OpenAsync(note.LocalId);
+        screen.ToggleChecklistCommand.Execute(screen.Lines[1]);
+        screen.ToggleChecklistCommand.Execute(screen.Lines[2]);
+        screen.ToggleCheckedCommand.Execute(screen.Lines[1]);
+
+        Assert.Equal("Shopping\nFor Sunday\n[x] Milk\n- Bread", screen.AsWords());
+        Assert.Equal("Shopping\n[x] Milk", screen.AsWords(Orbit.Core.Abstractions.WhatToCopy.Done));
+        Assert.Equal("Shopping\n- Bread", screen.AsWords(Orbit.Core.Abstractions.WhatToCopy.StillToDo));
+    }
+
+    /// <summary>Offered in the order the sheet draws them, the whole thing first.</summary>
+    [Fact]
+    public async Task All_four_copies_are_offered_on_a_note()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        Assert.Equal(
+            ["Copy the text", "Copy what is done", "Copy what is still to do", "Copy what was given up on"],
+            screen.CopyChoices.Select(choice => choice.Name));
     }
 
     /// <summary>A tick is a change like any other, and it is not written until Save either.</summary>
@@ -818,6 +891,12 @@ public sealed partial class NoteDetailScreenTests
         /// <summary>The screen's clock - moved on by the tests about which typing joins one undo step.</summary>
         public FakeTimeProvider Clock => _clock;
 
+        /// <summary>Where the screen keeps fetched pictures - a directory of this test's own, gone with it.</summary>
+        public string PictureDirectory { get; } = Path.Combine(Path.GetTempPath(), $"orbit-note-pictures-{Guid.NewGuid():N}");
+
+        /// <summary>A round with the fake server, which is how a note written here gets the server id its pictures are fetched under.</summary>
+        public Task SynchroniseAsync() => _synchronizer.SynchroniseAsync();
+
         /// <summary>
         /// A note somebody else shared in, which is the one kind the offline policy refuses - see
         /// OfflineEditPolicy.
@@ -887,7 +966,8 @@ public sealed partial class NoteDetailScreenTests
                 Notes, _synchronizer, new NotesClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock),
                 new Translations(new InMemoryLanguageStore()), _privateContent,
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)), Navigator,
-                new LocalFolderRepository(_localStore, _clock), _clock);
+                new LocalFolderRepository(_localStore, _clock), _clock,
+                pictures: new NotePictureCache(PictureDirectory, new NotePicturesClient(Server.ToHttpClient()), _privateContent));
 
             screen.Open(localId);
             await screen.LoadCommand.ExecuteAsync(null);
@@ -905,6 +985,10 @@ public sealed partial class NoteDetailScreenTests
         {
             Server.Dispose();
             _localStore.Dispose();
+            if (Directory.Exists(PictureDirectory))
+            {
+                Directory.Delete(PictureDirectory, recursive: true);
+            }
         }
     }
 }

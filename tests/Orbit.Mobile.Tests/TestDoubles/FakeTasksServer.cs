@@ -205,6 +205,8 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             // which says why the real one keeps it off the save.
             "PUT" when path.EndsWith("/folder", StringComparison.Ordinal)
                 => await FileAsync(request, path, cancellationToken),
+            "PUT" when path.EndsWith("/archived", StringComparison.Ordinal)
+                => await ArchiveAsync(request, path, cancellationToken),
             "PUT" => await UpdateAsync(request, path, cancellationToken),
             "DELETE" => Delete(path),
             _ => Json(_taskLists.Values.ToList())
@@ -288,6 +290,21 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         return new HttpResponseMessage(HttpStatusCode.NoContent);
     }
 
+    /// <summary>Whether it is put away - applied to the stored one, so a test can tell it was sent.</summary>
+    private async Task<HttpResponseMessage> ArchiveAsync(
+        HttpRequestMessage request, string path, CancellationToken cancellationToken)
+    {
+        var id = Guid.Parse(path.Split('/')[^2]);
+        if (!_taskLists.TryGetValue(id, out var existing))
+        {
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        var body = await ReadAsync<ArchiveRequest>(request, cancellationToken);
+        _taskLists[id] = existing with { IsArchived = body!.IsArchived, UpdatedAtUtc = _timeProvider.GetUtcNow() };
+        return new HttpResponseMessage(HttpStatusCode.NoContent);
+    }
+
     private async Task<HttpResponseMessage> UpdateAsync(HttpRequestMessage request, string path, CancellationToken cancellationToken)
     {
         var id = ReadId(path);
@@ -297,9 +314,27 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         }
 
         var body = await ReadAsync<UpdateTaskRequest>(request, cancellationToken);
+
+        // Refused as TaskListLinkValidator refuses it, with the same words: a fake that took a loop made a
+        // phone that offered one look correct, and the refusal a device met was never met by a test.
+        var pointedAt = body!.Items
+            .SelectMany(item => item.AllLinkedTaskListIds.Concat((item.Alternatives ?? [])
+                .Where(way => way.LinkedTaskListId is not null)
+                .Select(way => way.LinkedTaskListId!.Value)))
+            .Distinct();
+        if (pointedAt.Any(listId => TaskListLinks.WouldCloseALoop(
+                other => _taskLists.TryGetValue(other, out var list) ? list.Items.SelectMany(item => item.TaskListIdsItPointsAt) : null,
+                id, listId)))
+        {
+            return new HttpResponseMessage(HttpStatusCode.BadRequest)
+            {
+                Content = JsonContent.Create(new { message = "This link would create a cycle between task lists." })
+            };
+        }
+
         _taskLists[id] = existing with
         {
-            Title = body!.Title,
+            Title = body.Title,
             // Placed before the list is written, as UpdateTaskListCommandHandler places them.
             Items = PlaceProductEntries(existing, ToDtos(body.Items, existing.Items, _timeProvider.GetUtcNow()), body.IsPrivate),
             // Sent on every update and stored by the real endpoint - a fake that dropped it made
@@ -541,7 +576,14 @@ internal sealed class FakeTasksServer : HttpMessageHandler
                 : item.CompletedAtUtc
                     ?? (storedById.GetValueOrDefault(item.Id ?? Guid.Empty) is { IsCompleted: true } wasDone
                         ? wasDone.CompletedAtUtc
-                        : nowUtc))).ToList());
+                        : nowUtc),
+            // Whether every list the entry stands for has to be done. Null means "nothing to say" and
+            // keeps what is stored - UpdateTaskListCommand.EntriesKeepingTheirListRule, the same rule the
+            // notes above follow. A fake that wrote the null through would answer a client that says
+            // nothing with "any one of them", which is not what the server does.
+            NeedsEveryLinkedList: item.NeedsEveryLinkedList
+                ?? (item.Id is { } ruled && storedById.TryGetValue(ruled, out var ruledAsStored)
+                    && ruledAsStored.NeedsEveryLinkedList))).ToList());
     }
 
     /// <summary>

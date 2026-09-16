@@ -89,8 +89,25 @@ public sealed class TaskList
     /// and the checklist view renders them inline underneath it so the whole group can be worked
     /// through in one place. Purely a presentation flag - completion still follows the same rules,
     /// with each linked item resolving to its list's completion (see LinkedTaskCompletionResolver).
+    ///
+    /// <b>Turned on by itself when a list starts gathering other lists, and the reader's to turn off.</b>
+    /// A list created with an entry standing for another list, or saved with its first such entry, is a
+    /// group list whatever the caller said - it was a plain manual toggle until 2026-09-15, so a list
+    /// somebody built by adding entries that point at lists gathered nothing until they noticed a box.
+    /// The rule lives here rather than in an editor's form, so it holds for every writer.
+    ///
+    /// From 2026-09-15 to 2026-09-16 it was forced on for as long as any such entry stayed, with the box
+    /// ticked and unpressable. The user's list of 2026-09-16 asked for the box to tick itself and still be
+    /// the reader's to untick, so only the moment a list <i>starts</i> gathering sets it; after that what
+    /// is saved is what is stored, and a list read back from the database is what it was stored as.
     /// </summary>
     public bool IsGroup { get; private set; }
+
+    /// <summary>
+    /// Whether something on this list points at another list - what turns <see cref="IsGroup"/> on the
+    /// moment it first becomes true (see there).
+    /// </summary>
+    public bool GathersOtherLists => Items.Any(item => item.IsALinkToOtherLists);
 
     /// <summary>
     /// The inventory this list's work is measured against, when one has been chosen - see
@@ -104,6 +121,17 @@ public sealed class TaskList
     /// saying so. See Orbit.Core.Folders.BuiltInFolder, and Note.FolderId, which says the same.
     /// </summary>
     public Guid? FolderId { get; private set; }
+
+    /// <summary>
+    /// Whether this list has been put away - see <see cref="Archive"/>. Stored rather than derived,
+    /// unlike the other built-in folders (a sealed thing is private, a ticked-through list is finished),
+    /// because there is nothing else about a list that could say it: being put away is a decision
+    /// somebody makes about it rather than something it becomes.
+    ///
+    /// The owner's, and only theirs, exactly as <see cref="FolderId"/> is: one row is one list, so a
+    /// recipient archiving it would be putting it away on its owner's own page.
+    /// </summary>
+    public bool IsArchived { get; private set; }
 
     /// <summary>The user id currently holding the edit lock, if any - see AcquireLock/ReleaseLock.</summary>
     public Guid? LockedByUserId { get; private set; }
@@ -164,7 +192,7 @@ public sealed class TaskList
         var tidyTags = Orbit.Core.Tags.TagNames.Tidy(tags);
         Orbit.Core.Tags.TagNames.OrRefuse(tidyTags, "task list's tag");
         var now = DateTimeOffset.UtcNow;
-        return new TaskList(
+        var taskList = new TaskList(
             Guid.NewGuid(), userId, title, items, isGroup, isPrivate, encryptedContent, priority, isPinned, now, now,
             lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null)
         {
@@ -172,6 +200,10 @@ public sealed class TaskList
             Tags = isPrivate ? [] : tidyTags,
             FolderId = folderId
         };
+
+        // Created gathering other lists is starting to gather them - see IsGroup.
+        taskList.IsGroup = taskList.IsGroupGiven(isGroup, gatheredBefore: false);
+        return taskList;
     }
 
     /// <summary>
@@ -186,7 +218,7 @@ public sealed class TaskList
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc,
         ItemPriority priority, bool isPinned, Guid? linkedInventoryId = null, string description = "",
         Guid? folderId = null, TaskListCompletion completion = TaskListCompletion.FromTheEntries,
-        IReadOnlyList<string>? tags = null)
+        IReadOnlyList<string>? tags = null, bool isArchived = false)
     {
         var taskList = new TaskList(id, userId, title, items, isGroup, isPrivate, encryptedContent, priority, isPinned,
             createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc);
@@ -195,6 +227,7 @@ public sealed class TaskList
         taskList.Tags = Orbit.Core.Tags.TagNames.Tidy(tags);
         taskList.FolderId = folderId;
         taskList.Completion = completion;
+        taskList.IsArchived = isArchived;
         return taskList;
     }
 
@@ -230,6 +263,7 @@ public sealed class TaskList
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         StoredTextLimits.OrRefuse(title, StoredTextLimits.Title, "task list's title");
         StoredTextLimits.OrRefuse(description, StoredTextLimits.EventDescription, "task list's description");
+        var gatheredBefore = GathersOtherLists;
         (Title, Items, IsPrivate, EncryptedContent) = ReadableOrSealed(title, items, isPrivate, encryptedContent);
         // Sealed alongside the title, so a private list keeps nothing readable here either.
         Description = isPrivate ? string.Empty : description;
@@ -246,7 +280,7 @@ public sealed class TaskList
         {
             Tags = [];
         }
-        IsGroup = isGroup;
+        IsGroup = IsGroupGiven(isGroup, gatheredBefore);
         // Nothing to assign: IsCompleted asks the items itself now - see the property.
         Priority = priority;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
@@ -353,6 +387,30 @@ public sealed class TaskList
         }
 
         FolderId = folderId;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Put away rather than thrown away - see Orbit.Core.Folders.BuiltInFolder.Archived, which is the
+    /// tab this list then gathers under. The one way out of every list that is not deletion, and the
+    /// answer to somebody who wants a list gone from in front of them without losing it.
+    ///
+    /// Its own command rather than a field on the update, for the reason <see cref="MoveToFolder"/>
+    /// gives: an update replaces the whole thing, so a client that had not heard of archiving would
+    /// bring back everything its owner had put away, every time it saved.
+    ///
+    /// <see cref="FolderId"/> is left exactly as it was. Archiving is not filing - it is a decision
+    /// about whether this is in front of the reader at all - so bringing it back puts it under the
+    /// folder it was under, rather than somewhere a rule had to choose.
+    /// </summary>
+    public void Archive(bool isArchived)
+    {
+        if (IsArchived == isArchived)
+        {
+            return;
+        }
+
+        IsArchived = isArchived;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 
@@ -498,4 +556,12 @@ public sealed class TaskList
     /// </summary>
     private static bool ComputeIsCompleted(IReadOnlyList<TaskItem> items)
         => items.Count > 0 && items.All(item => item.IsResolved);
+
+    /// <summary>
+    /// What was asked for, or true anyway where this save is the one that starts the list gathering other
+    /// lists - see <see cref="IsGroup"/>. Read off <see cref="Items"/> rather than off what was handed in,
+    /// because a sealed list's items are not the ones the caller passed (see ReadableOrSealed) and a
+    /// private list must not be made a group by entries nobody here can read.
+    /// </summary>
+    private bool IsGroupGiven(bool isGroup, bool gatheredBefore) => isGroup || (!gatheredBefore && GathersOtherLists);
 }

@@ -31,6 +31,7 @@ erDiagram
     OS_USERS ||--o| OS_NOTIFICATIONS_SETTINGS : "configures"
     OS_USERS ||--o{ OS_PUSH_SUBSCRIPTIONS : "registered"
     OS_USERS ||--o{ OS_TAGS_COLOURS : "colours its tags"
+    OS_USERS ||--o{ OS_TASKS_TAG_FILTERS : "filters its Tasks card by"
 
     OS_USERS {
         uuid OS_U_ID PK
@@ -51,6 +52,13 @@ erDiagram
         text OS_TC_TAG "as last written - readable, even for a tag only private items carry"
         text OS_TC_COLOUR "hex, as a colour input gives it"
         timestamptz OS_TC_UPDATEDATUTC
+    }
+    OS_TASKS_TAG_FILTERS {
+        uuid OS_TTF_ID PK
+        uuid OS_TTF_USERID FK
+        text OS_TTF_TAGSJSON "the tags, readable like OS_TAGS_COLOURS"
+        bool OS_TTF_MATCHESALL "every tag rather than any"
+        timestamptz OS_TTF_CREATEDATUTC
     }
     OS_REFRESH_TOKENS {
         uuid OS_RT_ID PK
@@ -96,6 +104,7 @@ erDiagram
     OS_USERS ||--o{ OP_INVENTORIES : owns
 
     OP_NOTES ||--o{ OP_NOTES_SHARED : "shared as"
+    OP_NOTES ||--o{ OP_NOTES_PICTURES : "keeps"
     OP_TASKS ||--o{ OP_TASKS_SHARED : "shared as"
     OP_EVENTS ||--o{ OP_EVENTS_SHARED : "shared as"
     OP_INVENTORIES ||--o{ OP_INVENTORIES_SHARED : "shared as"
@@ -103,6 +112,8 @@ erDiagram
     OS_USERS ||--o{ OP_FOLDERS : owns
     OP_FOLDERS ||--o{ OP_NOTES : "files"
     OP_FOLDERS ||--o{ OP_TASKS : "files"
+    OP_FOLDERS ||--o{ OP_EVENTS : "files"
+    OP_FOLDERS ||--o{ OP_INVENTORIES : "files"
 
     OP_FOLDERS {
         uuid OP_F_ID PK
@@ -115,6 +126,7 @@ erDiagram
         uuid OP_N_ID PK
         uuid OP_N_USERID FK
         uuid OP_N_FOLDERID FK "null = a built-in folder"
+        bool OP_N_ISARCHIVED "decides the Archived folder"
         text OP_N_TITLE
         bool OP_N_ISPRIVATE
         text OP_N_ENCRYPTEDCIPHERTEXT "set when private"
@@ -123,6 +135,15 @@ erDiagram
         text OP_N_TAGSJSON "JSON list - empty when private, the tags are sealed"
         uuid OP_N_LOCKEDBYUSERID
         timestamptz OP_N_LOCKEXPIRESATUTC
+    }
+    OP_NOTES_PICTURES {
+        uuid OP_NP_ID PK
+        uuid OP_NP_NOTEID FK
+        uuid OP_NP_OWNERUSERID FK
+        bigint OP_NP_SIZEBYTES "the ciphertext's length when sealed"
+        text OP_NP_CONTENTTYPE "null when sealed"
+        boolean OP_NP_ISSEALED
+        timestamptz OP_NP_CREATEDATUTC
     }
     OP_NOTES_SHARED {
         uuid OP_NS_ID PK
@@ -156,14 +177,23 @@ the note for them (`NoteAccessResolver`, `TaskListAccessResolver`). Nothing is s
 carries one `IsPinned`, and which row it came from depends on who asked.
 
 **`OP_FOLDERS` holds only the folders somebody made**, each on exactly one page (`OP_F_SCOPE` -
-`Orbit.Core.Folders.FolderScope`, `Notes` or `Tasks`). Three more exist without a row - Public, Private
-and Finished (`Orbit.Core.Folders.BuiltInFolder`) - and which of them something is in is decided from
-what it already is: something filed under one of this page's folders is in that folder finished or not,
-an unfiled finished list is in Finished, an unfiled sealed one in Private, everything else unfiled in
-Public. Nothing about them is stored, which is why folders arrived without a backfill and why
-`OP_N_FOLDERID`/`OP_T_FOLDERID` are nullable rather than defaulted. There is no foreign-key cascade
-either: `FolderRepository.DeleteAsync` empties the folder first (both columns back to null) and then
-removes the row, so deleting a tab can never delete what was under it.
+`Orbit.Core.Folders.FolderScope`, `Notes`, `Tasks`, `Calendar` or `Inventories`). Four more exist
+without a row of their own - Archived, Public, Private and Finished
+(`Orbit.Core.Folders.BuiltInFolder`) - and which of them something is in is decided from what it
+already is, first match winning: anything its owner put away is in Archived whatever else is true of it,
+something filed under one of this page's folders is in that folder finished or not, an unfiled finished
+list is in Finished, an unfiled sealed one in Private, everything else unfiled in Public.
+
+**Only Archived is stored**, one boolean on each of the four kinds
+(`OP_N_ISARCHIVED`/`OP_T_ISARCHIVED`/`OP_E_ISARCHIVED`/`OP_I_ISARCHIVED`, added 2026-09-15, false for
+everything already there), because nothing else about a row could say it. Nothing about the other three
+is, which is why folders arrived without a backfill and why
+`OP_N_FOLDERID`/`OP_T_FOLDERID`/`OP_E_FOLDERID`/`OP_I_FOLDERID` are nullable rather than defaulted - and
+why the two scopes added on 2026-09-15 needed no migration of their own, the scope being stored by name.
+The folder column and the archived column are independent: putting something away leaves its folder id
+alone, so bringing it back puts it under the tab it was under. There is no foreign-key cascade either: `FolderRepository.DeleteAsync`
+empties the folder first (all four columns back to null) and then removes the row, so deleting a tab can
+never delete what was under it.
 
 **`OL_PS_ITEMTYPE` stores an enum by name and must never be renamed.** It sits in rows already written
 and inside chat payloads already delivered; renaming the member orphans every share link that used it.
@@ -189,6 +219,7 @@ erDiagram
         uuid OP_T_ID PK
         uuid OP_T_USERID FK
         uuid OP_T_FOLDERID FK "null = a built-in folder"
+        bool OP_T_ISARCHIVED "decides the Archived folder"
         text OP_T_TITLE
         bool OP_T_ISCOMPLETED "decides the Finished folder"
         text OP_T_COMPLETION "TaskListCompletion by name - what its owner said, if anything"
@@ -213,6 +244,7 @@ erDiagram
         timestamptz OP_TI_CREATEDATUTC "kept by id across saves; decides a reference group's heir"
         uuid OP_TI_REFERENCESTASKITEMID "the group's source entry, on any list; no FK"
         numeric OP_TI_REQUIREDQUANTITY "the entry's own minimum - the one detail a group does not share"
+        bool OP_TI_NEEDSEVERYLINKEDLIST "false: any one of OL_TASKS_ITEMS is enough; true: all of them"
     }
     OP_TASKS_ALTERNATIVES {
         uuid OP_TA_TASKITEMID PK

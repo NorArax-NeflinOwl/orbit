@@ -1,10 +1,13 @@
+using Orbit.Core.Text;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Core.Abstractions;
+using Orbit.Core.Folders;
 using Orbit.Mobile.Chat;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Screens.Folders;
 using Orbit.Mobile.Screens.Sharing;
 using Orbit.Mobile.Security;
 using Orbit.Mobile.Sync;
@@ -35,6 +38,15 @@ public sealed partial class InventoryViewModel : ObservableObject
     private IReadOnlyList<LocalInventory> _stored = [];
 
     /// <summary>
+    /// Every shelf on the phone, before the open tab narrows it - see <see cref="_stored"/>, which is
+    /// what the rows are drawn from. The search across shelves is asked of this one: "where is the
+    /// flour" is a question about the reader's whole inventory, not about the tab they happen to be
+    /// standing on, and answering it from one tab would say "it is nowhere" about a shelf filed under
+    /// another. The folders narrow the list, not the search.
+    /// </summary>
+    private IReadOnlyList<LocalInventory> _everyShelf = [];
+
+    /// <summary>
     /// Inventories this device could not look inside - sealed with a key it has not got, or private
     /// while private things are locked. Counted rather than skipped: a search that quietly leaves one
     /// out answers "it is nowhere" when the truth is "I could not look there". Counted rather than
@@ -49,8 +61,27 @@ public sealed partial class InventoryViewModel : ObservableObject
     public InventoryViewModel(
         LocalInventoryRepository inventories, InventorySynchronizer synchronizer, INetworkStatus networkStatus,
         PrivateItemGate privateItems, SyncState syncState, IScreenNavigator navigator, Translations translations,
-        SharePanel share)
+        SharePanel share,
+        LocalFolderRepository folders, IChosenFolderStore chosenFolder, FolderSynchronizer folderSynchronizer,
+        SharingSeveral? sharingSeveral = null)
     {
+        Picking = new PickingSeveral(
+            translations,
+            new PickingActions(
+                SharedItemKind.Inventory,
+                (localId, folderId, token) => inventories.FileAsync(localId, folderId, token),
+                (localId, isArchived, token) => inventories.ArchiveAsync(localId, isArchived, token),
+                async token =>
+                {
+                    await ShowStoredInventoriesAsync(token);
+                    await SynchroniseAsync(token);
+                },
+                () => Folders!.Made),
+            sharingSeveral);
+        Picking.Changed += (_, _) => MarkThePicked();
+        _folders = folders;
+        _folderSynchronizer = folderSynchronizer;
+        Folders = new FolderTabs(folders, chosenFolder, translations, FolderPage.Inventories);
         _inventories = inventories;
         _synchronizer = synchronizer;
         _networkStatus = networkStatus;
@@ -68,10 +99,165 @@ public sealed partial class InventoryViewModel : ObservableObject
     /// </summary>
     public SharePanel Share { get; }
 
+    /// <summary>Several shelves chosen to be filed, put away or shared together - see PickingSeveral.</summary>
+    public PickingSeveral Picking { get; }
+
+    /// <summary>The menu's "Select": starts choosing shelves, or stops.</summary>
+    [RelayCommand]
+    private void ToggleChoosing()
+    {
+        if (Picking.IsPicking)
+        {
+            Picking.Stop();
+            return;
+        }
+
+        Picking.Start();
+    }
+
+    /// <summary>Puts the mark on every row, or takes it off, for what is chosen now - see NotesViewModel.</summary>
+    private void MarkThePicked()
+    {
+        for (var index = 0; index < Inventories.Count; index++)
+        {
+            var row = Inventories[index];
+            var marked = row with { OffersPicking = Picking.IsPicking, IsPicked = Picking.Holds(row.LocalId) };
+            if (marked != row)
+            {
+                Inventories[index] = marked;
+            }
+        }
+    }
+
     /// <inheritdoc cref="Notes.NotesViewModel.HasMessage"/>
     public bool HasMessage => Message.Length > 0;
 
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
+
+    private readonly LocalFolderRepository _folders;
+
+    /// <summary>
+    /// <inheritdoc cref="Notes.NotesViewModel.Folders" path="/summary/node()"/> Pushed before the
+    /// shelves on every sync, for the reason FolderNotOnTheServerYet gives.
+    /// </summary>
+    private readonly FolderSynchronizer _folderSynchronizer;
+
+    /// <summary>
+    /// <inheritdoc cref="Notes.NotesViewModel.Folders" path="/summary/node()"/>
+    /// </summary>
+    public FolderTabs Folders { get; }
+
+    /// <summary>Those folders as the menu draws them, with how many shelves are in each.</summary>
+    public ObservableCollection<FolderChoice> FolderChoices { get; } = [];
+
+    /// <inheritdoc cref="Notes.NotesViewModel.ChosenFolderName"/>
+    public string ChosenFolderName
+        => FolderChoices.FirstOrDefault(choice => choice.IsChosen)?.Name ?? string.Empty;
+
+    /// <inheritdoc cref="Notes.NotesViewModel.NewFolderName"/>
+    [ObservableProperty]
+    private string _newFolderName = string.Empty;
+
+    /// <inheritdoc cref="Notes.NotesViewModel.FolderBeingRenamed"/>
+    [ObservableProperty]
+    private Guid? _folderBeingRenamed;
+
+    /// <inheritdoc cref="Notes.NotesViewModel.FolderRowAction"/>
+    public string FolderRowAction => FolderBeingRenamed is null ? _translations["Add"] : _translations["Rename"];
+
+    partial void OnFolderBeingRenamedChanged(Guid? value) => OnPropertyChanged(nameof(FolderRowAction));
+
+    /// <inheritdoc cref="Notes.NotesViewModel.StartRenamingTheOpenFolder"/>
+    public void StartRenamingTheOpenFolder()
+    {
+        if (Folders.Chosen.FolderId is { } folderId)
+        {
+            FolderBeingRenamed = folderId;
+            NewFolderName = ChosenFolderName;
+        }
+    }
+
+    /// <inheritdoc cref="Notes.NotesViewModel.StartNamingANewFolder"/>
+    public void StartNamingANewFolder()
+    {
+        FolderBeingRenamed = null;
+        NewFolderName = string.Empty;
+    }
+
+    /// <inheritdoc cref="Notes.NotesViewModel.IsChosenFolderHiddenOnTheDashboard"/>
+    public bool IsChosenFolderHiddenOnTheDashboard
+        => Folders.Chosen.FolderId is { } folderId && Folders.IsHiddenOnTheDashboard(folderId);
+
+    /// <summary>
+    /// Takes the open folder off the dashboard's menu, or puts it back - see FolderTabs.HideOnTheDashboard.
+    /// The shelves are cards the dashboard is made of, so their folders are tabs there too, and this is
+    /// offered on the page the folder belongs to exactly as it is for the notes and the lists.
+    /// </summary>
+    [RelayCommand]
+    private void ToggleShownOnTheDashboard()
+    {
+        if (Folders.Chosen.FolderId is { } folderId)
+        {
+            Folders.HideOnTheDashboard(folderId, !Folders.IsHiddenOnTheDashboard(folderId));
+            OnPropertyChanged(nameof(IsChosenFolderHiddenOnTheDashboard));
+        }
+    }
+
+    /// <summary>Reading the screen under another folder - chosen from the menu under its name.</summary>
+    [RelayCommand]
+    private async Task ChooseFolderAsync(FolderKey key, CancellationToken cancellationToken)
+    {
+        Folders.Choose(key);
+        await ShowStoredInventoriesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// A new folder, made and shown at once whether or not there is a connection - a folder is a name,
+    /// so nothing about it waits on a server. The screen moves to it, because making one is how somebody
+    /// says where the next thing goes. The same row renames the open folder - see FolderBeingRenamed.
+    /// </summary>
+    [RelayCommand]
+    private async Task MakeFolderAsync(string? name, CancellationToken cancellationToken)
+    {
+        if (name?.Trim() is not { Length: > 0 } wanted)
+        {
+            return;
+        }
+
+        if (FolderBeingRenamed is { } renamed)
+        {
+            await _folders.RenameAsync(renamed, wanted, cancellationToken);
+            FolderBeingRenamed = null;
+        }
+        else
+        {
+            var folder = await _folders.CreateAsync(wanted, FolderScope.Inventories, cancellationToken);
+            Folders.Choose(FolderKey.Of(folder.LocalId));
+        }
+
+        NewFolderName = string.Empty;
+        await ShowStoredInventoriesAsync(cancellationToken);
+        await SynchroniseAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Takes the folder being read away and leaves everything that was in it, which is what the server
+    /// does too: getting rid of the place is not a decision to get rid of what was in it.
+    /// </summary>
+    [RelayCommand]
+    private async Task DeleteFolderAsync(CancellationToken cancellationToken)
+    {
+        if (Folders.Chosen.FolderId is not { } folderId)
+        {
+            return;
+        }
+
+        await _folders.DeleteAsync(folderId, cancellationToken);
+        Folders.Choose(FolderKey.Default);
+
+        await ShowStoredInventoriesAsync(cancellationToken);
+        await SynchroniseAsync(cancellationToken);
+    }
 
     public ObservableCollection<InventoryRow> Inventories { get; } = [];
 
@@ -101,10 +287,10 @@ public sealed partial class InventoryViewModel : ObservableObject
     /// </summary>
     public string ItemMatchSummary
         => _unsearchableInventoryCount == 0
-            ? _translations.Format("Found in {0} of {1} inventories.", InventoriesMatched, _stored.Count)
+            ? _translations.Format("Found in {0} of {1} inventories.", InventoriesMatched, _everyShelf.Count)
             : _translations.Format(
                 "Found in {0} of {1} inventories. {2} could not be opened, so nothing in them was searched.",
-                InventoriesMatched, _stored.Count, _unsearchableInventoryCount);
+                InventoriesMatched, _everyShelf.Count, _unsearchableInventoryCount);
 
     private int InventoriesMatched
         => ItemMatches.Select(match => match.InventoryLocalId).Distinct().Count();
@@ -137,13 +323,13 @@ public sealed partial class InventoryViewModel : ObservableObject
         ItemMatches.Clear();
         if (SearchedItemName.Trim() is { Length: > 0 } wanted)
         {
-            var found = _stored
+            var found = _everyShelf
                 .Where(CanBeSearched)
                 .SelectMany(inventory => inventory.Items.Select(item => new InventoryItemMatch(
                     inventory.LocalId, inventory.Name, InventoryItemRow.From(
                         item, _translations,
                         usage: inventory.ItemUsage.GetValueOrDefault(item.Id ?? Guid.Empty)))))
-                .Where(match => match.Name.Contains(wanted, StringComparison.CurrentCultureIgnoreCase))
+                .Where(match => LooseText.Holds(match.Name, wanted))
                 .OrderBy(match => match.Name, StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(match => match.InventoryName, StringComparer.CurrentCultureIgnoreCase);
 
@@ -184,6 +370,12 @@ public sealed partial class InventoryViewModel : ObservableObject
     [RelayCommand]
     private void OpenInventory(InventoryRow? row)
     {
+        // While choosing, a press anywhere on a row chooses it - see PickingSeveral.
+        if (row is not null && Picking.Toggle(row.LocalId))
+        {
+            return;
+        }
+
         if (row is { CanBeOpened: true })
         {
             _navigator.ShowInventory(row.LocalId);
@@ -264,14 +456,45 @@ public sealed partial class InventoryViewModel : ObservableObject
     private bool CanBeSearched(LocalInventory inventory)
         => !inventory.IsSealed && (!inventory.IsPrivate || _privateItems.IsUnlocked);
 
-    private async Task ShowStoredInventoriesAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Draws the shelves from what is on the phone, asking the server nothing.
+    ///
+    /// Public for one caller beyond this class: the page calls it when a sync that nobody on this
+    /// screen asked for has brought something down, so a screen left open stops showing what it was
+    /// shown when it was opened - see PeriodicSync and SyncState.BroughtSomethingNew.
+    /// </summary>
+    public async Task ShowStoredInventoriesAsync(CancellationToken cancellationToken)
     {
-        _stored = await _inventories.GetAllAsync(cancellationToken);
+        var held = await _inventories.GetAllAsync(cancellationToken);
         var pending = await _inventories.GetPendingLocalIdsAsync(cancellationToken);
+        await Folders.ReadAsync(cancellationToken);
 
+        // Where each shelf is, by the rule both clients share. A shelf is never finished, so the
+        // question a task list is asked here is not asked of it - see FolderPlacement.
+        var placements = held.ToDictionary(
+            inventory => inventory.LocalId,
+            inventory => Folders.Where(
+                inventory.FolderId, inventory.IsPrivate, isFinished: false, inventory.IsArchived));
+
+        FolderChoices.Clear();
+        foreach (var choice in Folders.Describe(placements.Values))
+        {
+            FolderChoices.Add(choice);
+        }
+
+        OnPropertyChanged(nameof(ChosenFolderName));
+
+        _everyShelf = held;
+        _stored = [.. held.Where(inventory => Folders.Holds(placements[inventory.LocalId]))];
         _pending = pending;
+        OnPropertyChanged(nameof(NothingHereMessage));
         ShowRows();
     }
+
+    /// <inheritdoc cref="Notes.NotesViewModel.NothingHereMessage"/>
+    public string NothingHereMessage => _everyShelf.Count > 0
+        ? _translations["Nothing in this folder."]
+        : _translations["No inventories yet."];
 
     /// <summary>
     /// Rebuilds the rows from what is already held. Separate from the read, so unlocking private things
@@ -287,7 +510,11 @@ public sealed partial class InventoryViewModel : ObservableObject
                 _privateItems.IsUnlocked, _translations["Private"]));
         }
 
-        _unsearchableInventoryCount = _stored.Count(inventory => !CanBeSearched(inventory));
+        // Also what marks the rows just drawn, through Changed.
+        Picking.Shows(_stored.Select(inventory => new PickableThing(
+            inventory.LocalId, inventory.ServerId, inventory.Name, inventory.IsShared, inventory.IsPrivate, inventory.IsArchived)));
+
+        _unsearchableInventoryCount = _everyShelf.Count(inventory => !CanBeSearched(inventory));
         ShowMatchingItems();
     }
 
@@ -300,6 +527,9 @@ public sealed partial class InventoryViewModel : ObservableObject
         _syncState.RecordStarted();
         try
         {
+            // The folders first, and always - see NotesViewModel, which says why.
+            await _folderSynchronizer.SynchroniseAsync(cancellationToken);
+
             var result = await _synchronizer.SynchroniseAsync(cancellationToken);
             RecordSync(result);
 

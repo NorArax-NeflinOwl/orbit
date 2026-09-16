@@ -13,6 +13,33 @@ public sealed class FolderPlacementTests
     private static readonly Guid WorkFolderId = Guid.NewGuid();
     private static readonly Guid[] Known = [WorkFolderId];
 
+    /// <summary>
+    /// Archived beats everything, a folder somebody made included - putting something away is a decision
+    /// about whether it is in front of the reader at all, and an archived note still under "Work" would
+    /// not have been put anywhere. See BuiltInFolder, which is where the order is decided.
+    /// </summary>
+    [Fact]
+    public void Something_put_away_is_in_Archived_whatever_else_is_true_of_it()
+    {
+        Assert.Equal(
+            FolderKey.Of(BuiltInFolder.Archived),
+            FolderPlacement.Of(WorkFolderId, isPrivate: false, isFinished: false, Known, isArchived: true));
+        Assert.Equal(
+            FolderKey.Of(BuiltInFolder.Archived),
+            FolderPlacement.Of(folderId: null, isPrivate: true, isFinished: true, Known, isArchived: true));
+    }
+
+    /// <summary>
+    /// And the folder it was filed under is still the folder it is filed under: bringing it back puts it
+    /// where it was, rather than somewhere a rule had to choose - see Note.Archive, which leaves the id
+    /// alone on purpose.
+    /// </summary>
+    [Fact]
+    public void Bringing_it_back_puts_it_under_the_folder_it_was_under()
+        => Assert.Equal(
+            FolderKey.Of(WorkFolderId),
+            FolderPlacement.Of(WorkFolderId, isPrivate: false, isFinished: false, Known, isArchived: false));
+
     [Fact]
     public void Something_nobody_filed_is_in_Public()
         => Assert.Equal(

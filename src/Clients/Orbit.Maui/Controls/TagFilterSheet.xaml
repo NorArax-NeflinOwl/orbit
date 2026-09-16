@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.TagFilterSheet"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:tasks="clr-namespace:Orbit.Mobile.Screens.Tasks;assembly=Orbit.Mobile"
+    x:DataType="tasks:TagFilterForm"
+    IsVisible="{Binding IsOpen}">
+
+    <!-- Making a filter for the dashboard's Tasks card - see TagFilterForm, and Orbit.Web's
+         TagFilterDialog, which is the same panel. The same parts ConfirmationDialog is made of: a scrim,
+         the menu panel's border and ground. "And" on top, the tags as a checklist, a box for a new word,
+         and Save and Cancel as icons at the foot. -->
+    <Grid>
+        <BoxView Color="Black" Opacity="0.35" />
+
+        <Border Style="{StaticResource MenuPanel}" Padding="20,18" Margin="24"
+                MaximumWidthRequest="380" HorizontalOptions="Center" VerticalOptions="Center">
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="12">
+                <Label Grid.Row="0" Text="{controls:Translate 'Create filter'}" FontSize="17" FontAttributes="Bold" />
+
+                <HorizontalStackLayout Grid.Row="1" Spacing="10">
+                    <Button Text="{controls:Translate 'And'}" Style="{StaticResource SecondaryButton}"
+                            Command="{Binding ToggleMatchesAllCommand}">
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button" Binding="{Binding MatchesAll}" Value="True">
+                                <Setter Property="BorderColor" Value="{DynamicResource Accent}" />
+                                <Setter Property="TextColor" Value="{DynamicResource Accent}" />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                    <Label Text="{Binding LogicHint}" VerticalOptions="Center" LineBreakMode="WordWrap"
+                           Style="{StaticResource SubtleLabel}" />
+                </HorizontalStackLayout>
+
+                <Label Grid.Row="2" Text="{controls:Translate 'No tags yet - add one below.'}"
+                       IsVisible="{Binding HasNoTags}" Style="{StaticResource EmptyHint}" />
+
+                <ScrollView Grid.Row="3" MaximumHeightRequest="320">
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Tags}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="tasks:TagFilterChoice">
+                                <HorizontalStackLayout Spacing="4">
+                                    <CheckBox IsChecked="{Binding IsChosen}" VerticalOptions="Center"
+                                              SemanticProperties.Description="{Binding Name}" />
+                                    <Label Text="{Binding Name}" VerticalOptions="Center" />
+                                </HorizontalStackLayout>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </ScrollView>
+
+                <Grid Grid.Row="4" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <Entry Grid.Column="0" Text="{Binding NewTag}" Placeholder="{controls:Translate 'New tag'}"
+                           ReturnType="Done" ReturnCommand="{Binding AddTagCommand}" />
+                    <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Style="{StaticResource SecondaryButton}"
+                            Command="{Binding AddTagCommand}" />
+                </Grid>
+
+                <Label Grid.Row="5" Text="{Binding Message}" IsVisible="{Binding HasMessage}"
+                       LineBreakMode="WordWrap" Style="{StaticResource ErrorLabel}" />
+
+                <HorizontalStackLayout Grid.Row="6" Spacing="10" HorizontalOptions="End">
+                    <controls:IconButton Data="M5,5 L15,15 M15,5 L5,15" TouchSize="44" Description="{controls:Translate 'Cancel'}"
+                                         Command="{Binding CancelCommand}" />
+                    <controls:IconButton Data="M4,10.5 L8,14.5 L16,5.5" TouchSize="44" Description="{controls:Translate 'Save'}"
+                                         Command="{Binding SaveCommand}" />
+                </HorizontalStackLayout>
+            </Grid>
+        </Border>
+    </Grid>
+
+</ContentView>

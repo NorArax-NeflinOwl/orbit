@@ -32,7 +32,15 @@ public sealed record OrbitArchive(
     /// reason <paramref name="Places"/> is: a file written before tags had colours says nothing here, and
     /// its tags come back plain.
     /// </summary>
-    IReadOnlyList<ArchivedTagColour>? TagColours = null)
+    IReadOnlyList<ArchivedTagColour>? TagColours = null,
+    /// <summary>
+    /// The folders this account made - see <see cref="ArchivedFolder"/>. Carried in their own right
+    /// rather than inferred from what is filed in them, so a folder somebody made and has not put
+    /// anything in yet is still a tab after an import. Defaulted and last for the reason the two above
+    /// are: a file written before folders were exported says nothing here, and everything in it comes
+    /// back unfiled.
+    /// </summary>
+    IReadOnlyList<ArchivedFolder>? Folders = null)
 {
     public const int CurrentVersion = 1;
 
@@ -41,6 +49,9 @@ public sealed record OrbitArchive(
 
     /// <summary>The tag colours as something to read without a null check - see <see cref="TagColours"/>.</summary>
     public IReadOnlyList<ArchivedTagColour> AllTagColours => TagColours ?? [];
+
+    /// <summary>The folders as something to read without a null check - see <see cref="Folders"/>.</summary>
+    public IReadOnlyList<ArchivedFolder> AllFolders => Folders ?? [];
 
     /// <summary>
     /// The archive as it may be handed back to the server: every private place with its readable half
@@ -65,9 +76,19 @@ public sealed record OrbitArchive(
 /// The words it is tagged with - see Orbit.Core.Notes.Note.Tags. Empty for a private note, whose tags are
 /// inside its sealed bytes. Defaulted and last: a file written before tags existed says nothing here.
 /// </param>
+/// <param name="Folder">
+/// The name of the folder it is filed under, or null for one filed nowhere - see
+/// <see cref="ArchivedFolder"/>, which says why a name rather than an id. Defaulted and last: a file
+/// written before folders were exported says nothing here.
+/// </param>
+/// <param name="IsArchived">
+/// Whether it was put away rather than left on its page - see Orbit.Core.Folders.BuiltInFolder.Archived.
+/// Defaulted and last: a file written before things could be put away says nothing here, and reads as
+/// one that was not, which is what it was.
+/// </param>
 public sealed record ArchivedNote(
     string Title, IReadOnlyList<ArchivedNoteLine> Content, bool IsPrivate, ArchivedEncryptedContent? EncryptedContent,
-    IReadOnlyList<string>? Tags = null)
+    IReadOnlyList<string>? Tags = null, string? Folder = null, bool IsArchived = false)
 {
     /// <summary>The tags as something to read without a null check - see <see cref="Tags"/>.</summary>
     public IReadOnlyList<string> AllTags => Tags ?? [];
@@ -76,13 +97,73 @@ public sealed record ArchivedNote(
 /// <summary>One tag's colour, as the account set it - see Orbit.Core.Tags.TagColour.</summary>
 public sealed record ArchivedTagColour(string Tag, string Colour);
 
+/// <summary>
+/// One folder somebody made - see Orbit.Core.Folders.Folder. A name and the page it is a tab on, and
+/// nothing else: a folder has nothing else to it, and the file carries no ids (see
+/// <see cref="OrbitArchive"/>).
+///
+/// Everything filed names its folder by that name alone, its page being decided by what it is - a note's
+/// folder is a folder of notes. Two folders with the same name on the same page are the one place where
+/// that is not enough; the first of them wins, as it does for the task lists a link names by title.
+/// </summary>
+/// <param name="Scope">
+/// "Notes", "Tasks", "Calendar" or "Inventories" - the word, as every other enum in this file. One this
+/// build does not know is left out on import rather than read as something else: a folder put on the
+/// wrong page is a tab nothing can ever be filed into.
+/// </param>
+public sealed record ArchivedFolder(string Name, string Scope);
+
 /// <param name="IsFailed">Crossed out rather than ticked - see Orbit.Core.Notes.NoteContentLine.IsFailed.</param>
-public sealed record ArchivedNoteLine(string Text, bool IsChecklistItem, bool IsChecked, bool IsFailed = false);
+/// <param name="Style">
+/// What the line is - a heading, a line of a list, ordinary writing. See Orbit.Core.Notes.NoteLineStyle.
+/// A word rather than a number so the file stays readable and stays valid when the list of styles grows;
+/// defaulted and last, so a file written before styles existed reads as ordinary writing throughout.
+/// </param>
+/// <param name="Marks">
+/// The marks on stretches of words inside the line - see Orbit.Core.Notes.NoteTextRun. Null for a line
+/// with none, and for every line of a file written before marks existed.
+/// </param>
+/// <param name="Table">The table this line is, when it is one - rows of cells, each with words and marks. Null for writing.</param>
+/// <param name="Separator">
+/// The rule across the note this line is, when it is one - see <see cref="ArchivedSeparator"/>. Null for
+/// everything else, and for every line of a file written before separators existed. Defaulted and last,
+/// so such a file still opens and one written now still imports into an older Orbit, which reads past it.
+/// </param>
+public sealed record ArchivedNoteLine(
+    string Text, bool IsChecklistItem, bool IsChecked, bool IsFailed = false, string Style = "Body",
+    IReadOnlyList<ArchivedTextRun>? Marks = null, IReadOnlyList<IReadOnlyList<ArchivedTableCell>>? Table = null,
+    ArchivedSeparator? Separator = null)
+{
+    /// <summary>The marks as something to read without a null check - see <see cref="Marks"/>.</summary>
+    public IReadOnlyList<ArchivedTextRun> AllMarks => Marks ?? [];
+}
+
+/// <summary>
+/// A rule across a note - see Orbit.Core.Notes.NoteSeparatorLine. Its own record rather than a bare
+/// string, so "a plain rule" and "not a separator at all" stay two different answers in the file.
+/// </summary>
+/// <param name="Stamp">
+/// What is written on it, as the words it was made with. A date here is the day the separator was drawn,
+/// not the day the file is read - which is the point of writing it once.
+/// </param>
+public sealed record ArchivedSeparator(string Stamp = "");
+
+/// <summary>One cell of an archived table - see Orbit.Core.Notes.NoteTableCell.</summary>
+public sealed record ArchivedTableCell(string Text, IReadOnlyList<ArchivedTextRun>? Marks = null)
+{
+    public IReadOnlyList<ArchivedTextRun> AllMarks => Marks ?? [];
+}
+
+/// <param name="Mark">"Bold", "Italic", "Underlined" or "StruckThrough" - the word, as every other enum in this file.</param>
+public sealed record ArchivedTextRun(int Start, int Length, string Mark);
 
 /// <param name="Tags">The words it is tagged with - see <see cref="ArchivedNote.Tags"/>, which says the same.</param>
+/// <param name="Folder">The folder it is filed under, by name - see <see cref="ArchivedNote.Folder"/>.</param>
+/// <param name="IsArchived">Whether it was put away - see <see cref="ArchivedNote.IsArchived"/>.</param>
 public sealed record ArchivedTaskList(
     string Title, IReadOnlyList<ArchivedTaskItem> Items, bool IsGroup, bool IsPrivate,
-    ArchivedEncryptedContent? EncryptedContent, string Priority, IReadOnlyList<string>? Tags = null)
+    ArchivedEncryptedContent? EncryptedContent, string Priority, IReadOnlyList<string>? Tags = null,
+    string? Folder = null, bool IsArchived = false)
 {
     /// <summary>The tags as something to read without a null check - see <see cref="Tags"/>.</summary>
     public IReadOnlyList<string> AllTags => Tags ?? [];
@@ -147,15 +228,21 @@ public sealed record ArchivedTaskItem(
 /// written before it went away still reads, and written back out as "None" so one written now still
 /// opens in an older Orbit.
 /// </param>
+/// <param name="Folder">The folder it is filed under, by name - see <see cref="ArchivedNote.Folder"/>.</param>
+/// <param name="IsArchived">Whether it was put away - see <see cref="ArchivedNote.IsArchived"/>.</param>
 public sealed record ArchivedCalendarEvent(
     string Title, string? Description, string? Color, DateTimeOffset StartUtc, DateTimeOffset EndUtc, bool IsAllDay,
     ArchivedEventLocation? Location, IReadOnlyList<int> ReminderMinutesBeforeStart,
-    string CreationNotificationChannel, string ReminderNotificationChannel);
+    string CreationNotificationChannel, string ReminderNotificationChannel, string? Folder = null,
+    bool IsArchived = false);
 
 public sealed record ArchivedEventLocation(string Address, double? Latitude, double? Longitude);
 
+/// <param name="Folder">The folder it is filed under, by name - see <see cref="ArchivedNote.Folder"/>.</param>
+/// <param name="IsArchived">Whether it was put away - see <see cref="ArchivedNote.IsArchived"/>.</param>
 public sealed record ArchivedInventory(
-    string Name, bool IsPrivate, ArchivedEncryptedContent? EncryptedContent, IReadOnlyList<ArchivedInventoryItem> Items);
+    string Name, bool IsPrivate, ArchivedEncryptedContent? EncryptedContent, IReadOnlyList<ArchivedInventoryItem> Items,
+    string? Folder = null, bool IsArchived = false);
 
 /// <param name="Unit">
 /// Defaulted, and last, so an archive written before units existed still imports - it says nothing about

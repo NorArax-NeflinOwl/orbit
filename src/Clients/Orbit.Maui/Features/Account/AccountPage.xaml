@@ -496,6 +496,43 @@
                         </controls:SettingRow>
                     </VerticalStackLayout>
                 </Border>
+
+                <!-- How far ahead the dashboard's Upcoming card looks - the same choice Orbit.Web puts
+                     on this tab, and a strip rather than a list to open, because all five fit and the
+                     four not chosen are part of the answer. See UpcomingHorizon. -->
+                <!-- The element form for the explanation, because the sentence has an apostrophe and the
+                     quoted form cannot carry one. -->
+                <controls:FieldHint IsHeading="True"
+                                    Margin="0,6,0,0"
+                                    Label="{controls:Translate 'How far ahead Upcoming looks'}"
+                                    IsVisible="{Binding HasUpcomingHorizons}">
+                    <controls:FieldHint.Text>
+                        <controls:Translate Text="The dashboard's Upcoming card shows what is happening inside this many days. Anything further off is still in your calendar, which the card's own name opens. Kept on this device." />
+                    </controls:FieldHint.Text>
+                </controls:FieldHint>
+                <Border Style="{StaticResource SegmentedStrip}" HorizontalOptions="Start"
+                        IsVisible="{Binding HasUpcomingHorizons}">
+                    <HorizontalStackLayout Spacing="1" BindableLayout.ItemsSource="{Binding UpcomingHorizons}"
+                                           BackgroundColor="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="screens:UpcomingHorizonChoice">
+                                <!-- Named in the accent and ringed in it where it is the one in force,
+                                     the way the theme strip marks its own. -->
+                                <Button Text="{Binding Name}" Style="{StaticResource SegmentButton}"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseUpcomingHorizonCommand, x:DataType=account:AccountPage}"
+                                        CommandParameter="{Binding .}">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsChosen}" Value="True">
+                                            <Setter Property="TextColor" Value="{DynamicResource Accent}" />
+                                            <Setter Property="BorderColor" Value="{DynamicResource Accent}" />
+                                            <Setter Property="BorderWidth" Value="1" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </HorizontalStackLayout>
+                </Border>
             </VerticalStackLayout>
 
             <!-- The same list Orbit.Web puts under Options, Permissions, and the same wording: what each

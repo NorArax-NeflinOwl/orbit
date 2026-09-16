@@ -35,6 +35,7 @@ using Orbit.Core.Tasks.RaiseStockShortfalls;
 using Orbit.Core.Tasks.SetTaskListPinned;
 using Orbit.Core.Tasks.ShareTaskList;
 using Orbit.Core.Tasks.UpdateTaskList;
+using Orbit.Core.Tasks.ArchiveTaskList;
 
 namespace Orbit.Api.Tasks;
 
@@ -105,6 +106,7 @@ public static class TaskEndpoints
                     request.Completion is null ? null : RequestEnum.Parse<TaskListCompletion>(request.Completion, "completion"),
                     EntriesKeepingTheirAlternatives: EntriesSayingNothingAboutTheirAlternatives(request.Items),
                     EntriesKeepingTheirReference: EntriesSayingNothingAboutTheirReference(request.Items),
+                    EntriesKeepingTheirListRule: EntriesSayingNothingAboutTheirListRule(request.Items),
                     Tags: request.Tags),
                 cancellationToken);
             return ToApiResult(outcome);
@@ -123,6 +125,17 @@ public static class TaskEndpoints
             var moved = await dispatcher.SendAsync(
                 new MoveTaskListToFolderCommand(GetUserId(user), id, request.FolderId), cancellationToken);
             return moved ? Results.NoContent() : Results.NotFound();
+        });
+
+        // Putting one away and bringing it back - see ArchiveTaskListCommand. Its own endpoint beside
+        // the filing above, and for the same reason: an update carries the whole list.
+        tasks.MapPut("/{id:guid}/archived", async (
+            Guid id, ArchiveRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var archived = await dispatcher.SendAsync(
+                new ArchiveTaskListCommand(GetUserId(user), id, request.IsArchived), cancellationToken);
+            return archived ? Results.NoContent() : Results.NotFound();
         });
 
         // A second list with the same entries on it - see DuplicateTaskListCommand for what is
@@ -410,6 +423,17 @@ public static class TaskEndpoints
             .Select(item => item.Id!.Value)
             .ToHashSet();
 
+    /// <summary>
+    /// The entries that said nothing about whether every list they stand for has to be done - the eighth
+    /// rule of its kind. Unlike the lists above, the field is a bool?, so "said nothing" is plainly null
+    /// rather than a shape that has to be read. See UpdateTaskListCommand.EntriesKeepingTheirListRule.
+    /// </summary>
+    private static IReadOnlySet<Guid> EntriesSayingNothingAboutTheirListRule(IReadOnlyList<TaskItemRequest> items)
+        => items
+            .Where(item => item is { NeedsEveryLinkedList: null, Id: not null })
+            .Select(item => item.Id!.Value)
+            .ToHashSet();
+
     /// <summary>What an entry says it is the same thing as. The empty id is "none" on the wire - see TaskItemRequest.</summary>
     private static Guid? ToDomainReference(Guid? referencesTaskItemId)
         => referencesTaskItemId is { } id && id != Guid.Empty ? id : null;
@@ -492,7 +516,8 @@ public static class TaskEndpoints
                 item.Description, item.DueDateUtc, item.IsCompleted, item.AllLinkedTaskListIds,
                 reminders, subject, item.AllCategories, product, item.Notes, item.IsFailed,
                 item.WaitsForTaskItemIds, priority, item.Colour, alternatives,
-                ToDomainReference(item.ReferencesTaskItemId), item.RequiredQuantity, item.CompletedAtUtc);
+                ToDomainReference(item.ReferencesTaskItemId), item.RequiredQuantity, item.CompletedAtUtc,
+                item.NeedsEveryLinkedList ?? false);
         }
 
         // Same override Create applies: a linked entry's completion follows the list it links to, so a
@@ -505,7 +530,10 @@ public static class TaskEndpoints
             item.AllLinkedTaskListIds.Count == 0 && item.IsFailed,
             item.WaitsForTaskItemIds, priority, item.Colour, alternatives,
             referencesTaskItemId: ToDomainReference(item.ReferencesTaskItemId), requiredQuantity: item.RequiredQuantity,
-            completedAtUtc: item.CompletedAtUtc);
+            completedAtUtc: item.CompletedAtUtc,
+            // A provisional answer for an entry that said nothing: the save puts the stored one back
+            // straight after - see UpdateTaskListCommand.EntriesKeepingTheirListRule.
+            needsEveryLinkedList: item.NeedsEveryLinkedList ?? false);
     }
 
 
@@ -562,7 +590,8 @@ public static class TaskEndpoints
                         way.Description, way.LinkedTaskListId, way.IsDone))],
                     item.ReferencesTaskItemId,
                     item.RequiredQuantity,
-                    item.CompletedAtUtc))
+                    item.CompletedAtUtc,
+                    item.NeedsEveryLinkedList))
                 .ToList(),
             taskList.IsCompleted,
             taskList.IsGroup,
@@ -581,7 +610,9 @@ public static class TaskEndpoints
             // is told nothing about it.
             taskList.IsShared ? null : taskList.FolderId,
             taskList.Completion.ToString(),
-            taskList.Tags);
+            taskList.Tags,
+            // The owner's too - see NoteEndpoints.ToDto, which says why a recipient is told nothing.
+            !taskList.IsShared && taskList.IsArchived);
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

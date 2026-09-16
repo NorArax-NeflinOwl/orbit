@@ -1,5 +1,6 @@
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
+using Orbit.Core.Folders;
 using Orbit.Core.Inventories;
 using Orbit.Core.Notes;
 using Orbit.Core.Notifications;
@@ -25,6 +26,7 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
     private readonly IInventoryItemRepository _inventoryItemRepository;
     private readonly IPlaceRepository _placeRepository;
     private readonly Orbit.Core.Tags.ITagColourRepository _tagColourRepository;
+    private readonly IFolderRepository _folderRepository;
 
     public ImportArchiveCommandHandler(
         INoteRepository noteRepository,
@@ -33,7 +35,8 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
         IInventoryRepository inventoryRepository,
         IInventoryItemRepository inventoryItemRepository,
         IPlaceRepository placeRepository,
-        Orbit.Core.Tags.ITagColourRepository tagColourRepository)
+        Orbit.Core.Tags.ITagColourRepository tagColourRepository,
+        IFolderRepository folderRepository)
     {
         _tagColourRepository = tagColourRepository;
         _noteRepository = noteRepository;
@@ -42,6 +45,7 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
         _inventoryRepository = inventoryRepository;
         _inventoryItemRepository = inventoryItemRepository;
         _placeRepository = placeRepository;
+        _folderRepository = folderRepository;
     }
 
     public async Task<ImportArchiveResult> HandleAsync(ImportArchiveCommand request, CancellationToken cancellationToken)
@@ -53,10 +57,14 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
                 $"This file was written by a different version of Orbit (version {archive.Version}) and can't be read here.");
         }
 
-        var noteCount = await ImportNotesAsync(archive, request.UserId, cancellationToken);
-        var createdTaskLists = await ImportTaskListsAsync(archive, request.UserId, cancellationToken);
-        var calendarEventCount = await ImportCalendarEventsAsync(archive, request.UserId, cancellationToken);
-        var inventoryCount = await ImportInventoriesAsync(archive, request.UserId, cancellationToken);
+        // Before anything that is filed into one: an item names its folder by name, and the folder has
+        // to exist before there is an id to put on the item.
+        var folders = await ImportFoldersAsync(archive, request.UserId, cancellationToken);
+
+        var noteCount = await ImportNotesAsync(archive, request.UserId, folders, cancellationToken);
+        var createdTaskLists = await ImportTaskListsAsync(archive, request.UserId, folders, cancellationToken);
+        var calendarEventCount = await ImportCalendarEventsAsync(archive, request.UserId, folders, cancellationToken);
+        var inventoryCount = await ImportInventoriesAsync(archive, request.UserId, folders, cancellationToken);
         var placeCount = await ImportPlacesAsync(archive, request.UserId, createdTaskLists, cancellationToken);
         await ImportTagColoursAsync(archive, request.UserId, cancellationToken);
 
@@ -89,14 +97,65 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
         }
     }
 
-    private async Task<int> ImportNotesAsync(OrbitArchive archive, Guid userId, CancellationToken cancellationToken)
+    /// <summary>
+    /// The tabs the file carries, and the ones this account already has under the same names. A folder
+    /// whose name is already a tab on that page is <b>used rather than made again</b>: an import adds and
+    /// never overwrites (see OrbitArchive), and nothing about the existing folder is changed by putting
+    /// something else in it - whereas a second tab called "Work" beside the first is a mess nobody asked
+    /// for. Everything else here is made.
+    ///
+    /// A scope this build does not know is left out: a folder belongs to one page, and one put on the
+    /// wrong page is a tab nothing could ever be filed into. Whatever named it comes back unfiled.
+    /// </summary>
+    private async Task<ImportedFolders> ImportFoldersAsync(
+        OrbitArchive archive, Guid userId, CancellationToken cancellationToken)
+    {
+        var folders = new ImportedFolders();
+        foreach (var existing in await _folderRepository.GetAllAsync(userId, cancellationToken))
+        {
+            folders.Add(existing.Scope, existing.Name, existing.Id);
+        }
+
+        foreach (var archived in archive.AllFolders)
+        {
+            var name = archived.Name.Trim();
+            if (name.Length == 0
+                || name.Length > StoredTextLimits.Title
+                || !Enum.TryParse<FolderScope>(archived.Scope, out var scope)
+                || folders.Holds(scope, name))
+            {
+                continue;
+            }
+
+            var folder = Folder.Create(userId, name, scope);
+            await _folderRepository.AddAsync(folder, cancellationToken);
+            folders.Add(scope, name, folder.Id);
+        }
+
+        return folders;
+    }
+
+    private async Task<int> ImportNotesAsync(
+        OrbitArchive archive, Guid userId, ImportedFolders folders, CancellationToken cancellationToken)
     {
         foreach (var archived in archive.Notes)
         {
             var note = Note.Create(
                 userId, archived.Title,
-                archived.Content.Select(line => new NoteContentLine(line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed)).ToList(),
-                archived.IsPrivate, ToPayload(archived.EncryptedContent), tags: archived.AllTags);
+                archived.Content.Select(line => line.Table is { } table
+                    ? NoteContentLine.OfTable(new NoteTable([.. table.Select(row => new NoteTableRow(
+                        [.. row.Select(cell => new NoteTableCell(cell.Text, ReadMarks(cell.AllMarks, cell.Text)))]))]))
+                    : line.Separator is { } separator
+                    ? NoteContentLine.OfSeparator(separator.Stamp)
+                    : new NoteContentLine(
+                        line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed,
+                        NoteLineStyles.Read(line.Style), ReadMarks(line.AllMarks, line.Text))).ToList(),
+                archived.IsPrivate, ToPayload(archived.EncryptedContent),
+                folderId: folders.IdOf(FolderScope.Notes, archived.Folder), tags: archived.AllTags);
+
+            // Put away if it was put away when the file was written, so a round trip through a file
+            // leaves the archive tab holding what it held - see BuiltInFolder.Archived.
+            note.Archive(archived.IsArchived);
             await _noteRepository.AddAsync(note, cancellationToken);
         }
 
@@ -111,7 +170,7 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
     /// Hands back the lists it made, which is how the places imported after it find theirs.
     /// </summary>
     private async Task<CreatedTaskLists> ImportTaskListsAsync(
-        OrbitArchive archive, Guid userId, CancellationToken cancellationToken)
+        OrbitArchive archive, Guid userId, ImportedFolders folders, CancellationToken cancellationToken)
     {
         var createdTaskLists = new CreatedTaskLists();
         var created = new List<TaskList>();
@@ -120,7 +179,12 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
         {
             var taskList = TaskList.Create(
                 userId, archived.Title, [], archived.IsGroup, archived.IsPrivate, ToPayload(archived.EncryptedContent),
-                ParsePriority(archived.Priority), tags: archived.AllTags);
+                ParsePriority(archived.Priority), folderId: folders.IdOf(FolderScope.Tasks, archived.Folder),
+                tags: archived.AllTags);
+
+            // Put away if it was put away when the file was written, so a round trip through a file
+            // leaves the archive tab holding what it held - see BuiltInFolder.Archived.
+            taskList.Archive(archived.IsArchived);
             await _taskRepository.AddAsync(taskList, cancellationToken);
             created.Add(taskList);
             createdTaskLists.Add(archived, taskList.Id);
@@ -148,7 +212,8 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
         return createdTaskLists;
     }
 
-    private async Task<int> ImportCalendarEventsAsync(OrbitArchive archive, Guid userId, CancellationToken cancellationToken)
+    private async Task<int> ImportCalendarEventsAsync(
+        OrbitArchive archive, Guid userId, ImportedFolders folders, CancellationToken cancellationToken)
     {
         foreach (var archived in archive.CalendarEvents)
         {
@@ -169,17 +234,30 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
                 // made, so importing one must not either.
                 ParseChannel(archived.ReminderNotificationChannel));
 
-            await _calendarEventRepository.AddAsync(CalendarEvent.Create(userId, details), cancellationToken);
+            var calendarEvent = CalendarEvent.Create(
+                userId, details, folders.IdOf(FolderScope.Calendar, archived.Folder));
+
+            // Put away if it was put away when the file was written, so a round trip through a file
+            // leaves the archive tab holding what it held - see BuiltInFolder.Archived.
+            calendarEvent.Archive(archived.IsArchived);
+            await _calendarEventRepository.AddAsync(calendarEvent, cancellationToken);
         }
 
         return archive.CalendarEvents.Count;
     }
 
-    private async Task<int> ImportInventoriesAsync(OrbitArchive archive, Guid userId, CancellationToken cancellationToken)
+    private async Task<int> ImportInventoriesAsync(
+        OrbitArchive archive, Guid userId, ImportedFolders folders, CancellationToken cancellationToken)
     {
         foreach (var archived in archive.Inventories)
         {
-            var inventory = Inventory.Create(userId, archived.Name, archived.IsPrivate, ToPayload(archived.EncryptedContent));
+            var inventory = Inventory.Create(
+                userId, archived.Name, archived.IsPrivate, ToPayload(archived.EncryptedContent),
+                folderId: folders.IdOf(FolderScope.Inventories, archived.Folder));
+
+            // Put away if it was put away when the file was written, so a round trip through a file
+            // leaves the archive tab holding what it held - see BuiltInFolder.Archived.
+            inventory.Archive(archived.IsArchived);
             await _inventoryRepository.AddAsync(inventory, cancellationToken);
 
             if (archived.IsPrivate)
@@ -300,4 +378,31 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
                 .OfType<Guid>()
                 .Distinct()];
     }
+
+    /// <summary>
+    /// The folders this import can file into: the ones it made and the ones the account already had,
+    /// found again by the page and the name, which is all a file carries (see ArchivedFolder). Two
+    /// folders with the same name on one page are one entry - the first wins, as it does for the task
+    /// lists a link names by title.
+    /// </summary>
+    private sealed class ImportedFolders
+    {
+        private readonly Dictionary<(FolderScope Scope, string Name), Guid> _idsByPlace = [];
+
+        public void Add(FolderScope scope, string name, Guid id) => _idsByPlace.TryAdd((scope, name), id);
+
+        public bool Holds(FolderScope scope, string name) => _idsByPlace.ContainsKey((scope, name));
+
+        /// <summary>
+        /// Null for a name nothing here answers to - a folder the file did not carry, or one whose page
+        /// this build does not know - so whatever named it comes back unfiled rather than filed at random.
+        /// </summary>
+        public Guid? IdOf(FolderScope scope, string? name)
+            => name is { } named && _idsByPlace.TryGetValue((scope, named.Trim()), out var id) ? id : null;
+    }
+
+    /// <summary>Marks read off a file, clipped to the words they are on and with anything this build does not know dropped.</summary>
+    private static IReadOnlyList<NoteTextRun> ReadMarks(IReadOnlyList<ArchivedTextRun> marks, string text)
+        => NoteTextMarks.Normalized(
+            marks.Select(run => new NoteTextRun(run.Start, run.Length, NoteTextMarks.Read(run.Mark))), text.Length);
 }

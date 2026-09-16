@@ -72,6 +72,7 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
         KeepTheLookOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirLook);
         KeepTheAlternativesOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirAlternatives);
         KeepTheReferenceOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirReference);
+        KeepTheListRuleOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirListRule);
         // Every entry keeps the creation time it was first stored with - see TaskItem.CreatedAtUtc.
         TaskItemReferences.StampCreationTimes(identity.Items, taskList.Items, nowUtc);
         var idsBefore = taskList.Items.Select(item => item.Id).ToHashSet();
@@ -251,6 +252,28 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
             if (storedById.TryGetValue(item.Id, out var storedItem))
             {
                 item.KeepAlternativesOf(storedItem);
+            }
+        }
+    }
+
+    /// <summary>
+    /// An entry that said nothing about whether every list it stands for has to be done keeps the rule
+    /// it already has - see UpdateTaskListCommand.EntriesKeepingTheirListRule.
+    /// </summary>
+    private static void KeepTheListRuleOfEntriesThatSaidNothing(
+        IReadOnlyList<TaskItem> incoming, TaskList stored, IReadOnlySet<Guid>? entriesKeepingTheirListRule)
+    {
+        if (entriesKeepingTheirListRule is not { Count: > 0 })
+        {
+            return;
+        }
+
+        var storedById = stored.Items.ToDictionary(item => item.Id);
+        foreach (var item in incoming.Where(item => entriesKeepingTheirListRule.Contains(item.Id)))
+        {
+            if (storedById.TryGetValue(item.Id, out var storedItem))
+            {
+                item.KeepListRuleOf(storedItem);
             }
         }
     }

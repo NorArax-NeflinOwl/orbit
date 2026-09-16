@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Orbit.Contracts;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
@@ -190,6 +191,26 @@ public sealed class InventoryApiClient
 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
+    }
+
+    /// <inheritdoc cref="CalendarApiClient.MoveToFolderAsync"/>
+    public async Task<bool> MoveToFolderAsync(Guid inventoryId, Guid? folderId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/inventories/{inventoryId}/folder", new MoveToFolderRequest(folderId), cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    /// <summary>
+    /// Puts one shelf away, or brings it back - see Orbit.Core.Folders.BuiltInFolder.Archived. False
+    /// where the server refused, which the caller says out loud: the shelf is where it was, and a page
+    /// that redrew as though it had moved would be lying about it.
+    /// </summary>
+    public async Task<bool> SetArchivedAsync(Guid inventoryId, bool isArchived, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/inventories/{inventoryId}/archived", new ArchiveRequest(isArchived), cancellationToken);
+        return response.IsSuccessStatusCode;
     }
 
     public async Task DeleteInventoryAsync(Guid inventoryId, CancellationToken cancellationToken = default)

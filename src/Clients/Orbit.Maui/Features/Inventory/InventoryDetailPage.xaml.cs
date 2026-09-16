@@ -54,8 +54,15 @@ public partial class InventoryDetailPage : ContentPage, ITitleMenu
 			Sharing.IsVisible,
 			canBeChosen: !_viewModel.IsPrivate));
 
+		// The other way out of a list, and immediately above Delete on purpose: somebody reaching for
+		// Delete because they want this out of the way should meet it first - one of the two is
+		// reversible. Only for this reader's own, the way filing is - see BuiltInFolder.Archived.
 		if (_viewModel.CanEdit)
 		{
+			entries.Add(new ScreenMenuEntry(
+				_viewModel.IsArchived ? _translations["Put back"] : _translations["Archive"],
+				() => _viewModel.ArchiveCommand.Execute(!_viewModel.IsArchived)));
+
 			entries.Add(new ScreenMenuEntry(
 				_translations["Delete inventory"], () => _viewModel.DeleteCommand.Execute(null)));
 		}
@@ -69,7 +76,31 @@ public partial class InventoryDetailPage : ContentPage, ITitleMenu
 				_translations["History"], () => _viewModel.GoToHistoryCommand.Execute(null)));
 		}
 
-		Menu.Show(entries);
+		// Where it is filed, which is a question about the shelf rather than about what is on it - and
+		// the only place it can be asked, the way a note's is. "No folder" is one of the answers rather
+		// than a way of undoing the others: one in none is in a built-in folder, which is not nothing -
+		// see FolderPlacement. A private shelf is filed like any other; its folder is outside the
+		// sealed half.
+		List<ScreenMenuGroup> groups = [new ScreenMenuGroup(null, entries)];
+		if (_viewModel.CanEdit)
+		{
+			List<ScreenMenuEntry> folders =
+			[
+				new ScreenMenuEntry(
+					_translations["No folder"],
+					() => _viewModel.FileCommand.Execute(null),
+					_viewModel.FolderId is null)
+			];
+
+			folders.AddRange(_viewModel.Folders.Select(folder => new ScreenMenuEntry(
+				folder.Name,
+				() => _viewModel.FileCommand.Execute(folder.LocalId),
+				folder.LocalId == _viewModel.FolderId)));
+
+			groups.Add(new ScreenMenuGroup(_translations["Folder"], folders));
+		}
+
+		Menu.ShowGroups(groups);
 	}
 
 	/// <summary>

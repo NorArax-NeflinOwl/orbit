@@ -1,0 +1,160 @@
+@using System.Net
+@using Orbit.Contracts.Tasks
+@using Orbit.Core.Tags
+@using Orbit.Web.Services
+@inject TasksApiClient TasksApiClient
+@inject NavigationManager NavigationManager
+@inject ILogger<TagFilterDialog> Logger
+@inject Translations T
+
+@* Making a filter for the dashboard's Tasks card out of tags - see Orbit.Core.Tasks.TagFilters.TaskTagFilter,
+   and the Tasks page, which opens this. The tags already on this account's lists are a checklist, a new
+   word can be added to it, and "And" at the top turns "any of these" into "all of these". Saved to the
+   account, so the filter is on the phone too. *@
+<Dialog Title="@T["Create filter"]" OnClosed="OnClosed" AdditionalClass="tag-filter-dialog">
+    <ChildContent>
+        @* Or unless pressed, which is what somebody picking "home" and "shopping" usually means: lists
+           about either. Pressed, it says so, and the line beside it says what the filter will find. *@
+        <div class="tag-filter-logic">
+            <button type="button" class="btn-secondary tag-filter-and @(_matchesAll ? "on" : "")"
+                    aria-pressed="@(_matchesAll ? "true" : "false")" @onclick="() => _matchesAll = !_matchesAll">
+                @T["And"]
+            </button>
+            <span class="empty-hint">
+                @(_matchesAll ? T["Lists carrying every chosen tag."] : T["Lists carrying any chosen tag."])
+            </span>
+        </div>
+
+        @if (Offered.Count == 0)
+        {
+            <p class="empty-hint">@T["No tags yet - add one below."]</p>
+        }
+        <ul class="tag-filter-list">
+            @foreach (var tag in Offered)
+            {
+                <li>
+                    <label>
+                        <input type="checkbox" checked="@IsChosen(tag)" @onchange="args => Choose(tag, args.Value is true)" />
+                        @tag
+                    </label>
+                </li>
+            }
+        </ul>
+
+        @* A word no list carries yet. Added to the checklist ticked, since writing it is choosing it. *@
+        <div class="field-row tag-filter-new">
+            <input type="text" value="@_newTag" placeholder="@(T["New tag"])" aria-label="@(T["New tag"])"
+                   @oninput="args => _newTag = args.Value?.ToString() ?? string.Empty"
+                   @onkeydown="OnNewTagKeyDown" />
+            <button type="button" class="btn-secondary" disabled="@(_newTag.Trim().Length == 0)"
+                    @onclick="AddTheNewTag">@T["Add"]</button>
+        </div>
+
+        @if (_error is not null)
+        {
+            <p class="error">@_error</p>
+        }
+    </ChildContent>
+    <Footer>
+        <button type="button" class="icon-btn page-action page-action-primary" title="@T["Save"]" aria-label="@T["Save"]"
+                disabled="@(_chosen.Count == 0 || _isSaving)" @onclick="SaveAsync">
+            <svg viewBox="0 0 20 20" width="26" height="26" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4 10.5 4 4 8-9" /></svg>
+        </button>
+        <button type="button" class="icon-btn page-action" title="@T["Cancel"]" aria-label="@T["Cancel"]" @onclick="OnClosed">
+            <svg viewBox="0 0 20 20" width="26" height="26" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l10 10M15 5 5 15" /></svg>
+        </button>
+    </Footer>
+</Dialog>
+
+@code {
+    /// <summary>Every tag already on one of this account's lists, in the order to offer them.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<string> KnownTags { get; set; } = [];
+
+    /// <summary>The filter as the server stored it, once it is.</summary>
+    [Parameter] public EventCallback<TaskTagFilterDto> OnSaved { get; set; }
+
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    private readonly List<string> _added = [];
+    private readonly List<string> _chosen = [];
+    private bool _matchesAll;
+    private string _newTag = string.Empty;
+    private bool _isSaving;
+    private string? _error;
+
+    /// <summary>What the checklist offers: the known tags and any written here, each once whatever its case.</summary>
+    private IReadOnlyList<string> Offered => TagNames.Tidy([.. KnownTags, .. _added]);
+
+    private bool IsChosen(string tag) => _chosen.Any(chosen => TagNames.KeyOf(chosen) == TagNames.KeyOf(tag));
+
+    private void Choose(string tag, bool isChosen)
+    {
+        _chosen.RemoveAll(chosen => TagNames.KeyOf(chosen) == TagNames.KeyOf(tag));
+        if (isChosen)
+        {
+            _chosen.Add(tag);
+        }
+    }
+
+    private void AddTheNewTag()
+    {
+        var tag = _newTag.Trim();
+        if (tag.Length == 0)
+        {
+            return;
+        }
+
+        _added.Add(tag);
+        Choose(Offered.First(offered => TagNames.KeyOf(offered) == TagNames.KeyOf(tag)), isChosen: true);
+        _newTag = string.Empty;
+    }
+
+    /// <summary>Enter adds the word, as it does in every tags box - it must not close or submit anything.</summary>
+    private void OnNewTagKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            AddTheNewTag();
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_chosen.Count == 0 || _isSaving)
+        {
+            return;
+        }
+
+        _isSaving = true;
+        _error = null;
+        try
+        {
+            // In the order the checklist shows them, which is the order the filter will be named in.
+            var tags = Offered.Where(IsChosen).ToList();
+            if (await TasksApiClient.CreateTagFilterAsync(tags, _matchesAll) is not { } created)
+            {
+                _error = T["That filter could not be saved."];
+                return;
+            }
+
+            Logger.LogInformation("User made a Tasks card filter of {TagCount} tags", tags.Count);
+            await OnSaved.InvokeAsync(created);
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            // Said on screen rather than only in the log: a Save that seems to do nothing is pressed again.
+            Logger.LogError(exception, "Could not save a Tasks card filter");
+            _error = T["That filter could not be saved."];
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}

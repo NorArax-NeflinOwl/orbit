@@ -121,6 +121,7 @@ public sealed class TaskRepository : ITaskRepository
         entity.IsPinned = taskList.IsPinned;
         entity.LinkedInventoryId = taskList.LinkedInventoryId;
         entity.FolderId = taskList.FolderId;
+        entity.IsArchived = taskList.IsArchived;
         entity.IsPrivate = taskList.IsPrivate;
         entity.EncryptedCiphertext = taskList.EncryptedContent?.Ciphertext;
         entity.EncryptedNonce = taskList.EncryptedContent?.Nonce;
@@ -209,7 +210,8 @@ public sealed class TaskRepository : ITaskRepository
             Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal,
             entity.IsPinned, entity.LinkedInventoryId, entity.Description, entity.FolderId,
             Enum.TryParse<TaskListCompletion>(entity.Completion, out var completion) ? completion : TaskListCompletion.FromTheEntries,
-            StoredTags.Read(entity.TagsJson));
+            StoredTags.Read(entity.TagsJson),
+            entity.IsArchived);
 
     private static TaskItem ToItemDomain(TaskItemEntity entity)
         => TaskItem.FromPersistence(
@@ -240,7 +242,8 @@ public sealed class TaskRepository : ITaskRepository
             entity.CreatedAtUtc,
             entity.ReferencesTaskItemId,
             entity.RequiredQuantity,
-            entity.CompletedAtUtc);
+            entity.CompletedAtUtc,
+            entity.NeedsEveryLinkedList);
 
     /// <summary>
     /// What the entry asks for, when it asks for anything - see TaskItemEntity.ProductType for why the
@@ -277,6 +280,7 @@ public sealed class TaskRepository : ITaskRepository
             IsPinned = taskList.IsPinned,
             LinkedInventoryId = taskList.LinkedInventoryId,
             FolderId = taskList.FolderId,
+            IsArchived = taskList.IsArchived,
             IsPrivate = taskList.IsPrivate,
             EncryptedCiphertext = taskList.EncryptedContent?.Ciphertext,
             EncryptedNonce = taskList.EncryptedContent?.Nonce,
@@ -336,6 +340,7 @@ public sealed class TaskRepository : ITaskRepository
             Priority = item.Priority.ToString(),
             Colour = item.Colour,
             CompletedAtUtc = item.CompletedAtUtc,
+            NeedsEveryLinkedList = item.NeedsEveryLinkedList,
             LinkedCalendarEventId = item.LinkedCalendarEventId,
             LinkedInventoryItemId = item.LinkedInventoryItemId,
             // All of them or none of them - see TaskItemEntity.ProductType. An entry that describes

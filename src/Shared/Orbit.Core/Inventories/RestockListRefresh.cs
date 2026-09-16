@@ -224,8 +224,9 @@ public sealed class RestockListRefresh
             }
 
             // Kept where it is if it already falls on today: rewriting it every refresh would move a
-            // reminder somebody is looking at, and the daily tick is what carries it forward from here
-            // (see IDailyTaskReminderRepository.ReopenAsync).
+            // reminder somebody is looking at, and the daily tick is what carries it forward from here -
+            // this is the one entry the daily reminder still brings back, see
+            // DailyTaskReminderCandidate.ComesRoundAgain.
             var dueUtc = settings.RemindDaily
                 ? StillFallsOnToday(item.DueDateUtc, settings.RefreshTimeOfDay)
                     ? item.DueDateUtc

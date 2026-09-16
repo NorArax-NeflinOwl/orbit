@@ -1,5 +1,6 @@
 using System.Windows.Input;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Sync;
 using Orbit.Maui.Controls;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Dashboard;
@@ -9,9 +10,12 @@ namespace Orbit.Maui.Features.Dashboard;
 public partial class DashboardPage : ContentPage, ITitleMenu
 {
 	private readonly DashboardViewModel _viewModel;
+
+	/// <summary>Redraws this screen when a sync it did not ask for brings something - see ScreenKeptInStep.</summary>
+	private readonly ScreenKeptInStep _keptInStep;
 	private readonly Translations _translations;
 
-	public DashboardPage(DashboardViewModel viewModel, Translations translations)
+	public DashboardPage(DashboardViewModel viewModel, Translations translations, SyncState syncState)
 	{
 		// Before InitializeComponent, not after: both are bound from the static part of the tree, which
 		// is built there and reads a page's plain property exactly once - see CalendarEventDetailPage,
@@ -22,6 +26,7 @@ public partial class DashboardPage : ContentPage, ITitleMenu
 
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		_keptInStep = new ScreenKeptInStep(syncState, () => _viewModel.ShowStoredSummaryAsync(CancellationToken.None));
 	}
 
 	/// <summary>Typed so the card rows' bindings back up to the page can be compiled.</summary>
@@ -44,6 +49,13 @@ public partial class DashboardPage : ContentPage, ITitleMenu
 	{
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
+		_keptInStep.Listen();
+	}
+
+	protected override void OnDisappearing()
+	{
+		base.OnDisappearing();
+		_keptInStep.StopListening();
 	}
 
 	/// <summary>
@@ -114,12 +126,43 @@ public partial class DashboardPage : ContentPage, ITitleMenu
 
 		// The one in force is marked, because a menu of four with no answer among them leaves the
 		// reader guessing what the card is currently showing.
-		Menu.Show(
-			choices.Select(choice => new ScreenMenuEntry(
+		List<ScreenMenuGroup> groups =
+		[
+			new(_translations["Show"], choices.Select(choice => new ScreenMenuEntry(
 				choice.Name,
 				() => _ = _viewModel.ChooseFilterCommand.ExecuteAsync(choice),
-				choice.IsChosen)),
-			_translations["Show"],
-			placement: MenuPlacement.FromTheFoot);
+				choice.IsChosen)))
+		];
+
+		// How far ahead Upcoming looks, as a group of its own - see DashboardViewModel.HorizonChoicesFor.
+		if (_viewModel.HorizonChoicesFor(card.Kind) is { Count: > 0 } horizons)
+		{
+			groups.Add(new(_translations["How far ahead"], horizons.Select(horizon => new ScreenMenuEntry(
+				horizon.Name,
+				() => _ = _viewModel.ChooseHorizonCommand.ExecuteAsync(horizon),
+				horizon.IsChosen))));
+		}
+
+		// The account's own tag filters on the Tasks card, and a way to delete the one being shown - see
+		// DashboardViewModel.TagFilterChoicesFor, and Orbit.Web's "Your filters".
+		if (_viewModel.TagFilterChoicesFor(card.Kind) is { Count: > 0 } tagFilters)
+		{
+			List<ScreenMenuEntry> entries =
+			[
+				.. tagFilters.Select(tagFilter => new ScreenMenuEntry(
+					tagFilter.Name,
+					() => _ = _viewModel.ChooseTagFilterCommand.ExecuteAsync(tagFilter),
+					tagFilter.IsChosen))
+			];
+			if (_viewModel.HasAChosenTagFilter)
+			{
+				entries.Add(new ScreenMenuEntry(
+					_translations["Delete this filter"], () => _ = _viewModel.DeleteChosenTagFilterCommand.ExecuteAsync(null)));
+			}
+
+			groups.Add(new(_translations["Your filters"], entries));
+		}
+
+		Menu.ShowGroups(groups, placement: MenuPlacement.FromTheFoot);
 	}
 }

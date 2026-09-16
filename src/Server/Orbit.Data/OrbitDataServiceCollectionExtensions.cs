@@ -56,6 +56,7 @@ public static class OrbitDataServiceCollectionExtensions
         services.AddScoped<IPlaceShareRepository, PlaceShareRepository>();
         services.AddScoped<IFolderRepository, FolderRepository>();
         services.AddScoped<INoteShareRepository, NoteShareRepository>();
+        services.AddScoped<INotePictureRepository, NotePictureRepository>();
         services.AddScoped<ITaskRepository, TaskRepository>();
         services.AddScoped<ITaskListShareRepository, TaskListShareRepository>();
         services.AddScoped<ICalendarEventRepository, CalendarEventRepository>();
@@ -83,6 +84,7 @@ public static class OrbitDataServiceCollectionExtensions
         services.AddScoped<IInventoryExpiryNotificationRepository, InventoryExpiryNotificationRepository>();
         services.AddScoped<INotificationSettingsRepository, NotificationSettingsRepository>();
         services.AddScoped<Orbit.Core.Tags.ITagColourRepository, TagColourRepository>();
+        services.AddScoped<Orbit.Core.Tasks.TagFilters.ITaskTagFilterRepository, TaskTagFilterRepository>();
         services.AddScoped<INotificationEntryRepository, NotificationEntryRepository>();
         services.AddScoped<IDiagnosticLogRepository, DiagnosticLogRepository>();
         services.AddScoped<ISyncTombstoneRepository, SyncTombstoneRepository>();

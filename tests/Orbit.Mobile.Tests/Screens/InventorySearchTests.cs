@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Inventories;
+using Orbit.Core.Folders;
 using Orbit.Core.Inventories;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Chat;
@@ -124,6 +125,29 @@ public sealed class InventorySearchTests
         Assert.DoesNotContain("Locked away", screen.ItemMatchSummary);
     }
 
+    /// <summary>
+    /// The folder tabs narrow the list of shelves, not the search across them. "Where is the flour" is a
+    /// question about the whole inventory, and answering it from the tab somebody happens to be standing
+    /// on would say "it is nowhere" about a shelf filed under another one - the same wrong answer the
+    /// sealed shelf above is counted to avoid. It said exactly that between the folders arriving on the
+    /// shelves and 2026-09-15.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_under_another_folder_is_searched_from_the_tab_the_reader_is_on()
+    {
+        using var context = new ScreenContext();
+        await context.AddInventoryAsync("Kitchen", Item("Sugar"));
+        var pantry = await context.AddInventoryAsync("Pantry", Item("Flour"));
+        await context.FileAsync(pantry.LocalId, "Downstairs");
+        var screen = await context.OpenInventoryAsync();
+
+        // Standing on the tab the screen opens on, which is not the one the pantry is under.
+        screen.SearchedItemName = "flour";
+
+        Assert.Equal("Pantry", Assert.Single(screen.ItemMatches).InventoryName);
+        Assert.Equal("Found in 1 of 2 inventories.", screen.ItemMatchSummary);
+    }
+
     /// <summary>Nothing to apologise for when every shelf could be read - just what was found.</summary>
     [Fact]
     public async Task With_every_shelf_readable_the_summary_is_only_the_count()
@@ -241,6 +265,9 @@ public sealed class InventorySearchTests
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
+
+        /// <summary>The tabs this screen files into - see FolderTabs.</summary>
+        public LocalFolderRepository Folders { get; }
         private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-30T10:00:00Z"));
         private readonly LocalInventoryRepository _inventories;
         private readonly InventorySynchronizer _synchronizer;
@@ -250,6 +277,7 @@ public sealed class InventorySearchTests
         {
             _server = new FakeInventoryServer(_clock);
             _inventories = new LocalInventoryRepository(_localStore, _clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
+            Folders = new LocalFolderRepository(_localStore, _clock);
             _synchronizer = new InventorySynchronizer(
                 _localStore, new InventoryClient(_server.ToHttpClient()), _clock, new SyncGate(),
                 NullLogger<InventorySynchronizer>.Instance);
@@ -274,14 +302,23 @@ public sealed class InventorySearchTests
             await dbContext.SaveChangesAsync();
         }
 
+        /// <summary>Puts a shelf in a folder of its own, as the shelf's own menu does.</summary>
+        public async Task FileAsync(Guid inventoryLocalId, string folderName)
+        {
+            var folder = await Folders.CreateAsync(folderName, FolderScope.Inventories);
+            await _inventories.FileAsync(inventoryLocalId, folder.LocalId);
+        }
+
         public async Task<InventoryViewModel> OpenInventoryAsync()
         {
             var translations = new Translations(new InMemoryLanguageStore());
             var screen = new InventoryViewModel(
                 _inventories, _synchronizer, FixedNetworkStatus.Online,
                 new PrivateItemGate(new FixedDeviceAuthentication()),
-                new SyncState(FixedNetworkStatus.Online, _clock), Navigator, translations,
-                ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)));
+                new SyncState(Reachability.Online, _clock), Navigator, translations,
+                ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)),
+                Folders, new InMemoryChosenFolderStore(),
+                TestDoubles.Folders.SynchronizerAgainstNobody(_localStore, _clock));
 
             await screen.LoadCommand.ExecuteAsync(null);
             return screen;

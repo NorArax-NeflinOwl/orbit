@@ -1,6 +1,7 @@
 using System.Windows.Input;
 using Orbit.Maui.Controls;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Sync;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Tasks;
 
@@ -9,9 +10,12 @@ namespace Orbit.Maui.Features.Tasks;
 public partial class TasksPage : ContentPage, ITitleMenu
 {
 	private readonly TasksViewModel _viewModel;
+
+	/// <summary>Redraws this screen when a sync it did not ask for brings something - see ScreenKeptInStep.</summary>
+	private readonly ScreenKeptInStep _keptInStep;
 	private readonly Translations _translations;
 
-	public TasksPage(TasksViewModel viewModel, Translations translations)
+	public TasksPage(TasksViewModel viewModel, Translations translations, SyncState syncState)
 	{
 		// Before InitializeComponent, not after: it is bound from the static part of the tree, which is
 		// built there and reads a page's plain property exactly once - see CalendarEventDetailPage,
@@ -21,6 +25,7 @@ public partial class TasksPage : ContentPage, ITitleMenu
 
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		_keptInStep = new ScreenKeptInStep(syncState, () => _viewModel.ShowStoredListsAsync(CancellationToken.None));
 		_translations = translations;
 		AddButton.Command = NewItemForm.Toggling(AddRow, AddField);
 		_nameAFolder = NewItemForm.Toggling(FolderRow, FolderField);
@@ -51,6 +56,13 @@ public partial class TasksPage : ContentPage, ITitleMenu
 	{
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
+		_keptInStep.Listen();
+	}
+
+	protected override void OnDisappearing()
+	{
+		base.OnDisappearing();
+		_keptInStep.StopListening();
 	}
 
 	/// <summary>
@@ -108,6 +120,14 @@ public partial class TasksPage : ContentPage, ITitleMenu
 				count: ScreenMenuEntry.CountOf(choice.Count)))),
 
 			new(_translations["Folder"], FolderActions()),
+
+			// Choosing several lists to file, put away or share together - see NotesPage.
+			new(_translations["Several at once"],
+				[new ScreenMenuEntry(_translations["Select"], () => _viewModel.ToggleChoosingCommand.Execute(null), _viewModel.Picking.IsPicking)]),
+
+			// A filter for the dashboard's Tasks card, made of the tags on these lists - see TagFilterForm.
+			new(_translations["Dashboard"],
+				[new ScreenMenuEntry(_translations["Create filter"], _viewModel.StartMakingATagFilter)]),
 
 			// The one in force is marked, as the dashboard's card filters mark theirs: the menu covers
 			// the list it is about, so it has to say for itself which order that list is in.

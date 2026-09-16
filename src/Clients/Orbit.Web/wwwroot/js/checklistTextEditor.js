@@ -22,7 +22,10 @@ const instances = new Map();
 
 /// options: { takesTab, tickHint } - see ChecklistTextEditor.TakesTab, and the tooltip each box carries.
 export function initialize(container, dotNetHelper, initialLinesJson, options) {
-    const state = { dotNetHelper, options: options || {}, selectionBefore: null, pickedCount: 0, dragged: null };
+    const state = {
+        dotNetHelper, options: options || {}, selectionBefore: null, pickedCount: 0, dragged: null, inTable: false,
+        pictureUrls: new Map()
+    };
     instances.set(container, state);
     render(container, normalizeLines(JSON.parse(initialLinesJson)));
 
@@ -51,6 +54,44 @@ export function initialize(container, dotNetHelper, initialLinesJson, options) {
     container.addEventListener('dragend', state.onDragEnd);
     container.addEventListener('drop', state.onDrop);
     document.addEventListener('selectionchange', state.onSelectionChange);
+
+    // The caret at the end of the writing, for a page opened in order to write - see
+    // ChecklistTextEditor.FocusesAtTheEnd. After the listeners, so the caret's line is reported like any
+    // other move of it.
+    if (state.options.focusAtEnd && isWritable(container) && container.children.length > 0) {
+        placeTheCaretAtTheEnd(container);
+    }
+}
+
+/// The end of the writing, wherever that is. A note ending in a table ends in its last cell, so the caret
+/// goes after the words there - domPoint puts a table's caret at the head of its first cell, which is
+/// where it landed and why the note looked as if it opened at the start. A note ending in a picture or a
+/// rule has nothing to stand in after it, so the caret goes to the end of the last line that has words.
+function placeTheCaretAtTheEnd(container) {
+    const lines = container.children;
+    const last = lines[lines.length - 1];
+    const cells = last.classList.contains('note-line-table') ? last.querySelectorAll('.note-cell') : [];
+    if (cells.length > 0) {
+        const cell = cells[cells.length - 1];
+        let lastText = null;
+        const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            lastText = node;
+        }
+        container.focus({ preventScroll: true });
+        window.getSelection().collapse(lastText || cell, lastText ? lastText.textContent.length : 0);
+        last.scrollIntoView({ block: 'nearest' });
+        return;
+    }
+
+    for (let index = lines.length - 1; index >= 0; index--) {
+        if (!isElementLine(lines[index])) {
+            select(container, { line: index, offset: lineText(lines[index]).length });
+            return;
+        }
+    }
+
+    select(container, { line: lines.length - 1, offset: 0 });
 }
 
 export function dispose(container) {
@@ -95,6 +136,10 @@ function onDrop(event, container, state) {
     }
 
     event.preventDefault();
+    if (!dragged && takePictureFiles(event.dataTransfer, container, state)) {
+        return;
+    }
+
     const to = dropPoint(container, event);
     if (!to) {
         return;
@@ -140,8 +185,137 @@ function onPaste(event, container, state) {
     }
 
     event.preventDefault();
+    if (takePictureFiles(event.clipboardData, container, state)) {
+        return;
+    }
+
     const text = event.clipboardData.getData('text/plain');
     if (!text) {
+        return;
+    }
+
+    const answer = ask(container, state, 'paste', { text });
+    if (answer) {
+        show(container, state, answer);
+    }
+}
+
+/// The picture files in a paste or a drop, handed to Blazor one at a time as bytes - see
+/// ChecklistTextEditor.OnPicturePasted, which uploads them and asks for the line to be put in. Answers
+/// whether there were any, so the caller knows the paste was pictures rather than words. A picture
+/// larger than a screen needs to be is scaled first: a phone photograph is 4-8 MB and four of them would
+/// be most of a note's 50 MB.
+function takePictureFiles(transfer, container, state) {
+    if (!transfer || !transfer.files || transfer.files.length === 0 || !state.options.takesPictures) {
+        return false;
+    }
+
+    const pictures = Array.from(transfer.files).filter((file) => file.type && file.type.startsWith('image/'));
+    if (pictures.length === 0) {
+        return false;
+    }
+
+    (async () => {
+        for (const file of pictures) {
+            const scaled = await scaledPicture(file);
+            if (scaled) {
+                await state.dotNetHelper.invokeMethodAsync(
+                    'OnPicturePasted', new Uint8Array(scaled.bytes), scaled.contentType, scaled.width, scaled.height);
+            }
+        }
+    })();
+    return true;
+}
+
+/// The longest edge a stored picture keeps. Enough for any screen the note is read on; a photograph's
+/// own 4000 pixels would be four times the bytes for nothing anybody sees.
+const LONGEST_EDGE = 2048;
+
+/// The file's bytes and size, scaled down to LONGEST_EDGE where it was larger. A picture that is not
+/// scaled is sent as it is, so a PNG stays a PNG with its transparency; one that is scaled comes back
+/// as what it was where the canvas can write that, and as JPEG otherwise.
+async function scaledPicture(file) {
+    let bitmap;
+    try {
+        bitmap = await createImageBitmap(file);
+    } catch {
+        return null;
+    }
+
+    const longest = Math.max(bitmap.width, bitmap.height);
+    if (longest <= LONGEST_EDGE) {
+        return { bytes: await file.arrayBuffer(), contentType: file.type, width: bitmap.width, height: bitmap.height };
+    }
+
+    const scale = LONGEST_EDGE / longest;
+    const width = Math.round(bitmap.width * scale);
+    const height = Math.round(bitmap.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext('2d').drawImage(bitmap, 0, 0, width, height);
+    const contentType = file.type === 'image/png' || file.type === 'image/webp' ? file.type : 'image/jpeg';
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, contentType, 0.9));
+    if (!blob) {
+        return null;
+    }
+    return { bytes: await blob.arrayBuffer(), contentType: blob.type || contentType, width, height };
+}
+
+/// The attachment tool: a file picker, whose choice goes the way a pasted picture does.
+export function pickPicture(container) {
+    const state = instances.get(container);
+    if (!state || !isWritable(container)) {
+        return;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.addEventListener('change', () => takePictureFiles(input, container, state));
+    input.click();
+}
+
+/// A picture already in the store, put where the caret is - see NoteSurfaceEdits.InsertPicture. Called
+/// by Blazor once the upload has answered with the id the line names the bytes by.
+export async function insertPicture(container, pictureJson) {
+    await Promise.resolve();
+    const state = instances.get(container);
+    if (!state || !isWritable(container)) {
+        return;
+    }
+
+    const answer = ask(container, state, 'insertPicture', { picture: JSON.parse(pictureJson) });
+    if (answer) {
+        show(container, state, answer);
+    }
+}
+
+/// A rule across the note, put where the caret is - see NoteSurfaceEdits.InsertSeparator. The stamp is
+/// worked out by Blazor at the moment of the press and travels with the line from here on; nothing
+/// re-reads the clock for it, which is what makes yesterday's separator still say yesterday.
+export async function insertSeparator(container, stamp) {
+    await Promise.resolve();
+    const state = instances.get(container);
+    if (!state || !isWritable(container)) {
+        return;
+    }
+
+    const answer = ask(container, state, 'insertSeparator', { stamp: stamp || '' });
+    if (answer) {
+        show(container, state, answer);
+    }
+}
+
+/// Text read off the clipboard by the page's own "paste from the clipboard", put in exactly as a paste
+/// would be - boxes read back from "[x] " and "- " - see ChecklistTextEditor.PasteTextAsync. Where the
+/// caret was, or at the end of the note when the press on the menu took the caret away: a surface with
+/// no caret in it is read as its end (see SurfaceState in ChecklistTextEditor), which is where something
+/// added to a note belongs.
+export async function pasteText(container, text) {
+    await Promise.resolve();
+    const state = instances.get(container);
+    if (!state || !isWritable(container) || !text) {
         return;
     }
 
@@ -193,6 +367,93 @@ export async function insertChecklistItem(container) {
     }
 }
 
+/// Makes the caret's line - or every line the selection touches - the style asked for, and takes it back
+/// to Body when they are all already it. Written like insertChecklistItem above and for the same reason:
+/// it is a press rather than a key, so it goes through the one door every edit goes through.
+/// Puts a mark on the words the selection covers, or takes it off - the four buttons over the writing,
+/// and the browser's own Ctrl+B and friends, which arrive as an inputType and are sent here too. C#
+/// decides which way round it goes (NoteSurfaceEdits.Mark), for the reason every other edit is decided
+/// there: the phone has to answer the same.
+export async function mark(container, asked) {
+    await Promise.resolve();
+    const state = instances.get(container);
+    if (!state || !isWritable(container)) {
+        return;
+    }
+
+    const answer = ask(container, state, 'mark', { text: asked });
+    if (answer) {
+        draw(container, answer.lines);
+        select(container, answer.anchor, answer.focus);
+    }
+}
+
+/// The table tool pressed outside a table: an empty line becomes one, anything else gets one under it -
+/// see NoteSurfaceEdits.InsertTable. The caret goes into the first cell, which is the browser's to do:
+/// a cell is not a point on the surface C# reads.
+export async function insertTable(container) {
+    await Promise.resolve();
+    const state = instances.get(container);
+    if (!state || !isWritable(container)) {
+        return;
+    }
+
+    const answer = ask(container, state, 'insertTable');
+    if (answer) {
+        draw(container, answer.lines);
+        focusCell(container, answer.focus.line, 0, 0);
+        notifyChanged(container, state.dotNetHelper);
+    }
+}
+
+/// One change to the shape of the table the caret is in - a row or a column added or taken away, or the
+/// table itself taken away. The cell the caret was in is where it goes back to, or the nearest one that
+/// is still there; a table that is gone leaves the caret on the line it stood on.
+export async function editTable(container, action) {
+    await Promise.resolve();
+    const state = instances.get(container);
+    if (!state || !isWritable(container)) {
+        return;
+    }
+
+    const where = caretCell(container);
+    if (!where) {
+        return;
+    }
+
+    const answer = ask(container, state, action, { line: where.line, row: where.row, column: where.column });
+    if (!answer) {
+        return;
+    }
+
+    draw(container, answer.lines);
+    const line = answer.lines[where.line];
+    if (line && line.table) {
+        const rows = line.table.rows.length;
+        const columns = rows > 0 ? line.table.rows[0].cells.length : 0;
+        const row = action === 'tableRowBelow' ? where.row + 1 : Math.min(where.row, rows - 1);
+        const column = action === 'tableColumnRight' ? where.column + 1 : Math.min(where.column, columns - 1);
+        focusCell(container, where.line, row, column);
+    } else {
+        select(container, answer.anchor, answer.focus);
+    }
+    notifyChanged(container, state.dotNetHelper);
+}
+
+export async function setStyle(container, style) {
+    await Promise.resolve();
+    const state = instances.get(container);
+    if (!state || !isWritable(container)) {
+        return;
+    }
+
+    const answer = ask(container, state, 'style', { text: style });
+    if (answer) {
+        draw(container, answer.lines);
+        select(container, answer.anchor, answer.focus);
+    }
+}
+
 function isWritable(container) {
     return container.getAttribute('contenteditable') === 'true';
 }
@@ -221,6 +482,10 @@ function onKeyDown(event, container, state) {
     }
 
     repairStrayText(container);
+    if (inACell(container) && answerKeyInCell(event, container, state)) {
+        return;
+    }
+
     const command = commandFor(event, state);
     if (!command) {
         return;
@@ -235,6 +500,180 @@ function onKeyDown(event, container, state) {
     if (answer) {
         show(container, state, answer);
     }
+}
+
+/// What a key does inside a cell. A table is one line however many cells it has, so the keys that
+/// change a line's shape - Enter, Backspace at its head, Tab - mean something else here: Tab and Enter
+/// walk the cells, and a delete that would take the cell itself is stopped. Undo and redo still fall
+/// through to the surface's own history. Answers whether the key was dealt with.
+function answerKeyInCell(event, container, state) {
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+        return false;
+    }
+
+    const where = caretCell(container);
+    if (!where) {
+        return false;
+    }
+
+    switch (event.key) {
+        case 'Tab': {
+            event.preventDefault();
+            const step = event.shiftKey ? -1 : 1;
+            walkCells(container, state, where, step);
+            return true;
+        }
+        case 'Enter': {
+            // The next row, same column - and a new row under the last, which is how a table grows
+            // while it is being typed into. Shift+Enter is left to the browser as a break in the cell.
+            if (event.shiftKey) {
+                return false;
+            }
+            event.preventDefault();
+            if (where.row + 1 >= where.rows) {
+                const answer = ask(container, state, 'tableRowBelow', { line: where.line, row: where.row, column: where.column });
+                if (answer) {
+                    draw(container, answer.lines);
+                    notifyChanged(container, state.dotNetHelper);
+                }
+            }
+            focusCell(container, where.line, where.row + 1, where.column);
+            return true;
+        }
+        case 'Backspace':
+            // A delete at the head of a cell would take the cell - or the table - with it, which is the
+            // table menu's to do and never a key's.
+            if (caretIsAtCellEdge(where.cell, /* atStart */ true)) {
+                event.preventDefault();
+                return true;
+            }
+            return false;
+        case 'Delete':
+            if (caretIsAtCellEdge(where.cell, /* atStart */ false)) {
+                event.preventDefault();
+                return true;
+            }
+            return false;
+        default:
+            return false;
+    }
+}
+
+/// From one cell to the next in reading order, or back; past the last cell a new row is added, and
+/// before the first nothing happens.
+function walkCells(container, state, where, step) {
+    let index = where.row * where.columns + where.column + step;
+    if (index < 0) {
+        return;
+    }
+    if (index >= where.rows * where.columns) {
+        const answer = ask(container, state, 'tableRowBelow', { line: where.line, row: where.row, column: where.column });
+        if (!answer) {
+            return;
+        }
+        draw(container, answer.lines);
+        notifyChanged(container, state.dotNetHelper);
+    }
+    focusCell(container, where.line, Math.floor(index / where.columns), index % where.columns);
+}
+
+function inACell(container) {
+    const selection = window.getSelection();
+    return !!(selection && selection.rangeCount > 0 && closestCell(selection.anchorNode, container));
+}
+
+function closestCell(node, container) {
+    if (!node) {
+        return null;
+    }
+    let element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+    while (element && element !== container) {
+        if (element.classList && element.classList.contains('note-cell')) {
+            return element;
+        }
+        element = element.parentElement;
+    }
+    return null;
+}
+
+/// Where the caret is inside a table: the line, the row, the column, and the size of the grid.
+function caretCell(container) {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+        return null;
+    }
+    const cell = closestCell(selection.anchorNode, container);
+    if (!cell) {
+        return null;
+    }
+    const rowElement = cell.parentElement;
+    const table = rowElement.parentElement;
+    const line = closestLine(cell, container);
+    if (!line) {
+        return null;
+    }
+    return {
+        cell,
+        line: Array.prototype.indexOf.call(container.children, line),
+        row: Array.prototype.indexOf.call(table.children, rowElement),
+        column: Array.prototype.indexOf.call(rowElement.children, cell),
+        rows: table.children.length,
+        columns: rowElement.children.length
+    };
+}
+
+function caretIsAtCellEdge(cell, atStart) {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) {
+        return false;
+    }
+    const range = document.createRange();
+    range.selectNodeContents(cell);
+    if (atStart) {
+        range.setEnd(selection.anchorNode, selection.anchorOffset);
+    } else {
+        range.setStart(selection.anchorNode, selection.anchorOffset);
+    }
+    return range.toString().length === 0;
+}
+
+/// Puts the caret in one cell of one table line, at the end of its words - or in the nearest cell that
+/// is there, so a press aimed past the edge of the grid still lands somewhere in it.
+function focusCell(container, lineIndex, row, column) {
+    const line = container.children[lineIndex];
+    const table = line ? line.querySelector('.note-table') : null;
+    if (!table || table.rows.length === 0) {
+        return;
+    }
+    const rowElement = table.rows[Math.max(0, Math.min(row, table.rows.length - 1))];
+    const cell = rowElement.cells[Math.max(0, Math.min(column, rowElement.cells.length - 1))];
+    if (!cell) {
+        return;
+    }
+    if (document.activeElement !== container) {
+        container.focus({ preventScroll: true });
+    }
+    const range = document.createRange();
+    const text = lastTextNode(cell);
+    if (text) {
+        range.setStart(text, text.textContent.length);
+    } else {
+        range.setStart(cell, 0);
+    }
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    cell.scrollIntoView({ block: 'nearest' });
+}
+
+function lastTextNode(element) {
+    let last = null;
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        last = node;
+    }
+    return last;
 }
 
 function commandFor(event, state) {
@@ -303,6 +742,47 @@ function onBeforeInput(event, container, state) {
             if (answer) {
                 show(container, state, answer);
             }
+        }
+        return;
+    }
+
+    // Words typed on a picture's line would land beside the picture in its own element; they go to C#
+    // instead, which puts them under it (see NoteSurfaceEdits.Replace).
+    const caretLine = closestLine(window.getSelection() && window.getSelection().anchorNode, container);
+    if (caretLine && caretLine.classList.contains('note-line-picture') && (event.inputType || '').startsWith('insert')
+        && event.inputType !== 'insertCompositionText') {
+        event.preventDefault();
+        const typed = event.data ?? (event.dataTransfer ? event.dataTransfer.getData('text/plain') : '');
+        const answer = ask(container, state, 'replace', { text: typed || '' });
+        if (answer) {
+            show(container, state, answer);
+        }
+        return;
+    }
+
+    // Ctrl+B and its friends - and the same four from the browser's own menus. Stopped and asked of C#,
+    // which owns what a mark means here: left to the browser, these would put tags of their own choosing
+    // into the line and the phone would never hear about them.
+    // Inside a cell the browser is on its own for the words, and formatting with it: what it wraps the
+    // words in is read back when the line is (see marksOn), so a cell's bold is a bold C# hears about.
+    // A break in a cell is the next row, which keydown already answers; a soft keyboard sends it here.
+    if (inACell(container)) {
+        if (event.inputType === 'insertParagraph') {
+            event.preventDefault();
+            const where = caretCell(container);
+            if (where) {
+                focusCell(container, where.line, where.row + 1, where.column);
+            }
+        }
+        return;
+    }
+
+    const marking = MARK_INPUTS[event.inputType];
+    if (marking) {
+        event.preventDefault();
+        const answer = ask(container, state, 'mark', { text: marking });
+        if (answer) {
+            show(container, state, answer);
         }
         return;
     }
@@ -413,6 +893,15 @@ function onSelectionChange(container, state) {
         state.pickedCount = picked.length;
         state.dotNetHelper.invokeMethodAsync('OnSelectedTicksChanged', picked.length);
     }
+
+    // The page's table tool means "insert" outside a table and "change this one" inside, so it is told
+    // which the caret is in whenever that changes.
+    const inTable = isWritable(container) && !!(selection && selection.rangeCount > 0)
+        && container.contains(selection.anchorNode) && !!closestCell(selection.anchorNode, container);
+    if (inTable !== state.inTable) {
+        state.inTable = inTable;
+        state.dotNetHelper.invokeMethodAsync('OnCaretInTableChanged', inTable);
+    }
 }
 
 /// Copies what is selected as text somebody can paste anywhere: one line per line, and a tick-box line
@@ -459,6 +948,34 @@ function render(container, lines) {
     for (const line of lines) {
         container.appendChild(createLineElement(line, tickHintOf(container)));
     }
+
+    numberTheLists(container);
+    const state = instances.get(container);
+    if (state) {
+        resolvePictures(container, state);
+    }
+}
+
+/// Writes each numbered line's number onto it, counting from one down each unbroken run - the same rule
+/// NoteLineStyles.NumberOf follows, and it is here as well as there because the number is *drawn* (a CSS
+/// ::before reads it) rather than being part of the words. Any line that is not numbered breaks the run,
+/// which is what makes two lists separated by a paragraph two lists.
+///
+/// Done after the lines are in the container rather than while each is built, because a line's number is
+/// a fact about what is above it and nothing knows that until they are all there.
+function numberTheLists(container) {
+    let number = 0;
+    for (const line of Array.from(container.children)) {
+        if (line.dataset && line.dataset.style === 'numbered') {
+            number++;
+            line.dataset.number = String(number);
+        } else {
+            number = 0;
+            if (line.dataset) {
+                delete line.dataset.number;
+            }
+        }
+    }
 }
 
 /// Brings the surface to lines C# decided on, touching only the lines that differ - a line left alone
@@ -481,14 +998,45 @@ function draw(container, lines) {
             return;
         }
 
+        const isPicture = element.classList.contains('note-line-picture');
+        if (isPicture || line.picture) {
+            const drawn = pictureIn(element);
+            if (!isPicture || !line.picture || !drawn || drawn.pictureId !== line.picture.pictureId) {
+                element.replaceWith(createLineElement(line, hint));
+            }
+            return;
+        }
+
+        const isSeparator = element.classList.contains('note-line-separator');
+        if (isSeparator || line.separator) {
+            // Rebuilt whole when it changed at all: a rule has one thing written on it and no part of it
+            // worth keeping in place, since nothing is ever typed into one.
+            if (!isSeparator || !line.separator || stampIn(element) !== (line.separator.stamp || '')) {
+                element.replaceWith(createLineElement(line, hint));
+            }
+            return;
+        }
+
+        const isTable = element.classList.contains('note-line-table');
+        if (isTable || line.table) {
+            // Rebuilt whole: a table that changed shape has no cell left in the same place to keep,
+            // and the caret is put back into a cell by whoever asked (see editTable, focusCell).
+            if (!isTable || !line.table || !sameTable(tableIn(element), line.table)) {
+                element.replaceWith(createLineElement(line, hint));
+            }
+            return;
+        }
+
         const tick = element.querySelector('.note-line-tick');
-        if (!!tick !== !!line.isChecklistItem || !element.querySelector('.note-line-text')) {
+        if (!!tick !== !!line.isChecklistItem || !element.querySelector('.note-line-text')
+            || element.dataset.style !== styleOf(line)) {
             element.replaceWith(createLineElement(line, hint));
             return;
         }
 
-        if (lineText(element) !== (line.text || '')) {
-            setLineText(element, line.text || '');
+        const wanted = marksOf(line);
+        if (lineText(element) !== (line.text || '') || !sameMarks(marksIn(element), wanted)) {
+            setLineWords(element, line.text || '', wanted);
         }
         if (tick && stateOf(tick) !== tickStateOf(line)) {
             setTick(element, tickStateOf(line));
@@ -498,6 +1046,12 @@ function draw(container, lines) {
     for (let index = lines.length; index < existing.length; index++) {
         existing[index].remove();
     }
+
+    numberTheLists(container);
+    const state = instances.get(container);
+    if (state) {
+        resolvePictures(container, state);
+    }
 }
 
 function tickHintOf(container) {
@@ -506,12 +1060,229 @@ function tickHintOf(container) {
 }
 
 function normalizeLines(lines) {
-    return lines && lines.length > 0 ? lines : [{ text: '', isChecklistItem: false, isChecked: false }];
+    return lines && lines.length > 0
+        ? lines
+        : [{ text: '', isChecklistItem: false, isChecked: false, style: 'body', marks: [] }];
+}
+
+/// The style a line is drawn in, as the word C# sends - see Orbit.Core.Notes.NoteLineStyle. Anything
+/// missing or unknown is Body, which is the same answer the two C# readers give and the reason a note
+/// written on a newer build still opens here.
+function styleOf(line) {
+    const style = (line && line.style ? String(line.style) : 'Body').toLowerCase();
+    return STYLES.includes(style) ? style : 'body';
+}
+
+const STYLES = ['body', 'title', 'heading', 'subheading', 'monospaced', 'bulleted', 'dashed', 'numbered'];
+
+/// The marks a stretch of words inside a line can carry - see Orbit.Core.Notes.NoteTextMark. Lower case
+/// here and sent as such: C# reads a mark's name however it is written.
+const MARKS = ['bold', 'italic', 'underlined', 'struckthrough'];
+
+/// The inputTypes a browser reports for its own four formatting commands - Ctrl+B, the Edit menu, a
+/// context menu. Each is answered as the matching mark rather than let through.
+const MARK_INPUTS = {
+    formatBold: 'bold',
+    formatItalic: 'italic',
+    formatUnderline: 'underlined',
+    formatStrikeThrough: 'struckthrough'
+};
+
+/// What each is drawn as. Real elements rather than classed spans, so a copy out of the note arrives
+/// elsewhere still bold - and so the browser's own Ctrl+B, if one ever slips past onBeforeInput, makes
+/// something this can read back rather than something it has to guess at.
+const MARK_TAGS = { bold: 'strong', italic: 'em', underlined: 'u', struckthrough: 's' };
+
+/// And back again, with the tags a browser uses for the same four when it formats text itself.
+const TAG_MARKS = {
+    STRONG: 'bold', B: 'bold',
+    EM: 'italic', I: 'italic',
+    U: 'underlined',
+    S: 'struckthrough', STRIKE: 'struckthrough', DEL: 'struckthrough'
+};
+
+/// A line's marks as C# sends them, with anything this build does not know dropped - the rule every
+/// name on this wire follows.
+function marksOf(line) {
+    const marks = line && Array.isArray(line.marks) ? line.marks : [];
+    return marks
+        .map((run) => ({
+            start: run.start | 0,
+            length: run.length | 0,
+            mark: String(run.mark || '').toLowerCase()
+        }))
+        .filter((run) => run.length > 0 && MARKS.includes(run.mark));
+}
+
+/// The words of a line, drawn with their marks. The span's contents are built from scratch: a stretch of
+/// words carrying the same marks is one text node inside however many elements it needs, and the caret is
+/// put back afterwards by whoever asked for the redraw (see show).
+function setLineWords(line, text, marks) {
+    const span = line.querySelector('.note-line-text');
+    if (!span) {
+        line.textContent = text;
+        return;
+    }
+
+    fillWords(span, text, marks);
+}
+
+/// Fills one element - a line's span, a table's cell - with words and their marks, from scratch.
+function fillWords(element, text, marks) {
+    element.textContent = '';
+    if (text.length === 0) {
+        // See setLineText: an empty element has no line box, so the caret has nowhere to stand in it.
+        element.appendChild(document.createElement('br'));
+        return;
+    }
+
+    for (const piece of markedPieces(text, marks)) {
+        element.appendChild(wrapped(piece.text, piece.marks));
+    }
+}
+
+/// The text cut into the longest stretches that carry the same marks - which is what a redraw needs and
+/// what a run of marks does not say directly, since two marks over the same words are two runs.
+function markedPieces(text, marks) {
+    const carried = [];
+    for (let at = 0; at < text.length; at++) {
+        carried.push([]);
+    }
+
+    for (const run of marks) {
+        const from = Math.max(0, run.start);
+        const to = Math.min(text.length, run.start + run.length);
+        for (let at = from; at < to; at++) {
+            if (!carried[at].includes(run.mark)) {
+                carried[at].push(run.mark);
+            }
+        }
+    }
+
+    // Named in one order always, so the same set of marks reads as the same stretch.
+    const nameOf = (marksHere) => MARKS.filter((mark) => marksHere.includes(mark)).join(' ');
+    const pieces = [];
+    for (let at = 0; at < text.length; at++) {
+        const name = nameOf(carried[at]);
+        const last = pieces.length > 0 ? pieces[pieces.length - 1] : null;
+        if (last && last.name === name) {
+            last.text += text[at];
+        } else {
+            pieces.push({ name, text: text[at], marks: name ? name.split(' ') : [] });
+        }
+    }
+
+    return pieces;
+}
+
+function wrapped(text, marks) {
+    let node = document.createTextNode(text);
+    for (const mark of marks) {
+        const element = document.createElement(MARK_TAGS[mark]);
+        element.appendChild(node);
+        node = element;
+    }
+
+    return node;
+}
+
+/// The marks on a line as the document now holds them - what the browser drew, plus anything it drew
+/// itself while somebody was typing. Read by walking the words: every text node carries whatever marks
+/// its ancestors up to the span name.
+function marksIn(line) {
+    const span = line.querySelector('.note-line-text');
+    return span ? marksInWords(span) : [];
+}
+
+/// The marks inside one element holding words - a line's span, a table's cell.
+function marksInWords(element) {
+    const runs = [];
+    let offset = 0;
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const length = node.textContent.length;
+        for (const mark of marksOn(node, element)) {
+            runs.push({ start: offset, length, mark });
+        }
+        offset += length;
+    }
+
+    return joinedRuns(runs);
+}
+
+function marksOn(node, span) {
+    const found = [];
+    for (let element = node.parentElement; element; element = element.parentElement) {
+        const mark = TAG_MARKS[element.tagName];
+        if (mark && !found.includes(mark)) {
+            found.push(mark);
+        }
+        if (element === span) {
+            break;
+        }
+    }
+
+    return found;
+}
+
+/// Touching stretches of one mark made one - the shape C# keeps them in (NoteTextMarks.Normalized), so
+/// what goes back is what would come out again rather than one run per text node.
+function joinedRuns(runs) {
+    const sorted = runs.slice().sort((one, other) =>
+        one.mark === other.mark ? one.start - other.start : (one.mark < other.mark ? -1 : 1));
+
+    const joined = [];
+    for (const run of sorted) {
+        const last = joined.length > 0 ? joined[joined.length - 1] : null;
+        if (last && last.mark === run.mark && last.start + last.length >= run.start) {
+            last.length = Math.max(last.start + last.length, run.start + run.length) - last.start;
+            continue;
+        }
+
+        joined.push({ start: run.start, length: run.length, mark: run.mark });
+    }
+
+    return joined;
+}
+
+/// Whether two sets of marks say the same thing, for draw() - which redraws a line whose marks changed
+/// the way it redraws one whose words did.
+function sameMarks(one, other) {
+    return one.length === other.length
+        && one.every((run, at) =>
+            run.start === other[at].start && run.length === other[at].length && run.mark === other[at].mark);
 }
 
 function createLineElement(line, tickHint) {
     const div = document.createElement('div');
     div.className = 'note-line';
+
+    // The style as a data attribute rather than a class, so the CSS reads one thing and draw() can tell
+    // whether a line's style changed without picking the class list apart.
+    div.dataset.style = styleOf(line);
+
+    // A table is the whole of its line: no span for words, no box - see NoteContentLine.OfTable.
+    if (line.table) {
+        div.classList.add('note-line-table');
+        div.appendChild(createTableElement(line.table));
+        return div;
+    }
+
+    // And a picture the same - see NoteContentLine.OfPicture. Drawn once its bytes have been fetched
+    // and turned into a URL the page owns (see NotePictureSource); until then it holds its shape.
+    if (line.picture) {
+        div.classList.add('note-line-picture');
+        div.appendChild(createPictureElement(line.picture));
+        return div;
+    }
+
+    // And a rule the same - see NoteContentLine.OfSeparator. What is written on it came with the line
+    // and is drawn as it stands; nothing here works a date out.
+    if (line.separator) {
+        div.classList.add('note-line-separator');
+        div.appendChild(createSeparatorElement(line.separator));
+        return div;
+    }
 
     if (line.isChecklistItem) {
         div.classList.add('note-line-checklist');
@@ -533,12 +1304,145 @@ function createLineElement(line, tickHint) {
     const text = document.createElement('span');
     text.className = 'note-line-text';
     div.appendChild(text);
-    setLineText(div, line.text || '');
+    setLineWords(div, line.text || '', marksOf(line));
     if (line.isChecklistItem) {
         setTick(div, tickStateOf(line));
     }
 
     return div;
+}
+
+/// A table as C# sends it - rows of cells, each cell words and marks - drawn as the table it is. Real
+/// <td>s rather than a grid of divs, so the caret walks cells the way it walks any table in a page.
+function createTableElement(table) {
+    const element = document.createElement('table');
+    element.className = 'note-table';
+    for (const row of table.rows || []) {
+        const tr = element.insertRow();
+        for (const cell of row.cells || []) {
+            const td = tr.insertCell();
+            td.className = 'note-cell';
+            fillWords(td, cell.text || '', marksOf(cell));
+        }
+    }
+    return element;
+}
+
+/// A rule's element: not editable, so the caret stands beside it rather than in it, and the stamp drawn
+/// on the rule itself where there is one. A plain rule is the same element with nothing written on it,
+/// which is why one record carries both - see NoteSeparatorLine.
+function createSeparatorElement(separator) {
+    const rule = document.createElement('div');
+    rule.className = 'note-separator';
+    rule.contentEditable = 'false';
+
+    const stamp = (separator && separator.stamp) || '';
+    if (stamp.length > 0) {
+        const written = document.createElement('span');
+        written.className = 'note-separator-stamp';
+        written.textContent = stamp;
+        rule.appendChild(written);
+    }
+
+    return rule;
+}
+
+/// A picture line's element: not editable itself, so the caret stands beside it rather than in it, and
+/// sized from what the line says so the note does not jump when the bytes arrive. Pressed, it opens full
+/// size in a tab of its own - Apple Notes' rule, and the only thing a picture in a note is pressed for.
+function createPictureElement(picture) {
+    const figure = document.createElement('figure');
+    figure.className = 'note-picture';
+    figure.contentEditable = 'false';
+    figure.dataset.pictureId = picture.pictureId;
+    figure.dataset.contentType = picture.contentType || '';
+    figure.dataset.width = String(picture.widthPixels || 0);
+    figure.dataset.height = String(picture.heightPixels || 0);
+
+    const img = document.createElement('img');
+    img.alt = '';
+    if (picture.widthPixels > 0 && picture.heightPixels > 0) {
+        img.width = picture.widthPixels;
+        img.height = picture.heightPixels;
+    }
+    img.addEventListener('click', () => {
+        if (img.src) {
+            window.open(img.src, '_blank', 'noopener');
+        }
+    });
+    figure.appendChild(img);
+    return figure;
+}
+
+/// Gives every picture on the surface its URL, asking Blazor once per picture and remembering the
+/// answer - see ChecklistTextEditor.PictureUrl. Nothing here waits on it: a line is drawn at once and
+/// its picture arrives when it does.
+function resolvePictures(container, state) {
+    for (const figure of container.querySelectorAll('.note-picture')) {
+        const img = figure.querySelector('img');
+        const id = figure.dataset.pictureId;
+        if (!img || !id || img.src) {
+            continue;
+        }
+
+        const known = state.pictureUrls.get(id);
+        if (known) {
+            img.src = known;
+            continue;
+        }
+
+        state.dotNetHelper.invokeMethodAsync('PictureUrl', id).then((url) => {
+            if (url) {
+                state.pictureUrls.set(id, url);
+                if (figure.isConnected) {
+                    img.src = url;
+                }
+            }
+        });
+    }
+}
+
+/// What is written on a drawn rule, for draw() - empty for a plain one, which is what the line says too.
+function stampIn(line) {
+    const written = line.querySelector('.note-separator-stamp');
+    return written ? written.textContent || '' : '';
+}
+
+/// The rule a line is, read back off what was drawn - null for any other line. See NoteSeparatorLine.
+function separatorIn(line) {
+    return line.classList.contains('note-line-separator') ? { stamp: stampIn(line) } : null;
+}
+
+/// The picture a line names, read back off what was drawn.
+function pictureIn(line) {
+    const figure = line.querySelector('.note-picture');
+    if (!figure) {
+        return null;
+    }
+    return {
+        pictureId: figure.dataset.pictureId,
+        contentType: figure.dataset.contentType || '',
+        widthPixels: Number(figure.dataset.width) || 0,
+        heightPixels: Number(figure.dataset.height) || 0
+    };
+}
+
+/// A table as the document now holds it, read back the way a line's words are: each cell's text, and
+/// the marks its words sit inside.
+function tableIn(line) {
+    const table = line.querySelector('.note-table');
+    if (!table) {
+        return null;
+    }
+    return {
+        rows: Array.from(table.rows).map((tr) => ({
+            cells: Array.from(tr.cells).map((td) => ({ text: td.textContent || '', marks: marksInWords(td) }))
+        }))
+    };
+}
+
+function sameTable(one, other) {
+    return JSON.stringify(one) === JSON.stringify(other);
 }
 
 const TICK_NONE = 'none';
@@ -573,7 +1477,20 @@ function setTick(line, state) {
     line.classList.toggle('note-line-failed', state === TICK_FAILED);
 }
 
+/// Whether this line's element is something other than words - a table, a picture, a rule across the
+/// note. The DOM's half of NoteContentLine.IsAnElement: such a line has no span of words in it and no
+/// caret offset to speak of, so everything that counts characters asks this first.
+function isElementLine(line) {
+    return !!line.classList
+        && (line.classList.contains('note-line-table')
+            || line.classList.contains('note-line-picture')
+            || line.classList.contains('note-line-separator'));
+}
+
 function lineText(line) {
+    if (isElementLine(line)) {
+        return '';
+    }
     const span = line.querySelector('.note-line-text');
     return span ? span.textContent : line.textContent;
 }
@@ -601,11 +1518,22 @@ function extractLines(container) {
     return Array.from(container.children).map((line) => {
         const tick = line.querySelector('.note-line-tick');
         const state = tick ? stateOf(tick) : TICK_NONE;
+        const table = tableIn(line);
+        const picture = pictureIn(line);
+        // Read back like the other two. It was not, so a rule was drawn and then dropped by the very next
+        // read of the surface - the next keystroke's, or the save's - and stored as an empty line.
+        const separator = separatorIn(line);
+        const isAnElement = table || picture || separator;
         return {
-            text: lineText(line) || '',
+            text: isAnElement ? '' : (lineText(line) || ''),
             isChecklistItem: !!tick,
             isChecked: state === TICK_DONE,
-            isFailed: state === TICK_FAILED
+            isFailed: state === TICK_FAILED,
+            style: line.dataset && line.dataset.style ? line.dataset.style : 'body',
+            marks: isAnElement ? [] : marksIn(line),
+            table,
+            picture,
+            separator
         };
     });
 }
@@ -640,6 +1568,12 @@ function repairStrayText(container) {
 
 /// Answers whether anything had to be moved.
 function repairLineDom(line) {
+    // A table line has no span to put words back into, and everything in it is where it belongs. A
+    // picture line and a rule the same.
+    if (isElementLine(line)) {
+        return false;
+    }
+
     const tick = line.querySelector('.note-line-tick');
     let span = line.querySelector('.note-line-text');
     if (!span) {
@@ -661,7 +1595,10 @@ function repairLineDom(line) {
         strayText += node.textContent;
         node.remove();
     }
-    setLineText(line, strayText + lineText(line));
+    // The marks move along by however much was put back in front of the words they were on - the same
+    // arithmetic NoteTextMarks.Kept does for an insertion at the head of a line.
+    const moved = marksIn(line).map((run) => ({ ...run, start: run.start + strayText.length }));
+    setLineWords(line, strayText + lineText(line), moved);
     return true;
 }
 
@@ -757,6 +1694,16 @@ function pointOf(container, node, offset) {
 function domPoint(container, point) {
     const lines = container.children;
     const line = lines[Math.max(0, Math.min(point.line, lines.length - 1))];
+    // A table has no offset to stand at: the caret goes to the head of its first cell, and the cell
+    // commands put it somewhere more exact themselves (see focusCell).
+    const firstCell = line.classList.contains('note-line-table') ? line.querySelector('.note-cell') : null;
+    if (firstCell) {
+        return { node: firstCell, offset: 0 };
+    }
+    // A picture or a rule has nothing to stand in either: the caret goes on the line, before it.
+    if (line.classList.contains('note-line-picture') || line.classList.contains('note-line-separator')) {
+        return { node: line, offset: 0 };
+    }
     const span = line.querySelector('.note-line-text') || line;
     let remaining = point.offset;
     let lastText = null;

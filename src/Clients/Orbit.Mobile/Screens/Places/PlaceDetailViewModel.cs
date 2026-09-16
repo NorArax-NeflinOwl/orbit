@@ -189,10 +189,9 @@ public sealed partial class PlaceDetailViewModel : ObservableObject
             Address = picked.Address;
         }
 
-        if (Name.Trim().Length == 0)
-        {
-            Name = picked.Address;
-        }
+        // The name is left for the reader to give, and Save waits for one. It used to be filled with the
+        // pin's address, so a place worth keeping was saved under a street it already showed beside it -
+        // which is exactly the name the user asked not to be written in for them.
 
         SayWhetherItHasAPoint();
         SaveCommand.NotifyCanExecuteChanged();

@@ -194,6 +194,26 @@ public sealed class PlacesScreenTests
     }
 
     /// <summary>
+    /// A pin fills in where the place is and never what it is called: the name is the reader's to give,
+    /// and Save waits for one. The pin's address used to be written in as the name, so a place was kept
+    /// under the street already shown beside it.
+    /// </summary>
+    [Fact]
+    public async Task A_pin_leaves_the_name_for_the_reader_to_give()
+    {
+        using var context = new PlacesContext();
+        var stored = await context.Places.CreateAsync(new PlaceContent("Bakery", "", "", 0, 0), CancellationToken.None);
+        var screen = context.OpenDetail(stored.LocalId);
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.Name = string.Empty;
+
+        await screen.PickOnMapCommand.ExecuteAsync(null);
+
+        Assert.Equal(string.Empty, screen.Name);
+        Assert.False(screen.CanSave);
+    }
+
+    /// <summary>
     /// Read-only means read-only. Said here as well as on the server, so the screen does not offer a
     /// Save that would only fail - see SharedItemAccess.
     /// </summary>
@@ -281,7 +301,7 @@ public sealed class PlacesScreenTests
             NullLogger<PlaceSynchronizer>.Instance);
 
         public PlacesViewModel OpenList() => new(
-            Places, Synchronizer, Network, _translations, new SyncState(Network, TimeProvider.System), Navigator, Maps,
+            Places, Synchronizer, Network, _translations, new SyncState(Reachability.Over(Network), TimeProvider.System), Navigator, Maps,
             TimeProvider.System, new InMemoryListArrangementStore());
 
         public PlaceDetailViewModel OpenDetail(Guid localId)

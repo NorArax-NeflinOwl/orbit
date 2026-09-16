@@ -28,7 +28,14 @@
         <div class="field">
             <label for="placeFormName">@T["Title"]</label>
             <input id="placeFormName" type="text" value="@_name" placeholder="@(T["What this place is"])"
+                   required aria-required="true"
                    @oninput="args => _name = args.Value?.ToString() ?? string.Empty" />
+            @* Said while it is missing, because Create greys out without one and a grey button with no
+               reason beside it reads as a form that is broken rather than one that is waiting. *@
+            @if (CanWrite && _name.Trim().Length == 0)
+            {
+                <p class="empty-hint place-form-name-needed">@T["Give the place a name to keep it."]</p>
+            }
         </div>
 
         <div class="field">
@@ -245,10 +252,9 @@
             _address = pin.Address;
             _latitude = pin.Latitude;
             _longitude = pin.Longitude;
-            // The address doubles as the name for a place pressed on the map, because a pin already
-            // carries the only words there are. It is a suggestion, not an answer: the box is a normal
-            // one and "the bakery" is what most of them end up saying.
-            _name = pin.Address;
+            // The name is left empty for the reader to give, and Save waits for one (see CanSave). The
+            // pin's address used to be written in as a suggestion, and a place worth keeping was then
+            // saved under the street already shown beside it.
         }
     }
 
@@ -272,11 +278,6 @@
         if (_address.Trim().Length == 0)
         {
             _address = picked.Address;
-        }
-
-        if (_name.Trim().Length == 0)
-        {
-            _name = picked.Address;
         }
 
         _isPickingOnTheMap = false;

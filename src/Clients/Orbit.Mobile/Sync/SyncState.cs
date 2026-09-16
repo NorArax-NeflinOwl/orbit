@@ -14,6 +14,12 @@ public enum SyncCondition
     /// <summary>The phone believes it has no connection. Not a fault - the app keeps working.</summary>
     Offline,
 
+    /// <summary>
+    /// The deployment said it is stopped on purpose - see <see cref="ServerReachability"/>. Not a fault
+    /// either, and not "no connection": the phone has one, and the app keeps working as it does without.
+    /// </summary>
+    Paused,
+
     /// <summary>Reachable, and the attempt failed anyway. The one condition worth a second look.</summary>
     Failed
 }
@@ -28,16 +34,30 @@ public enum SyncCondition
 /// </summary>
 public sealed class SyncState
 {
-    private readonly INetworkStatus _networkStatus;
+    private readonly ServerReachability _reachability;
     private readonly TimeProvider _timeProvider;
 
-    public SyncState(INetworkStatus networkStatus, TimeProvider timeProvider)
+    public SyncState(ServerReachability reachability, TimeProvider timeProvider)
     {
-        _networkStatus = networkStatus;
+        _reachability = reachability;
         _timeProvider = timeProvider;
     }
 
     public event EventHandler? Changed;
+
+    /// <summary>
+    /// A run finished with something the screens have not drawn yet. Apart from <see cref="Changed"/>,
+    /// which is about the word in the corner: that fires for every attempt, and a screen redrawing
+    /// itself on each of them would be rebuilding its list every few minutes for nothing.
+    ///
+    /// Raised by <see cref="PeriodicSync"/> and by nothing else. A screen that asked for a sync itself
+    /// re-reads what it got straight afterwards, so it has no use for a second telling; this is for the
+    /// run that happened while somebody was looking at a screen they had not touched.
+    /// </summary>
+    public event EventHandler? BroughtSomethingNew;
+
+    /// <summary>Says so - see <see cref="BroughtSomethingNew"/>.</summary>
+    public void RecordBroughtSomethingNew() => BroughtSomethingNew?.Invoke(this, EventArgs.Empty);
 
     public SyncCondition Condition { get; private set; } = SyncCondition.Unknown;
 
@@ -53,13 +73,23 @@ public sealed class SyncState
     }
 
     /// <summary>
-    /// Being offline and being refused are different things and the indicator says so: one is the app
-    /// working as designed, the other is worth looking at. The distinction comes from the phone's own
-    /// belief about connectivity rather than from the failure, because a request that never left has no
-    /// status code to read.
+    /// Being offline, being paused and being refused are three different things and the indicator says
+    /// so: the first two are the app working as designed, the third is worth looking at. The
+    /// distinction comes from what the phone believes about its network and about the deployment rather
+    /// than from the failure, because a request that never left has no status code to read - and one
+    /// answered by the platform in Orbit's place has had its status taken away on purpose, see
+    /// <see cref="AnswerNotFromOrbitException"/>.
     /// </summary>
     public void RecordFailed()
-        => MoveTo(_networkStatus.IsOnline ? SyncCondition.Failed : SyncCondition.Offline);
+    {
+        if (_reachability.IsPaused)
+        {
+            MoveTo(SyncCondition.Paused);
+            return;
+        }
+
+        MoveTo(_reachability.HasNetwork ? SyncCondition.Failed : SyncCondition.Offline);
+    }
 
     private void MoveTo(SyncCondition condition)
     {

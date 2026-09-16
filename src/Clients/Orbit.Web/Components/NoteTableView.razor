@@ -1,0 +1,23 @@
+@using Orbit.Core.Notes
+
+@* A table inside a note being read rather than written - see Orbit.Core.Notes.NoteTable. The writing
+   surface draws the same grid as real cells the caret can walk; here nothing is typed in, so a plain
+   table of the cells' words is the whole of it, each cell drawn the way a line's words are (MarkedText),
+   so bold inside a cell is the bold everything else draws. *@
+<table class="note-table note-table-read">
+    <tbody>
+        @foreach (var row in Table.Rows)
+        {
+            <tr>
+                @foreach (var cell in row.Cells)
+                {
+                    <td class="note-cell"><MarkedText Text="@cell.Text" Marks="@cell.AllMarks" /></td>
+                }
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    [Parameter, EditorRequired] public NoteTable Table { get; set; } = NoteTables.Empty();
+}

@@ -4,6 +4,7 @@ using Orbit.Mobile.Live;
 using Orbit.Mobile.Presence;
 using Orbit.Mobile.Screens.Account;
 using Orbit.Mobile.Security;
+using Orbit.Mobile.Sync;
 
 namespace Orbit.Maui;
 
@@ -98,6 +99,10 @@ public partial class App : Application
 			// ages a silent account out on its own - so stopping is the whole mechanism.
 			_services.GetRequiredService<PresenceReporter>().Stop();
 
+			// The timer that keeps the phone in step goes with it: a phone in a pocket has nobody to be
+			// current for, and Android puts a timer behind a locked screen to sleep anyway.
+			_services.GetRequiredService<PeriodicSync>().Stop();
+
 			// The live connection goes with it. A socket held open behind a locked screen is one Android
 			// drops in Doze anyway, and what it would have carried is what push already delivers - see
 			// LiveUpdatesConnection.
@@ -113,6 +118,10 @@ public partial class App : Application
 		window.Activated += (_, _) =>
 		{
 			_services.GetRequiredService<PresenceReporter>().Start();
+
+			// Which begins with a run rather than with a wait: coming back to the app is the moment the
+			// screen on display is furthest out of date - see PeriodicSync.
+			_services.GetRequiredService<PeriodicSync>().Start();
 			_ = _services.GetRequiredService<LiveUpdatesConnection>().StartAsync();
 		};
 

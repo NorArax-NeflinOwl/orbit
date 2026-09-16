@@ -220,11 +220,11 @@
                             <div class="notifications-panel-header">
                                 <span>@T["Notifications"]</span>
                                 <button type="button" class="notifications-panel-clear" disabled="@_isClearingNotifications"
-                                        @onclick="ClearNotificationsAsync">@T["Clear"]</button>
+                                        @onclick="ClearNotificationsAsync">@T["Delete history"]</button>
                             </div>
                             <NotificationList IsLoading="_isLoadingNotifications" Entries="_recentEntries"
                                               ExceptionEntries="_clientExceptionEntries"
-                                              OnEntrySelected="OpenNotificationEntry" />
+                                              OnEntrySelected="OpenNotificationEntryAsync" />
                             <div class="notifications-panel-footer">
                                 <a href="/notifications" @onclick="CloseNotificationsMenu" @onclick:preventDefault="false">
                                     @T["See all notifications"]
@@ -982,10 +982,11 @@
         StateHasChanged();
         try
         {
+            // Opening the panel is not reading what is in it - see Notifications.razor, where the same
+            // rule is written out. It used to mark every entry read here, so a glance at the bell to see
+            // whether anything had happened was what lost the answer.
             _recentEntries = await NotificationsApiClient.GetRecentAsync();
             await LoadClientExceptionEntriesAsync();
-            await NotificationsApiClient.MarkAllReadAsync();
-            NotificationFeedState.Clear();
         }
         catch (HttpRequestException exception)
         {
@@ -1064,15 +1065,22 @@
     /// while halfway through something ended on whichever section the thing belongs to, and the reader
     /// had to navigate back to what they were doing.
     /// </summary>
-    private void OpenNotificationEntry(NotificationEntryDto entry)
+    /// <summary>
+    /// Pressing an entry is reading it - marked read here, before the page it points at opens, so the
+    /// badge and the marks on the cards it is about go at the press. Settled explicitly rather than left
+    /// to the settle this layout does on every navigation: that is the same rule, but it only fires if
+    /// the address actually changes.
+    /// </summary>
+    private async Task OpenNotificationEntryAsync(NotificationEntryDto entry)
     {
-        if (entry.Url is null)
+        if (entry.Url is not { } url)
         {
             return;
         }
 
         _notificationsMenuOpen = false;
-        NavigationManager.NavigateTo(ReturnTo.Link(entry.Url, WhereTheReaderWasInterrupted()));
+        await NewsSettler.SettleAsync(url);
+        NavigationManager.NavigateTo(ReturnTo.Link(url, WhereTheReaderWasInterrupted()));
     }
 
     /// <summary>

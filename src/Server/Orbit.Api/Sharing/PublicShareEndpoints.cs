@@ -1,11 +1,14 @@
 using System.Security.Claims;
 using Microsoft.IdentityModel.JsonWebTokens;
+using Orbit.Contracts.Notes;
 using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Sharing;
 using Orbit.Core.Sharing.ClaimPublicShareLink;
 using Orbit.Core.Sharing.CreatePublicShareLink;
+using Orbit.Api.Notes.Pictures;
 using Orbit.Core.Sharing.GetPublicSharedItem;
+using Orbit.Core.Sharing.GetPublicSharedPicture;
 using Orbit.Core.Sharing.RevokePublicShareLink;
 
 namespace Orbit.Api.Sharing;
@@ -63,6 +66,15 @@ public static class PublicShareEndpoints
             return item is null ? Results.NotFound() : Results.Ok(ToDto(item));
         });
 
+        // A picture of a linked note, by the same token and the same rate limit: the read behind a link
+        // is the token, and a sealed picture is never served this way (see GetPublicSharedPictureQuery).
+        publicReads.MapGet("/{token}/pictures/{pictureId:guid}", async (
+            string token, Guid pictureId, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var content = await dispatcher.SendAsync(new GetPublicSharedPictureQuery(token, pictureId), cancellationToken);
+            return content is null ? Results.NotFound() : NotePictureEndpoints.PictureResult(content);
+        });
+
         // The only authenticated endpoint in this group: saving a link's item into your own account is
         // something an account does, which is what the page's "sign in to save this" leads to.
         publicReads.MapPost("/{token}/claim", async (
@@ -79,8 +91,24 @@ public static class PublicShareEndpoints
         => new(
             item.ItemType.ToString(), item.Title, item.Subtitle,
             item.Lines.Select(line => new PublicSharedItemLineDto(
-                line.Text, line.IsChecklistItem, line.IsChecked, line.Detail, line.IsFailed)).ToList(),
+                line.Text, line.IsChecklistItem, line.IsChecked, line.Detail, line.IsFailed,
+                line.Style.ToString(),
+                MarksSent(line.AllMarks),
+                line.Table is null
+                    ? null
+                    : new NoteTableDto([.. line.Table.Rows.Select(row => new NoteTableRowDto(
+                        [.. row.Cells.Select(cell => new NoteTableCellDto(cell.Text, MarksSent(cell.AllMarks)))]))]),
+                line.Picture is null
+                    ? null
+                    : new NotePictureLineDto(line.Picture.PictureId, line.Picture.ContentType, line.Picture.WidthPixels, line.Picture.HeightPixels),
+                line.Separator is null ? null : new NoteSeparatorLineDto(line.Separator.Stamp)))
+                .ToList(),
             item.OwnerDisplayName, item.UpdatedAtUtc);
+
+    private static IReadOnlyList<NoteTextRunDto>? MarksSent(IReadOnlyList<Orbit.Core.Notes.NoteTextRun> marks)
+        => marks.Count == 0
+            ? null
+            : marks.Select(run => new NoteTextRunDto(run.Start, run.Length, run.Mark.ToString())).ToList();
 
     private static Guid GetUserId(ClaimsPrincipal user)
     {

@@ -575,7 +575,31 @@ public sealed class DashboardTests : OrbitTestContext
         // The tick beside the chosen one is part of the row, so compare what each row says after it.
         var entries = cut.FindAll(".overflow-menu-dropdown button")
             .Select(entry => entry.TextContent.Replace("✓", "").Trim());
-        Assert.Equal(["All", "High", "Normal", "Low"], entries);
+        Assert.Equal(["All", "High", "Normal", "Low", "Show 7 days", "Show 30 days"], entries);
+    }
+
+    /// <summary>
+    /// How far ahead Upcoming looks is offered on the card itself, a week or a month, as a group under
+    /// its own heading - the same setting Options writes.
+    /// </summary>
+    [Fact]
+    public void The_upcoming_cards_own_menu_widens_it_to_thirty_days()
+    {
+        RegisterCalendarApiClient(
+        [
+            Event("Dentist", DateTimeOffset.UtcNow.AddDays(2)),
+            Event("Passport office", DateTimeOffset.UtcNow.AddDays(20))
+        ]);
+        RegisterChatApiClient([]);
+        var cut = RenderComponent<Dashboard>();
+        Assert.Equal(["Dentist"], RowTitlesIn(cut, "Upcoming"));
+
+        FindColumn(cut, "Upcoming").QuerySelector(".overflow-menu-trigger")!.Click();
+        Assert.Contains(cut.FindAll(".overflow-menu-heading"), heading => heading.TextContent == "How far ahead");
+        cut.FindAll(".overflow-menu-dropdown button").First(entry => entry.TextContent.Contains("Show 30 days")).Click();
+
+        Assert.Equal(["Dentist", "Passport office"], RowTitlesIn(cut, "Upcoming"));
+        Assert.Equal(30, Services.GetRequiredService<DevicePreferences>().UpcomingDays);
     }
 
     private static IReadOnlyList<string> RowTitlesIn(IRenderedComponent<Dashboard> cut, string heading)
@@ -820,10 +844,44 @@ public sealed class DashboardTests : OrbitTestContext
 
     private void RegisterEmptyTasksApiClient() => RegisterTasksApiClient([]);
 
-    private void RegisterTasksApiClient(IReadOnlyList<TaskDto> taskLists)
+    private void RegisterTasksApiClient(IReadOnlyList<TaskDto> taskLists, IReadOnlyList<TaskTagFilterDto>? tagFilters = null)
     {
-        var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(taskLists))) { BaseAddress = new Uri("https://example.test/") };
+        // The account's Tasks card filters on their own address - see TagFilterDialog. Answered with the
+        // lists instead, every test would have read a filter per list back.
+        var httpClient = new HttpClient(new StubHttpMessageHandler(request =>
+            request.RequestUri!.AbsolutePath.EndsWith("/api/task-filters", StringComparison.Ordinal)
+                ? JsonResponse(tagFilters ?? [])
+                : JsonResponse(taskLists)))
+        {
+            BaseAddress = new Uri("https://example.test/")
+        };
         Services.AddSingleton(new TasksApiClient(httpClient));
+    }
+
+    /// <summary>
+    /// A filter made of list tags shows every list it finds - in any folder, finished or not - and the
+    /// card's menu names it by its tags and ticks it instead of the card's own filter.
+    /// </summary>
+    [Fact]
+    public void A_tag_filter_chosen_on_the_tasks_card_shows_every_list_carrying_its_tags()
+    {
+        var filter = new TaskTagFilterDto(Guid.NewGuid(), ["home", "shopping"], MatchesAll: false, DateTimeOffset.UtcNow);
+        RegisterChatApiClient([]);
+        RegisterDashboardCardPreferences(new Dictionary<string, string> { ["tasks#tag-filter"] = filter.Id.ToString() });
+        RegisterTasksApiClient(
+        [
+            TaskList("Groceries") with { Tags = ["Shopping"] },
+            Finished(TaskList("Paint the hall")) with { Tags = ["home"], FolderId = Guid.NewGuid() },
+            TaskList("Quarterly report") with { Tags = ["work"] }
+        ],
+        [filter]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Equal(["Groceries", "Paint the hall"], RowTitlesIn(cut, "Tasks"));
+        FindColumn(cut, "Tasks").QuerySelector(".overflow-menu-trigger")!.Click();
+        var ticked = cut.FindAll(".overflow-menu-dropdown button.chosen").Select(entry => entry.TextContent.Replace("✓", "").Trim());
+        Assert.Equal(["home or shopping"], ticked);
     }
 
     private static TaskDto TaskList(string title, params TaskItemDto[] items) => TaskList(title, "Normal", items);
@@ -1319,13 +1377,64 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.Contains("Dentist", FindColumn(cut, "Upcoming").TextContent);
     }
 
-    /// <summary>An entry that stands for an appointment - what the task editor writes for a Calendar row.</summary>
-    private static TaskItemDto EntryFor(Guid calendarEventId, bool isCompleted)
+    /// <summary>
+    /// An entry that stands for an appointment - what the task editor writes for a Calendar row.
+    /// </summary>
+    /// <param name="dueDateUtc">
+    /// A date of its own as well, which such an entry may carry: the editor has a date field and an
+    /// appointment, and nothing stops somebody filling in both.
+    /// </param>
+    private static TaskItemDto EntryFor(Guid calendarEventId, bool isCompleted, DateTimeOffset? dueDateUtc = null)
         => new(
-            Guid.NewGuid(), "Dentist", DueDateUtc: null, isCompleted, LinkedTaskListId: null,
+            Guid.NewGuid(), "Dentist", dueDateUtc, isCompleted, LinkedTaskListId: null,
             OverdueNotificationChannel: "None", RemindDaily: false,
             DailyReminderNotificationChannel: "None", DailyReminderTimeOfDay: new TimeOnly(9, 0),
             Kind: "Calendar", Location: "", LinkedCalendarEventId: calendarEventId);
+
+    /// <summary>
+    /// An entry can carry both a date and an appointment, and the card drew it twice: once as the
+    /// appointment and once as its own deadline - the same words, from the same list, at two times
+    /// nobody had said were different.
+    /// </summary>
+    [Fact]
+    public void An_entry_that_is_also_an_appointment_is_written_once()
+    {
+        var when = DateTimeOffset.UtcNow.AddDays(1);
+        var appointment = Event("Dentist", when);
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterCalendarApiClient([appointment]);
+        RegisterTasksApiClient([TaskList("Health", EntryFor(appointment.Id, isCompleted: false, dueDateUtc: when))]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Single(
+            FindColumn(cut, "Upcoming").QuerySelectorAll(".list-row-button"),
+            row => row.TextContent.Contains("Dentist"));
+    }
+
+    /// <summary>
+    /// On any other day it stays: nothing else on the card stands for it there, and hiding it would lose
+    /// the deadline rather than tidy it. The same rule the calendar applies to the same pair.
+    /// </summary>
+    [Fact]
+    public void A_deadline_on_another_day_from_its_appointment_is_still_its_own_row()
+    {
+        var appointment = Event("Dentist", DateTimeOffset.UtcNow.AddDays(1));
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterCalendarApiClient([appointment]);
+        RegisterTasksApiClient(
+        [
+            TaskList("Health", EntryFor(appointment.Id, isCompleted: false, dueDateUtc: DateTimeOffset.UtcNow.AddDays(4)))
+        ]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Equal(
+            2,
+            FindColumn(cut, "Upcoming").QuerySelectorAll(".list-row-button").Count(row => row.TextContent.Contains("Dentist")));
+    }
 
     [Fact]
     public void A_row_that_matters_more_than_the_rest_says_so()

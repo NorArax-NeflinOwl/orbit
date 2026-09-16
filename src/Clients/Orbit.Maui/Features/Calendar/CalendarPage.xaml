@@ -186,13 +186,33 @@
             </FlexLayout>
         </VerticalStackLayout>
 
-        <Grid x:Name="AddRow" IsVisible="False" Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <Entry x:Name="AddField" Grid.Column="0" Placeholder="{controls:Translate 'New event'}"
-                   Text="{Binding NewEventTitle}"
-                   ReturnType="Done" ReturnCommand="{Binding AddEventCommand}" />
-            <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Style="{StaticResource PrimaryButton}"
-                    Command="{Binding AddEventCommand}" />
-        </Grid>
+        <VerticalStackLayout Grid.Row="1" Spacing="8">
+            <!-- While several events are being chosen from the list below - see PickingSeveral. -->
+            <controls:PickingBar BindingContext="{Binding Picking}" />
+
+            <Grid x:Name="AddRow" IsVisible="False" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Entry x:Name="AddField" Grid.Column="0" Placeholder="{controls:Translate 'New event'}"
+                       Text="{Binding NewEventTitle}"
+                       ReturnType="Done" ReturnCommand="{Binding AddEventCommand}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Style="{StaticResource PrimaryButton}"
+                        Command="{Binding AddEventCommand}" />
+            </Grid>
+
+            <!-- Naming a new folder, unfolded from the menu rather than standing on the screen - see
+                 NotesPage, which this is the same row as. -->
+            <Grid x:Name="FolderRow" IsVisible="False" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Entry x:Name="FolderField" Grid.Column="0"
+                       Placeholder="{controls:Translate 'Folder name'}"
+                       Text="{Binding NewFolderName}"
+                       ReturnType="Done"
+                       ReturnCommand="{Binding MakeFolderCommand}"
+                       ReturnCommandParameter="{Binding NewFolderName}" />
+                <!-- Add, or Rename while the row holds a folder's present name - see FolderRowAction. -->
+                <Button Grid.Column="1" Text="{Binding FolderRowAction}" Style="{StaticResource PrimaryButton}"
+                        Command="{Binding MakeFolderCommand}"
+                        CommandParameter="{Binding NewFolderName}" />
+            </Grid>
+        </VerticalStackLayout>
 
         <!-- Folded away with the box above them: these two say when the event being typed in starts,
              and on their own under a header with no box they were two dates about nothing. -->
@@ -355,6 +375,12 @@
                             </VerticalStackLayout>
 
                             <HorizontalStackLayout Grid.Column="3" Spacing="6" VerticalOptions="Center">
+                                <!-- Which events are chosen, while several are being chosen - see
+                                     ItemCard.OffersPicking, whose mark this is on a row that is not a
+                                     card. The press belongs to the whole row. -->
+                                <CheckBox IsChecked="{Binding IsPicked}" IsVisible="{Binding OffersPicking}"
+                                          InputTransparent="True" VerticalOptions="Center"
+                                          SemanticProperties.Description="{controls:Translate 'Select'}" />
                                 <!-- Two rows with the same words are otherwise indistinguishable, and
                                      the reader has no way of telling which one they wrote in. -->
                                 <Border Style="{StaticResource CardBadge}" IsVisible="{Binding IsCopy}">

@@ -97,6 +97,14 @@ public sealed record DashboardRow(Guid LocalId, string Title, string Detail)
     public bool HasNews { get; init; }
 
     /// <summary>
+    /// The entry this row stands for, where it stands for one rather than for whatever
+    /// <see cref="LocalId"/> names. Only the Upcoming card's deadline rows have one: there
+    /// <see cref="LocalId"/> is the list the entry sits on, and the pair together is what opens it.
+    /// Null everywhere else, which is every row whose id is the whole address.
+    /// </summary>
+    public Guid? EntryId { get; init; }
+
+    /// <summary>
     /// Whether the row leads with the circle a person or a group is drawn as - Orbit.Web's .avatar-sm
     /// in the same place. True only where <see cref="LocalId"/> is somebody: a note's id is not a
     /// person, and a circle made of it would be a colour that means nothing.
@@ -197,6 +205,9 @@ public enum DashboardCardFilter
 
 /// <summary>One choice in a card's filter menu, with the chosen one marked.</summary>
 public sealed record DashboardFilterChoice(DashboardCardKind Kind, DashboardCardFilter Filter, string Name, bool IsChosen);
+
+/// <summary>One of the account's tag filters as the Tasks card's menu offers it - see Tasks.TaskTagFilters.</summary>
+public sealed record DashboardTagFilterChoice(Guid Id, string Name, bool IsChosen);
 
 /// <summary>
 /// One line of the "Show on the dashboard" menu: a part of the dashboard and whether it is being shown.
