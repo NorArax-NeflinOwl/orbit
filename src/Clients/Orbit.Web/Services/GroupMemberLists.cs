@@ -4,7 +4,7 @@ namespace Orbit.Web.Services;
 
 /// <summary>
 /// Why one of a group's member lists can or cannot be written in from the group's own editor - see
-/// <see cref="GroupMembers"/>. Said as a reason rather than a bare "no", because every one of these has
+/// <see cref="GroupMemberLists"/>. Said as a reason rather than a bare "no", because every one of these has
 /// somewhere else the reader can go and do it.
 /// </summary>
 public enum WhyAMemberIsReadOnly
@@ -37,7 +37,7 @@ public enum WhyAMemberIsReadOnly
 /// own members - a list that links back to itself would otherwise appear twice in one form, with two
 /// sets of boxes writing over each other.
 /// </summary>
-public static class GroupMembers
+public static class GroupMemberLists
 {
     /// <summary>
     /// The ids the group's entries point at, in the order the entries do and without repeats.

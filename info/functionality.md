@@ -2887,7 +2887,7 @@ that did not go** - "something failed" over a form holding five of them tells th
 which to look at. A member nobody wrote in is not written at all, since an untouched list coming back
 with a new `UpdatedAtUtc` is what every other client syncs against.
 
-**Direct members only** (`GroupMembers.IdsUnder`). A member that is itself a group is opened to reach
+**Direct members only** (`GroupMemberLists.IdsUnder`). A member that is itself a group is opened to reach
 its own: a form that unfolded a whole tree would be a form whose length nobody can predict, and the
 shallow view is what reads a tree end to end. A list two entries point at is held once - named twice it
 would appear twice in one form, with two sets of boxes writing over each other - and a group is never
@@ -2896,7 +2896,7 @@ among its own members.
 **A member's edit lock is taken when the form opens** and let go by every door out, which is what a lock
 says: this form is about these lists. A member that is **sealed**, **shared to read**, or **held by
 somebody else** is drawn and read but not written in, and the section says which of the three
-(`GroupMembers.WhyReadOnly`). They are asked in that order on purpose: a lock goes away by waiting and
+(`GroupMemberLists.WhyReadOnly`). They are asked in that order on purpose: a lock goes away by waiting and
 the other two do not, so telling somebody "she is editing it" about a list they could never edit would
 send them back to try again for nothing.
 

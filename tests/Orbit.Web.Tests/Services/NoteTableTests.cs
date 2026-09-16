@@ -32,7 +32,7 @@ public sealed class NoteTableTests
     {
         var table = NoteTables.Empty(rows: 0, columns: 0);
 
-        Assert.Equal(1, table.Rows.Count);
+        Assert.Single(table.Rows);
         Assert.Equal(1, table.Columns);
     }
 

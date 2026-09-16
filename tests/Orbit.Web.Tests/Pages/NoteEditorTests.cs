@@ -41,6 +41,7 @@ public sealed class NoteEditorTests : OrbitTestContext
     public NoteEditorTests()
     {
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+        Services.AddScoped<Clipboard>();
 
         // The content field is a ChecklistTextEditor, which loads its own JS module and hands it the
         // note's lines. bUnit refuses any interop call it hasn't been told about, so both the module and
@@ -452,7 +453,7 @@ public sealed class NoteEditorTests : OrbitTestContext
     }
 
     /// <summary>
-    /// The row of tools sits over the corner of the writing rather than above it, and all four of them
+    /// The row of tools sits over the corner of the writing rather than above it, and all five of them
     /// work. The attachment is a file picker, opened by the surface, whose choice comes back the way a
     /// pasted picture does.
     /// </summary>
@@ -463,7 +464,7 @@ public sealed class NoteEditorTests : OrbitTestContext
         RegisterApiClients(note);
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
 
-        Assert.Equal(4, cut.FindAll(".note-editor-tools .note-tool").Count);
+        Assert.Equal(5, cut.FindAll(".note-editor-tools .note-tool").Count);
         Assert.Empty(cut.FindAll(".note-tool-bubble"));
 
         cut.FindAll(".note-editor-tools .note-tool")
@@ -487,7 +488,7 @@ public sealed class NoteEditorTests : OrbitTestContext
             .First(tool => tool.GetAttribute("aria-label") == "Attachment").Click();
 
         Assert.Contains("Save the note first", cut.Find(".note-tool-bubble").TextContent);
-        Assert.Empty(JSInterop.Invocations.Where(invocation => invocation.Identifier == "pickPicture"));
+        Assert.DoesNotContain(JSInterop.Invocations, invocation => invocation.Identifier == "pickPicture");
     }
 
     /// <summary>Outside a table the table tool inserts one - the surface is told, and the lines pulled back.</summary>
@@ -511,13 +512,13 @@ public sealed class NoteEditorTests : OrbitTestContext
     /// ChecklistTextEditor.OnCaretInTableChanged - so the test says so the way the browser would.
     /// </summary>
     [Fact]
-    public void Inside_a_table_the_table_tool_offers_what_can_be_done_to_it()
+    public async Task Inside_a_table_the_table_tool_offers_what_can_be_done_to_it()
     {
         var note = Note("Shopping");
         RegisterApiClients(note);
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
         var editor = cut.FindComponent<ChecklistTextEditor>().Instance;
-        cut.InvokeAsync(() => editor.OnCaretInTableChanged(true)).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => editor.OnCaretInTableChanged(true));
 
         cut.FindAll(".note-editor-tools .note-tool")
             .First(tool => tool.GetAttribute("aria-label") == "Table").Click();
@@ -556,7 +557,7 @@ public sealed class NoteEditorTests : OrbitTestContext
         Assert.Equal(
             ["Title", "Heading", "Subheading", "Body", "Monospaced", "Bulleted list", "Dashed list", "Numbered list"],
             offered.Select(entry => entry.TextContent.Trim()));
-        Assert.Contains("note-style-heading", offered[1].GetAttribute("class"));
+        Assert.Contains("note-style-heading", offered.ElementAt(1).GetAttribute("class"));
     }
 
     /// <summary>

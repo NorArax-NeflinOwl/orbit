@@ -3001,7 +3001,7 @@ else
                 // is finished is not a question this section asks - see UpdateTaskRequest.Completion.
                 Completion: null, Tags: member.Form.Tags));
 
-            if (outcome.Kind is not EditOutcomeKind.Saved)
+            if (outcome.Kind is not EditOutcomeKind.Success)
             {
                 Logger.LogInformation(
                     "A member list {TaskListId} was not saved with its group: {Kind}", member.Source.Id, outcome.Kind);
@@ -3060,7 +3060,7 @@ else
 
     /// <summary>
     /// One list this group gathers, as this form holds it: what it was when it was read, the form it is
-    /// written in, and why it cannot be written in where that is the case (see GroupMembers).
+    /// written in, and why it cannot be written in where that is the case (see GroupMemberLists).
     /// </summary>
     private sealed record MemberForm(TaskDto Source, TaskListFormModel Form, WhyAMemberIsReadOnly ReadOnlyBecause)
     {
@@ -3092,7 +3092,7 @@ else
     /// </summary>
     private async Task LoadTheMembersAsync(Guid groupId, IReadOnlyList<TaskDto> allTaskLists)
     {
-        var memberIds = GroupMembers.IdsUnder(groupId, _formModel.Items.Select(item => item.LinkedTaskListIds));
+        var memberIds = GroupMemberLists.IdsUnder(groupId, _formModel.Items.Select(item => item.LinkedTaskListIds));
         var members = new List<MemberForm>();
 
         foreach (var memberId in memberIds)
@@ -3109,11 +3109,11 @@ else
                 continue;
             }
 
-            var lockedBy = GroupMembers.WhyReadOnly(member, lockedByUserName: null) == WhyAMemberIsReadOnly.None
+            var lockedBy = GroupMemberLists.WhyReadOnly(member, lockedByUserName: null) == WhyAMemberIsReadOnly.None
                 ? await LockedByAsync(memberId)
                 : null;
 
-            members.Add(new MemberForm(member, ToFormModel(member), GroupMembers.WhyReadOnly(member, lockedBy))
+            members.Add(new MemberForm(member, ToFormModel(member), GroupMemberLists.WhyReadOnly(member, lockedBy))
             {
                 LockedByUserName = lockedBy
             });

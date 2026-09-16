@@ -9,7 +9,7 @@ namespace Orbit.Web.Tests.Services;
 /// rules behind "a child's entries cannot be renamed, added or removed from there", which is what the
 /// user asked to be able to do.
 /// </summary>
-public sealed class GroupMembersTests
+public sealed class GroupMemberListsTests
 {
     private static readonly Guid GroupId = Guid.NewGuid();
     private static readonly Guid First = Guid.NewGuid();
@@ -24,7 +24,7 @@ public sealed class GroupMembersTests
     [Fact]
     public void A_group_holds_the_lists_its_entries_point_at()
     {
-        var members = GroupMembers.IdsUnder(GroupId, [[First], [Second]]);
+        var members = GroupMemberLists.IdsUnder(GroupId, [[First], [Second]]);
 
         Assert.Equal([First, Second], members);
     }
@@ -36,7 +36,7 @@ public sealed class GroupMembersTests
     [Fact]
     public void A_list_two_entries_point_at_is_held_once()
     {
-        var members = GroupMembers.IdsUnder(GroupId, [[First], [First, Second]]);
+        var members = GroupMemberLists.IdsUnder(GroupId, [[First], [First, Second]]);
 
         Assert.Equal([First, Second], members);
     }
@@ -45,7 +45,7 @@ public sealed class GroupMembersTests
     [Fact]
     public void A_group_is_never_among_its_own_members()
     {
-        var members = GroupMembers.IdsUnder(GroupId, [[GroupId, First]]);
+        var members = GroupMemberLists.IdsUnder(GroupId, [[GroupId, First]]);
 
         Assert.Equal([First], members);
     }
@@ -53,7 +53,7 @@ public sealed class GroupMembersTests
     [Fact]
     public void An_ordinary_member_can_be_written_in()
     {
-        Assert.Equal(WhyAMemberIsReadOnly.None, GroupMembers.WhyReadOnly(AList(), lockedByUserName: null));
+        Assert.Equal(WhyAMemberIsReadOnly.None, GroupMemberLists.WhyReadOnly(AList(), lockedByUserName: null));
     }
 
     /// <summary>
@@ -65,7 +65,7 @@ public sealed class GroupMembersTests
     {
         Assert.Equal(
             WhyAMemberIsReadOnly.Sealed,
-            GroupMembers.WhyReadOnly(AList(isPrivate: true), lockedByUserName: null));
+            GroupMemberLists.WhyReadOnly(AList(isPrivate: true), lockedByUserName: null));
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public sealed class GroupMembersTests
     {
         Assert.Equal(
             WhyAMemberIsReadOnly.SharedToRead,
-            GroupMembers.WhyReadOnly(AList(isShared: true, accessLevel: "ReadOnly"), lockedByUserName: null));
+            GroupMemberLists.WhyReadOnly(AList(isShared: true, accessLevel: "ReadOnly"), lockedByUserName: null));
     }
 
     /// <summary>One shared with permission to change it is editable here like any other.</summary>
@@ -82,7 +82,7 @@ public sealed class GroupMembersTests
     {
         Assert.Equal(
             WhyAMemberIsReadOnly.None,
-            GroupMembers.WhyReadOnly(AList(isShared: true, accessLevel: "CanEdit"), lockedByUserName: null));
+            GroupMemberLists.WhyReadOnly(AList(isShared: true, accessLevel: "CanEdit"), lockedByUserName: null));
     }
 
     [Fact]
@@ -90,7 +90,7 @@ public sealed class GroupMembersTests
     {
         Assert.Equal(
             WhyAMemberIsReadOnly.HeldBySomebodyElse,
-            GroupMembers.WhyReadOnly(AList(), lockedByUserName: "Ola"));
+            GroupMemberLists.WhyReadOnly(AList(), lockedByUserName: "Ola"));
     }
 
     /// <summary>
@@ -102,6 +102,6 @@ public sealed class GroupMembersTests
     {
         Assert.Equal(
             WhyAMemberIsReadOnly.Sealed,
-            GroupMembers.WhyReadOnly(AList(isPrivate: true), lockedByUserName: "Ola"));
+            GroupMemberLists.WhyReadOnly(AList(isPrivate: true), lockedByUserName: "Ola"));
     }
 }

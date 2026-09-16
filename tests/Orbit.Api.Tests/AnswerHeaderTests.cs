@@ -79,7 +79,10 @@ public sealed class AnswerHeaderTests
         public int StatusCode { get => _inner.StatusCode; set => _inner.StatusCode = value; }
         public string? ReasonPhrase { get => _inner.ReasonPhrase; set => _inner.ReasonPhrase = value; }
         public IHeaderDictionary Headers { get => _inner.Headers; set => _inner.Headers = value; }
+        // The interface still requires it, obsolete or not; this only passes it through.
+#pragma warning disable CS0618
         public Stream Body { get => _inner.Body; set => _inner.Body = value; }
+#pragma warning restore CS0618
         public bool HasStarted => _inner.HasStarted;
 
         public void OnStarting(Func<object, Task> callback, object state) => _startingCallbacks.Add(() => callback(state));

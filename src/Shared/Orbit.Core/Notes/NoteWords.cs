@@ -29,7 +29,7 @@ public static class NoteWords
         string title, IEnumerable<NoteContentLine> lines, WhatToCopy what = WhatToCopy.Everything)
         => string.Join(
             "\n",
-            new[] { title }.Concat(lines.Where(line => !line.IsAnElement).Where(what.Keeps).Select(AsALine)));
+            new[] { title }.Concat(lines.Where(line => !line.IsAnElement).Where(line => what.Keeps(line)).Select(AsALine)));
 
     /// <summary>
     /// Whether this line belongs in a copy of <paramref name="what"/>. A line with no box is not in any
