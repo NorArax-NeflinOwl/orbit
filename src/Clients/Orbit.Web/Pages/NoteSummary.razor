@@ -10,6 +10,7 @@
 @inject NavigationTrail NavigationTrail
 @inject IJSRuntime JSRuntime
 @inject ILogger<NoteSummary> Logger
+@inject Clipboard Clipboard
 @inject Translations T
 
 @* A note read rather than written: its lines as they are, with the ones that are checklist items
@@ -111,7 +112,7 @@ else
         <ChildContent>
             @* No Edit in here: it is a button of its own on the panel now - see EditorRail.OnEdit. *@
             <ObjectMenu AllLabel="@T["All notes"]" OnAll="GoToNotes"
-                        CopyTextLabel="@(_copied ? T["Copied"] : T["Copy the text"])" OnCopyText="CopyTheTextAsync"
+                        CopyChoices="@CopyChoices" OnCopy="CopyTheTextAsync"
                         DeleteLabel="@(!_note.IsShared ? T["Delete"] : null)" OnDelete="DeleteAsync" />
         </ChildContent>
     </EditorRail>
@@ -137,8 +138,21 @@ else
     private bool _isSaving;
     private string? _message;
 
-    /// <summary>Says so on the menu entry itself until the menu is left - the press has nothing else to show.</summary>
-    private bool _copied;
+    /// <summary>
+    /// Which of the four was copied, so that entry says so until the menu is left - the press has
+    /// nothing else to show. Null until one of them is pressed.
+    /// </summary>
+    private WhatToCopy? _copied;
+
+    /// <summary>
+    /// The whole note, and then each state of its boxes on their own - see WhatToCopy, and
+    /// ObjectMenu.CopyChoices. All four whatever the note holds: a note with nothing ticked is exactly
+    /// where somebody finds out that nothing is, and an entry that appears only sometimes is one nobody
+    /// learns is there.
+    /// </summary>
+    private IReadOnlyList<ObjectMenu.CopyChoice> CopyChoices =>
+        [.. CopiedParts.All.Select(what => new ObjectMenu.CopyChoice(
+            _copied == what ? T["Copied"] : T[what.Label()], what))];
 
     /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
     private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
@@ -153,27 +167,26 @@ else
     ///
     /// The name is the first line, because that is what a note's name is on both clients - the first
     /// line of the writing - and a note pasted somewhere without it is a note nobody can tell from
-    /// another.
+    /// another. It stays there whichever part is asked for: a handful of errands with nothing saying
+    /// which note they came from is a handful nobody can place.
     /// </summary>
-    private string AsWords() => NoteWords.Of(_note?.Title ?? string.Empty, _lines.ToSurfaceLines());
+    private string AsWords(WhatToCopy what)
+        => NoteWords.Of(_note?.Title ?? string.Empty, _lines.ToSurfaceLines(), what);
 
     /// <summary>
-    /// A denied clipboard permission - some mobile browsers, a restricted webview - throws rather than
-    /// answering, and a note that would not copy is not a reason to take the page down with it. See
-    /// ShareLinkButton, which guards its own copy the same way.
+    /// A clipboard that refused - some mobile browsers, a restricted webview - is said out loud rather
+    /// than swallowed: a copy that quietly did nothing is indistinguishable from one that worked. See
+    /// Clipboard, which is where the refusal itself is caught.
     /// </summary>
-    private async Task CopyTheTextAsync()
+    private async Task CopyTheTextAsync(WhatToCopy what)
     {
-        try
+        if (await Clipboard.TryWriteAsync(AsWords(what)))
         {
-            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", AsWords());
-            _copied = true;
+            _copied = what;
+            return;
         }
-        catch (JSException exception)
-        {
-            Logger.LogWarning(exception, "Failed to copy the note's text to the clipboard");
-            _message = T["The text could not be copied. Your browser did not allow it."];
-        }
+
+        _message = T["The text could not be copied. Your browser did not allow it."];
     }
 
     protected override async Task OnParametersSetAsync()

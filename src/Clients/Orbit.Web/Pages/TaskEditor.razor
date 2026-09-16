@@ -34,6 +34,7 @@
 @inject NavigationManager NavigationManager
 @inject NavigationTrail NavigationTrail
 @inject ILogger<TaskEditor> Logger
+@inject Clipboard Clipboard
 @inject Translations T
 @inject TimeProvider TimeProvider
 @inject ChosenPlace ChosenPlace
@@ -730,6 +731,18 @@ else
                 </div>
                 </div>
 
+                @* The list on the clipboard, whole or narrowed to one state of its entries - the same
+                   four the checklist offers (TaskListChecklist), because the reader writing the list is
+                   as likely to want the errands still to do as the reader only reading it. What is
+                   copied is what the form holds, unsaved entries included: it is the list in front of
+                   them, which is also why this one is offered on a list that has never been saved. *@
+                <div class="editor-settings-divider"></div>
+                @foreach (var what in CopiedParts.All)
+                {
+                    <button type="button" class="avatar-dropdown-item"
+                            @onclick="() => CopyTheTextAsync(what)">@(_copied == what ? T["Copied"] : T[what.Label()])</button>
+                }
+
                 @* Only for a list that exists: nothing below the line can act on one that has never
                    been saved, and a divider over nothing is a line for its own sake. *@
                 @if (!IsNewTaskList && Id is { } menuTaskListId)
@@ -900,6 +913,35 @@ else
     /// make changing two a chore - see OverflowMenu, where both halves of that rule live.
     /// </summary>
     private OverflowMenu? _menu;
+
+    /// <summary>Which of the four was copied, so that entry says so until the menu is left.</summary>
+    private WhatToCopy? _copied;
+
+    /// <summary>
+    /// The list being written, on the clipboard - see TaskListChecklist.CopyTheTextAsync, which is the
+    /// same action on the same list from the screen that only reads it. The entries are taken from the
+    /// form rather than from what was last saved, since the form is the list in front of the reader.
+    ///
+    /// An entry that only points at other lists is left out, as it is there: a row holding a group
+    /// together is not work anybody copies, and its state is the pointed-at list's anyway.
+    /// </summary>
+    private async Task CopyTheTextAsync(WhatToCopy what)
+    {
+        var words = TaskListWords.Of(
+            _formModel.Title,
+            _formModel.Items
+                .Where(item => !item.IsALinkToOtherLists)
+                .Select(item => new TickedLine(item.Description, Ticks.Read(item.IsCompleted, item.IsFailed))),
+            what);
+
+        if (await Clipboard.TryWriteAsync(words))
+        {
+            _copied = what;
+            return;
+        }
+
+        _saveErrorMessage = T["The text could not be copied. Your browser did not allow it."];
+    }
 
     /// <summary>
     /// Whether this reader may hand the list to a contact: a saved list, a share that allows passing it

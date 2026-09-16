@@ -164,6 +164,7 @@ builder.Services.AddScoped<PageVisibility>();
 builder.Services.AddScoped<ChatSeenProbe>();
 builder.Services.AddScoped<UserPermissionState>();
 builder.Services.AddScoped<ChecklistViewPreference>();
+builder.Services.AddScoped<Clipboard>();
 builder.Services.AddScoped<TaskListArrangement>();
 // The questions asked before a task list is deleted, shared by the three screens that offer it.
 builder.Services.AddScoped<TaskListDeletion>();

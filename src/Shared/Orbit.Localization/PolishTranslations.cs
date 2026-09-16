@@ -1070,6 +1070,12 @@ public static class PolishTranslations
         // Taking what a note says out of Orbit altogether, from its menu - next to Copy, which makes a
         // second note inside it. The label says which of the two it is.
         ["Copy the text"] = "Kopiuj tekst",
+        // The same copy, narrowed to one state of the boxes - see Orbit.Core.Abstractions.WhatToCopy,
+        // which hands these out as keys rather than as words. Each names what it takes, not what it
+        // leaves: "to, co zostało" is what is still owed, and a crossed-out entry is not in it.
+        ["Copy what is done"] = "Kopiuj to, co zrobione",
+        ["Copy what is still to do"] = "Kopiuj to, co zostało",
+        ["Copy what was given up on"] = "Kopiuj to, co odpuszczone",
         // The phone's own wording: it has no browser to blame, and Android refuses the clipboard for
         // reasons the reader can do nothing about either way.
         ["The text could not be copied."] = "Nie udało się skopiować tekstu.",

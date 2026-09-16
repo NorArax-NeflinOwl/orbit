@@ -1,4 +1,5 @@
-@* All X · Edit-or-View · Duplicate · Copy the text · Share · Archive · Delete, in that order - the shape six menus wrote out by hand as
+@using Orbit.Core.Abstractions
+@* All X · Edit-or-View · Duplicate · the copies · Share · Archive · Delete, in that order - the shape six menus wrote out by hand as
    plain avatar-dropdown-item buttons inside an OverflowMenu. A page hands each slot the label its own
    rules already chose - whether it reads "Edit" or "View", whether Share or Delete belongs at all -
    nothing here decides that; a slot left null is left out rather than drawn disabled, the same rule
@@ -16,9 +17,10 @@
     {
         <button type="button" class="avatar-dropdown-item" @onclick="OnDuplicate">@DuplicateLabel</button>
     }
-    @if (CopyTextLabel is not null)
+    @foreach (var choice in CopyChoices ?? [])
     {
-        <button type="button" class="avatar-dropdown-item" @onclick="OnCopyText">@CopyTextLabel</button>
+        <button type="button" class="avatar-dropdown-item"
+                @onclick="() => OnCopy.InvokeAsync(choice.What)">@choice.Label</button>
     }
     @if (ShareLabel is not null)
     {
@@ -62,13 +64,20 @@
     [Parameter] public EventCallback OnDuplicate { get; set; }
 
     /// <summary>
-    /// Puts what this thing says on the clipboard, for taking it somewhere Orbit is not. Beside Duplicate
-    /// because the two are the same wish pointed at different places - a copy inside Orbit, and a copy
-    /// out of it - and the label says which ("Copy the text", not "Copy").
+    /// Putting what this thing says on the clipboard, for taking it somewhere Orbit is not. Beside
+    /// Duplicate because the two are the same wish pointed at different places - a copy inside Orbit,
+    /// and a copy out of it - and each label says which ("Copy the text", not "Copy").
+    ///
+    /// A list rather than one entry, because a copy can be of the whole thing or of one state of it -
+    /// see Orbit.Core.Abstractions.WhatToCopy. The page hands over the labels its own rules chose, as
+    /// every other slot here works; none at all leaves the section out.
     /// </summary>
-    [Parameter] public string? CopyTextLabel { get; set; }
+    [Parameter] public IReadOnlyList<CopyChoice>? CopyChoices { get; set; }
 
-    [Parameter] public EventCallback OnCopyText { get; set; }
+    [Parameter] public EventCallback<WhatToCopy> OnCopy { get; set; }
+
+    /// <summary>One entry in the copy section: what it says, and which part of the thing it copies.</summary>
+    public sealed record CopyChoice(string Label, WhatToCopy What);
 
     [Parameter] public string? ShareLabel { get; set; }
 

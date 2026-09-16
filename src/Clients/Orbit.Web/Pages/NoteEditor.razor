@@ -23,6 +23,7 @@
 @inject NavigationManager NavigationManager
 @inject NavigationTrail NavigationTrail
 @inject ILogger<NoteEditor> Logger
+@inject Clipboard Clipboard
 @inject Translations T
 
 <PageTitle>@(IsNewNote ? T["New note"] : T["Edit note"])</PageTitle>
@@ -285,6 +286,18 @@ else
                     }
                 </div>
 
+                @* The note on the clipboard, whole or narrowed to one state of its boxes - the same four
+                   the light view offers (NoteSummary), because the reader who is writing the note is as
+                   likely to want the shopping still to do as the reader who is only reading it. What is
+                   copied is what the form holds, unsaved lines included: it is the note in front of
+                   them. Under a line with the actions, being one. *@
+                <div class="editor-settings-divider"></div>
+                @foreach (var what in CopiedParts.All)
+                {
+                    <button type="button" class="avatar-dropdown-item"
+                            @onclick="() => CopyTheTextAsync(what)">@(_copied == what ? T["Copied"] : T[what.Label()])</button>
+                }
+
                 @* The two ways of handing the note on, under a line because they are actions rather than
                    settings: each closes the menu and opens its panel over the page. They used to be two
                    more sections under the writing, a form below a form. Offered on the same terms as
@@ -409,6 +422,27 @@ else
 
     /// <summary>The panel's menu, so the two entries that open something over the page can close it behind them.</summary>
     private OverflowMenu? _menu;
+
+    /// <summary>Which of the four was copied, so that entry says so until the menu is left.</summary>
+    private WhatToCopy? _copied;
+
+    /// <summary>
+    /// The note being written, on the clipboard - see NoteSummary.CopyTheTextAsync, which is the same
+    /// action on the same note from the screen that only reads it. The lines are taken from the form
+    /// rather than from what was last saved, since the form is the note in front of the reader.
+    /// </summary>
+    private async Task CopyTheTextAsync(WhatToCopy what)
+    {
+        var words = NoteWords.Of(_formModel.Title, _formModel.Lines.ToSurfaceLines(), what);
+
+        if (await Clipboard.TryWriteAsync(words))
+        {
+            _copied = what;
+            return;
+        }
+
+        _saveErrorMessage = T["The text could not be copied. Your browser did not allow it."];
+    }
 
     /// <summary>
     /// Whether this reader may hand the note to a contact: a saved note, a share that allows passing it

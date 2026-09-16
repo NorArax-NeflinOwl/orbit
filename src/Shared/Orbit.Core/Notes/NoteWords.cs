@@ -1,3 +1,5 @@
+using Orbit.Core.Abstractions;
+
 namespace Orbit.Core.Notes;
 
 /// <summary>
@@ -17,11 +19,33 @@ namespace Orbit.Core.Notes;
 /// </summary>
 public static class NoteWords
 {
-    public static string Of(string title, IEnumerable<NoteContentLine> lines)
+    /// <summary>
+    /// The note as it reads, name first - see the type, which says what each line becomes.
+    /// <paramref name="what"/> narrows it to the boxes in one state, for the reader who wants the
+    /// shopping still to do rather than the whole page (see <see cref="WhatToCopy"/>). The name stays
+    /// whichever is asked for: a list of errands with nothing saying which list is one nobody can place.
+    /// </summary>
+    public static string Of(
+        string title, IEnumerable<NoteContentLine> lines, WhatToCopy what = WhatToCopy.Everything)
         => string.Join(
             "\n",
-            new[] { title }.Concat(lines.Where(line => !line.IsAnElement).Select(AsALine)));
+            new[] { title }.Concat(lines.Where(line => !line.IsAnElement).Where(what.Keeps).Select(AsALine)));
 
+    /// <summary>
+    /// Whether this line belongs in a copy of <paramref name="what"/>. A line with no box is not in any
+    /// of the three states the narrow choices ask about, so it travels only in the whole thing.
+    /// </summary>
+    private static bool Keeps(this WhatToCopy what, NoteContentLine line)
+        => line.IsChecklistItem
+            ? what.Keeps(Ticks.Read(line.IsChecked, line.IsFailed))
+            : what.KeepsWhatHasNoBox();
+
+    /// <summary>
+    /// One line as the clipboard carries it. A crossed-out box goes out as an unticked one and not as a
+    /// mark of its own: the format is only worth having because a paste reads it back
+    /// (NoteSurfaceEdits.ReadPastedLine), and that knows a box and a ticked box and nothing else. A
+    /// third marker would paste in as words pretending to be a line.
+    /// </summary>
     private static string AsALine(NoteContentLine line)
         => line switch
         {

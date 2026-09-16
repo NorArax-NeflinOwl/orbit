@@ -13,6 +13,7 @@
 @using Orbit.Core.Inventories
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Abstractions
+@using Orbit.Core.Tasks
 @using Orbit.Core.Notifications
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
@@ -25,6 +26,7 @@
 @inject TaskItemCompletion TaskItemCompletion
 @inject IJSRuntime JSRuntime
 @inject ILogger<TaskListChecklist> Logger
+@inject Clipboard Clipboard
 @inject Translations T
 
 <PageTitle>@(_sections.Count > 0 ? Written(_sections[0].TaskList.Title) : T["Checklist"])</PageTitle>
@@ -402,6 +404,16 @@ else
         {
             <button type="button" class="avatar-dropdown-item" @onclick="StartASublist">@T["New sublist"]</button>
         }
+        @* The list on the clipboard, for taking it somewhere Orbit is not - and each state of it on its
+           own, which is what the whole thing was asked for: copy what is still to do out of here and
+           paste it into a note, where the same "[x] " and "- " come back as boxes (NoteWords, and
+           TaskListWords which writes the same format). The whole tree, as the count above is: the
+           question is about the list that was opened. *@
+        @foreach (var what in CopiedParts.All)
+        {
+            <button type="button" class="avatar-dropdown-item"
+                    @onclick="() => CopyTheTextAsync(what)">@(_copied == what ? T["Copied"] : T[what.Label()])</button>
+        }
         @* Deleting the list from the list itself. A note, an inventory and a calendar event have all
            been deletable from the screen that reads them; a task list was the one that could only be
            deleted from the page of cards, which meant leaving the thing to get rid of it. Offered only
@@ -622,6 +634,34 @@ else
     /// the tree is held together, and their state follows the list they point at anyway (see
     /// LinkedTaskCompletionResolver).
     /// </summary>
+    /// <summary>Which of the four was copied, so that entry says so until the menu is left.</summary>
+    private WhatToCopy? _copied;
+
+    /// <summary>
+    /// The list on the clipboard, narrowed to <paramref name="what"/> - written in the format a note's
+    /// paste reads back, so what comes out of here goes into a note as the same entries. The entries
+    /// that only point at other lists are left out with everything else <see cref="_flatItems"/> leaves
+    /// out: a row holding the tree together is not work anybody copies.
+    ///
+    /// A refused clipboard - some mobile browsers, a restricted webview - throws rather than answering,
+    /// and a list that would not copy is not a reason to take the page down with it.
+    /// </summary>
+    private async Task CopyTheTextAsync(WhatToCopy what)
+    {
+        var words = TaskListWords.Of(
+            Written(_sections[0].TaskList.Title),
+            _flatItems.Select(entry => new TickedLine(entry.Item.Description, TickOf(entry.Item))),
+            what);
+
+        if (await Clipboard.TryWriteAsync(words))
+        {
+            _copied = what;
+            return;
+        }
+
+        _errorMessage = T["The text could not be copied. Your browser did not allow it."];
+    }
+
     private IReadOnlyList<FlatChecklistEntry> _flatItems =>
         [.. _sections.SelectMany(section => section.TaskList.Items
             .Where(item => item.AllLinkedTaskListIds.Count == 0)
