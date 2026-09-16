@@ -43,6 +43,7 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
     public TaskEditorCalendarLocationTests()
     {
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+        Services.AddScoped<Clipboard>();
         RegisterAuthentication();
         var mapPicker = JSInterop.SetupModule("./js/mapPicker.js");
         mapPicker.SetupVoid("initializeMapPicker", _ => true).SetVoidResult();

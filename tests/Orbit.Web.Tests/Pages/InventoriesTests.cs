@@ -95,6 +95,8 @@ public sealed class InventoriesTests : OrbitTestContext
         RegisterApiClients([Inventory("Medicine", isPrivate: true)]);
 
         var cut = RenderComponent<Web.Pages.Inventories>();
+        // A sealed shelf is under Private, not under Public where the page opens - see FolderPlacement.
+        cut.FindAll(".folder-tab").Single(tab => tab.TextContent.Contains("Private")).Click();
 
         Assert.Contains("only you can read it", cut.Markup);
         Assert.DoesNotContain("Share", ActionsOf(cut));

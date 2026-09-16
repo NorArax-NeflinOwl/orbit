@@ -27,6 +27,7 @@ public sealed class NoteSummaryTests : OrbitTestContext
     public NoteSummaryTests()
     {
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+        Services.AddScoped<Clipboard>();
         var httpClient = new HttpClient(new StubHttpMessageHandler(request =>
         {
             if (request.Method == HttpMethod.Put)

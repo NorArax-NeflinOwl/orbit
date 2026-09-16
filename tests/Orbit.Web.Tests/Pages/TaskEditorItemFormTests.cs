@@ -52,6 +52,7 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     public TaskEditorItemFormTests()
     {
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+        Services.AddScoped<Clipboard>();
         RegisterAuthentication();
         RegisterPermissions();
     }
@@ -1133,6 +1134,9 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         ClickButtonSaying(cut, "Add item");
         ClickButtonSaying(cut, "Add item");
 
+        // Only one entry is open at a time, and Add item opens the one it adds - so the middle one is
+        // opened by hand. See TaskEditor.IsExpanded.
+        cut.FindAll(".editor-item").Skip(1).First().QuerySelector(".editor-item-toggle")!.Click();
         var theSecondEntry = cut.FindAll(".editor-item").Skip(1).First();
         var waitsFor = theSecondEntry.QuerySelectorAll("select")
             .Single(select => select.GetAttribute("aria-label") == "Waits for");
@@ -1155,6 +1159,9 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         ClickButtonSaying(cut, "Add item");
         ClickButtonSaying(cut, "Add item");
 
+        // Only one entry is open at a time, and Add item opens the one it adds - so the middle one is
+        // opened by hand. See TaskEditor.IsExpanded.
+        cut.FindAll(".editor-item").Skip(1).First().QuerySelector(".editor-item-toggle")!.Click();
         var theSecondEntry = cut.FindAll(".editor-item").Skip(1).First();
         var waitsFor = theSecondEntry.QuerySelectorAll("select")
             .Single(select => select.GetAttribute("aria-label") == "Waits for");
@@ -1617,6 +1624,13 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
                     GeneratedInventoryId, "Spiżarnia", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
                     IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", LockedByUserName: null,
                     OriginalOwnerUserId: null));
+            }
+
+            // A list an entry stands for, read on its own by the group's member sections - see
+            // TaskEditor.LoadTheMembersAsync. Answered with the list of lists below, it could not be read.
+            if (path.EndsWith($"/api/tasks/{OtherTaskListId}", StringComparison.Ordinal))
+            {
+                return JsonOf(AnotherTaskList("Kitchen", OtherTaskListId, _entriesOnTheOtherList));
             }
 
             // Two other lists as well, so the "stands for these lists" picker has something to offer -

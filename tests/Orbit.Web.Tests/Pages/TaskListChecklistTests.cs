@@ -39,6 +39,7 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     public TaskListChecklistTests()
     {
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+        Services.AddScoped<Clipboard>();
         RegisterGoogleIntegrationAccess();
         RegisterChecklistViewPreference();
         RegisterInventoryApiClient();

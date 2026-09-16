@@ -725,7 +725,7 @@ public sealed class CalendarScreenTests
     public async Task Only_the_events_under_the_open_folder_are_on_the_calendar()
     {
         using var context = new ScreenContext();
-        var dentist = await context.AddEventAsync("Dentist", new DateTime(2026, 8, 20, 9, 0, 0));
+        var dentist = await context.LocalIdOfAsync(await context.AddEventAsync("Dentist", new DateTime(2026, 8, 20, 9, 0, 0)));
         await context.AddEventAsync("Haircut", new DateTime(2026, 8, 21, 9, 0, 0));
         var screen = await context.OpenAsync();
         var week = await context.Folders.CreateAsync("This week", FolderScope.Calendar);
@@ -750,7 +750,7 @@ public sealed class CalendarScreenTests
     public async Task The_menu_offers_every_folder_with_what_is_in_it()
     {
         using var context = new ScreenContext();
-        var dentist = await context.AddEventAsync("Dentist", new DateTime(2026, 8, 20, 9, 0, 0));
+        var dentist = await context.LocalIdOfAsync(await context.AddEventAsync("Dentist", new DateTime(2026, 8, 20, 9, 0, 0)));
         var screen = await context.OpenAsync();
         var week = await context.Folders.CreateAsync("This week", FolderScope.Calendar);
         await context.Folders.CreateAsync("Someday", FolderScope.Calendar);
@@ -758,7 +758,7 @@ public sealed class CalendarScreenTests
         await context.Events.FileAsync(dentist, week.LocalId);
         await screen.LoadCommand.ExecuteAsync(null);
 
-        Assert.Equal(["Public", "Archived", "This week", "Someday"], screen.FolderChoices.Select(choice => choice.Name));
+        Assert.Equal(["Public", "Archived", "Someday", "This week"], screen.FolderChoices.Select(choice => choice.Name));
         Assert.Equal(1, screen.FolderChoices.Single(choice => choice.Name == "This week").Count);
         Assert.Equal(0, screen.FolderChoices.Single(choice => choice.Name == "Someday").Count);
     }
@@ -858,6 +858,16 @@ public sealed class CalendarScreenTests
             stored.ServerId = Guid.NewGuid();
             await dbContext.SaveChangesAsync();
             return stored.ServerId.Value;
+        }
+
+        /// <summary>
+        /// The id this phone keeps an event under, from the one AddEventAsync returns - filing takes the
+        /// former, and handed the server's id it files nothing and says only NotFound.
+        /// </summary>
+        public async Task<Guid> LocalIdOfAsync(Guid serverId)
+        {
+            await using var dbContext = _localStore.CreateDbContext();
+            return dbContext.CalendarEvents.Single(candidate => candidate.ServerId == serverId).LocalId;
         }
 
         /// <summary>What order the list is read in, kept across the screens one test opens.</summary>
