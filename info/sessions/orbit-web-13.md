@@ -59,9 +59,10 @@ duplicate check and both translation sweeps.
   on an empty list, and the bar's folder picker unusable twice. **Enter adding the next entry could not be
   checked** - the browser pane's synthetic Enter never triggers a form's implicit submit.
 - **Used on an Android emulator on 2026-09-16** (AVD `Orbit_Pixel_API_36_pr288`, Batch 17 in PR #288).
-  One fault fixed (the separator tool under Save). Two faults found that are already on `Coding`: the
-  link picker offers a list that would make a cycle, and a refused update stays on the phone because no
-  pull brings the unchanged server row back.
+  One fault fixed (the separator tool under Save), and two found that were already on `Coding` fixed at
+  the user's word: a loop offered in the link pickers (`TaskListLinks`, one walk on all three sides), and
+  a refused change staying on the phone (dropping one now forgets the sync cursor, so a full pull puts
+  the server's version back). Both verified on the emulator.
 
 ## Rejected approaches (do not retry)
 
@@ -80,11 +81,12 @@ duplicate check and both translation sweeps.
 
 ## Next step
 
-**Decide the two `Coding` faults Batch 17 found** (see PR #288), then take PR #288 out of draft. To run
-the branch locally without touching the `orbit` database: start `orbit-postgres` alone
+**PR #288 can leave draft** once the user has looked at it: compiled, 4737 tests passing, used in a
+browser and on an Android emulator (Batches 15-17). What stays open is in its "Out of scope" section.
+To run the branch locally without touching the `orbit` database: start `orbit-postgres` alone
 (`docker compose -p orbit up -d --no-deps postgres`, with the root's `.env` and override copied in),
 point the API at `orbit_pr288` on port 5080, and serve Orbit.Web on 5081. The phone build needs no port
-flag for 5080.
+flag for 5080; the AVD is `Orbit_Pixel_API_36_pr288`.
 
 ## Environment facts confirmed this session
 
