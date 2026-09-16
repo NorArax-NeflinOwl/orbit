@@ -81,8 +81,9 @@ duplicate check and both translation sweeps.
 
 ## Next step
 
-**PR #288 can leave draft** once the user has looked at it: compiled, 4737 tests passing, used in a
-browser and on an Android emulator (Batches 15-17). What stays open is in its "Out of scope" section.
+**PR #288 is out of draft (2026-09-16) and waits for the user to merge it into `Coding`.** Nothing is
+owed on it; once merged, move anything reusable from this file into `info/` and delete it (see
+`handover-lives-in-info-sessions`). What stays open is in the PR's "Out of scope" section.
 To run the branch locally without touching the `orbit` database: start `orbit-postgres` alone
 (`docker compose -p orbit up -d --no-deps postgres`, with the root's `.env` and override copied in),
 point the API at `orbit_pr288` on port 5080, and serve Orbit.Web on 5081. The phone build needs no port
