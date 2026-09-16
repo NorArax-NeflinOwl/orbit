@@ -280,9 +280,16 @@
              icon buttons' size in a card's head, which is a target for a pointer rather than a thumb.
              Level with the tick-box button (the same 72 up), 8 to its right, and touching each other
              rather than spaced: the drawings stay 18, so two 44 targets side by side still read as two
-             glyphs a little apart, and the row ends well short of Save in the other corner. -->
-        <HorizontalStackLayout Grid.Row="1" Spacing="0" HorizontalOptions="Start" VerticalOptions="End"
-                               Margin="70,0,0,72" IsVisible="{Binding CanEdit}">
+             glyphs a little apart. Where the row ends is the ScrollView's business - see below. -->
+        <!-- Scrolled sideways, and stopped short of Save: 82 on the right is Save's 56 across, its 18
+             from the edge and 8 of air. With the table and the separator the row is seven 44s, which is
+             more than a phone has between the two corners, and laid out loose the last tool sat under
+             Save - its drawing showing through Save's tick, and half of it pressing Save instead. A tool
+             cut off at the edge says there is more to swipe to; one under another button says nothing. -->
+        <ScrollView Grid.Row="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never"
+                    HorizontalOptions="Fill" VerticalOptions="End" Margin="70,0,82,72"
+                    IsVisible="{Binding CanEdit}">
+        <HorizontalStackLayout Spacing="0" HorizontalOptions="Start">
             <controls:IconButton Data="M7,4 L3,8 L7,12 M3,8 H12 A4.5,4.5 0 0 1 12,17 H8" TouchSize="44"
                                  Command="{Binding UndoCommand}" IsEnabledForPress="{Binding CanUndo}"
                                  Description="{controls:Translate 'Undo'}" />
@@ -325,6 +332,7 @@
                                  Data="M2,10 H18 M5,5.5 H15 M5,14.5 H15"
                                  Description="{controls:Translate 'Separator'}" />
         </HorizontalStackLayout>
+        </ScrollView>
 
         <controls:NavigationBar Grid.Row="0" />
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
