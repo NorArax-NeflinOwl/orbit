@@ -157,9 +157,14 @@
                                 <!-- A table, drawn as the grid of its cells' words - see NoteLineRow.TableRows /
                                      SharedLine.TableRows. Two nested BindableLayouts rather than a Grid, because
                                      a Grid's rows and columns are declared and a table's are whatever the note
-                                     says. Hairlines between cells, as the browser draws them. -->
-                                <VerticalStackLayout Grid.Column="1" Spacing="0" Margin="0,8"
-                                                     IsVisible="{Binding IsATable}"
+                                     says. Hairlines between cells, as the browser draws them.
+
+                                     Every cell one width, and the table scrolled sideways when that is wider
+                                     than the note: sized to their own words, a row's cells did not line up with
+                                     the row above's, so the columns read as a staircase rather than a table. -->
+                                <ScrollView Grid.Column="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never"
+                                            IsVisible="{Binding IsATable}" Margin="0,8">
+                                <VerticalStackLayout Spacing="0" HorizontalOptions="Start"
                                                      BindableLayout.ItemsSource="{Binding TableRows}">
                                     <BindableLayout.ItemTemplate>
                                         <DataTemplate x:DataType="sys:Object">
@@ -171,7 +176,7 @@
                                                          (a row, a column, the table) is the table button over
                                                          the foot, once a cell has the caret - see UseTheTableTool. -->
                                                     <DataTemplate x:DataType="screens:NoteTableCellField">
-                                                        <Border Padding="8,0" StrokeThickness="1" MinimumWidthRequest="72"
+                                                        <Border Padding="8,0" StrokeThickness="1" WidthRequest="{StaticResource NoteTableCellWidth}"
                                                                 Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}">
                                                             <Entry Text="{Binding Text}" controls:BareField.IsBare="True"
                                                                    ReturnType="Done" MinimumWidthRequest="56"
@@ -184,6 +189,7 @@
                                         </DataTemplate>
                                     </BindableLayout.ItemTemplate>
                                 </VerticalStackLayout>
+                                </ScrollView>
 
                                 <!-- A picture the note holds, fetched once and kept on the handset - see
                                      NoteLineRow.PictureBytes and NotePictureCache. Drawn at the note's

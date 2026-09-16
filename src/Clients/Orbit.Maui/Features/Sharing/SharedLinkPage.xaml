@@ -71,16 +71,18 @@
                                 <!-- A table, drawn as the grid of its cells' words - see NoteLineRow.TableRows /
                                      SharedLine.TableRows. Two nested BindableLayouts rather than a Grid, because
                                      a Grid's rows and columns are declared and a table's are whatever the note
-                                     says. Hairlines between cells, as the browser draws them. -->
-                                <VerticalStackLayout Grid.Column="1" Spacing="0" Margin="0,8"
-                                                     IsVisible="{Binding IsATable}"
+                                     says. Hairlines between cells, as the browser draws them. Every cell one
+                                     width, scrolled sideways when wider than the page - see NoteDetailPage.xaml. -->
+                                <ScrollView Grid.Column="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never"
+                                            IsVisible="{Binding IsATable}" Margin="0,8">
+                                <VerticalStackLayout Spacing="0" HorizontalOptions="Start"
                                                      BindableLayout.ItemsSource="{Binding TableRows}">
                                     <BindableLayout.ItemTemplate>
                                         <DataTemplate x:DataType="sys:Object">
                                             <HorizontalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding .}">
                                                 <BindableLayout.ItemTemplate>
                                                     <DataTemplate x:DataType="x:String">
-                                                        <Border Padding="8,6" StrokeThickness="1" MinimumWidthRequest="72"
+                                                        <Border Padding="8,6" StrokeThickness="1" WidthRequest="{StaticResource NoteTableCellWidth}"
                                                                 Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}">
                                                             <Label Text="{Binding .}" LineBreakMode="WordWrap" />
                                                         </Border>
@@ -90,6 +92,7 @@
                                         </DataTemplate>
                                     </BindableLayout.ItemTemplate>
                                 </VerticalStackLayout>
+                                </ScrollView>
 
                                 <!-- A picture of the note, fetched through the link - see SharedLine.PictureBytes. -->
                                 <Image Grid.Column="1" Aspect="AspectFit" HorizontalOptions="Start"

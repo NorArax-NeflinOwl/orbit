@@ -7,6 +7,11 @@
     <controls:IsNotEmptyConverter x:Key="IsNotEmpty" />
     <controls:PictureBytesConverter x:Key="PictureBytes" />
 
+    <!-- One width for every cell of a note's table, on the note screen and on a shared link alike, so the
+         columns line up from row to row - see NoteDetailPage.xaml. Wide enough for a word or two, the way
+         a table in a note is written; a longer one wraps (read) or scrolls in its field (written). -->
+    <x:Double x:Key="NoteTableCellWidth">120</x:Double>
+
     <Style TargetType="IndicatorView">
         <Setter Property="IndicatorColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray500}}"/>
         <Setter Property="SelectedIndicatorColor" Value="{AppThemeBinding Light={StaticResource Gray950}, Dark={StaticResource Gray100}}"/>
