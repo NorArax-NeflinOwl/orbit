@@ -2066,11 +2066,21 @@ It is **not** on the two other places somebody edits in the browser:
 
 ### Half-built, and the missing half is the interesting one
 
-- **Editing a group list together with its children.** The light view already draws the whole tree, each
-  child list under a card carrying its name, and ticks in place. The **full editor** (`TaskEditor`) edits
-  only the group's own entries - a child's entries cannot be renamed, added or removed from there. The
-  phone draws one list at a time and has no tree at all (already written down below, "The phone cannot
-  flatten a tree of lists").
+- ~~**Editing a group list together with its children.**~~ Done 2026-09-16 in the browser, the way the
+  user decided (*"wpisy dzieci w formularzu grupy"* - the children's entries in the group's own form,
+  one Save writing them all). A section per list the group gathers, each written on its own request
+  since each is its own list with its own lock and its own history; a refusal does not stop the round,
+  and what is said names the lists that did not go. A member nobody wrote in is not written at all.
+
+  **Direct members only**, and a row is an entry's words and its box: a deadline, what it stands for, a
+  product and the ways it can be done are edited in that member's own editor, one press away at the head
+  of the section. That panel is five hundred lines of `TaskEditor`'s own machinery bound to dozens of its
+  methods, and a group holding four members would be four copies of it - lifting it into a component of
+  its own is the work that would be needed, and is worth doing on its own terms rather than as a rider on
+  this. See `info/functionality.md`, "Writing in a group's member lists".
+
+  **The phone has none of it**, and draws one list at a time with no tree at all - see "The phone cannot
+  flatten a tree of lists" below, which is the same gap seen from the other end.
 
 - ~~**Copying what a list or a note holds, filtered.**~~ Done 2026-09-16. Four choices - the whole
   thing, what is done, what is still to do, what was given up on (`WhatToCopy`, shared so a note's boxes

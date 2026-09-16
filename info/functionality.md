@@ -2876,6 +2876,35 @@ A task list can be opened at either of two depths, both reachable from the task 
   item's text, due date, link, notification settings, adding and removing items. This is the level that
   takes the edit lock described under [Edit locking](#edit-locking).
 
+#### Writing in a group's member lists
+
+A group list's editor also carries **a section per list it gathers** (2026-09-16), so a member's entries
+can be renamed, added and removed without leaving - which the editor could not do before, having only
+ever edited the group's own entries. **One Save writes them all**, each on its own request: a member is
+its own list with its own lock and its own history, and there is no request that takes several. A
+refusal does not stop the round, for the reason `OnePressEach` gives, and what is said **names the lists
+that did not go** - "something failed" over a form holding five of them tells the reader nothing about
+which to look at. A member nobody wrote in is not written at all, since an untouched list coming back
+with a new `UpdatedAtUtc` is what every other client syncs against.
+
+**Direct members only** (`GroupMembers.IdsUnder`). A member that is itself a group is opened to reach
+its own: a form that unfolded a whole tree would be a form whose length nobody can predict, and the
+shallow view is what reads a tree end to end. A list two entries point at is held once - named twice it
+would appear twice in one form, with two sets of boxes writing over each other - and a group is never
+among its own members.
+
+**A member's edit lock is taken when the form opens** and let go by every door out, which is what a lock
+says: this form is about these lists. A member that is **sealed**, **shared to read**, or **held by
+somebody else** is drawn and read but not written in, and the section says which of the three
+(`GroupMembers.WhyReadOnly`). They are asked in that order on purpose: a lock goes away by waiting and
+the other two do not, so telling somebody "she is editing it" about a list they could never edit would
+send them back to try again for nothing.
+
+**A row here is an entry's words and its box.** A deadline, what it stands for, a product and the ways
+it can be done are edited in that member's own editor, one press away at the head of the section - that
+panel is five hundred lines of the group's own form, and a group holding four members would be four
+copies of it. **The phone has none of this** - see `info/future-plan.md`.
+
 **Deleting the list is offered at both depths** as well as from its card, which is the arrangement a
 note, an inventory and a calendar event have all had - a task list was the one thing in Orbit that could
 only be deleted from the page of cards, so getting rid of one meant leaving it first. Only on the
