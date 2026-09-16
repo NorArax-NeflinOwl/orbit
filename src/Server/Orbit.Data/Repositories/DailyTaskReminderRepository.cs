@@ -118,16 +118,33 @@ public sealed class DailyTaskReminderRepository : IDailyTaskReminderRepository
         // due date is computed from the entry's own reminder hour, which no ExecuteUpdate can read and
         // write in one statement portably. One row per fired reminder, so the round trip is cheap.
         var item = await _dbContext.Set<TaskItemEntity>()
+            .Include(row => row.Alternatives)
             .FirstOrDefaultAsync(row => row.Id == taskItemId, cancellationToken);
         if (item is null)
         {
             return;
         }
 
-        // Neither ticked nor crossed out: a daily errand comes round again whatever yesterday's
-        // answer was - see TaskItem.Reopen, which clears the same two.
+        // Everything TaskItem.Reopen clears, and for the reasons it gives there. Written out again here
+        // rather than called, because this path holds the row and not the aggregate - which is why it
+        // has to be kept level with that method by hand, and why TaskItemReopeningTests pins the two
+        // together.
+        //
+        // Neither ticked nor crossed out: a daily errand comes round again whatever yesterday's answer
+        // was. And no time for being done, which belongs to something that is done - an entry left
+        // carrying one read as not done while its own page still said when it had been finished.
         item.IsCompleted = false;
         item.IsFailed = false;
+        item.CompletedAtUtc = null;
+
+        // An entry done one of several ways comes back with none of them taken: the ways stay, since
+        // they are what the entry is, and the choice is made again. Left ticked, they were an entry
+        // that said it was not done above a full set of ways saying it was - and the next save reads
+        // the tick back off them.
+        foreach (var way in item.Alternatives)
+        {
+            way.IsDone = false;
+        }
 
         // Only an entry that already carried a due date gets a new one - see the interface for why.
         if (item.DueDateUtc is not null)

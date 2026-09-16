@@ -25,6 +25,12 @@ public interface IDailyTaskReminderRepository
     /// Marks the item as not done again, so the day's reminder is about something still to do. A no-op
     /// for an item that was already open.
     ///
+    /// Everything <see cref="Orbit.Core.Tasks.TaskItem.Reopen"/> clears is cleared here - the tick, the
+    /// cross, the time it was done and every way it was done by. The implementation holds the row rather
+    /// than the aggregate, so the two are kept level by hand and by a test; they were not, and an entry
+    /// done one of several ways came back with all its ways still taken, which the next read turned
+    /// straight back into a tick.
+    ///
     /// It also moves the entry's due date on to <paramref name="reminderDate"/>, at the hour the entry
     /// is reminded at - but only for an entry that already had one. That is what keeps a daily entry on
     /// the calendar and the dashboard, both of which read entries by their due date: without it the
