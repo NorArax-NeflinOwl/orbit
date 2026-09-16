@@ -3,6 +3,7 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Notes;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Folders;
 using Orbit.Core.Notes;
 using Orbit.Mobile.Api;
@@ -33,6 +34,13 @@ public sealed record NoteStyleChoice(string Name, NoteLineStyle Style);
 
 /// <summary>One of the two rules the separator tool offers - see NoteDetailViewModel.SeparatorChoices.</summary>
 public sealed record NoteSeparatorChoice(string Name, bool IsDated);
+
+/// <summary>
+/// One entry in the copy menu: what it says, and which part of the thing it copies - see
+/// Orbit.Core.Abstractions.WhatToCopy. Shared by the note screen and the task list's, which offer the
+/// same four.
+/// </summary>
+public sealed record CopyChoice(string Name, WhatToCopy What);
 
 /// <summary>What the table's own menu can do to the table a cell is in - the browser's table menu, on the phone.</summary>
 public enum NoteTableAction
@@ -257,8 +265,19 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     /// back, so a note copied here lands in another note as the same note. Built here rather than in the
     /// page because it is what the note says rather than how the page draws it; putting it on the
     /// clipboard is the page's part, MAUI's Clipboard being a thing Orbit.Mobile cannot see.
+    ///
+    /// <paramref name="what"/> narrows it to the boxes in one state, the browser's four choices offered
+    /// from the same menu - see WhatToCopy.
     /// </summary>
-    public string AsWords() => NoteWords.Of(Title, [.. Lines.Select(line => line.ToLine())]);
+    public string AsWords(WhatToCopy what = WhatToCopy.Everything)
+        => NoteWords.Of(Title, [.. Lines.Select(line => line.ToLine())], what);
+
+    /// <summary>
+    /// The four, each with what its entry says, in the reader's own language - built here rather than in
+    /// the page so the wording is testable, as the styles and the separator's two are.
+    /// </summary>
+    public IReadOnlyList<CopyChoice> CopyChoices =>
+        [.. CopiedParts.All.Select(what => new CopyChoice(_translations[what.Label()], what))];
 
     /// <summary>Offering this to somebody else - see SharePanel.</summary>
     public SharePanel Share { get; }

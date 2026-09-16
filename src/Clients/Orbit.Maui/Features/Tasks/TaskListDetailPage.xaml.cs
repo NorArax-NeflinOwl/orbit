@@ -175,6 +175,12 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 				_translations["Delete list"], () => _ = DeleteAsync()));
 		}
 
+		// The list's words on the clipboard, the four choices behind a sheet as the note screen offers
+		// them - the format is shared (TaskListWords writes what NoteWords writes), so the errands
+		// copied here paste into a note as the same errands. Offered whatever this reader may do to the
+		// list: copying is reading, and a list shared to read is still read.
+		list.Add(new ScreenMenuEntry(_translations["Copy the text"], () => _ = ChooseWhatToCopyAsync()));
+
 		// Where this thing's own copies are found again - see CopyHistoryViewModel. Only once there is
 		// one, and here rather than in the account's menu: a history belongs to the thing it is the
 		// history of.
@@ -217,6 +223,35 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 			new ScreenMenuGroup(_translations["Inventory"], shelf),
 			new ScreenMenuGroup(_translations["List"], list)
 		]);
+	}
+
+	/// <summary>
+	/// Asks which part of the list to copy and copies it - the browser's four choices
+	/// (<see cref="TaskListDetailViewModel.CopyChoices"/>) as a sheet, the way this screen asks every
+	/// other question with more than two answers. Said out loud either way: a copy that quietly did
+	/// nothing is indistinguishable from one that worked, and Android can refuse the clipboard outright.
+	/// </summary>
+	private async Task ChooseWhatToCopyAsync()
+	{
+		var choices = _viewModel.CopyChoices;
+		var chosen = await DisplayActionSheetAsync(
+			_translations["Copy the text"], _translations["Cancel"], destruction: null,
+			choices.Select(choice => choice.Name).ToArray());
+
+		if (choices.FirstOrDefault(choice => choice.Name == chosen) is not { } part)
+		{
+			return;
+		}
+
+		try
+		{
+			await Clipboard.Default.SetTextAsync(_viewModel.AsWords(part.What));
+			_viewModel.Status = _translations["Copied"];
+		}
+		catch (Exception exception) when (exception is not OperationCanceledException)
+		{
+			_viewModel.Status = _translations["The text could not be copied."];
+		}
 	}
 
 	/// <summary>Asked first, as every delete in Orbit is - and named, so the question says which list.</summary>

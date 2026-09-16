@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Inventories;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Inventories;
 using Orbit.Core.Tasks;
 using Orbit.Mobile.Location;
@@ -40,6 +41,47 @@ public sealed class TaskListDetailScreenTests
             screen.NewItemDescription = description;
             await screen.AddItemCommand.ExecuteAsync(null);
         }
+    }
+
+    /// <summary>
+    /// The list on the clipboard, in the format a note's paste reads back - so what is copied out of a
+    /// list arrives in a note as the same errands rather than as a page of brackets. See TaskListWords,
+    /// which both clients write with.
+    /// </summary>
+    [Fact]
+    public async Task The_list_is_copied_in_the_format_a_note_reads_back()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        await AddAsync(screen, "Bread", "Milk");
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items.Single(row => row.Description == "Bread"));
+
+        Assert.Equal("Groceries\n[x] Bread\n- Milk", screen.AsWords());
+    }
+
+    /// <summary>The same four choices the browser offers, narrowing to one state of the entries.</summary>
+    [Fact]
+    public async Task The_list_can_be_copied_by_what_is_done_and_what_is_not()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        await AddAsync(screen, "Bread", "Milk");
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items.Single(row => row.Description == "Bread"));
+
+        Assert.Equal("Groceries\n[x] Bread", screen.AsWords(WhatToCopy.Done));
+        Assert.Equal("Groceries\n- Milk", screen.AsWords(WhatToCopy.StillToDo));
+    }
+
+    /// <summary>Offered in the reader's own language, and in the order the sheet draws them.</summary>
+    [Fact]
+    public void All_four_copies_are_offered()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+
+        Assert.Equal(
+            ["Copy the text", "Copy what is done", "Copy what is still to do", "Copy what was given up on"],
+            screen.CopyChoices.Select(choice => choice.Name));
     }
 
     /// <summary>

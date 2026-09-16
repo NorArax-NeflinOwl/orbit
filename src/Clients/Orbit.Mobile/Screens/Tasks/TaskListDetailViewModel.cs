@@ -199,6 +199,27 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     public ObservableCollection<TaskItemRow> Items { get; } = [];
 
     /// <summary>
+    /// The list as plain words, for the clipboard - the format a note's paste reads back, so the
+    /// errands copied here arrive in a note as the same errands (see TaskListWords, and
+    /// Notes.NoteDetailViewModel.AsWords, which is the same action on the other kind of list).
+    /// <paramref name="what"/> narrows it to the entries in one state.
+    ///
+    /// An entry that only points at other lists is left out: a row holding a group together is not work
+    /// anybody copies, and its state is the pointed-at list's anyway.
+    /// </summary>
+    public string AsWords(WhatToCopy what = WhatToCopy.Everything)
+        => TaskListWords.Of(
+            Title,
+            Items
+                .Where(row => row.Item.AllLinkedTaskListIds.Count == 0)
+                .Select(row => new TickedLine(row.Description, Ticks.Read(row.IsCompleted, row.IsFailed))),
+            what);
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.CopyChoices"/>
+    public IReadOnlyList<Notes.CopyChoice> CopyChoices =>
+        [.. CopiedParts.All.Select(what => new Notes.CopyChoice(_translations[what.Label()], what))];
+
+    /// <summary>
     /// How much of this list is done, the way the card on the tasks screen and the dashboard say it
     /// ("Done: 3 of 7"). On the list's own screen because that is where somebody reading a long one asks
     /// it - the browser's light view has carried it in the rail's extras since folders arrived, and the

@@ -184,6 +184,39 @@ public sealed partial class NoteDetailScreenTests
         Assert.False(screen.HasUnsavedChanges);
     }
 
+    /// <summary>
+    /// The note's words on the clipboard, whole or narrowed to one state of its boxes - the browser's
+    /// four, offered here from the same menu and in the reader's own language. A line with no box
+    /// travels only in the whole thing, the three narrow choices being questions about boxes.
+    /// </summary>
+    [Fact]
+    public async Task The_note_can_be_copied_whole_or_by_what_is_done()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "For Sunday", "Milk", "Bread");
+        var screen = await context.OpenAsync(note.LocalId);
+        screen.ToggleChecklistCommand.Execute(screen.Lines[1]);
+        screen.ToggleChecklistCommand.Execute(screen.Lines[2]);
+        screen.ToggleCheckedCommand.Execute(screen.Lines[1]);
+
+        Assert.Equal("Shopping\nFor Sunday\n[x] Milk\n- Bread", screen.AsWords());
+        Assert.Equal("Shopping\n[x] Milk", screen.AsWords(Orbit.Core.Abstractions.WhatToCopy.Done));
+        Assert.Equal("Shopping\n- Bread", screen.AsWords(Orbit.Core.Abstractions.WhatToCopy.StillToDo));
+    }
+
+    /// <summary>Offered in the order the sheet draws them, the whole thing first.</summary>
+    [Fact]
+    public async Task All_four_copies_are_offered_on_a_note()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        Assert.Equal(
+            ["Copy the text", "Copy what is done", "Copy what is still to do", "Copy what was given up on"],
+            screen.CopyChoices.Select(choice => choice.Name));
+    }
+
     /// <summary>A tick is a change like any other, and it is not written until Save either.</summary>
     [Fact]
     public async Task Ticking_a_line_is_something_leaving_would_lose()

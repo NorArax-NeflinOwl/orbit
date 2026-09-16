@@ -1,4 +1,5 @@
 using System.Windows.Input;
+using Orbit.Core.Abstractions;
 using Orbit.Mobile.Localization;
 using Orbit.Maui.Controls;
 using Orbit.Mobile.Screens;
@@ -548,16 +549,34 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	/// is indistinguishable from one that worked, and Android can refuse this - the clipboard is a
 	/// system service and a restricted profile does not hand it over.
 	/// </summary>
-	private async Task CopyTheTextAsync()
+	private async Task CopyTheTextAsync(WhatToCopy what)
 	{
 		try
 		{
-			await Clipboard.Default.SetTextAsync(_viewModel.AsWords());
+			await Clipboard.Default.SetTextAsync(_viewModel.AsWords(what));
 			_viewModel.Status = _translations["Copied"];
 		}
 		catch (Exception exception) when (exception is not OperationCanceledException)
 		{
 			_viewModel.Status = _translations["The text could not be copied."];
+		}
+	}
+
+	/// <summary>
+	/// Asks which part of the note to copy and copies it - the browser's four choices
+	/// (<see cref="NoteDetailViewModel.CopyChoices"/>) as a sheet, since that is how this screen asks
+	/// every other question with more than two answers.
+	/// </summary>
+	private async Task ChooseWhatToCopyAsync()
+	{
+		var choices = _viewModel.CopyChoices;
+		var chosen = await DisplayActionSheetAsync(
+			_translations["Copy the text"], _translations["Cancel"], destruction: null,
+			choices.Select(choice => choice.Name).ToArray());
+
+		if (choices.FirstOrDefault(choice => choice.Name == chosen) is { } part)
+		{
+			await CopyTheTextAsync(part.What);
 		}
 	}
 
@@ -636,7 +655,10 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		// The note's words on the clipboard, as Orbit.Web offers from the same place - the format is
 		// shared (NoteWords) so what is copied here pastes into another note as the same note. Offered
 		// whatever this reader may do to it: copying is reading, and a note shared to read is still read.
-		entries.Add(new ScreenMenuEntry(_translations["Copy the text"], () => _ = CopyTheTextAsync()));
+		//
+		// A sheet rather than four lines in this menu, the way the styles are: four entries saying
+		// "Copy…" one under the other is most of the menu, and which part to copy is one question.
+		entries.Add(new ScreenMenuEntry(_translations["Copy the text"], () => _ = ChooseWhatToCopyAsync()));
 
 		// Only once there is one, and here rather than in the account's menu: a history belongs to the
 		// thing it is the history of.
