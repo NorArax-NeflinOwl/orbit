@@ -58,7 +58,10 @@ duplicate check and both translation sweeps.
   PR #288). Three faults found and fixed: a note's rule dropped by the editor JS, no way out of choosing
   on an empty list, and the bar's folder picker unusable twice. **Enter adding the next entry could not be
   checked** - the browser pane's synthetic Enter never triggers a form's implicit submit.
-- **Nothing has been seen on a device.**
+- **Used on an Android emulator on 2026-09-16** (AVD `Orbit_Pixel_API_36_pr288`, Batch 17 in PR #288).
+  One fault fixed (the separator tool under Save). Two faults found that are already on `Coding`: the
+  link picker offers a list that would make a cycle, and a refused update stays on the phone because no
+  pull brings the unchanged server row back.
 
 ## Rejected approaches (do not retry)
 
@@ -77,10 +80,11 @@ duplicate check and both translation sweeps.
 
 ## Next step
 
-**Look at batches 10-12 on the phone** (archiving, the rule across a note, filtered copy), then take PR
-#288 out of draft. To run the branch locally without touching the `orbit` database: start `orbit-postgres`
-alone (`docker compose -p orbit up -d --no-deps postgres`, with the root's `.env` and override copied in),
-point the API at `orbit_pr288` on port 5080, and serve Orbit.Web on 5081.
+**Decide the two `Coding` faults Batch 17 found** (see PR #288), then take PR #288 out of draft. To run
+the branch locally without touching the `orbit` database: start `orbit-postgres` alone
+(`docker compose -p orbit up -d --no-deps postgres`, with the root's `.env` and override copied in),
+point the API at `orbit_pr288` on port 5080, and serve Orbit.Web on 5081. The phone build needs no port
+flag for 5080.
 
 ## Environment facts confirmed this session
 
