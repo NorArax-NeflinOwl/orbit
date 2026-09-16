@@ -300,6 +300,14 @@ adb shell am start -n "com.orbitmaui.android/crc64a05c27c563ec9e41.MainActivity"
   at - see [android-ui-parity.md](android-ui-parity.md)'s "How to check it" for the method and the
   numbers it produced.
 
+Two blind spots found on 2026-09-16, worth knowing before trusting a green run:
+
+- **The in-app browser pane cannot check a form's implicit submit.** Its synthetic Enter never submits a
+  form, so "Enter in an entry's box adds the next entry" (TaskEditor) has to be tried in a real browser.
+- **The Polish dictionary's coverage sweep only sees literal keys.** A key reached through a method -
+  `T[what.Label()]` - is invisible to it, so such keys are guarded by a test of their own
+  (`FilteredCopyTests` does it for the four copy choices).
+
 ### The browser-side encryption, in a real browser
 
 `ci/verify-browser-crypto.mjs` runs `Orbit.Web/wwwroot/js/e2eeChat.js` itself in headless Chromium. It

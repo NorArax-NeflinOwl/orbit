@@ -3768,7 +3768,9 @@ been deleted still leaves the list: there is nothing left to bring back.
 
 Changing either rebuilds the list to match (`RestockListRefresh`), and **Refresh**
 (`POST /api/inventories/{id}/restock-list/refresh`) does the same rebuild against settings that have not
-changed - what somebody presses when the world moved rather than the settings. It replaced a button that
+changed - what somebody presses when the world moved rather than the settings. Nothing runs the rebuild
+on a schedule - only saved settings, a product placed and a list generated do - which is why the daily
+reminder is what carries the standing round's due date forward. It replaced a button that
 used to sit on the checklist's menu, "Recalculate against the inventory", which did half of something
 else and did not answer the question somebody has in front of a restock list.
 
