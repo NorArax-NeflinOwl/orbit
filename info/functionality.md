@@ -1435,7 +1435,12 @@ much as in English, and every marked letter is one a phone keyboard makes somebo
 the marks is not something a reader should have to think about. Letters that are their own rather than a
 marked form of another, "ł" among them, are listed by hand. Asked by everything that narrows a list by
 what is typed: the suggestion browser behind every used-value field, the tag field, the task entry
-filter, both shelf searches, and the conversation and group searches.
+filter, both shelf searches, and the conversation and group searches. **On the phone too** since 2026-09-16
+(its entry filter, the shelf and item searches, and the product type box), which compared letter for letter
+until then. **And the server's name suggestions**: `NameSuggestionRepository` folds the typed words with
+the same rule and the stored names in SQL with PostgreSQL's built-in `translate()` over the Polish letters
+(`OrbitDbContext.Translate`), so "maka" suggests "Mąka" - the `unaccent` extension would cover more
+letters but has to be allow-listed on a managed server first.
 
 **A note's text can be copied out of its menu** ("Copy the text", `NoteSummary` in the browser and the
 note's own menu on the phone since 2026-09-15). Written the way the note's own editor copies a selection

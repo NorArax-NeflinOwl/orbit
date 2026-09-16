@@ -53,12 +53,27 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<PermissionCodeEntity> PermissionCodes => Set<PermissionCodeEntity>();
     public DbSet<RateLimitWindowEntity> RateLimitWindows => Set<RateLimitWindowEntity>();
 
+    /// <summary>
+    /// PostgreSQL's translate(text, from, to): every character of <paramref name="from"/> in
+    /// <paramref name="text"/> replaced by the one at the same place in <paramref name="to"/>. Only for use
+    /// inside a query - see OnModelCreating, which maps it.
+    /// </summary>
+    public static string Translate(string text, string from, string to)
+        => throw new InvalidOperationException("translate() runs in PostgreSQL, inside a query.");
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Trigram similarity, which is what answers "you already have one of these" as somebody types a
         // name - see NameSuggestionRepository. Declared here so a fresh database gets the extension with
         // its first migration rather than needing a hand-run CREATE EXTENSION.
         modelBuilder.HasPostgresExtension("pg_trgm");
+
+        // PostgreSQL's built-in translate(), for folding Polish letters out of a name before it is compared -
+        // see NameSuggestionRepository. Built in rather than the unaccent extension, which a managed server
+        // only runs once it has been allow-listed in its configuration.
+        modelBuilder.HasDbFunction(typeof(OrbitDbContext).GetMethod(nameof(Translate))!)
+            .HasName("translate")
+            .IsBuiltIn();
 
         modelBuilder.Entity<PermissionCodeEntity>(entity =>
         {

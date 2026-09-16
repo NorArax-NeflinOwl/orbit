@@ -1,3 +1,4 @@
+using Orbit.Core.Text;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -283,7 +284,7 @@ public sealed partial class InventoryViewModel : ObservableObject
                     inventory.LocalId, inventory.Name, InventoryItemRow.From(
                         item, _translations,
                         usage: inventory.ItemUsage.GetValueOrDefault(item.Id ?? Guid.Empty)))))
-                .Where(match => match.Name.Contains(wanted, StringComparison.CurrentCultureIgnoreCase))
+                .Where(match => LooseText.Holds(match.Name, wanted))
                 .OrderBy(match => match.Name, StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(match => match.InventoryName, StringComparer.CurrentCultureIgnoreCase);
 
