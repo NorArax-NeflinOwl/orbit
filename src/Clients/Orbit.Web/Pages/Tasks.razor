@@ -145,6 +145,12 @@
     }
 </PhoneToolbar>
 
+@* What to do with several at once, while several are chosen - see PickedThings, and Notes.razor on why it
+   is outside the list. *@
+<PickedThingsBar Picked="_picked" Page="FolderPage.Tasks"
+                 EveryChosenOneIsAway="@EveryChosenListIsAway" IsWorking="@_isWorkingOnPicked"
+                 OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync"
+                 OnAllToggled="ToggleAllPicked" OnStopped="StopPicking" />
 <ObjectList IsLoading="_taskLists is null" IsEmpty="_taskLists is { Count: 0 }" EmptyMessage="@T["No task lists yet."]">
     @if (VisibleTaskLists.Count == 0)
     {
@@ -166,11 +172,6 @@
         }
     }
 
-    @* What to do with several at once, while several are chosen - see PickedThings. *@
-    <PickedThingsBar Picked="_picked" Page="FolderPage.Tasks"
-                     EveryChosenOneIsAway="@EveryChosenListIsAway" IsWorking="@_isWorkingOnPicked"
-                     OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync"
-                     OnAllToggled="ToggleAllPicked" OnStopped="StopPicking" />
     <div class="task-card-grid">
         @foreach (var taskList in VisibleTaskLists)
         {

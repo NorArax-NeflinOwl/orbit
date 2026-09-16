@@ -89,6 +89,13 @@
         @* One list, whatever kind of thing is on it. Events and deadlines answer the same
            question - what is happening in this period - and two lists side by side made the
            reader merge them by eye, in a period where they interleave by definition. *@
+        @* What to do with several at once, while several are chosen - see PickedThings. Before the
+           list rather than in it: a period with nothing in it drew only its message, so pressing
+           Select there took the button away and offered no way back out. *@
+        <PickedThingsBar Picked="_picked" Page="FolderPage.Calendar"
+                         EveryChosenOneIsAway="@EveryChosenEventIsAway" IsWorking="@_isWorkingOnPicked"
+                         OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync"
+                         OnAllToggled="ToggleAllPicked" OnStopped="StopPicking" />
         @if (_events is null || _dueTasks is null)
         {
             <Loading />
@@ -99,11 +106,6 @@
         }
         else
         {
-            @* What to do with several at once, while several are chosen - see PickedThings. *@
-            <PickedThingsBar Picked="_picked" Page="FolderPage.Calendar"
-                             EveryChosenOneIsAway="@EveryChosenEventIsAway" IsWorking="@_isWorkingOnPicked"
-                             OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync"
-                             OnAllToggled="ToggleAllPicked" OnStopped="StopPicking" />
             <div class="item-card-list">
                 @foreach (var thing in ListedThings)
                 {

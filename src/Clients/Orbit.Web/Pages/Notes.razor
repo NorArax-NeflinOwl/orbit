@@ -51,16 +51,18 @@
     <FolderTabs Page="FolderPage.Notes" CountIn="CountIn" />
 </PhoneToolbar>
 
+@* What to do with several at once, while several are chosen - see PickedThings. Outside the list rather
+   than in it: an account with no notes yet draws only the empty message, and a bar drawn inside the list
+   was then nowhere - "Select" had gone and nothing offered the way back out. *@
+<PickedThingsBar Picked="_picked" Page="FolderPage.Notes"
+                 EveryChosenOneIsAway="@EveryChosenNoteIsAway" IsWorking="@_isWorkingOnPicked"
+                 OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync"
+                 OnAllToggled="ToggleAllPicked" OnStopped="StopPicking" />
 <ObjectList IsLoading="_notes is null" IsEmpty="_notes is { Count: 0 }" EmptyMessage="@T["No notes."]">
     @if (_notes is { Count: > 0 } && VisibleNotes.Count == 0)
     {
         <p class="empty-hint empty-list">@T["Nothing in this folder."]</p>
     }
-    @* What to do with several at once, while several are chosen - see PickedThings. *@
-    <PickedThingsBar Picked="_picked" Page="FolderPage.Notes"
-                     EveryChosenOneIsAway="@EveryChosenNoteIsAway" IsWorking="@_isWorkingOnPicked"
-                     OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync"
-                     OnAllToggled="ToggleAllPicked" OnStopped="StopPicking" />
     <div class="item-card-list">
         @foreach (var note in Ordered(VisibleNotes))
         {

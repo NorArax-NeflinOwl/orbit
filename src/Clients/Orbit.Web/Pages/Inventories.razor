@@ -98,17 +98,18 @@
     <FolderTabs Page="FolderPage.Inventories" CountIn="CountIn" />
 </PhoneToolbar>
 
+@* What to do with several at once, while several are chosen - see PickedThings, and Notes.razor on why it
+   is outside the list. *@
+<PickedThingsBar Picked="_picked" Page="FolderPage.Inventories"
+                 EveryChosenOneIsAway="@EveryChosenShelfIsAway" IsWorking="@_isWorkingOnPicked"
+                 OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync"
+                 OnAllToggled="ToggleAllPicked" OnStopped="StopPicking" />
 <ObjectList IsLoading="_inventories is null" IsEmpty="_inventories is { Count: 0 }"
             EmptyMessage="@T["No inventories yet. Create one to start tracking stock."]">
     @if (_inventories is { Count: > 0 } && ArrangedInventories.Count == 0)
     {
         <p class="empty-hint empty-list">@T["Nothing in this folder."]</p>
     }
-    @* What to do with several at once, while several are chosen - see PickedThings. *@
-    <PickedThingsBar Picked="_picked" Page="FolderPage.Inventories"
-                     EveryChosenOneIsAway="@EveryChosenShelfIsAway" IsWorking="@_isWorkingOnPicked"
-                     OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync"
-                     OnAllToggled="ToggleAllPicked" OnStopped="StopPicking" />
     <div class="item-card-list">
         @foreach (var inventory in ArrangedInventories)
         {

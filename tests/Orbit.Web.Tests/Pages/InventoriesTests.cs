@@ -77,6 +77,21 @@ public sealed class InventoriesTests : OrbitTestContext
         Assert.Contains("No inventories yet", cut.Markup);
     }
 
+    /// <summary>
+    /// And choosing there still offers the way back out - the bar used to be drawn inside the list, which
+    /// an account with nothing in it never reaches. See Notes.razor, which says the same.
+    /// </summary>
+    [Fact]
+    public void Selecting_with_no_inventories_still_offers_the_way_out()
+    {
+        RegisterApiClients([]);
+        var cut = RenderComponent<Web.Pages.Inventories>();
+
+        cut.FindAll("button").Single(button => button.TextContent.Trim() == "Select").Click();
+
+        Assert.Single(cut.FindAll(".picked-bar button"), button => button.TextContent.Contains("Stop selecting"));
+    }
+
     [Fact]
     public void A_inventory_that_will_not_load_says_so_rather_than_showing_an_empty_shelf()
     {

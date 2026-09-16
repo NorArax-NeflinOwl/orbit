@@ -47,6 +47,22 @@ public sealed class CalendarTests : OrbitTestContext
         Services.AddSingleton(ShowingEverything());
     }
 
+    /// <summary>
+    /// Choosing in a period with nothing in it still offers the way back out. The bar was drawn inside
+    /// the list, which such a period does not draw, so Select took its own button away and left nothing.
+    /// </summary>
+    [Fact]
+    public void Selecting_in_an_empty_period_still_offers_the_way_out()
+    {
+        RegisterCalendarApiClient([]);
+        var cut = RenderComponent<Calendar>();
+
+        cut.FindAll("button").Single(button => button.TextContent.Trim() == "Select").Click();
+
+        cut.FindAll(".picked-bar button").Single(button => button.TextContent.Contains("Stop selecting")).Click();
+        Assert.Contains(cut.FindAll("button"), button => button.TextContent.Trim() == "Select");
+    }
+
     [Fact]
     public void The_calendar_opens_in_month_view_with_the_Month_button_marked_active()
     {
