@@ -190,59 +190,7 @@ else
                                 <option value="@nameof(TaskItemKind.Inventory)">@T["Inventory"]</option>
                             </select>
                         </label>
-                        @* What the entry is about, whatever kind it is - as many words as apply rather
-                           than making somebody pick the truest one. It was one box holding
-                           "shopping, car", which asked the reader to know that the comma was the
-                           separator; it is now a word at a time, with every category already in use on
-                           this account listed under the box - see TagField.
-
-                           For an inventory entry this is also what the product it stands for is filed
-                           under: the shelf form below leaves its own box out, because the two sat one
-                           above the other with the same label and the same placeholder, and nothing
-                           said which was which. See KnownCategoriesFor and ProductAsked. *@
-                        <div class="editor-item-tags">
-                            <span class="editor-item-tags-label">@T["Categories"]</span>
-                            <TagField Values="item.Categories" ValuesChanged="values => item.Categories = [.. values]"
-                                      Known="KnownCategoriesFor(item)" Placeholder="@(T["Add a category"])"
-                                      AriaLabel="@(T["Categories"])"
-                                      IsReadOnly="@(_isSharedReadOnly || _lockedByUserName is not null)" />
-                        </div>
-                        @* What the entry is about, as opposed to what it is called. A calendar entry has
-                           always had one - it was the event's - and nothing else did, so a checklist
-                           line or a restock errand could only ever be as long as its own row. It is the
-                           same box for every kind now, and on a calendar entry it is still the event's:
-                           the appointment's own form leaves its copy out (EventFields.ShowsDescription)
-                           rather than asking twice. Prose, so a textarea rather than a line. *@
-                        <div class="field editor-item-notes">
-                            <label for="@($"item{_formModel.Items.IndexOf(item)}Notes")">@T["Description"]</label>
-                            <textarea id="@($"item{_formModel.Items.IndexOf(item)}Notes")" rows="2"
-                                      placeholder="@(T["What this is about"])" value="@item.Notes"
-                                      disabled="@(_isSharedReadOnly || _lockedByUserName is not null)"
-                                      @oninput="args => item.Notes = args.Value?.ToString() ?? string.Empty"></textarea>
-                        </div>
-                        @* A day to be done by is a checklist entry's question and nobody else's: an
-                           appointment already says when it is, in the event's own start and end below,
-                           and a restock errand is about an amount rather than a date. Asking all three
-                           for it left two answers about when a Calendar entry happens. *@
-                        @if (item.Kind == nameof(TaskItemKind.Checklist))
-                        {
-                            <label>@T["Due date"]<DateField @bind-Value="item.DueDate" AriaLabel="@(T["Due date"])" />
-                            </label>
-                            <label>@T["Due time"]<TimeField @bind-Value="item.DueTime" AriaLabel="@(T["Due time"])" />
-                            </label>
-                        }
-                        @* When it was done, offered only once it is: a day for something not done yet is
-                           not a fact about it, and unticking clears it (see TaskItemFormModel.Tick). Every
-                           kind has one - an appointment or an errand is done at some moment the same as a
-                           checklist line. Editable, because "did it yesterday, ticked it today" is the usual
-                           case. *@
-                        @if (item.IsCompleted)
-                        {
-                            <label>@T["Completed on"]<DateField @bind-Value="item.CompletedDate" AriaLabel="@(T["Completed on"])" />
-                            </label>
-                            <label>@T["Time completed"]<TimeField @bind-Value="item.CompletedTime" AriaLabel="@(T["Time completed"])" />
-                            </label>
-                        }
+                        @(WhatAndWhen(item, $"item{_formModel.Items.IndexOf(item)}", _isSharedReadOnly || _lockedByUserName is not null))
                         @* Offered for every saved entry, including one this account has nowhere to move -
                            the control saying so is an answer, where leaving it out looked like a setting
                            that had gone missing. *@
@@ -259,38 +207,7 @@ else
                                 </select>
                             </label>
                         }
-                        @* How much this one matters and what colour it is drawn in. The list has a
-                           priority of its own and this is not it: a list of ten errands usually has one
-                           that has to happen and nine that can wait, and until now saying so meant
-                           splitting the list in two. Beside Move to list and Waits for, because all
-                           three are true of every kind of entry - see TaskItem.Priority. *@
-                        <label>@T["Entry priority"]
-                            <select value="@item.Priority"
-                                    @onchange="args => item.Priority = args.Value?.ToString() ?? item.Priority"
-                                    aria-label="@(T["Entry priority"])">
-                                <option value="Low">@T["Low"]</option>
-                                <option value="Normal">@T["Normal"]</option>
-                                <option value="High">@T["High"]</option>
-                            </select>
-                        </label>
-                        @* The same colour well an appointment is given (see EventFields), and beside it
-                           the way back out of it: a colour input always holds a colour, and "no colour
-                           of its own" is a real answer here - an entry nobody chose one for is drawn in
-                           whatever its kind is drawn in, and a default would quietly overrule that. The
-                           way out is only offered once there is something to undo. *@
-                        <label>@T["Entry colour"]
-                            <span class="field-with-note">
-                                <input type="color" value="@(item.Colour.Length > 0 ? item.Colour : DefaultEntryColour)"
-                                       aria-label="@(T["Entry colour"])"
-                                       @onchange="args => item.Colour = args.Value?.ToString() ?? item.Colour" />
-                                @if (item.Colour.Length > 0)
-                                {
-                                    <button type="button" class="btn-secondary" @onclick="() => item.Colour = string.Empty">
-                                        @T["No colour of its own"]
-                                    </button>
-                                }
-                            </span>
-                        </label>
+                        @(PriorityAndColour(item))
                         @* The order the work on this list has to be done in - "hang the door" after "fit
                            the hinges". The entry cannot be ticked until every step it names is; crossing
                            it out is still allowed, because giving up on something blocked by a step that
@@ -547,31 +464,7 @@ else
                                     </div>
                                 </div>
                             }
-                            <label>@T["Overdue notification"]<select @bind="item.OverdueNotificationChannel">
-                                    @foreach (var option in NotificationChannelOption.All)
-                                    {
-                                        <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
-                                    }
-                                </select>
-                            </label>
-                            <label>
-                                <InputCheckbox @bind-Value="item.RemindDaily" />@T["Remind daily"]</label>
-                            @if (item.RemindDaily)
-                            {
-                                <label>@T["Daily reminder channel"]<select @bind="item.DailyReminderNotificationChannel">
-                                        @foreach (var option in NotificationChannelOption.All)
-                                        {
-                                            <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
-                                        }
-                                    </select>
-                                </label>
-                                @* Required, not optional: a daily reminder with no hour has nothing to
-                                   arrive at, and the scheduler would send it at midnight - see
-                                   ValidateItems, which refuses the save rather than picking an hour
-                                   nobody asked for. *@
-                                <label>@T["Daily reminder time"]<TimeField @bind-Value="item.DailyReminderTimeOfDay" AriaLabel="@(T["Daily reminder time"])" />
-                                </label>
-                            }
+                            @(Reminders(item))
                             @if (item.IsALinkToOtherLists)
                             {
                                 <span class="field-break"></span>
@@ -620,12 +513,16 @@ else
            added and removed without leaving the form - what the user asked for on 2026-09-16. Saved by
            the same press: see SaveTheMembersAsync, which writes each list on its own.
 
-           A row here is the entry's words and its box and no more. Everything else an entry can carry -
-           a deadline, what it stands for, a product, the ways it can be done - is edited in the member's
-           own editor, one press away at the head of the section: that panel is five hundred lines of
-           this form's own machinery, and a group holding four members would be four copies of it. *@
+           A row is the entry's words and its box, and behind its toggle the same fields this form's own
+           entries open onto that belong to the entry alone - what it is filed under and about, when it is
+           due and was done, how much it matters, its colour and its reminders (see WhatAndWhen,
+           PriorityAndColour and Reminders, which both places draw). What reaches past the entry -
+           its kind, an event or a shelf behind it, the lists it stands for, its ways, what it waits for,
+           moving it - is edited in the member's own editor, one press away at the head of the section:
+           each of those saves something beside the list, and this form saves only the lists. *@
         @foreach (var member in _memberForms)
         {
+            var memberIndex = _memberForms.ToList().IndexOf(member);
             <section class="editor-member" @key="member.Source.Id">
                 <div class="editor-member-head">
                     <h3>@MemberName(member)</h3>
@@ -650,9 +547,26 @@ else
                                    @onchange="args => item.IsCompleted = args.Value is true" />
                             <input type="text" class="editor-member-item-text" @bind="item.Description"
                                    @bind:event="oninput" aria-label="@T["What needs doing"]" />
+                            <button type="button" class="editor-item-toggle @(IsExpanded(item) ? "open" : "")"
+                                    title="@(IsExpanded(item) ? T["Hide this item's other settings"] : T["Show this item's other settings"])"
+                                    aria-expanded="@(IsExpanded(item) ? "true" : "false")"
+                                    @onclick="() => ToggleExpanded(item)">
+                                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
+                            </button>
                             <button type="button" class="btn-secondary"
                                     @onclick="() => member.Form.Items.Remove(item)">@T["Remove"]</button>
                         </div>
+                        @if (IsExpanded(item))
+                        {
+                            <div class="editor-item-details editor-member-item-details">
+                                @(WhatAndWhen(item, $"member{memberIndex}item{member.Form.Items.IndexOf(item)}", !member.CanBeWrittenIn))
+                                @(PriorityAndColour(item))
+                                @if (item.Kind == nameof(TaskItemKind.Checklist))
+                                {
+                                    @(Reminders(item))
+                                }
+                            </div>
+                        }
                     }
                     <button type="button" class="btn-secondary"
                             @onclick="() => AddItemTo(member)">@T["Add item"]</button>
@@ -1781,6 +1695,136 @@ else
 
     private bool IsExpanded(TaskItemFormModel item) => ReferenceEquals(_expandedItem, item);
 
+    /// <summary>
+    /// The first half of an entry's own fields: what it is filed under, what it is about, when it is due
+    /// and when it was done. Drawn for this list's entries and for a member's under the same toggle - see
+    /// the member sections - so one entry's fields read the same in both places and cannot drift apart.
+    /// </summary>
+    /// <param name="idPrefix">Tells the description box's id apart from every other on the form.</param>
+    private RenderFragment WhatAndWhen(TaskItemFormModel item, string idPrefix, bool isReadOnly) => __builder =>
+    {
+        @* What the entry is about, whatever kind it is - as many words as apply rather
+           than making somebody pick the truest one. It was one box holding
+           "shopping, car", which asked the reader to know that the comma was the
+           separator; it is now a word at a time, with every category already in use on
+           this account listed under the box - see TagField.
+
+           For an inventory entry this is also what the product it stands for is filed
+           under: the shelf form below leaves its own box out, because the two sat one
+           above the other with the same label and the same placeholder, and nothing
+           said which was which. See KnownCategoriesFor and ProductAsked. *@
+        <div class="editor-item-tags">
+            <span class="editor-item-tags-label">@T["Categories"]</span>
+            <TagField Values="item.Categories" ValuesChanged="values => item.Categories = [.. values]"
+                      Known="KnownCategoriesFor(item)" Placeholder="@(T["Add a category"])"
+                      AriaLabel="@(T["Categories"])"
+                      IsReadOnly="@isReadOnly" />
+        </div>
+        @* What the entry is about, as opposed to what it is called. A calendar entry has
+           always had one - it was the event's - and nothing else did, so a checklist
+           line or a restock errand could only ever be as long as its own row. It is the
+           same box for every kind now, and on a calendar entry it is still the event's:
+           the appointment's own form leaves its copy out (EventFields.ShowsDescription)
+           rather than asking twice. Prose, so a textarea rather than a line. *@
+        <div class="field editor-item-notes">
+            <label for="@($"{idPrefix}Notes")">@T["Description"]</label>
+            <textarea id="@($"{idPrefix}Notes")" rows="2"
+                      placeholder="@(T["What this is about"])" value="@item.Notes"
+                      disabled="@isReadOnly"
+                      @oninput="args => item.Notes = args.Value?.ToString() ?? string.Empty"></textarea>
+        </div>
+        @* A day to be done by is a checklist entry's question and nobody else's: an
+           appointment already says when it is, in the event's own start and end below,
+           and a restock errand is about an amount rather than a date. Asking all three
+           for it left two answers about when a Calendar entry happens. *@
+        @if (item.Kind == nameof(TaskItemKind.Checklist))
+        {
+            <label>@T["Due date"]<DateField @bind-Value="item.DueDate" AriaLabel="@(T["Due date"])" />
+            </label>
+            <label>@T["Due time"]<TimeField @bind-Value="item.DueTime" AriaLabel="@(T["Due time"])" />
+            </label>
+        }
+        @* When it was done, offered only once it is: a day for something not done yet is
+           not a fact about it, and unticking clears it (see TaskItemFormModel.Tick). Every
+           kind has one - an appointment or an errand is done at some moment the same as a
+           checklist line. Editable, because "did it yesterday, ticked it today" is the usual
+           case. *@
+        @if (item.IsCompleted)
+        {
+            <label>@T["Completed on"]<DateField @bind-Value="item.CompletedDate" AriaLabel="@(T["Completed on"])" />
+            </label>
+            <label>@T["Time completed"]<TimeField @bind-Value="item.CompletedTime" AriaLabel="@(T["Time completed"])" />
+            </label>
+        }
+    };
+
+    /// <summary>How much an entry matters and what colour it is drawn in - see WhatAndWhen.</summary>
+    private RenderFragment PriorityAndColour(TaskItemFormModel item) => __builder =>
+    {
+        @* How much this one matters and what colour it is drawn in. The list has a
+           priority of its own and this is not it: a list of ten errands usually has one
+           that has to happen and nine that can wait, and until now saying so meant
+           splitting the list in two. Beside Move to list and Waits for, because all
+           three are true of every kind of entry - see TaskItem.Priority. *@
+        <label>@T["Entry priority"]
+            <select value="@item.Priority"
+                    @onchange="args => item.Priority = args.Value?.ToString() ?? item.Priority"
+                    aria-label="@(T["Entry priority"])">
+                <option value="Low">@T["Low"]</option>
+                <option value="Normal">@T["Normal"]</option>
+                <option value="High">@T["High"]</option>
+            </select>
+        </label>
+        @* The same colour well an appointment is given (see EventFields), and beside it
+           the way back out of it: a colour input always holds a colour, and "no colour
+           of its own" is a real answer here - an entry nobody chose one for is drawn in
+           whatever its kind is drawn in, and a default would quietly overrule that. The
+           way out is only offered once there is something to undo. *@
+        <label>@T["Entry colour"]
+            <span class="field-with-note">
+                <input type="color" value="@(item.Colour.Length > 0 ? item.Colour : DefaultEntryColour)"
+                       aria-label="@(T["Entry colour"])"
+                       @onchange="args => item.Colour = args.Value?.ToString() ?? item.Colour" />
+                @if (item.Colour.Length > 0)
+                {
+                    <button type="button" class="btn-secondary" @onclick="() => item.Colour = string.Empty">
+                        @T["No colour of its own"]
+                    </button>
+                }
+            </span>
+        </label>
+    };
+
+    /// <summary>A checklist entry's reminders - when it is late, and every day - see WhatAndWhen.</summary>
+    private RenderFragment Reminders(TaskItemFormModel item) => __builder =>
+    {
+        <label>@T["Overdue notification"]<select @bind="item.OverdueNotificationChannel">
+                @foreach (var option in NotificationChannelOption.All)
+                {
+                    <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
+                }
+            </select>
+        </label>
+        <label>
+            <InputCheckbox @bind-Value="item.RemindDaily" />@T["Remind daily"]</label>
+        @if (item.RemindDaily)
+        {
+            <label>@T["Daily reminder channel"]<select @bind="item.DailyReminderNotificationChannel">
+                    @foreach (var option in NotificationChannelOption.All)
+                    {
+                        <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
+                    }
+                </select>
+            </label>
+            @* Required, not optional: a daily reminder with no hour has nothing to
+               arrive at, and the scheduler would send it at midnight - see
+               WhatIsWrongWithTheItems, which refuses the save rather than picking an hour
+               nobody asked for. *@
+            <label>@T["Daily reminder time"]<TimeField @bind-Value="item.DailyReminderTimeOfDay" AriaLabel="@(T["Daily reminder time"])" />
+            </label>
+        }
+    };
+
     private void ToggleExpanded(TaskItemFormModel item) => _expandedItem = IsExpanded(item) ? null : item;
 
     /// <summary>The shelf side of this list's inventory errands while it is being edited - see ShelfPicker.</summary>
@@ -2338,7 +2382,10 @@ else
     /// </summary>
     private string? WhatIsWrongWithTheItems()
     {
-        var withoutAnHour = _formModel.Items.FirstOrDefault(item =>
+        // A member's entries too, since the same press saves them and the same reminder would go out.
+        var withoutAnHour = _formModel.Items
+            .Concat(_memberForms.Where(member => member.CanBeWrittenIn).SelectMany(member => member.Form.Items))
+            .FirstOrDefault(item =>
             item.Kind == nameof(TaskItemKind.Checklist) && item.RemindDaily && item.DailyReminderTimeOfDay is null);
         if (withoutAnHour is not null)
         {
@@ -3073,11 +3120,18 @@ else
     /// rather than tracked with a flag, the rule NoteDetailViewModel.HasUnsavedChanges follows and for
     /// the same reason: something touched and put back is not a change.
     /// </summary>
-    private static bool WasWrittenIn(MemberForm member)
-        => !member.Form.Items
-            .Select(item => (item.Id, item.Description, item.IsCompleted, item.IsFailed))
-            .SequenceEqual(member.Source.Items.Select(item =>
-                ((Guid?)item.Id, item.Description, item.IsCompleted, item.IsFailed)));
+    private static bool WasWrittenIn(MemberForm member) => WhatTheSectionSays(member.Form) != member.ReadAs;
+
+    /// <summary>
+    /// Everything a member's section can change, as one string: the row's words and box, and the fields
+    /// behind its toggle. Taken from the form as it was read and again at the save - see WasWrittenIn.
+    /// </summary>
+    private static string WhatTheSectionSays(TaskListFormModel form)
+        => string.Join("\n", form.Items.Select(item => string.Join("",
+            item.Id, item.Description, item.IsCompleted, item.IsFailed, item.Notes,
+            string.Join("", item.Categories), item.DueDate, item.DueTime, item.CompletedDate, item.CompletedTime,
+            item.Priority, item.Colour, item.OverdueNotificationChannel, item.RemindDaily,
+            item.DailyReminderNotificationChannel, item.DailyReminderTimeOfDay)));
 
     /// <summary>
     /// This form's own address, so a member opened from here comes back to it - see ReturnTo. Only for
@@ -3117,6 +3171,9 @@ else
     {
         /// <summary>Who holds its edit lock, said beside the list rather than as a number.</summary>
         public string? LockedByUserName { get; init; }
+
+        /// <summary>What the section said when it was read - see WasWrittenIn.</summary>
+        public string ReadAs { get; } = WhatTheSectionSays(Form);
 
         public bool CanBeWrittenIn => ReadOnlyBecause == WhyAMemberIsReadOnly.None;
     }

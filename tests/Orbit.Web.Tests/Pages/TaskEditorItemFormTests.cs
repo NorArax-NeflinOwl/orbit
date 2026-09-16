@@ -596,6 +596,30 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Assert.DoesNotContain(OtherTaskListId.ToString(), offered);
     }
 
+    /// <summary>
+    /// A member's entry opens onto the same fields this list's own entries do - what it is about, how much
+    /// it matters - and what is written there is saved to the member with the group's Save. See
+    /// TaskEditor.DrawWhatAndWhen, which both places draw.
+    /// </summary>
+    [Fact]
+    public void A_members_entry_opens_onto_its_own_fields_and_they_are_saved_to_the_member()
+    {
+        _entriesOnTheOtherList = [AnItem() with { Id = Guid.NewGuid(), Description = "Wipe the hob" }];
+        RegisterApiClients(AnItem() with { LinkedTaskListIds = [OtherTaskListId] });
+        var cut = Render();
+
+        cut.Find(".editor-member .editor-item-toggle").Click();
+        cut.Find(".editor-member textarea").Input("With the blue cloth");
+        var priority = cut.Find(".editor-member select[aria-label='Entry priority']");
+        priority.Change("High");
+        ClickButtonSaying(cut, "Save");
+
+        Assert.NotNull(_lastMemberSavedJson);
+        var entry = JsonDocument.Parse(_lastMemberSavedJson!).RootElement.GetProperty("items")[0];
+        Assert.Equal("With the blue cloth", entry.GetProperty("notes").GetString());
+        Assert.Equal("High", entry.GetProperty("priority").GetString());
+    }
+
     [Fact]
     public void What_the_list_is_for_is_shown_under_its_title()
     {
@@ -1526,6 +1550,9 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
 
     private string? _lastSavedJson;
 
+    /// <summary>What a member list was saved as, when the group's Save wrote one.</summary>
+    private string? _lastMemberSavedJson;
+
     /// <summary>What the page asked the server to build, when it asked - see GenerateInventoryOverlay.</summary>
     private string? _lastGenerateJson;
 
@@ -1566,6 +1593,13 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
             if (request.Method == HttpMethod.Put && path.EndsWith($"/{TaskListId}", StringComparison.Ordinal))
             {
                 _lastSavedJson = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
+            // A member list saved with its group - see TaskEditor.SaveTheMembersAsync.
+            if (request.Method == HttpMethod.Put && path.EndsWith($"/{OtherTaskListId}", StringComparison.Ordinal))
+            {
+                _lastMemberSavedJson = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
             }
 
