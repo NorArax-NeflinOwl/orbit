@@ -2323,7 +2323,8 @@ answers rather than a row of three buttons, because they are three answers to on
 **Create** and **Cancel** finish it:
 
 - **A place worth keeping** (the default) opens the place form on that pin, with the address already in
-  it - see [Places](#places). It is the default because it is the least somebody can mean by pressing a
+  it and the name left empty for the reader - see [Places](#places). Save waits for a name; since
+  2026-09-16 neither the pin nor a point picked on the map writes its address in as one, on either client. It is the default because it is the least somebody can mean by pressing a
   map: it says where and nothing else, and the other two are that plus a time or plus a job.
 - **An event in the calendar** opens `/calendar/new` with the address and its pin set.
 - **A task list starting here** opens `/tasks/new` with one entry already standing at that place - a

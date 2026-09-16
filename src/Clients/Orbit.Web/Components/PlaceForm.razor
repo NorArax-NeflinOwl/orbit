@@ -245,10 +245,9 @@
             _address = pin.Address;
             _latitude = pin.Latitude;
             _longitude = pin.Longitude;
-            // The address doubles as the name for a place pressed on the map, because a pin already
-            // carries the only words there are. It is a suggestion, not an answer: the box is a normal
-            // one and "the bakery" is what most of them end up saying.
-            _name = pin.Address;
+            // The name is left empty for the reader to give, and Save waits for one (see CanSave). The
+            // pin's address used to be written in as a suggestion, and a place worth keeping was then
+            // saved under the street already shown beside it.
         }
     }
 
@@ -272,11 +271,6 @@
         if (_address.Trim().Length == 0)
         {
             _address = picked.Address;
-        }
-
-        if (_name.Trim().Length == 0)
-        {
-            _name = picked.Address;
         }
 
         _isPickingOnTheMap = false;

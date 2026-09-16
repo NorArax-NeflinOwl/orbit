@@ -190,6 +190,10 @@ public sealed class MapPageTests : OrbitTestContext
         MakeItA(cut, "Place");
 
         Assert.Equal("Długa 4, Warszawa", cut.Find("#placeFormWhere").GetAttribute("value"));
+        // The name is the reader's to give: the address used to be written in as one, and a place was
+        // saved under the street already shown beside it. Save waits for a name.
+        Assert.True(string.IsNullOrEmpty(cut.Find("#placeFormName").GetAttribute("value")));
+        Assert.Contains(cut.FindAll(".btn-primary"), button => button.HasAttribute("disabled"));
     }
 
     /// <summary>
