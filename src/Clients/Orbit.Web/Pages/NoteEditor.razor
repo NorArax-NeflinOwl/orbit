@@ -95,7 +95,7 @@ else
             <div class="note-editor-surface">
                 <ChecklistTextEditor @ref="_checklistEditorRef" CssClass="note-editor-content note-editor-titled note-editor-page"
                                      IsReadOnly="@(_isSharedReadOnly || _lockedByUserName is not null)"
-                                     TakesTab="true" TakesStyles="true"
+                                     TakesTab="true" TakesStyles="true" FocusesAtTheEnd="true"
                                      SelectedTicksChanged="count => _selectedTicks = count"
                                      CaretInTableChanged="inTable => OnCaretInTableChanged(inTable)"
                                      PicturePasted="OnPicturePastedAsync"

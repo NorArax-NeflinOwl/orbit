@@ -54,6 +54,14 @@ export function initialize(container, dotNetHelper, initialLinesJson, options) {
     container.addEventListener('dragend', state.onDragEnd);
     container.addEventListener('drop', state.onDrop);
     document.addEventListener('selectionchange', state.onSelectionChange);
+
+    // The caret at the end of the writing, for a page opened in order to write - see
+    // ChecklistTextEditor.FocusesAtTheEnd. After the listeners, so the caret's line is reported like any
+    // other move of it.
+    if (state.options.focusAtEnd && isWritable(container) && container.children.length > 0) {
+        const last = container.children.length - 1;
+        select(container, { line: last, offset: lineText(container.children[last]).length });
+    }
 }
 
 export function dispose(container) {
