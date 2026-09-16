@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.PickingBar"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:folders="clr-namespace:Orbit.Mobile.Screens.Folders;assembly=Orbit.Mobile"
+    x:DataType="folders:PickingSeveral"
+    IsVisible="{Binding IsPicking}">
+
+    <!-- What to do with several at once, while several are being chosen - see PickingSeveral, and
+         Orbit.Web's PickedThingsBar, which is the same bar over the browser's cards. Above the list
+         rather than under it: a folder with nothing left in it after a round would otherwise leave the
+         reader with no way back out of the mode. -->
+    <VerticalStackLayout Spacing="4">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Label Grid.Column="0" Text="{Binding Summary}" VerticalOptions="Center" FontSize="13" />
+            <Button Grid.Column="1" Text="{controls:Translate 'Stop selecting'}" FontSize="13" Padding="12,4"
+                    Style="{StaticResource LinkButton}" Command="{Binding StopCommand}" />
+        </Grid>
+
+        <FlexLayout Wrap="Wrap" Direction="Row" AlignItems="Center">
+            <Button Text="{controls:Translate 'All of them'}" FontSize="13" Padding="12,4"
+                    Style="{StaticResource LinkButton}" Command="{Binding ToggleAllCommand}" />
+            <!-- Asked with a sheet of the folders, since the bar has no room for a list of them. -->
+            <Button Text="{controls:Translate 'Move to folder'}" FontSize="13" Padding="12,4"
+                    Style="{StaticResource LinkButton}" IsEnabled="{Binding HasAny}"
+                    Clicked="OnFileClicked" />
+            <!-- Archive, or Put back when everything chosen is away already - one button naming what
+                 it will do. -->
+            <Button Text="{Binding ArchiveName}" FontSize="13" Padding="12,4"
+                    Style="{StaticResource LinkButton}" IsEnabled="{Binding HasAny}"
+                    Command="{Binding ArchiveCommand}" />
+            <Button Text="{controls:Translate 'Share'}" FontSize="13" Padding="12,4"
+                    Style="{StaticResource LinkButton}" IsEnabled="{Binding HasAny}"
+                    IsVisible="{Binding CanShare}" Clicked="OnShareClicked" />
+        </FlexLayout>
+
+        <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
+               LineBreakMode="WordWrap" Style="{StaticResource InfoLabel}" />
+    </VerticalStackLayout>
+</ContentView>

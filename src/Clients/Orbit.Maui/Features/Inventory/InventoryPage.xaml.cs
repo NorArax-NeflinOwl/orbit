@@ -58,7 +58,11 @@ public partial class InventoryPage : ContentPage, ITitleMenu
 					() => _viewModel.ChooseFolderCommand.Execute(choice.Key),
 					choice.IsChosen,
 					count: ScreenMenuEntry.CountOf(choice.Count)))),
-			new ScreenMenuGroup(_translations["Folder"], FolderActions())
+			new ScreenMenuGroup(_translations["Folder"], FolderActions()),
+			// Choosing several shelves to file, put away or share together - see NotesPage.
+			new ScreenMenuGroup(
+				_translations["Several at once"],
+				[new ScreenMenuEntry(_translations["Select"], () => _viewModel.ToggleChoosingCommand.Execute(null), _viewModel.Picking.IsPicking)])
 		]);
 
 	/// <summary>

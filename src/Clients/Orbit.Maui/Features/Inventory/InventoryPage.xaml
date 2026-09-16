@@ -25,6 +25,9 @@
 
         <!-- Unfolded by the plus over the foot of the list - see NewItemForm. -->
         <VerticalStackLayout Grid.Row="2" Spacing="8">
+            <!-- While several shelves are being chosen - see PickingSeveral. -->
+            <controls:PickingBar BindingContext="{Binding Picking}" />
+
             <Grid x:Name="AddRow" IsVisible="False" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <Entry x:Name="AddField" Grid.Column="0" Placeholder="{controls:Translate 'New inventory'}"
                        Text="{Binding NewInventoryName}"
@@ -64,7 +67,8 @@
                     <DataTemplate x:DataType="screens:InventoryRow">
                         <!-- A row rather than a card, as every list in this design is - see
                              ItemCard.IsBordered. -->
-                        <controls:ItemCard IsBordered="False" Name="{Binding DisplayName}">
+                        <controls:ItemCard IsBordered="False" Name="{Binding DisplayName}"
+                                           OffersPicking="{Binding OffersPicking}" IsPicked="{Binding IsPicked}">
                             <controls:ItemCard.Menu>
                                 <!-- What can be done to the inventory without opening it, in the
                                      corner every card keeps its menu in - see Orbit.Web's own

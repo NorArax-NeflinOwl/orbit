@@ -4,7 +4,7 @@ namespace Orbit.Web.Services;
 
 /// <summary>
 /// One press over each of several chosen things - what the bar over a list does when somebody asks for
-/// all of them to be filed or put away at once (see <see cref="PickedThings"/>).
+/// all of them to be filed or put away at once (see <see cref="Orbit.Core.Folders.PickedThings"/>).
 ///
 /// <b>One call each rather than a bulk endpoint</b>, which is what the server already takes: filing and
 /// archiving are each one request about one thing, and a handful of them is a handful of requests. That

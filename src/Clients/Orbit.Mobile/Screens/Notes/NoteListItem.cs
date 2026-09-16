@@ -69,6 +69,12 @@ public sealed record NoteListItem(
         };
     }
 
+    /// <summary>Whether the screen is choosing several, which is what puts a mark on the row - see PickingSeveral.</summary>
+    public bool OffersPicking { get; init; }
+
+    /// <summary>Whether this one is among those chosen.</summary>
+    public bool IsPicked { get; init; }
+
     /// <summary>The note's tags, in the row with its other marks - see TagChips.</summary>
     public Screens.Tags.TagChips Tags { get; init; } = Screens.Tags.TagChips.None;
 

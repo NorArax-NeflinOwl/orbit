@@ -61,6 +61,12 @@ public sealed record InventoryRow(
     /// <inheritdoc cref="Notes.NoteListItem.DisplayTitle"/>
     public string DisplayName => IsHidden ? HiddenName : Name;
 
+    /// <inheritdoc cref="Notes.NoteListItem.OffersPicking"/>
+    public bool OffersPicking { get; init; }
+
+    /// <inheritdoc cref="Notes.NoteListItem.IsPicked"/>
+    public bool IsPicked { get; init; }
+
     /// <inheritdoc cref="Notes.NoteListItem.CanBeOpened"/>
     public bool CanBeOpened => !IsHidden;
 

@@ -4,11 +4,13 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Sync;
 using Orbit.Mobile.Api;
 using Orbit.Core.Folders;
+using Orbit.Mobile.Chat;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Notes;
 using Orbit.Mobile.Security;
 using Orbit.Mobile.Screens.Folders;
+using Orbit.Mobile.Screens.Sharing;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Tasks;
@@ -133,8 +135,23 @@ public sealed partial class TasksViewModel : ObservableObject
         INetworkStatus networkStatus, ITaskListArrangementStore arrangements, PrivateItemGate privateItems,
         SyncState syncState, IScreenNavigator navigator, Translations translations,
         LocalNotificationRepository notifications, LocalFolderRepository folders, IChosenFolderStore chosenFolder,
-        FolderSynchronizer folderSynchronizer, LocalTagColourRepository? tagColours = null)
+        FolderSynchronizer folderSynchronizer, LocalTagColourRepository? tagColours = null,
+        SharingSeveral? sharingSeveral = null)
     {
+        Picking = new PickingSeveral(
+            translations,
+            new PickingActions(
+                SharedItemKind.TaskList,
+                (localId, folderId, token) => taskLists.FileAsync(localId, folderId, token),
+                (localId, isArchived, token) => taskLists.ArchiveAsync(localId, isArchived, token),
+                async token =>
+                {
+                    await ShowStoredListsAsync(token);
+                    await SynchroniseAsync(token);
+                },
+                () => Folders!.Made),
+            sharingSeveral);
+        Picking.Changed += (_, _) => MarkThePicked();
         _tagColours = tagColours;
         _folderSynchronizer = folderSynchronizer;
         _folders = folders;
@@ -159,6 +176,36 @@ public sealed partial class TasksViewModel : ObservableObject
     private readonly FolderSynchronizer _folderSynchronizer;
 
     public ObservableCollection<TaskListRow> TaskLists { get; } = [];
+
+    /// <summary>Several lists chosen to be filed, put away or shared together - see PickingSeveral.</summary>
+    public PickingSeveral Picking { get; }
+
+    /// <summary>The menu's "Select": starts choosing lists, or stops.</summary>
+    [RelayCommand]
+    private void ToggleChoosing()
+    {
+        if (Picking.IsPicking)
+        {
+            Picking.Stop();
+            return;
+        }
+
+        Picking.Start();
+    }
+
+    /// <summary>Puts the mark on every row, or takes it off, for what is chosen now - see NotesViewModel.</summary>
+    private void MarkThePicked()
+    {
+        for (var index = 0; index < TaskLists.Count; index++)
+        {
+            var row = TaskLists[index];
+            var marked = row with { OffersPicking = Picking.IsPicking, IsPicked = Picking.Holds(row.LocalId) };
+            if (marked != row)
+            {
+                TaskLists[index] = marked;
+            }
+        }
+    }
 
     /// <inheritdoc cref="Notes.NotesViewModel.Folders"/>
     public FolderTabs Folders { get; }
@@ -203,6 +250,12 @@ public sealed partial class TasksViewModel : ObservableObject
     [RelayCommand]
     private void OpenList(TaskListRow? row)
     {
+        // While choosing, a press anywhere on a row chooses it - see PickingSeveral.
+        if (row is not null && Picking.Toggle(row.LocalId))
+        {
+            return;
+        }
+
         if (row is { CanBeOpened: true })
         {
             _navigator.ShowTaskList(row.LocalId);
@@ -469,6 +522,11 @@ public sealed partial class TasksViewModel : ObservableObject
                         : string.Empty
                 });
         }
+
+        // Also what marks the rows just drawn, through Changed.
+        var shown = TaskLists.Select(row => row.LocalId).ToHashSet();
+        Picking.Shows(_stored.Where(taskList => shown.Contains(taskList.LocalId)).Select(taskList => new PickableThing(
+            taskList.LocalId, taskList.ServerId, taskList.Title, taskList.IsShared, taskList.IsPrivate, taskList.IsArchived)));
 
         OnPropertyChanged(nameof(SortDescription));
 

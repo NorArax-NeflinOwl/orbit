@@ -62,8 +62,23 @@ public sealed partial class InventoryViewModel : ObservableObject
         LocalInventoryRepository inventories, InventorySynchronizer synchronizer, INetworkStatus networkStatus,
         PrivateItemGate privateItems, SyncState syncState, IScreenNavigator navigator, Translations translations,
         SharePanel share,
-        LocalFolderRepository folders, IChosenFolderStore chosenFolder, FolderSynchronizer folderSynchronizer)
+        LocalFolderRepository folders, IChosenFolderStore chosenFolder, FolderSynchronizer folderSynchronizer,
+        SharingSeveral? sharingSeveral = null)
     {
+        Picking = new PickingSeveral(
+            translations,
+            new PickingActions(
+                SharedItemKind.Inventory,
+                (localId, folderId, token) => inventories.FileAsync(localId, folderId, token),
+                (localId, isArchived, token) => inventories.ArchiveAsync(localId, isArchived, token),
+                async token =>
+                {
+                    await ShowStoredInventoriesAsync(token);
+                    await SynchroniseAsync(token);
+                },
+                () => Folders!.Made),
+            sharingSeveral);
+        Picking.Changed += (_, _) => MarkThePicked();
         _folders = folders;
         _folderSynchronizer = folderSynchronizer;
         Folders = new FolderTabs(folders, chosenFolder, translations, FolderPage.Inventories);
@@ -83,6 +98,36 @@ public sealed partial class InventoryViewModel : ObservableObject
     /// than one per card: only one is ever open, and it is told which inventory it is about when it is.
     /// </summary>
     public SharePanel Share { get; }
+
+    /// <summary>Several shelves chosen to be filed, put away or shared together - see PickingSeveral.</summary>
+    public PickingSeveral Picking { get; }
+
+    /// <summary>The menu's "Select": starts choosing shelves, or stops.</summary>
+    [RelayCommand]
+    private void ToggleChoosing()
+    {
+        if (Picking.IsPicking)
+        {
+            Picking.Stop();
+            return;
+        }
+
+        Picking.Start();
+    }
+
+    /// <summary>Puts the mark on every row, or takes it off, for what is chosen now - see NotesViewModel.</summary>
+    private void MarkThePicked()
+    {
+        for (var index = 0; index < Inventories.Count; index++)
+        {
+            var row = Inventories[index];
+            var marked = row with { OffersPicking = Picking.IsPicking, IsPicked = Picking.Holds(row.LocalId) };
+            if (marked != row)
+            {
+                Inventories[index] = marked;
+            }
+        }
+    }
 
     /// <inheritdoc cref="Notes.NotesViewModel.HasMessage"/>
     public bool HasMessage => Message.Length > 0;
@@ -325,6 +370,12 @@ public sealed partial class InventoryViewModel : ObservableObject
     [RelayCommand]
     private void OpenInventory(InventoryRow? row)
     {
+        // While choosing, a press anywhere on a row chooses it - see PickingSeveral.
+        if (row is not null && Picking.Toggle(row.LocalId))
+        {
+            return;
+        }
+
         if (row is { CanBeOpened: true })
         {
             _navigator.ShowInventory(row.LocalId);
@@ -458,6 +509,10 @@ public sealed partial class InventoryViewModel : ObservableObject
                 inventory, _pending.Contains(inventory.LocalId), _networkStatus, _translations,
                 _privateItems.IsUnlocked, _translations["Private"]));
         }
+
+        // Also what marks the rows just drawn, through Changed.
+        Picking.Shows(_stored.Select(inventory => new PickableThing(
+            inventory.LocalId, inventory.ServerId, inventory.Name, inventory.IsShared, inventory.IsPrivate, inventory.IsArchived)));
 
         _unsearchableInventoryCount = _everyShelf.Count(inventory => !CanBeSearched(inventory));
         ShowMatchingItems();

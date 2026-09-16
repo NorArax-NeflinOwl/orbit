@@ -112,6 +112,12 @@ public sealed record TaskListRow(
     /// </summary>
     public bool CanBeMoved { get; init; }
 
+    /// <inheritdoc cref="Notes.NoteListItem.OffersPicking"/>
+    public bool OffersPicking { get; init; }
+
+    /// <inheritdoc cref="Notes.NoteListItem.IsPicked"/>
+    public bool IsPicked { get; init; }
+
     /// <summary>
     /// The entry that answered what the reader is looking for, where they are looking for one - see
     /// TaskItemFilter. Empty otherwise, and the card then says what is next as usual.

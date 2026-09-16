@@ -208,6 +208,7 @@ public static class MauiProgram
 		services.AddTransient<SharedItemAcceptance>();
 		services.AddTransient<SharedItemSharing>();
 		services.AddTransient<SharePanel>();
+		services.AddTransient<SharingSeveral>();
 		// One per editor screen rather than one for the app: it holds what is being typed into the field
 		// that is open, and two screens sharing it would offer each other's names.
 		services.AddTransient<NameSuggestions>();

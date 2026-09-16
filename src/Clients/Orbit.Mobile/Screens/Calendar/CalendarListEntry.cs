@@ -73,6 +73,15 @@ public sealed record CalendarListEntry
 
     public bool IsEvent => Event is not null;
 
+    /// <summary>
+    /// Whether the screen is choosing several and this row can be among them - an appointment only: a
+    /// deadline belongs to the task list it is on, as the browser's calendar says. See PickingSeveral.
+    /// </summary>
+    public bool OffersPicking { get; init; }
+
+    /// <inheritdoc cref="Notes.NoteListItem.IsPicked"/>
+    public bool IsPicked { get; init; }
+
     public bool IsDeadline => Deadline is not null;
 
     /// <summary>When it happens, as the row says it - both kinds have one, which is why they share a list.</summary>

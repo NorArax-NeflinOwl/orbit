@@ -79,6 +79,34 @@ public partial class ItemCard : ContentView
 		propertyChanged: (card, _, _) => ((ItemCard)card).Edge());
 
 	/// <summary>
+	/// Whether the list is choosing several, which puts a mark first in the row - see PickingSeveral,
+	/// and Orbit.Web's ItemCard, whose mark stands in the same place. The mark only says which rows are
+	/// chosen; choosing is a press anywhere on the row, since while choosing that is all a press means.
+	/// </summary>
+	public static readonly BindableProperty OffersPickingProperty = BindableProperty.Create(
+		nameof(OffersPicking), typeof(bool), typeof(ItemCard), false,
+		propertyChanged: (card, _, value) => ((ItemCard)card).PickMark.IsVisible = value is true);
+
+	/// <summary>Whether this row is among those chosen.</summary>
+	public static readonly BindableProperty IsPickedProperty = BindableProperty.Create(
+		nameof(IsPicked), typeof(bool), typeof(ItemCard), false,
+		propertyChanged: (card, _, value) => ((ItemCard)card).PickMark.IsChecked = value is true);
+
+	/// <inheritdoc cref="OffersPickingProperty"/>
+	public bool OffersPicking
+	{
+		get => (bool)GetValue(OffersPickingProperty);
+		set => SetValue(OffersPickingProperty, value);
+	}
+
+	/// <inheritdoc cref="IsPickedProperty"/>
+	public bool IsPicked
+	{
+		get => (bool)GetValue(IsPickedProperty);
+		set => SetValue(IsPickedProperty, value);
+	}
+
+	/// <summary>
 	/// The name the breathing edge is committed under, so it can be called off again - see Pulse.
 	/// </summary>
 	private const string NewsPulse = "card-with-news";

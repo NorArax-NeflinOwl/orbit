@@ -1,9 +1,10 @@
-namespace Orbit.Web.Services;
+namespace Orbit.Core.Folders;
 
 /// <summary>
 /// Which cards on a list page are chosen to be acted on together, and whether the page is choosing at
 /// all - the state behind "select several notes, lists, events or shelves and then file them into a
-/// folder or put them away", asked for by the user.
+/// folder or put them away", asked for by the user. Here rather than in either client because both keep
+/// it: the browser's list pages, and the phone's through Orbit.Mobile's PickingSeveral.
 ///
 /// Owned by the page rather than injected: a selection is about one screenful and dies with it, and two
 /// pages sharing one would have the notes somebody picked still picked on the calendar.

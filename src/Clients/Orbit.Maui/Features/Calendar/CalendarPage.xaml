@@ -187,6 +187,9 @@
         </VerticalStackLayout>
 
         <VerticalStackLayout Grid.Row="1" Spacing="8">
+            <!-- While several events are being chosen from the list below - see PickingSeveral. -->
+            <controls:PickingBar BindingContext="{Binding Picking}" />
+
             <Grid x:Name="AddRow" IsVisible="False" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <Entry x:Name="AddField" Grid.Column="0" Placeholder="{controls:Translate 'New event'}"
                        Text="{Binding NewEventTitle}"
@@ -372,6 +375,12 @@
                             </VerticalStackLayout>
 
                             <HorizontalStackLayout Grid.Column="3" Spacing="6" VerticalOptions="Center">
+                                <!-- Which events are chosen, while several are being chosen - see
+                                     ItemCard.OffersPicking, whose mark this is on a row that is not a
+                                     card. The press belongs to the whole row. -->
+                                <CheckBox IsChecked="{Binding IsPicked}" IsVisible="{Binding OffersPicking}"
+                                          InputTransparent="True" VerticalOptions="Center"
+                                          SemanticProperties.Description="{controls:Translate 'Select'}" />
                                 <!-- Two rows with the same words are otherwise indistinguishable, and
                                      the reader has no way of telling which one they wrote in. -->
                                 <Border Style="{StaticResource CardBadge}" IsVisible="{Binding IsCopy}">
