@@ -1346,13 +1346,18 @@ function resolvePictures(container, state) {
     }
 }
 
-/// The picture a line names, read back off what was drawn.
 /// What is written on a drawn rule, for draw() - empty for a plain one, which is what the line says too.
 function stampIn(line) {
     const written = line.querySelector('.note-separator-stamp');
     return written ? written.textContent || '' : '';
 }
 
+/// The rule a line is, read back off what was drawn - null for any other line. See NoteSeparatorLine.
+function separatorIn(line) {
+    return line.classList.contains('note-line-separator') ? { stamp: stampIn(line) } : null;
+}
+
+/// The picture a line names, read back off what was drawn.
 function pictureIn(line) {
     const figure = line.querySelector('.note-picture');
     if (!figure) {
@@ -1459,15 +1464,20 @@ function extractLines(container) {
         const state = tick ? stateOf(tick) : TICK_NONE;
         const table = tableIn(line);
         const picture = pictureIn(line);
+        // Read back like the other two. It was not, so a rule was drawn and then dropped by the very next
+        // read of the surface - the next keystroke's, or the save's - and stored as an empty line.
+        const separator = separatorIn(line);
+        const isAnElement = table || picture || separator;
         return {
-            text: table || picture ? '' : (lineText(line) || ''),
+            text: isAnElement ? '' : (lineText(line) || ''),
             isChecklistItem: !!tick,
             isChecked: state === TICK_DONE,
             isFailed: state === TICK_FAILED,
             style: line.dataset && line.dataset.style ? line.dataset.style : 'body',
-            marks: table || picture ? [] : marksIn(line),
+            marks: isAnElement ? [] : marksIn(line),
             table,
-            picture
+            picture,
+            separator
         };
     });
 }
