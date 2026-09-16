@@ -269,6 +269,13 @@ public sealed partial class TaskItemEditor : ObservableObject
         => [.. LinkableTaskLists.Where(choice =>
             choice.ServerId is not null && Ways.All(way => way.ListServerId != choice.ServerId))];
 
+    /// <summary>
+    /// Whether that picker has anything to offer. Hidden when it has not, the way the lists to stand for
+    /// are (see <see cref="CanBeLinked"/>): an empty picker opens onto a blank sheet, which reads as broken -
+    /// and since the loop rule (Orbit.Core.Tasks.TaskListLinks) leaves lists out, an empty one is ordinary.
+    /// </summary>
+    public bool HasWayListsLeft => WayListsLeft.Count > 0;
+
     /// <summary>A new line of its own, blank, for the reader to type into. One left blank is not saved.</summary>
     [RelayCommand]
     private void AddAWay()
@@ -307,6 +314,7 @@ public sealed partial class TaskItemEditor : ObservableObject
         OnPropertyChanged(nameof(HasWays));
         OnPropertyChanged(nameof(CanStandForLists));
         OnPropertyChanged(nameof(WayListsLeft));
+        OnPropertyChanged(nameof(HasWayListsLeft));
     }
 
     /// <summary>The ways as they are saved: none on an entry standing for lists, and none left blank.</summary>

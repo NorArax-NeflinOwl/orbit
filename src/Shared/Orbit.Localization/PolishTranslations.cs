@@ -187,6 +187,8 @@ public static class PolishTranslations
         // the ones already there. That tab is named by "Archived" below.
         ["Archive"] = "Archiwizuj",
         ["Put back"] = "Przywróć",
+        ["Archived - it is under the Archived tab now."] = "Zarchiwizowano - jest teraz w zakładce Zarchiwizowane.",
+        ["Put back where it was."] = "Przywrócono tam, gdzie było.",
         ["Nothing put away."] = "Nic nie odłożono.",
         ["Could not put that away. Check your connection and try again."] = "Nie udało się odłożyć. Sprawdź połączenie i spróbuj ponownie.",
         ["Could not put that back. Check your connection and try again."] = "Nie udało się przywrócić. Sprawdź połączenie i spróbuj ponownie.",

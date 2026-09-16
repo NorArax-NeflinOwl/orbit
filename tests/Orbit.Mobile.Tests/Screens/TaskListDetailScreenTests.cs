@@ -1912,6 +1912,24 @@ public sealed class TaskListDetailScreenTests
     /// it can be moved - the server refuses that move outright. Left out of the picker rather than
     /// offered and then rejected, which is what Orbit.Web's editor does too.
     /// </summary>
+    /// <summary>
+    /// Putting a list away from its own screen says so there. The screen stays open on the list either way,
+    /// so nothing else moves - and on a device the press read as one that had done nothing.
+    /// </summary>
+    [Fact]
+    public async Task Putting_a_list_away_from_its_screen_says_so_there()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Old errands");
+        await AddAsync(screen, "Return the drill");
+
+        await screen.ArchiveCommand.ExecuteAsync(true);
+        Assert.Equal("Archived - it is under the Archived tab now.", screen.Status);
+
+        await screen.ArchiveCommand.ExecuteAsync(false);
+        Assert.Equal("Put back where it was.", screen.Status);
+    }
+
     [Fact]
     public async Task A_list_that_already_points_back_here_is_not_offered_to_link_to()
     {
@@ -1935,6 +1953,8 @@ public sealed class TaskListDetailScreenTests
         shopping.EditItemCommand.Execute(shopping.Items.Single());
 
         Assert.DoesNotContain(shopping.BeingEdited!.LinkableTaskLists, choice => choice.Name == "Today");
+        // With Today left out there is no list to offer as a way either, so that picker is not drawn empty.
+        Assert.False(shopping.BeingEdited.HasWayListsLeft);
         // Moving an entry there closes no loop, so it stays somewhere the entry can go.
         Assert.Contains(shopping.MoveTargetsForTheEntry, target => target.Name == "Today");
     }

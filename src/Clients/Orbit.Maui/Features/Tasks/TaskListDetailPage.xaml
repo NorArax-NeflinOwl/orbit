@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage
     x:Class="Orbit.Maui.Features.Tasks.TaskListDetailPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -434,6 +434,7 @@
                         Command="{Binding BeingEdited.AddAWayCommand}" />
                 <!-- The same picker the lists above use, and settled the same way - see OnWayListPicked. -->
                 <Picker Title="{controls:Translate 'Or a list…'}" ItemsSource="{Binding BeingEdited.WayListsLeft}"
+                        IsVisible="{Binding BeingEdited.HasWayListsLeft}"
                         ItemDisplayBinding="{Binding Name, x:DataType=screens:TaskListChoice}"
                         SelectedIndexChanged="OnWayListPicked"
                         SemanticProperties.Description="{controls:Translate 'Or a list'}" />

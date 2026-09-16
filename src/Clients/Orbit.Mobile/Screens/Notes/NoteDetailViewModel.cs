@@ -249,7 +249,11 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         }
 
         IsArchived = isArchived;
-        Status = string.Empty;
+        // Said, because nothing else on this screen moves: the page stays open on the thing either way,
+        // and a press that changes nothing visible reads as a press that did nothing.
+        Status = isArchived
+            ? _translations["Archived - it is under the Archived tab now."]
+            : _translations["Put back where it was."];
     }
 
     [ObservableProperty]
