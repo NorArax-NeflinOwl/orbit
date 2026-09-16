@@ -283,6 +283,9 @@ public static class PolishTranslations
         ["Route from {0}. Choose where it goes - another pin, or a row in the panel."] =
             "Trasa od: {0}. Wybierz, dokąd prowadzi - inną pinezkę albo wiersz na panelu.",
         ["Clear the route"] = "Wyczyść trasę",
+        ["Add a stop here"] = "Dodaj tu postój",
+        ["Add a stop from another pin, or a row in the panel."] = "Dodaj postój z innej pinezki albo wiersza w panelu.",
+        ["Remove the stop at {0}"] = "Usuń postój: {0}",
         ["in a straight line"] = "w linii prostej",
         ["about {0} min"] = "ok. {0} min",
         ["The restock list already asks for exactly what it should."] = "Lista uzupełnień prosi dokładnie o to, o co powinna.",

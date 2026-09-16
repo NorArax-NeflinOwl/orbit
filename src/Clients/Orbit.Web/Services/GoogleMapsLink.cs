@@ -31,6 +31,22 @@ public static class GoogleMapsLink
     public static string ToDirections(double destinationLatitude, double destinationLongitude)
         => $"https://www.google.com/maps/dir/?api=1&destination={Format(destinationLatitude)},{Format(destinationLongitude)}";
 
+    /// <summary>
+    /// Directions along a route the reader drew on the map: from its start, through its stops in order,
+    /// to its end. Unlike <see cref="ToDirections"/> the origin is given, because here it is a place the
+    /// reader chose rather than wherever they happen to be. Google's Maps URLs take the stops as
+    /// "waypoints", separated by "|".
+    /// </summary>
+    public static string ForRoute(
+        double originLatitude, double originLongitude, IEnumerable<(double Latitude, double Longitude)> stops,
+        double destinationLatitude, double destinationLongitude)
+    {
+        var link = $"https://www.google.com/maps/dir/?api=1&origin={Format(originLatitude)},{Format(originLongitude)}"
+            + $"&destination={Format(destinationLatitude)},{Format(destinationLongitude)}";
+        var waypoints = string.Join("|", stops.Select(stop => $"{Format(stop.Latitude)},{Format(stop.Longitude)}"));
+        return waypoints.Length == 0 ? link : $"{link}&waypoints={Uri.EscapeDataString(waypoints)}";
+    }
+
     /// <summary>Invariant culture on purpose: a decimal comma would split the coordinate pair in two.</summary>
     private static string Format(double coordinate) => coordinate.ToString("G", CultureInfo.InvariantCulture);
 }

@@ -195,20 +195,21 @@ function popupFor(point, dotNetHelper) {
 // traffic should run its own. Driving, because the demo serves cars and nothing else reliably.
 const ROUTING_SERVICE = 'https://router.project-osrm.org/route/v1/driving/';
 
-/// Draws a route between two points and frames it, replacing whatever route was drawn before. Asks the
-/// routing service only when `mayAskOtherSites` - the reader's own "keep third parties out" answer, the
-/// one mapTiles.js reads - and otherwise, or when the service does not answer, joins the two in a straight
-/// line. Answers how far it is, how long by road when the service said, and which of the two was drawn.
-export async function showRoute(elementId, from, to, mayAskOtherSites) {
+/// Draws a route through `points` in order - a start, any stops, an end - and frames it, replacing whatever
+/// route was drawn before. Asks the routing service only when `mayAskOtherSites` - the reader's own "keep
+/// third parties out" answer, the one mapTiles.js reads - and otherwise, or when the service does not
+/// answer, joins the points in straight lines. Answers how far it is, how long by road when the service
+/// said, and which of the two was drawn.
+export async function showRoute(elementId, points, mayAskOtherSites) {
     const instance = mapInstancesByElementId.get(elementId);
-    if (!instance) {
+    if (!instance || !points || points.length < 2) {
         return null;
     }
 
     clearRoute(elementId);
 
-    const byRoad = mayAskOtherSites ? await askForARoute(from, to) : null;
-    const latLngs = byRoad?.latLngs ?? [[from.latitude, from.longitude], [to.latitude, to.longitude]];
+    const byRoad = mayAskOtherSites ? await askForARoute(points) : null;
+    const latLngs = byRoad?.latLngs ?? points.map((point) => [point.latitude, point.longitude]);
 
     // A class rather than a colour: the stroke is an SVG attribute, and an attribute cannot read a CSS
     // variable - see .map-route-line in app.css, which gives it the accent.
@@ -219,11 +220,17 @@ export async function showRoute(elementId, from, to, mayAskOtherSites) {
     }).addTo(instance.map);
     instance.map.fitBounds(instance.route.getBounds(), { padding: [40, 40], animate: false });
 
-    return byRoad
-        ? { distanceMetres: byRoad.distanceMetres, durationSeconds: byRoad.durationSeconds, followsRoads: true }
-        : { distanceMetres: instance.map.distance(latLngs[0], latLngs[1]), durationSeconds: null, followsRoads: false };
-}
+    if (byRoad) {
+        return { distanceMetres: byRoad.distanceMetres, durationSeconds: byRoad.durationSeconds, followsRoads: true };
+    }
 
+    // Each leg as the crow flies, added up.
+    let distanceMetres = 0;
+    for (let leg = 1; leg < latLngs.length; leg++) {
+        distanceMetres += instance.map.distance(latLngs[leg - 1], latLngs[leg]);
+    }
+    return { distanceMetres, durationSeconds: null, followsRoads: false };
+}
 /// Takes the route off the map, if there is one. The markers stay.
 export function clearRoute(elementId) {
     const instance = mapInstancesByElementId.get(elementId);
@@ -233,12 +240,12 @@ export function clearRoute(elementId) {
     }
 }
 
-/// The road route, or null for anything short of one - no answer, a refusal, or no road between them.
-/// Null is not an error here: the caller draws a straight line and says so.
-async function askForARoute(from, to) {
+/// The road route through every point in order, or null for anything short of one - no answer, a refusal,
+/// or no road between them. Null is not an error here: the caller draws straight lines and says so.
+async function askForARoute(points) {
     try {
-        const response = await fetch(
-            `${ROUTING_SERVICE}${from.longitude},${from.latitude};${to.longitude},${to.latitude}?overview=full&geometries=geojson`);
+        const coordinates = points.map((point) => `${point.longitude},${point.latitude}`).join(';');
+        const response = await fetch(`${ROUTING_SERVICE}${coordinates}?overview=full&geometries=geojson`);
         if (!response.ok) {
             return null;
         }
@@ -259,7 +266,6 @@ async function askForARoute(from, to) {
         return null;
     }
 }
-
 /// Moves the markers on a map that is already there to wherever the given points now are, without
 /// moving its own pan or zoom or touching a marker that has not moved - the light alternative to
 /// showLocations' own dispose-and-rebuild, for whatever must not reset what the reader is looking at: a

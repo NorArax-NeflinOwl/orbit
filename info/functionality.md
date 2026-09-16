@@ -2380,6 +2380,14 @@ button - or from the row in the panel, which carries the same one press so neith
 for among the pins first. A bar under the map names both ends and says how far and how long, with
 **Clear the route**.
 
+**Stops** (2026-09-16): once both ends are chosen the same button reads **"Add a stop here"**, and each press
+adds a stop before the end and draws the route again through all of them in the order they were added
+(`showRoute` takes the points as one list; the OSRM request carries them all). Each stop has its own remove
+button on the bar, pressing a place already on the route adds nothing, and starting a different route is
+Clear the route first. **Open in Google Maps** hands the same route over as a directions link with the stops
+as waypoints (`GoogleMapsLink.ForRoute`) - no key, and it is how a route drawn in the browser reaches the
+phone that drives it.
+
 The road route comes from the **public OSRM demo server** (FOSSGIS, OpenStreetMap's routing machine),
 driving only - that is what the demo serves reliably. It is a third party, so it is asked **only where the
 reader lets Orbit reach other sites** - the same `KeepsThirdPartiesOut` answer that decides whether the map

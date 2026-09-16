@@ -495,18 +495,32 @@ else
         }
 
         @* A route between two places, each chosen from its pin's popup or from its row in the panel -
-           see OnPinRoute, which both go through. Along the foot of the map
-           with the other questions about pins, because it is about two of them. *@
+           see OnPinRoute, which both go through - and any stops along it, added the same way once both
+           ends are chosen. Along the foot of the map with the other questions about pins, because it is
+           about several of them. *@
         @if (_routeStart is { } routeStart)
         {
             <div class="map-create-event map-route">
                 @if (_routeEnd is { } routeEnd)
                 {
-                    <span class="map-create-event-place">@($"{routeStart.Address} → {routeEnd.Address}")</span>
+                    <span class="map-create-event-place">@($"{routeStart.Address} → {string.Concat(_routeStops.Select(stop => stop.Address + " → "))}{routeEnd.Address}")</span>
                     @if (_route is { } route)
                     {
                         <span class="map-create-event-question">@DescribeRoute(route)</span>
                     }
+                    @if (_routeStops.Count == 0)
+                    {
+                        <span class="map-create-event-question">@T["Add a stop from another pin, or a row in the panel."]</span>
+                    }
+                    @foreach (var stop in _routeStops.ToList())
+                    {
+                        <button type="button" class="btn-secondary map-route-stop"
+                                @onclick="() => RemoveTheStopAsync(stop)">@T.Format("Remove the stop at {0}", stop.Address)</button>
+                    }
+                    @* The same route, stops and all, for the phone in the reader's pocket - Google's directions
+                       link carries the stops as waypoints, and needs no key. *@
+                    <a class="btn-secondary" href="@GoogleMapsLink.ForRoute(routeStart.Latitude, routeStart.Longitude, _routeStops.Select(stop => (stop.Latitude, stop.Longitude)), routeEnd.Latitude, routeEnd.Longitude)"
+                       target="_blank" rel="noopener noreferrer">@T["Open in Google Maps"]</a>
                 }
                 else
                 {
@@ -2170,6 +2184,13 @@ else
     /// <summary>Where it ends, once a second pin has said so. Never set without a start.</summary>
     private PickedPlace? _routeEnd;
 
+    /// <summary>
+    /// The stops along the way, in the order they were added - asked for on the list of 2026-09-16. Only
+    /// once both ends are chosen: a stop is somewhere between two places, and before there are two the
+    /// press means an end.
+    /// </summary>
+    private readonly List<PickedPlace> _routeStops = [];
+
     /// <summary>What drawing it came back with - how far, how long, and whether it follows the roads.</summary>
     private RouteSummary? _route;
 
@@ -2184,14 +2205,18 @@ else
     /// One button that changes rather than two side by side - a popup is two lines wide, and "from here"
     /// and "to here" together would be a question the reader has to answer before they have one.
     /// </summary>
-    private string RouteLabel => _routeStart is null || _routeEnd is not null
+    private string RouteLabel => _routeStart is null
         ? T["Start a route here"]
-        : T["Route to here"];
+        : _routeEnd is null
+            ? T["Route to here"]
+            : T["Add a stop here"];
 
     /// <summary>
     /// The route button in a pin's popup. The first press says where a route starts; the second, on
-    /// another pin, where it goes, and the route is drawn. A press once both are chosen starts over from
-    /// that pin, which is what somebody pressing "start a route here" on a map already showing one means.
+    /// another pin, where it goes, and the route is drawn; every press after that adds a stop on the way,
+    /// before the end, and the route is drawn again through it. Starting a different route is Clear the
+    /// route first - once there is a route, a press on a pin more often means "and via here" than "forget
+    /// that one".
     ///
     /// Looked up by key for the reason OnPinNavigate gives.
     /// </summary>
@@ -2203,18 +2228,32 @@ else
             return;
         }
 
-        if (_routeStart is null || _routeEnd is not null)
+        if (_routeStart is null)
         {
             Logger.LogInformation("User started a route on the map");
             await ClearTheRouteLineAsync();
             _routeStart = place;
             _routeEnd = null;
+            _routeStops.Clear();
             _route = null;
         }
-        else
+        else if (_routeEnd is null)
         {
             Logger.LogInformation("User finished a route on the map");
             _routeEnd = place;
+            await DrawTheRouteAsync();
+        }
+        else
+        {
+            // The same place twice in a row is not a stop - it is a press that was already made.
+            if (IsSamePlace(place, _routeEnd) || IsSamePlace(place, _routeStart)
+                || _routeStops.Any(stop => IsSamePlace(stop, place)))
+            {
+                return;
+            }
+
+            Logger.LogInformation("User added a stop to the route on the map");
+            _routeStops.Add(place);
             await DrawTheRouteAsync();
         }
 
@@ -2238,11 +2277,11 @@ else
 
         try
         {
-            _route = await _mapModule.InvokeAsync<RouteSummary?>(
-                "showRoute", MapElementId,
-                new { latitude = start.Latitude, longitude = start.Longitude },
-                new { latitude = end.Latitude, longitude = end.Longitude },
-                _mapTilesAllowed);
+            // Every point in the order it is driven: the start, the stops as they were added, the end.
+            var points = new[] { start }.Concat(_routeStops).Append(end)
+                .Select(point => new { latitude = point.Latitude, longitude = point.Longitude })
+                .ToArray();
+            _route = await _mapModule.InvokeAsync<RouteSummary?>("showRoute", MapElementId, points, _mapTilesAllowed);
         }
         catch (JSException exception)
         {
@@ -2256,9 +2295,21 @@ else
         await ClearTheRouteLineAsync();
         _routeStart = null;
         _routeEnd = null;
+        _routeStops.Clear();
         _route = null;
         await RefreshMapMarkersAsync();
     }
+
+    /// <summary>Takes one stop off the route and draws it again without it.</summary>
+    private async Task RemoveTheStopAsync(PickedPlace stop)
+    {
+        _routeStops.Remove(stop);
+        await DrawTheRouteAsync();
+    }
+
+    /// <summary>Two picks of the same point - which is what pressing one pin twice gives.</summary>
+    private static bool IsSamePlace(PickedPlace first, PickedPlace second)
+        => first.Latitude.Equals(second.Latitude) && first.Longitude.Equals(second.Longitude);
 
     private async Task ClearTheRouteLineAsync()
     {

@@ -1320,7 +1320,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   - **Pictures pasted into a note.** Confirmed 2026-09-14 as its own round rather than a list item, and
     written out below under "Pictures in a note, and the note control everywhere a description is".
 
-  - **Stops along a route.** ~~Both ends chosen from the list of pins~~ went in on 2026-09-14: every row
+  - ~~**Stops along a route.**~~ Done on 2026-09-16, against the OSRM demo the route already asked (gated
+    the same way) and handed to Google Maps as waypoints - see "A route between two pins" in
+    functionality.md. What was written here before:
+    ~~Both ends chosen from the list of pins~~ went in on 2026-09-14: every row
     in the map's panel - a place, a plan, either list - carries the same one press its pin's popup does,
     so neither end has to be hunted for among the pins first. **Stops are what is left, and they are the
     half with a question in it**: a straight line between two points is what the map draws today
