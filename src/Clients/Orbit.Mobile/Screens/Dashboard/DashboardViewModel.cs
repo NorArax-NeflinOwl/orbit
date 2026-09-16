@@ -82,8 +82,10 @@ public sealed partial class DashboardViewModel : ObservableObject
         IDashboardCardPreferenceStore visibility, SharedLocations sharedLocations,
         LocalNotificationRepository notifications, IScreenNavigator navigator,
         LocalFolderRepository folders, IChosenFolderStore chosenFolder,
-        LocalTagColourRepository? tagColours = null, UpcomingHorizon? upcomingHorizon = null)
+        LocalTagColourRepository? tagColours = null, UpcomingHorizon? upcomingHorizon = null,
+        Tasks.TaskTagFilters? tagFilters = null)
     {
+        _tagFilters = tagFilters;
         _tagColours = tagColours;
         _upcomingHorizon = upcomingHorizon;
         Folders = new FolderTabs(folders, chosenFolder, translations, FolderPage.Dashboard);
@@ -130,7 +132,75 @@ public sealed partial class DashboardViewModel : ObservableObject
         await _permissions.EnsureLoadedAsync(cancellationToken);
         await ShowStoredSummaryAsync(cancellationToken);
         await SynchroniseAsync(cancellationToken);
+
+        // The Tasks card's filters are the account's, made in a browser as often as here - read again
+        // with everything else, and drawn again only when they changed. See TaskTagFilters.
+        if (_tagFilters is not null && await _tagFilters.RefreshAsync(cancellationToken))
+        {
+            await ShowStoredSummaryAsync(cancellationToken);
+        }
     }
+
+    /// <summary>The account's filters for the Tasks card - see TaskTagFilters. Null in a test that is not about them.</summary>
+    private readonly Tasks.TaskTagFilters? _tagFilters;
+
+    /// <summary>
+    /// The account's tag filters as the Tasks card's menu offers them, the chosen one ticked. Empty for
+    /// every other card, and for an account that has made none.
+    /// </summary>
+    public IReadOnlyList<DashboardTagFilterChoice> TagFilterChoicesFor(DashboardCardKind kind)
+        => kind is DashboardCardKind.Tasks && _tagFilters is { } filters
+            ? [.. filters.Held.Select(filter => new DashboardTagFilterChoice(
+                filter.Id, Tasks.TaskTagFilters.NameOf(filter, _translations), filter.Id == filters.Chosen?.Id))]
+            : [];
+
+    /// <summary>Whether the Tasks card is showing one of the account's tag filters, which the menu offers to delete.</summary>
+    public bool HasAChosenTagFilter => _tagFilters?.Chosen is not null;
+
+    /// <summary>
+    /// Shows the lists a tag filter finds, or stops when the one already shown is chosen again. Choosing
+    /// one sets the card's own pinned filter back to everything, because the menu ticks one answer to
+    /// "what is this card showing" - Orbit.Web's Dashboard.ChooseTagFilterAsync.
+    /// </summary>
+    [RelayCommand]
+    private async Task ChooseTagFilterAsync(DashboardTagFilterChoice? choice, CancellationToken cancellationToken)
+    {
+        if (choice is null || _tagFilters is null)
+        {
+            return;
+        }
+
+        _tagFilters.Choose(choice.IsChosen ? null : choice.Id);
+        _filters.Remove(DashboardCardKind.Tasks);
+        _visibility.WriteFilters(_filters);
+        await ShowStoredSummaryAsync(cancellationToken);
+    }
+
+    /// <summary>Takes the chosen tag filter off the account - which needs a connection, and says so without one.</summary>
+    [RelayCommand]
+    private async Task DeleteChosenTagFilterAsync(CancellationToken cancellationToken)
+    {
+        if (_tagFilters?.Chosen is not { } chosen)
+        {
+            return;
+        }
+
+        if (!await _tagFilters.DeleteAsync(chosen.Id, cancellationToken))
+        {
+            FilterMessage = _translations["That filter could not be deleted. Deleting one needs a connection."];
+            return;
+        }
+
+        FilterMessage = string.Empty;
+        await ShowStoredSummaryAsync(cancellationToken);
+    }
+
+    /// <summary>Why a filter could not be deleted - empty while nothing needs saying.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasFilterMessage))]
+    private string _filterMessage = string.Empty;
+
+    public bool HasFilterMessage => FilterMessage.Length > 0;
 
     private async Task SynchroniseAsync(CancellationToken cancellationToken)
     {
@@ -236,7 +306,13 @@ public sealed partial class DashboardViewModel : ObservableObject
             Folders.Where(list.FolderId, list.IsPrivate, list.IsCompleted, list.IsArchived)))];
 
         var shownNotes = notes.Where(note => Passes(DashboardCardKind.Notes, note.IsPinned)).ToList();
-        var shownTaskLists = taskLists.Where(list => Passes(DashboardCardKind.Tasks, list.IsPinned)).ToList();
+        // Under a tag filter, every list it finds, whatever folder it is in and whatever state - a filter
+        // finds lists by what they are about, which is not the question a folder tab answers. See
+        // TaskTagFilters, and Orbit.Web's Dashboard.TaskListsToShow.
+        var tagFilter = _tagFilters?.Chosen;
+        var shownTaskLists = tagFilter is not null
+            ? everyTaskList.Where(list => !list.IsSealed && Tasks.TaskTagFilters.Finds(tagFilter, list.AllTags)).ToList()
+            : taskLists.Where(list => Passes(DashboardCardKind.Tasks, list.IsPinned)).ToList();
         // Split in two, the way Orbit.Web splits its own: what is coming up at all decides whether the
         // card is on the page, and what survives the filter and the horizon is what it draws.
         var everythingUpcoming = WhatIsComingUp(events, everyTaskList);
@@ -258,7 +334,7 @@ public sealed partial class DashboardViewModel : ObservableObject
             notes.Any(CanBeShown));
         AddCardIfAnything(
             DashboardCardKind.Tasks, _translations["Tasks"], DescribeTaskLists(shownTaskLists, tagColours), shownTaskLists.Count(CanBeShown),
-            taskLists.Any(CanBeShown));
+            taskLists.Any(CanBeShown) || (tagFilter is not null && everyTaskList.Any(CanBeShown)));
         AddCardIfAnything(
             DashboardCardKind.Upcoming, _translations["Upcoming"], SoonestFirst(shownUpcoming), shownUpcoming.Count,
             everythingUpcoming.Count > 0);
@@ -706,7 +782,8 @@ public sealed partial class DashboardViewModel : ObservableObject
     public IReadOnlyList<DashboardFilterChoice> FilterChoicesFor(DashboardCardKind kind)
         => OptionsFor(kind)
             .Select(option => new DashboardFilterChoice(
-                kind, option, NameOfFilter(option), option == FilterFor(kind)))
+                kind, option, NameOfFilter(option),
+                option == FilterFor(kind) && !(kind is DashboardCardKind.Tasks && HasAChosenTagFilter)))
             .ToList();
 
     private static IReadOnlyList<DashboardCardFilter> OptionsFor(DashboardCardKind kind) => kind switch
@@ -747,6 +824,12 @@ public sealed partial class DashboardViewModel : ObservableObject
         else
         {
             _filters[choice.Kind] = choice.Filter;
+        }
+
+        // The card's own filter stops a tag filter, since the menu ticks one answer - see ChooseTagFilterAsync.
+        if (choice.Kind is DashboardCardKind.Tasks)
+        {
+            _tagFilters?.Choose(null);
         }
 
         _visibility.WriteFilters(_filters);

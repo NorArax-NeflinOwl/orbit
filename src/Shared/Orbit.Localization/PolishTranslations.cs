@@ -458,6 +458,8 @@ public static class PolishTranslations
         ["No tags yet - add one below."] = "Nie ma jeszcze tagów - dodaj pierwszy poniżej.",
         ["New tag"] = "Nowy tag",
         ["That filter could not be saved."] = "Nie udało się zapisać filtru.",
+        ["That filter could not be saved. Making one needs a connection."] = "Nie udało się zapisać filtru. Do utworzenia filtru potrzebne jest połączenie.",
+        ["That filter could not be deleted. Deleting one needs a connection."] = "Nie udało się usunąć filtru. Do usunięcia filtru potrzebne jest połączenie.",
         ["Filter \"{0}\" saved - choose it from the Tasks card's menu on the dashboard."] = "Zapisano filtr \"{0}\" - wybierzesz go w menu kafelka Zadania na pulpicie.",
         ["Your filters"] = "Twoje filtry",
         ["Delete this filter"] = "Usuń ten filtr",

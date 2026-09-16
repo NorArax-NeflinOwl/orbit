@@ -206,6 +206,9 @@ public enum DashboardCardFilter
 /// <summary>One choice in a card's filter menu, with the chosen one marked.</summary>
 public sealed record DashboardFilterChoice(DashboardCardKind Kind, DashboardCardFilter Filter, string Name, bool IsChosen);
 
+/// <summary>One of the account's tag filters as the Tasks card's menu offers it - see Tasks.TaskTagFilters.</summary>
+public sealed record DashboardTagFilterChoice(Guid Id, string Name, bool IsChosen);
+
 /// <summary>
 /// One line of the "Show on the dashboard" menu: a part of the dashboard and whether it is being shown.
 /// Every kind is listed, including the ones with nothing in them today - a card put away has to stay

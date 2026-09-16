@@ -143,6 +143,26 @@ public partial class DashboardPage : ContentPage, ITitleMenu
 				horizon.IsChosen))));
 		}
 
+		// The account's own tag filters on the Tasks card, and a way to delete the one being shown - see
+		// DashboardViewModel.TagFilterChoicesFor, and Orbit.Web's "Your filters".
+		if (_viewModel.TagFilterChoicesFor(card.Kind) is { Count: > 0 } tagFilters)
+		{
+			List<ScreenMenuEntry> entries =
+			[
+				.. tagFilters.Select(tagFilter => new ScreenMenuEntry(
+					tagFilter.Name,
+					() => _ = _viewModel.ChooseTagFilterCommand.ExecuteAsync(tagFilter),
+					tagFilter.IsChosen))
+			];
+			if (_viewModel.HasAChosenTagFilter)
+			{
+				entries.Add(new ScreenMenuEntry(
+					_translations["Delete this filter"], () => _ = _viewModel.DeleteChosenTagFilterCommand.ExecuteAsync(null)));
+			}
+
+			groups.Add(new(_translations["Your filters"], entries));
+		}
+
 		Menu.ShowGroups(groups, placement: MenuPlacement.FromTheFoot);
 	}
 }

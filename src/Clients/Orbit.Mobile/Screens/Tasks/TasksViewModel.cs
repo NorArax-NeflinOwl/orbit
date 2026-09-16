@@ -136,8 +136,9 @@ public sealed partial class TasksViewModel : ObservableObject
         SyncState syncState, IScreenNavigator navigator, Translations translations,
         LocalNotificationRepository notifications, LocalFolderRepository folders, IChosenFolderStore chosenFolder,
         FolderSynchronizer folderSynchronizer, LocalTagColourRepository? tagColours = null,
-        SharingSeveral? sharingSeveral = null)
+        SharingSeveral? sharingSeveral = null, TaskTagFilters? tagFilters = null)
     {
+        TagFilter = tagFilters is null ? null : new TagFilterForm(tagFilters, translations);
         Picking = new PickingSeveral(
             translations,
             new PickingActions(
@@ -179,6 +180,16 @@ public sealed partial class TasksViewModel : ObservableObject
 
     /// <summary>Several lists chosen to be filed, put away or shared together - see PickingSeveral.</summary>
     public PickingSeveral Picking { get; }
+
+    /// <summary>
+    /// Making a filter for the dashboard's Tasks card out of the tags on these lists - see TagFilterForm.
+    /// Null where the app was built without the filters, which is a test that is not about them.
+    /// </summary>
+    public TagFilterForm? TagFilter { get; }
+
+    /// <summary>The menu's "Create filter": opens the form on every tag this account's lists carry, whatever folder they are in.</summary>
+    public void StartMakingATagFilter()
+        => TagFilter?.Open(_stored.Where(taskList => !taskList.IsSealed).SelectMany(taskList => taskList.AllTags));
 
     /// <summary>The menu's "Select": starts choosing lists, or stops.</summary>
     [RelayCommand]

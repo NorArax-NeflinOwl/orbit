@@ -272,6 +272,52 @@ public sealed class DashboardScreenTests
     /// The card's own menu offers a week and a month, as a group apart from its priority filter, and
     /// choosing one is the same setting the Preferences tab writes.
     /// </summary>
+    /// <summary>
+    /// A filter made of list tags - in a browser as often as here - is read with the dashboard's sync,
+    /// offered on the Tasks card's menu by its tags, and when chosen shows the lists carrying them and
+    /// ticks nothing among the card's own filters.
+    /// </summary>
+    [Fact]
+    public async Task A_tag_filter_chosen_on_the_tasks_card_shows_the_lists_carrying_its_tags()
+    {
+        using var context = new DashboardContext();
+        var groceries = await context.AddTaskListAsync("Groceries");
+        var report = await context.AddTaskListAsync("Quarterly report");
+        await context.TagAsync(groceries, "Shopping");
+        await context.TagAsync(report, "work");
+        var filter = new TaskTagFilterDto(Guid.NewGuid(), ["home", "shopping"], MatchesAll: false, Now);
+        var filters = new Orbit.Mobile.Screens.Tasks.TaskTagFilters(
+            new TasksClient(StubHttpMessageHandler.RespondingWith(new[] { filter }).ToHttpClient()),
+            new InMemoryTaskTagFilterStore());
+        var screen = context.Open(filters);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var offered = Assert.Single(screen.TagFilterChoicesFor(DashboardCardKind.Tasks));
+        Assert.Equal("home or shopping", offered.Name);
+        Assert.Empty(screen.TagFilterChoicesFor(DashboardCardKind.Notes));
+
+        await screen.ChooseTagFilterCommand.ExecuteAsync(offered);
+
+        var tasks = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Tasks);
+        Assert.Equal(["Groceries"], tasks.Rows.Select(row => row.Title));
+        Assert.True(screen.HasAChosenTagFilter);
+        Assert.DoesNotContain(screen.FilterChoicesFor(DashboardCardKind.Tasks), choice => choice.IsChosen);
+    }
+
+    private sealed class InMemoryTaskTagFilterStore : Orbit.Mobile.Screens.Tasks.ITaskTagFilterStore
+    {
+        private IReadOnlyList<TaskTagFilterDto> _filters = [];
+        private Guid? _chosen;
+
+        public IReadOnlyList<TaskTagFilterDto> ReadFilters() => _filters;
+
+        public void WriteFilters(IReadOnlyList<TaskTagFilterDto> filters) => _filters = filters;
+
+        public Guid? ReadChosen() => _chosen;
+
+        public void WriteChosen(Guid? filterId) => _chosen = filterId;
+    }
+
     [Fact]
     public async Task The_upcoming_cards_own_menu_widens_it_to_thirty_days()
     {
@@ -1648,11 +1694,11 @@ public sealed class DashboardScreenTests
         /// </summary>
         public FakeFoldersServer FoldersServer { get; }
 
-        public DashboardViewModel Open()
+        public DashboardViewModel Open(Orbit.Mobile.Screens.Tasks.TaskTagFilters? tagFilters = null)
             => new(_notes, _taskLists, _calendarEvents, _inventories, _places, _chat, _clock, new Translations(new InMemoryLanguageStore()),
                 PrivateItems, _synchronizer, _syncState, _permissions,
                 Pins, Visibility, SharedPositions(), Notifications, Navigator,
-                Folders, ChosenFolders, TagColours, Horizon);
+                Folders, ChosenFolders, TagColours, Horizon, tagFilters);
 
         /// <summary>
         /// How far ahead the Upcoming card looks on this phone - see UpcomingHorizon. A test that says

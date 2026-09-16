@@ -29,6 +29,28 @@ public sealed class TasksClient : ILockableItems
             ?? new ChangeFeedDto<TaskDto>([], [], since);
     }
 
+    /// <summary>The account's filters for the dashboard's Tasks card - see Orbit.Core.Tasks.TagFilters.TaskTagFilter.</summary>
+    public async Task<IReadOnlyList<TaskTagFilterDto>> GetTagFiltersAsync(CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<List<TaskTagFilterDto>>("api/task-filters", cancellationToken) ?? [];
+
+    /// <summary>Makes one, answered as the server stored it - or null when it was refused.</summary>
+    public async Task<TaskTagFilterDto?> CreateTagFilterAsync(
+        IReadOnlyList<string> tags, bool matchesAll, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/task-filters", new CreateTaskTagFilterRequest(tags, matchesAll), cancellationToken);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<TaskTagFilterDto>(cancellationToken)
+            : null;
+    }
+
+    /// <summary>Takes one away. True when it is gone, including when it was already.</summary>
+    public async Task<bool> DeleteTagFilterAsync(Guid filterId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.DeleteAsync($"api/task-filters/{filterId}", cancellationToken);
+        return response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.NotFound;
+    }
+
     public async Task<Guid> CreateAsync(CreateTaskRequest request, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsJsonAsync("api/tasks", request, cancellationToken);

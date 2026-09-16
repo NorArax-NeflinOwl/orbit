@@ -101,6 +101,10 @@
                        IsVisible="{Binding EverythingIsHidden}" Style="{StaticResource EmptyHint}"
                        HorizontalOptions="Center" Margin="0,20" LineBreakMode="WordWrap" />
 
+                <!-- Why a Tasks card filter was not deleted - see DashboardViewModel.DeleteChosenTagFilterAsync. -->
+                <Label Text="{Binding FilterMessage}" IsVisible="{Binding HasFilterMessage}"
+                       LineBreakMode="WordWrap" Style="{StaticResource ErrorLabel}" />
+
                 <VerticalStackLayout Spacing="14" BindableLayout.ItemsSource="{Binding Cards}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="screens:DashboardCard">
