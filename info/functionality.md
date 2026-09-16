@@ -451,6 +451,36 @@ The export archive carries both, defaulted and last as every late field is: `Arc
 `ArchivedTaskList.Tags`, and `OrbitArchive.TagColours`. An import adds colours only for tags the account
 has not coloured since - an import never overwrites.
 
+### Filters made of tags, for the dashboard's Tasks card
+
+**An account can make filters out of its list tags** (2026-09-16, `Orbit.Core.Tasks.TagFilters.TaskTagFilter`,
+`OS_TASKS_TAG_FILTERS`): a set of tags matched by **any one of them** by default, or by **every one** when
+"And" is pressed. A filter has no name of its own - it is called by its tags joined with "or" / "and"
+("home or shopping"), which is what anybody would have typed as its name, and a name could drift from the
+tags. Made and deleted, never edited (`GET/POST /api/task-filters`, `DELETE /api/task-filters/{id}`); fewer
+than one or more than twenty tags are refused, the tags are tidied as a list's own are, and the rows go
+with the account. Readable on the server for the same reason the colours are, and with the same
+consequence: a filter made of a tag used only on private lists names that tag in the clear.
+
+**Made on the tasks page.** In the browser, "Create filter" stands in the header ahead of the folder button
+and opens `TagFilterDialog`: "And" at the top with a line saying what the filter will find, every tag on
+the account's lists as a checklist (whatever folder they are in), a box that adds a new word ticked, and
+Save and Cancel as icons at the foot. On the phone the same panel (`TagFilterForm`, `TagFilterSheet`) is
+"Create filter" under a "Dashboard" heading in the tasks screen's menu; making one needs a connection and
+says so without one, the way sharing does.
+
+**Chosen on the Tasks card.** Its menu gains "Your filters", the chosen one ticked and nothing ticked among
+the card's own All/Pinned while it is chosen - choosing either kind of answer stops the other. A chosen
+filter shows **every list it finds, whatever folder it is in, finished or not, put away or not**: it finds
+lists by what they are about, which is not the question a folder tab answers. "Delete this filter" is
+offered beside the chosen one. Which filter the card shows is kept on the device
+(`DashboardCardPreferences.TasksTagFilterId` in the browser, `ITaskTagFilterStore` on the phone); the
+filters themselves are the account's. The phone keeps a copy of them read again on every dashboard load
+(`TaskTagFilters.RefreshAsync`), so the menu works offline from what was last read.
+
+Not in the export archive: a filter is a view onto lists rather than something written, and the archive
+carries what somebody wrote.
+
 ## Folders
 
 Every page made of cards - the dashboard, the notes, the task lists, the calendar and the inventories -
