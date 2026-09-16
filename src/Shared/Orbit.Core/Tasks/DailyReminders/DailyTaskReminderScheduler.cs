@@ -9,6 +9,12 @@ namespace Orbit.Core.Tasks.DailyReminders;
 /// <see cref="OverdueTaskNotificationScheduler"/>, a task item is eligible again every day it stays
 /// incomplete, rather than only once.
 ///
+/// <b>Asking stops when the entry is finished with.</b> "Remind daily" is asking about one errand until
+/// it is done, not a claim that the errand happens every day - which is what the repository's own query
+/// settles, by leaving out anything ticked off or crossed out. The exception is the shelf's standing
+/// round, which is work that comes back tomorrow whatever was done today; it carries
+/// <see cref="DailyTaskReminderCandidate.ComesRoundAgain"/> and is the only thing brought back.
+///
 /// <b>An overdue notice speaks instead of today's reminder.</b> The two schedulers used to know nothing
 /// about each other, so an entry that was both late and reminded daily said the same thing twice a
 /// minute apart - reported by the user on 2026-09-12 and again on 2026-09-14, and settled by them: the
@@ -75,7 +81,7 @@ public sealed class DailyTaskReminderScheduler
 
             dueReminders.Add(new DueDailyTaskReminder(
                 candidate.TaskItemId, candidate.TaskListId, candidate.UserId, candidate.TaskListTitle, candidate.Description,
-                candidate.DueDateUtc, candidate.NotificationChannel, today));
+                candidate.DueDateUtc, candidate.NotificationChannel, today, candidate.ComesRoundAgain));
         }
 
         return dueReminders;

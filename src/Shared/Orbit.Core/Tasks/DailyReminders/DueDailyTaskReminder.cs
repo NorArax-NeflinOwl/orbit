@@ -7,6 +7,10 @@ namespace Orbit.Core.Tasks.DailyReminders;
 /// The local calendar date this reminder is for - paired with TaskItemId as the claim key (see
 /// IDailyTaskReminderRepository), so a task item reminded about yesterday is eligible again today.
 /// </param>
+/// <param name="ComesRoundAgain">
+/// Whether the entry is brought back before the reminder goes out - see
+/// <see cref="DailyTaskReminderCandidate.ComesRoundAgain"/>.
+/// </param>
 public sealed record DueDailyTaskReminder(
     Guid TaskItemId,
     Guid TaskListId,
@@ -15,4 +19,5 @@ public sealed record DueDailyTaskReminder(
     string Description,
     DateTimeOffset? DueDateUtc,
     NotificationChannel NotificationChannel,
-    DateOnly ReminderDate);
+    DateOnly ReminderDate,
+    bool ComesRoundAgain = false);

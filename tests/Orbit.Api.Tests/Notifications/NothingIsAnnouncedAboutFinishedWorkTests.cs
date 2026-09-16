@@ -68,10 +68,7 @@ public sealed class NothingIsAnnouncedAboutFinishedWorkTests : IDisposable
         Assert.Single(due);
     }
 
-    /// <summary>
-    /// The entry's own tick is deliberately ignored here - a daily errand is done today and due again
-    /// tomorrow - but the list's is not the same question, and a closed list is not owed anything.
-    /// </summary>
+    /// <summary>The list's own tick closes it, whichever way it was reached - see TaskList.IsCompleted.</summary>
     [Fact]
     public async Task A_daily_reminder_on_a_finished_list_is_not()
     {
@@ -81,6 +78,88 @@ public sealed class NothingIsAnnouncedAboutFinishedWorkTests : IDisposable
         var due = await new DailyTaskReminderRepository(_dbContext).GetEligibleAsync(CancellationToken.None);
 
         Assert.Empty(due);
+    }
+
+    /// <summary>
+    /// "Remind daily" asks about one errand until it is done - it is not a claim that the errand happens
+    /// every day. So the tick ends the asking, and the reader's own list said so: a doctor's appointment
+    /// booked on Tuesday came back unticked on Wednesday morning with a reminder that it was still
+    /// waiting (2026-09-16). The shelf's standing round is the one thing that does come back, below.
+    /// </summary>
+    [Fact]
+    public async Task A_daily_reminder_stops_once_the_entry_is_ticked_off()
+    {
+        AListWithADailyReminder(isListDone: false, isEntryDone: true);
+        await _dbContext.SaveChangesAsync();
+
+        var due = await new DailyTaskReminderRepository(_dbContext).GetEligibleAsync(CancellationToken.None);
+
+        Assert.Empty(due);
+    }
+
+    /// <summary>A cross is the other way of being finished with something, and ends the asking the same way.</summary>
+    [Fact]
+    public async Task A_daily_reminder_stops_once_the_entry_is_crossed_out()
+    {
+        AListWithADailyReminder(isListDone: false, isEntryFailed: true);
+        await _dbContext.SaveChangesAsync();
+
+        var due = await new DailyTaskReminderRepository(_dbContext).GetEligibleAsync(CancellationToken.None);
+
+        Assert.Empty(due);
+    }
+
+    /// <summary>
+    /// The exception, and the reason the whole mechanism exists: a shelf's standing round is work that
+    /// happens again tomorrow whatever was done about it today, so it comes back ticked and is the one
+    /// candidate marked to be reopened.
+    /// </summary>
+    [Fact]
+    public async Task The_shelfs_standing_round_comes_back_after_it_is_ticked_off()
+    {
+        var taskListId = AShelfsRestockList(isEntryDone: true);
+        await _dbContext.SaveChangesAsync();
+
+        var due = await new DailyTaskReminderRepository(_dbContext).GetEligibleAsync(CancellationToken.None);
+
+        var standing = Assert.Single(due);
+        Assert.Equal(taskListId, standing.TaskListId);
+        Assert.True(standing.ComesRoundAgain);
+    }
+
+    /// <summary>
+    /// And it is the shelf's list that makes it one, not the words: an entry somebody happens to name
+    /// the same thing on a list of their own is their errand and stops when they tick it off.
+    /// </summary>
+    [Fact]
+    public async Task The_same_words_on_somebodys_own_list_are_still_their_errand()
+    {
+        AList(isListDone: false, new TaskItemEntity
+        {
+            Id = Guid.NewGuid(),
+            Description = "Update stock levels",
+            IsCompleted = true,
+            RemindDaily = true,
+            DailyReminderNotificationChannel = "Push",
+            DailyReminderTimeOfDayMinutes = 9 * 60
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var due = await new DailyTaskReminderRepository(_dbContext).GetEligibleAsync(CancellationToken.None);
+
+        Assert.Empty(due);
+    }
+
+    /// <summary>An ordinary errand is not marked to come back, so nothing ever un-ticks it.</summary>
+    [Fact]
+    public async Task An_ordinary_errand_is_not_one_that_comes_round_again()
+    {
+        AListWithADailyReminder(isListDone: false);
+        await _dbContext.SaveChangesAsync();
+
+        var due = await new DailyTaskReminderRepository(_dbContext).GetEligibleAsync(CancellationToken.None);
+
+        Assert.False(Assert.Single(due).ComesRoundAgain);
     }
 
     [Fact]
@@ -138,15 +217,55 @@ public sealed class NothingIsAnnouncedAboutFinishedWorkTests : IDisposable
             OverdueNotificationChannel = "Push"
         });
 
-    private void AListWithADailyReminder(bool isListDone)
+    private void AListWithADailyReminder(bool isListDone, bool isEntryDone = false, bool isEntryFailed = false)
         => AList(isListDone, new TaskItemEntity
         {
             Id = Guid.NewGuid(),
             Description = "Water the plants",
+            IsCompleted = isEntryDone,
+            IsFailed = isEntryFailed,
             RemindDaily = true,
             DailyReminderNotificationChannel = "Push",
             DailyReminderTimeOfDayMinutes = 9 * 60
         });
+
+    /// <summary>
+    /// A list an inventory keeps for itself, carrying the standing round - the shape
+    /// InventoryTaskListCoordinator builds, down to the words the entry is written with.
+    /// </summary>
+    private Guid AShelfsRestockList(bool isEntryDone)
+    {
+        var taskListId = Guid.NewGuid();
+        _dbContext.Tasks.Add(new TaskEntity
+        {
+            Id = taskListId,
+            UserId = OwnerUserId,
+            Title = "Restock supplies - Pantry",
+            CreatedAtUtc = Yesterday,
+            UpdatedAtUtc = Yesterday,
+            Items =
+            [
+                new TaskItemEntity
+                {
+                    Id = Guid.NewGuid(),
+                    Description = "Update stock levels",
+                    IsCompleted = isEntryDone,
+                    RemindDaily = true,
+                    DailyReminderNotificationChannel = "Push",
+                    DailyReminderTimeOfDayMinutes = 9 * 60
+                }
+            ]
+        });
+
+        _dbContext.InventoryManagedTaskLists.Add(new InventoryManagedTaskListEntity
+        {
+            Id = Guid.NewGuid(),
+            InventoryId = Guid.NewGuid(),
+            TaskListId = taskListId
+        });
+
+        return taskListId;
+    }
 
     private void AListWhoseEntryRaised(Guid calendarEventId, bool isEntryDone, bool isListDone)
         => AList(isListDone, new TaskItemEntity

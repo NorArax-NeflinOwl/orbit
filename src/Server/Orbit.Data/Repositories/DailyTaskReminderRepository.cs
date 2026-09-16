@@ -19,18 +19,25 @@ public sealed class DailyTaskReminderRepository : IDailyTaskReminderRepository
         // TaskItemEntity has no navigation back to its owning TaskEntity (see OrbitDbContext - only the
         // reverse Items navigation exists), so the owner's UserId and the list's Title are pulled in via
         // an explicit join on TaskId rather than a navigation property (mirrors OverdueTaskNotificationRepository).
+        // Which lists an inventory keeps for itself - the one place an entry that comes round again
+        // lives, and the only thing here that is work rather than an errand. See ComesRoundAgain below.
+        var managedTaskListIds = _dbContext.InventoryManagedTaskLists.AsNoTracking().Select(managed => managed.TaskListId);
+
         var rows = await (
             from item in _dbContext.Set<TaskItemEntity>().AsNoTracking()
             join task in _dbContext.Tasks.AsNoTracking() on item.TaskId equals task.Id
-            // No !item.IsCompleted here on purpose: a finished item is due again tomorrow, and is
-            // reopened by ReopenAsync when its reminder fires. The *list* is a different matter - a
-            // list somebody closed is not owed any more, so it stops asking. Saying "no more of this"
+            // A list somebody closed is not owed any more, so it stops asking: saying "no more of this"
             // and then being reminded of it every morning is the app arguing with the reader.
             // An entry done by ways that include a list is left out with the linked ones: its stored tick
             // cannot know that list is finished - see TaskItemAlternativeEntity.IsDone.
             where item.RemindDaily && !task.IsCompleted && !item.LinkedTaskLists.Any()
                 && !item.Alternatives.Any(way => way.LinkedTaskListId != null)
                 && item.DailyReminderNotificationChannel != "None"
+                // Finished with, either way, and the asking stops - unless the entry is work that happens
+                // again tomorrow whatever was done about it today, which on the shelf's standing round is
+                // the whole point. See ComesRoundAgain, and the decision recorded in info/future-plan.md.
+                && (!item.IsCompleted && !item.IsFailed
+                    || (item.Description == StandingRoundDescription && managedTaskListIds.Contains(item.TaskId)))
             select new
             {
                 item.Id,
@@ -40,7 +47,8 @@ public sealed class DailyTaskReminderRepository : IDailyTaskReminderRepository
                 item.Description,
                 item.DueDateUtc,
                 item.DailyReminderNotificationChannel,
-                item.DailyReminderTimeOfDayMinutes
+                item.DailyReminderTimeOfDayMinutes,
+                ComesRoundAgain = item.Description == StandingRoundDescription && managedTaskListIds.Contains(item.TaskId)
             }).ToListAsync(cancellationToken);
 
         return rows
@@ -52,9 +60,19 @@ public sealed class DailyTaskReminderRepository : IDailyTaskReminderRepository
                 row.Description,
                 row.DueDateUtc,
                 Enum.Parse<NotificationChannel>(row.DailyReminderNotificationChannel, ignoreCase: true),
-                TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(row.DailyReminderTimeOfDayMinutes))))
+                TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(row.DailyReminderTimeOfDayMinutes)),
+                row.ComesRoundAgain))
             .ToList();
     }
+
+    /// <summary>
+    /// The standing round on a shelf's restock list, by the words the server writes it with - see
+    /// Orbit.Core.Inventories.RestockTaskNaming.UpdateStockReminderDescription, which is a constant
+    /// rather than anything a reader typed (a reader's language is put over it on the way out, see
+    /// OrbitWrittenNames). Matched together with the list being one an inventory keeps, so an entry
+    /// somebody happens to name the same thing on a list of their own is still their errand.
+    /// </summary>
+    private const string StandingRoundDescription = Orbit.Core.Inventories.RestockTaskNaming.UpdateStockReminderDescription;
 
     public Task<bool> HasBeenSentAsync(Guid taskItemId, DateOnly reminderDate, CancellationToken cancellationToken)
     {

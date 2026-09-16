@@ -874,8 +874,9 @@ means:
 - *Still owed?* asks `IsResolved`. A list is complete when nothing on it is still owed; no overdue
   notice and no event reminder goes out for a crossed-out entry; what a list still needs against a shelf
   does not count it; a deadline somebody gave up on leaves the calendar's list and the dashboard's
-  Upcoming card. A daily errand still comes round again the next morning, which is what it already did
-  for a tick - being crossed out today says nothing about tomorrow.
+  Upcoming card. A crossed-out entry stops its daily reminder too, exactly as a ticked one does - being
+  finished with is being finished with, whichever way it was reached (the shelf's standing round is the
+  one exception, and comes back either way).
 - *Done?* asks `IsCompleted`. The fraction beside a list ("2/5"), the day's count on the dashboard, and
   everything that acts on work having actually been done: a restock errand somebody gave up on tops up
   no shelf, and crossing out "Update stock levels" does not offer to finish the whole round.
@@ -3746,6 +3747,24 @@ reminder carries on the next. Asked as "is a notice about to go out" rather than
 so it does not matter which of the two services polls first. An entry with no deadline can never be
 overdue and is never held back - which is the standing "Update stock levels" a shelf keeps.
 
+**"Remind daily" asks until it is done, and stops.** It is not a claim that the errand happens every
+day: an entry ticked off or crossed out is finished with, and asking about it again the next morning is
+the app arguing with the reader. It used to do exactly that - the server brought the entry back
+*unticked*, moved its due date on to today and then said it was "still waiting to be done", so a doctor's
+appointment booked on Tuesday was an open errand again on Wednesday, with the deadline somebody had set
+quietly overwritten (reported by the user 2026-09-16 with their own list; settled by them the same day).
+Nothing un-ticks a reader's entry now and nothing rewrites its deadline - `GetEligibleAsync` simply
+leaves a finished entry out, so the reminder falls silent.
+
+**The one thing that does come back is the shelf's standing round.** "Update stock levels" on an
+inventory's restock list is work that happens again tomorrow whatever was done about it today - it is
+what the whole mechanism was built for. It is recognised by the words the server writes it with *and* by
+its list being one an inventory keeps (`DailyTaskReminderCandidate.ComesRoundAgain`), so an entry
+somebody names the same thing on a list of their own is still their errand; it is the only candidate
+reopened, which is also what carries its due date forward and keeps it on the calendar and the dashboard.
+Bringing it back clears everything `TaskItem.Reopen` clears - the tick, the cross, the time it was done
+and every way it was done by.
+
 **A daily reminder needs an hour.** Saving refuses without one rather than sending it at midnight - an
 hour nobody chose is worse than being asked for one. An entry loaded at exactly 00:00 reads as one with
 no hour set: the wire carries a plain `TimeOnly` and cannot say "none". **Both clients read it that
@@ -4090,7 +4109,8 @@ not a claim about how much is there beyond it.
 
 Crossing off "Update stock levels" while errands are still open asks whether the whole round is done.
 Yes (`POST /api/tasks/{id}/restocking/finished`) finishes the list and brings every item in the inventory
-up to its minimum; the reminder is finished with it, and `RemindDaily` brings it back tomorrow.
+up to its minimum; the reminder is finished with it, and the daily tick brings it back tomorrow - this
+entry being the one the daily reminder still reopens, see "Remind daily asks until it is done".
 
 **The standing reminder carries a due date - today's, at the hour it comes round.** Without one it was
 invisible everywhere except its own list: the calendar and the dashboard both read task entries by

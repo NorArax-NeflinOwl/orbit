@@ -888,6 +888,29 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   shelf editor offers the shelves' types (`InventoryEditor.razor`). Passing the shelves' and entries'
   types to `Knowing` when that screen opens an item is all it takes.
 
+- ~~**"Remind daily" would not let a finished errand stay finished.**~~ Fixed 2026-09-16, the way the
+  user decided (*"Odhaczone zostaje odhaczone"*). As reported, with their own list: "Zapisać się do
+  lekarza" on "Sieradz ToDo" was ticked off on the 15th with a deadline of the 15th at 09:00, and on the
+  16th at 09:00 it was sitting there unticked, its deadline moved to the 16th, under a notification
+  saying it was still waiting to be done. Nothing was misconfigured. `RemindDaily` meant *this happens
+  every day*: `IDailyTaskReminderRepository.GetEligibleAsync` deliberately included finished entries and
+  the loop reopened each one - clearing the tick, clearing the cross, and moving the due date on to
+  today - before saying its piece. That is right for the one entry it was built for and wrong for every
+  errand, and it quietly destroyed a deadline somebody had set, which also meant such an entry could
+  never go overdue.
+
+  **The reading now is "ask until it is done".** A ticked or crossed entry is simply left out of the
+  query, so the reminder falls silent and nothing touches the entry or its deadline. The shelf's standing
+  "Update stock levels" keeps the old behaviour as the stated exception: it is recognised by the words
+  the server writes it with *and* by its list being one an inventory keeps
+  (`DailyTaskReminderCandidate.ComesRoundAgain`), and is the only candidate reopened - which is also what
+  carries its due date forward. The alternative the user turned down was a second switch on every entry,
+  "comes round again", which would have served both wishes at the cost of a column, a migration and a
+  field on both clients' forms; it is here if the distinction is ever wanted per entry.
+
+  **What it does not do is put back what was already overwritten.** Every deadline the old rule moved is
+  gone - the entry now simply keeps whatever date it was last moved to.
+
 - ~~**An entry that is both late and reminded daily says the same thing twice.**~~ Fixed 2026-09-14, the
   way the user decided: the overdue notice speaks and the daily reminder stands down for the day it goes
   out - see the entry under "Five of the user's list of 2026-09-14" for which of the two gives way and
