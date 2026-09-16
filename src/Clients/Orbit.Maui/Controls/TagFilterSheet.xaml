@@ -17,7 +17,7 @@
 
         <Border Style="{StaticResource MenuPanel}" Padding="20,18" Margin="24"
                 MaximumWidthRequest="380" HorizontalOptions="Center" VerticalOptions="Center">
-            <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto" RowSpacing="12">
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="12">
                 <Label Grid.Row="0" Text="{controls:Translate 'Create filter'}" FontSize="17" FontAttributes="Bold" />
 
                 <HorizontalStackLayout Grid.Row="1" Spacing="10">
