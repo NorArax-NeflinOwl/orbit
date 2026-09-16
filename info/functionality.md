@@ -641,7 +641,19 @@ turn, does what sharing one does from its own page: the kind's share request and
 chat message carrying its Accept. The page hands the dialog its own share call and invitation payload; the
 contacts, the round and the result ("Shared 3. 1 could not be shared.") are the dialog's. Only things this
 reader owns and Orbit can read are shared - one shared with them, or a sealed one, is left out and the
-dialog says how many. **The phone's half is not built** - see `info/future-plan.md`.
+dialog says how many.
+
+**The phone chooses several too** (2026-09-16, `PickingSeveral` over the same `PickedThings`, which moved
+to `Orbit.Core.Folders` for it; `PickingBar` in the head). On notes, task lists, inventories and the
+calendar's list, "Select" under the screen's name - in a "Several at once" group of its menu - starts the
+mode, and it is a menu entry rather than a long press for the browser's reason and one more: holding
+already means choosing boxes inside a note. While it is on, every row carries a mark and a press anywhere
+on it chooses. The bar offers All of them, Move to folder (a sheet of the screen's folders and "No
+folder"), Archive or Put back, Share (a sheet of contacts, then one of levels - `SharingSeveral`, the same
+`SharedItemSharing` a single share goes through) and Stop selecting. Filing and putting away go through the
+same local write a single press uses, one per thing, so each is queued, or refused offline, exactly as one
+would be; the round then says how many were refused offline and how many were somebody else's. A thing the
+server has never seen cannot be shared yet and is counted with the sealed and the borrowed ones.
 
 **An entry has a priority and a colour of its own** (2026-09-10, `OP_TI_PRIORITY`, `OP_TI_COLOUR`,
 `TaskItem.Priority`/`Colour`). The list has a priority and this is not it: a list of ten errands usually
@@ -2927,10 +2939,15 @@ somebody else** is drawn and read but not written in, and the section says which
 the other two do not, so telling somebody "she is editing it" about a list they could never edit would
 send them back to try again for nothing.
 
-**A row here is an entry's words and its box.** A deadline, what it stands for, a product and the ways
-it can be done are edited in that member's own editor, one press away at the head of the section - that
-panel is five hundred lines of the group's own form, and a group holding four members would be four
-copies of it. **The phone has none of this** - see `info/future-plan.md`.
+**A row is an entry's words and its box, and its toggle opens the entry's own fields** (2026-09-16):
+categories, description, due date and time, when it was done, priority, colour and - on a checklist
+entry - its reminders. They are the same markup the group's own entries draw (`TaskEditor.WhatAndWhen`,
+`PriorityAndColour`, `Reminders`), so the two cannot drift apart, and a section counts as written in when
+any of them changed. What reaches past the entry - its kind, an event or a shelf behind it, the lists it
+stands for, its ways, what it waits for, moving it - is edited in that member's own editor, one press away
+at the head of the section: each of those saves something beside the list, and the group's form saves
+only lists. A daily reminder with no hour stops the save wherever it is written. **The phone has none of
+this** - see `info/future-plan.md`.
 
 **Deleting the list is offered at both depths** as well as from its card, which is the arrangement a
 note, an inventory and a calendar event have all had - a task list was the one thing in Orbit that could
