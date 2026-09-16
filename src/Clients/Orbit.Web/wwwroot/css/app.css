@@ -4517,6 +4517,42 @@ input.note-editor-title {
     margin-bottom: 8px;
 }
 
+/* One of the lists a group gathers, written in from the group's own form - see TaskEditor. Set apart
+   by a rule and a heading rather than by a panel, which is how the rest of the app tells sections
+   apart (see the card styles, unfilled for the same reason). */
+.editor-member {
+    margin-top: 20px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+
+.editor-member-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.editor-member-head h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+/* A member's entry is its words and its box: everything else about it is edited in that list's own
+   form, one press away at the head of the section. */
+.editor-member-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.editor-member-item-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 /* The row that is currently being carried somewhere else, kept visible but clearly picked up. */
 .editor-item.dragging {
     opacity: 0.45;

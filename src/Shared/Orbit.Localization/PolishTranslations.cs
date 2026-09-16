@@ -890,6 +890,13 @@ public static class PolishTranslations
         // Choosing several cards to act on at once - see Orbit.Web.Services.PickedThings. "Zakończ
         // zaznaczanie" rather than "Gotowe": this leaves the mode, and "Done" already means "ticked
         // off" everywhere else in the app.
+        // The lists a group gathers, written in from the group's own form - see TaskEditor. Each reason
+        // a section is read-only names somewhere the reader can go and do it instead.
+        ["Open this list"] = "Otwórz tę listę",
+        ["Sealed - open this list to write in it."] = "Zapieczętowana - otwórz tę listę, aby w niej pisać.",
+        ["Shared with you to read."] = "Udostępniona Tobie do odczytu.",
+        ["These lists could not be saved: {0}"] = "Nie udało się zapisać tych list: {0}",
+        ["What needs doing"] = "Co jest do zrobienia",
         ["Select"] = "Zaznacz",
         ["Select {0}"] = "Zaznacz: {0}",
         ["{0} chosen"] = "Zaznaczone: {0}",

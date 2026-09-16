@@ -616,6 +616,50 @@ else
             <button type="submit" class="btn-secondary">@T["Add item"]</button>
         </div>
 
+        @* The lists this one gathers, each under its own name, so a member's entries can be renamed,
+           added and removed without leaving the form - what the user asked for on 2026-09-16. Saved by
+           the same press: see SaveTheMembersAsync, which writes each list on its own.
+
+           A row here is the entry's words and its box and no more. Everything else an entry can carry -
+           a deadline, what it stands for, a product, the ways it can be done - is edited in the member's
+           own editor, one press away at the head of the section: that panel is five hundred lines of
+           this form's own machinery, and a group holding four members would be four copies of it. *@
+        @foreach (var member in _memberForms)
+        {
+            <section class="editor-member" @key="member.Source.Id">
+                <div class="editor-member-head">
+                    <h3>@MemberName(member)</h3>
+                    <a class="btn-secondary" href="@ReturnTo.Link($"/tasks/{member.Source.Id}/edit", ThisForm)">
+                        @T["Open this list"]
+                    </a>
+                </div>
+
+                @* Said rather than left as a section that quietly does nothing: each of these has
+                   somewhere the reader can go and do it, and the words say which. *@
+                @if (!member.CanBeWrittenIn)
+                {
+                    <p class="empty-hint">@WhyThisOneIsReadOnly(member)</p>
+                }
+
+                <fieldset disabled="@(!member.CanBeWrittenIn || _isSaving)">
+                    @foreach (var item in member.Form.Items)
+                    {
+                        <div class="editor-member-item" @key="item">
+                            <input type="checkbox" checked="@item.IsCompleted"
+                                   aria-label="@T.Format("Done: {0}", item.Description)"
+                                   @onchange="args => item.IsCompleted = args.Value is true" />
+                            <input type="text" class="editor-member-item-text" @bind="item.Description"
+                                   @bind:event="oninput" aria-label="@T["What needs doing"]" />
+                            <button type="button" class="btn-secondary"
+                                    @onclick="() => member.Form.Items.Remove(item)">@T["Remove"]</button>
+                        </div>
+                    }
+                    <button type="button" class="btn-secondary"
+                            @onclick="() => AddItemTo(member)">@T["Add item"]</button>
+                </fieldset>
+            </section>
+        }
+
     </fieldset>
     </EditForm>
 }
@@ -1556,75 +1600,7 @@ else
                             .Where(other => other.Id != taskListId && other.LinkedInventoryId is not null)
                             .Select(other => other.LinkedInventoryId!.Value)
                     ];
-                    _formModel = new TaskListFormModel
-                    {
-                        Title = taskList.Title,
-                        Description = taskList.Description,
-                        Tags = [.. taskList.AllTags],
-                        IsGroup = taskList.IsGroup,
-                        Completion = ParseCompletion(taskList.Completion),
-                        IsPrivate = taskList.IsPrivate,
-                        Priority = taskList.Priority,
-                        FolderId = taskList.FolderId,
-                        Items = taskList.Items
-                            .Select(item => new TaskItemFormModel
-                            {
-                                Event = new EventFormModel(TimeProvider) { Color = TaskItemFormModel.AppointmentColor },
-                                Id = item.Id,
-                                WasStored = true,
-                                NeedsEveryLinkedList = item.NeedsEveryLinkedList,
-                                Description = item.Description,
-                                DueDate = item.DueDateUtc is { } dueDateUtc ? DateOnly.FromDateTime(dueDateUtc.LocalDateTime) : null,
-                                DueTime = item.DueDateUtc is { } dueTimeUtc ? TimeOnly.FromDateTime(dueTimeUtc.LocalDateTime) : null,
-                                IsCompleted = item.IsCompleted,
-                                IsFailed = item.IsFailed,
-                                CompletedDate = item.IsCompleted && item.CompletedAtUtc is { } doneUtc
-                                    ? DateOnly.FromDateTime(doneUtc.LocalDateTime)
-                                    : null,
-                                CompletedTime = item.IsCompleted && item.CompletedAtUtc is { } doneAtUtc
-                                    ? TimeOnly.FromDateTime(doneAtUtc.LocalDateTime)
-                                    : null,
-                                WaitsForTaskItemIds = [.. item.AllWaitsForTaskItemIds],
-                                Kind = item.Kind,
-                                Location = item.Location,
-                                LinkedInventoryItemId = item.LinkedInventoryItemId,
-                                LinkedCalendarEventId = item.LinkedCalendarEventId?.ToString() ?? string.Empty,
-                                LinkedTaskListIds = [.. item.AllLinkedTaskListIds],
-                                Alternatives = [.. item.AllAlternatives.Select(way => new TaskItemAlternativeFormModel
-                                {
-                                    Description = way.Description,
-                                    LinkedTaskListId = way.LinkedTaskListId,
-                                    IsDone = way.IsDone
-                                })],
-                                ReferencesTaskItemId = item.ReferencesTaskItemId,
-                                RequiredQuantity = item.RequiredQuantity,
-                                Categories = [.. CategoriesOf(item)],
-                                Notes = item.AllNotes,
-                                // Both may be absent from an entry stored before they existed, and both
-                                // then read as "nobody said" rather than as a hole - see TaskItemDto.
-                                Priority = item.Priority ?? nameof(ItemPriority.Normal),
-                                Colour = item.Colour ?? string.Empty,
-                                OverdueNotificationChannel = item.OverdueNotificationChannel,
-                                RemindDaily = item.RemindDaily,
-                                DailyReminderNotificationChannel = item.DailyReminderNotificationChannel,
-                                // Midnight reads as "never set". The wire carries a plain TimeOnly and so
-                                // cannot say "none"; an entry reminded daily at exactly 00:00 is far more
-                                // likely to be one nobody chose an hour for than one somebody wanted at
-                                // midnight - and being asked is a smaller cost than a reminder arriving
-                                // while everybody is asleep. See WhatIsWrongWithTheItems.
-                                DailyReminderTimeOfDay =
-                                    item.RemindDaily && item.DailyReminderTimeOfDay == default
-                                        ? null
-                                        : item.DailyReminderTimeOfDay,
-                                // What the entry already asks for, or a blank form for one that asks for
-                                // nothing yet - an entry standing for a real shelf item carries no
-                                // description of its own, since that item is the answer.
-                                Product = item.Product is { } product
-                                    ? InventoryItemFormModel.FromTaskItemProduct(product)
-                                    : new InventoryItemFormModel()
-                            })
-                            .ToList()
-                    };
+                    _formModel = ToFormModel(taskList);
                     _savedFolderId = taskList.FolderId;
                     _isShared = taskList.IsShared;
                     _access = SharedItemAccess.For(taskList.IsShared, taskList.AccessLevel);
@@ -1642,6 +1618,15 @@ else
                         {
                             StartLockHeartbeat(taskListId);
                         }
+                    }
+
+                    // The lists this one gathers, each in a form of its own under the group's entries -
+                    // what the user asked for, so that a member's entries can be renamed, added and
+                    // removed without leaving. Only for a list this reader may write in at all: reading
+                    // a group shared to read draws its members from the light view instead.
+                    if (!_isSharedReadOnly && _lockedByUserName is null)
+                    {
+                        await LoadTheMembersAsync(taskListId, allTaskLists);
                     }
                 }
 
@@ -2581,12 +2566,16 @@ else
     }
 
     /// <summary>
-    /// Every entry as the server takes it back. One mapping, because two callers need it: saving the
-    /// list, and building a storage from it - which saves first, so that what is on screen is what the
-    /// shelf gets built from.
+    /// Every entry as the server takes it back. One mapping, because three callers need it: saving the
+    /// list, building a storage from it - which saves first, so that what is on screen is what the
+    /// shelf gets built from - and saving each of the lists this one gathers, whose entries are written
+    /// in this same form (see SaveTheMembersAsync).
     /// </summary>
-    private IReadOnlyList<TaskItemRequest> ItemsAsSaved()
-        => _formModel.Items
+    private IReadOnlyList<TaskItemRequest> ItemsAsSaved() => ItemsAsSaved(_formModel);
+
+    /// <inheritdoc cref="ItemsAsSaved()"/>
+    private IReadOnlyList<TaskItemRequest> ItemsAsSaved(TaskListFormModel form)
+        => form.Items
             .Select(item => new TaskItemRequest(
                 item.Description,
                 item.Id,
@@ -2700,6 +2689,83 @@ else
     /// <summary>The folder the list was in when it was read, so a save knows whether it has been moved.</summary>
     private Guid? _savedFolderId;
 
+    /// <summary>
+    /// One list as the form holds it. Written out once and used for the list being edited and for every
+    /// list it gathers (see <see cref="MemberForms"/>): a group's members are edited in this same form,
+    /// so they are read into the same shape - two copies of sixty lines of mapping would drift the
+    /// moment a field was added to one.
+    /// </summary>
+    private TaskListFormModel ToFormModel(TaskDto taskList)
+        => new()
+            {
+                Title = taskList.Title,
+                Description = taskList.Description,
+                Tags = [.. taskList.AllTags],
+                IsGroup = taskList.IsGroup,
+                Completion = ParseCompletion(taskList.Completion),
+                IsPrivate = taskList.IsPrivate,
+                Priority = taskList.Priority,
+                FolderId = taskList.FolderId,
+                Items = taskList.Items
+                    .Select(item => new TaskItemFormModel
+                    {
+                        Event = new EventFormModel(TimeProvider) { Color = TaskItemFormModel.AppointmentColor },
+                        Id = item.Id,
+                        WasStored = true,
+                        NeedsEveryLinkedList = item.NeedsEveryLinkedList,
+                        Description = item.Description,
+                        DueDate = item.DueDateUtc is { } dueDateUtc ? DateOnly.FromDateTime(dueDateUtc.LocalDateTime) : null,
+                        DueTime = item.DueDateUtc is { } dueTimeUtc ? TimeOnly.FromDateTime(dueTimeUtc.LocalDateTime) : null,
+                        IsCompleted = item.IsCompleted,
+                        IsFailed = item.IsFailed,
+                        CompletedDate = item.IsCompleted && item.CompletedAtUtc is { } doneUtc
+                            ? DateOnly.FromDateTime(doneUtc.LocalDateTime)
+                            : null,
+                        CompletedTime = item.IsCompleted && item.CompletedAtUtc is { } doneAtUtc
+                            ? TimeOnly.FromDateTime(doneAtUtc.LocalDateTime)
+                            : null,
+                        WaitsForTaskItemIds = [.. item.AllWaitsForTaskItemIds],
+                        Kind = item.Kind,
+                        Location = item.Location,
+                        LinkedInventoryItemId = item.LinkedInventoryItemId,
+                        LinkedCalendarEventId = item.LinkedCalendarEventId?.ToString() ?? string.Empty,
+                        LinkedTaskListIds = [.. item.AllLinkedTaskListIds],
+                        Alternatives = [.. item.AllAlternatives.Select(way => new TaskItemAlternativeFormModel
+                        {
+                            Description = way.Description,
+                            LinkedTaskListId = way.LinkedTaskListId,
+                            IsDone = way.IsDone
+                        })],
+                        ReferencesTaskItemId = item.ReferencesTaskItemId,
+                        RequiredQuantity = item.RequiredQuantity,
+                        Categories = [.. CategoriesOf(item)],
+                        Notes = item.AllNotes,
+                        // Both may be absent from an entry stored before they existed, and both
+                        // then read as "nobody said" rather than as a hole - see TaskItemDto.
+                        Priority = item.Priority ?? nameof(ItemPriority.Normal),
+                        Colour = item.Colour ?? string.Empty,
+                        OverdueNotificationChannel = item.OverdueNotificationChannel,
+                        RemindDaily = item.RemindDaily,
+                        DailyReminderNotificationChannel = item.DailyReminderNotificationChannel,
+                        // Midnight reads as "never set". The wire carries a plain TimeOnly and so
+                        // cannot say "none"; an entry reminded daily at exactly 00:00 is far more
+                        // likely to be one nobody chose an hour for than one somebody wanted at
+                        // midnight - and being asked is a smaller cost than a reminder arriving
+                        // while everybody is asleep. See WhatIsWrongWithTheItems.
+                        DailyReminderTimeOfDay =
+                            item.RemindDaily && item.DailyReminderTimeOfDay == default
+                                ? null
+                                : item.DailyReminderTimeOfDay,
+                        // What the entry already asks for, or a blank form for one that asks for
+                        // nothing yet - an entry standing for a real shelf item carries no
+                        // description of its own, since that item is the answer.
+                        Product = item.Product is { } product
+                            ? InventoryItemFormModel.FromTaskItemProduct(product)
+                            : new InventoryItemFormModel()
+                    })
+                    .ToList()
+            };
+
     private async Task SaveAsync()
     {
         Logger.LogInformation(
@@ -2807,6 +2873,16 @@ else
                 // only useful if the change reaches the inventory, and a corrected amount can settle an
                 // errand or raise one. See SaveTheShelfAsync.
                 await SaveTheShelfAsync();
+
+                // Then every list this one gathers that was written in. After the group's own save, so
+                // that a group whose save was refused has not already written its members.
+                if (await SaveTheMembersAsync() is { } refused)
+                {
+                    _saveErrorMessage = refused;
+                    return;
+                }
+
+                await ReleaseTheMembersAsync();
                 await ReleaseLockAsync(Id.Value);
             }
         }
@@ -2843,6 +2919,7 @@ else
         Logger.LogInformation("User clicked 'Cancel'");
         if (Id is { } taskListId)
         {
+            await ReleaseTheMembersAsync();
             await ReleaseLockAsync(taskListId);
         }
 
@@ -2886,10 +2963,205 @@ else
             _isDeleting = false;
         }
 
+        await ReleaseTheMembersAsync();
         await ReleaseLockAsync(taskListId);
         // Where the form was opened from - unless that was one of this list's own pages, which have
         // nothing left to show: then the page of lists, with them taken out of the history too.
         await NavigationTrail.FinishAfterDeletingAsync($"/tasks/{taskListId}", WhenFinished, "/tasks");
+    }
+
+    /// <summary>
+    /// Writes every member that was actually written in, one list at a time - each is its own list with
+    /// its own lock and its own history, and there is no request that takes several.
+    ///
+    /// Answers what to say when one of them did not go, or null when they all did. **The round is not
+    /// stopped by a refusal**: the rest are still written, for the reason OnePressEach gives - a list
+    /// somebody else took the lock on since this form opened is no reason to throw away what was typed
+    /// into the other three. What is said names the lists that did not go, since "something failed" over
+    /// a form holding five lists tells the reader nothing about which to look at.
+    ///
+    /// A member nobody changed is not written at all: an untouched list would otherwise come back with a
+    /// new UpdatedAtUtc, which is what every other client syncs against.
+    /// </summary>
+    private async Task<string?> SaveTheMembersAsync()
+    {
+        var refused = new List<string>();
+
+        foreach (var member in _memberForms.Where(member => member.CanBeWrittenIn && WasWrittenIn(member)))
+        {
+            foreach (var unnamedEntry in member.Form.Items.Where(item => item.Id is null))
+            {
+                unnamedEntry.Id = Guid.NewGuid();
+            }
+
+            var outcome = await TasksApiClient.UpdateTaskListAsync(member.Source.Id, new UpdateTaskRequest(
+                member.Form.Title, ItemsAsSaved(member.Form), member.Form.IsGroup, member.Form.IsPrivate,
+                Priority: member.Form.Priority, Description: member.Form.Description,
+                // Left alone rather than echoed back: null is "not provided" here, and whether a member
+                // is finished is not a question this section asks - see UpdateTaskRequest.Completion.
+                Completion: null, Tags: member.Form.Tags));
+
+            if (outcome.Kind is not EditOutcomeKind.Saved)
+            {
+                Logger.LogInformation(
+                    "A member list {TaskListId} was not saved with its group: {Kind}", member.Source.Id, outcome.Kind);
+                refused.Add(MemberName(member));
+                continue;
+            }
+
+            Logger.LogInformation("Member list {TaskListId} updated with its group", member.Source.Id);
+        }
+
+        return refused.Count == 0
+            ? null
+            : T.Format("These lists could not be saved: {0}", string.Join(", ", refused));
+    }
+
+    /// <summary>
+    /// Whether anything in this member's section was actually typed in - compared against what was read
+    /// rather than tracked with a flag, the rule NoteDetailViewModel.HasUnsavedChanges follows and for
+    /// the same reason: something touched and put back is not a change.
+    /// </summary>
+    private static bool WasWrittenIn(MemberForm member)
+        => !member.Form.Items
+            .Select(item => (item.Id, item.Description, item.IsCompleted, item.IsFailed))
+            .SequenceEqual(member.Source.Items.Select(item =>
+                ((Guid?)item.Id, item.Description, item.IsCompleted, item.IsFailed)));
+
+    /// <summary>
+    /// This form's own address, so a member opened from here comes back to it - see ReturnTo. Only for
+    /// a list that exists: the members are read for one that does, and a new list gathers nothing yet.
+    /// </summary>
+    private string ThisForm => Id is { } taskListId ? $"/tasks/{taskListId}/edit" : "/tasks";
+
+    /// <summary>
+    /// Why this member's section cannot be written in, in the reader's own words - each of these has
+    /// somewhere they can go and do it, which is what the words say.
+    /// </summary>
+    private string WhyThisOneIsReadOnly(MemberForm member) => member.ReadOnlyBecause switch
+    {
+        WhyAMemberIsReadOnly.Sealed => T["Sealed - open this list to write in it."],
+        WhyAMemberIsReadOnly.SharedToRead => T["Shared with you to read."],
+        WhyAMemberIsReadOnly.HeldBySomebodyElse =>
+            T.Format("{0} is currently editing this task list - you can't edit it right now.", member.LockedByUserName),
+        _ => string.Empty
+    };
+
+    /// <summary>
+    /// A new entry at the foot of a member's section. Named as it is made, the way this form names its
+    /// own (see SaveAsync): the server keeps an id a client gives an entry.
+    /// </summary>
+    private void AddItemTo(MemberForm member)
+        => member.Form.Items.Add(new TaskItemFormModel
+        {
+            Id = Guid.NewGuid(),
+            Event = new EventFormModel(TimeProvider) { Color = TaskItemFormModel.AppointmentColor }
+        });
+
+    /// <summary>
+    /// One list this group gathers, as this form holds it: what it was when it was read, the form it is
+    /// written in, and why it cannot be written in where that is the case (see GroupMembers).
+    /// </summary>
+    private sealed record MemberForm(TaskDto Source, TaskListFormModel Form, WhyAMemberIsReadOnly ReadOnlyBecause)
+    {
+        /// <summary>Who holds its edit lock, said beside the list rather than as a number.</summary>
+        public string? LockedByUserName { get; init; }
+
+        public bool CanBeWrittenIn => ReadOnlyBecause == WhyAMemberIsReadOnly.None;
+    }
+
+    /// <summary>
+    /// The lists this one gathers, in the order its entries name them - empty for a list that gathers
+    /// none, which is nearly every list. Read once when the form opens: a member added to the form by
+    /// pointing a new entry at it is edited after the save, since until then the group does not gather
+    /// it yet.
+    /// </summary>
+    private IReadOnlyList<MemberForm> _memberForms = [];
+
+    /// <summary>What a member's own words are, for the section's heading.</summary>
+    private string MemberName(MemberForm member) => Written(member.Form.Title);
+
+    /// <summary>
+    /// Reads every list this group gathers into a form of its own, and takes its edit lock where it can
+    /// be written in at all. The lock is taken now rather than at the first keystroke: this form is
+    /// about these lists, which is exactly what a lock says, and taking it later would mean telling
+    /// somebody their typing cannot be kept after they had done it.
+    ///
+    /// A member that cannot be written in is still read: it is part of what the group says, and a
+    /// section saying "sealed - open it to write in it" is worth more than a gap.
+    /// </summary>
+    private async Task LoadTheMembersAsync(Guid groupId, IReadOnlyList<TaskDto> allTaskLists)
+    {
+        var memberIds = GroupMembers.IdsUnder(groupId, _formModel.Items.Select(item => item.LinkedTaskListIds));
+        var members = new List<MemberForm>();
+
+        foreach (var memberId in memberIds)
+        {
+            // Read on its own rather than taken from the list of lists: that one carries no entries,
+            // and the entries are the whole point of holding a member here.
+            var member = allTaskLists.Any(candidate => candidate.Id == memberId)
+                ? await TasksApiClient.GetTaskListByIdAsync(memberId)
+                : null;
+            if (member is null)
+            {
+                // A list this reader cannot see, or one deleted since the entry was written. The entry
+                // still points at it and says so on its own row - see TitleOfTaskList.
+                continue;
+            }
+
+            var lockedBy = GroupMembers.WhyReadOnly(member, lockedByUserName: null) == WhyAMemberIsReadOnly.None
+                ? await LockedByAsync(memberId)
+                : null;
+
+            members.Add(new MemberForm(member, ToFormModel(member), GroupMembers.WhyReadOnly(member, lockedBy))
+            {
+                LockedByUserName = lockedBy
+            });
+        }
+
+        _memberForms = members;
+    }
+
+    /// <summary>
+    /// Takes a member's edit lock and answers who has it, or null for "this browser now holds it". No
+    /// heartbeat of its own: the group's own heartbeat is what keeps this form alive, and a member's
+    /// lock is refreshed with it - see StartLockHeartbeat.
+    /// </summary>
+    private async Task<string?> LockedByAsync(Guid taskListId)
+    {
+        try
+        {
+            var outcome = await TasksApiClient.AcquireTaskListLockAsync(taskListId);
+            return outcome.Kind == EditOutcomeKind.Locked ? outcome.LockedByUserName : null;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Lets go of every member's lock. Called wherever the group's own is let go, so leaving the form by
+    /// any door leaves the lists it was holding.
+    /// </summary>
+    private async Task ReleaseTheMembersAsync()
+    {
+        foreach (var member in _memberForms.Where(member => member.CanBeWrittenIn))
+        {
+            try
+            {
+                await TasksApiClient.ReleaseTaskListLockAsync(member.Source.Id);
+            }
+            catch (HttpRequestException exception)
+            {
+                // Leaving is not stopped by a lock that would not let go: it expires on its own, and
+                // the reader is already on their way somewhere else.
+                Logger.LogWarning(exception, "Failed to release the lock on member list {TaskListId}", member.Source.Id);
+            }
+        }
+
+        _memberForms = [];
     }
 
     /// <summary>Mirrors NoteEditor's method of the same name - see its comment.</summary>
@@ -2966,6 +3238,7 @@ else
     {
         if (Id is { } taskListId)
         {
+            await ReleaseTheMembersAsync();
             await ReleaseLockAsync(taskListId);
         }
         else
