@@ -59,9 +59,39 @@ export function initialize(container, dotNetHelper, initialLinesJson, options) {
     // ChecklistTextEditor.FocusesAtTheEnd. After the listeners, so the caret's line is reported like any
     // other move of it.
     if (state.options.focusAtEnd && isWritable(container) && container.children.length > 0) {
-        const last = container.children.length - 1;
-        select(container, { line: last, offset: lineText(container.children[last]).length });
+        placeTheCaretAtTheEnd(container);
     }
+}
+
+/// The end of the writing, wherever that is. A note ending in a table ends in its last cell, so the caret
+/// goes after the words there - domPoint puts a table's caret at the head of its first cell, which is
+/// where it landed and why the note looked as if it opened at the start. A note ending in a picture or a
+/// rule has nothing to stand in after it, so the caret goes to the end of the last line that has words.
+function placeTheCaretAtTheEnd(container) {
+    const lines = container.children;
+    const last = lines[lines.length - 1];
+    const cells = last.classList.contains('note-line-table') ? last.querySelectorAll('.note-cell') : [];
+    if (cells.length > 0) {
+        const cell = cells[cells.length - 1];
+        let lastText = null;
+        const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            lastText = node;
+        }
+        container.focus({ preventScroll: true });
+        window.getSelection().collapse(lastText || cell, lastText ? lastText.textContent.length : 0);
+        last.scrollIntoView({ block: 'nearest' });
+        return;
+    }
+
+    for (let index = lines.length - 1; index >= 0; index--) {
+        if (!isElementLine(lines[index])) {
+            select(container, { line: index, offset: lineText(lines[index]).length });
+            return;
+        }
+    }
+
+    select(container, { line: lines.length - 1, offset: 0 });
 }
 
 export function dispose(container) {
