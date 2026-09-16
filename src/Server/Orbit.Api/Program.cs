@@ -422,6 +422,7 @@ try
     app.MapPushNotificationEndpoints();
     app.MapNotificationEndpoints();
     app.MapTagEndpoints();
+    app.MapTaskTagFilterEndpoints();
     app.MapConfigEndpoints();
     app.MapDiagnosticLogEndpoints();
     app.MapPublicShareEndpoints();

@@ -13,7 +13,19 @@ using Orbit.Mobile.Sync;
 namespace Orbit.Mobile.Screens.Sharing;
 
 /// <summary>One level of access, named in the reader's language rather than by its enum member.</summary>
-public sealed record AccessLevelChoice(ShareAccessLevel Value, string Name);
+public sealed record AccessLevelChoice(ShareAccessLevel Value, string Name)
+{
+    /// <summary>Every level, in the order the enum gives them - what a share asks the reader to choose from.</summary>
+    public static IReadOnlyList<AccessLevelChoice> All(Translations translations)
+        => [.. Enum.GetValues<ShareAccessLevel>().Select(level => new AccessLevelChoice(level, Describe(level, translations)))];
+
+    public static string Describe(ShareAccessLevel level, Translations translations) => level switch
+    {
+        ShareAccessLevel.ReadOnly => translations["Read only"],
+        ShareAccessLevel.Share => translations["Can share"],
+        _ => translations["Can edit"]
+    };
+}
 
 /// <summary>
 /// Offering the thing on screen to somebody else. One panel shared by the note, task-list, event and
@@ -299,12 +311,7 @@ public sealed partial class SharePanel : ObservableObject
         }
     }
 
-    private string Describe(ShareAccessLevel level) => level switch
-    {
-        ShareAccessLevel.ReadOnly => _translations["Read only"],
-        ShareAccessLevel.Share => _translations["Can share"],
-        _ => _translations["Can edit"]
-    };
+    private string Describe(ShareAccessLevel level) => AccessLevelChoice.Describe(level, _translations);
 
     partial void OnIsOpenChanged(bool value) => OnPropertyChanged(nameof(IsClosed));
 

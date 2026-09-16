@@ -94,8 +94,18 @@
            Select there took the button away and offered no way back out. *@
         <PickedThingsBar Picked="_picked" Page="FolderPage.Calendar"
                          EveryChosenOneIsAway="@EveryChosenEventIsAway" IsWorking="@_isWorkingOnPicked"
-                         OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync"
+                         OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync" OnShare="() => _isSharingPicked = true"
                          OnAllToggled="ToggleAllPicked" OnStopped="StopPicking" />
+        @if (_isSharingPicked)
+        {
+            @* Only an event this reader owns - one shared with them is not theirs to hand on from here.
+               An event is never sealed, so nothing else is left out. *@
+            <SharePickedDialog Things="@([.. ChosenEvents.Where(calendarEvent => !calendarEvent.IsShared).Select(calendarEvent => new SharePickedDialog.ShareableThing(calendarEvent.Id, calendarEvent.Details.Title))])"
+                               LeftOut="@ChosenEvents.Count(calendarEvent => calendarEvent.IsShared)"
+                               ShareOne="(eventId, recipientUserId, accessLevel) => CalendarApiClient.ShareCalendarEventAsync(eventId, recipientUserId, accessLevel)"
+                               Invitation="(shareId, title) => new EventShareMessagePayload(shareId, title)"
+                               OnClosed="() => _isSharingPicked = false" />
+        }
         @if (_events is null || _dueTasks is null)
         {
             <Loading />
@@ -952,6 +962,9 @@
 
     /// <summary>Whether every chosen event is already put away, which is what names the bar's archive button.</summary>
     private bool EveryChosenEventIsAway => _picked.HasAny && ChosenEvents.All(calendarEvent => calendarEvent.IsArchived);
+
+    /// <summary>While the dialog sharing the chosen events is open - see SharePickedDialog.</summary>
+    private bool _isSharingPicked;
 
     private IReadOnlyList<CalendarEventDto> ChosenEvents
         => [.. (_events ?? []).Where(calendarEvent => _picked.Holds(calendarEvent.Id))];

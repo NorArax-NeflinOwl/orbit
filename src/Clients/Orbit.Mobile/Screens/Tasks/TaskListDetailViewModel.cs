@@ -369,6 +369,37 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     [ObservableProperty]
     private TaskItemRow? _rowJustAdded;
 
+    /// <summary>
+    /// Words the page read off the clipboard, as entries at the foot of the list in one save - every line
+    /// an entry, "[x] " coming in done, the list's own name left out when it heads them (see
+    /// TaskListWords.ReadBack, which the browser reads them with too). Says what happened in the status
+    /// line either way, since nothing on the list may be in view to show it.
+    ///
+    /// Each entry is named as it is made rather than left at <see cref="Guid.Empty"/> the way one added
+    /// with the box is: several at once with the same empty id would be one entry to everything on this
+    /// screen that finds a row by its id, and the server keeps an id a client gives an entry.
+    /// </summary>
+    public async Task PasteFromTheClipboardAsync(string pasted, CancellationToken cancellationToken = default)
+    {
+        if (!CanEdit)
+        {
+            return;
+        }
+
+        var entries = TaskListWords.ReadBack(pasted, Title);
+        if (entries.Count == 0)
+        {
+            Status = _translations["There is nothing on the clipboard to paste."];
+            return;
+        }
+
+        // Both channels at Push, as an entry added with the box starts - see AddItemAsync.
+        await SaveAsync(
+            [.. _items, .. entries.Select(entry => new TaskItemDto(
+                Guid.NewGuid(), entry.Text, null, entry.IsDone, null, "Push", false, "Push", new TimeOnly(9, 0)))],
+            cancellationToken);
+    }
+
     private bool CanAddItem => NewItemDescription.Trim().Length > 0;
 
     /// <summary>Opens one entry's details - when it is due, and what it says when it is late.</summary>
@@ -1245,10 +1276,12 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         LocalWriteOutcome outcome;
         try
         {
-            // A list with an entry pointing at another list is a group list whatever the switch says -
-            // the rule Orbit.Core.Tasks.TaskList.IsGroup settles on the server, written here too so this
-            // phone holds the same answer before the sync brings it back.
-            var isGroup = IsGroup || items.Any(item => item.AllLinkedTaskListIds.Count > 0);
+            // The save that gives the list its first entry standing for another list makes it a group
+            // list, as Orbit.Core.Tasks.TaskList.IsGroup does on the server - written here too so this phone
+            // holds the same answer before the sync brings it back. After that the switch is the reader's.
+            var isGroup = IsGroup
+                || (!_items.Any(item => item.AllLinkedTaskListIds.Count > 0)
+                    && items.Any(item => item.AllLinkedTaskListIds.Count > 0));
             outcome = await _taskLists.UpdateAsync(
                 _localId, new TaskListContent(Title, items, isGroup, _priority, IsPrivate, Description, _completion, Tags.ToSave),
                 cancellationToken);
@@ -1451,43 +1484,15 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         // which is every tick, every add and every reordering. See Progress.
         OnPropertyChanged(nameof(Progress));
         OnPropertyChanged(nameof(HasProgress));
-        SayWhetherItGathersOtherLists();
     }
 
     /// <summary>
-    /// Whether something on this list points at another list, which is what makes it a group list
-    /// whatever the switch says - see Orbit.Core.Tasks.TaskList.IsGroup, where the server settles the
-    /// same question for every writer.
+    /// Whether the switch is the reader's to move - always, where the list can be written in. It ticks
+    /// itself when an entry first comes to stand for another list (see <see cref="SaveAsync"/>) and was
+    /// locked on while any such entry stood, until the user's list of 2026-09-16 asked for it to be theirs
+    /// to untick. See Orbit.Core.Tasks.TaskList.IsGroup, where the server applies the same rule.
     /// </summary>
-    public bool GathersOtherLists => Items.Any(row => row.Item.AllLinkedTaskListIds.Count > 0);
-
-    /// <summary>
-    /// Whether the switch is the reader's to move. Off while the entries have answered it: a switch that
-    /// sprang back would read as broken, so it is disabled and the line under it says why.
-    /// </summary>
-    public bool CanChooseGroupView => CanEdit && !GathersOtherLists;
-
-    /// <summary>
-    /// Said whenever the rows are rebuilt, because that is when the answer can change - adding an entry
-    /// that names a list, or taking the last one off.
-    ///
-    /// Only said, never saved from here: the rows are rebuilt by the save that wrote the entry, and by
-    /// every read of the list, so a save started here was a second write racing the first - started
-    /// without anyone awaiting it, and thrown on no one when the store under it had gone. The write
-    /// carries the answer itself instead - see <see cref="SaveAsync"/>.
-    /// </summary>
-    private void SayWhetherItGathersOtherLists()
-    {
-        OnPropertyChanged(nameof(GathersOtherLists));
-        OnPropertyChanged(nameof(CanChooseGroupView));
-        if (GathersOtherLists && !IsGroup)
-        {
-            var wasShowingWhatIsStored = _isShowingWhatIsStored;
-            _isShowingWhatIsStored = true;
-            IsGroup = true;
-            _isShowingWhatIsStored = wasShowingWhatIsStored;
-        }
-    }
+    public bool CanChooseGroupView => CanEdit;
 
     partial void OnItemOrderChanged(ChecklistOrder value)
     {
@@ -1550,8 +1555,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private bool _isShowingWhatIsStored;
 
     /// <summary>
-    /// A press on the switch, saved as everything else on this screen is saved as it is chosen. The
-    /// entries answering it themselves save nothing here - see <see cref="SayWhetherItGathersOtherLists"/>.
+    /// A press on the switch, saved as everything else on this screen is saved as it is chosen. An entry
+    /// turning it on is carried by the save that wrote the entry - see <see cref="SaveAsync"/>.
     /// </summary>
     partial void OnIsGroupChanged(bool value)
     {

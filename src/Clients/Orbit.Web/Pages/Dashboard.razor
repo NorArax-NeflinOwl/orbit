@@ -133,7 +133,7 @@ else
             </ItemCard>
         }
 
-        @if (TaskListsUnderTheOpenTab.Count > 0 && ShowsCard("tasks"))
+        @if (HasATasksCard && ShowsCard("tasks"))
         {
                         <ItemCard Name="@(T["Tasks"])" OnNameSelected='() => NavigationManager.NavigateTo("/tasks")'
                       HasUnseenAction="@TaskListsToShow.Any(taskList => HasNewsAbout(taskList.Id, "/tasks"))"
@@ -142,7 +142,32 @@ else
                     <PinButton IsPinned='DashboardPins.IsPinned("tasks")' OnPinnedChanged='pinned => SetCardPinnedAsync("tasks", pinned)' />
                 </Pin>
                 <Menu>
-                    <CardFilterMenu Filter='FilterFor("tasks")' Options="PinnableOptions" FilterChanged='filter => SetCardFilterAsync("tasks", filter)' />
+                    <CardFilterMenu Filter='FilterFor("tasks")' Options="PinnableOptions" IsAnotherAnswerChosen="@(ChosenTagFilter is not null)"
+                                    FilterChanged='filter => ChooseTasksFilterAsync(filter)'>
+                        @* The account's own filters, made on the Tasks page out of list tags - see
+                           TagFilterDialog. Only once there is one: a heading over nothing says less than
+                           no heading. *@
+                        @if (_tagFilters.Count > 0)
+                        {
+                            <span class="overflow-menu-heading">@T["Your filters"]</span>
+                            @foreach (var tagFilter in _tagFilters)
+                            {
+                                var isChosen = ChosenTagFilter?.Id == tagFilter.Id;
+                                <button type="button" class="avatar-dropdown-item @(isChosen ? "chosen" : "")"
+                                        @onclick="() => ChooseTagFilterAsync(isChosen ? null : tagFilter.Id)">
+                                    <span class="card-filter-mark">@(isChosen ? "✓" : "")</span>
+                                    @NameOf(tagFilter)
+                                </button>
+                            }
+                            @if (ChosenTagFilter is not null)
+                            {
+                                <button type="button" class="avatar-dropdown-item" @onclick="DeleteTheChosenTagFilterAsync">
+                                    <span class="card-filter-mark"></span>
+                                    @T["Delete this filter"]
+                                </button>
+                            }
+                        }
+                    </CardFilterMenu>
                 </Menu>
                 <Extras>
                     <span class="card-count">@(T.Format("{0} lists", TaskListsToShow.Count))</span>
@@ -194,7 +219,20 @@ else
                     <PinButton IsPinned='DashboardPins.IsPinned("upcoming")' OnPinnedChanged='pinned => SetCardPinnedAsync("upcoming", pinned)' />
                 </Pin>
                 <Menu>
-                    <CardFilterMenu Filter='FilterFor("upcoming")' Options="PriorityOptions" FilterChanged='filter => SetCardFilterAsync("upcoming", filter)' />
+                    <CardFilterMenu Filter='FilterFor("upcoming")' Options="PriorityOptions" FilterChanged='filter => SetCardFilterAsync("upcoming", filter)'>
+                        @* How far ahead the card looks, from the card itself - the same setting Options
+                           offers in full (DevicePreferences.UpcomingDays); here only the two a reader
+                           switches between while looking at the card. *@
+                        <span class="overflow-menu-heading">@T["How far ahead"]</span>
+                        @foreach (var (days, label) in CardHorizons)
+                        {
+                            <button type="button" class="avatar-dropdown-item @(DevicePreferences.UpcomingDays == days ? "chosen" : "")"
+                                    @onclick="() => SetUpcomingDaysAsync(days)">
+                                <span class="card-filter-mark">@(DevicePreferences.UpcomingDays == days ? "✓" : "")</span>
+                                @T[label]
+                            </button>
+                        }
+                    </CardFilterMenu>
                 </Menu>
                 <Extras>
                     <span class="card-count">@(UpcomingToShow.Count)</span>
@@ -499,8 +537,20 @@ else
             .Where(taskList => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, taskList.FolderId, taskList.IsPrivate, isFinished: false, taskList.IsArchived))
             .Where(taskList => !taskList.IsCompleted || taskList.IsPinned)];
 
-    private IReadOnlyList<TaskDto> TaskListsToShow =>
-        [.. TaskListsUnderTheOpenTab.Where(taskList => Matches("tasks", taskList.IsPinned, taskList.Priority))];
+    /// <summary>
+    /// What the Tasks card draws. Under a tag filter, every list the filter finds - whatever folder it is
+    /// in, finished or not, put away or not: the filter is a way of finding lists by what they are about,
+    /// which is a different question from the one a folder tab answers. See TaskTagFilter.
+    /// </summary>
+    private IReadOnlyList<TaskDto> TaskListsToShow => ChosenTagFilter is { } tagFilter
+        ? [.. (_taskLists ?? []).Where(taskList =>
+            new Orbit.Core.Tasks.TagFilters.TaskTagFilter(tagFilter.Id, tagFilter.Tags, tagFilter.MatchesAll, tagFilter.CreatedAtUtc)
+                .Matches(taskList.AllTags))]
+        : [.. TaskListsUnderTheOpenTab.Where(taskList => Matches("tasks", taskList.IsPinned, taskList.Priority))];
+
+    /// <summary>Whether the Tasks card is on the page: something under the open tab, or a tag filter chosen over any list at all.</summary>
+    private bool HasATasksCard
+        => TaskListsUnderTheOpenTab.Count > 0 || (ChosenTagFilter is not null && (_taskLists?.Count ?? 0) > 0);
 
     /// <summary>
     /// The shelves under the open tab. Filed like everything else here since 2026-09-15: a folder
@@ -732,6 +782,23 @@ else
     private DashboardCardFilter FilterFor(string cardKey)
         => CardPreferences.FilterFor(cardKey, Folders.ChosenOn(FolderPage.Dashboard));
 
+    /// <summary>The two horizons the Upcoming card's own menu offers - see its markup.</summary>
+    private static readonly IReadOnlyList<(int Days, string Label)> CardHorizons = [(7, "Show 7 days"), (30, "Show 30 days")];
+
+    /// <summary>How far ahead Upcoming looks, chosen from the card - see DevicePreferences.UpcomingDays.</summary>
+    private async Task SetUpcomingDaysAsync(int days)
+    {
+        Logger.LogInformation("User set the Upcoming card to {Days} days from the card", days);
+        await DevicePreferences.SetUpcomingDaysAsync(days);
+    }
+
+    /// <summary>The Tasks card's own filter - which also stops any tag filter, since the menu ticks one answer.</summary>
+    private async Task ChooseTasksFilterAsync(DashboardCardFilter filter)
+    {
+        await CardPreferences.SetTasksTagFilterAsync(null);
+        await SetCardFilterAsync("tasks", filter);
+    }
+
     private async Task SetCardFilterAsync(string cardKey, DashboardCardFilter filter)
     {
         var folder = Folders.ChosenOn(FolderPage.Dashboard);
@@ -909,7 +976,7 @@ else
             // slowest single call instead of the sum of all of them.
             await Task.WhenAll(
                 LoadNotesAsync(), LoadTaskListsAsync(), LoadEventsAsync(), LoadContactsAsync(), LoadGroupsAsync(),
-                LoadSharedLocationsAsync(), LoadInventoriesAsync(), LoadPlacesAsync());
+                LoadSharedLocationsAsync(), LoadInventoriesAsync(), LoadPlacesAsync(), LoadTagFiltersAsync());
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -1009,6 +1076,66 @@ else
     /// </summary>
     private async Task LoadPlacesAsync()
         => _places = Permissions.Has(ApplicationPermission.Location) ? await PlacesApiClient.GetPlacesAsync() : [];
+
+    /// <summary>
+    /// The filters this account made for the Tasks card - see TagFilterDialog. A failure here costs the
+    /// card its extra menu group and nothing else: the page is several separate questions, and this one
+    /// is the least of them.
+    /// </summary>
+    private async Task LoadTagFiltersAsync()
+    {
+        try
+        {
+            _tagFilters = await TasksApiClient.GetTagFiltersAsync();
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode != HttpStatusCode.Unauthorized)
+        {
+            Logger.LogWarning(exception, "Could not load the Tasks card's filters");
+            _tagFilters = [];
+        }
+    }
+
+    private IReadOnlyList<TaskTagFilterDto> _tagFilters = [];
+
+    /// <summary>The tag filter the Tasks card is showing, when it is one this account still has.</summary>
+    private TaskTagFilterDto? ChosenTagFilter
+        => CardPreferences.TasksTagFilterId is { } chosen ? _tagFilters.FirstOrDefault(filter => filter.Id == chosen) : null;
+
+    private string NameOf(TaskTagFilterDto filter)
+        => new Orbit.Core.Tasks.TagFilters.TaskTagFilter(filter.Id, filter.Tags, filter.MatchesAll, filter.CreatedAtUtc)
+            .Describe(T["or"], T["and"]);
+
+    /// <summary>
+    /// Shows the lists one of the account's tag filters finds, or stops. Choosing one sets the card's own
+    /// pinned filter back to everything: the two would otherwise narrow each other, and the menu can only
+    /// tick one answer to "what is this card showing".
+    /// </summary>
+    private async Task ChooseTagFilterAsync(Guid? filterId)
+    {
+        Logger.LogInformation("User set the Tasks card's tag filter to {FilterId}", filterId);
+        if (filterId is not null)
+        {
+            await CardPreferences.SetFilterAsync("tasks", Folders.ChosenOn(FolderPage.Dashboard), DashboardCardFilter.All);
+        }
+
+        await CardPreferences.SetTasksTagFilterAsync(filterId);
+    }
+
+    /// <summary>Takes the chosen tag filter off the account - from the card whose menu it is on.</summary>
+    private async Task DeleteTheChosenTagFilterAsync()
+    {
+        if (ChosenTagFilter is not { } chosen)
+        {
+            return;
+        }
+
+        if (await TasksApiClient.DeleteTagFilterAsync(chosen.Id))
+        {
+            _tagFilters = [.. _tagFilters.Where(filter => filter.Id != chosen.Id)];
+        }
+
+        await CardPreferences.SetTasksTagFilterAsync(null);
+    }
 
     /// <summary>
     /// Only who is sharing, not where they are. Opening a position means decrypting it, which is the

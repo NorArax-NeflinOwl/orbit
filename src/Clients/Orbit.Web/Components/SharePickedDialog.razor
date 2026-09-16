@@ -1,0 +1,164 @@
+@using System.Net
+@using System.Text.Json
+@using Orbit.Contracts.Chat
+@using Orbit.Contracts.Sharing
+@using Orbit.Web.Services
+@inject ChatApiClient ChatApiClient
+@inject EncryptedChatMessageSender EncryptedChatMessageSender
+@inject OrbitAuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject ILogger<SharePickedDialog> Logger
+@inject Translations T
+
+@* Handing several chosen things to one contact at once - the third thing the bar over a list offers, asked
+   for on the list of 2026-09-16 beside filing and archiving. One contact and one level for all of them,
+   then, for each thing in turn, what sharing one does from its own page: the share, and the end-to-end
+   encrypted chat message that tells the contact and carries its Accept. The page says which things and
+   how each kind is shared; everything the same about every kind is here.
+
+   One at a time and a refusal stops nothing, the rule OnePressEach keeps for the bar's other two
+   presses; what went through and what did not is said at the end rather than per thing. *@
+<Dialog Title="@T["Share"]" OnClosed="OnClosed">
+    @if (_contacts is null)
+    {
+        <Loading />
+    }
+    else if (_contacts.Count == 0)
+    {
+        <p>@T["No contacts. A contact will appear here once you start a chat with someone."]</p>
+    }
+    else
+    {
+        <p>@T.Format("Share {0} with one contact.", Things.Count.ToString())</p>
+        <div class="field-row">
+            <select @bind="_selectedContactUserId" aria-label="@(T["Share with"])">
+                <option value="">@T["-- select a contact --"]</option>
+                @foreach (var contact in _contacts)
+                {
+                    <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
+                }
+            </select>
+            @* The levels an owner may grant - only things this reader owns reach this dialog. *@
+            <select @bind="_selectedAccessLevel" aria-label="@(T["What they may do"])">
+                <option value="ReadOnly">@T["Read-only"]</option>
+                <option value="Share">@T["Can share"]</option>
+                <option value="CanEdit">@T["Can edit"]</option>
+            </select>
+            <button type="button" class="btn-primary" disabled="@(_isSharing || Things.Count == 0)"
+                    @onclick="ShareEachAsync">@T["Share"]</button>
+        </div>
+    }
+    @if (LeftOut > 0)
+    {
+        <p class="empty-hint">@T.Format("{0} of the chosen can't be shared - private, or shared with you by somebody else.", LeftOut.ToString())</p>
+    }
+    @if (_outcome is not null)
+    {
+        <p class="@(_failed > 0 ? "error" : "info")">@_outcome</p>
+    }
+</Dialog>
+
+@code {
+    /// <summary>One chosen thing that can be shared: its id and the name the invitation carries.</summary>
+    public sealed record ShareableThing(Guid Id, string Name);
+
+    /// <summary>The chosen things this reader may share - owned, and not sealed. The page leaves the rest out.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<ShareableThing> Things { get; set; } = [];
+
+    /// <summary>How many chosen things were left out of <see cref="Things"/>, so the dialog can say so.</summary>
+    [Parameter] public int LeftOut { get; set; }
+
+    /// <summary>Shares one thing with one contact at one level - the kind's own API call.</summary>
+    [Parameter, EditorRequired] public Func<Guid, Guid, string, Task<ShareResultDto?>> ShareOne { get; set; } = default!;
+
+    /// <summary>The kind's own invitation for a share just made - the payload its chat message carries.</summary>
+    [Parameter, EditorRequired] public Func<Guid, string, object> Invitation { get; set; } = default!;
+
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    private IReadOnlyList<ContactDto>? _contacts;
+    private Guid _ownUserId;
+    private string _selectedContactUserId = string.Empty;
+    private string _selectedAccessLevel = "ReadOnly";
+    private bool _isSharing;
+    private string? _outcome;
+    private int _failed;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await AuthenticationStateProvider.TryGetCurrentUserIdAsync() is not { } ownUserId)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+
+        _ownUserId = ownUserId;
+        try
+        {
+            _contacts = await ChatApiClient.GetContactsAsync();
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to load contacts for sharing several things");
+            _contacts = [];
+            _outcome = T["Could not load your contacts."];
+        }
+    }
+
+    private async Task ShareEachAsync()
+    {
+        if (!Guid.TryParse(_selectedContactUserId, out var recipientUserId))
+        {
+            return;
+        }
+
+        _isSharing = true;
+        _outcome = null;
+        var shared = 0;
+        _failed = 0;
+        try
+        {
+            foreach (var thing in Things)
+            {
+                try
+                {
+                    var result = await ShareOne(thing.Id, recipientUserId, _selectedAccessLevel);
+                    if (result is null)
+                    {
+                        _failed++;
+                        continue;
+                    }
+
+                    var invitation = Invitation(result.ShareId, thing.Name);
+                    var payloadJson = JsonSerializer.Serialize(invitation, invitation.GetType());
+                    await EncryptedChatMessageSender.SendAsync(
+                        _ownUserId, recipientUserId, payloadJson, isShareInvitation: true, announcesShareId: result.ShareId);
+                    shared++;
+                }
+                catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    NavigationManager.NavigateTo("/login");
+                    return;
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    Logger.LogWarning(exception, "Failed to share one of several chosen things with {RecipientUserId}", recipientUserId);
+                    _failed++;
+                }
+            }
+
+            _outcome = _failed == 0
+                ? T.Format("Shared {0} - they'll see them in your chat.", shared.ToString())
+                : T.Format("Shared {0}. {1} could not be shared.", shared.ToString(), _failed.ToString());
+            _selectedContactUserId = string.Empty;
+        }
+        finally
+        {
+            _isSharing = false;
+        }
+    }
+}

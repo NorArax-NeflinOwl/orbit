@@ -2144,6 +2144,39 @@ namespace Orbit.Data.Migrations
                     b.ToTable("OP_TASKS_SHARED");
                 });
 
+            modelBuilder.Entity("Orbit.Data.Entities.TaskTagFilterEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_TTF_ID");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_TTF_CREATEDATUTC");
+
+                    b.Property<bool>("MatchesAll")
+                        .HasColumnType("boolean")
+                        .HasColumnName("OS_TTF_MATCHESALL");
+
+                    b.Property<string>("TagsJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("[]")
+                        .HasColumnName("OS_TTF_TAGSJSON");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_TTF_USERID");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("OS_TASKS_TAG_FILTERS");
+                });
+
             modelBuilder.Entity("Orbit.Data.Entities.UserEntity", b =>
                 {
                     b.Property<Guid>("Id")

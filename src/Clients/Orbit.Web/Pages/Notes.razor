@@ -1,6 +1,7 @@
 @page "/notes"
 @implements IDisposable
 @attribute [Authorize]
+@using Orbit.Contracts.Chat
 @using Orbit.Contracts.Notes
 @using Orbit.Core.Abstractions
 @using Orbit.Core.Folders
@@ -56,8 +57,18 @@
    was then nowhere - "Select" had gone and nothing offered the way back out. *@
 <PickedThingsBar Picked="_picked" Page="FolderPage.Notes"
                  EveryChosenOneIsAway="@EveryChosenNoteIsAway" IsWorking="@_isWorkingOnPicked"
-                 OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync"
+                 OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync" OnShare="() => _isSharingPicked = true"
                  OnAllToggled="ToggleAllPicked" OnStopped="StopPicking" />
+@if (_isSharingPicked)
+{
+    @* Only a note this reader owns and Orbit can read: the server refuses to share a sealed one, and one
+       shared with this reader is not theirs to hand on from here. *@
+    <SharePickedDialog Things="@([.. ChosenNotes.Where(note => !note.IsShared && !note.IsPrivate).Select(note => new SharePickedDialog.ShareableThing(note.Id, note.Title))])"
+                       LeftOut="@ChosenNotes.Count(note => note.IsShared || note.IsPrivate)"
+                       ShareOne="(noteId, recipientUserId, accessLevel) => NotesApiClient.ShareNoteAsync(noteId, recipientUserId, accessLevel)"
+                       Invitation="(shareId, title) => new NoteShareMessagePayload(shareId, title)"
+                       OnClosed="() => _isSharingPicked = false" />
+}
 <ObjectList IsLoading="_notes is null" IsEmpty="_notes is { Count: 0 }" EmptyMessage="@T["No notes."]">
     @if (_notes is { Count: > 0 } && VisibleNotes.Count == 0)
     {
@@ -181,6 +192,9 @@
     /// </summary>
     private bool EveryChosenNoteIsAway
         => _picked.HasAny && ChosenNotes.All(note => note.IsArchived);
+
+    /// <summary>While the dialog sharing the chosen notes is open - see SharePickedDialog.</summary>
+    private bool _isSharingPicked;
 
     /// <summary>The chosen notes themselves, which is what the actions below loop over.</summary>
     private IReadOnlyList<NoteDto> ChosenNotes

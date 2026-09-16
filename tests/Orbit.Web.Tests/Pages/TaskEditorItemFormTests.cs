@@ -271,6 +271,29 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>
+    /// "Paste from the clipboard" in the list's menu: every line an entry at the foot of the list, "[x] "
+    /// coming in done - see TaskListWords.ReadBack. Saved with the list, as everything on this form is.
+    /// </summary>
+    [Fact]
+    public void Pasting_from_the_clipboard_adds_an_entry_per_line()
+    {
+        JSInterop.Setup<string>("navigator.clipboard.readText").SetResult("- Milk\r\n[x] Bread\r\n");
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        OpenTheRailMenu(cut);
+        ClickButtonSaying(cut, "Paste from the clipboard");
+        ClickButtonSaying(cut, "Save");
+
+        var items = JsonDocument.Parse(_lastSavedJson!).RootElement.GetProperty("items").EnumerateArray().ToList();
+        Assert.Equal(3, items.Count);
+        Assert.Equal("Milk", items[1].GetProperty("description").GetString());
+        Assert.False(items[1].GetProperty("isCompleted").GetBoolean());
+        Assert.Equal("Bread", items[2].GetProperty("description").GetString());
+        Assert.True(items[2].GetProperty("isCompleted").GetBoolean());
+    }
+
+    /// <summary>
     /// A calendar entry can invite people whether the list it is on has been saved yet or not. The
     /// contacts used to be read only alongside an existing list, so a Calendar entry on a brand new one
     /// said there was nobody to invite - which is not the same thing as having no contacts.
@@ -573,6 +596,30 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Assert.DoesNotContain(OtherTaskListId.ToString(), offered);
     }
 
+    /// <summary>
+    /// A member's entry opens onto the same fields this list's own entries do - what it is about, how much
+    /// it matters - and what is written there is saved to the member with the group's Save. See
+    /// TaskEditor.DrawWhatAndWhen, which both places draw.
+    /// </summary>
+    [Fact]
+    public void A_members_entry_opens_onto_its_own_fields_and_they_are_saved_to_the_member()
+    {
+        _entriesOnTheOtherList = [AnItem() with { Id = Guid.NewGuid(), Description = "Wipe the hob" }];
+        RegisterApiClients(AnItem() with { LinkedTaskListIds = [OtherTaskListId] });
+        var cut = Render();
+
+        cut.Find(".editor-member .editor-item-toggle").Click();
+        cut.Find(".editor-member textarea").Input("With the blue cloth");
+        var priority = cut.Find(".editor-member select[aria-label='Entry priority']");
+        priority.Change("High");
+        ClickButtonSaying(cut, "Save");
+
+        Assert.NotNull(_lastMemberSavedJson);
+        var entry = JsonDocument.Parse(_lastMemberSavedJson!).RootElement.GetProperty("items")[0];
+        Assert.Equal("With the blue cloth", entry.GetProperty("notes").GetString());
+        Assert.Equal("High", entry.GetProperty("priority").GetString());
+    }
+
     [Fact]
     public void What_the_list_is_for_is_shown_under_its_title()
     {
@@ -629,6 +676,37 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Assert.Contains(choices[0]!, _lastSavedJson);
         Assert.Contains(choices[1]!, _lastSavedJson);
     }
+
+    /// <summary>
+    /// The first entry to stand for another list ticks Group View in the same press, and the box stays the
+    /// reader's to untick - it used to be locked on while such an entry stood (see TaskList.IsGroup).
+    /// </summary>
+    [Fact]
+    public void Standing_for_a_list_ticks_group_view_and_the_reader_can_untick_it()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        var picker = cut.FindAll("select").Single(box => box.GetAttribute("aria-label") == "Stands for these lists");
+        picker.Change(picker.QuerySelectorAll("option")
+            .Select(option => option.GetAttribute("value"))
+            .First(value => !string.IsNullOrEmpty(value)));
+        OpenTheRailMenu(cut);
+
+        var groupView = GroupViewBox(cut);
+        Assert.True(groupView.HasAttribute("checked"));
+        Assert.False(groupView.HasAttribute("disabled"));
+
+        groupView.Change(false);
+        ClickButtonSaying(cut, "Save");
+
+        Assert.False(JsonDocument.Parse(_lastSavedJson!).RootElement.GetProperty("isGroup").GetBoolean());
+    }
+
+    private static AngleSharp.Dom.IElement GroupViewBox(IRenderedFragment cut)
+        => cut.FindAll("label").First(label => label.TextContent.Contains("Group View", StringComparison.Ordinal))
+            .QuerySelector("input[type=checkbox]")!;
 
     /// <summary>
     /// An entry can instead be done any one of several ways - a line of its own, or another list - and
@@ -1472,6 +1550,9 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
 
     private string? _lastSavedJson;
 
+    /// <summary>What a member list was saved as, when the group's Save wrote one.</summary>
+    private string? _lastMemberSavedJson;
+
     /// <summary>What the page asked the server to build, when it asked - see GenerateInventoryOverlay.</summary>
     private string? _lastGenerateJson;
 
@@ -1512,6 +1593,13 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
             if (request.Method == HttpMethod.Put && path.EndsWith($"/{TaskListId}", StringComparison.Ordinal))
             {
                 _lastSavedJson = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
+            // A member list saved with its group - see TaskEditor.SaveTheMembersAsync.
+            if (request.Method == HttpMethod.Put && path.EndsWith($"/{OtherTaskListId}", StringComparison.Ordinal))
+            {
+                _lastMemberSavedJson = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
             }
 

@@ -78,6 +78,23 @@ public sealed class InventoriesTests : OrbitTestContext
     }
 
     /// <summary>
+    /// Several chosen shelves can be shared at once from the bar - asked for on the list of 2026-09-16. A
+    /// shelf somebody else shared with this reader is not theirs to hand on from here, so the dialog says it is left out rather than failing on it.
+    /// </summary>
+    [Fact]
+    public void Sharing_the_chosen_shelves_says_which_cannot_be_shared()
+    {
+        RegisterApiClients([Inventory("Pantry"), Inventory("Garage", isShared: true, sharedByUserName: "Anna")]);
+        var cut = RenderComponent<Web.Pages.Inventories>();
+
+        cut.FindAll("button").Single(button => button.TextContent.Trim() == "Select").Click();
+        cut.FindAll(".picked-bar button").Single(button => button.TextContent.Contains("All of them")).Click();
+        cut.FindAll(".picked-bar button").Single(button => button.TextContent.Trim() == "Share").Click();
+
+        Assert.Contains("1 of the chosen can't be shared", cut.Markup);
+    }
+
+    /// <summary>
     /// And choosing there still offers the way back out - the bar used to be drawn inside the list, which
     /// an account with nothing in it never reaches. See Notes.razor, which says the same.
     /// </summary>

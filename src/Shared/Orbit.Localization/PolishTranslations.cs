@@ -50,6 +50,15 @@ public static class PolishTranslations
         ["Retry"] = "Spróbuj ponownie",
         ["Remove"] = "Usuń",
         ["Copied"] = "Skopiowano",
+        ["Paste from the clipboard"] = "Wklej ze schowka",
+        ["Could not load your contacts."] = "Nie udało się wczytać kontaktów.",
+        ["Share {0} with one contact."] = "Udostępnij jednemu kontaktowi: {0}.",
+        ["{0} of the chosen can't be shared - private, or shared with you by somebody else."] = "Nie da się udostępnić {0} z wybranych - są prywatne albo ktoś inny udostępnił je tobie.",
+        ["Shared {0} - they'll see them in your chat."] = "Udostępniono: {0} - zobaczą je w waszym czacie.",
+        ["Shared {0}. {1} could not be shared."] = "Udostępniono: {0}. Nie udało się udostępnić: {1}.",
+        ["The clipboard could not be read."] = "Nie udało się odczytać schowka.",
+        ["The clipboard could not be read. Your browser did not allow it."] = "Nie udało się odczytać schowka. Przeglądarka na to nie pozwoliła.",
+        ["There is nothing on the clipboard to paste."] = "W schowku nie ma nic do wklejenia.",
         ["Private"] = "Prywatne",
         ["Shared"] = "Udostępnione",
         ["Group"] = "Grupowa",
@@ -279,6 +288,9 @@ public static class PolishTranslations
         ["Route from {0}. Choose where it goes - another pin, or a row in the panel."] =
             "Trasa od: {0}. Wybierz, dokąd prowadzi - inną pinezkę albo wiersz na panelu.",
         ["Clear the route"] = "Wyczyść trasę",
+        ["Add a stop here"] = "Dodaj tu postój",
+        ["Add a stop from another pin, or a row in the panel."] = "Dodaj postój z innej pinezki albo wiersza w panelu.",
+        ["Remove the stop at {0}"] = "Usuń postój: {0}",
         ["in a straight line"] = "w linii prostej",
         ["about {0} min"] = "ok. {0} min",
         ["The restock list already asks for exactly what it should."] = "Lista uzupełnień prosi dokładnie o to, o co powinna.",
@@ -431,6 +443,26 @@ public static class PolishTranslations
         ["Recent chats"] = "Ostatnie rozmowy",
         ["Groups"] = "Grupy",
         ["Upcoming"] = "Nadchodzące",
+        // The card's own menu, beside its priority filter: how far ahead it looks, the same setting
+        // Options sets (DevicePreferences.UpcomingDays, UpcomingHorizon on the phone).
+        ["How far ahead"] = "Zakres",
+        ["Show 7 days"] = "Pokaż 7 dni",
+        ["Show 30 days"] = "Pokaż 30 dni",
+        // Filters an account makes for the Tasks card out of list tags - see Orbit.Core.Tasks.TagFilters.TaskTagFilter.
+        // "and" joins a filter's tags in its name the way "or" (above, with the sign-in) already does.
+        ["Create filter"] = "Utwórz filtr",
+        ["And"] = "Oraz",
+        ["and"] = "oraz",
+        ["Lists carrying every chosen tag."] = "Listy z każdym wybranym tagiem.",
+        ["Lists carrying any chosen tag."] = "Listy z dowolnym wybranym tagiem.",
+        ["No tags yet - add one below."] = "Nie ma jeszcze tagów - dodaj pierwszy poniżej.",
+        ["New tag"] = "Nowy tag",
+        ["That filter could not be saved."] = "Nie udało się zapisać filtru.",
+        ["That filter could not be saved. Making one needs a connection."] = "Nie udało się zapisać filtru. Do utworzenia filtru potrzebne jest połączenie.",
+        ["That filter could not be deleted. Deleting one needs a connection."] = "Nie udało się usunąć filtru. Do usunięcia filtru potrzebne jest połączenie.",
+        ["Filter \"{0}\" saved - choose it from the Tasks card's menu on the dashboard."] = "Zapisano filtr \"{0}\" - wybierzesz go w menu kafelka Zadania na pulpicie.",
+        ["Your filters"] = "Twoje filtry",
+        ["Delete this filter"] = "Usuń ten filtr",
         // How far ahead that card looks, on Options' Preferences tab - see DevicePreferences.UpcomingDays.
         // A phrase each rather than a number and a unit: Polish counts days three different ways, and
         // "everything" is the absence of a horizon rather than a length.
@@ -622,10 +654,6 @@ public static class PolishTranslations
         ["Due again"] = "Znów do zrobienia",
         ["Items"] = "Pozycje",
         ["Group View"] = "Widok grupowy",
-        // Said beside that box while it is ticked and will not move - see Orbit.Core.Tasks.TaskList.IsGroup.
-        // A box that cannot be pressed and does not say why reads as broken.
-        ["On, because an entry on this list stands for another list. Take that entry off to turn it back off."] =
-            "Włączone, bo wpis na tej liście odpowiada za inną listę. Usuń ten wpis, żeby móc je wyłączyć.",
         ["Type"] = "Typ",
         ["Calendar event"] = "Wydarzenie w kalendarzu",
         ["Back to Calendar"] = "Wróć do kalendarza",
@@ -836,6 +864,8 @@ public static class PolishTranslations
         ["A place worth keeping"] = "Miejsce warte zapisania",
         ["This place"] = "To miejsce",
         ["What this place is"] = "Czym jest to miejsce",
+        // Under the name while there is none - Create waits for one, see PlaceForm.CanSave.
+        ["Give the place a name to keep it."] = "Nadaj miejscu nazwę, aby je zapisać.",
         ["Anything worth remembering about it"] = "Co warto o nim pamiętać",
         ["Pick it on the map - a place with no point cannot be drawn on one."] =
             "Wskaż je na mapie - miejsca bez punktu nie da się na niej narysować.",
@@ -889,7 +919,7 @@ public static class PolishTranslations
         ["This one can't be moved while you're offline."] = "Tego nie da się przenieść bez połączenia.",
         // The menu entry that unfolds the row a folder is named in - see NotesPage.
         ["Move to folder"] = "Przenieś do folderu",
-        // Choosing several cards to act on at once - see Orbit.Web.Services.PickedThings. "Zakończ
+        // Choosing several cards to act on at once - see Orbit.Core.Folders.PickedThings. "Zakończ
         // zaznaczanie" rather than "Gotowe": this leaves the mode, and "Done" already means "ticked
         // off" everywhere else in the app.
         // The lists a group gathers, written in from the group's own form - see TaskEditor. Each reason
@@ -905,6 +935,12 @@ public static class PolishTranslations
         ["All of them"] = "Wszystkie",
         ["What to do with the chosen ones"] = "Co zrobić z zaznaczonymi",
         ["Stop selecting"] = "Zakończ zaznaczanie",
+        // The phone's own words for the same bar - see Orbit.Mobile.Screens.Folders.PickingSeveral. The
+        // heading over the menu entry that starts choosing, and what a round says it left alone.
+        ["Several at once"] = "Kilka naraz",
+        ["{0} of the chosen couldn't be changed while you're offline."] = "Nie udało się zmienić bez połączenia: {0}.",
+        ["{0} of the chosen are somebody else's, so they were left as they are."] = "Należą do kogoś innego, więc zostały bez zmian: {0}.",
+        ["{0} of the chosen can't be shared - private, somebody else's, or not on the server yet."] = "Nie da się udostępnić: {0} - prywatne, cudze albo jeszcze niewysłane na serwer.",
         ["No folder"] = "Bez folderu",
         // Said before a folder goes, because "delete folder" reads as though its notes go too.
         ["Delete the folder \"{0}\"? Nothing in it is deleted - it goes back to Public, or to Private if it is sealed."]

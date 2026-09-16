@@ -28,6 +28,9 @@
             <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
                    LineBreakMode="WordWrap" Style="{StaticResource InfoLabel}" />
 
+            <!-- While several notes are being chosen - see PickingSeveral. -->
+            <controls:PickingBar BindingContext="{Binding Picking}" />
+
             <Grid x:Name="AddRow" IsVisible="False" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <Entry x:Name="AddField" Grid.Column="0"
                        Placeholder="{controls:Translate 'New note'}"
@@ -82,7 +85,8 @@
                              puts everything that can be done to a thing, and it took a control off every
                              row in the list to say so. -->
                         <controls:ItemCard IsBordered="False"
-                                           Name="{Binding DisplayTitle}" IsPinned="{Binding IsPinned}">
+                                           Name="{Binding DisplayTitle}" IsPinned="{Binding IsPinned}"
+                                           OffersPicking="{Binding OffersPicking}" IsPicked="{Binding IsPicked}">
                             <controls:ItemCard.Pin>
                                 <!-- Filled when it is set, outlined when it is not, so the card says
                                      which without a word - and absent on a note somebody else owns,

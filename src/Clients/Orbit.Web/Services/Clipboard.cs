@@ -38,4 +38,23 @@ public sealed class Clipboard
             return false;
         }
     }
+
+    /// <summary>
+    /// The text on the system clipboard, or null when the browser would not hand it over - which it
+    /// refuses more often than writing: reading needs a press to have just happened, and some browsers
+    /// ask the reader first or never allow it at all. Null rather than an empty string, so a caller can
+    /// tell "the clipboard is empty" from "Orbit was not allowed to look" and say the right one.
+    /// </summary>
+    public async Task<string?> TryReadAsync()
+    {
+        try
+        {
+            return await _jsRuntime.InvokeAsync<string>("navigator.clipboard.readText");
+        }
+        catch (JSException exception)
+        {
+            _logger.LogWarning(exception, "The browser did not allow reading the clipboard");
+            return null;
+        }
+    }
 }

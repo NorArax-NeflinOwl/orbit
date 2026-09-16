@@ -1320,7 +1320,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   - **Pictures pasted into a note.** Confirmed 2026-09-14 as its own round rather than a list item, and
     written out below under "Pictures in a note, and the note control everywhere a description is".
 
-  - **Stops along a route.** ~~Both ends chosen from the list of pins~~ went in on 2026-09-14: every row
+  - ~~**Stops along a route.**~~ Done on 2026-09-16, against the OSRM demo the route already asked (gated
+    the same way) and handed to Google Maps as waypoints - see "A route between two pins" in
+    functionality.md. What was written here before:
+    ~~Both ends chosen from the list of pins~~ went in on 2026-09-14: every row
     in the map's panel - a place, a plan, either list - carries the same one press its pin's popup does,
     so neither end has to be hunted for among the pins first. **Stops are what is left, and they are the
     half with a question in it**: a straight line between two points is what the map draws today
@@ -2022,8 +2025,8 @@ It is **not** on the two other places somebody edits in the browser:
   that matters more than the saving, the second reading is still the other one, and this entry is where
   to come back to.
 
-- **Choosing several things at once, and doing one thing to all of them** - *the browser is built
-  (2026-09-16); sharing and the phone are not.* Asked for as: select several notes, lists, events or
+- ~~**Choosing several things at once, and doing one thing to all of them**~~ - *built in the browser
+  and on the phone, sharing included (2026-09-16).* Asked for as: select several notes, lists, events or
   shelves and then file them into a folder, archive them, or share them.
 
   What exists: `PickedThings` (choosing is a mode, entered by a press), the mark on every `ItemCard`,
@@ -2032,16 +2035,13 @@ It is **not** on the two other places somebody edits in the browser:
   this entry planned. On the calendar only the events are chosen: a deadline drawn there belongs to the
   task list it is on. Something somebody else owns is left out of every round.
 
-  **Sharing several at once is not built.** Filing and archiving are each one request about one thing,
-  so a loop is the whole of them; a share is not - it takes a recipient, and each one also sends an
-  end-to-end encrypted chat message that only a client can write (`SharedItemSharing`). So the bar would
-  need a contact picker of its own and a round that is half server call and half encrypted message,
-  which is a different piece of work from the two that are here.
+  ~~**Sharing several at once is not built.**~~ Done on 2026-09-16 in the browser (`SharePickedDialog`,
+  see functionality.md): a contact picker of the bar's own, and a round that is half server call and half
+  encrypted message, as this entry said it would need.
 
-  **The phone is not built either.** Its lists are `SelectionMode="Single"`, and it already has the
-  gesture the browser deliberately does not use - holding a box starts choosing several *inside a note* -
-  so the question there is whether a long press on a card should mean the same, which is a decision
-  rather than a port.
+  ~~**The phone is not built either.**~~ Done on 2026-09-16 (`PickingSeveral`, `PickingBar`): entered from
+  the menu under the screen's name rather than by a long press, since holding already chooses boxes
+  inside a note. See functionality.md.
 
 - ~~**The Group View box ticking itself.**~~ **Done 2026-09-15.** Asked for: a list whose entries stand
   for other lists is a group list, so the box should tick itself once there is at least one such entry. Today it is a plain manual toggle in both clients. The signal is already
@@ -2073,12 +2073,14 @@ It is **not** on the two other places somebody edits in the browser:
   since each is its own list with its own lock and its own history; a refusal does not stop the round,
   and what is said names the lists that did not go. A member nobody wrote in is not written at all.
 
-  **Direct members only**, and a row is an entry's words and its box: a deadline, what it stands for, a
-  product and the ways it can be done are edited in that member's own editor, one press away at the head
-  of the section. That panel is five hundred lines of `TaskEditor`'s own machinery bound to dozens of its
-  methods, and a group holding four members would be four copies of it - lifting it into a component of
-  its own is the work that would be needed, and is worth doing on its own terms rather than as a rider on
-  this. See `info/functionality.md`, "Writing in a group's member lists".
+  **Direct members only.** Since 2026-09-16 a member's entry opens onto the fields that belong to the
+  entry alone - categories, description, dates, priority, colour, reminders - drawn by the same fragments
+  the group's own entries use. **Still in the member's own editor**: the kind, an event or a shelf behind
+  the entry, the lists it stands for, its ways, what it waits for and moving it. Each of those saves
+  something beside the list (`SaveTheCalendarAsync`, `SaveTheShelfAsync`, the move endpoint) and is bound
+  to page state that is about the group, so bringing them into a member's section means those saves
+  learning which list they are for - a change to the save path, not to the markup. See
+  `info/functionality.md`, "Writing in a group's member lists".
 
   **The phone has none of it**, and draws one list at a time with no tree at all - see "The phone cannot
   flatten a tree of lists" below, which is the same gap seen from the other end.
@@ -2090,7 +2092,12 @@ It is **not** on the two other places somebody edits in the browser:
   behind a sheet. See `info/functionality.md`, "And it can be copied in part", for what each choice
   keeps and why a crossed-out entry goes out as an unticked box.
 
-- **Pasting a list back in** - *the other half of the copy above, and the half still missing.* Asked for
+- ~~**Pasting a list back in**~~ Done on 2026-09-16: "Paste from the clipboard" in the menu of the note
+  and task-list editors, on both clients. The user settled the open question - **every line is an
+  entry**, "[x] " done, the list's own name left out when it heads the paste (`TaskListWords.ReadBack`).
+  A note takes the words at the caret in a browser and at the end on the phone, read as any paste is. What
+  was written here before it was built:
+  *the other half of the copy above, and the half still missing.* Asked for
   as an option inside note and task-list editing that turns copied text into lines or entries. The
   **conversion** exists for notes and is good: a paste of `[x] ` / `- ` lines becomes boxes and lines on
   both clients, which is exactly what the copy writes - so copying a filtered list out of one thing and

@@ -42,6 +42,13 @@
                LineBreakMode="WordWrap" Style="{StaticResource InfoLabel}" />
 
         <VerticalStackLayout Grid.Row="2" Spacing="8">
+            <!-- While several lists are being chosen - see PickingSeveral. -->
+            <controls:PickingBar BindingContext="{Binding Picking}" />
+
+            <!-- Where a filter just made went, said once the panel it was made in has closed. -->
+            <Label Text="{Binding TagFilter.Message}" IsVisible="{Binding TagFilter.SaysSomethingWhenClosed}"
+                   LineBreakMode="WordWrap" Style="{StaticResource InfoLabel}" />
+
             <Grid x:Name="AddRow" IsVisible="False" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <Entry x:Name="AddField" Grid.Column="0" Placeholder="{controls:Translate 'New list'}"
                        Text="{Binding NewListTitle}"
@@ -81,7 +88,8 @@
                         <!-- The same card every list of things is drawn with - see ItemCard. -->
                         <controls:ItemCard IsBordered="False"
                                            Name="{Binding DisplayTitle}" IsPinned="{Binding IsPinned}"
-                                           HasUnseenAction="{Binding HasUnseenAction}">
+                                           HasUnseenAction="{Binding HasUnseenAction}"
+                                           OffersPicking="{Binding OffersPicking}" IsPicked="{Binding IsPicked}">
                             <!-- Only where the reader is sorting by the order they put the cards in:
                                  moving one under any other order would be undone by the sort. The web
                                  drags them, which is not a gesture a thumb can aim in a scrolling list. -->
@@ -215,6 +223,8 @@
         <controls:NavigationBar Grid.Row="0" />
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
                               BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=tasks:TasksPage}" />
+        <!-- Making a Tasks card filter - see TagFilterForm. Over the page, under the menus. -->
+        <controls:TagFilterSheet Grid.Row="0" Grid.RowSpan="3" BindingContext="{Binding TagFilter}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
         <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>

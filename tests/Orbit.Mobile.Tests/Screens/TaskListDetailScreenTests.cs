@@ -1877,9 +1877,18 @@ public sealed class TaskListDetailScreenTests
         await screen.SaveItemCommand.ExecuteAsync(null);
 
         Assert.True(screen.IsGroup);
-        Assert.False(screen.CanChooseGroupView);
         Assert.False(screen.SaveListCommand.IsRunning);
         Assert.True((await context.FindAsync(screen)).IsGroup);
+
+        // And it is the reader's to turn off after that, with the entry still standing for Shopping - the
+        // switch used to be locked on, and the user asked for it to be theirs (TaskList.IsGroup).
+        Assert.True(screen.CanChooseGroupView);
+        screen.IsGroup = false;
+        await screen.SaveListCommand.ExecutionTask!;
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+        Assert.False(screen.IsGroup);
+        Assert.False(context.Server.TaskLists.Single(list => list.Title == "This week").IsGroup);
     }
 
     /// <summary>
@@ -1912,6 +1921,24 @@ public sealed class TaskListDetailScreenTests
     /// it can be moved - the server refuses that move outright. Left out of the picker rather than
     /// offered and then rejected, which is what Orbit.Web's editor does too.
     /// </summary>
+    /// <summary>
+    /// "Paste from the clipboard" in the list's menu: every line an entry, "[x] " done, and the list's own
+    /// name - which a copy writes first - left out. Each pasted entry is its own entry, not one shared id.
+    /// </summary>
+    [Fact]
+    public async Task Pasting_from_the_clipboard_adds_an_entry_per_line()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        await AddAsync(screen, "Milk");
+
+        await screen.PasteFromTheClipboardAsync("Groceries\n- Eggs\n[x] Flour\n");
+
+        Assert.Equal(["Milk", "Eggs", "Flour"], screen.Items.Select(row => row.Item.Description));
+        Assert.True(screen.Items.Single(row => row.Item.Description == "Flour").Item.IsCompleted);
+        Assert.Equal(3, screen.Items.Select(row => row.Item.Id).Distinct().Count());
+    }
+
     /// <summary>
     /// Putting a list away from its own screen says so there. The screen stays open on the list either way,
     /// so nothing else moves - and on a device the press read as one that had done nothing.

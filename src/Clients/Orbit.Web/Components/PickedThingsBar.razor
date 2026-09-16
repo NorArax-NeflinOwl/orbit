@@ -4,8 +4,9 @@
 @inject Translations T
 
 @* The bar over a list while cards are being chosen - what the user asked for as "select several notes,
-   lists, events or shelves and then file them into a folder or put them away". It says how many are
-   chosen, offers the two things that can be done to all of them at once, and carries the way out.
+   lists, events or shelves and then file them into a folder or put them away" - and, from 2026-09-16,
+   share them. It says how many are chosen, offers what can be done to all of them at once, and carries
+   the way out.
 
    Drawn only while the page is choosing, and above the cards rather than fixed to the foot: it belongs
    to the list it is acting on, and a bar at the bottom of a long page is a bar nobody sees until they
@@ -32,6 +33,13 @@
                 <option value="@folder.Id">@folder.Name</option>
             }
         </select>
+
+        @* Handing all of them to one contact - see SharePickedDialog, which the page opens. *@
+        @if (OnShare.HasDelegate)
+        {
+            <button type="button" class="btn-secondary" disabled="@(!Picked.HasAny || IsWorking)"
+                    @onclick="OnShare">@T["Share"]</button>
+        }
 
         @* Archive or Put back, by what is chosen: all of them already away means the press brings them
            back, anything else puts them away. Named for what it will do rather than offered twice. *@
@@ -74,6 +82,9 @@
     [Parameter] public EventCallback<bool> OnArchive { get; set; }
 
     [Parameter] public EventCallback OnAllToggled { get; set; }
+
+    /// <summary>Sharing all of them with one contact - the page opens its SharePickedDialog. No button without it.</summary>
+    [Parameter] public EventCallback OnShare { get; set; }
 
     [Parameter] public EventCallback OnStopped { get; set; }
 

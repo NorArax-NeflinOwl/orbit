@@ -102,8 +102,17 @@
    is outside the list. *@
 <PickedThingsBar Picked="_picked" Page="FolderPage.Inventories"
                  EveryChosenOneIsAway="@EveryChosenShelfIsAway" IsWorking="@_isWorkingOnPicked"
-                 OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync"
+                 OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync" OnShare="() => _isSharingPicked = true"
                  OnAllToggled="ToggleAllPicked" OnStopped="StopPicking" />
+@if (_isSharingPicked)
+{
+    @* Only a shelf this reader owns and Orbit can read - see Notes.razor, which says why. *@
+    <SharePickedDialog Things="@([.. ChosenInventories.Where(inventory => !inventory.IsShared && !inventory.IsPrivate).Select(inventory => new SharePickedDialog.ShareableThing(inventory.Id, inventory.Name))])"
+                       LeftOut="@ChosenInventories.Count(inventory => inventory.IsShared || inventory.IsPrivate)"
+                       ShareOne="(inventoryId, recipientUserId, accessLevel) => InventoryApiClient.ShareInventoryAsync(inventoryId, recipientUserId, accessLevel)"
+                       Invitation="(shareId, name) => new InventoryShareMessagePayload(shareId, name)"
+                       OnClosed="() => _isSharingPicked = false" />
+}
 <ObjectList IsLoading="_inventories is null" IsEmpty="_inventories is { Count: 0 }"
             EmptyMessage="@T["No inventories yet. Create one to start tracking stock."]">
     @if (_inventories is { Count: > 0 } && ArrangedInventories.Count == 0)
@@ -380,6 +389,9 @@
 
     /// <summary>Whether every chosen shelf is already put away, which is what names the bar's archive button.</summary>
     private bool EveryChosenShelfIsAway => _picked.HasAny && ChosenInventories.All(inventory => inventory.IsArchived);
+
+    /// <summary>While the dialog sharing the chosen shelves is open - see SharePickedDialog.</summary>
+    private bool _isSharingPicked;
 
     private IReadOnlyList<InventoryDto> ChosenInventories
         => [.. (_inventories ?? []).Where(inventory => _picked.Holds(inventory.Id))];

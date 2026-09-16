@@ -5,13 +5,10 @@ using Xunit;
 namespace Orbit.Api.Tests.Tasks;
 
 /// <summary>
-/// A list whose entries point at other lists <b>is</b> a group list, whatever the box says - see
-/// TaskList.IsGroup. It was a plain manual toggle until 2026-09-15, so a list somebody built by adding
-/// entries that name lists gathered nothing until they happened to notice a box; and a save from a
-/// client that has never drawn that box turned it back off.
-///
-/// The rule lives in the domain rather than in an editor's form, which is the user's decision of that
-/// date: a rule that only holds where somebody is looking is not a rule.
+/// A list that starts gathering other lists becomes a group list by itself, and stays the reader's to turn
+/// off - see TaskList.IsGroup. It was a plain manual toggle until 2026-09-15, then forced on for as long as
+/// an entry named a list; the user's list of 2026-09-16 asked for the box to tick itself and still be
+/// unticked when somebody wants it off.
 /// </summary>
 public sealed class AListThatGathersListsIsAGroupListTests
 {
@@ -40,11 +37,28 @@ public sealed class AListThatGathersListsIsAGroupListTests
     }
 
     /// <summary>
-    /// The case the rule exists for: a save that says "no" while an entry says otherwise. That is what
-    /// every client written before this sends, and what a browser tab opened yesterday still sends.
+    /// The save that gives a list its first entry naming another list turns the box on, whatever it said -
+    /// which is what "automatically" means for a list that was plain until now.
     /// </summary>
     [Fact]
-    public void A_save_that_says_it_is_not_a_group_does_not_turn_it_off_while_an_entry_names_a_list()
+    public void The_save_that_adds_the_first_naming_entry_turns_it_on()
+    {
+        var kitchen = TaskList.Create(_userId, "Kitchen", []);
+        var renovation = TaskList.Create(_userId, "Renovation", [TaskItem.Create("Skirting", null, false)]);
+
+        renovation.Update(
+            "Renovation", [TaskItem.Create("Skirting", null, false), TaskItem.Create("Kitchen", null, false, [kitchen.Id])],
+            isGroup: false, isPrivate: false, encryptedContent: null, ItemPriority.Normal);
+
+        Assert.True(renovation.IsGroup);
+    }
+
+    /// <summary>
+    /// And after that it is the reader's: a save that turns it off is kept while the entry still names a
+    /// list. That box used to be locked on, and the user asked for it to be theirs to untick.
+    /// </summary>
+    [Fact]
+    public void A_group_list_can_be_turned_off_while_an_entry_still_names_a_list()
     {
         var kitchen = TaskList.Create(_userId, "Kitchen", []);
         var renovation = AListNamed(kitchen.Id, isGroup: true);
@@ -53,7 +67,7 @@ public sealed class AListThatGathersListsIsAGroupListTests
             "Renovation", [TaskItem.Create("Kitchen", null, false, [kitchen.Id])], isGroup: false,
             isPrivate: false, encryptedContent: null, ItemPriority.Normal);
 
-        Assert.True(renovation.IsGroup);
+        Assert.False(renovation.IsGroup);
     }
 
     /// <summary>
@@ -75,11 +89,11 @@ public sealed class AListThatGathersListsIsAGroupListTests
     }
 
     /// <summary>
-    /// A list read back from the database answers the same way, so a row stored before the migration
-    /// that brought them into line is still drawn as what it is.
+    /// A list read back from the database is what it was stored as: a reader who turned the box off must
+    /// find it off, so reading a row settles nothing on its own.
     /// </summary>
     [Fact]
-    public void A_list_rebuilt_from_a_row_that_says_no_is_still_a_group_list()
+    public void A_list_rebuilt_from_a_row_that_says_no_stays_as_it_was_stored()
     {
         var kitchen = TaskList.Create(_userId, "Kitchen", []);
         var now = DateTimeOffset.UtcNow;
@@ -90,7 +104,7 @@ public sealed class AListThatGathersListsIsAGroupListTests
             lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null,
             ItemPriority.Normal, isPinned: false);
 
-        Assert.True(renovation.IsGroup);
+        Assert.False(renovation.IsGroup);
     }
 
     /// <summary>

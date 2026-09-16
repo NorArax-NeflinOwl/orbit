@@ -84,6 +84,7 @@ public static class OrbitDataServiceCollectionExtensions
         services.AddScoped<IInventoryExpiryNotificationRepository, InventoryExpiryNotificationRepository>();
         services.AddScoped<INotificationSettingsRepository, NotificationSettingsRepository>();
         services.AddScoped<Orbit.Core.Tags.ITagColourRepository, TagColourRepository>();
+        services.AddScoped<Orbit.Core.Tasks.TagFilters.ITaskTagFilterRepository, TaskTagFilterRepository>();
         services.AddScoped<INotificationEntryRepository, NotificationEntryRepository>();
         services.AddScoped<IDiagnosticLogRepository, DiagnosticLogRepository>();
         services.AddScoped<ISyncTombstoneRepository, SyncTombstoneRepository>();

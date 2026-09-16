@@ -121,6 +121,14 @@ public partial class TasksPage : ContentPage, ITitleMenu
 
 			new(_translations["Folder"], FolderActions()),
 
+			// Choosing several lists to file, put away or share together - see NotesPage.
+			new(_translations["Several at once"],
+				[new ScreenMenuEntry(_translations["Select"], () => _viewModel.ToggleChoosingCommand.Execute(null), _viewModel.Picking.IsPicking)]),
+
+			// A filter for the dashboard's Tasks card, made of the tags on these lists - see TagFilterForm.
+			new(_translations["Dashboard"],
+				[new ScreenMenuEntry(_translations["Create filter"], _viewModel.StartMakingATagFilter)]),
+
 			// The one in force is marked, as the dashboard's card filters mark theirs: the menu covers
 			// the list it is about, so it has to say for itself which order that list is in.
 			new(_translations["Sort"], _viewModel.SortChoices.Select(choice => new ScreenMenuEntry(

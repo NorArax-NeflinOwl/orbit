@@ -208,6 +208,7 @@ public static class MauiProgram
 		services.AddTransient<SharedItemAcceptance>();
 		services.AddTransient<SharedItemSharing>();
 		services.AddTransient<SharePanel>();
+		services.AddTransient<SharingSeveral>();
 		// One per editor screen rather than one for the app: it holds what is being typed into the field
 		// that is open, and two screens sharing it would offer each other's names.
 		services.AddTransient<NameSuggestions>();
@@ -251,6 +252,9 @@ public static class MauiProgram
 		// How far ahead the dashboard's Upcoming card looks - see UpcomingHorizon and the same tab.
 		services.AddSingleton<Orbit.Mobile.Screens.Dashboard.IUpcomingHorizonStore, PreferencesUpcomingHorizonStore>();
 		services.AddSingleton<Orbit.Mobile.Screens.Dashboard.UpcomingHorizon>();
+		// The account's Tasks card filters, copied onto the phone - see TaskTagFilters.
+		services.AddSingleton<Orbit.Mobile.Screens.Tasks.ITaskTagFilterStore, PreferencesTaskTagFilterStore>();
+		services.AddTransient<Orbit.Mobile.Screens.Tasks.TaskTagFilters>();
 		services.AddSingleton<Orbit.Mobile.Google.GoogleIntegrationAccess>();
 		// One heartbeat for the app, started and stopped with the window - see PresenceReporter.
 		// One banner for the app, so a push arriving while somebody is looking at it is not silently

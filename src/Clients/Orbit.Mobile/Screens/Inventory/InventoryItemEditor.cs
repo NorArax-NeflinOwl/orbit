@@ -1,3 +1,4 @@
+using Orbit.Core.Text;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -134,7 +135,7 @@ public sealed partial class InventoryItemEditor : ObservableObject
         OfferedProductTypes.Clear();
         foreach (var productType in _knownProductTypes
             .Where(known => !string.Equals(known, typed, StringComparison.CurrentCultureIgnoreCase))
-            .Where(known => typed.Length == 0 || known.Contains(typed, StringComparison.CurrentCultureIgnoreCase))
+            .Where(known => typed.Length == 0 || LooseText.Holds(known, typed))
             .Take(MostProductTypesOffered))
         {
             OfferedProductTypes.Add(productType);

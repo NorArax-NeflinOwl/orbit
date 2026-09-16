@@ -451,6 +451,36 @@ The export archive carries both, defaulted and last as every late field is: `Arc
 `ArchivedTaskList.Tags`, and `OrbitArchive.TagColours`. An import adds colours only for tags the account
 has not coloured since - an import never overwrites.
 
+### Filters made of tags, for the dashboard's Tasks card
+
+**An account can make filters out of its list tags** (2026-09-16, `Orbit.Core.Tasks.TagFilters.TaskTagFilter`,
+`OS_TASKS_TAG_FILTERS`): a set of tags matched by **any one of them** by default, or by **every one** when
+"And" is pressed. A filter has no name of its own - it is called by its tags joined with "or" / "and"
+("home or shopping"), which is what anybody would have typed as its name, and a name could drift from the
+tags. Made and deleted, never edited (`GET/POST /api/task-filters`, `DELETE /api/task-filters/{id}`); fewer
+than one or more than twenty tags are refused, the tags are tidied as a list's own are, and the rows go
+with the account. Readable on the server for the same reason the colours are, and with the same
+consequence: a filter made of a tag used only on private lists names that tag in the clear.
+
+**Made on the tasks page.** In the browser, "Create filter" stands in the header ahead of the folder button
+and opens `TagFilterDialog`: "And" at the top with a line saying what the filter will find, every tag on
+the account's lists as a checklist (whatever folder they are in), a box that adds a new word ticked, and
+Save and Cancel as icons at the foot. On the phone the same panel (`TagFilterForm`, `TagFilterSheet`) is
+"Create filter" under a "Dashboard" heading in the tasks screen's menu; making one needs a connection and
+says so without one, the way sharing does.
+
+**Chosen on the Tasks card.** Its menu gains "Your filters", the chosen one ticked and nothing ticked among
+the card's own All/Pinned while it is chosen - choosing either kind of answer stops the other. A chosen
+filter shows **every list it finds, whatever folder it is in, finished or not, put away or not**: it finds
+lists by what they are about, which is not the question a folder tab answers. "Delete this filter" is
+offered beside the chosen one. Which filter the card shows is kept on the device
+(`DashboardCardPreferences.TasksTagFilterId` in the browser, `ITaskTagFilterStore` on the phone); the
+filters themselves are the account's. The phone keeps a copy of them read again on every dashboard load
+(`TaskTagFilters.RefreshAsync`), so the menu works offline from what was last read.
+
+Not in the export archive: a filter is a view onto lists rather than something written, and the archive
+carries what somebody wrote.
+
 ## Folders
 
 Every page made of cards - the dashboard, the notes, the task lists, the calendar and the inventories -
@@ -635,8 +665,25 @@ filing and putting away are decisions about the owner's own page. On the calenda
 chosen - a deadline drawn there belongs to the task list it is on - and a repeat drawn on five days is
 one event, not five.
 
-**Sharing several at once, and the phone's half, are not built** - see `info/future-plan.md`, which says
-why a share is a different shape from the two that are here.
+**Sharing several at once** (2026-09-16, `SharePickedDialog`): the bar's third press opens one dialog - a
+contact and a level (read-only, can share, can edit) for all of them - and then, for each chosen thing in
+turn, does what sharing one does from its own page: the kind's share request and the end-to-end encrypted
+chat message carrying its Accept. The page hands the dialog its own share call and invitation payload; the
+contacts, the round and the result ("Shared 3. 1 could not be shared.") are the dialog's. Only things this
+reader owns and Orbit can read are shared - one shared with them, or a sealed one, is left out and the
+dialog says how many.
+
+**The phone chooses several too** (2026-09-16, `PickingSeveral` over the same `PickedThings`, which moved
+to `Orbit.Core.Folders` for it; `PickingBar` in the head). On notes, task lists, inventories and the
+calendar's list, "Select" under the screen's name - in a "Several at once" group of its menu - starts the
+mode, and it is a menu entry rather than a long press for the browser's reason and one more: holding
+already means choosing boxes inside a note. While it is on, every row carries a mark and a press anywhere
+on it chooses. The bar offers All of them, Move to folder (a sheet of the screen's folders and "No
+folder"), Archive or Put back, Share (a sheet of contacts, then one of levels - `SharingSeveral`, the same
+`SharedItemSharing` a single share goes through) and Stop selecting. Filing and putting away go through the
+same local write a single press uses, one per thing, so each is queued, or refused offline, exactly as one
+would be; the round then says how many were refused offline and how many were somebody else's. A thing the
+server has never seen cannot be shared yet and is counted with the sealed and the borrowed ones.
 
 **An entry has a priority and a colour of its own** (2026-09-10, `OP_TI_PRIORITY`, `OP_TI_COLOUR`,
 `TaskItem.Priority`/`Colour`). The list has a priority and this is not it: a list of ten errands usually
@@ -1063,6 +1110,12 @@ the shape the phone's note screen has had since the redesign: the first line is 
 drawn as one, everything under it is the note, and there is no separate title box for the two to
 disagree in.
 
+**Turning editing on puts the caret at the end of the writing** (`ChecklistTextEditor.FocusesAtTheEnd`):
+after the last line's words, or in the last cell of a table the note ends in, or - past a closing picture
+or rule - after the last line that has words. The phone has no editing switch to turn on: a note opens
+writable, and a caret put there on opening would raise the keyboard over a note somebody only meant to
+read.
+
 - **The tools sit over the writing's bottom-left corner**, not above it - a toolbar at the top of a note
   is a strip of the page given to controls before a word has been written. Four of them, as the design
   draws: text style, checklist, table, attachment - and since 2026-09-14 **all four work**.
@@ -1435,7 +1488,12 @@ much as in English, and every marked letter is one a phone keyboard makes somebo
 the marks is not something a reader should have to think about. Letters that are their own rather than a
 marked form of another, "ł" among them, are listed by hand. Asked by everything that narrows a list by
 what is typed: the suggestion browser behind every used-value field, the tag field, the task entry
-filter, both shelf searches, and the conversation and group searches.
+filter, both shelf searches, and the conversation and group searches. **On the phone too** since 2026-09-16
+(its entry filter, the shelf and item searches, and the product type box), which compared letter for letter
+until then. **And the server's name suggestions**: `NameSuggestionRepository` folds the typed words with
+the same rule and the stored names in SQL with PostgreSQL's built-in `translate()` over the Polish letters
+(`OrbitDbContext.Translate`), so "maka" suggests "Mąka" - the `unaccent` extension would cover more
+letters but has to be allow-listed on a managed server first.
 
 **A note's text can be copied out of its menu** ("Copy the text", `NoteSummary` in the browser and the
 note's own menu on the phone since 2026-09-15). Written the way the note's own editor copies a selection
@@ -2323,7 +2381,9 @@ answers rather than a row of three buttons, because they are three answers to on
 **Create** and **Cancel** finish it:
 
 - **A place worth keeping** (the default) opens the place form on that pin, with the address already in
-  it - see [Places](#places). It is the default because it is the least somebody can mean by pressing a
+  it and the name left empty for the reader - see [Places](#places). Save waits for a name, and the form
+  says so under the empty box ("Give the place a name to keep it."); since
+  2026-09-16 neither the pin nor a point picked on the map writes its address in as one, on either client. It is the default because it is the least somebody can mean by pressing a
   map: it says where and nothing else, and the other two are that plus a time or plus a job.
 - **An event in the calendar** opens `/calendar/new` with the address and its pin set.
 - **A task list starting here** opens `/tasks/new` with one entry already standing at that place - a
@@ -2373,6 +2433,14 @@ side by side. Any spot can be an end: press the map there, and the pin that pres
 button - or from the row in the panel, which carries the same one press so neither end has to be hunted
 for among the pins first. A bar under the map names both ends and says how far and how long, with
 **Clear the route**.
+
+**Stops** (2026-09-16): once both ends are chosen the same button reads **"Add a stop here"**, and each press
+adds a stop before the end and draws the route again through all of them in the order they were added
+(`showRoute` takes the points as one list; the OSRM request carries them all). Each stop has its own remove
+button on the bar, pressing a place already on the route adds nothing, and starting a different route is
+Clear the route first. **Open in Google Maps** hands the same route over as a directions link with the stops
+as waypoints (`GoogleMapsLink.ForRoute`) - no key, and it is how a route drawn in the browser reaches the
+phone that drives it.
 
 The road route comes from the **public OSRM demo server** (FOSSGIS, OpenStreetMap's routing machine),
 driving only - that is what the demo serves reliably. It is a third party, so it is asked **only where the
@@ -2908,10 +2976,15 @@ somebody else** is drawn and read but not written in, and the section says which
 the other two do not, so telling somebody "she is editing it" about a list they could never edit would
 send them back to try again for nothing.
 
-**A row here is an entry's words and its box.** A deadline, what it stands for, a product and the ways
-it can be done are edited in that member's own editor, one press away at the head of the section - that
-panel is five hundred lines of the group's own form, and a group holding four members would be four
-copies of it. **The phone has none of this** - see `info/future-plan.md`.
+**A row is an entry's words and its box, and its toggle opens the entry's own fields** (2026-09-16):
+categories, description, due date and time, when it was done, priority, colour and - on a checklist
+entry - its reminders. They are the same markup the group's own entries draw (`TaskEditor.WhatAndWhen`,
+`PriorityAndColour`, `Reminders`), so the two cannot drift apart, and a section counts as written in when
+any of them changed. What reaches past the entry - its kind, an event or a shelf behind it, the lists it
+stands for, its ways, what it waits for, moving it - is edited in that member's own editor, one press away
+at the head of the section: each of those saves something beside the list, and the group's form saves
+only lists. A daily reminder with no hour stops the save wherever it is written. **The phone has none of
+this** - see `info/future-plan.md`.
 
 **Deleting the list is offered at both depths** as well as from its card, which is the arrangement a
 note, an inventory and a calendar event have all had - a task list was the one thing in Orbit that could
@@ -3030,16 +3103,16 @@ map, rather than dropping a pin in the wrong country.
 
 ### Group lists
 
-Setting `isGroup` marks a list as one that gathers other lists. **It sets itself**: a list with an entry
-that points at another list is a group list whatever the caller sent (`TaskList.IsGroup`, 2026-09-15),
-because the checklist draws the members either way and a stored "no" beside such an entry would be an
-answer the page has to disagree with. Both editors draw the box ticked and unpressable while that is so,
-with a line saying why, and taking the last such entry off gives the answer back to the reader. It was a
-plain manual toggle until then, so a list somebody built by adding entries that name lists gathered
-nothing until they noticed a box - and a save from a client that has never drawn one turned it off
-again. The rule is in the domain rather than in an editor's form on purpose: one that only holds where
-somebody is looking is not a rule. What was already stored was brought into line by a migration that
-says so (`AListThatGathersListsSaysSo`) rather than by whatever save came next.
+Setting `isGroup` marks a list as one that gathers other lists. **It turns itself on, and is the
+reader's to turn off** (`TaskList.IsGroup`): a list created with an entry that points at another list, or
+saved with its first such entry, is a group list whatever the caller sent; after that what is saved is
+what is stored, and reading a row forces nothing. Both editors tick the box in the same press that adds
+that first entry (the browser's `LinkToTheList`, the phone's `SaveAsync`) and leave it pressable. It was a
+plain manual toggle until 2026-09-15, so a list somebody built by adding entries that name lists gathered
+nothing until they noticed a box. From then until 2026-09-16 it was forced on, ticked and unpressable, for
+as long as any such entry stood; the user's list of 2026-09-16 asked for the box to tick itself and still
+be theirs to untick. The rule is in the domain so every writer gets it. What was already stored on
+2026-09-15 was brought into line by a migration that says so (`AListThatGathersListsSaysSo`).
 
 It changes nothing about completion — the flag is purely about how the list is presented — but in the shallow checklist view a group list is
 rendered together with **every list its own items link to** via `linkedTaskListId`, each as its own
@@ -3732,7 +3805,9 @@ been deleted still leaves the list: there is nothing left to bring back.
 
 Changing either rebuilds the list to match (`RestockListRefresh`), and **Refresh**
 (`POST /api/inventories/{id}/restock-list/refresh`) does the same rebuild against settings that have not
-changed - what somebody presses when the world moved rather than the settings. It replaced a button that
+changed - what somebody presses when the world moved rather than the settings. Nothing runs the rebuild
+on a schedule - only saved settings, a product placed and a list generated do - which is why the daily
+reminder is what carries the standing round's due date forward. It replaced a button that
 used to sit on the checklist's menu, "Recalculate against the inventory", which did half of something
 else and did not answer the question somebody has in front of a restock list.
 
@@ -4469,7 +4544,9 @@ months / everything, on Options' Preferences tab and kept on the device). The ca
 glanced down, and without a horizon it drew everything that would ever happen with next Tuesday somewhere
 inside it. Nothing is lost by it: what falls outside is still in the calendar, which the card's own name
 opens. Measured from the start of today, so something happening this morning is still on a card read this
-afternoon.
+afternoon. **The card's own menu offers two of them** (2026-09-16), "Show 7 days" and "Show 30 days", as a
+group under "How far ahead" beneath the priority filter - on both clients, writing the same setting as
+Options and the phone's Preferences tab, so either place ticks what the other chose.
 
 **What reaches that card is what is still ahead and not dealt with.** An appointment whose end has passed
 is not coming up; a repeat is taken at its next occurrence rather than at the date it is stored under

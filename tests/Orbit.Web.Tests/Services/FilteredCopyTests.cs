@@ -126,4 +126,34 @@ public sealed class FilteredCopyTests
             [WhatToCopy.Everything, WhatToCopy.Done, WhatToCopy.StillToDo, WhatToCopy.GivenUpOn],
             CopiedParts.All);
     }
+
+    /// <summary>
+    /// Pasting a list back in, as the user settled it on 2026-09-16: every line an entry, "[x] " coming in
+    /// done, and the list's own name - which a copy writes first - left out. So a copy of a list pasted
+    /// back into a list is the entries it was.
+    /// </summary>
+    [Fact]
+    public void A_copied_list_pasted_into_a_list_comes_back_as_its_entries()
+    {
+        var words = TaskListWords.Of("Errands", AList());
+
+        var entries = TaskListWords.ReadBack(words, "Errands");
+
+        // The crossed-out one comes back open: the format carries two states, as the copy says.
+        Assert.Equal(
+            [("Book the doctor", true), ("Waterproof the boots", false), ("Shooting range", false)],
+            entries);
+    }
+
+    /// <summary>
+    /// Words from anywhere: plain lines are entries too, blank ones are nothing, and a first line naming
+    /// some other list is kept - it may be the errand itself.
+    /// </summary>
+    [Fact]
+    public void Plain_lines_from_elsewhere_become_entries_and_blank_ones_do_not()
+    {
+        var entries = TaskListWords.ReadBack("Shopping\r\n\r\n  eggs \r\n- flour\r\n[x] sugar\r\n", "Errands");
+
+        Assert.Equal([("Shopping", false), ("eggs", false), ("flour", false), ("sugar", true)], entries);
+    }
 }

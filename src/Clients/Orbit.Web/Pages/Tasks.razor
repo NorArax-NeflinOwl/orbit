@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @implements IDisposable
 @using Orbit.Contracts.Calendar
+@using Orbit.Contracts.Chat
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Abstractions
 @using Orbit.Core.Folders
@@ -31,6 +32,11 @@
         </button>
     </LeadingAction>
     <Title>@T["Tasks"]</Title>
+    <LeadingActions>
+        @* A filter for the dashboard's Tasks card, made out of the tags on these lists - see
+           TagFilterDialog. Here rather than on the dashboard because this is where the tags are. *@
+        <button type="button" class="btn-secondary" @onclick="() => _isMakingATagFilter = true">@T["Create filter"]</button>
+    </LeadingActions>
     <Actions>
         @* Choosing several to act on at once - see PickedThings, and Notes.razor, which carries the
            same press in the same place. *@
@@ -72,6 +78,15 @@
 @if (_errorMessage is not null)
 {
     <p class="error">@_errorMessage</p>
+}
+
+@if (_isMakingATagFilter)
+{
+    <TagFilterDialog KnownTags="@KnownListTags" OnSaved="TagFilterSaved" OnClosed="() => _isMakingATagFilter = false" />
+}
+@if (_tagFilterSaved is not null)
+{
+    <p class="info">@_tagFilterSaved</p>
 }
 
 @* Everything this page is narrowed by, in the order the questions are asked: which folder is open,
@@ -149,8 +164,17 @@
    is outside the list. *@
 <PickedThingsBar Picked="_picked" Page="FolderPage.Tasks"
                  EveryChosenOneIsAway="@EveryChosenListIsAway" IsWorking="@_isWorkingOnPicked"
-                 OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync"
+                 OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync" OnShare="() => _isSharingPicked = true"
                  OnAllToggled="ToggleAllPicked" OnStopped="StopPicking" />
+@if (_isSharingPicked)
+{
+    @* Only a list this reader owns and Orbit can read - see Notes.razor, which says why. *@
+    <SharePickedDialog Things="@([.. ChosenTaskLists.Where(taskList => !taskList.IsShared && !taskList.IsPrivate).Select(taskList => new SharePickedDialog.ShareableThing(taskList.Id, taskList.Title))])"
+                       LeftOut="@ChosenTaskLists.Count(taskList => taskList.IsShared || taskList.IsPrivate)"
+                       ShareOne="(taskListId, recipientUserId, accessLevel) => TasksApiClient.ShareTaskListAsync(taskListId, recipientUserId, accessLevel)"
+                       Invitation="(shareId, title) => new TaskListShareMessagePayload(shareId, title)"
+                       OnClosed="() => _isSharingPicked = false" />
+}
 <ObjectList IsLoading="_taskLists is null" IsEmpty="_taskLists is { Count: 0 }" EmptyMessage="@T["No task lists yet."]">
     @if (VisibleTaskLists.Count == 0)
     {
@@ -404,6 +428,24 @@
 @code {
     private IReadOnlyList<TaskDto>? _taskLists;
 
+    /// <summary>While the dialog making a Tasks card filter is open - see TagFilterDialog.</summary>
+    private bool _isMakingATagFilter;
+
+    /// <summary>What the last filter made here is called, said once so the reader knows where it went.</summary>
+    private string? _tagFilterSaved;
+
+    /// <summary>Every tag on this account's lists, whatever folder they are in - what a filter can be made of.</summary>
+    private IReadOnlyList<string> KnownListTags
+        => Orbit.Core.Tags.TagNames.Tidy([.. (_taskLists ?? []).SelectMany(taskList => taskList.AllTags).Order(StringComparer.CurrentCultureIgnoreCase)]);
+
+    private void TagFilterSaved(TaskTagFilterDto filter)
+    {
+        _isMakingATagFilter = false;
+        _tagFilterSaved = T.Format(
+            "Filter \"{0}\" saved - choose it from the Tasks card's menu on the dashboard.",
+            string.Join($" {(filter.MatchesAll ? T["and"] : T["or"])} ", filter.Tags));
+    }
+
     /// <summary>What the reader is looking for among the entries themselves - see TaskItemFilter.</summary>
     private readonly TaskItemFilter _itemFilter = new();
 
@@ -482,6 +524,9 @@
 
     /// <summary>Whether every chosen list is already put away, which is what names the bar's archive button.</summary>
     private bool EveryChosenListIsAway => _picked.HasAny && ChosenTaskLists.All(taskList => taskList.IsArchived);
+
+    /// <summary>While the dialog sharing the chosen lists is open - see SharePickedDialog.</summary>
+    private bool _isSharingPicked;
 
     private IReadOnlyList<TaskDto> ChosenTaskLists
         => [.. (_taskLists ?? []).Where(taskList => _picked.Holds(taskList.Id))];

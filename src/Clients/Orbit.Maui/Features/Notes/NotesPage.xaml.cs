@@ -82,6 +82,11 @@ public partial class NotesPage : ContentPage, ITitleMenu
 					choice.IsChosen,
 					count: ScreenMenuEntry.CountOf(choice.Count)))),
 			new ScreenMenuGroup(_translations["Folder"], FolderActions()),
+			// Choosing several notes to file, put away or share together - see PickingSeveral. Ticked
+			// while it is on, and the same entry leaves it.
+			new ScreenMenuGroup(
+				_translations["Several at once"],
+				[new ScreenMenuEntry(_translations["Select"], () => _viewModel.ToggleChoosingCommand.Execute(null), _viewModel.Picking.IsPicking)]),
 			new ScreenMenuGroup(
 				_translations["Sort - pinned stay on top"],
 				ListMenus.SortOrders(_translations).Select(order => new ScreenMenuEntry(

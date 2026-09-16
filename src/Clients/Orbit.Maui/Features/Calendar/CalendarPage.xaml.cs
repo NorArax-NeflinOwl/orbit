@@ -118,6 +118,10 @@ public partial class CalendarPage : ContentPage, ITitleMenu
 					choice.IsChosen,
 					count: ScreenMenuEntry.CountOf(choice.Count)))),
 			new ScreenMenuGroup(_translations["Folder"], FolderActions()),
+			// Choosing several events to file, put away or share together - see NotesPage.
+			new ScreenMenuGroup(
+				_translations["Several at once"],
+				[new ScreenMenuEntry(_translations["Select"], () => _viewModel.ToggleChoosingCommand.Execute(null), _viewModel.Picking.IsPicking)]),
 
 			// The one in force is marked, because a menu of three with no answer among them leaves the
 			// reader guessing what they are looking at.

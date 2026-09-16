@@ -62,6 +62,16 @@
     public bool ReadsMarkers { get; set; } = true;
 
     /// <summary>
+    /// Whether the surface takes the caret, at the end of the writing, the moment it appears - for a page
+    /// somebody opened in order to write, where the first thing they did was find the end of the note and
+    /// press there. Off by default: a form's field taking the caret on its own would pull a phone's
+    /// keyboard over a form nobody had started filling in. Nothing happens on a surface that cannot be
+    /// written in.
+    /// </summary>
+    [Parameter]
+    public bool FocusesAtTheEnd { get; set; }
+
+    /// <summary>
     /// How many boxes the selection covers while a press on one of them would answer for all of them -
     /// two or more - and zero once it does not; see NoteSurfaceEdits.SelectedChecklistLines. For a page
     /// that says what that press will do.
@@ -123,6 +133,7 @@
         {
             takesTab = TakesTab,
             takesPictures = PicturePasted.HasDelegate,
+            focusAtEnd = FocusesAtTheEnd,
             tickHint = T["Shift+click to select several lines - ticking one selected box then ticks them all."]
         };
         await _module.InvokeVoidAsync("initialize", _containerRef, _dotNetRef, initialLinesJson, options);
@@ -455,6 +466,20 @@
         if (_module is not null)
         {
             await _module.InvokeVoidAsync("insertSeparator", _containerRef, stamp);
+        }
+    }
+
+    /// <summary>
+    /// Words the page read off the clipboard itself, put in as a paste would put them - "[x] " and "- "
+    /// read back as boxes - where the caret was or at the end of the writing. For a "paste from the
+    /// clipboard" press, which the system's own paste cannot stand in for: it needs the caret in the
+    /// surface first, and a menu is where somebody looks for it.
+    /// </summary>
+    public async Task PasteTextAsync(string text)
+    {
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("pasteText", _containerRef, text);
         }
     }
 

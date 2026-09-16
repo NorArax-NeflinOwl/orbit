@@ -47,6 +47,10 @@
                  name in the list to the right of it. They carry their own margins instead. -->
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <HorizontalStackLayout Grid.Column="0" Spacing="6" VerticalOptions="Center">
+                    <!-- Which rows are chosen, while the list is choosing several - see OffersPicking.
+                         Not pressable itself: the press belongs to the whole row. -->
+                    <CheckBox x:Name="PickMark" IsVisible="False" InputTransparent="True"
+                              VerticalOptions="Center" Margin="0,0,2,0" />
                     <!-- Where the order can actually be changed, and nowhere else. -->
                     <ContentView x:Name="HandleHost" IsVisible="False" VerticalOptions="Center" />
                     <ContentView x:Name="PinHost" IsVisible="False" VerticalOptions="Center" />
