@@ -614,6 +614,30 @@ be filed because it is found by when it happens. What was kept from that reasoni
 calendar tabs at all, because what it says about the calendar is what is on today and what is coming -
 which answers *when* rather than *which*.
 
+**Several cards can be chosen and acted on together** (2026-09-16, the browser's four list pages -
+`PickedThings`, `PickedThingsBar`). **Choosing is a mode**, entered by a "Select" press in the header
+rather than by a gesture: the everyday act is opening one thing, and a page where a long press might
+mean "choose" surprises somebody who only paused. While it is on, every card carries a mark and a press
+anywhere on it chooses rather than opens, so nobody has to aim at a small box; the mode is left by
+pressing the way out and never on its own, since a bar that vanished as the last card was unchosen
+would take that way out with it.
+
+The bar says how many are chosen and offers the two things that can be done to all of them at once -
+**where they go**, and **away or back**. Archive or Put back is one button naming what it will do, by
+whether everything chosen is already away. A card no longer on the page stops counting, which is what
+a folder tab changing leaves behind.
+
+**One call each rather than a bulk endpoint** (`OnePressEach`), which is what the server already takes:
+in order rather than at once, and a refusal stops nothing - a folder one note could not be moved into is
+no reason to leave the other four where they were. The page is read again afterwards, which is what
+shows the reader what actually happened. Something somebody else owns is left out of every round:
+filing and putting away are decisions about the owner's own page. On the calendar only the events are
+chosen - a deadline drawn there belongs to the task list it is on - and a repeat drawn on five days is
+one event, not five.
+
+**Sharing several at once, and the phone's half, are not built** - see `info/future-plan.md`, which says
+why a share is a different shape from the two that are here.
+
 **An entry has a priority and a colour of its own** (2026-09-10, `OP_TI_PRIORITY`, `OP_TI_COLOUR`,
 `TaskItem.Priority`/`Colour`). The list has a priority and this is not it: a list of ten errands usually
 has one that has to happen and nine that can wait, and until now saying so meant splitting the list in

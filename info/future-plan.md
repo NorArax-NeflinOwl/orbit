@@ -2021,14 +2021,26 @@ It is **not** on the two other places somebody edits in the browser:
   that matters more than the saving, the second reading is still the other one, and this entry is where
   to come back to.
 
-- **Choosing several things at once, and doing one thing to all of them.** Asked for as: select several
-  notes, lists, events or shelves and then file them into a folder, archive them, or share them. Nothing
-  of it exists at list level: every card menu acts on one object, and the phone's lists are
-  `SelectionMode="Single"`. Picking several *lines inside one note* exists and is a different thing.
-  It needs a selection mode on each list page (the phone already has the gesture for it - holding a box
-  starts choosing several inside a note), a bar of actions that appears while something is selected, and
-  a server side that is happy to be asked the same thing many times - filing is already one call per
-  item, so a first version can loop rather than grow bulk endpoints.
+- **Choosing several things at once, and doing one thing to all of them** - *the browser is built
+  (2026-09-16); sharing and the phone are not.* Asked for as: select several notes, lists, events or
+  shelves and then file them into a folder, archive them, or share them.
+
+  What exists: `PickedThings` (choosing is a mode, entered by a press), the mark on every `ItemCard`,
+  `PickedThingsBar` over each of the four list pages, and `OnePressEach` - one call per item in order,
+  a refusal stopping nothing, the page read again afterwards. No bulk endpoint was grown, which is what
+  this entry planned. On the calendar only the events are chosen: a deadline drawn there belongs to the
+  task list it is on. Something somebody else owns is left out of every round.
+
+  **Sharing several at once is not built.** Filing and archiving are each one request about one thing,
+  so a loop is the whole of them; a share is not - it takes a recipient, and each one also sends an
+  end-to-end encrypted chat message that only a client can write (`SharedItemSharing`). So the bar would
+  need a contact picker of its own and a round that is half server call and half encrypted message,
+  which is a different piece of work from the two that are here.
+
+  **The phone is not built either.** Its lists are `SelectionMode="Single"`, and it already has the
+  gesture the browser deliberately does not use - holding a box starts choosing several *inside a note* -
+  so the question there is whether a long press on a card should mean the same, which is a decision
+  rather than a port.
 
 - ~~**The Group View box ticking itself.**~~ **Done 2026-09-15.** Asked for: a list whose entries stand
   for other lists is a group list, so the box should tick itself once there is at least one such entry. Today it is a plain manual toggle in both clients. The signal is already
