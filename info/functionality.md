@@ -3031,16 +3031,16 @@ map, rather than dropping a pin in the wrong country.
 
 ### Group lists
 
-Setting `isGroup` marks a list as one that gathers other lists. **It sets itself**: a list with an entry
-that points at another list is a group list whatever the caller sent (`TaskList.IsGroup`, 2026-09-15),
-because the checklist draws the members either way and a stored "no" beside such an entry would be an
-answer the page has to disagree with. Both editors draw the box ticked and unpressable while that is so,
-with a line saying why, and taking the last such entry off gives the answer back to the reader. It was a
-plain manual toggle until then, so a list somebody built by adding entries that name lists gathered
-nothing until they noticed a box - and a save from a client that has never drawn one turned it off
-again. The rule is in the domain rather than in an editor's form on purpose: one that only holds where
-somebody is looking is not a rule. What was already stored was brought into line by a migration that
-says so (`AListThatGathersListsSaysSo`) rather than by whatever save came next.
+Setting `isGroup` marks a list as one that gathers other lists. **It turns itself on, and is the
+reader's to turn off** (`TaskList.IsGroup`): a list created with an entry that points at another list, or
+saved with its first such entry, is a group list whatever the caller sent; after that what is saved is
+what is stored, and reading a row forces nothing. Both editors tick the box in the same press that adds
+that first entry (the browser's `LinkToTheList`, the phone's `SaveAsync`) and leave it pressable. It was a
+plain manual toggle until 2026-09-15, so a list somebody built by adding entries that name lists gathered
+nothing until they noticed a box. From then until 2026-09-16 it was forced on, ticked and unpressable, for
+as long as any such entry stood; the user's list of 2026-09-16 asked for the box to tick itself and still
+be theirs to untick. The rule is in the domain so every writer gets it. What was already stored on
+2026-09-15 was brought into line by a migration that says so (`AListThatGathersListsSaysSo`).
 
 It changes nothing about completion — the flag is purely about how the list is presented — but in the shallow checklist view a group list is
 rendered together with **every list its own items link to** via `linkedTaskListId`, each as its own

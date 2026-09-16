@@ -654,6 +654,37 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>
+    /// The first entry to stand for another list ticks Group View in the same press, and the box stays the
+    /// reader's to untick - it used to be locked on while such an entry stood (see TaskList.IsGroup).
+    /// </summary>
+    [Fact]
+    public void Standing_for_a_list_ticks_group_view_and_the_reader_can_untick_it()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        var picker = cut.FindAll("select").Single(box => box.GetAttribute("aria-label") == "Stands for these lists");
+        picker.Change(picker.QuerySelectorAll("option")
+            .Select(option => option.GetAttribute("value"))
+            .First(value => !string.IsNullOrEmpty(value)));
+        OpenTheRailMenu(cut);
+
+        var groupView = GroupViewBox(cut);
+        Assert.True(groupView.HasAttribute("checked"));
+        Assert.False(groupView.HasAttribute("disabled"));
+
+        groupView.Change(false);
+        ClickButtonSaying(cut, "Save");
+
+        Assert.False(JsonDocument.Parse(_lastSavedJson!).RootElement.GetProperty("isGroup").GetBoolean());
+    }
+
+    private static AngleSharp.Dom.IElement GroupViewBox(IRenderedFragment cut)
+        => cut.FindAll("label").First(label => label.TextContent.Contains("Group View", StringComparison.Ordinal))
+            .QuerySelector("input[type=checkbox]")!;
+
+    /// <summary>
     /// An entry can instead be done any one of several ways - a line of its own, or another list - and
     /// both reach the save, the line with its tick and the entry done because of it. See
     /// TaskItem.Alternatives.

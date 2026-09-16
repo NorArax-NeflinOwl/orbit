@@ -1877,9 +1877,18 @@ public sealed class TaskListDetailScreenTests
         await screen.SaveItemCommand.ExecuteAsync(null);
 
         Assert.True(screen.IsGroup);
-        Assert.False(screen.CanChooseGroupView);
         Assert.False(screen.SaveListCommand.IsRunning);
         Assert.True((await context.FindAsync(screen)).IsGroup);
+
+        // And it is the reader's to turn off after that, with the entry still standing for Shopping - the
+        // switch used to be locked on, and the user asked for it to be theirs (TaskList.IsGroup).
+        Assert.True(screen.CanChooseGroupView);
+        screen.IsGroup = false;
+        await screen.SaveListCommand.ExecutionTask!;
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+        Assert.False(screen.IsGroup);
+        Assert.False(context.Server.TaskLists.Single(list => list.Title == "This week").IsGroup);
     }
 
     /// <summary>
