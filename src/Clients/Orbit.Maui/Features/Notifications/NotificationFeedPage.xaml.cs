@@ -42,8 +42,11 @@ public partial class NotificationFeedPage : ContentPage, ITitleMenu
 			_translations["Mark all read"],
 			() => _viewModel.MarkEverythingReadCommand.Execute(null),
 			canBeChosen: _viewModel.Connection.IsMet),
+		// "Delete history" rather than "Clear", because it deletes: the browser's own button was renamed
+		// on 2026-09-14 for that reason and this one was missed. Dismissing what is on screen and
+		// throwing the feed away are different things, and only one of them can be undone by waiting.
 		new ScreenMenuEntry(
-			_translations["Clear"],
+			_translations["Delete history"],
 			() => _viewModel.ClearCommand.Execute(null),
 			canBeChosen: _viewModel.Connection.IsMet),
 		new ScreenMenuEntry(

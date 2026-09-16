@@ -199,6 +199,45 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     public ObservableCollection<TaskItemRow> Items { get; } = [];
 
     /// <summary>
+    /// The list as plain words, for the clipboard - the format a note's paste reads back, so the
+    /// errands copied here arrive in a note as the same errands (see TaskListWords, and
+    /// Notes.NoteDetailViewModel.AsWords, which is the same action on the other kind of list).
+    /// <paramref name="what"/> narrows it to the entries in one state.
+    ///
+    /// An entry that only points at other lists is left out: a row holding a group together is not work
+    /// anybody copies, and its state is the pointed-at list's anyway.
+    /// </summary>
+    public string AsWords(WhatToCopy what = WhatToCopy.Everything)
+        => TaskListWords.Of(
+            Title,
+            Items
+                .Where(row => row.Item.AllLinkedTaskListIds.Count == 0)
+                .Select(row => new TickedLine(row.Description, Ticks.Read(row.IsCompleted, row.IsFailed))),
+            what);
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.CopyChoices"/>
+    public IReadOnlyList<Notes.CopyChoice> CopyChoices =>
+        [.. CopiedParts.All.Select(what => new Notes.CopyChoice(_translations[what.Label()], what))];
+
+    /// <summary>
+    /// How much of this list is done, the way the card on the tasks screen and the dashboard say it
+    /// ("Done: 3 of 7"). On the list's own screen because that is where somebody reading a long one asks
+    /// it - the browser's light view has carried it in the rail's extras since folders arrived, and the
+    /// phone had it everywhere except here. Empty for a list with nothing on it, which has no fraction
+    /// to give and says so on the card instead.
+    ///
+    /// Counted over what is on the screen, so an entry standing for another list counts as done exactly
+    /// when that list is - the rows already carry the answer (see TaskItemRow.IsCompleted).
+    /// </summary>
+    public string Progress
+        => Items.Count == 0
+            ? string.Empty
+            : _translations.Format("Done: {0} of {1}", Items.Count(row => row.IsCompleted), Items.Count);
+
+    /// <summary>Whether there is a fraction to draw - see <see cref="Progress"/>.</summary>
+    public bool HasProgress => Items.Count > 0;
+
+    /// <summary>
     /// Whether this list gathers the lists its items link to rather than holding work of its own -
     /// Orbit.Web's "Group list". It is also what makes the stock check worth asking, and the phone had
     /// no way to set it, so a list made here could never be one.
@@ -478,12 +517,31 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         LinkTargets.Clear();
         LinkTargets.Add(TaskListChoice.NoList(_translations));
 
+        // Which lists each one points at, for the loop question below.
+        var itemsByServerId = others
+            .Where(list => list.ServerId is not null)
+            .ToDictionary(list => list.ServerId!.Value, list => list.Items);
+        var thisServerId = others.FirstOrDefault(list => list.LocalId == _localId)?.ServerId;
+
         // By the id an entry names a list with, so a row standing for one can say which and open it.
         var byServerId = new Dictionary<Guid, TaskItemReference>();
         foreach (var other in others.Where(list => list.LocalId != _localId && list.ServerId is not null))
         {
             MoveTargets.Add(new TaskListChoice(other.ServerId!.Value, other.Title));
-            LinkTargets.Add(new TaskListChoice(other.ServerId!.Value, other.Title));
+
+            // Not offered to point at when it already points back here, however far along: the server
+            // refuses the loop, and a refusal comes back from the sync minutes later as a notice about a
+            // change that could not be saved. Moving an entry there closes no loop, so that stays on offer.
+            if (thisServerId is not { } editedServerId
+                || !TaskListLinks.WouldCloseALoop(
+                    listId => itemsByServerId.TryGetValue(listId, out var items)
+                        ? items.SelectMany(item => item.TaskListIdsItPointsAt)
+                        : null,
+                    editedServerId, other.ServerId!.Value))
+            {
+                LinkTargets.Add(new TaskListChoice(other.ServerId!.Value, other.Title));
+            }
+
             byServerId[other.ServerId!.Value] = new(
                 other.Title, other.LocalId, TaskItemReferenceTarget.TaskList);
         }
@@ -1187,8 +1245,12 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         LocalWriteOutcome outcome;
         try
         {
+            // A list with an entry pointing at another list is a group list whatever the switch says -
+            // the rule Orbit.Core.Tasks.TaskList.IsGroup settles on the server, written here too so this
+            // phone holds the same answer before the sync brings it back.
+            var isGroup = IsGroup || items.Any(item => item.AllLinkedTaskListIds.Count > 0);
             outcome = await _taskLists.UpdateAsync(
-                _localId, new TaskListContent(Title, items, IsGroup, _priority, IsPrivate, Description, _completion, Tags.ToSave),
+                _localId, new TaskListContent(Title, items, isGroup, _priority, IsPrivate, Description, _completion, Tags.ToSave),
                 cancellationToken);
         }
         catch (EncryptionKeyLockedException)
@@ -1234,6 +1296,30 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         Status = string.Empty;
     }
 
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.IsArchived"/>
+    [ObservableProperty]
+    private bool _isArchived;
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.ArchiveAsync"/>
+    [RelayCommand]
+    private async Task ArchiveAsync(bool isArchived, CancellationToken cancellationToken)
+    {
+        var outcome = await _taskLists.ArchiveAsync(_localId, isArchived, cancellationToken);
+
+        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        {
+            Status = _translations["This one can't be moved while you're offline."];
+            return;
+        }
+
+        IsArchived = isArchived;
+        // Said, because nothing else on this screen moves: the page stays open on the thing either way,
+        // and a press that changes nothing visible reads as a press that did nothing.
+        Status = isArchived
+            ? _translations["Archived - it is under the Archived tab now."]
+            : _translations["Put back where it was."];
+    }
+
     private async Task ShowStoredListAsync(CancellationToken cancellationToken)
     {
         if (await _taskLists.FindAsync(_localId, cancellationToken) is not { } taskList)
@@ -1244,6 +1330,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
         Title = taskList.Title;
         FolderId = taskList.FolderId;
+        IsArchived = taskList.IsArchived;
         Folders = [.. (await _folders.GetAllAsync(FolderScope.Tasks, cancellationToken))];
         Description = taskList.Description;
         _savedDescription = taskList.Description;
@@ -1359,6 +1446,47 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
                 item, _translations, _timeProvider.GetUtcNow(), ReferencesFor(item),
                 _appointmentsWaitingToBeNamed.ContainsKey(item.Description)));
         }
+
+        // The fraction is worked out from the rows, so it is said again whenever they are rebuilt -
+        // which is every tick, every add and every reordering. See Progress.
+        OnPropertyChanged(nameof(Progress));
+        OnPropertyChanged(nameof(HasProgress));
+        SayWhetherItGathersOtherLists();
+    }
+
+    /// <summary>
+    /// Whether something on this list points at another list, which is what makes it a group list
+    /// whatever the switch says - see Orbit.Core.Tasks.TaskList.IsGroup, where the server settles the
+    /// same question for every writer.
+    /// </summary>
+    public bool GathersOtherLists => Items.Any(row => row.Item.AllLinkedTaskListIds.Count > 0);
+
+    /// <summary>
+    /// Whether the switch is the reader's to move. Off while the entries have answered it: a switch that
+    /// sprang back would read as broken, so it is disabled and the line under it says why.
+    /// </summary>
+    public bool CanChooseGroupView => CanEdit && !GathersOtherLists;
+
+    /// <summary>
+    /// Said whenever the rows are rebuilt, because that is when the answer can change - adding an entry
+    /// that names a list, or taking the last one off.
+    ///
+    /// Only said, never saved from here: the rows are rebuilt by the save that wrote the entry, and by
+    /// every read of the list, so a save started here was a second write racing the first - started
+    /// without anyone awaiting it, and thrown on no one when the store under it had gone. The write
+    /// carries the answer itself instead - see <see cref="SaveAsync"/>.
+    /// </summary>
+    private void SayWhetherItGathersOtherLists()
+    {
+        OnPropertyChanged(nameof(GathersOtherLists));
+        OnPropertyChanged(nameof(CanChooseGroupView));
+        if (GathersOtherLists && !IsGroup)
+        {
+            var wasShowingWhatIsStored = _isShowingWhatIsStored;
+            _isShowingWhatIsStored = true;
+            IsGroup = true;
+            _isShowingWhatIsStored = wasShowingWhatIsStored;
+        }
     }
 
     partial void OnItemOrderChanged(ChecklistOrder value)
@@ -1421,6 +1549,10 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// <summary>True while the screen fills itself in, so loading does not look like a person choosing.</summary>
     private bool _isShowingWhatIsStored;
 
+    /// <summary>
+    /// A press on the switch, saved as everything else on this screen is saved as it is chosen. The
+    /// entries answering it themselves save nothing here - see <see cref="SayWhetherItGathersOtherLists"/>.
+    /// </summary>
     partial void OnIsGroupChanged(bool value)
     {
         if (!_isShowingWhatIsStored)

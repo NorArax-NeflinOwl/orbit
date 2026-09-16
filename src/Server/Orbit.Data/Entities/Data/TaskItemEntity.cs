@@ -55,6 +55,14 @@ public sealed class TaskItemEntity
     public DateTimeOffset? CompletedAtUtc { get; set; }
 
     /// <summary>
+    /// Whether every list this entry stands for has to be done before it is, or any one of them is
+    /// enough - see Orbit.Core.Tasks.TaskItem.NeedsEveryLinkedList. False is "any one of them", which is
+    /// what a new entry means unless it says otherwise; the migration that added the column marked every
+    /// entry that already pointed at a list, so nothing stored changed meaning when the default did.
+    /// </summary>
+    public bool NeedsEveryLinkedList { get; set; }
+
+    /// <summary>
     /// The lists this entry references instead of being independently completable - see
     /// <see cref="Orbit.Core.Tasks.LinkedTaskCompletionResolver"/>. Empty for an ordinary entry.
     /// </summary>

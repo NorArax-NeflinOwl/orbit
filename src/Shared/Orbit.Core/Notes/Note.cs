@@ -70,6 +70,17 @@ public sealed class Note
     /// </summary>
     public Guid? FolderId { get; private set; }
 
+    /// <summary>
+    /// Whether this note has been put away - see <see cref="Archive"/>. Stored rather than derived,
+    /// unlike the other built-in folders (a sealed thing is private, a ticked-through list is finished),
+    /// because there is nothing else about a note that could say it: being put away is a decision
+    /// somebody makes about it rather than something it becomes.
+    ///
+    /// The owner's, and only theirs, exactly as <see cref="FolderId"/> is: one row is one note, so a
+    /// recipient archiving it would be putting it away on its owner's own page.
+    /// </summary>
+    public bool IsArchived { get; private set; }
+
     /// <summary>The sealed title and lines of a private note; null for an ordinary one. See <see cref="EncryptedPayload"/>.</summary>
     public EncryptedPayload? EncryptedContent { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
@@ -144,12 +155,14 @@ public sealed class Note
         Guid id, Guid userId, string title, IReadOnlyList<NoteContentLine> content, bool isPrivate, EncryptedPayload? encryptedContent,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc, bool isPinned = false,
-        ItemPriority priority = ItemPriority.Normal, Guid? folderId = null, IReadOnlyList<string>? tags = null)
+        ItemPriority priority = ItemPriority.Normal, Guid? folderId = null, IReadOnlyList<string>? tags = null,
+        bool isArchived = false)
         => new(id, userId, title, content, isPrivate, encryptedContent, createdAtUtc, updatedAtUtc,
             lockedByUserId, lockedByUserName, lockExpiresAtUtc, isPinned, priority)
         {
             FolderId = folderId,
-            Tags = TagNames.Tidy(tags)
+            Tags = TagNames.Tidy(tags),
+            IsArchived = isArchived
         };
 
     /// <summary>
@@ -191,6 +204,30 @@ public sealed class Note
         }
 
         FolderId = folderId;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Put away rather than thrown away - see Orbit.Core.Folders.BuiltInFolder.Archived, which is the
+    /// tab this note then gathers under. The one way out of every list that is not deletion, and the
+    /// answer to somebody who wants a note gone from in front of them without losing it.
+    ///
+    /// Its own command rather than a field on the update, for the reason <see cref="MoveToFolder"/>
+    /// gives: an update replaces the whole thing, so a client that had not heard of archiving would
+    /// bring back everything its owner had put away, every time it saved.
+    ///
+    /// <see cref="FolderId"/> is left exactly as it was. Archiving is not filing - it is a decision
+    /// about whether this is in front of the reader at all - so bringing it back puts it under the
+    /// folder it was under, rather than somewhere a rule had to choose.
+    /// </summary>
+    public void Archive(bool isArchived)
+    {
+        if (IsArchived == isArchived)
+        {
+            return;
+        }
+
+        IsArchived = isArchived;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 
@@ -257,7 +294,8 @@ public sealed class Note
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(title) && !content.Any(line => !string.IsNullOrWhiteSpace(line.Text)))
+        // A table or a picture is something to read, though its line has no words of its own.
+        if (string.IsNullOrWhiteSpace(title) && !content.Any(line => line.IsAnElement || !string.IsNullOrWhiteSpace(line.Text)))
         {
             throw new InvalidRequestException("A note needs a title or something written in it.");
         }

@@ -85,6 +85,46 @@ classDiagram
         +Guid? FolderId
         +IReadOnlyList~string~ Tags
     }
+    class NoteContentLine {
+        +string Text
+        +bool IsChecklistItem
+        +bool IsChecked
+        +bool IsFailed
+        +NoteLineStyle Style
+        +IReadOnlyList~NoteTextRun~ Marks
+        +NoteTable? Table
+        +NotePictureLine? Picture
+        +NoteSeparatorLine? Separator
+    }
+    class NoteSeparatorLine {
+        +string Stamp
+    }
+    class NotePictureLine {
+        +Guid PictureId
+        +string ContentType
+        +int WidthPixels
+        +int HeightPixels
+    }
+    class NotePicture {
+        +Guid Id
+        +Guid NoteId
+        +long SizeBytes
+        +string? ContentType
+        +bool IsSealed
+    }
+    class NoteTextRun {
+        +int Start
+        +int Length
+        +NoteTextMark Mark
+    }
+    class NoteTable {
+        +IReadOnlyList~NoteTableRow~ Rows
+        +int Columns
+    }
+    class NoteTableCell {
+        +string Text
+        +IReadOnlyList~NoteTextRun~ Marks
+    }
     class TaskList {
         +Guid Id
         +Guid UserId
@@ -127,6 +167,7 @@ classDiagram
     class CalendarEvent {
         +Guid Id
         +Guid UserId
+        +Guid? FolderId
     }
     class CalendarEventDetails {
         +title, when, notes
@@ -138,6 +179,7 @@ classDiagram
     class Inventory {
         +Guid Id
         +Guid UserId
+        +Guid? FolderId
         +string Name
         +string Description
     }
@@ -181,6 +223,13 @@ classDiagram
     }
 
     Note "1" *-- "0..*" NoteContentLine
+    NoteContentLine "1" *-- "0..*" NoteTextRun : marks a stretch of
+    NoteContentLine "1" *-- "0..1" NoteTable : is, when it is one
+    NoteTable "1" *-- "1..*" NoteTableCell : rows of
+    NoteContentLine "1" *-- "0..1" NotePictureLine : is, when it is one
+    NoteContentLine "1" *-- "0..1" NoteSeparatorLine : is, when it is one
+    NotePictureLine "1" --> "1" NotePicture : names the bytes of
+    Note "1" *-- "0..*" NotePicture : keeps
     TaskList "1" *-- "0..*" TaskItem
     TaskItem "1" *-- "1" TaskItemSubject
     TaskItem "1" *-- "0..1" TaskItemProduct
@@ -201,6 +250,8 @@ classDiagram
     User "1" --> "0..*" Folder : owns
     Note "0..*" --> "0..1" Folder : filed under
     TaskList "0..*" --> "0..1" Folder : filed under
+    CalendarEvent "0..*" --> "0..1" Folder : filed under
+    Inventory "0..*" --> "0..1" Folder : filed under
     User "1" --> "0..*" Note : owns
     User "1" --> "0..*" TaskList : owns
     User "1" --> "0..*" CalendarEvent : owns
@@ -212,7 +263,9 @@ classDiagram
 `Folder` is the one aggregate here that is never shared, locked or sealed: it is a place on its owner's
 own pages, so a note handed to somebody else sits in whichever folder each of them filed it under. A
 null `FolderId` is not "no folder" - it means one of the three that have no rows at all (`BuiltInFolder`:
-Public, Private, Finished), chosen from what the item already is.
+Public, Private, Finished), chosen from what the item already is. Each folder belongs to one page
+(`FolderScope`), so the four kinds that can be filed never share a tab: "Work" on the notes, on the task
+lists, on the calendar and on the inventories are four folders, not one seen four times.
 
 `Note`, `TaskList`, `CalendarEvent` and `Inventory` each carry the `Shareable`, `Lockable` and
 `Sealable` facets above in full. They are left off this diagram only so the relationships stay

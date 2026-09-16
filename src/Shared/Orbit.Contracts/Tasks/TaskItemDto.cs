@@ -99,7 +99,14 @@ public sealed record TaskItemDto(
     /// that is not done, and for one ticked before the time was kept. Sealed with the rest of the entry
     /// on a private list, which is the only place such a list keeps it.
     /// </summary>
-    DateTimeOffset? CompletedAtUtc = null)
+    DateTimeOffset? CompletedAtUtc = null,
+    /// <summary>
+    /// Whether every list this entry stands for has to be done before it is, or any one of them is
+    /// enough - see Orbit.Core.Tasks.TaskItem.NeedsEveryLinkedList. False, which is "any one of them",
+    /// for an entry that stands for no list at all. Last in the list for the reason TaskItemRequest
+    /// gives about its own.
+    /// </summary>
+    bool NeedsEveryLinkedList = false)
 {
     /// <summary>The ways as something to read without a null check - see <see cref="Alternatives"/>.</summary>
     public IReadOnlyList<TaskItemAlternativeDto> AllAlternatives => Alternatives ?? [];
@@ -144,7 +151,10 @@ public sealed record TaskItemDto(
             item.RequiredQuantity,
             // Nobody else keeps a private entry's time - the server never sees the entry - so it is
             // sealed as the client holds it, and cleared for one that is not done.
-            item.IsCompleted ? item.CompletedAtUtc : null);
+            item.IsCompleted ? item.CompletedAtUtc : null,
+            // Null here is the request saying "leave what is stored", and a sealed entry has nothing
+            // stored on the server to leave - so the default is what it means, which is "any one of them".
+            item.NeedsEveryLinkedList ?? false);
 
     /// <summary>
     /// Whichever shape the sender used, read as one. Needed on the way in as well as the way out: a
@@ -152,6 +162,18 @@ public sealed record TaskItemDto(
     /// </summary>
     public IReadOnlyList<Guid> AllLinkedTaskListIds
         => LinkedTaskListIds is { Count: > 0 } ids ? ids : LinkedTaskListId is { } single ? [single] : [];
+
+    /// <summary>
+    /// Every other list this entry points at - one it stands for, or a way of doing it that is a list.
+    /// The DTO's side of Orbit.Core.Tasks.TaskItem.TaskListIdsItPointsAt, which is what the server checks
+    /// for loops (see Orbit.Core.Tasks.TaskListLinks), so a client asking the same question reads the
+    /// same answer. Not sent: it is worked out from two fields that are.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IEnumerable<Guid> TaskListIdsItPointsAt
+        => AllLinkedTaskListIds
+            .Concat(AllAlternatives.Where(way => way.LinkedTaskListId is not null).Select(way => way.LinkedTaskListId!.Value))
+            .Distinct();
 
     /// <summary>The categories as something to read without a null check - see <see cref="Categories"/>.</summary>
     public IReadOnlyList<string> AllCategories => Categories ?? [];

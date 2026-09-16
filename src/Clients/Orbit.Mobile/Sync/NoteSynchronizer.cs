@@ -113,6 +113,7 @@ public sealed class NoteSynchronizer
         {
             OutboxOperation.Create => await SendCreateAsync(dbContext, note, cancellationToken),
             OutboxOperation.File => await SendFilingAsync(dbContext, note, cancellationToken),
+            OutboxOperation.Archive => await SendArchivingAsync(note, cancellationToken),
             _ => await SendUpdateAsync(note, cancellationToken)
         };
     }
@@ -161,6 +162,30 @@ public sealed class NoteSynchronizer
         return SendResult.Sent;
     }
 
+    /// <summary>
+    /// Tells the server this was put away, or brought back - see
+    /// Orbit.Core.Folders.BuiltInFolder.Archived. Nothing to translate here, unlike the filing above: a
+    /// flag means the same on both sides, where a folder id does not.
+    /// </summary>
+    private async Task<SendResult> SendArchivingAsync(LocalNote note, CancellationToken cancellationToken)
+    {
+        if (note.ServerId is not { } serverId)
+        {
+            // Its create is still queued ahead of this, and that create carries the flag itself.
+            return SendResult.Abandoned;
+        }
+
+        var outcome = await _notesClient.ArchiveAsync(serverId, note.IsArchived, cancellationToken);
+        if (outcome is not WriteOutcome.Applied)
+        {
+            _logger.LogInformation(
+                "The server refused an archiving of note {ServerId}: {Outcome}", serverId, outcome);
+            return SendResult.Refused;
+        }
+
+        return SendResult.Sent;
+    }
+
     private async Task<SendResult> SendCreateAsync(
         OrbitLocalDbContext dbContext, LocalNote note, CancellationToken cancellationToken)
     {
@@ -184,6 +209,16 @@ public sealed class NoteSynchronizer
                 note.Tags),
             cancellationToken);
         note.LastSyncedAtUtc = _timeProvider.GetUtcNow();
+
+        if (note.IsArchived)
+        {
+            // Archiving has no room on a create and deliberately - see ArchiveRequest - so one put away
+            // before the server ever heard of it arrives on its page and is put away a moment later, in
+            // this same pass. A refusal here is not the create's to carry: the note exists now, and
+            // handing back anything but Sent would replay the create and make a second one.
+            await SendArchivingAsync(note, cancellationToken);
+        }
+
         return SendResult.Sent;
     }
 
@@ -293,6 +328,9 @@ public sealed class NoteSynchronizer
         note.CreatedAtUtc = incoming.CreatedAtUtc;
         note.UpdatedAtUtc = incoming.UpdatedAtUtc;
         note.IsShared = incoming.IsShared;
+        // Whether it is put away travels with everything else, so a tidy-up done in a browser
+        // moves it here too - see Orbit.Core.Folders.BuiltInFolder.Archived.
+        note.IsArchived = incoming.IsArchived;
         note.SharedByUserName = incoming.SharedByUserName;
         note.IsSharedWithOthers = incoming.IsSharedWithOthers;
         note.AccessLevel = incoming.AccessLevel;

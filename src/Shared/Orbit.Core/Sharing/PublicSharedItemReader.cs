@@ -110,7 +110,9 @@ public sealed class PublicSharedItemReader
         }
 
         var lines = note.Content
-            .Select(line => new PublicSharedItemLine(line.Text, line.IsChecklistItem, line.IsChecked, Detail: null, line.IsFailed))
+            .Select(line => new PublicSharedItemLine(
+                line.Text, line.IsChecklistItem, line.IsChecked, Detail: null, line.IsFailed, line.Style,
+                line.Marks, line.Table, line.Picture, line.Separator))
             .ToList();
 
         return new PublicSharedItem(

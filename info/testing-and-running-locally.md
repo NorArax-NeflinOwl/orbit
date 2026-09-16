@@ -14,11 +14,15 @@ Studio can open and debug it, but building it needs the MAUI workloads and adds 
 filter. A project added to `Orbit.sln` belongs in the filter too, unless it genuinely cannot build
 everywhere the suite runs.
 
-This also runs automatically in CI, but only on a push to `main` - nothing runs on a pull request or on `Coding` - so a
-branch is checked before it lands rather than after. Documentation-only branches are skipped, and a
-pull request run is cancelled by the next push to the same branch. See
-[Architecture — Continuous integration](architecture.md#continuous-integration) for what that costs and
-why it is affordable now when it was not before.
+This also runs automatically in CI, but **only on a push to `main`**: there is no `pull_request`
+trigger anywhere in `.github/workflows` except `guard-main.yml`, which only comments on a pull request
+aimed at `main` and runs no tests. So a feature branch, its pull request and the merge into `Coding`
+are all checked on the machine that made the change and nowhere else - which is why running this
+before opening a pull request is a rule in `.claude/CLAUDE.md` rather than a habit. A merge to `main`
+that touches only `info/**` or `**/*.md` is skipped (`paths-ignore`), and runs are queued rather than
+cancelled (`cancel-in-progress: false`), so a second merge does not cut the first one's deploy short.
+See [Architecture — Continuous integration](architecture.md#continuous-integration) for what that
+costs and why it is the trade it is.
 
 ### `tests/Orbit.Api.Tests`
 

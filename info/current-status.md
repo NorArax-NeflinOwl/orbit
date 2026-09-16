@@ -208,6 +208,11 @@ rename, a review's "keep mine" - queues the create again rather than an update t
 for, for every kind of thing (`LostCreates`). A row nobody edits again stays on the phone alone, and
 the feed says exactly that - "Kept on this phone only", with editing named as the way to try again -
 rather than the "no longer waiting to be sent" a dropped edit gets, which read as the thing being gone.
+Since 2026-09-16 a dropped edit also stops showing on the phone: the refusal left the server's row
+unchanged, so no pull of what changed ever brought it back, and the phone kept an entry nobody else had -
+found on a device, with a link the server refused as a loop. Dropping a change now forgets that kind's
+sync cursor (`SyncCursors.ForgetAsync`), and the pull straight after is a full one that puts the server's
+version back.
 
 Phase 7 is built: the in-app feed, notification settings, deep links from a notification, uploadable
 diagnostic logs, and **push delivered on Android** — the app obtains an FCM registration token,
@@ -243,6 +248,13 @@ developer account and signing key.
 - **iOS beyond phase 1 — deferred.** The head is written and everything in `Orbit.Mobile` is shared
   with it, but nothing built since phase 1 has been run there. It is blocked on an Apple developer
   account and a signing key rather than on the work: without them the head cannot be produced at all.
+- **Reminders while the server is paused.** The cost limits stop `orbit-api` for the rest of a month
+  that reaches 20 €, and since 2026-09-15 the phone lives through that: it tells the platform's 404
+  from Orbit's own answers, reads the stop script's `status.json` and says *"Orbit is paused"*
+  rather than signing out or discarding queued edits. What it cannot do yet is ring - every reminder
+  is a server background service delivered by push - so a paused month is a month without them. See
+  [Orbit.Maui — Plan, §15](orbit-maui-plan.md#15-living-without-the-server) for that and the two
+  smaller gaps beside it.
   What that leaves unknown is the head's own platform services, not the features.
 - **Two-way Google Calendar sync** — writing an event onto a recipient's real Google Calendar. What
   ships today is link-based hand-off, which needs no Google API at all — see

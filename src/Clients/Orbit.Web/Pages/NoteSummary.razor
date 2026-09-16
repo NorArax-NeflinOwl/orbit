@@ -3,12 +3,14 @@
 @using System.Net
 @using Orbit.Contracts.Notes
 @using Orbit.Core.Abstractions
+@using Orbit.Core.Notes
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient
 @inject NavigationManager NavigationManager
 @inject NavigationTrail NavigationTrail
 @inject IJSRuntime JSRuntime
 @inject ILogger<NoteSummary> Logger
+@inject Clipboard Clipboard
 @inject Translations T
 
 @* A note read rather than written: its lines as they are, with the ones that are checklist items
@@ -48,11 +50,30 @@ else
         {
             <p class="checklist-empty">@T["Nothing written here yet."]</p>
         }
-        @foreach (var line in _lines)
+        @* By position rather than over the lines themselves, because a numbered line's number is its
+           place in the run above it - see NoteLineStyles.NumberOf, which the writing surface draws
+           from as well so a list is numbered the same whether it is being read or written. *@
+        @for (var index = 0; index < _lines.Count; index++)
         {
+            var line = _lines[index];
+            var number = NoteLineStyles.NumberOf(_lines.Count, index, at => _lines[at].StyleOf());
+
             @* A checklist line is ticked here; an ordinary one is read. Both keep the order they were
                written in, because a note is prose as often as it is a list and the two are mixed. *@
-            @if (line.IsChecklistItem)
+            @if (line.Table is { } table)
+            {
+                @* A table is the whole of its line - see NoteContentLine.OfTable. *@
+                <NoteTableView Table="@table.ToTable()" />
+            }
+            else if (line.Picture is { } picture)
+            {
+                <NotePictureView Picture="@picture" NoteId="@_note!.Id" IsSealed="@_note.IsPrivate" />
+            }
+            else if (line.Separator is { } separator)
+            {
+                <NoteSeparatorView Stamp="@separator.Stamp" Label="@T["Separator"]" />
+            }
+            else if (line.IsChecklistItem)
             {
                 @* Its own press, kept from the card around it: a tick is what this row is for, and
                    opening the whole note to write in instead would be answering a different question.
@@ -65,7 +86,11 @@ else
             }
             else if (line.Text.Length > 0)
             {
-                <p class="note-summary-line"><TextWithLinks Text="@line.Text" /></p>
+                @* .note-line as well, which is where every style is drawn - a heading read back is the
+                   same heading it was written as, and the mark on a list is drawn by the same rule. *@
+                <p class="note-line note-summary-line" data-style="@DrawnStyle(line)" data-number="@(number > 0 ? number.ToString() : null)">
+                    <MarkedText Text="@line.Text" Marks="@line.MarksOf()" />
+                </p>
             }
             else
             {
@@ -87,6 +112,7 @@ else
         <ChildContent>
             @* No Edit in here: it is a button of its own on the panel now - see EditorRail.OnEdit. *@
             <ObjectMenu AllLabel="@T["All notes"]" OnAll="GoToNotes"
+                        CopyChoices="@CopyChoices" OnCopy="CopyTheTextAsync"
                         DeleteLabel="@(!_note.IsShared ? T["Delete"] : null)" OnDelete="DeleteAsync" />
         </ChildContent>
     </EditorRail>
@@ -112,8 +138,56 @@ else
     private bool _isSaving;
     private string? _message;
 
+    /// <summary>
+    /// Which of the four was copied, so that entry says so until the menu is left - the press has
+    /// nothing else to show. Null until one of them is pressed.
+    /// </summary>
+    private WhatToCopy? _copied;
+
+    /// <summary>
+    /// The whole note, and then each state of its boxes on their own - see WhatToCopy, and
+    /// ObjectMenu.CopyChoices. All four whatever the note holds: a note with nothing ticked is exactly
+    /// where somebody finds out that nothing is, and an entry that appears only sometimes is one nobody
+    /// learns is there.
+    /// </summary>
+    private IReadOnlyList<ObjectMenu.CopyChoice> CopyChoices =>
+        [.. CopiedParts.All.Select(what => new ObjectMenu.CopyChoice(
+            _copied == what ? T["Copied"] : T[what.Label()], what))];
+
     /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
     private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
+
+    /// <summary>
+    /// The whole note as words, for taking it somewhere Orbit is not - an email, a message, another app.
+    ///
+    /// Written the way this note's own editor copies a selection out of itself (onCopy in
+    /// checklistTextEditor.js): a box is "- ", and a ticked one "[x] ", which are two of the marks a
+    /// paste reads back as a box (NoteSurfaceEdits.ReadPastedLine). So a note copied from here and
+    /// pasted into another note arrives as the same note rather than as a page of brackets.
+    ///
+    /// The name is the first line, because that is what a note's name is on both clients - the first
+    /// line of the writing - and a note pasted somewhere without it is a note nobody can tell from
+    /// another. It stays there whichever part is asked for: a handful of errands with nothing saying
+    /// which note they came from is a handful nobody can place.
+    /// </summary>
+    private string AsWords(WhatToCopy what)
+        => NoteWords.Of(_note?.Title ?? string.Empty, _lines.ToSurfaceLines(), what);
+
+    /// <summary>
+    /// A clipboard that refused - some mobile browsers, a restricted webview - is said out loud rather
+    /// than swallowed: a copy that quietly did nothing is indistinguishable from one that worked. See
+    /// Clipboard, which is where the refusal itself is caught.
+    /// </summary>
+    private async Task CopyTheTextAsync(WhatToCopy what)
+    {
+        if (await Clipboard.TryWriteAsync(AsWords(what)))
+        {
+            _copied = what;
+            return;
+        }
+
+        _message = T["The text could not be copied. Your browser did not allow it."];
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -149,16 +223,22 @@ else
     }
 
     /// <summary>
-    /// Ticks a line, or unticks it. Nothing is written until Save: a note is read by scrolling, and a
-    /// page that saved on every press would be writing while somebody is only passing through.
-    /// </summary>
-    /// <summary>
     /// How a line is marked: struck through when it is finished with, either way, and told apart so a
     /// line somebody gave up on does not read as one that was done - see .check-row.failed.
     /// </summary>
     private static string? LineMark(NoteContentLineDto line)
         => line.IsChecked ? "completed" : line.IsFailed ? "completed failed" : null;
 
+    /// <summary>
+    /// The style as the stylesheet names it - see .note-line[data-style] in app.css, and
+    /// checklistTextEditor.js, which writes the same word onto the same lines while they are written.
+    /// </summary>
+    private static string DrawnStyle(NoteContentLineDto line) => line.StyleOf().ToString().ToLowerInvariant();
+
+    /// <summary>
+    /// Ticks a line, or unticks it. Nothing is written until Save: a note is read by scrolling, and a
+    /// page that saved on every press would be writing while somebody is only passing through.
+    /// </summary>
     private void Tick(NoteContentLineDto line, TickState state)
     {
         var at = _lines.IndexOf(line);

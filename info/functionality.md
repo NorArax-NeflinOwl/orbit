@@ -328,12 +328,14 @@ drawn only when there is something behind it. As a fragment they could not be co
 screen passed one holding two conditionals, so a fragment existed whether or not either was true, and
 every screen where nothing was wrong carried an arrow that opened onto nothing.
 
-**The bar gives way to an editor's own bar.** Below 680px the editing screens' panel becomes a bar
-across the foot too (see `EditorRail`), and both are fixed to the bottom edge - so the advert sat over
-Save, Back and the menu, on a phone, on the screens whose whole purpose is those buttons. The banner is
-left out where a panel is on screen. Not stacked: two bars is most of a phone's height, on the screen
-somebody is typing into. Between 681px and 1199px the panel is a column beside the page instead, so
-nothing overlaps and the slot is kept.
+**The bar and an editor's own bar keep opposite ends.** Below 680px the editing screens' panel becomes a
+bar too (see `EditorRail`), and for a while both were along the foot - so the advert sat over Save, Back
+and the menu, on a phone, on the screens whose whole purpose is those buttons. Stacking them was not the
+answer either: two bars is most of a phone's height, on the screen somebody is typing into. So the
+editor's bar went to the top instead, under the app's own bar and at the very top once that has slid
+away (`.editor-rail`, `stickyBars.js`), and the advert's banner kept the foot. Nothing overlaps, so
+neither has to be left out. Between 681px and 1199px the panel is a column beside the page, and the slot
+is kept there too.
 
 What they show comes from `Orbit.Core.Advertising.HouseAds` - Orbit's own pages, written in English
 there and translated like every other string. Every advert leads to a path on this Orbit, never to
@@ -451,16 +453,69 @@ has not coloured since - an import never overwrites.
 
 ## Folders
 
-Every page made of cards - the dashboard, the notes and the task lists - is read under a **row of
-tabs**: the built-in ones plus whatever the reader has made on that page.
+Every page made of cards - the dashboard, the notes, the task lists, the calendar and the inventories -
+is read under a **row of tabs**: the built-in ones plus whatever the reader has made on that page.
 
 **A folder belongs to one page** (`Orbit.Core.Folders.FolderScope`, `OP_F_SCOPE`, stored by name). A tab
 called "Work" on the notes and a tab called "Work" on the task lists are two folders, not one seen
 twice - which is what makes the tab worth pressing, since a folder made for notes was otherwise an empty
 tab on a page that could never file anything into it. The **dashboard has no scope of its own**: it
-shows both kinds of card, so it draws both pages' tabs and offers no way to make, rename or delete one
+shows cards of several kinds, so it draws their tabs and offers no way to make, rename or delete one
 (`FolderPage`, `FolderPages` on the client). Which tab is open is the page's own answer as well
 (`FolderState.ChosenOn`), for the same reason.
+
+**An event and a shelf are filed the same way** (2026-09-15, `FolderScope.Calendar`,
+`FolderScope.Inventories`; `OP_E_FOLDERID`, `OP_I_FOLDERID`). Everything the notes and the lists had
+applies to them unchanged: filing is its own command and its own endpoint
+(`MoveCalendarEventToFolderCommand`, `MoveInventoryToFolderCommand`, `PUT .../{id}/folder`) rather than a
+field on the save, for the reason `Note.MoveToFolder` gives; a new one is made under the tab the reader
+is standing on; a copy is made where the original stands; deleting a folder empties it rather than
+taking what was in it; and a folder id belonging to somebody else is refused, since filing something
+under a tab its owner cannot see is the same thing as losing it. A private shelf is filed without being
+opened - its folder sits outside the sealed half, as a private note's does - and somebody reading either
+through a share never sees the owner's filing.
+
+**The calendar's folders are not tabs on the dashboard**, although the notes', the lists' and the
+shelves' are. What the dashboard says about the calendar is what is on today and what is coming, and
+those two cards answer *when*; an event's folder answers *which*, so a tab narrowing "today" to one
+folder would be answering a question nobody asked there (`FolderPages.ScopesOn`).
+
+**Nothing is finished on the calendar or the shelves, and nothing on the calendar is sealed.** The
+Finished tab stays the task lists' alone (`FolderPages.HasAFinishedTab`): an event is over rather than
+done, and a shelf is never either. The **calendar has no Private tab** either
+(`FolderPages.HasAPrivateTab`): an event is one of the kinds Orbit does not seal, so the tab could only
+ever have read zero - the same reason the notes have no Finished tab.
+
+**On the phone** both screens carry what the notes and the lists carry: the folders are entries in the
+menu under the screen's name rather than a row of tabs (a phone has no room for a row), with the count
+beside each; the folder row unfolds from that menu to name a new one or rename the open one; and filing
+one event or one shelf is a group in the menu under its own name, "No folder" among the answers. The
+inventories' screen gained a title menu of its own for it (`InventoryPage`), and its folders can be
+hidden from the dashboard as the notes' and the lists' can, the shelves being cards the dashboard is
+made of. Everything is written to the phone first and queued: filing travels as its own kind of change
+(`OutboxOperation.File`), one the server has never seen carries its folder on the create instead, and
+the folders are pushed ahead of everything filed into them - see `FolderNotOnTheServerYet`.
+
+**In the browser** both pages carry the tab row the notes and the lists have (`FolderTabs` inside
+`PhoneToolbar`, so it folds into one Menu button on a phone), and both editors carry the picker
+(`FolderField`). A tab on the calendar narrows the grid **and** the list beside it together, so it is a
+way of looking at the whole calendar rather than at half of it; the count on each tab is everything that
+folder holds rather than what is on screen, since a tab reading zero because the reader is looking at
+March would be answering a different question. Filing is sent after the save and only when it changed;
+a refusal says so rather than being swallowed, because the thing is saved and only its tab is not.
+
+**An export carries the folders, and an import files everything back into them** (2026-09-15,
+`OrbitArchive.Folders`, `ArchivedFolder`, and a `Folder` on each of the four kinds - defaulted and last,
+as every late field is). The tabs travel **in their own right** rather than being worked out from what is
+filed in them, so a folder somebody made and has not put anything in yet is still a tab afterwards.
+Everything names its folder **by name**, its page being decided by what it is - a note's folder is a
+folder of notes - because a file carries no ids at all; the same name on two pages is two folders and
+never resolves across. On the way in the folders are made first, since an item needs an id to be filed
+under: a name the account **already has a tab for on that page is used rather than made again** (an
+import adds and never overwrites, and a second tab called "Work" beside the first is a mess nobody asked
+for), a scope this build does not know is left out, and anything naming a folder the file did not carry
+comes back unfiled rather than filed at random - the rule a link to a list that did not come along
+follows.
 
 **Something new is made where the reader is standing.** A note or list made while a folder of the
 reader's own is open is filed in it; made on **Private** it starts sealed, since being sealed is what
@@ -495,15 +550,52 @@ One consequence worth knowing: a page may hold **one `PageHeader` at a time**, s
 subscribers to the same section. That is one per page in practice; it shows up in tests, where rendering
 the same page twice without disposing the first now throws.
 
-**Built-in folders exist without a row of their own** (`Orbit.Core.Folders.BuiltInFolder`). Which one
-something is in is decided from what it already is, and the first that applies wins:
+**Built-in folders exist without a row of their own** (`Orbit.Core.Folders.BuiltInFolder`), with one
+exception at the top of the list. Which one something is in is otherwise decided from what it already
+is, and the first that applies wins:
 
-1. **The folder its owner filed it under**, finished or not. Filing beats finishing: where something
+1. **Archived** - put away by its owner (2026-09-15, the user's decision of that date). The exception:
+   this one *is* stored, one column on each of the four kinds (`OP_N_ISARCHIVED` and its three
+   counterparts, `Note.Archive`), because nothing else about a thing could say it - being put away is a
+   decision somebody takes rather than something a thing becomes. It beats even a folder somebody made,
+   which is the whole point: putting something away is a decision about whether it is in front of the
+   reader at all, and an archived note still sitting under "Work" would not have been put anywhere. **Its
+   folder id is left untouched**, so bringing it back puts it under "Work" again rather than somewhere a
+   rule had to choose. Every page draws the tab - there is no page that hides it the way the calendar
+   hides Private - because something put away has to be somewhere it can be found again. Its own command
+   and its own endpoint on each of the four (`PUT .../{id}/archived`, `ArchiveRequest`), for the reason
+   filing has its own: an update carries the whole thing, so a client that had never heard of archiving
+   would bring back everything its owner had put away, every time it saved. A recipient is told nothing
+   about it and never sets it, exactly as with the filing - and for a stronger reason, since a decision
+   that was never theirs would take the thing off their own pages.
+
+   **In the browser it is a line in every card's menu** ("Archive", or "Put back" for something already
+   away), immediately above Delete and deliberately so: it is the other way out of a list, and somebody
+   reaching for Delete because they want a thing gone from in front of them meets it on the way. The two
+   say different things, and one of them is reversible. Left out on something reached through a share.
+   The card stays where it is until the page is read again - it has not moved anywhere, it is under
+   another tab now - and a refusal leaves the page as it was rather than redrawing a lie.
+
+   **On the phone it is the same line in the same place** - in each detail page's menu, immediately
+   above Delete - because the phone's lists gave up their per-row menus and everything that can be done
+   to one thing is under its own name once it is open. It is its own kind of queued change
+   (`OutboxOperation.Archive`, `LocalNoteRepository.ArchiveAsync` and its three counterparts), so it
+   goes out offline and arrives on its own endpoint like the filing beside it, and it is refused offline
+   for something somebody else can change, exactly as an edit is. `UpdatedAtUtc` is left alone: putting
+   something away changes where it is kept rather than what it says, and one that jumped to the top of
+   the list for having been tidied away would read as having been edited. Something put away before the
+   server ever saw it is archived in the pass straight after its create goes up, since a create has no
+   room for the flag.
+
+   **The export carries it** (`ArchivedNote.IsArchived` and its three siblings, defaulted and last, as
+   every late field is), so a round trip through a file leaves the Archived tab holding what it held
+   rather than emptying it back onto the pages.
+2. **The folder its owner filed it under**, finished or not. Filing beats finishing: where something
    goes is a decision somebody made, and finishing the work is not a decision to file it somewhere else.
    A list put in "Renovation" used to leave that tab the moment its last entry was ticked off, which
    reads as the list having been lost. A folder id belonging to another page counts as no folder here,
    and falls through to the rest.
-2. **Finished** - a task list that is done and that nobody filed anywhere. Two ways to be done, and both
+3. **Finished** - a task list that is done and that nobody filed anywhere. Two ways to be done, and both
    put it here: every entry ticked off, which happens on its own and comes back out the moment something
    is reopened, or **its owner saying so** with the Completed box in the list's form
    (`TaskList.Completion`, `OP_T_COMPLETION` - see below). A note is never in it, having nothing to
@@ -511,14 +603,40 @@ something is in is decided from what it already is, and the first that applies w
    stops showing a finished list rather than filing it somewhere (`FolderPages.HasAFinishedTab`). A page
    without the tab does not merely hide it: it never asks whether something is finished, so a finished
    list is placed there by its folder and its privacy like anything else.
-3. **Private** - a sealed item nobody filed anywhere (see [Private notes and task
+4. **Private** - a sealed item nobody filed anywhere (see [Private notes and task
    lists](#private-notes-and-task-lists)).
-4. **Public** - everything else, and where a page opens.
+5. **Public** - everything else, and where a page opens.
 
-**Only notes and task lists are filed at all.** A calendar event is not, and is not going to be
-(decided 2026-09-09) - an event is found by when it happens, which is what the calendar is for. It is
-written down in [the scope cuts](future-plan.md#known-scope-cuts-and-rough-edges) because it reads like
-an omission rather than a decision, and because undoing it would be a migration rather than a checkbox.
+**All four kinds are filed**: notes, task lists, calendar events and inventories. The events and the
+shelves gained it on 2026-09-15, which **reverses a decision of 2026-09-09** that an event would never
+be filed because it is found by when it happens. What was kept from that reasoning is where the tabs are
+*not*: a calendar tab narrows the grid and the list beside it together, and the dashboard draws no
+calendar tabs at all, because what it says about the calendar is what is on today and what is coming -
+which answers *when* rather than *which*.
+
+**Several cards can be chosen and acted on together** (2026-09-16, the browser's four list pages -
+`PickedThings`, `PickedThingsBar`). **Choosing is a mode**, entered by a "Select" press in the header
+rather than by a gesture: the everyday act is opening one thing, and a page where a long press might
+mean "choose" surprises somebody who only paused. While it is on, every card carries a mark and a press
+anywhere on it chooses rather than opens, so nobody has to aim at a small box; the mode is left by
+pressing the way out and never on its own, since a bar that vanished as the last card was unchosen
+would take that way out with it.
+
+The bar says how many are chosen and offers the two things that can be done to all of them at once -
+**where they go**, and **away or back**. Archive or Put back is one button naming what it will do, by
+whether everything chosen is already away. A card no longer on the page stops counting, which is what
+a folder tab changing leaves behind.
+
+**One call each rather than a bulk endpoint** (`OnePressEach`), which is what the server already takes:
+in order rather than at once, and a refusal stops nothing - a folder one note could not be moved into is
+no reason to leave the other four where they were. The page is read again afterwards, which is what
+shows the reader what actually happened. Something somebody else owns is left out of every round:
+filing and putting away are decisions about the owner's own page. On the calendar only the events are
+chosen - a deadline drawn there belongs to the task list it is on - and a repeat drawn on five days is
+one event, not five.
+
+**Sharing several at once, and the phone's half, are not built** - see `info/future-plan.md`, which says
+why a share is a different shape from the two that are here.
 
 **An entry has a priority and a colour of its own** (2026-09-10, `OP_TI_PRIORITY`, `OP_TI_COLOUR`,
 `TaskItem.Priority`/`Colour`). The list has a priority and this is not it: a list of ten errands usually
@@ -645,13 +763,35 @@ way is either a line of its own, ticked by hand ("Buy a ready one"), or another 
 which is done when that list is. The entry is **done as soon as any one way is**. So a one-errand
 alternative needs no list made for it, which is what "Stands for these lists" would have needed.
 
-- **The opposite of Stands for these lists.** That field is "every one of these", and this is "any one
-  of these". An entry has one or the other, so each form hides whichever the entry is not using. If both
-  arrive, the links win and the ways are dropped, in `TaskItem`'s constructor.
+- **Beside Stands for these lists, which says the same thing about whole lists.** Since 2026-09-14 that
+  field reads "any one of these" too, unless the entry is asked for all of them - see below. The two
+  differ in what a choice can be: a *way* can be a line ticked by hand, so a one-errand alternative needs
+  no list made for it. An entry has one or the other, so each form hides whichever the entry is not
+  using. If both arrive, the links win and the ways are dropped, in `TaskItem`'s constructor.
 - **Its tick belongs to its ways.** A tick sent for the entry itself is ignored while it has ways. A way
   that is a list is never taken on a client's word: `LinkedTaskCompletionResolver` works it out on every
   read, and it is stored as not done. `TaskListLinkValidator` checks a way's list the way it checks a link:
   it must exist, must not be the entry's own list, and must not close a loop.
+**Stands for these lists is "any one of them", unless it is asked for all of them**
+(`TaskItem.NeedsEveryLinkedList`, the tick box **Needs all of them**, drawn only where the entry names
+two or more). "Buy a cake" stands for baking one and going to the baker and either finishes it, which is
+what writing one entry for two ways usually means; "the flat is ready" stands for the kitchen and the
+bathroom and needs both. It was "all of them" and nothing else until 2026-09-14, when the user settled
+which way round the default goes.
+
+**Nothing stored changed meaning when the default did.** The migration that added the column
+(`EntryStandsForAnyOfItsLists`) marks every entry that already points at a list, so each of them keeps
+saying "all of them"; only entries written afterwards get the new default. And a client that has never
+heard of the rule keeps it rather than resetting it - the eighth field to follow that rule
+(`UpdateTaskListCommand.EntriesKeepingTheirListRule`, `TaskItem.KeepListRuleOf`), which is what stopped a
+save from an older phone turning an entry somebody set to "all of them" back to the default.
+
+**The phone asks it too**, as a switch under the lists an entry stands for and on the same terms - only
+where there are two to choose between (`TaskItemEditor.NeedsEveryLinkedList`,
+`CanChooseHowManyListsAreNeeded`). It now says what the rule is rather than saying nothing about it
+(`TaskListSynchronizer.ToRequests`); the keep-what-is-stored rule above is still what covers a build
+installed before this, which is the case it was written for.
+
 - **Rebuilds keep everything.** Resolving an entry now keeps every field it carries. The resolver used
   to rebuild a linked entry from its id, words, date and reminders alone, so a read handed it back
   without its notes, kind, colour or priority.
@@ -758,8 +898,9 @@ means:
 - *Still owed?* asks `IsResolved`. A list is complete when nothing on it is still owed; no overdue
   notice and no event reminder goes out for a crossed-out entry; what a list still needs against a shelf
   does not count it; a deadline somebody gave up on leaves the calendar's list and the dashboard's
-  Upcoming card. A daily errand still comes round again the next morning, which is what it already did
-  for a tick - being crossed out today says nothing about tomorrow.
+  Upcoming card. A crossed-out entry stops its daily reminder too, exactly as a ticked one does - being
+  finished with is being finished with, whichever way it was reached (the shelf's standing round is the
+  one exception, and comes back either way).
 - *Done?* asks `IsCompleted`. The fraction beside a list ("2/5"), the day's count on the dashboard, and
   everything that acts on work having actually been done: a restock errand somebody gave up on tops up
   no shelf, and crossing out "Update stock levels" does not offer to finish the whole round.
@@ -815,10 +956,10 @@ of counts above the tabs stays whatever is open - it is about the day rather tha
 **Private narrows it the same way** (2026-09-10). Private is about one thing too - what is sealed - and
 only three kinds of card can hold anything that is: notes, task lists and shelves. An appointment, a
 person, a group and a shared position are none of them sealed, so the tab used to answer "show me what
-is private" with a page mostly made of things that are not. The shelves are the part that needed more
-than hiding: an inventory is not filed into a folder - there is no tab for one on the inventory page -
-but it can be sealed, so the two built-in tabs now tell shelves apart by that (`Dashboard`'s
-`InventoriesUnderTheOpenTab`), where before the Private tab drew every shelf the account had.
+is private" with a page mostly made of things that are not. The shelves are told apart by it the same
+way the notes and the lists are (`Dashboard`'s `InventoriesUnderTheOpenTab`), where before the Private
+tab drew every shelf the account had - and since 2026-09-15 a shelf is filed into a folder as well, so
+that card narrows to a folder somebody made just as the other two do.
 
 **A card is drawn only where it has something under the open tab.** It used to be drawn whenever the
 account had one of that kind anywhere, and then said "Nothing here matches the filter" - which named the
@@ -907,8 +1048,8 @@ not copied, and should not be: the errand is about the shelf it was raised from.
 
 
 `POST /api/notes` and `PUT /api/notes/{id}` both take `{ title, content }`, where `content` is an
-ordered list of lines, each `{ text, isChecklistItem, isChecked }` — a note is plain text and checklist
-items in one body, not two separate features. A checklist item's checked state is a real field rather
+ordered list of lines, each `{ text, isChecklistItem, isChecked, isFailed, style }` — a note is plain
+text and checklist items in one body, not two separate features. A checklist item's checked state is a real field rather
 than `"[ ]"`/`"[x]"` text every client would have to parse back out, and it is persisted as JSON (see
 `NoteEntity.ContentJson`). `GET /api/notes` and `GET /api/notes/{id}` return the same shape back, plus
 `id`, `createdAtUtc`, and `updatedAtUtc`. `DELETE /api/notes/{id}` deletes a note, 404ing under the same
@@ -924,9 +1065,7 @@ disagree in.
 
 - **The tools sit over the writing's bottom-left corner**, not above it - a toolbar at the top of a note
   is a strip of the page given to controls before a word has been written. Four of them, as the design
-  draws: text style, checklist, table, attachment. **Only the checklist one does anything**; the other
-  three answer a press with "*Text style*: not implemented yet." rather than being greyed out, because a
-  dead button explains nothing and a row of them explains less.
+  draws: text style, checklist, table, attachment - and since 2026-09-14 **all four work**.
 - **The writing keeps room under its last line** for the tools and three lines more, and the caret's
   line scrolls clear of them (`.note-editor-page`'s padding and `scroll-padding`): the text used to run
   on underneath the tools.
@@ -986,7 +1125,8 @@ disagree in.
   draws the lines and the caret that come back; typing inside one line is still the browser's own. That is
   where the caret goes, and it is unit-tested there:
   - **Enter** splits the line and puts the caret at the start of the new one (a checklist line continues
-    as an unticked box; an empty box leaves the list, in place). At the head of a line with words on it the
+    as an unticked box and a line of a list as another line of that list; an empty one of either leaves
+    the list, in place; a heading is followed by ordinary writing). At the head of a line with words on it the
     new line opens above, so a tick stays with its words. `keepsIndentation` makes the new line start where
     the one it came from starts, with the caret after that indentation - off in the browser, on for the
     phone, whose lines are one field each and where a field cannot open at a column somebody has to type
@@ -1007,6 +1147,196 @@ disagree in.
   inventory's name and description** (`TitledDescription`, the same surface with
   `ChecklistTextEditor.ReadsMarkers` off): those store only text, so `[]` typed or pasted there stays
   words rather than becoming a box the save would drop.
+- **What a line is - the eight styles** (`NoteLineStyle`, 2026-09-14): Title, Heading, Subheading, Body,
+  Monospaced, and the bulleted, dashed and numbered lists. Apple Notes' own Format menu, which is what
+  this follows. The "Aa" tool opens them, each entry drawn in the style it sets; pressing the style a
+  line already is takes it back to Body, the way a format control works everywhere
+  (`NoteSurfaceEdits.Restyle`, which applies to every line the selection touches).
+  - **A style belongs to a line, not to a stretch of words inside it.** A note is a list of lines on both
+    clients and the phone draws each as its own field, so bold and italic *inside* a line are a different
+    shape - written down in `info/future-plan.md` rather than guessed at.
+  - **A tick box is not one of the styles** (`NoteContentLine.IsChecklistItem`, a field of its own since
+    long before this): a box is what a line is answered in, not what kind of line it is, and the two are
+    carried separately - so a line of a list can have a box, and giving a line a box keeps its style.
+  - **Enter follows the style**: a line of a list carries on as one and an **empty** one ends the list, in
+    place - exactly the rule a tick box has - and a heading is one line by definition, so Enter after one
+    starts ordinary writing.
+  - **A numbered line's number is worked out, never stored** (`NoteLineStyles.NumberOf`, and
+    `numberTheLists` in `checklistTextEditor.js`): its place in the unbroken run of numbered lines above
+    it, so inserting a line renumbers the rest and a number can never disagree with where the line is. A
+    line that is not numbered breaks the run, which is what makes two lists with a paragraph between them
+    two lists. The mark of a bulleted or dashed line is drawn the same way (CSS `::before`,
+    `user-select: none`), so it is never part of the words, never selected with them and never copied.
+  - **Drawn wherever a note is read, not only where it is written**: the note's own page
+    (`.note-line[data-style]`, which `NoteSummary.razor` puts on its lines too), a note opened through a
+    share link (`PublicSharedItemLine.Style`, drawn by `SharedItemPage` and by the phone's
+    `SharedLinkPage`), and the phone's own note screen (`NoteLineLook`, which decides the size, the bold
+    and the list's mark for both of the phone's screens).
+  - **The phone sets one from a sheet**: an "Aa" button over the note's foot, beside undo, redo, the
+    indent buttons and the table button, opening the same eight (`NoteDetailViewModel.StyleChoices`, `Restyle`). A sheet
+    rather than a row of buttons - eight choices over the writing would be most of the writing on a
+    phone. The press changes the line being written in, as the indent buttons do.
+  - **Stored and sent as a word**, never a number (`NoteLineStyleJsonConverter`, `NoteLineStyles.Read`):
+    content is JSON on the server and on the phone alike, so a number would mean the order of the enum
+    decided what an old note says. A word this build does not know reads as Body rather than throwing, on
+    every side - and an export carries it too (`ArchivedNoteLine.Style`). **No migration**: the lines are
+    a JSON column, and a note saved before this reads as Body throughout.
+- **Marks on a stretch of words inside a line** - bold, italic, underlined, struck through
+  (`NoteTextMark`, `NoteTextRun`, 2026-09-14). Kept **beside** the text rather than folded into it
+  (`NoteContentLine.Marks`: a start, a length and a mark), so everything that reads a line's words - every
+  search, every preview, every copy - goes on reading a plain string, and only what draws a line has to
+  know about them.
+  - **The arithmetic is shared** (`NoteTextMarks`, `NoteLineText`): a line split, two lines joined, a
+    stretch replaced or taken away, a level of indentation, a "[]" eaten by the box it makes - each moves
+    the marks with the words it moved, in one place, because the browser and the phone must agree about
+    what a note says.
+  - **A mark sticks to the character before what arrives**: text typed inside bold words, or right after
+    them, is bold; text typed at the very head of them is not. What every editor does, and what the
+    browser reports having drawn anyway.
+  - **The control marks a selection** and takes the mark off where every word already carries it
+    (`NoteSurfaceEdits.Mark`, `Holds`). Across lines the answer is decided once, so a selection half bold
+    is made bold rather than coming back striped. **A caret with nothing selected does nothing**: there
+    are no words to mark, and remembering that the *next* thing typed is bold is the browser's business.
+  - **The browser draws them and reads them back.** The writing surface wraps a stretch in real elements
+    (`<strong>`, `<em>`, `<u>`, `<s>` - `setLineWords` in `checklistTextEditor.js`), which is what lets it
+    read the marks back out of the document it drew and what makes a copy out of a note arrive elsewhere
+    still bold. The four buttons sit at the head of the same panel the styles are in, and **Ctrl+B and
+    its friends come the same way**: the browser's own `formatBold` and the rest are stopped in
+    `onBeforeInput` and asked of C#, because left alone they would put tags of their own choosing into
+    the line and the phone would never hear about them.
+  - **A line being read draws them too** (`MarkedText.razor`, on the note's page and through a share
+    link): one span naming its marks rather than nested elements, since nothing is read back there. Each
+    stretch still goes through `TextWithLinks`, so an address inside bold words is as pressable as one
+    outside them.
+  - **The phone draws them on a line nobody is writing in** (`MarkedLabel` in Orbit.Maui, a `Label`
+    whose `FormattedString` is rebuilt from `NoteTextMarks.Pieces`; the converter has to live there,
+    since Orbit.Mobile is plain net10.0 and knows nothing about MAUI's `Span`). A MAUI `Entry` renders one
+    face for the whole field, so a marked line shows as words until it is tapped, becomes the field while
+    it is written in, and goes back to words when writing ends - the seam the struck-through line already
+    used. While the field is open the marks are kept beside the words and moved with each change
+    (`NoteTextMarks.Kept`, the same arithmetic the browser's edits use), so bold words stay bold after a
+    letter is typed before them, and a stretch deleted takes its mark with it. A share link's lines are
+    drawn the same way. Nothing on the phone sets a mark yet: that wants a selection the `Entry` does
+    not expose - see `info/future-plan.md`.
+- **A table is a kind of line** (`NoteTable`, `NoteContentLine.Table`, 2026-09-14 - settled with the
+  user as such rather than as a block of its own). A line that carries a table *is* the table: no words,
+  no box, ordinary style (`NoteContentLine.OfTable`), and the note stays a list of lines. Always
+  rectangular and never empty (`NoteTables`); the last row or column taken away takes the table, and an
+  empty line to write on is left where it stood. Each cell is words plus marks - the same shape a line's
+  words have, so bold inside a cell is the bold everything else draws.
+  - **The table tool means two things**, told apart by where the caret is: outside a table it inserts
+    one (an empty line becomes it, anything else gets it underneath - the tick-box tool's rule); inside
+    one it opens what can be done to *this* one - a row below, a column to the right, the row or the
+    column taken away, the table taken away (`ChecklistTextEditor.CaretInTableChanged`, `EditTableAsync`).
+  - **Inside a cell the browser is on its own for the words**, and the keys that change a *line's*
+    shape mean something else: Tab and Shift+Tab walk the cells, Enter goes to the next row and adds one
+    under the last, and a delete that would take the cell itself is stopped (`answerKeyInCell` in
+    `checklistTextEditor.js`). The browser's own Ctrl+B is let through in a cell - what it wraps the
+    words in is read back with the cell, so a cell's bold is a bold C# hears about.
+  - **Every edit on the surface has an answer for "the line is a table"** (`NoteSurfaceTableTests`),
+    because a table has no caret offset: Enter on one starts writing under it, Backspace and Delete on
+    one do nothing (a table goes by its own menu, never a key), words never join a table above or below
+    them, a paste that lands on one goes under it, Tab and a style leave it alone, and a selection that
+    ends on one **keeps** it - a point inside a table always reads as its head, so the selection cannot
+    say how much of it was meant, and a grid of words is not taken on a guess.
+  - **No migration**, as with styles and marks: the table travels as `NoteContentLineDto.Table` and is
+    stored in the same JSON, squared up on the way in (`NoteTables.Squared`). The archive and a share
+    link carry it; the read-only pages draw it (`NoteTableView`).
+  - **The phone writes in it where it reads it** (2026-09-15): each cell is a bare field
+    (`NoteTableCellField`), and what is written there goes into the line's table through
+    `NoteTables.WithCell`, with the cell's marks moved along as a line's are - carried, not drawn, since a
+    field renders one face. The grid is rebuilt only when the table changes shape; a change of words
+    alone is written into the fields that are there, so an undo rewrites the field being written in
+    rather than taking its caret. A step in the history is typing on the table's line, caret at its head:
+    a cell is not a point on the surface, so the line is where the step can say it happened. The
+    phone's table button has the browser's two meanings, decided by whether a cell has the caret
+    (`NoteDetailPage.UseTheTableToolAsync`): outside, a table where the line being written in is
+    (`NoteDetailViewModel.InsertTable`); inside, a sheet of the five things the browser's menu offers
+    (`TableActions`, `ReshapeTable`). No Tab between cells - a soft keyboard has none - and Enter in a cell
+    closes the keyboard rather than adding a row.
+- **A picture is a kind of line too** (`NotePictureLine`, `NoteContentLine.Picture`, 2026-09-14), settled
+  with the user the same way as the table and carried the same way. What the line holds is the id of the
+  bytes, their kind and their size in pixels; the bytes are somewhere else.
+  - **The bytes go in a store of their own** (`INotePictureStore`): on Azure a storage account with
+    public blob access **off** - deliberately not `orbitdownloads`, whose blobs are anonymous-read to hand
+    out the APK - reached by a connection string that is a Container App secret
+    (`NotePictures:ConnectionString`); locally a directory on a named volume (`NotePictures:Directory`).
+    Which of the two is decided by whether the connection string is set. The row beside them
+    (`OP_NOTES_PICTURES`, `NotePicture`) says which note a picture belongs to, how many bytes it is and
+    whether it is sealed - and nothing else.
+  - **50 MB a note, counted server-side** (`NotePictureLimits`): a total across the note's pictures, and
+    30 MB - Kestrel's own default - for one upload, since each picture is one request
+    (`POST /api/notes/{id}/pictures`, the bytes as the body and their kind as `Content-Type`). The row
+    records what the store actually took, not what a header claimed. The browser scales a picture to
+    2048 pixels on its longest edge before sending it, because four phone photographs would otherwise be
+    most of a note's allowance.
+  - **A private note's picture is sealed the way a place is.** The browser seals the bytes under the key
+    the note is sealed with (`PrivateContentSealer.SealBytesAsync`, nonce and ciphertext in one buffer)
+    and says so in a header; the handler **refuses** a private note's picture that arrives in the clear,
+    and a public note's that arrives sealed. The blob holds ciphertext, the row holds no content type -
+    the kind is on the line, inside the sealed content - and only the ciphertext's length is readable,
+    which says roughly how big the picture is: the same shape of leak a sealed place accepts, stated
+    rather than found. A sealed picture is never served as a plain link and never through a share link.
+  - **Drawn from a `blob:` URL the page owns** (`NotePictureSource`): an `<img src="/api/…">` sends no
+    bearer token, and a sealed picture is ciphertext until this browser opens it, so the bytes come
+    through the app's own client, are opened where they must be, and are handed to the document as a
+    URL that is revoked when the page goes. One fetch per picture for the life of the page.
+  - **The interaction follows Apple Notes**: paste, drop or the attachment tool put a picture where the
+    caret is (an empty line becomes it, anything else gets it underneath - the table tool's rule); it is
+    drawn scaled to the width of the note and opened full size by pressing it; **Backspace or Delete on it
+    takes it away** - the one thing that tells it from a table, which goes by its own menu; words never
+    join it and writing that lands on it goes under it. A note that has never been saved has nowhere to
+    keep a picture, so the editor says to save first.
+  - **What a save no longer names is swept** (`NotePictureSweeper`): the save carries the ids the note
+    still holds (`UpdateNoteRequest.PictureIds`), because a private note's lines are sealed and the
+    server cannot read which pictures they name; a client that says nothing sweeps nothing. Deleting the
+    note takes them all, bytes and rows.
+  - **Not in an export.** A file cannot carry the bytes, and a line naming bytes that are not there would
+    be a broken picture on import, so picture lines are left out of `ExportArchive`.
+  - **The phone fetches a picture once and keeps it** (2026-09-15, `NotePicturesClient`,
+    `NotePictureCache`): after the lines are on the screen - the words never wait for the bytes - each
+    picture line asks the cache, which reads the handset's cache directory and fetches what is not there.
+    The bytes are kept **as the server holds them**, so a private note's picture stays sealed on disk and
+    is opened into memory each time (`PrivateContentKey.OpenBytes`, the browser's `sealBytesForSelf`
+    layout: nonce, then ciphertext with the tag on its end - `SealedBytesTests` pins it), for the reason
+    `LocalNote` keeps a private note's words sealed. A line with no bytes says why in the picture's
+    place (`NoteLineRow.PictureNote`): sealed under a key this device has not got, or not on the phone
+    and not fetchable now. A share link's pictures come the same way, by the token. The OS may clear the
+    cache directory when short of room; nothing else sweeps it. The phone still puts no picture into a
+    note - `info/future-plan.md`.
+- **A rule across the note is a kind of line too** (`NoteSeparatorLine`, `NoteContentLine.Separator`,
+  2026-09-15), carried the way the table and the picture are and for the same reason: it has no words
+  that can be written in, so it is what the line *is* rather than a style the line is given. A line that
+  carries one has no text and no box (`NoteContentLine.OfSeparator`).
+  - **Two of them, and the difference is what is written on the rule**: a date and time, or nothing at
+    all. One record carries both - an empty `Stamp` is the plain rule - so there is one kind of line
+    rather than two, and a rule drawn with nothing on it is still a rule rather than the absence of one.
+  - **The stamp is written once, when the rule is made**, and stored as the words it was made with.
+    That is what somebody means by putting a date in a note - "this is where I got to on Tuesday" - and
+    it is the only reading that survives being read again: worked out at draw time, yesterday's
+    separator would say today and nothing in the note would say when anything was written. Being part
+    of the line it travels into the export, onto the phone and into a share link, and says the same
+    thing in a year. It is **not** re-formatted in the reader's locale, for the same reason: that would
+    be re-reading the date rather than reading it.
+  - **A key takes it away**, as it takes a picture (`NoteContentLine.IsTakenAwayByAKey`) - a table is
+    the one element that goes by its own menu instead. Every other guard is the table's and the
+    picture's: it lands where they land, Enter on one starts writing under it, words never join it, a
+    paste that lands on one goes under it, and a style or a level leaves it alone
+    (`NoteSurfaceSeparatorTests`).
+  - **No migration**, as with styles, marks and tables: it travels as `NoteContentLineDto.Separator`,
+    is stored in the same JSON, and a line written before rules existed simply has no field there.
+  - **Both clients have the tool, and both ask first** - the browser as a two-entry panel over the
+    writing (`NoteEditor`, beside the styles, the table and the attachment), the phone as a sheet
+    (`NoteDetailPage.UseTheSeparatorToolAsync`, `NoteDetailViewModel.SeparatorChoices`). Each works the
+    stamp out at the moment of the press, in the reader's own language and format, because it is
+    written by the reader making it.
+  - **Left out of "copy the text"** (`NoteWords`), as a table and a picture are: what is pasted is read
+    back as lines and nothing there makes a rule, so one written out would come back as words
+    pretending to be one.
+- **Not in a list's or an inventory's name and description** (`TitledDescription`,
+  `ChecklistTextEditor.TakesStyles` off): those store two plain strings, so a style set there would be
+  dropped by the save - the same reason `[]` stays words there. Giving descriptions the note's own
+  surface is written down in `info/future-plan.md`.
 - **How much it matters, where it is filed and whether it is sealed live in the panel's menu**, above
   Save and Back (`EditorRail`'s `ChildContent`, an `OverflowMenu` that stays open because these are
   settings rather than actions). They used to sit under the writing, which is a form somebody had to
@@ -1029,8 +1359,8 @@ disagree in.
 `NoteDetailPage` (view) over `NoteDetailViewModel` (decisions, in `Orbit.Mobile`) is a column of one-line
 fields, one per line, because a line can carry a real tick box and no text box can hold a control. The
 name is the first field. Enter starts the next line keeping the indentation, backspace at the head of a
-line joins it to the line above, and a hardware keyboard's arrows walk between lines (`NoteLineKeys`, read
-on Android by `NoteLineKeyPresses`). Nothing is written until Save; leaving asks first when something would
+line joins it to the line above, a hardware keyboard's arrows walk between lines, and its Tab indents the
+line rather than moving the focus on (`NoteLineKeys`, read on Android by `NoteLineKeyPresses`). Nothing is written until Save; leaving asks first when something would
 be lost. Where it follows the browser's editor, it uses the same rules from `Orbit.Core/Notes` - the note
 is handed to them as a `SurfaceState` whose line 0 is the name:
 
@@ -1045,6 +1375,14 @@ is handed to them as a `SurfaceState` whose line 0 is the name:
   goes (`CaretPlaced`, a `NoteCaret`) - unless all it put back was a tick, which never moved the caret.
   Saving keeps the history; reading the note back after changing its priority or privacy keeps it too
   when nothing on the screen changed; opening a note starts a new one.
+- **Indent and outdent are two more buttons in that row** (`NoteDetailViewModel.Indent`/`Outdent`), and
+  a hardware keyboard's Tab and Shift+Tab reach the same two. A soft keyboard has no Tab key at all, so
+  without them a note written on the phone could show the indentation the browser wrote, and carry it on
+  to the next line, but never add or take away a level. The edits are the browser's
+  (`NoteSurfaceEdits.Indent`/`Outdent`) so a level means the same thing on both, but they are taken at
+  the **head of the line** rather than at the caret: the way in here is a button, and a button called
+  Indent moves the line rather than typing a tab wherever the caret is. A line with no indentation to
+  take away is left alone and is not a step to undo.
 - **A paste is read with the browser's rules** (`NoteSurfaceEdits.Replace` with `readsMarkers`,
   `ReadPastedLine`). A one-line field keeps a paste's line breaks in its text, so several lines pasted
   into a line become that many lines at the caret, with the caret at the end of what was pasted - into
@@ -1058,8 +1396,10 @@ is handed to them as a `SurfaceState` whose line 0 is the name:
 - **Several boxes answer one press** (`IsPickingLines`, and Orbit.Core's list-based
   `NoteSurfaceEdits.Cycle`, which the browser's selection-based one now goes through). A phone has no
   Shift+click, so "Select boxes" in the note's menu - offered where there are two boxes - puts a mark
-  beside every box (`NoteLineRow.ShowsPickMark`, a `CheckBox` at the line's end, away from the box it is
-  about) and a line over the note saying how many are chosen and what a press does (`PickingHint`), with
+  beside every box, and **holding a box** does the same and chooses that box in one gesture
+  (`PickThisLineCommand`, read on Android by `LongPresses`; a head without the gesture still has the
+  menu). The mark is `NoteLineRow.ShowsPickMark`, a `CheckBox` at the line's end, away from the box it is
+  about; over the note a line says how many are chosen and what a press does (`PickingHint`), with
   "Finish selecting" beside it. A press on one of two or more chosen boxes gives every chosen box the
   pressed box's next answer, as in the browser; they need not be next to each other. A press on a box
   that is not chosen, or with one chosen, is a single press. The chosen boxes stay chosen after a press;
@@ -1088,6 +1428,49 @@ is handed to them as a `SurfaceState` whose line 0 is the name:
   defects of 2026-09-11 - the caret landing on the line after a new box, arrows stepping over empty lines,
   a letter jumping to the next line - came from an empty `<span>` having no line box, and a column of one
   field per line has no such thing; a ticked line's hidden field is opened before the caret is put in it.
+
+**A search ignores the marks over a letter** (`Orbit.Core.Text.LooseText`). Orbit is written in Polish as
+much as in English, and every marked letter is one a phone keyboard makes somebody hold a key for, so
+"zolw" finds "Żółw" and "żurek" finds a row written "zurek" - both directions, since which side carries
+the marks is not something a reader should have to think about. Letters that are their own rather than a
+marked form of another, "ł" among them, are listed by hand. Asked by everything that narrows a list by
+what is typed: the suggestion browser behind every used-value field, the tag field, the task entry
+filter, both shelf searches, and the conversation and group searches.
+
+**A note's text can be copied out of its menu** ("Copy the text", `NoteSummary` in the browser and the
+note's own menu on the phone since 2026-09-15). Written the way the note's own editor copies a selection
+out of itself - a box is `- ` and a ticked one `[x] `, both of which a paste reads back as a box - so a
+note copied here and pasted into another note arrives as the same note. The name is the first line, which
+is what a note's name already is on both clients. **The format itself is shared** (`NoteWords` in
+Orbit.Core) rather than written once per client, because two copies of it would drift and a note copied
+on a phone would paste differently from the same note copied in a browser; a line that is not words at
+all - a table, a picture, a rule across the note - is left out rather than written as a blank. The phone
+says whether it worked: Android can refuse the clipboard outright, and a copy that quietly did nothing
+looks exactly like one that worked.
+
+**And it can be copied in part** (2026-09-16, asked for as "copy only what is done, only what is not,
+only what failed"). Four choices - the whole thing, what is done, what is still to do, what was given up
+on (`WhatToCopy`) - offered from the same menu on **all four screens**: a note's light view and its
+editor, a task list's checklist and its editor. On the phone the four are a sheet behind the one "Copy
+the text" entry, the way the styles and the separator's two are asked: four lines saying "Copy…" one
+under the other is most of a menu.
+
+The three narrow choices are questions about tick boxes, so they keep boxes and nothing else - a note's
+ordinary writing travels only in the whole thing, since a page of prose answering "what is still to do"
+with every sentence it holds is not an answer. The name stays whichever is asked for: a handful of
+errands with nothing saying which list they came from is a handful nobody can place. A crossed-out entry
+goes out as an unticked box rather than as a mark of its own, because a paste reads two markers and not
+three, and a third would come back as words pretending to be a line.
+
+**A task list is copied in the same format a note is** (`TaskListWords` beside `NoteWords`), which is
+what the whole thing was asked for: the errands still to do, copied out of a list, arrive in a note as
+those same errands. An entry is its description and nothing else - a deadline, what it stands for and
+how much it needs are real and none of them survives being pasted anywhere - and an entry that only
+points at other lists is left out, a row holding a group together being nobody's work to copy. The
+editors copy what their form holds, unsaved entries included: that is the list in front of the reader.
+
+**What is still missing is the other half**: nothing ever *reads* the clipboard, so there is no
+"paste a list in" to press - see `info/future-plan.md`.
 
 ### Sharing notes and task lists
 
@@ -1159,7 +1542,8 @@ used to be sections under the form - below everything else on a long list or she
 the old sections' rules: nothing before the first save, nothing for a sealed item (the server refuses to
 share one and cannot publish what it cannot read), and Share only where the reader's own access allows
 passing it on. Ticking Private withdraws both at once, with the menu still open. On a narrow screen the
-panel is a bar along the foot of the window and the menu stays in it, so both are reached the same way.
+panel is a bar across the top of the window, under the app's own bar, and the menu stays in it, so both
+are reached the same way.
 
 **Duplicate offers.** Sharing something that was already offered to the same recipient — accepted or
 still pending — doesn't create a second `NoteShare`/`TaskListShare`/`CalendarEventShare` row.
@@ -1606,7 +1990,11 @@ point are both required** — the name because a row on the panel with nothing i
 tell from the next one, the point because without it there is nothing to draw and nothing to hand a map
 app, which is the same pair `Place.Refuse` enforces on the server. The address box takes typed words and
 the pin beside it opens the same picker overlay the task editor uses; a confirmed pin replaces the words
-only when the box is empty, so "the back entrance" survives.
+only when the box is empty, so "the back entrance" survives. **Save and Cancel sit at the top of the
+panel and stay there** while the fields scroll under them (`.place-form > .map-overlay-confirm`), which
+is the promise the editor's bar makes on the pages that have one: the panel is capped in height and a
+place named on six lists used to push its own Create out of reach. In the markup they are still last,
+so a keyboard meets the form before the buttons that answer it.
 
 **The dashboard gives them a card of their own**, keyed `places`, between Inventory and Groups: its own
 card rather than a corner of Upcoming, which is a list of things happening at a time — a place has none,
@@ -1900,10 +2288,11 @@ shopping was done on Tuesday for a slot booked on Friday - and the map used to g
 it until Friday came and went.
 
 It is a filter rather than a rule: "Show places already past" in the page's own menu brings it back,
-pins included, and **"Show from"** then appears above the list to say how far back to go. Empty is all of
-it, which is what the option meant before there was anywhere to say otherwise - on an account with a year
-of appointments in it, that answer buried the two the reader wanted. An event with no address is not a
-place and is never listed - there is nothing to draw.
+pins included, in a second box of its own - **"Where your plans were"**, newest first, under the plans
+ahead. Two questions rather than one list: where am I going, and where was I. Turning the option on
+starts a month back, and **"Show from"** sits in that box to say how far back to go; empty is all of it,
+which on an account with a year of appointments in it buries the two the reader wanted. An event with no
+address is not a place and is never listed - there is nothing to draw.
 
 **Each of the two lists has an eye on its heading** that takes its pins off the map without taking the
 list off the page (`MapPinVisibility`, remembered by the browser like `PanelPreferences`). A map covered
@@ -1953,7 +2342,14 @@ whose address is known and whose spot on the map is not obvious. It is deliberat
 whatever pin happens to be on the map: somebody who meant that pin has the question above in front of
 them already. Leaflet's zoom control moved to the bottom-left to make room (`locationMap.js`), since two
 plus signs side by side - one meaning "closer" and the other "remember this spot" - is a corner nobody
-can read, and zoom has a wheel and a pinch besides.
+can read. **The wheel does not zoom** (`scrollWheelZoom: false`, both maps): a map sits inside a page
+that scrolls, so reading down past one zoomed it instead, losing the place being looked at and the
+reader's place on the page. The buttons, a pinch and a double press all still do it.
+
+**The tiles are turned dark with the app** (`:root[data-theme="dark"] .leaflet-tile-pane`).
+OpenStreetMap serves one set, drawn for a light page, so a map was the one white rectangle left on a
+dark screen. Inverted with the hue turned back through 180 degrees, so water stays blue; only the tiles,
+since everything Orbit draws over them is already in the theme's own colours.
 
 The place travels in a scoped `ChosenPlace` rather than in the address bar. `/calendar/new?lat=52.2&lon=21.0`
 would write where somebody is going into their browser history and into anything that later reads a URL,
@@ -1974,7 +2370,9 @@ the new place's own pin it read as a second place still waiting.
 **"Start a route here" in one pin's popup, then "Route to here" in another's** (2026-09-11,
 `MapPage.OnPinRoute`, `locationMap.js`'s `showRoute`). One button that changes its words rather than two
 side by side. Any spot can be an end: press the map there, and the pin that press draws carries the same
-button. A bar under the map names both ends and says how far and how long, with **Clear the route**.
+button - or from the row in the panel, which carries the same one press so neither end has to be hunted
+for among the pins first. A bar under the map names both ends and says how far and how long, with
+**Clear the route**.
 
 The road route comes from the **public OSRM demo server** (FOSSGIS, OpenStreetMap's routing machine),
 driving only - that is what the demo serves reliably. It is a third party, so it is asked **only where the
@@ -2202,13 +2600,21 @@ validation failure throws `InvalidRequestException` and comes back as a **400 ca
 see [Refusing a request](#refusing-a-request).
 
 **The editor asks the same question before it offers the link.** Its "link to list" dropdown leaves out
-every list that links back to the one being edited, however long the chain (`TaskListLinkCycle`, which
-walks the saved lists exactly as the server does) - so a link that would be refused is never offered in
+every list that links back to the one being edited, however long the chain - so a link that would be
+refused is never offered in
 the first place, which is how every other rule the server enforces is handled on this side. What it
 replaced was a failed save naming a rule nothing on screen had mentioned, and the deeper the chain the
 less obvious what had gone wrong: A links to B, B to C, and the row offering C a link back to A looked
 like any other. The "move to list" dropdown is not narrowed this way - moving a row is not linking, and
 carries none of linking's rules.
+
+**One walk, on all three sides** (`Orbit.Core.Tasks.TaskListLinks.WouldCloseALoop`): the server's
+validator, the browser's `TaskListLinkCycle` and the phone's link and "or a list" pickers all ask it,
+each handing it what a list points at from the shape it holds lists in. It follows a way of doing an
+entry that is a list as well as a list the entry stands for (`TaskItemDto.TaskListIdsItPointsAt`), since
+the server refuses a loop through either. Until 2026-09-16 the browser followed links alone, so it offered
+a loop through a way, and the phone checked nothing - a link it offered went into the queue and came back
+from the sync as a notice that a change could not be saved.
 
 Each **item** also says what it is: `kind` is `Checklist` (the default), `Calendar`, `Location` or
 `Inventory`. Two of them have somewhere to be and so carry a `location`: a `Calendar` entry, which is
@@ -2467,13 +2873,45 @@ A task list can be opened at either of two depths, both reachable from the task 
 
 - **Shallow** (`/tasks/{id}`, `TaskListChecklist.razor`) — the whole list as nothing but tickable rows.
   The only thing it can change is whether an item is checked off, which is what lets it show the entire
-  list at once. It deliberately takes **no** edit lock: ticking items off is not an editing session, and
+  list at once. It says **how much of the list is done** ("Done: 3 of 7") where the card that opened it
+  says the same, because that is the question somebody reading a long list asks; the phone's own list
+  screen says it too since 2026-09-15 (`TaskListDetailViewModel.Progress`), having had the fraction on
+  every card and nowhere on the list itself. It deliberately takes **no** edit lock: ticking items off is not an editing session, and
   two people doing it at the same time is normal rather than a conflict. It still goes through the same
   `PUT /api/tasks/{id}`, so it does respect someone else's lock — a save during another user's deep edit
   comes back 409 and the checkbox snaps back to what the server holds.
 - **Deep** (`/tasks/{id}/edit`, `TaskEditor.razor`) — the full editor: title, grouping, every
   item's text, due date, link, notification settings, adding and removing items. This is the level that
   takes the edit lock described under [Edit locking](#edit-locking).
+
+#### Writing in a group's member lists
+
+A group list's editor also carries **a section per list it gathers** (2026-09-16), so a member's entries
+can be renamed, added and removed without leaving - which the editor could not do before, having only
+ever edited the group's own entries. **One Save writes them all**, each on its own request: a member is
+its own list with its own lock and its own history, and there is no request that takes several. A
+refusal does not stop the round, for the reason `OnePressEach` gives, and what is said **names the lists
+that did not go** - "something failed" over a form holding five of them tells the reader nothing about
+which to look at. A member nobody wrote in is not written at all, since an untouched list coming back
+with a new `UpdatedAtUtc` is what every other client syncs against.
+
+**Direct members only** (`GroupMemberLists.IdsUnder`). A member that is itself a group is opened to reach
+its own: a form that unfolded a whole tree would be a form whose length nobody can predict, and the
+shallow view is what reads a tree end to end. A list two entries point at is held once - named twice it
+would appear twice in one form, with two sets of boxes writing over each other - and a group is never
+among its own members.
+
+**A member's edit lock is taken when the form opens** and let go by every door out, which is what a lock
+says: this form is about these lists. A member that is **sealed**, **shared to read**, or **held by
+somebody else** is drawn and read but not written in, and the section says which of the three
+(`GroupMemberLists.WhyReadOnly`). They are asked in that order on purpose: a lock goes away by waiting and
+the other two do not, so telling somebody "she is editing it" about a list they could never edit would
+send them back to try again for nothing.
+
+**A row here is an entry's words and its box.** A deadline, what it stands for, a product and the ways
+it can be done are edited in that member's own editor, one press away at the head of the section - that
+panel is five hundred lines of the group's own form, and a group holding four members would be four
+copies of it. **The phone has none of this** - see `info/future-plan.md`.
 
 **Deleting the list is offered at both depths** as well as from its card, which is the arrangement a
 note, an inventory and a calendar event have all had - a task list was the one thing in Orbit that could
@@ -2592,8 +3030,18 @@ map, rather than dropping a pin in the wrong country.
 
 ### Group lists
 
-Setting `isGroup` marks a list as one that gathers other lists. It changes nothing about completion —
-the flag is purely about how the list is presented — but in the shallow checklist view a group list is
+Setting `isGroup` marks a list as one that gathers other lists. **It sets itself**: a list with an entry
+that points at another list is a group list whatever the caller sent (`TaskList.IsGroup`, 2026-09-15),
+because the checklist draws the members either way and a stored "no" beside such an entry would be an
+answer the page has to disagree with. Both editors draw the box ticked and unpressable while that is so,
+with a line saying why, and taking the last such entry off gives the answer back to the reader. It was a
+plain manual toggle until then, so a list somebody built by adding entries that name lists gathered
+nothing until they noticed a box - and a save from a client that has never drawn one turned it off
+again. The rule is in the domain rather than in an editor's form on purpose: one that only holds where
+somebody is looking is not a rule. What was already stored was brought into line by a migration that
+says so (`AListThatGathersListsSaysSo`) rather than by whatever save came next.
+
+It changes nothing about completion — the flag is purely about how the list is presented — but in the shallow checklist view a group list is
 rendered together with **every list its own items link to** via `linkedTaskListId`, each as its own
 card with its items tickable in place. Ticking an item there saves that member list, not the group,
 and the group's own linked row then follows it automatically through the usual completion resolution:
@@ -3374,6 +3822,34 @@ The place named on a calendar entry stays on the entry. The calendar's own locat
 (`EventLocationRequest`) and the map overlay deliberately hands back an address rather than a pin, so
 there is nothing to build one from here; the screen says so rather than dropping it quietly.
 
+**An overdue notice speaks instead of that day's daily reminder.** An entry that is both late and
+reminded daily said the same thing twice a minute apart - each notice right on its own, and neither
+scheduler knowing the other existed. `DailyTaskReminderScheduler` now asks the overdue repository the
+same question `OverdueTaskNotificationScheduler` asks itself (past its due date, and not notified about
+yet) and stands down when the answer is yes. **The daily one gives way, and only for that day**: the
+overdue notice is sent once ever, so the day it goes out is the only day the two collide, and the daily
+reminder carries on the next. Asked as "is a notice about to go out" rather than "was one sent today",
+so it does not matter which of the two services polls first. An entry with no deadline can never be
+overdue and is never held back - which is the standing "Update stock levels" a shelf keeps.
+
+**"Remind daily" asks until it is done, and stops.** It is not a claim that the errand happens every
+day: an entry ticked off or crossed out is finished with, and asking about it again the next morning is
+the app arguing with the reader. It used to do exactly that - the server brought the entry back
+*unticked*, moved its due date on to today and then said it was "still waiting to be done", so a doctor's
+appointment booked on Tuesday was an open errand again on Wednesday, with the deadline somebody had set
+quietly overwritten (reported by the user 2026-09-16 with their own list; settled by them the same day).
+Nothing un-ticks a reader's entry now and nothing rewrites its deadline - `GetEligibleAsync` simply
+leaves a finished entry out, so the reminder falls silent.
+
+**The one thing that does come back is the shelf's standing round.** "Update stock levels" on an
+inventory's restock list is work that happens again tomorrow whatever was done about it today - it is
+what the whole mechanism was built for. It is recognised by the words the server writes it with *and* by
+its list being one an inventory keeps (`DailyTaskReminderCandidate.ComesRoundAgain`), so an entry
+somebody names the same thing on a list of their own is still their errand; it is the only candidate
+reopened, which is also what carries its due date forward and keeps it on the calendar and the dashboard.
+Bringing it back clears everything `TaskItem.Reopen` clears - the tick, the cross, the time it was done
+and every way it was done by.
+
 **A daily reminder needs an hour.** Saving refuses without one rather than sending it at midnight - an
 hour nobody chose is worse than being asked for one. An entry loaded at exactly 00:00 reads as one with
 no hour set: the wire carries a plain `TimeOnly` and cannot say "none". **Both clients read it that
@@ -3718,7 +4194,8 @@ not a claim about how much is there beyond it.
 
 Crossing off "Update stock levels" while errands are still open asks whether the whole round is done.
 Yes (`POST /api/tasks/{id}/restocking/finished`) finishes the list and brings every item in the inventory
-up to its minimum; the reminder is finished with it, and `RemindDaily` brings it back tomorrow.
+up to its minimum; the reminder is finished with it, and the daily tick brings it back tomorrow - this
+entry being the one the daily reminder still reopens, see "Remind daily asks until it is done".
 
 **The standing reminder carries a due date - today's, at the hour it comes round.** Without one it was
 invisible everywhere except its own list: the calendar and the dashboard both read task entries by
@@ -3986,6 +4463,49 @@ point of this page is a quick glance at what exists, not a third copy of each li
 Clicking any item navigates straight to it (`/notes/{id}`, `/tasks/{id}`, or `/calendar/{id}`) — the
 dashboard has no editing of its own. For a task list that is its checklist, not its settings: see
 [Two editing levels](#two-editing-levels) for why the shallow level is what opening a list means.
+
+**Upcoming looks a week ahead** (`DevicePreferences.UpcomingDays`, a day / a week / a month / three
+months / everything, on Options' Preferences tab and kept on the device). The card holds six rows and is
+glanced down, and without a horizon it drew everything that would ever happen with next Tuesday somewhere
+inside it. Nothing is lost by it: what falls outside is still in the calendar, which the card's own name
+opens. Measured from the start of today, so something happening this morning is still on a card read this
+afternoon.
+
+**What reaches that card is what is still ahead and not dealt with.** An appointment whose end has passed
+is not coming up; a repeat is taken at its next occurrence rather than at the date it is stored under
+(`CalendarEventOccurrenceExpander` in the browser, `CalendarOccurrences` on the phone), or a weekly
+standup entered in spring would sit at the bottom of the card under a months-old date; and an appointment
+a task list raised is finished when that entry is ticked off or crossed out, because the entry is where
+the work is and the event is only when it happens. **The phone asked none of the three until 2026-09-15**
+and drew everything that had ever been in the calendar - on a comment claiming the browser did the same,
+which it has not since 2026-09-06. A card with nothing coming up is not drawn at all, which is different
+from one a filter emptied: the filter is in the card's own header and can be widened, and the horizon
+that emptied it cannot make a past appointment future.
+
+**Both clients' cards gather deadlines beside appointments**, because this card and the calendar answer
+the same question and were answering it differently: the calendar shows entries with a date beside the
+appointments, and a card headed "Upcoming" that left them out was not what is coming up. A deadline is
+named after the list it sits on - "Shopping: Milk" - and opens the entry rather than the calendar,
+because the list is where the work is done. It is left out where the list has been closed (marking one
+finished with work still on it says "no more of this"), where the entry is ticked off or crossed out,
+where the entry stands for other lists (its tick comes from them), and where it **is** one of the
+appointments already on the card that day, which would otherwise write the same thing twice, one line
+under the other. How much a deadline matters is the list's answer: an entry carries no priority of its
+own.
+
+Two of those are newer than the rest. **The phone gained the deadlines on 2026-09-15**
+(`DashboardViewModel.DeadlinesComingUp`), and there a sealed list is skipped as well, its entries being
+sealed with it, and a private one while private things are locked - a deadline names the list it is on.
+**Both cards learnt the same day not to write an entry twice**: the editor has a date field and an
+appointment, nothing stops somebody filling in both, and until then the card drew the same words from
+the same list at two times nobody had said were different. On any other day the deadline stays, because
+nothing else on the card stands for it there and hiding it would lose it rather than tidy it.
+
+**The phone offers the same five** on the account screen's Preferences tab and applies them to
+its own card (`UpcomingHorizon`, `DashboardViewModel.IsInsideTheHorizon`), kept in that phone's
+preferences rather than shared with the browser - a horizon is how one screen is read on one device, the
+same as the theme beside it. A horizon that empties the card leaves the card where it was, as a filter
+that empties one does: it is the account having nothing coming up that takes a card off the page.
 
 **An event a task list raised is named after the list**, "Health: Dentist", the way a deadline on that
 list already was. This card gathers things from everywhere, so a row that does not say where it came
@@ -4424,25 +4944,45 @@ actually deliver on a channel the account has turned off.
 **The feed itself.** `NotificationEntry` (`Id, UserId, Kind, Title, Body, Url?, CreatedAtUtc, ReadAtUtc?`)
 is a flat, reverse-chronological list per user — `GET /api/notifications` returns the most recent 30,
 `GET /api/notifications/unread` the unread ones (which is what the per-source badges are computed from),
-`POST /api/notifications/read` marks everything read at once, `DELETE /api/notifications` empties the feed (there's no per-entry read state exposed anywhere, matching "opening the panel clears the
-badge" rather than tracking which individual entries were seen). `Kind` is `PushReminder` or
+`POST /api/notifications/read` marks everything read at once, `POST /api/notifications/read-at` marks
+read whatever pointed at one address, and `DELETE /api/notifications` empties the feed. `Kind` is `PushReminder` or
 `ChatMessage`, mostly for the client to render slightly differently later; `Url` is the same in-app deep
 link (`/tasks/{id}`, `/calendar/{id}`, `/chat/{userId}`, ...) the corresponding push notification's own
 payload already carries.
 
 **Client (`MainLayout.razor`).** The avatar gets a small unread-count badge (`FormatUnreadCount`: hidden
 at 0, the number at 1–9, "9+" above that) and a new "Notifications" entry next to "Log out" in the
-dropdown. Opening it loads the recent feed, calls `POST /api/notifications/read`, and zeros the badge
-immediately rather than waiting for the next poll tick. Clicking a feed row that carries a `Url`
-navigates there, so the panel reaches the same destination the corresponding push notification would.
+dropdown.
+
+**Opening the panel is not reading what is in it.** It used to mark every entry read on arrival, so a
+glance at the bell to see whether anything had happened was the thing that lost the answer, and the one
+entry somebody meant to come back to was as read as the rest. **An entry is read by reaching what it is
+about**, and there are three ways to do that, all of them the same rule (`NewsSettler`, and
+`NotificationFeedState.UnreadUrlsSettledBy` for what "reach" means):
+
+- **pressing the entry**, which settles it before the page it points at even opens, so the badge and the
+  marks on the cards it is about (`HasNewsAbout`, `.row-unseen`) go at the press rather than on arrival;
+- **opening that thing any other way** - every navigation settles what the address reaches, so a task
+  list's notification is read by opening the list;
+- **either depth of it**, since an address settles the one it sits under: a notification points at the
+  shallow page (`/tasks/{id}`, `/notes/{id}`, `/calendar/{id}`, `/inventory/{id}` - every reminder
+  builder writes that form), and `/tasks/{id}/edit` settles it too.
+
+**Reading them all at once is a press of its own** - "Mark all read" on the notifications page, beside
+Delete history, which is the arrangement the phone already had
+(`NotificationFeedViewModel.MarkEverythingRead`). Read and cleared stay different things, as the server
+keeps them: read means "I have seen these", cleared means "take them out of my way".
 
 **Desktop opens a popup; a phone opens a page.** A 320px panel anchored to the mobile top bar leaves
 almost nothing readable, so on that breakpoint the entry navigates to `/notifications`
 (`Notifications.razor`) instead — the same decision the logo makes when it becomes a Dashboard shortcut
 (`OrbitViewport.isMobile`, the one place both CSS and Blazor read the breakpoint). Both forms render the
-same `NotificationList` component and offer the same **Clear**, which empties the server feed *and* this
-browser's captured errors, because the panel presents them as one list and clearing half would look
-broken. Clear discards rather than marks read — it is about getting rid of the list, not the badge.
+same `NotificationList` component and offer the same **Delete history**, which empties the server feed
+*and* this browser's captured errors, because the panel presents them as one list and clearing half would
+look broken. It discards rather than marks read — it is about getting rid of the list, not the badge —
+and it says so: it used to read "Clear", which sounds like tidying a list away rather than deleting
+entries nothing brings back. **The phone's feed menu says the same thing** as of 2026-09-15; it was
+renamed on the browser alone and kept the old word for a day.
 
 **Badges mark where a notification came from, not just that one arrived.** The 10-second poll fetches the
 unread *entries* (`GET /api/notifications/unread`) rather than a bare count and puts them in

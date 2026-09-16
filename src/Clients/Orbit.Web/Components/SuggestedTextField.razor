@@ -1,4 +1,5 @@
 @using Orbit.Web.Services
+@using Orbit.Core.Text
 
 @* One word, with the ones already used listed under the box. TagField's single-valued sibling: same
    panel, same keys, no chips and no "+", because the field it is used for has exactly one answer - what
@@ -91,8 +92,7 @@
 
     private IReadOnlyList<string> OfferedNow()
         => [.. Known
-            .Where(value => Value.Trim().Length == 0
-                || value.Contains(Value.Trim(), StringComparison.CurrentCultureIgnoreCase))
+            .Where(value => LooseText.Holds(value, Value))
             .Take(UsedValueBrowser.Most)];
 
     private string Next(IReadOnlyList<string> offered, int by)

@@ -1,0 +1,94 @@
+@using Orbit.Core.Folders
+@using Orbit.Web.Services
+@inject FolderState Folders
+@inject Translations T
+
+@* The bar over a list while cards are being chosen - what the user asked for as "select several notes,
+   lists, events or shelves and then file them into a folder or put them away". It says how many are
+   chosen, offers the two things that can be done to all of them at once, and carries the way out.
+
+   Drawn only while the page is choosing, and above the cards rather than fixed to the foot: it belongs
+   to the list it is acting on, and a bar at the bottom of a long page is a bar nobody sees until they
+   have scrolled past everything it was about. *@
+@if (Picked.IsPicking)
+{
+    <div class="picked-bar" role="toolbar" aria-label="@T["What to do with the chosen ones"]">
+        <span class="picked-bar-count">@T.Format("{0} chosen", Picked.Count.ToString())</span>
+
+        @* The same press means both things and says which by what is chosen - see PickedThings.ToggleAll. *@
+        <button type="button" class="btn-secondary" @onclick="OnAllToggled">@T["All of them"]</button>
+
+        @* Where they go. Built-in folders are not offered: a thing is put back into one by being taken
+           out of the folder it is in, which "No folder" is - see FolderPlacement. *@
+        @* Drawn afresh after every choice (see _choices): the value it is bound to never changes, so
+           Blazor left the browser's own selection standing, and choosing the same folder for the next
+           cards fired no change at all. *@
+        <select @key="_choices" value="" disabled="@(!Picked.HasAny || IsWorking)" @onchange="OnFolderChosenAsync"
+                aria-label="@T["Move to folder"]">
+            <option value="" disabled selected>@T["Move to folder"]</option>
+            <option value="@NoFolder">@T["No folder"]</option>
+            @foreach (var folder in Folders.FoldersOn(Page))
+            {
+                <option value="@folder.Id">@folder.Name</option>
+            }
+        </select>
+
+        @* Archive or Put back, by what is chosen: all of them already away means the press brings them
+           back, anything else puts them away. Named for what it will do rather than offered twice. *@
+        @if (OnArchive.HasDelegate)
+        {
+            <button type="button" class="btn-secondary" disabled="@(!Picked.HasAny || IsWorking)"
+                    @onclick="() => OnArchive.InvokeAsync(!EveryChosenOneIsAway)">
+                @(EveryChosenOneIsAway ? T["Put back"] : T["Archive"])
+            </button>
+        }
+
+        @* Its own words rather than "Done", which in this app already means "ticked off" and would read
+           as an answer about the cards rather than about the mode. *@
+        <button type="button" class="btn-secondary picked-bar-done" @onclick="OnStopped">@T["Stop selecting"]</button>
+    </div>
+}
+
+@code {
+    /// <summary>Stands for "take them out of whatever folder they are in" in the picker above.</summary>
+    private const string NoFolder = "none";
+
+    [Parameter, EditorRequired] public PickedThings Picked { get; set; } = new();
+
+    /// <summary>Which page's folders the picker offers - see FolderState.FoldersOn.</summary>
+    [Parameter, EditorRequired] public FolderPage Page { get; set; }
+
+    /// <summary>
+    /// Whether every chosen card is already put away, which is what names the archive button. Worked
+    /// out by the page, which is the only thing holding the cards themselves.
+    /// </summary>
+    [Parameter] public bool EveryChosenOneIsAway { get; set; }
+
+    /// <summary>While a round of presses is still going out, so a second press cannot start another.</summary>
+    [Parameter] public bool IsWorking { get; set; }
+
+    /// <summary>Filing all of them - null for "no folder at all".</summary>
+    [Parameter] public EventCallback<Guid?> OnFiled { get; set; }
+
+    /// <summary>Putting them away, or bringing them back - the bar says which it is asking for.</summary>
+    [Parameter] public EventCallback<bool> OnArchive { get; set; }
+
+    [Parameter] public EventCallback OnAllToggled { get; set; }
+
+    [Parameter] public EventCallback OnStopped { get; set; }
+
+    /// <summary>How many folders have been chosen here, which keys the picker so each choice gets a new one.</summary>
+    private int _choices;
+
+    private Task OnFolderChosenAsync(ChangeEventArgs args)
+    {
+        _choices++;
+        var chosen = args.Value?.ToString();
+        return chosen switch
+        {
+            null or "" => Task.CompletedTask,
+            NoFolder => OnFiled.InvokeAsync(null),
+            _ => Guid.TryParse(chosen, out var folderId) ? OnFiled.InvokeAsync(folderId) : Task.CompletedTask
+        };
+    }
+}

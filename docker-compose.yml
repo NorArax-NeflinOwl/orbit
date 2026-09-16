@@ -114,8 +114,14 @@ services:
       Vapid__PublicKeyBase64Url: "${VAPID_PUBLIC_KEY:-}"
       Vapid__PrivateKeyBase64Url: "${VAPID_PRIVATE_KEY:-}"
       Vapid__Subject: "${VAPID_SUBJECT:-}"
+      # A note's pictures. Locally a directory on a named volume, so they survive a rebuild the way the
+      # database does; on Azure a storage account's connection string instead (see .env.example), which
+      # makes NotePictures__Directory irrelevant there.
+      NotePictures__Directory: "/app/pictures"
+      NotePictures__ConnectionString: "${NOTE_PICTURES_CONNECTION_STRING:-}"
     volumes:
       - orbit-api-logs:/app/logs
+      - orbit-api-pictures:/app/pictures
       # Read-only, and the whole directory rather than the single file: Docker creates a *directory*
       # in place of a bind source that does not exist, so naming the file would leave a stray one
       # behind on any checkout without a key.
@@ -161,6 +167,7 @@ services:
         condition: service_healthy
 
 volumes:
+  orbit-api-pictures:
   orbit-postgres-data:
   orbit-api-logs:
   orbit-web-certs:

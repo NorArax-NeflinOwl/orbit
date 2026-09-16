@@ -277,6 +277,44 @@ public sealed class TaskListSyncTests
         Assert.Equal("Edited on the phone", (await context.TaskLists.GetAllAsync()).Single().Title);
     }
 
+    /// <summary>
+    /// An edit the server will not take is dropped - and so is what it did to this phone's copy. Seen on a
+    /// device: a link the server refused as a loop stayed on the phone's list for good, because a refusal
+    /// leaves the server's row unchanged and a pull of what changed never brought it back. Nobody else
+    /// could see that entry, and nothing on the phone said it was not saved anywhere.
+    /// </summary>
+    [Fact]
+    public async Task An_edit_the_server_refuses_gives_way_to_the_servers_version()
+    {
+        using var context = new TaskContext();
+        var shopping = await context.TaskLists.CreateAsync("Shopping", [Entry("Milk")]);
+        var today = await context.TaskLists.CreateAsync("Today", [Entry("Post a letter")]);
+        await context.SynchroniseAsync();
+        var shoppingServerId = (await context.TaskLists.FindAsync(shopping.LocalId))!.ServerId!.Value;
+        var todayServerId = (await context.TaskLists.FindAsync(today.LocalId))!.ServerId!.Value;
+        // Time passes between syncs, as it does on a phone: with the clock standing still every pull
+        // brings every row, and the refused one comes back by accident.
+        context.Clock.Advance(TimeSpan.FromMinutes(1));
+
+        await context.TaskLists.UpdateAsync(
+            today.LocalId, new TaskListContent("Today", [Entry("Post a letter"), Entry("The shopping", shoppingServerId)], IsGroup: true, "Normal"));
+        await context.SynchroniseAsync();
+        context.Clock.Advance(TimeSpan.FromMinutes(1));
+
+        // Shopping pointing back at Today closes a loop, which the server refuses.
+        await context.TaskLists.UpdateAsync(
+            shopping.LocalId, new TaskListContent("Shopping", [Entry("Milk"), Entry("Today's errands", todayServerId)], IsGroup: true, "Normal"));
+        var result = await context.SynchroniseAsync();
+
+        Assert.Equal(1, result.GivenUp);
+        var stored = (await context.TaskLists.FindAsync(shopping.LocalId))!;
+        Assert.Equal(["Milk"], stored.Items.Select(item => item.Description));
+        Assert.False(stored.IsGroup);
+    }
+
+    private static TaskItemDto Entry(string description, Guid? standsFor = null)
+        => new(Guid.NewGuid(), description, null, false, standsFor, "None", false, "None", new TimeOnly(9, 0));
+
     [Fact]
     public async Task A_list_created_and_deleted_before_ever_syncing_is_never_sent_at_all()
     {

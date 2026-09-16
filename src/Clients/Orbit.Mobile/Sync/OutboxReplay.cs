@@ -18,7 +18,9 @@ public enum SendResult
 
     /// <summary>
     /// The server took the request and would not have it. Dropped like <see cref="Abandoned"/>, and the
-    /// next pull restores its version - but somebody's edit went with it, so this one is said out loud.
+    /// next pull restores its version - a full one, since a refusal leaves the server's row unchanged and
+    /// a pull of what changed would never bring it (see SyncCursors.ForgetAsync) - but somebody's edit went
+    /// with it, so this one is said out loud.
     /// </summary>
     Refused
 }
@@ -90,6 +92,7 @@ public static class OutboxReplay
                 if (result is SendResult.Refused)
                 {
                     AnnounceAsDropped(dbContext, entry, timeProvider);
+                    await SyncCursors.ForgetAsync(dbContext, entityType, cancellationToken);
                 }
 
                 givenUp++;
@@ -195,6 +198,7 @@ public static class OutboxReplay
                 "Giving up on a queued {Operation} for {EntityType} {LocalId} after {Attempts} attempts",
                 entry.Operation, entry.EntityType, entry.LocalId, entry.FailedAttempts);
             AnnounceAsDropped(dbContext, entry, timeProvider);
+            await SyncCursors.ForgetAsync(dbContext, entry.EntityType, cancellationToken);
             givenUp = 1;
         }
 

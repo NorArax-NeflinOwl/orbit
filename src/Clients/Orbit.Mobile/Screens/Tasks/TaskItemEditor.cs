@@ -187,6 +187,25 @@ public sealed partial class TaskItemEditor : ObservableObject
     /// <summary>Whether anything is named at all, which is what the row of names hangs off.</summary>
     public bool IsALinkToOtherLists => LinkedTaskLists.Count > 0;
 
+    /// <summary>
+    /// Whether every list this entry stands for has to be done before it is, or any one of them is
+    /// enough - see TaskItem.NeedsEveryLinkedList. Any one of them unless this is set, which is the
+    /// user's rule settled 2026-09-14: one entry for two ways of getting a thing is what somebody
+    /// usually means by writing it once.
+    ///
+    /// Kept whatever the entry arrives with, and sent back as it stands. An entry that has dropped to
+    /// one list keeps the answer it was given, exactly as Orbit.Web leaves it - the question stops being
+    /// asked, not answered again.
+    /// </summary>
+    [ObservableProperty]
+    private bool _needsEveryLinkedList;
+
+    /// <summary>
+    /// Whether the question above is worth asking: with one list it has one answer. Orbit.Web draws its
+    /// own tick box on the same terms.
+    /// </summary>
+    public bool CanChooseHowManyListsAreNeeded => LinkedTaskLists.Count > 1;
+
     /// <summary>Nothing to point at is nothing to offer - a phone with one list needs no picker.</summary>
     public bool CanBeLinked => LinkableTaskLists.Count > 1;
 
@@ -227,6 +246,7 @@ public sealed partial class TaskItemEditor : ObservableObject
         OnPropertyChanged(nameof(IsALinkToOtherLists));
         OnPropertyChanged(nameof(LinkableTaskListsLeft));
         OnPropertyChanged(nameof(CanHaveWays));
+        OnPropertyChanged(nameof(CanChooseHowManyListsAreNeeded));
     }
 
     /// <summary>
@@ -248,6 +268,13 @@ public sealed partial class TaskItemEditor : ObservableObject
     public IReadOnlyList<TaskListChoice> WayListsLeft
         => [.. LinkableTaskLists.Where(choice =>
             choice.ServerId is not null && Ways.All(way => way.ListServerId != choice.ServerId))];
+
+    /// <summary>
+    /// Whether that picker has anything to offer. Hidden when it has not, the way the lists to stand for
+    /// are (see <see cref="CanBeLinked"/>): an empty picker opens onto a blank sheet, which reads as broken -
+    /// and since the loop rule (Orbit.Core.Tasks.TaskListLinks) leaves lists out, an empty one is ordinary.
+    /// </summary>
+    public bool HasWayListsLeft => WayListsLeft.Count > 0;
 
     /// <summary>A new line of its own, blank, for the reader to type into. One left blank is not saved.</summary>
     [RelayCommand]
@@ -287,6 +314,7 @@ public sealed partial class TaskItemEditor : ObservableObject
         OnPropertyChanged(nameof(HasWays));
         OnPropertyChanged(nameof(CanStandForLists));
         OnPropertyChanged(nameof(WayListsLeft));
+        OnPropertyChanged(nameof(HasWayListsLeft));
     }
 
     /// <summary>The ways as they are saved: none on an entry standing for lists, and none left blank.</summary>
@@ -721,6 +749,9 @@ public sealed partial class TaskItemEditor : ObservableObject
                 : item.DailyReminderTimeOfDay.ToTimeSpan(),
             // Opened on the time it was done, or on now for a done entry nobody kept one for - which is
             // not sent unless it is changed, see CompletedAtUtcAsChosen.
+            // Whichever rule the entry already carries - see NeedsEveryLinkedList. An entry made in a
+            // browser can arrive needing all of them, and this form has to give it back that way.
+            NeedsEveryLinkedList = item.NeedsEveryLinkedList,
             CompletedOn = (item.CompletedAtUtc?.LocalDateTime ?? DateTime.Now).Date,
             CompletedAt = (item.CompletedAtUtc?.LocalDateTime ?? DateTime.Now) is var completedLocal
                 ? new TimeSpan(completedLocal.Hour, completedLocal.Minute, 0)
@@ -821,6 +852,9 @@ public sealed partial class TaskItemEditor : ObservableObject
             // phone would quietly drop the rest of an entry standing for several.
             LinkedTaskListId = null,
             LinkedTaskListIds = [.. LinkedTaskLists.Select(linked => linked.ServerId!.Value)],
+            // As the form now says it, which for an entry standing for one list or none is whatever it
+            // arrived with - see NeedsEveryLinkedList.
+            NeedsEveryLinkedList = NeedsEveryLinkedList,
             // The ways as this form now says them, and the tick they give the entry - see WaysAsSaved.
             Alternatives = WaysAsSaved(),
             IsCompleted = IsCompletedAsSaved(),

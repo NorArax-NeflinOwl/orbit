@@ -13,7 +13,7 @@ public sealed class UpdateNoteCommandHandlerTests
         InMemoryNoteRepository noteRepository, InMemoryNoteShareRepository? noteShareRepository = null, InMemoryUserRepository? userRepository = null)
         => new(
             new NoteAccessResolver(noteRepository, noteShareRepository ?? new InMemoryNoteShareRepository(), userRepository ?? new InMemoryUserRepository()),
-            noteRepository);
+            noteRepository, new InMemoryNotePictureRepository(), new InMemoryNotePictureStore());
 
     [Fact]
     public async Task HandleAsync_changes_the_priority_along_with_the_rest()

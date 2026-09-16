@@ -92,11 +92,14 @@ public sealed partial class TasksViewModel : ObservableObject
     /// <summary>
     /// What an empty screen means, which is not the same thing twice: a page narrowed away by a search
     /// is changed by typing something else, and one with nothing on it at all by making a list. Saying
-    /// "no task lists yet" to somebody holding six of them reads as having lost them.
+    /// "no task lists yet" to somebody holding six of them reads as having lost them - which is also what
+    /// a folder tab with nothing under it said, until an empty Archived tab was read that way on a device.
     /// </summary>
     public string NothingHereMessage => _itemFilter.IsActive
         ? _translations["Nothing on any list matches that."]
-        : _translations["No task lists yet."];
+        : _stored.Count > 0
+            ? _translations["Nothing in this folder."]
+            : _translations["No task lists yet."];
 
     /// <summary>
     /// Only worth asking once two are chosen: with one, "any of them" and "all of them" are the same
@@ -283,7 +286,14 @@ public sealed partial class TasksViewModel : ObservableObject
         await ShowStoredListsAsync(cancellationToken);
     }
 
-    private async Task ShowStoredListsAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Draws the lists from what is on the phone, asking the server nothing.
+    ///
+    /// Public for one caller beyond this class: the page calls it when a sync that nobody on this
+    /// screen asked for has brought something down, so a screen left open stops showing what it was
+    /// shown when it was opened - see PeriodicSync and SyncState.BroughtSomethingNew.
+    /// </summary>
+    public async Task ShowStoredListsAsync(CancellationToken cancellationToken)
     {
         var stored = await _taskLists.GetAllAsync(cancellationToken);
         var pending = await _taskLists.GetPendingLocalIdsAsync(cancellationToken);
@@ -304,7 +314,7 @@ public sealed partial class TasksViewModel : ObservableObject
 
     /// <summary>Which folder one list is under - see FolderTabs.Where, and FolderPlacement.</summary>
     private FolderKey Where(LocalTaskList taskList)
-        => Folders.Where(taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted);
+        => Folders.Where(taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted, taskList.IsArchived);
 
     /// <inheritdoc cref="Notes.NotesViewModel.ChooseFolderAsync"/>
     [RelayCommand]

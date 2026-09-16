@@ -9,12 +9,22 @@ namespace Orbit.Core.Folders;
 /// to know which page it belongs on - a tab that only appeared once somebody had filed something
 /// under it could never be filed into in the first place.
 ///
-/// The dashboard has no scope of its own: it shows notes and task lists side by side, so it draws both
-/// scopes' tabs and offers no way to make a folder, there being no dashboard card to file into one.
+/// The dashboard has no scope of its own: it shows the cards of several kinds side by side, so it draws
+/// their tabs and offers no way to make a folder, there being no dashboard card to file into one.
 /// See Orbit.Web.Services.FolderPage, which is that distinction on the client.
+///
+/// Stored by name (OP_F_SCOPE), so the order here is not a contract and a new kind is added at the end
+/// without touching a single stored row - see FolderRepository, which reads a name it does not know as
+/// Tasks rather than failing.
 /// </summary>
 public enum FolderScope
 {
     Notes,
-    Tasks
+    Tasks,
+
+    /// <summary>A tab on the calendar, holding events - added 2026-09-15, the same shape as the two above.</summary>
+    Calendar,
+
+    /// <summary>A tab on the inventories, holding shelves.</summary>
+    Inventories
 }

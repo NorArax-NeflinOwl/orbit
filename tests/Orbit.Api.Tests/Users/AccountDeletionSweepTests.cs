@@ -104,7 +104,7 @@ public sealed class AccountDeletionSweepTests : IDisposable
     /// <summary>Every entity type this test plants a row in - kept beside the seeding so the two can't drift.</summary>
     private static readonly string[] SeededEntityTypeNames =
     [
-        nameof(NoteEntity), nameof(TaskEntity), nameof(FolderEntity), nameof(PlaceEntity), nameof(CalendarEventEntity), nameof(InventoryEntity),
+        nameof(NoteEntity), nameof(NotePictureEntity), nameof(TaskEntity), nameof(FolderEntity), nameof(PlaceEntity), nameof(CalendarEventEntity), nameof(InventoryEntity),
         nameof(RefreshTokenEntity), nameof(PushSubscriptionEntity), nameof(NotificationSettingsEntity), nameof(TagColourEntity),
         nameof(NotificationEntryEntity), nameof(UserVerificationCodeEntity), nameof(ChatGroupMemberEntity),
         nameof(DiagnosticLogEntryEntity), nameof(SyncTombstoneEntity), nameof(UserPermissionEntity),
@@ -115,7 +115,15 @@ public sealed class AccountDeletionSweepTests : IDisposable
     private async Task SeedEverythingOwnedByAsync(Guid userId)
     {
         var now = DateTimeOffset.UtcNow;
-        _dbContext.Notes.Add(new NoteEntity { Id = Guid.NewGuid(), UserId = userId, Title = "Note", ContentJson = "[]", CreatedAtUtc = now, UpdatedAtUtc = now });
+        var noteId = Guid.NewGuid();
+        _dbContext.Notes.Add(new NoteEntity { Id = noteId, UserId = userId, Title = "Note", ContentJson = "[]", CreatedAtUtc = now, UpdatedAtUtc = now });
+        // On the note above, and owned by the same account - which is the column this one is found by:
+        // nothing cascades a picture row, so it outlived the account until 2026-09-15.
+        _dbContext.NotePictures.Add(new NotePictureEntity
+        {
+            Id = Guid.NewGuid(), NoteId = noteId, OwnerUserId = userId, SizeBytes = 12,
+            ContentType = "image/png", IsSealed = false, CreatedAtUtc = now
+        });
         _dbContext.Tasks.Add(new TaskEntity { Id = Guid.NewGuid(), UserId = userId, Title = "Tasks", CreatedAtUtc = now, UpdatedAtUtc = now });
         _dbContext.Folders.Add(new FolderEntity { Id = Guid.NewGuid(), UserId = userId, Name = "Work", CreatedAtUtc = now, UpdatedAtUtc = now });
         _dbContext.Places.Add(new PlaceEntity { Id = Guid.NewGuid(), UserId = userId, Name = "Bakery", CreatedAtUtc = now, UpdatedAtUtc = now });
@@ -151,6 +159,7 @@ public sealed class AccountDeletionSweepTests : IDisposable
     private async Task<IReadOnlyList<(string Table, int Remaining)>> CountRowsPerTableAsync(Guid userId) =>
     [
         (nameof(_dbContext.Notes), await _dbContext.Notes.CountAsync(row => row.UserId == userId)),
+        (nameof(_dbContext.NotePictures), await _dbContext.NotePictures.CountAsync(row => row.OwnerUserId == userId)),
         (nameof(_dbContext.Tasks), await _dbContext.Tasks.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.Places), await _dbContext.Places.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.CalendarEvents), await _dbContext.CalendarEvents.CountAsync(row => row.UserId == userId)),

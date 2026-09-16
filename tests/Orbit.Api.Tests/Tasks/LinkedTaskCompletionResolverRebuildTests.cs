@@ -148,7 +148,11 @@ public sealed class LinkedTaskCompletionResolverRebuildTests
     {
         var taskList = TaskList.FromPersistence(
             Guid.NewGuid(), Guid.NewGuid(), "Everything",
-            [TaskItem.Create("A thing to do", new DateTimeOffset(2026, 9, 1, 10, 0, 0, TimeSpan.Zero), isCompleted: true)],
+            [
+                TaskItem.Create("A thing to do", new DateTimeOffset(2026, 9, 1, 10, 0, 0, TimeSpan.Zero), isCompleted: true),
+                // An entry pointing at a list, so GathersOtherLists is not at its default either.
+                TaskItem.Create("Another list", null, false, linkedTaskListIds: [Guid.NewGuid()])
+            ],
             isGroup: true, isPrivate: false, new EncryptedPayload("c2VhbGVk", "bm9uY2U="),
             createdAtUtc: new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
             updatedAtUtc: new DateTimeOffset(2026, 2, 2, 0, 0, 0, TimeSpan.Zero),
@@ -156,7 +160,7 @@ public sealed class LinkedTaskCompletionResolverRebuildTests
             lockExpiresAtUtc: new DateTimeOffset(2026, 3, 3, 0, 0, 0, TimeSpan.Zero),
             ItemPriority.High, isPinned: true, linkedInventoryId: Guid.NewGuid(),
             description: "What this list is for", folderId: Guid.NewGuid(),
-            completion: TaskListCompletion.Finished, tags: ["home", "weekly"]);
+            completion: TaskListCompletion.Finished, tags: ["home", "weekly"], isArchived: true);
         taskList.SetAccessContext(isShared: true, sharedByUserName: "anna", ShareAccessLevel.ReadOnly);
         // Every field set to something other than its default, or the walk below compares two defaults
         // and passes on a field the rebuild drops - which is how Description and IsSharedWithOthers both

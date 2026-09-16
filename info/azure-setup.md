@@ -8,6 +8,10 @@ Resource group `Orbit`, region Poland Central throughout.
 it never sets configuration. Everything on this page has to be set up once, outside the pipeline, by
 hand or by running the commands below - and reconfirmed if a resource is ever recreated.
 
+Two neighbouring pages: [Cost limits](#cost-limits) below is what keeps the bill bounded, and
+[azure-security.md](azure-security.md) is what Defender for Cloud wants changed, what of it is worth
+buying at this budget, and what is deliberately left as it is.
+
 ## Resource inventory
 
 | Resource | Type | Purpose |
@@ -24,6 +28,13 @@ hand or by running the commands below - and reconfirmed if a resource is ever re
 Each Container App also has its own **system-assigned managed identity** (separate from
 `identity-orbit`), used to pull images from `orbitcontainerregistry` without a stored registry
 password - visible as `"identity": "system"` under each app's `registries` config.
+
+Three more objects belong to this deployment and are deliberately not in the table, because none of
+them bills: the `orbit-monthly-budget` consumption budget, which sits on the subscription rather than
+in the resource group; the `orbit-cost-alerts` action group it notifies; and `orbit-automation`, the
+free-tier Automation account whose one runbook writes the mails those notifications turn into. They
+are what keeps the bill from running away unnoticed - see [Cost limits](#cost-limits) for what they do,
+what they emphatically do not do, and how to check they still exist.
 
 ## How the pieces talk to each other
 
@@ -199,8 +210,12 @@ az containerapp secret set -n orbit-api -g Orbit \
 az containerapp update -n orbit-api -g Orbit --set-env-vars \
   "Jwt__SigningKey=secretref:jwt-signing-key"
 
+# Ssl Mode=VerifyFull, and no "Trust Server Certificate": under Npgsql 10 that trust setting is what
+# switches certificate verification off, leaving a connection that is encrypted without proving who
+# answered. See info/azure-security.md - the deployment this was written on may still carry the old
+# value, which cannot be read back out of the secret.
 az containerapp secret set -n orbit-api -g Orbit \
-  --secrets orbit-db-connection-string="Host=$PG_SERVER_NAME.postgres.database.azure.com;Port=5432;Database=orbit;Username=orbitadmin;Password=$PG_PASSWORD;Ssl Mode=Require;Trust Server Certificate=true"
+  --secrets orbit-db-connection-string="Host=$PG_SERVER_NAME.postgres.database.azure.com;Port=5432;Database=orbit;Username=orbitadmin;Password=$PG_PASSWORD;Ssl Mode=VerifyFull"
 az containerapp update -n orbit-api -g Orbit --set-env-vars \
   "ConnectionStrings__Orbit=secretref:orbit-db-connection-string"
 
@@ -369,6 +384,36 @@ az storage account create -n orbitdownloads -g Orbit -l polandcentral --sku Stan
 az storage container create --account-name orbitdownloads -n apps --public-access blob
 ```
 
+### 7a. Where a note's pictures are kept
+
+**Not the account above.** `orbitdownloads` has public blob access on and its `apps` container is
+anonymous-read *on purpose*, to hand out the APK - the last place for somebody's photographs, sealed or
+not. Pictures in notes (2026-09-14, see `info/functionality.md`) want an account of their own with public
+access **off**, read only through the API. **Not yet created**: the user asked to be shown the command
+before it is run, per rule 6 in `.claude/CLAUDE.md`. Until it exists the API falls back to a directory
+(`NotePictures:Directory`), which on Azure is inside the container and lost on the next revision.
+
+```bash
+az storage account create -n orbitnotepictures -g Orbit -l polandcentral --sku Standard_LRS \
+  --kind StorageV2 --allow-blob-public-access false --min-tls-version TLS1_2
+az storage container create --account-name orbitnotepictures -n note-pictures --public-access off
+```
+
+The API reaches it by connection string, which is a secret and goes in as a Container App secret the
+way `Jwt__SigningKey` does - never into `appsettings*.json` or a workflow file:
+
+```bash
+az containerapp secret set -n orbit-api -g Orbit \
+  --secrets note-pictures-connection="$(az storage account show-connection-string -n orbitnotepictures -g Orbit -o tsv)"
+az containerapp update -n orbit-api -g Orbit \
+  --set-env-vars NotePictures__ConnectionString=secretref:note-pictures-connection
+```
+
+Standard_LRS, because a picture in a note is worth exactly one copy in one region, and the account bills
+per GB stored plus per operation - pennies a month at the scale of a few accounts, which is still money
+and still the user's to say yes to. The container is created by the API on first use as well, so the
+second command is belt and braces.
+
 Then give the release workflow somewhere to put the file, as repository *variables* rather than secrets
 (neither value is one):
 
@@ -416,6 +461,412 @@ which writes them into the client's `appsettings.json` when the container starts
 than credentials, and they are deliberately not committed: they land in a file every visitor can
 download, so the resource path lives in the deployment's own configuration rather than in the
 repository. Following one still needs a portal sign-in with rights to that resource.
+
+## Cost limits
+
+Two numbers govern this subscription: **10 € a month is a warning, 20 € a month is the ceiling** - and
+three mails carry them, each saying what to do rather than only what the number is. Setting that up is
+the rest of this section, and the first thing to understand is that Azure enforces none of it.
+
+**A budget does not stop anything.** On a pay-as-you-go subscription there is no spending cap to turn
+on: the "spending limit" Azure documents belongs to credit-based offers (free trial, Azure for
+Students, Visual Studio credit), where it exists because there is a credit to run out of. Here there is
+a card, and a budget is a *notification* resource - it watches the running total, fires at the
+thresholds it was given, and lets the meter keep running. So the 20 € ceiling is enforced by the
+person reading the mail and running the commands in it, which are the ones
+[`scripts/stop-azure-compute.sh`](../scripts/stop-azure-compute.sh) runs.
+
+**And the total it watches is stale.** Pay-as-you-go usage is rated in batches, and a charge can take
+most of a day to appear in Cost Management - so the mail saying "20 €" is really saying "20 € as of
+some hours ago". Whatever this deployment burns in those hours is spent before anybody is told. That is
+the reason for the fourth, plainer notification below, which fires on the projected end-of-month total
+rather than the current one, and is the only one that arrives in time to act on calmly.
+
+### The three mails
+
+Azure's own budget mail is a number and a link. The mails asked for here carry the commands, so they
+are written by a runbook in an Automation account -
+[`scripts/send-cost-instruction-mail.ps1`](../scripts/send-cost-instruction-mail.ps1) - which the budget's
+action group calls, and which a daily schedule calls again for the third one:
+
+| When | What the mail says | Who writes it |
+| --- | --- | --- |
+| 10 € spent | Halfway to the ceiling: where to look for the reason, and that the next mail carries the stop commands | the runbook, called by the action group |
+| 20 € spent | The five commands that stop the spending, with the real server name filled in, and `scripts/stop-azure-compute.sh` as the short form | the runbook, called by the action group |
+| Last day of the month, **only if something is still stopped** | What is stopped, and the commands that bring it back before the counter resets tomorrow | the runbook, from its daily schedule |
+| Forecast says the month will reach 20 € | Azure's own plain mail - no commands, but early | the budget itself |
+
+"Only if something is still stopped" is how "if the shutdown mail came" is read here, and on purpose:
+the runbook looks at the deployment rather than remembering a mail, so a shutdown mail nobody acted on
+produces no reminder (there is nothing to resume), and a stop done by hand without the mail still gets
+one. It checks the PostgreSQL server's state and both apps' ingress, because Azure restarts a stopped
+Flexible Server by itself after seven days and the apps do not come back with it.
+
+**The runbook never stops or starts anything.** Its identity holds Reader on the resource group and
+nothing more, so it could not; the person holding the card stays the one who runs the commands. Making
+it act is a decision recorded in [Future Plan — Deployment](future-plan.md#deployment), not a default.
+
+### First, check what currency the subscription bills in
+
+A budget's amount carries no currency of its own: it is denominated in the subscription's billing
+currency, whatever that is, and the amounts below assume that is **EUR**.
+
+```bash
+az consumption usage list --top 1 --query "[0].currency" -o tsv
+```
+
+`EUR` back means the numbers below are used as they are. Anything else means converting 10 € and 20 €
+into that currency first, and writing the rate and date next to the amounts, because the ceiling then
+drifts with the exchange rate. The portal says the same thing under **Cost Management + Billing →
+Billing scopes → Properties**.
+
+### Second, check what the deployment already costs
+
+A ceiling below the running cost is a monthly outage, not a limit. Before creating anything, get last
+full month's bill broken down by resource:
+
+```bash
+az consumption usage list --start-date 2026-08-01 --end-date 2026-08-31 \
+  --query "[].[instanceName, pretaxCost, currency]" -o tsv | awk -F'\t' '
+    { split($1, segments, "/"); total[segments[length(segments)]] += $2; sum += $2; currency = $3 }
+    END { for (resource in total) printf "%10.2f %s  %s\n", total[resource], currency, resource
+          printf "%10.2f %s  TOTAL\n", sum, currency }' | sort -rn
+```
+
+It takes a while - the Consumption API pages through every usage record of the month - and the TOTAL
+line sorts to the top. What to expect from it, at list prices and in rough order of size:
+
+| What bills | Why it bills | Can the stop commands reach it? |
+| --- | --- | --- |
+| Container Apps vCPU-seconds and GiB-seconds | `orbit-api` runs at `min-replicas 1`, so it bills around the clock even with nobody using Orbit - very likely the largest line. The consumption plan's monthly free grant (180,000 vCPU-seconds, 360,000 GiB-seconds) covers only the first days of one always-on replica, and how many days depends on what the app was created with: `az containerapp show -n orbit-api -g Orbit --query "properties.template.containers[0].resources"`. | **Yes** - to zero. |
+| PostgreSQL Flexible Server compute (`Standard_B1ms`) | Always on unless stopped. | **Yes** - compute only. |
+| PostgreSQL storage and backups (32 GB) | Billed whether the server is running or stopped. | No. |
+| `orbitcontainerregistry` (Basic) | A flat daily charge for the registry existing, independent of pushes or pulls. | No. |
+| Log Analytics ingestion behind `appinsights-orbit` | Per GB ingested, with 5 GB free per month. Small at this traffic, and bounded by the API logging at Information level in production. | No, but see the note below. |
+| `orbitdownloads` blob storage | Pennies for one APK. | No. |
+| `orbit-automation` (the runbook) | 500 job-minutes a month free; a run here takes well under one, and there are about thirty-five a month. | Not billing to begin with. |
+
+**If that TOTAL is already near or above 20 €, the ceiling is in the wrong place** - stopping
+everything on, say, the 20th of each month is not a cost limit, it is a scheduled outage. Then the
+choice is to raise the numbers, or to make the deployment cheaper first: `orbit-api` at
+`min-replicas 0` is the single largest saving available, at the price of a cold start on the first
+request after a quiet spell (which is exactly how `orbit-web` already runs). Decide that before
+creating the budget, not after the first mail.
+
+### 1. Create the action group the alerts are delivered to
+
+An action group is the "who gets told" half; the budget only references it. It starts with a plain
+email action - Azure's own mail, as a fallback that keeps working if the runbook ever does not - and
+gains the runbook's webhook in step 4. It is free to keep, and email notifications are free for the
+first thousand a month, so this adds no recurring charge - but it is still a resource being created,
+so it falls under [rule 6](../.claude/CLAUDE.md) and the `azure-cost-guard` skill.
+
+```bash
+az monitor action-group create \
+  --name orbit-cost-alerts \
+  --resource-group Orbit \
+  --short-name orbitcost \
+  --action email orbit-owner "<your address>"
+```
+
+`--short-name` is what shows up in the email subject and is capped at 12 characters.
+
+### 2. Create the budget
+
+Thresholds on an Azure budget are **percentages of the budget amount, not amounts**. With the amount
+set to the 20 € ceiling, the 10 € warning is exactly 50% - which is the one piece of luck in this
+section, since 10 and 20 divide cleanly and most pairs do not.
+
+The two amount notifications go to the action group, so the runbook writes their mails. The forecast
+one goes to a plain address instead: the runbook's mail is about an amount that has been spent, and a
+forecast is not that.
+
+```bash
+SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+ACTION_GROUP_ID=$(az monitor action-group show -n orbit-cost-alerts -g Orbit --query id -o tsv)
+
+cat > /tmp/orbit-budget.json <<JSON
+{
+  "properties": {
+    "category": "Cost",
+    "amount": 20,
+    "timeGrain": "Monthly",
+    "timePeriod": { "startDate": "2026-09-01T00:00:00Z", "endDate": "2036-09-01T00:00:00Z" },
+    "notifications": {
+      "Warning10": {
+        "enabled": true, "operator": "GreaterThanOrEqualTo",
+        "threshold": 50, "thresholdType": "Actual",
+        "contactGroups": ["$ACTION_GROUP_ID"], "locale": "en-us"
+      },
+      "Ceiling20": {
+        "enabled": true, "operator": "GreaterThanOrEqualTo",
+        "threshold": 100, "thresholdType": "Actual",
+        "contactGroups": ["$ACTION_GROUP_ID"], "locale": "en-us"
+      },
+      "Forecast20": {
+        "enabled": true, "operator": "GreaterThanOrEqualTo",
+        "threshold": 100, "thresholdType": "Forecasted",
+        "contactEmails": ["<your address>"], "locale": "en-us"
+      }
+    }
+  }
+}
+JSON
+
+az rest --method put \
+  --url "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/providers/Microsoft.Consumption/budgets/orbit-monthly-budget?api-version=2023-05-01" \
+  --body @/tmp/orbit-budget.json
+```
+
+Things that will reject the call if changed carelessly:
+
+- `startDate` must be the first day of a month, and Azure refuses one more than three months in the
+  past. Use the current month; a monthly budget resets on the 1st regardless, so nothing is lost by
+  starting late.
+- `timeGrain: Monthly` is what "a month" means here - the counter resets on the 1st and every
+  threshold is re-armed. `endDate` is only how long the budget itself lives; ten years out is a way of
+  saying "until somebody removes it".
+- A budget holds at most five notifications, and a *forecast* one only fires once Azure has enough
+  history on the subscription to project from - expect it to be quiet for the first couple of months.
+- `az rest` is used rather than `az consumption budget create` because that command group is
+  deprecated and never covered subscription scope properly. The portal does the same job under **Cost
+  Management → Budgets → Add**, and this whole section is reproducible there if the CLI argues.
+
+Read it back, which is also the quickest "where am I this month":
+
+```bash
+az rest --method get \
+  --url "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/providers/Microsoft.Consumption/budgets/orbit-monthly-budget?api-version=2023-05-01" \
+  --query "properties.[amount, currentSpend.amount, currentSpend.unit]" -o tsv
+```
+
+`scripts/stop-azure-compute.sh --status` prints that same line alongside what is actually running.
+
+### 3. Create the Automation account that writes the mails
+
+One account, `orbit-automation`, on the free tier: 500 job-minutes a month at no charge, and a run of
+this runbook takes seconds. It is a resource all the same - rule 6 applies. The `automation` CLI
+extension covers the runbook; everything it does not cover goes through `az rest`, with the same
+`AUTOMATION` path each time.
+
+```bash
+az extension add --name automation --upgrade
+
+az automation account create -n orbit-automation -g Orbit -l polandcentral --sku Free
+az resource update -g Orbit -n orbit-automation --resource-type Microsoft.Automation/automationAccounts \
+  --set identity.type=SystemAssigned
+
+AUTOMATION="https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/Orbit/providers/Microsoft.Automation/automationAccounts/orbit-automation"
+API="api-version=2023-11-01"
+```
+
+**Reader, and nothing more.** The runbook reads the PostgreSQL server's state and the apps' ingress
+to know what to put in the month-end mail. Reader lets it do that and forbids everything else, which
+is what keeps "the runbook never stops anything" a property of the identity rather than of the code:
+
+```bash
+az role assignment create \
+  --assignee-object-id $(az resource show -g Orbit -n orbit-automation --resource-type Microsoft.Automation/automationAccounts --query identity.principalId -o tsv) \
+  --assignee-principal-type ServicePrincipal \
+  --role Reader \
+  --scope $(az group show -n Orbit --query id -o tsv)
+```
+
+**What the runbook reads from the account.** The SMTP settings are the same ones `orbit-api` sends
+reminders with (`Smtp__*` in step 2 of the setup above), so no new mail account is involved. Variable
+values are JSON, hence the quoted quotes:
+
+```bash
+put_variable() { # name value
+  az rest --method put --url "$AUTOMATION/variables/$1?$API" \
+    --body "{\"name\":\"$1\",\"properties\":{\"value\":\"\\\"$2\\\"\",\"isEncrypted\":false}}" >/dev/null
+}
+put_variable ResourceGroup Orbit
+put_variable BudgetAmount 20
+put_variable SmtpHost "<Smtp__Host>"
+put_variable SmtpPort "<Smtp__Port>"
+put_variable SmtpFromAddress "<Smtp__FromAddress>"
+put_variable MailToAddress "<your address>"
+
+az rest --method put --url "$AUTOMATION/credentials/SmtpCredential?$API" \
+  --body "{\"name\":\"SmtpCredential\",\"properties\":{\"userName\":\"<Smtp__UserName>\",\"password\":\"<Smtp__Password>\"}}"
+```
+
+The credential is stored encrypted and is never readable back, which is the point of it being a
+credential asset rather than a variable. It is one more place the SMTP password lives - note it in
+`PRZENOSINY.local.md` next to the others, so a rotation reaches it.
+
+**The runbook itself**, from this repository - so a change to the mail is a change to a file here,
+reviewed like any other, and re-imported with the same two commands:
+
+```bash
+az automation runbook create --automation-account-name orbit-automation -g Orbit \
+  -n send-cost-instruction-mail --type PowerShell72 --location polandcentral
+az automation runbook replace-content --automation-account-name orbit-automation -g Orbit \
+  -n send-cost-instruction-mail --content @scripts/send-cost-instruction-mail.ps1
+az automation runbook publish --automation-account-name orbit-automation -g Orbit -n send-cost-instruction-mail
+```
+
+`PowerShell72` is the runtime the runbook is written for. It needs only `Az.Accounts`, which every
+account ships with - every Azure read goes through `Invoke-AzRestMethod`, so there is no module to
+import and nothing to fall out of date.
+
+### 4. Wire it: the webhook for the budget, the schedule for the month end
+
+A webhook is how the action group reaches the runbook. Azure hands out the address exactly once, at
+creation, and it is the only thing that authorises a call - so it goes straight into the action group
+and nowhere else:
+
+```bash
+WEBHOOK_URI=$(az rest --method post --url "$AUTOMATION/webhooks/generateUri?$API" -o tsv)
+az rest --method put --url "$AUTOMATION/webhooks/orbit-cost-alerts?$API" \
+  --body "{\"name\":\"orbit-cost-alerts\",\"properties\":{\"isEnabled\":true,\"uri\":\"$WEBHOOK_URI\",\"expiryTime\":\"2036-09-01T00:00:00Z\",\"runbook\":{\"name\":\"send-cost-instruction-mail\"}}}" >/dev/null
+az monitor action-group update -n orbit-cost-alerts -g Orbit \
+  --add-action webhook orbit-cost-runbook "$WEBHOOK_URI"
+unset WEBHOOK_URI
+```
+
+The month-end mail comes from a **daily** schedule, not a monthly one: the runbook checks whether
+tomorrow is the 1st (UTC, which is when the budget resets) and exits at once on every other day. That
+costs about thirty trivial runs a month inside the free grant, and it keeps the behaviour off the
+question of how Automation counts month lengths. 17:00 UTC is evening in Poland, so the mail is read
+the same day.
+
+```bash
+az rest --method put --url "$AUTOMATION/schedules/daily-month-end-check?$API" \
+  --body "{\"name\":\"daily-month-end-check\",\"properties\":{\"startTime\":\"$(date -u -v+1d +%Y-%m-%d)T17:00:00+00:00\",\"frequency\":\"Day\",\"interval\":1,\"timeZone\":\"Etc/UTC\"}}" >/dev/null
+az rest --method put --url "$AUTOMATION/jobSchedules/$(uuidgen | tr A-Z a-z)?$API" \
+  --body "{\"properties\":{\"schedule\":{\"name\":\"daily-month-end-check\"},\"runbook\":{\"name\":\"send-cost-instruction-mail\"}}}" >/dev/null
+```
+
+(`date -u -v+1d` is the macOS spelling of "tomorrow"; on Linux it is `date -u -d tomorrow`. Azure
+refuses a start time in the past, and refuses one less than five minutes out.)
+
+### 5. Make it send something before trusting it
+
+Nothing above has been proven by being run. Two calls exercise both entry points without waiting for
+a real month to go wrong:
+
+```bash
+# The 20 € mail, exactly as Azure would post it. Change NotificationThresholdAmount to 10 for the other.
+curl -s -X POST "$(az rest --method get --url "$AUTOMATION/webhooks/orbit-cost-alerts?$API" --query properties.uri -o tsv 2>/dev/null || echo '<the webhook uri, if still to hand>')" \
+  -H 'Content-Type: application/json' -d '{
+    "schemaId": "AIP Budget Notification",
+    "data": { "SubscriptionName": "Azure subscription 1", "BudgetName": "orbit-monthly-budget",
+              "SpendingAmount": "20.4", "Budget": "20", "Unit": "EUR", "NotificationThresholdAmount": "20" } }'
+
+# The month-end path, on an ordinary day: expect "Not the last day of the month" in the job output.
+az automation runbook start --automation-account-name orbit-automation -g Orbit -n send-cost-instruction-mail
+az automation job list --automation-account-name orbit-automation -g Orbit -o table
+```
+
+The webhook URI is not readable back after creation, which the first command's fallback is admitting:
+if it was `unset` above, the portal's **Test pane** on the runbook takes the same JSON as
+`WEBHOOKDATA`. A mail arriving from the first call is the whole check; a job that ends in `Failed`
+names the missing variable or the SMTP refusal in its output.
+
+### 6. When the 10 € mail arrives
+
+Nothing has to be turned off. It is a prompt to find out *why* - half of a 20 € month by the middle of
+it is normal; half of it by the 5th is not:
+
+```bash
+scripts/stop-azure-compute.sh --status
+# and the per-resource breakdown from "Second, check what the deployment already costs",
+# with this month's dates
+```
+
+The usual culprits, in the order they are worth checking: autoscaling left on after a test (the
+`max-replicas 3` of [Scaling](#scaling) above), `orbit-web` never scaling to zero because a client is
+holding a live-update connection open, or a deploy loop that pushed far more images than usual.
+
+### 7. When the 20 € mail arrives
+
+The mail is not the block. The block is running what it says - five commands, or their short form:
+
+```bash
+scripts/stop-azure-compute.sh --dry-run     # read what it is about to do
+scripts/stop-azure-compute.sh               # and do it
+```
+
+It leaves the pause notice first - `status.json` in the `apps` container of `orbitdownloads`, which the
+phone reads to learn the stop was on purpose - then stops the PostgreSQL Flexible Server, closes both
+Container Apps' ingress and sets them to `min-replicas 0`. Both apps then hold no replicas, so they bill
+nothing; the database keeps only its storage charge. **Nothing is deleted** - not the database, not the
+images, not the configuration - so this is a pause, not a teardown. Writing the notice needs the
+account's key, which the subscription's owner can list; `az storage blob upload` fetches it on its own
+when no `--auth-mode` is given.
+
+Four things to know before running it:
+
+- Orbit goes down for everyone, web and phone alike, until it is resumed.
+- **The phone copes with this only from the build that knows how.** A stopped Container App is not
+  "offline": its address still answers (the environment's front door says 404), and a phone built
+  before 2026-09-15 reads that as the API's word - so within fifteen minutes it is signed out, and after
+  five syncs it starts discarding edits queued while the server was away; nothing is deleted, but it is
+  behind the sign-in screen until the server is back. From that date the API stamps every answer as its
+  own and the phone lets nothing else through, and the script leaves `status.json` on `orbitdownloads`
+  so the phone can say *"Orbit is paused"* and behave as it does offline - see
+  [Orbit.Maui — Plan, §15](orbit-maui-plan.md#15-living-without-the-server). Expect an older APK to be as
+  down as the web.
+- Closing the ingress is not decoration. `orbit-api` is kept awake by the phone syncing against it, so
+  `min-replicas 0` on its own would never let it empty.
+- **Azure starts a stopped Flexible Server again by itself after seven days.** That is Flexible Server
+  behaviour, not something this repository chose, and it means the block quietly expires. If the month
+  still has time to run at that point, stop it again. The month-end mail notices this: it reports the
+  server as running and the apps as still closed, and its commands cover both.
+
+### 8. Bringing it back - the month-end mail
+
+On the last day of the month, if anything is still stopped, the runbook mails what is stopped and the
+commands that bring it back, in order. The short form:
+
+```bash
+scripts/stop-azure-compute.sh --resume
+```
+
+The database starts first, because `orbit-api` applies migrations at startup and never becomes healthy
+without it; then the apps get their ingress and `min-replicas` back. `--resume` restores the values in
+[Confirm ingress](#5-confirm-ingress) above rather than remembering what it found, so if that table ever
+changes, the constants at the top of the script - and the commands the runbook mails - have to change
+with it. `max-replicas` is deliberately left alone, so whatever the autoscale workflow last chose
+survives the whole round trip. Then verify it the way a deploy is verified - see
+[Verifying a deploy](#verifying-a-deploy).
+
+Nothing says it has to wait for the mail. A stop that was overcautious can be resumed the same day;
+the mail exists so that a month does not end with Orbit forgotten in the dark.
+
+### What the stop cannot stop
+
+`orbitcontainerregistry` (a flat daily charge), PostgreSQL storage and backups, the storage account and
+whatever Log Analytics has already ingested all keep billing with everything switched off. That is the
+floor the ceiling sits on: no command gets the month to zero, and getting below that floor means
+*deleting* resources, which costs the images, the database or the telemetry history to get back.
+
+Log Analytics is worth one extra note, because it is the one line on the bill that a code change can
+send climbing: the workspace bills per GB ingested, so a logging change that turns a hot path chatty at
+Information level shows up as cost rather than as a failure. If a bill jumps with no infrastructure
+change behind it, look there before anywhere else.
+
+### Checking the limits are still there
+
+A budget is easy to lose track of: it is invisible until it fires, and it lives on the subscription
+rather than in the `Orbit` resource group, so anything that reasons about "what is in the resource
+group" will not see it. The runbook is quieter still - it says nothing on the thirty days it has
+nothing to say.
+
+```bash
+az rest --method get \
+  --url "https://management.azure.com/subscriptions/$(az account show --query id -o tsv)/providers/Microsoft.Consumption/budgets?api-version=2023-05-01" \
+  --query "value[].{name: name, amount: properties.amount, spent: properties.currentSpend.amount}" -o table
+az monitor action-group show -n orbit-cost-alerts -g Orbit --query "{emails: emailReceivers[].emailAddress, webhooks: webhookReceivers[].name}"
+az automation job list --automation-account-name orbit-automation -g Orbit --query "[?ends_with(runbook.name, 'mail')].[creationTime, status]" -o tsv | head -5
+```
+
+The last one should show a job from every day, each `Completed`; a gap means the schedule is gone or
+the account is, and a `Failed` means the mail would not have gone out either. Worth running after any
+subscription change, and worth a thought when a month passes with no mail at all: silence means either
+a cheap month or a deleted budget, and the two look identical from here.
 
 ## Verifying a deploy
 

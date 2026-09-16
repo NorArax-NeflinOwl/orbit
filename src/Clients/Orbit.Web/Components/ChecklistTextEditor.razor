@@ -45,6 +45,14 @@
     public bool TakesTab { get; set; }
 
     /// <summary>
+    /// Whether a line can be made a heading, a list or monospaced - see NoteLineStyle. On for a note,
+    /// which is a page to write on; off for the surfaces that are one name and one description
+    /// (TitledDescription), which store the words alone and would drop a style on save.
+    /// </summary>
+    [Parameter]
+    public bool TakesStyles { get; set; }
+
+    /// <summary>
     /// Whether "[]" typed at the head of a line, and a pasted line starting "[]", "[x]" or "- ", become a
     /// tick box. True by default: the note is a checklist too. False for a surface whose writing is stored
     /// as text alone (see TitledDescription) - a box there has nowhere to be kept, so "[] milk" lost its
@@ -60,6 +68,29 @@
     /// </summary>
     [Parameter]
     public EventCallback<int> SelectedTicksChanged { get; set; }
+
+    /// <summary>
+    /// Whether the caret is inside a table, told whenever that changes. For the page's table tool, which
+    /// means "insert one" outside a table and "change this one" inside it - see NoteEditor.razor.
+    /// </summary>
+    [Parameter]
+    public EventCallback<bool> CaretInTableChanged { get; set; }
+
+    /// <summary>
+    /// A picture pasted, dropped or picked into the writing - its bytes, scaled to a screen's worth by
+    /// the browser. The page stores it (sealed, for a private note) and then asks for its line to be put
+    /// in with <see cref="InsertPictureAsync"/>. Nothing here is offered unless this is set, since a
+    /// surface without a note to attach to has nowhere to keep a picture.
+    /// </summary>
+    [Parameter]
+    public EventCallback<PastedPicture> PicturePasted { get; set; }
+
+    /// <summary>
+    /// Where a picture's bytes are drawn from, by id - a blob: URL the page owns (see
+    /// NotePictureSource). Asked once per picture by the surface, which remembers the answer.
+    /// </summary>
+    [Parameter]
+    public Func<Guid, Task<string?>>? PictureUrlFor { get; set; }
 
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
@@ -91,6 +122,7 @@
         var options = new
         {
             takesTab = TakesTab,
+            takesPictures = PicturePasted.HasDelegate,
             tickHint = T["Shift+click to select several lines - ticking one selected box then ticks them all."]
         };
         await _module.InvokeVoidAsync("initialize", _containerRef, _dotNetRef, initialLinesJson, options);
@@ -172,6 +204,20 @@
     [JSInvokable]
     public Task OnSelectedTicksChanged(int count) => SelectedTicksChanged.InvokeAsync(count);
 
+    /// <summary>Told when the caret enters or leaves a table - see <see cref="CaretInTableChanged"/>.</summary>
+    [JSInvokable]
+    public Task OnCaretInTableChanged(bool inTable) => CaretInTableChanged.InvokeAsync(inTable);
+
+    /// <summary>A picture's bytes, from a paste, a drop or the file picker - see <see cref="PicturePasted"/>.</summary>
+    [JSInvokable]
+    public Task OnPicturePasted(byte[] bytes, string contentType, int widthPixels, int heightPixels)
+        => PicturePasted.InvokeAsync(new PastedPicture(bytes, contentType, widthPixels, heightPixels));
+
+    /// <summary>The URL a picture is drawn from - see <see cref="PictureUrlFor"/>; null draws nothing.</summary>
+    [JSInvokable]
+    public Task<string?> PictureUrl(string pictureId)
+        => PictureUrlFor is not null && Guid.TryParse(pictureId, out var id) ? PictureUrlFor(id) : Task.FromResult<string?>(null);
+
     /// <summary>An edit C# makes, recorded as a step of the kind it is - see SurfaceEditKind.</summary>
     private SurfaceState? Apply(SurfaceRequest request)
     {
@@ -190,6 +236,33 @@
             "outdent" when TakesTab => (NoteSurfaceEdits.Outdent(before), SurfaceEditKind.Reshaping),
             "tick" => (NoteSurfaceEdits.Cycle(before, request.Line ?? -1), SurfaceEditKind.Ticking),
             "checklistItem" => (NoteSurfaceEdits.StartChecklistItem(before), SurfaceEditKind.Reshaping),
+            // A style for the caret's line, or for every line a selection touches - see
+            // NoteSurfaceEdits.Restyle, which also takes it back off when they are all already it.
+            "style" when TakesStyles && StyleAsked(request.Text) is { } style
+                => (NoteSurfaceEdits.Restyle(before, style), SurfaceEditKind.Reshaping),
+            // A mark on the words the selection covers - see NoteSurfaceEdits.Mark, which also takes it
+            // back off where all of them already carry it.
+            "mark" when TakesStyles && MarkAsked(request.Text) is { } mark
+                => (NoteSurfaceEdits.Mark(before, mark), SurfaceEditKind.Reshaping),
+            // A table and its shape - see NoteTables. Gated with the styles, for the same reason: a
+            // surface that stores its words as one string has nowhere to keep a table.
+            "insertTable" when TakesStyles => (NoteSurfaceEdits.InsertTable(before), SurfaceEditKind.Reshaping),
+            "insertPicture" when TakesStyles && request.Picture is { } picture
+                => (NoteSurfaceEdits.InsertPicture(before, picture), SurfaceEditKind.Reshaping),
+            // A rule across the note, with whatever the page wrote on it - see NoteSurfaceEdits.
+            // InsertSeparator. Gated with the styles like the two above, and for the same reason.
+            "insertSeparator" when TakesStyles
+                => (NoteSurfaceEdits.InsertSeparator(before, request.Stamp ?? string.Empty), SurfaceEditKind.Reshaping),
+            "tableRowBelow" when TakesStyles && request.Line is { } rowLine
+                => (NoteSurfaceEdits.AddTableRow(before, rowLine, request.Row ?? -1), SurfaceEditKind.Reshaping),
+            "tableColumnRight" when TakesStyles && request.Line is { } columnLine
+                => (NoteSurfaceEdits.AddTableColumn(before, columnLine, request.Column ?? -1), SurfaceEditKind.Reshaping),
+            "tableRowRemoved" when TakesStyles && request.Line is { } rowGoneLine
+                => (NoteSurfaceEdits.RemoveTableRow(before, rowGoneLine, request.Row ?? -1), SurfaceEditKind.Reshaping),
+            "tableColumnRemoved" when TakesStyles && request.Line is { } columnGoneLine
+                => (NoteSurfaceEdits.RemoveTableColumn(before, columnGoneLine, request.Column ?? -1), SurfaceEditKind.Reshaping),
+            "tableRemoved" when TakesStyles && request.Line is { } tableLine
+                => (NoteSurfaceEdits.RemoveTable(before, tableLine), SurfaceEditKind.Reshaping),
             _ => (null, SurfaceEditKind.Reshaping)
         };
 
@@ -252,6 +325,9 @@
     /// dropped, the selection before typing, the line whose box was pressed, where a drag was dropped and
     /// whether it copies rather than moves.
     /// </summary>
+    /// <summary>A picture as the browser hands it over: bytes already scaled to a screen's worth, and their kind and size.</summary>
+    public sealed record PastedPicture(byte[] Bytes, string ContentType, int WidthPixels, int HeightPixels);
+
     private sealed record SurfaceRequest(
         string Command,
         IReadOnlyList<NoteContentLine>? Lines,
@@ -265,7 +341,11 @@
         int? Line,
         double At,
         SurfacePoint? To,
-        bool Copies)
+        bool Copies,
+        int? Row = null,
+        int? Column = null,
+        NotePictureLine? Picture = null,
+        string? Stamp = null)
     {
         /// <summary>
         /// The surface this edit is made on. A selection outside the surface - the toolbar button has the
@@ -286,6 +366,119 @@
         var lines = JsonSerializer.Deserialize<List<NoteContentLineDto>>(linesJson, JsonOptions) ?? [];
         Lines = lines;
         await LinesChanged.InvokeAsync(lines);
+    }
+
+    /// <summary>
+    /// The style a "style" command asked for, or null for a word this build does not know - which does
+    /// nothing rather than turning the line into Body, since a command nobody understands should not
+    /// take a heading away.
+    /// </summary>
+    private static NoteLineStyle? StyleAsked(string? asked)
+        => Enum.TryParse<NoteLineStyle>(asked, ignoreCase: true, out var style) ? style : null;
+
+    /// <summary>
+    /// The mark a "mark" command asked for, or null for a word this build does not know - which does
+    /// nothing, for the reason above: a command nobody understands should not take a bold away.
+    /// </summary>
+    private static NoteTextMark? MarkAsked(string? asked)
+        => Enum.TryParse<NoteTextMark>(asked, ignoreCase: true, out var mark) && mark != NoteTextMark.None
+            ? mark
+            : null;
+
+    /// <summary>
+    /// Makes the caret's line - or every line the selection touches - this style, for the format control
+    /// over the note's foot. Pulls the answer back into Blazor the way InsertChecklistItemAsync does, and
+    /// for the same reason.
+    /// </summary>
+    public async Task SetStyleAsync(NoteLineStyle style)
+    {
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("setStyle", _containerRef, style.ToString());
+            var linesJson = await _module.InvokeAsync<string>("getLinesAsJson", _containerRef);
+            await OnLinesChangedFromJs(linesJson);
+        }
+    }
+
+    /// <summary>
+    /// Puts a mark on the words the selection covers, or takes it off - the four buttons over the
+    /// writing. A press with nothing selected does nothing, which is where it is decided: see
+    /// NoteSurfaceEdits.Mark.
+    /// </summary>
+    public async Task MarkAsync(NoteTextMark mark)
+    {
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("mark", _containerRef, mark.ToString());
+            var linesJson = await _module.InvokeAsync<string>("getLinesAsJson", _containerRef);
+            await OnLinesChangedFromJs(linesJson);
+        }
+    }
+
+    /// <summary>
+    /// The table tool outside a table: an empty line becomes one, anything else gets one under it - see
+    /// NoteSurfaceEdits.InsertTable. The browser puts the caret in the first cell, since a cell is not
+    /// a point on the surface C# reads, and the lines are pulled back the way every tool's are.
+    /// </summary>
+    public async Task InsertTableAsync()
+    {
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("insertTable", _containerRef);
+            var linesJson = await _module.InvokeAsync<string>("getLinesAsJson", _containerRef);
+            await OnLinesChangedFromJs(linesJson);
+        }
+    }
+
+    /// <summary>
+    /// Puts a picture already in the store where the caret is - see NoteSurfaceEdits.InsertPicture. The
+    /// page calls this once the upload has answered with the id the line names the bytes by.
+    /// </summary>
+    public async Task InsertPictureAsync(NotePictureLineDto picture)
+    {
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("insertPicture", _containerRef, JsonSerializer.Serialize(picture, JsonOptions));
+            var linesJson = await _module.InvokeAsync<string>("getLinesAsJson", _containerRef);
+            await OnLinesChangedFromJs(linesJson);
+        }
+    }
+
+    /// <summary>
+    /// Puts a rule across the note where the caret is - see NoteSurfaceEdits.InsertSeparator.
+    /// <paramref name="stamp"/> is what the page decided to write on it, worked out once at the press:
+    /// nothing re-reads a clock for it afterwards, which is what makes it still say the same thing when
+    /// the note is read again (see NoteSeparatorLine.Stamp).
+    /// </summary>
+    public async Task InsertSeparatorAsync(string stamp)
+    {
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("insertSeparator", _containerRef, stamp);
+        }
+    }
+
+    /// <summary>The attachment tool: a file picker whose choice arrives through <see cref="PicturePasted"/>.</summary>
+    public async Task PickPictureAsync()
+    {
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("pickPicture", _containerRef);
+        }
+    }
+
+    /// <summary>
+    /// One change to the shape of the table the caret is in - one of the "table…" commands Edit knows.
+    /// The browser finds which cell the caret is in and hands the edit its row and column.
+    /// </summary>
+    public async Task EditTableAsync(string action)
+    {
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("editTable", _containerRef, action);
+            var linesJson = await _module.InvokeAsync<string>("getLinesAsJson", _containerRef);
+            await OnLinesChangedFromJs(linesJson);
+        }
     }
 
     /// <summary>Ends the current line (if not empty) and starts a new checklist line - called by NoteEditor.razor's toolbar button.</summary>

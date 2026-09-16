@@ -31,7 +31,10 @@ public sealed class DuplicateCalendarEventCommandHandler : IRequestHandler<Dupli
             {
                 Title = request.Name ?? calendarEvent.Details.Title,
                 Guests = []
-            });
+            },
+            // The copy is made where the original stands, as a duplicated note is - see
+            // DuplicateNoteCommandHandler.
+            calendarEvent.FolderId);
         await _calendarEventRepository.AddAsync(copy, cancellationToken);
         return copy.Id;
     }

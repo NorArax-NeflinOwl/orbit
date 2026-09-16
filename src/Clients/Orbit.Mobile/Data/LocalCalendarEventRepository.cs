@@ -176,6 +176,95 @@ public sealed class LocalCalendarEventRepository : ICopyReviewStore
         return LocalWriteOutcome.Applied;
     }
 
+    /// <summary>
+    /// <inheritdoc cref="LocalNoteRepository.FileAsync" path="/summary/node()"/>
+    /// </summary>
+    public async Task<LocalWriteOutcome> FileAsync(
+        Guid localId, Guid? folderId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await dbContext.CalendarEvents.FirstOrDefaultAsync(
+                candidate => candidate.LocalId == localId, cancellationToken) is not { } calendarEvent)
+        {
+            return LocalWriteOutcome.NotFound;
+        }
+
+        if (!OfflineEditPolicy.IsAllowed(calendarEvent, _networkStatus))
+        {
+            return LocalWriteOutcome.RefusedWhileOffline;
+        }
+
+        if (calendarEvent.FolderId == folderId)
+        {
+            return LocalWriteOutcome.Applied;
+        }
+
+        calendarEvent.FolderId = folderId;
+
+        // One the server has never seen carries its folder on the create instead - there is nothing to
+        // send a filing against yet. The create is queued in front of this, or is queued again here when
+        // the outbox gave up on it (see LostCreates); a copy awaiting review is sent by its review.
+        if (calendarEvent.ServerId is not null)
+        {
+            Enqueue(dbContext, localId, OutboxOperation.File, _timeProvider.GetUtcNow(), calendarEvent.ServerId);
+        }
+        else if (!CopiesForEditing.IsAwaitingReview(calendarEvent))
+        {
+            await LostCreates.QueueAgainAsync(
+                dbContext, SyncEntityType.CalendarEvent, localId, serverId: null, _timeProvider.GetUtcNow(), cancellationToken);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return LocalWriteOutcome.Applied;
+    }
+
+    /// <summary>
+    /// Puts this appointment away, or brings it back - see Orbit.Core.Folders.BuiltInFolder.Archived. Queued
+    /// as its own kind of change for the same reason filing is: it travels on its own endpoint, because
+    /// a save carries the whole thing and would bring back everything its owner had put away.
+    ///
+    /// UpdatedAtUtc is left alone, as filing leaves it alone: putting something away changes where it is
+    /// kept rather than what it says, and one that jumped to the top of the list for having been tidied
+    /// away would read as having been edited.
+    /// </summary>
+    public async Task<LocalWriteOutcome> ArchiveAsync(
+        Guid localId, bool isArchived, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await dbContext.CalendarEvents.FirstOrDefaultAsync(candidate => candidate.LocalId == localId, cancellationToken) is not { } calendarEvent)
+        {
+            return LocalWriteOutcome.NotFound;
+        }
+
+        if (!OfflineEditPolicy.IsAllowed(calendarEvent, _networkStatus))
+        {
+            return LocalWriteOutcome.RefusedWhileOffline;
+        }
+
+        if (calendarEvent.IsArchived == isArchived)
+        {
+            return LocalWriteOutcome.Applied;
+        }
+
+        calendarEvent.IsArchived = isArchived;
+
+        // One the server has never seen has nothing to send this against yet; its create is queued
+        // again and the archiving follows it in the same pass - see the synchroniser's SendCreateAsync.
+        // The same shape FileAsync above uses, and for the same reasons.
+        if (calendarEvent.ServerId is not null)
+        {
+            Enqueue(dbContext, localId, OutboxOperation.Archive, _timeProvider.GetUtcNow(), calendarEvent.ServerId);
+        }
+        else if (!CopiesForEditing.IsAwaitingReview(calendarEvent))
+        {
+            await LostCreates.QueueAgainAsync(
+                dbContext, SyncEntityType.CalendarEvent, localId, serverId: null, _timeProvider.GetUtcNow(), cancellationToken);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return LocalWriteOutcome.Applied;
+    }
+
     public async Task<LocalWriteOutcome> DeleteAsync(Guid localId, CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);

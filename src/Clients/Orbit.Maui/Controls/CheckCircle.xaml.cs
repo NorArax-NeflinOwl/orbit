@@ -52,6 +52,23 @@ public partial class CheckCircle : ContentView
 		BindableProperty.Create(nameof(CommandParameter), typeof(object), typeof(CheckCircle),
 			propertyChanged: (circle, _, value) => ((CheckCircle)circle).Press.CommandParameter = value);
 
+	/// <summary>
+	/// What holding it does, where holding it means something other than pressing it - see
+	/// <see cref="LongPress"/>, and Platforms/Android/LongPresses.cs, which is where the gesture is
+	/// actually read. Handed down onto the button that takes the press, because that is the control with
+	/// a platform view behind it; the circle above is drawn by this control itself.
+	///
+	/// It is given the same <see cref="CommandParameter"/> the press is, so a template that draws one of
+	/// these per row can serve both with one command each and be told which row it was.
+	///
+	/// A head that does not read the gesture leaves this doing nothing, so nothing may be reachable by
+	/// holding alone.
+	/// </summary>
+	public static readonly BindableProperty LongPressCommandProperty =
+		BindableProperty.Create(nameof(LongPressCommand), typeof(ICommand), typeof(CheckCircle),
+			propertyChanged: (circle, _, value) =>
+				LongPress.SetCommand(((CheckCircle)circle).Press, value as ICommand));
+
 	/// <summary>What ticking this off would mean, for a screen reader. Required by SpokenNameTests.</summary>
 	public static readonly BindableProperty DescriptionProperty =
 		BindableProperty.Create(nameof(Description), typeof(string), typeof(CheckCircle), string.Empty,
@@ -94,6 +111,13 @@ public partial class CheckCircle : ContentView
 	{
 		get => GetValue(CommandParameterProperty);
 		set => SetValue(CommandParameterProperty, value);
+	}
+
+	/// <inheritdoc cref="LongPressCommandProperty"/>
+	public ICommand? LongPressCommand
+	{
+		get => (ICommand?)GetValue(LongPressCommandProperty);
+		set => SetValue(LongPressCommandProperty, value);
 	}
 
 	/// <inheritdoc cref="DescriptionProperty"/>

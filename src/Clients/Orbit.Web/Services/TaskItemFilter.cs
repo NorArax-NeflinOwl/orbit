@@ -1,4 +1,5 @@
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Text;
 
 namespace Orbit.Web.Services;
 
@@ -55,9 +56,9 @@ public sealed class TaskItemFilter
 
     private bool MatchesSearch(TaskItemDto item)
     {
-        var wanted = Search.Trim();
-        return wanted.Length == 0
-            || item.Description.Contains(wanted, StringComparison.CurrentCultureIgnoreCase);
+        // Loosely: the marks over a letter do not have to be typed to find a word written with them,
+        // and a word typed with them still finds one written without - see LooseText.
+        return LooseText.Holds(item.Description, Search);
     }
 
     private bool MatchesCategories(TaskItemDto item)

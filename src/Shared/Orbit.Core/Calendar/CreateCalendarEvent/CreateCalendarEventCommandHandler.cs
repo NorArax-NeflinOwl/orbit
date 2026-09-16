@@ -19,7 +19,7 @@ public sealed class CreateCalendarEventCommandHandler : IRequestHandler<CreateCa
 
     public async Task<Guid> HandleAsync(CreateCalendarEventCommand request, CancellationToken cancellationToken)
     {
-        var calendarEvent = CalendarEvent.Create(request.UserId, request.Details);
+        var calendarEvent = CalendarEvent.Create(request.UserId, request.Details, request.FolderId);
         await _calendarEventRepository.AddAsync(calendarEvent, cancellationToken);
         return calendarEvent.Id;
     }

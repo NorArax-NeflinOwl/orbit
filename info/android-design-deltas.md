@@ -444,13 +444,22 @@ listed here were already built; the fourth was the one nobody had looked at.
 
 Nothing here is a defect: the app does what the written spec asked and the suite is green. This is the
 list of what the design would still change if it is taken as the specification for the screens the
-written spec did not reach, plus the corrections it makes to screens that were built from the spec. The
-order worth doing it in, cheapest and most load-bearing first:
+written spec did not reach, plus the corrections it makes to screens that were built from the spec.
 
-1. Groups and counts in `ScreenMenu`, because nine menus depend on it and nothing else can be drawn
-   correctly until it exists.
-2. The four note-editor behaviours (split at the caret, backspace off a box, the arrows, the foot),
-   because the editor is the screen the spec cared most about and these are all in one file.
-3. The three screens the spec never reached that the design does draw - sign in, create an account, one
-   entry on its own.
+**The order this section used to give is spent.** It read, cheapest and most load-bearing first:
+
+1. ~~Groups and counts in `ScreenMenu`, because nine menus depend on it and nothing else can be drawn
+   correctly until it exists.~~ Done 2026-09-09 - `ScreenMenu.Groups`/`ShowGroups` and
+   `ScreenMenuEntry.Count`, with every menu the design names as grouped now grouped.
+2. ~~The four note-editor behaviours (split at the caret, backspace off a box, the arrows, the foot),
+   because the editor is the screen the spec cared most about and these are all in one file.~~ Done
+   2026-09-09 to 09-11, and the first two are the browser's own rules since 2026-09-12.
+3. ~~The three screens the spec never reached that the design does draw - sign in, create an account,
+   one entry on its own.~~ Redrawn 2026-09-09.
 4. The per-screen corrections above, which are independent of each other and can be taken one at a time.
+
+So **only step 4 is left**, and much of what is under it is a standing decision rather than work - the
+three-of-six card row, the justified preview MAUI cannot draw, the notes list without a search box. Read
+against the code on 2026-09-14, which is when this note was written: the list above had said "nothing
+else can be drawn correctly until it exists" about something that had existed for five days, and a
+session reading only this section would have started on a thing that was already there.

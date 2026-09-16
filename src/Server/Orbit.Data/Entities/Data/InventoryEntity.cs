@@ -21,6 +21,20 @@ public sealed class InventoryEntity
 
     /// <summary>Base64 nonce the ciphertext above was sealed with; null otherwise.</summary>
     public string? EncryptedNonce { get; set; }
+
+    /// <summary>
+    /// The folder the owner filed it under - see <see cref="FolderEntity"/>. Null for one filed nowhere,
+    /// which is a built-in folder rather than none at all (Orbit.Core.Folders.BuiltInFolder). Outside
+    /// the sealed half even for a private inventory - see Orbit.Core.Inventories.Inventory.FolderId.
+    /// </summary>
+    public Guid? FolderId { get; set; }
+
+    /// <summary>
+    /// Whether its owner has put it away - see Orbit.Core.Folders.BuiltInFolder.Archived. The one
+    /// built-in folder with a column, because nothing else about the row could say it.
+    /// </summary>
+    public bool IsArchived { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
     public Guid? LockedByUserId { get; set; }

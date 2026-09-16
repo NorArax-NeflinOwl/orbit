@@ -608,10 +608,14 @@ public sealed class CalendarEventDetailScreenTests
         private readonly LocalCalendarEventRepository _events;
         private readonly CalendarEventSynchronizer _synchronizer;
 
+        /// <summary>The tabs this screen files into - see FolderTabs.</summary>
+        public LocalFolderRepository Folders { get; }
+
         public ScreenContext()
         {
             _server = new FakeCalendarServer(_clock);
             _events = new LocalCalendarEventRepository(_localStore, _clock, FixedNetworkStatus.Online);
+            Folders = new LocalFolderRepository(_localStore, _clock);
             Contacts = new ChatRepository(_localStore, _clock);
             _synchronizer = new CalendarEventSynchronizer(
                 _localStore, new CalendarClient(_server.ToHttpClient()), _clock, new SyncGate(),
@@ -685,7 +689,7 @@ public sealed class CalendarEventDetailScreenTests
                 new GoogleIntegrationAccess(
                     new AccountClient(_users.ToHttpClient(), FixedNetworkStatus.Online, SessionForTests()),
                     GoogleExtras),
-                Network, Places);
+                Network, Places, Folders);
 
             screen.Open(localId);
             await screen.LoadCommand.ExecuteAsync(null);

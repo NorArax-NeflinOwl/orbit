@@ -1,6 +1,7 @@
 using System.Windows.Input;
 using Orbit.Maui.Controls;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Sync;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Notes;
 
@@ -9,12 +10,15 @@ namespace Orbit.Maui.Features.Notes;
 public partial class NotesPage : ContentPage, ITitleMenu
 {
 	private readonly NotesViewModel _viewModel;
+
+	/// <summary>Redraws this screen when a sync it did not ask for brings something - see ScreenKeptInStep.</summary>
+	private readonly ScreenKeptInStep _keptInStep;
 	private readonly Translations _translations;
 
 	/// <summary>Typed so the list rows' bindings back up to the page can be compiled.</summary>
 	public NotesViewModel ViewModel => _viewModel;
 
-	public NotesPage(NotesViewModel viewModel, Translations translations)
+	public NotesPage(NotesViewModel viewModel, Translations translations, SyncState syncState)
 	{
 		// Before InitializeComponent, not after: the menu is bound from the static part of the tree,
 		// which is built there and reads a page's plain property exactly once. See
@@ -24,6 +28,7 @@ public partial class NotesPage : ContentPage, ITitleMenu
 
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		_keptInStep = new ScreenKeptInStep(syncState, () => _viewModel.ShowLocalNotesAsync(CancellationToken.None));
 		AddButton.Command = NewItemForm.Toggling(AddRow, AddField);
 		_nameAFolder = NewItemForm.Toggling(FolderRow, FolderField);
 	}
@@ -45,6 +50,13 @@ public partial class NotesPage : ContentPage, ITitleMenu
 	{
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
+		_keptInStep.Listen();
+	}
+
+	protected override void OnDisappearing()
+	{
+		base.OnDisappearing();
+		_keptInStep.StopListening();
 	}
 
 	/// <summary>

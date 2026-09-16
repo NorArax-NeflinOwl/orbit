@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Sync;
 using Orbit.Contracts.Sharing;
 
@@ -72,6 +73,24 @@ public sealed class CalendarClient : ILockableItems
         Guid calendarEventId, UpdateCalendarEventRequest request, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PutAsJsonAsync($"api/calendar-events/{calendarEventId}", request, cancellationToken);
+        return ReadOutcome(response);
+    }
+
+    /// <inheritdoc cref="NotesClient.FileAsync"/>
+    public async Task<WriteOutcome> FileAsync(
+        Guid calendarEventId, Guid? folderId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/calendar-events/{calendarEventId}/folder", new MoveToFolderRequest(folderId), cancellationToken);
+        return ReadOutcome(response);
+    }
+
+    /// <inheritdoc cref="NotesClient.ArchiveAsync"/>
+    public async Task<WriteOutcome> ArchiveAsync(
+        Guid calendarEventId, bool isArchived, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/calendar-events/{calendarEventId}/archived", new ArchiveRequest(isArchived), cancellationToken);
         return ReadOutcome(response);
     }
 

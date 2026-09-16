@@ -16,21 +16,35 @@ public sealed class DailyTaskReminderRepository : IDailyTaskReminderRepository
 
     public async Task<IReadOnlyList<DailyTaskReminderCandidate>> GetEligibleAsync(CancellationToken cancellationToken)
     {
+        // Which lists an inventory keeps for itself - the one place an entry that comes round again
+        // lives, and the only thing here that is work rather than an errand. See ComesRoundAgain below.
+        //
+        // Read first and matched against in memory rather than left as a subquery: there is one row per
+        // inventory, so the set is small, and it keeps the query below to the one shape every provider
+        // translates the same way.
+        var managedTaskListIds = await _dbContext.InventoryManagedTaskLists
+            .AsNoTracking()
+            .Select(managed => managed.TaskListId)
+            .ToListAsync(cancellationToken);
+
         // TaskItemEntity has no navigation back to its owning TaskEntity (see OrbitDbContext - only the
         // reverse Items navigation exists), so the owner's UserId and the list's Title are pulled in via
         // an explicit join on TaskId rather than a navigation property (mirrors OverdueTaskNotificationRepository).
         var rows = await (
             from item in _dbContext.Set<TaskItemEntity>().AsNoTracking()
             join task in _dbContext.Tasks.AsNoTracking() on item.TaskId equals task.Id
-            // No !item.IsCompleted here on purpose: a finished item is due again tomorrow, and is
-            // reopened by ReopenAsync when its reminder fires. The *list* is a different matter - a
-            // list somebody closed is not owed any more, so it stops asking. Saying "no more of this"
+            // A list somebody closed is not owed any more, so it stops asking: saying "no more of this"
             // and then being reminded of it every morning is the app arguing with the reader.
             // An entry done by ways that include a list is left out with the linked ones: its stored tick
             // cannot know that list is finished - see TaskItemAlternativeEntity.IsDone.
             where item.RemindDaily && !task.IsCompleted && !item.LinkedTaskLists.Any()
                 && !item.Alternatives.Any(way => way.LinkedTaskListId != null)
                 && item.DailyReminderNotificationChannel != "None"
+                // Finished with, either way, and the asking stops - unless the entry is work that happens
+                // again tomorrow whatever was done about it today, which on the shelf's standing round is
+                // the whole point. See ComesRoundAgain, and the decision recorded in info/future-plan.md.
+                && (!item.IsCompleted && !item.IsFailed
+                    || (item.Description == StandingRoundDescription && managedTaskListIds.Contains(item.TaskId)))
             select new
             {
                 item.Id,
@@ -52,9 +66,28 @@ public sealed class DailyTaskReminderRepository : IDailyTaskReminderRepository
                 row.Description,
                 row.DueDateUtc,
                 Enum.Parse<NotificationChannel>(row.DailyReminderNotificationChannel, ignoreCase: true),
-                TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(row.DailyReminderTimeOfDayMinutes))))
+                TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(row.DailyReminderTimeOfDayMinutes)),
+                ComesRoundAgain(row.Description, row.TaskId, managedTaskListIds)))
             .ToList();
     }
+
+    /// <summary>
+    /// The standing round on a shelf's restock list, by the words the server writes it with - see
+    /// Orbit.Core.Inventories.RestockTaskNaming.UpdateStockReminderDescription, which is a constant
+    /// rather than anything a reader typed (a reader's language is put over it on the way out, see
+    /// OrbitWrittenNames). Matched together with the list being one an inventory keeps, so an entry
+    /// somebody happens to name the same thing on a list of their own is still their errand.
+    /// </summary>
+    private const string StandingRoundDescription = Orbit.Core.Inventories.RestockTaskNaming.UpdateStockReminderDescription;
+
+    /// <summary>
+    /// Whether this entry is the standing round rather than an errand - see
+    /// <see cref="StandingRoundDescription"/>, and DailyTaskReminderCandidate.ComesRoundAgain for what
+    /// it decides. Both halves are asked, here and in the query above, so the two cannot disagree about
+    /// which entries are which.
+    /// </summary>
+    private static bool ComesRoundAgain(string description, Guid taskListId, List<Guid> managedTaskListIds)
+        => description == StandingRoundDescription && managedTaskListIds.Contains(taskListId);
 
     public Task<bool> HasBeenSentAsync(Guid taskItemId, DateOnly reminderDate, CancellationToken cancellationToken)
     {
@@ -118,16 +151,33 @@ public sealed class DailyTaskReminderRepository : IDailyTaskReminderRepository
         // due date is computed from the entry's own reminder hour, which no ExecuteUpdate can read and
         // write in one statement portably. One row per fired reminder, so the round trip is cheap.
         var item = await _dbContext.Set<TaskItemEntity>()
+            .Include(row => row.Alternatives)
             .FirstOrDefaultAsync(row => row.Id == taskItemId, cancellationToken);
         if (item is null)
         {
             return;
         }
 
-        // Neither ticked nor crossed out: a daily errand comes round again whatever yesterday's
-        // answer was - see TaskItem.Reopen, which clears the same two.
+        // Everything TaskItem.Reopen clears, and for the reasons it gives there. Written out again here
+        // rather than called, because this path holds the row and not the aggregate - which is why it
+        // has to be kept level with that method by hand, and why TaskItemReopeningTests pins the two
+        // together.
+        //
+        // Neither ticked nor crossed out: a daily errand comes round again whatever yesterday's answer
+        // was. And no time for being done, which belongs to something that is done - an entry left
+        // carrying one read as not done while its own page still said when it had been finished.
         item.IsCompleted = false;
         item.IsFailed = false;
+        item.CompletedAtUtc = null;
+
+        // An entry done one of several ways comes back with none of them taken: the ways stay, since
+        // they are what the entry is, and the choice is made again. Left ticked, they were an entry
+        // that said it was not done above a full set of ways saying it was - and the next save reads
+        // the tick back off them.
+        foreach (var way in item.Alternatives)
+        {
+            way.IsDone = false;
+        }
 
         // Only an entry that already carried a due date gets a new one - see the interface for why.
         if (item.DueDateUtc is not null)

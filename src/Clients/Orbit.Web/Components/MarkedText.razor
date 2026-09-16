@@ -1,0 +1,32 @@
+@using Orbit.Core.Notes
+
+@* A line of a note being read rather than written: its words, with the marks on stretches of them - see
+   Orbit.Core.Notes.NoteTextMark. The writing surface draws the same marks by wrapping the words in real
+   elements, which is what lets it read them back out of the document; here nothing is read back, so one
+   span with the marks named on it says the same thing with less to go wrong.
+
+   Every stretch still goes through TextWithLinks, so an address inside bold words is as pressable as one
+   outside them. A link that a mark starts in the middle of is drawn as two links, which is the one thing
+   this arrangement costs and is rarer than a note with no marks at all. *@
+@foreach (var piece in NoteTextMarks.Pieces(Text ?? string.Empty, Marks ?? NoteTextMarks.None))
+{
+    @if (piece.Marks.Count == 0)
+    {
+        <TextWithLinks Text="@piece.Text" />
+    }
+    else
+    {
+        <span class="@ClassOf(piece)"><TextWithLinks Text="@piece.Text" /></span>
+    }
+}
+
+@code {
+    /// <summary>What was written. Empty or null draws nothing at all, not an empty element.</summary>
+    [Parameter] public string? Text { get; set; }
+
+    /// <summary>The marks on stretches of it - see NoteContentLine.Marks. None is a line drawn plainly.</summary>
+    [Parameter] public IReadOnlyList<NoteTextRun>? Marks { get; set; }
+
+    private static string ClassOf(NoteTextPiece piece)
+        => string.Join(' ', piece.Marks.Select(mark => $"note-marked-{mark.ToString().ToLowerInvariant()}"));
+}

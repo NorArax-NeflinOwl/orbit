@@ -64,7 +64,7 @@
                             SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">
 
                 <CollectionView.EmptyView>
-                    <Label Text="{controls:Translate 'No notes.'}" Padding="0,12" Style="{StaticResource EmptyHint}" />
+                    <Label Text="{Binding NothingHereMessage}" Padding="0,12" LineBreakMode="WordWrap" Style="{StaticResource EmptyHint}" />
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>

@@ -36,6 +36,11 @@ public sealed class AccountDeletionRepository : IAccountDeletionRepository
         }
 
         await _dbContext.Inventories.Where(inventory => inventory.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+        // Before the notes they sit on, and by their own owner column: nothing cascades them, so these
+        // rows would otherwise outlive the account, each still counting bytes towards a note nobody
+        // owns. The bytes themselves are not this repository's - it has no picture store - and are swept
+        // by DeleteAccountCommandHandler before it calls this.
+        await _dbContext.NotePictures.Where(picture => picture.OwnerUserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.Notes.Where(note => note.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         // After the notes and before nothing in particular: a folder holds no rows of its own, so
         // whatever was filed in it is already gone by the time this runs.

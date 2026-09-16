@@ -32,4 +32,16 @@ public sealed record InventoryDto(
     EncryptedContentDto? EncryptedContent = null,
     bool IsSharedWithOthers = false,
     /// <summary>What it is, under its name. Empty for one nobody described, and for a private one.</summary>
-    string Description = "");
+    string Description = "",
+    /// <summary>
+    /// The folder its owner filed it under, or null for one filed nowhere - which is Public, or Private
+    /// when it is sealed (Orbit.Core.Folders.BuiltInFolder). Always null for somebody reading this
+    /// through a share, the way NoteDto.FolderId is.
+    /// </summary>
+    Guid? FolderId = null,
+    /// <summary>
+    /// Whether its owner has put it away - see Orbit.Core.Folders.BuiltInFolder.Archived. False is what
+    /// everything stored before the column existed is, and what a server that has not learned about
+    /// archiving answers. Defaulted and last, so an older client reads past it.
+    /// </summary>
+    bool IsArchived = false);

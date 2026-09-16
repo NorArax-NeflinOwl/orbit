@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Inventories;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Inventories;
 using Orbit.Core.Tasks;
 using Orbit.Mobile.Location;
@@ -40,6 +41,47 @@ public sealed class TaskListDetailScreenTests
             screen.NewItemDescription = description;
             await screen.AddItemCommand.ExecuteAsync(null);
         }
+    }
+
+    /// <summary>
+    /// The list on the clipboard, in the format a note's paste reads back - so what is copied out of a
+    /// list arrives in a note as the same errands rather than as a page of brackets. See TaskListWords,
+    /// which both clients write with.
+    /// </summary>
+    [Fact]
+    public async Task The_list_is_copied_in_the_format_a_note_reads_back()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        await AddAsync(screen, "Bread", "Milk");
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items.Single(row => row.Description == "Bread"));
+
+        Assert.Equal("Groceries\n[x] Bread\n- Milk", screen.AsWords());
+    }
+
+    /// <summary>The same four choices the browser offers, narrowing to one state of the entries.</summary>
+    [Fact]
+    public async Task The_list_can_be_copied_by_what_is_done_and_what_is_not()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        await AddAsync(screen, "Bread", "Milk");
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items.Single(row => row.Description == "Bread"));
+
+        Assert.Equal("Groceries\n[x] Bread", screen.AsWords(WhatToCopy.Done));
+        Assert.Equal("Groceries\n- Milk", screen.AsWords(WhatToCopy.StillToDo));
+    }
+
+    /// <summary>Offered in the reader's own language, and in the order the sheet draws them.</summary>
+    [Fact]
+    public void All_four_copies_are_offered()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+
+        Assert.Equal(
+            ["Copy the text", "Copy what is done", "Copy what is still to do", "Copy what was given up on"],
+            screen.CopyChoices.Select(choice => choice.Name));
     }
 
     /// <summary>
@@ -1813,6 +1855,34 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// An entry pointing at a list makes its own list a group list, and the save that wrote the entry
+    /// is what says so. The screen used to start a second save for it, awaited by nobody, which outlived
+    /// the screen's store and took the test run down with it - on a phone, the app.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_standing_for_another_list_makes_its_list_a_group_in_the_same_save()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Shopping");
+        var screen = context.OpenTaskList("This week");
+        screen.NewItemDescription = "The shopping";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+        Assert.False(screen.IsGroup);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        screen.BeingEdited!.LinkToCommand.Execute(
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.True(screen.IsGroup);
+        Assert.False(screen.CanChooseGroupView);
+        Assert.False(screen.SaveListCommand.IsRunning);
+        Assert.True((await context.FindAsync(screen)).IsGroup);
+    }
+
+    /// <summary>
     /// The bug this stands for: moving an entry onto a list it already stands for took the whole app
     /// down. The server refuses it - an entry cannot link to the list it belongs to - as a 400 with a
     /// message, and the phone turned every unexpected status into an exception nothing caught.
@@ -1842,6 +1912,53 @@ public sealed class TaskListDetailScreenTests
     /// it can be moved - the server refuses that move outright. Left out of the picker rather than
     /// offered and then rejected, which is what Orbit.Web's editor does too.
     /// </summary>
+    /// <summary>
+    /// Putting a list away from its own screen says so there. The screen stays open on the list either way,
+    /// so nothing else moves - and on a device the press read as one that had done nothing.
+    /// </summary>
+    [Fact]
+    public async Task Putting_a_list_away_from_its_screen_says_so_there()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Old errands");
+        await AddAsync(screen, "Return the drill");
+
+        await screen.ArchiveCommand.ExecuteAsync(true);
+        Assert.Equal("Archived - it is under the Archived tab now.", screen.Status);
+
+        await screen.ArchiveCommand.ExecuteAsync(false);
+        Assert.Equal("Put back where it was.", screen.Status);
+    }
+
+    [Fact]
+    public async Task A_list_that_already_points_back_here_is_not_offered_to_link_to()
+    {
+        // Today stands for Shopping; Shopping pointing at Today would close a loop the server refuses.
+        // Seen on a device: the phone offered it, the save went into the queue, and the refusal came
+        // back as a notice about a change that could not be saved.
+        using var context = new ScreenContext();
+        var shopping = context.OpenTaskList("Shopping");
+        await AddAsync(shopping, "Milk");
+        var today = context.OpenTaskList("Today");
+        await AddAsync(today, "The shopping");
+        await context.SynchroniseAsync();
+        await today.LoadCommand.ExecuteAsync(null);
+        today.EditItemCommand.Execute(today.Items.Single());
+        today.BeingEdited!.LinkToCommand.Execute(
+            today.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
+        await today.SaveItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+
+        await shopping.LoadCommand.ExecuteAsync(null);
+        shopping.EditItemCommand.Execute(shopping.Items.Single());
+
+        Assert.DoesNotContain(shopping.BeingEdited!.LinkableTaskLists, choice => choice.Name == "Today");
+        // With Today left out there is no list to offer as a way either, so that picker is not drawn empty.
+        Assert.False(shopping.BeingEdited.HasWayListsLeft);
+        // Moving an entry there closes no loop, so it stays somewhere the entry can go.
+        Assert.Contains(shopping.MoveTargetsForTheEntry, target => target.Name == "Today");
+    }
+
     [Fact]
     public async Task A_list_the_entry_stands_for_is_not_offered_as_somewhere_to_move_it()
     {
@@ -1948,6 +2065,45 @@ public sealed class TaskListDetailScreenTests
         await screen.LoadCommand.ExecuteAsync(null);
         screen.EditItemCommand.Execute(screen.Items.Single());
         Assert.Equal(["Shopping", "Chemist"], screen.BeingEdited!.LinkedTaskLists.Select(linked => linked.Name));
+    }
+
+    /// <summary>
+    /// Which of the lists an entry stands for have to be done - see TaskItem.NeedsEveryLinkedList. Any
+    /// one of them unless the form says otherwise, and the phone could only read that answer: an entry
+    /// standing for several could be switched to "all of them" from a browser and nowhere else.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_can_be_told_it_needs_every_list_it_stands_for()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Shopping");
+        context.OpenTaskList("Chemist");
+        var screen = context.OpenTaskList("This week");
+        screen.NewItemDescription = "The errands";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        var editor = screen.BeingEdited!;
+        // Nothing to ask while it stands for one list: the question has one answer.
+        editor.LinkToCommand.Execute(editor.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
+        Assert.False(editor.CanChooseHowManyListsAreNeeded);
+
+        editor.LinkToCommand.Execute(editor.LinkableTaskLists.Single(choice => choice.Name == "Chemist"));
+        Assert.True(editor.CanChooseHowManyListsAreNeeded);
+        editor.NeedsEveryLinkedList = true;
+
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+
+        var thisWeek = context.Server.TaskLists.Single(list => list.Title == "This week");
+        Assert.True(Assert.Single(thisWeek.Items).NeedsEveryLinkedList);
+
+        // And the form opens on the answer it was given rather than on the default.
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        Assert.True(screen.BeingEdited!.NeedsEveryLinkedList);
     }
 
     /// <summary>

@@ -7,6 +7,8 @@
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Tasks
 @using Orbit.Web.Services
+@using Orbit.Core.Folders
+@inject FolderState Folders
 @inject CalendarApiClient CalendarApiClient
 @inject ChatApiClient ChatApiClient
 @inject TasksApiClient TasksApiClient
@@ -33,6 +35,14 @@
     </LeadingAction>
     <Title>@T["Calendar"]</Title>
     <Actions>
+        @* Choosing several to act on at once - see PickedThings, and Notes.razor, which carries the
+           same press in the same place. Only the events are chosen here: a deadline on this list
+           belongs to the task list it is on, and filing it would file somebody's errand by the day it
+           happens to fall on. *@
+        @if (!_picked.IsPicking)
+        {
+            <button type="button" class="btn-secondary" @onclick="StartPicking">@T["Select"]</button>
+        }
         @* The order the list beside the grid comes in. Behind the menu rather than in a control across
            the top, the same as every other list in the app - it is something a reader sets once and
            then reads by. Stays open while they try one order and then another. *@
@@ -67,11 +77,25 @@
     </Actions>
 </PageHeader>
 
+@* Which folder is being read. It narrows the grid and the list beside it together, so a tab is a way of
+   looking at the whole calendar rather than at part of it. No Private tab here - an event is never
+   sealed, see FolderPages.HasAPrivateTab. *@
+<PhoneToolbar Page="FolderPage.Calendar">
+    <FolderTabs Page="FolderPage.Calendar" CountIn="CountIn" />
+</PhoneToolbar>
+
 <div class="calendar-layout">
     <div class="calendar-event-list-panel">
         @* One list, whatever kind of thing is on it. Events and deadlines answer the same
            question - what is happening in this period - and two lists side by side made the
            reader merge them by eye, in a period where they interleave by definition. *@
+        @* What to do with several at once, while several are chosen - see PickedThings. Before the
+           list rather than in it: a period with nothing in it drew only its message, so pressing
+           Select there took the button away and offered no way back out. *@
+        <PickedThingsBar Picked="_picked" Page="FolderPage.Calendar"
+                         EveryChosenOneIsAway="@EveryChosenEventIsAway" IsWorking="@_isWorkingOnPicked"
+                         OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync"
+                         OnAllToggled="ToggleAllPicked" OnStopped="StopPicking" />
         @if (_events is null || _dueTasks is null)
         {
             <Loading />
@@ -93,10 +117,17 @@
 
                            Struck through and greyed once that entry is ticked off (item-card-done), the
                            same mark a done deadline carries below, so the two read alike where "show
-                           everything" puts them side by side. *@
+                           everything" puts them side by side.
+
+                           A repeat is drawn once per day it falls on, each card carrying the event's
+                           own id - so choosing one chooses every occurrence of it, which is right:
+                           where an event is filed and whether it is put away are the event's and not
+                           the day's. See CalendarOccurrences. *@
                         <ItemCard Name="@calendarEvent.Details.Title"
                         OnNameSelected="() => OpenTheEvent(calendarEvent)"
                         OnBodySelected="() => OpenTheEvent(calendarEvent)"
+                        OffersPicking="_picked.IsPicking" IsPicked="_picked.Holds(calendarEvent.Id)"
+                        OnPickedChanged="() => _picked.Toggle(calendarEvent.Id)"
                         AccentColour="@(string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? null : calendarEvent.Details.Color)"
                         ExtraClass="@(IsTickedOff(calendarEvent) ? "item-card-done" : null)"
                         HasUnseenAction="@HasNewsAbout(calendarEvent)"
@@ -124,6 +155,8 @@
                                     OnEdit="() => GoToEditEvent(calendarEvent.Id)"
                                     DuplicateLabel="@(calendarEvent.IsShared ? null : T["Duplicate"])"
                                     OnDuplicate="() => DuplicateEventAsync(calendarEvent)"
+                                    ArchiveLabel="@(calendarEvent.IsShared ? null : ArchiveLabelFor(calendarEvent.IsArchived))"
+                                    OnArchive="() => SetArchivedAsync(calendarEvent, !calendarEvent.IsArchived)"
                                     DeleteLabel="@T["Delete"]" OnDelete="() => DeleteEventAsync(calendarEvent)" />
                         </Menu>
                         <Body>
@@ -327,7 +360,7 @@
             // An event that starts before the period and runs into it belongs to it as much as one that
             // starts inside it.
             var nowUtc = TimeProvider.GetUtcNow();
-            return [.. (_events ?? [])
+            return [.. EventsUnderTheOpenTab
                 .Where(calendarEvent => DateOnly.FromDateTime(calendarEvent.Details.StartUtc.LocalDateTime) < toExclusive
                     && DateOnly.FromDateTime(calendarEvent.Details.EndUtc.LocalDateTime) >= from)
                 // An event that has already ended is over. Left out unless the reader asked for
@@ -420,6 +453,8 @@
         // one this page has never read, so hearing about it has to mean reading again - see
         // OnNotificationsChanged.
         NotificationFeedState.Changed += OnNotificationsChanged;
+        // The tabs are shared, so pressing one anywhere re-filters this page too.
+        Folders.Changed += OnFoldersChanged;
         // Before the first render, so the panels come back open rather than opening a moment later, and
         // the list is in the order it was left in rather than jumping into it.
         await Panels.InitializeAsync();
@@ -591,8 +626,27 @@
 
     private IReadOnlyList<CalendarEventDto> EventsOnTheGrid
         => ShowsEverythingInThisView
-            ? _events ?? []
-            : [.. (_events ?? []).Where(calendarEvent => !IsTickedOff(calendarEvent))];
+            ? EventsUnderTheOpenTab
+            : [.. EventsUnderTheOpenTab.Where(calendarEvent => !IsTickedOff(calendarEvent))];
+
+    /// <summary>
+    /// The events under the tab that is open - what both the grid and the list beside it are made of, so
+    /// that pressing a tab narrows the whole page rather than half of it. An event nobody filed is in
+    /// Public; none is ever in Private, an event being one of the kinds Orbit does not seal, which is why
+    /// the calendar draws no Private tab at all (FolderPages.HasAPrivateTab).
+    /// </summary>
+    private IReadOnlyList<CalendarEventDto> EventsUnderTheOpenTab
+        => [.. (_events ?? []).Where(calendarEvent =>
+            Folders.ShowsUnderTheChosenTab(FolderPage.Calendar, calendarEvent.FolderId, isPrivate: false, isFinished: false, calendarEvent.IsArchived))];
+
+    /// <summary>
+    /// How many events are under each tab, drawn on the tab itself. Everything the calendar holds, not
+    /// only what is on screen: the count says how much is in a folder, and a tab reading zero because
+    /// the reader is looking at March would be answering a different question.
+    /// </summary>
+    private int CountIn(FolderKey folder)
+        => (_events ?? []).Count(calendarEvent =>
+            Folders.PlacementOn(FolderPage.Calendar, calendarEvent.FolderId, isPrivate: false, isFinished: false, calendarEvent.IsArchived) == folder);
 
     /// <inheritdoc cref="EventsOnTheGrid"/>
     private IReadOnlyList<DueTaskDto> DueTasksOnTheGrid
@@ -728,6 +782,44 @@
     /// calendar is read again afterwards: the copy has to land in the grid as well as in the list, and
     /// where it lands is not this page's to work out.
     /// </summary>
+    /// <summary>
+    /// "Archive", or "Put back" for something already put away - see
+    /// Orbit.Core.Folders.BuiltInFolder.Archived. The notes page says the same thing the same way.
+    /// </summary>
+    private string ArchiveLabelFor(bool isArchived) => isArchived ? T["Put back"] : T["Archive"];
+
+    /// <summary>
+    /// Puts one appointment away, or brings it back - see Orbit.Core.Folders.BuiltInFolder.Archived. The card
+    /// stays where it is until the page is read again: it has not moved anywhere, it is under another tab
+    /// now. A refusal leaves everything as it was rather than redrawing a lie.
+    /// </summary>
+    private async Task SetArchivedAsync(CalendarEventDto calendarEvent, bool isArchived)
+    {
+        Logger.LogInformation(
+            "User clicked '{Action}' for calendar event {Id}", isArchived ? "Archive" : "Put back", calendarEvent.Id);
+        try
+        {
+            if (!await CalendarApiClient.SetArchivedAsync(calendarEvent.Id, isArchived))
+            {
+                return;
+            }
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to archive calendar event {Id}", calendarEvent.Id);
+            return;
+        }
+
+        _events = _events!
+            .Select(existing => existing.Id == calendarEvent.Id ? existing with { IsArchived = isArchived } : existing)
+            .ToList();
+    }
+
     private async Task DuplicateEventAsync(CalendarEventDto calendarEvent)
     {
         Logger.LogInformation("User clicked 'Duplicate' for calendar event {EventId}", calendarEvent.Id);
@@ -833,6 +925,77 @@
                     calendarEvent.Details.StartUtc, calendarEvent.Details.Title, calendarEvent, null))
                 .Concat(_listedDueTasks.Select(dueTask => new ListedThing(
                     dueTask.DueDateUtc, Written(dueTask.Description), null, dueTask))))];
+
+    /// <summary>Which events are chosen to be acted on together - see PickedThings.</summary>
+    private readonly PickedThings _picked = new();
+
+    /// <summary>While a round of presses is still going out, so a second press cannot start another.</summary>
+    private bool _isWorkingOnPicked;
+
+    private void StartPicking() => _picked.Start();
+
+    private void StopPicking()
+    {
+        _picked.Stop();
+        _isWorkingOnPicked = false;
+    }
+
+    /// <summary>
+    /// Every event on the list, each once however many days it falls on - a repeat drawn five times is
+    /// one event, and "all of them" said five would be counting days.
+    /// </summary>
+    private void ToggleAllPicked()
+        => _picked.ToggleAll(ListedEventIds);
+
+    private IReadOnlyList<Guid> ListedEventIds
+        => [.. ListedThings.Where(thing => thing.Event is not null).Select(thing => thing.Event!.Id).Distinct()];
+
+    /// <summary>Whether every chosen event is already put away, which is what names the bar's archive button.</summary>
+    private bool EveryChosenEventIsAway => _picked.HasAny && ChosenEvents.All(calendarEvent => calendarEvent.IsArchived);
+
+    private IReadOnlyList<CalendarEventDto> ChosenEvents
+        => [.. (_events ?? []).Where(calendarEvent => _picked.Holds(calendarEvent.Id))];
+
+    /// <inheritdoc cref="ActOnPickedAsync"/>
+    private async Task FilePickedAsync(Guid? folderId)
+        => await ActOnPickedAsync(calendarEvent => CalendarApiClient.MoveToFolderAsync(calendarEvent.Id, folderId));
+
+    /// <inheritdoc cref="ActOnPickedAsync"/>
+    private async Task ArchivePickedAsync(bool isArchived)
+        => await ActOnPickedAsync(calendarEvent => CalendarApiClient.SetArchivedAsync(calendarEvent.Id, isArchived));
+
+    /// <summary>
+    /// One press over every chosen event - see OnePressEach, and Notes.ActOnPickedAsync, which is the
+    /// same round on the other page. One somebody else owns is left out: filing and putting away are
+    /// decisions about the owner's own page.
+    /// </summary>
+    private async Task ActOnPickedAsync(Func<CalendarEventDto, Task<bool>> act)
+    {
+        if (!_picked.HasAny || _isWorkingOnPicked)
+        {
+            return;
+        }
+
+        _isWorkingOnPicked = true;
+        try
+        {
+            var stillSignedIn = await OnePressEach.RunAsync(
+                ChosenEvents.Where(calendarEvent => !calendarEvent.IsShared), calendarEvent => act(calendarEvent),
+                Logger, "events");
+            if (!stillSignedIn)
+            {
+                NavigationManager.NavigateTo("/login");
+                return;
+            }
+
+            _events = await CalendarApiClient.GetCalendarEventsAsync();
+            _picked.KeepOnly(ListedEventIds);
+        }
+        finally
+        {
+            _isWorkingOnPicked = false;
+        }
+    }
 
     /// <summary>
     /// Whichever order the reader chose. When is the fallback within the other two as well: two things
@@ -1053,6 +1216,12 @@
             StateHasChanged();
         });
 
-    public void Dispose() => NotificationFeedState.Changed -= OnNotificationsChanged;
+    private void OnFoldersChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        NotificationFeedState.Changed -= OnNotificationsChanged;
+        Folders.Changed -= OnFoldersChanged;
+    }
 
 }

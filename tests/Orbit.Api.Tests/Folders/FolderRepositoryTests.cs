@@ -26,6 +26,10 @@ public sealed class FolderRepositoryTests : IDisposable
 
     public void Dispose() => _database.Dispose();
 
+    /// <summary>
+    /// Every kind that can be filed is emptied out of the folder - a kind forgotten here would leave its
+    /// rows pointing at a tab that no longer exists.
+    /// </summary>
     [Fact]
     public async Task Deleting_a_folder_keeps_what_was_in_it_and_only_unfiles_it()
     {
@@ -34,6 +38,8 @@ public sealed class FolderRepositoryTests : IDisposable
         await repository.AddAsync(folder, CancellationToken.None);
         var noteId = await ANoteFiledUnderAsync(folder.Id);
         var taskListId = AListFiledUnder(folder.Id);
+        var calendarEventId = AnEventFiledUnder(folder.Id);
+        var inventoryId = AnInventoryFiledUnder(folder.Id);
         await _dbContext.SaveChangesAsync();
 
         await repository.DeleteAsync(OwnerUserId, folder.Id, CancellationToken.None);
@@ -41,8 +47,12 @@ public sealed class FolderRepositoryTests : IDisposable
         Assert.Null(await repository.GetByIdAsync(OwnerUserId, folder.Id, CancellationToken.None));
         var note = await _dbContext.Notes.AsNoTracking().FirstAsync(stored => stored.Id == noteId);
         var taskList = await _dbContext.Tasks.AsNoTracking().FirstAsync(stored => stored.Id == taskListId);
+        var calendarEvent = await _dbContext.CalendarEvents.AsNoTracking().FirstAsync(stored => stored.Id == calendarEventId);
+        var inventory = await _dbContext.Inventories.AsNoTracking().FirstAsync(stored => stored.Id == inventoryId);
         Assert.Null(note.FolderId);
         Assert.Null(taskList.FolderId);
+        Assert.Null(calendarEvent.FolderId);
+        Assert.Null(inventory.FolderId);
     }
 
     /// <summary>
@@ -94,6 +104,38 @@ public sealed class FolderRepositoryTests : IDisposable
         });
         await Task.CompletedTask;
         return noteId;
+    }
+
+    private Guid AnEventFiledUnder(Guid folderId)
+    {
+        var calendarEventId = Guid.NewGuid();
+        _dbContext.CalendarEvents.Add(new CalendarEventEntity
+        {
+            Id = calendarEventId,
+            UserId = OwnerUserId,
+            Title = "Dentist",
+            FolderId = folderId,
+            StartUtc = DateTimeOffset.UtcNow,
+            EndUtc = DateTimeOffset.UtcNow.AddHours(1),
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        });
+        return calendarEventId;
+    }
+
+    private Guid AnInventoryFiledUnder(Guid folderId)
+    {
+        var inventoryId = Guid.NewGuid();
+        _dbContext.Inventories.Add(new InventoryEntity
+        {
+            Id = inventoryId,
+            UserId = OwnerUserId,
+            Name = "Pantry",
+            FolderId = folderId,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        });
+        return inventoryId;
     }
 
     private Guid AListFiledUnder(Guid folderId)

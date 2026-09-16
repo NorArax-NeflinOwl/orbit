@@ -206,5 +206,17 @@ public sealed class FolderSynchronizer
         {
             taskList.FolderId = null;
         }
+
+        foreach (var calendarEvent in await dbContext.CalendarEvents
+            .Where(stored => stored.FolderId == folderLocalId).ToListAsync(cancellationToken))
+        {
+            calendarEvent.FolderId = null;
+        }
+
+        foreach (var inventory in await dbContext.Inventories
+            .Where(stored => stored.FolderId == folderLocalId).ToListAsync(cancellationToken))
+        {
+            inventory.FolderId = null;
+        }
     }
 }

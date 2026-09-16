@@ -27,6 +27,23 @@ public static class SyncCursors
         dbContext.SyncCursors.Add(new SyncCursor { EntityType = entityType, Value = value });
     }
 
+    /// <summary>
+    /// Starts this entity type over, so the next pull brings down everything the server holds rather than
+    /// what changed since the last one. Not saved here, for the reason <see cref="WriteAsync"/> gives.
+    ///
+    /// For a change the server would not take (see OutboxReplay): the refusal leaves the server's row as
+    /// it was, so no later "what changed" ever brings it back, and this phone would go on showing the edit
+    /// nobody else has. A full pull is what puts the server's version back over it.
+    /// </summary>
+    public static async Task ForgetAsync(
+        OrbitLocalDbContext dbContext, string entityType, CancellationToken cancellationToken)
+    {
+        if (await Find(dbContext, entityType, cancellationToken) is { } existing)
+        {
+            dbContext.SyncCursors.Remove(existing);
+        }
+    }
+
     private static Task<SyncCursor?> Find(
         OrbitLocalDbContext dbContext, string entityType, CancellationToken cancellationToken)
         => dbContext.SyncCursors.FirstOrDefaultAsync(cursor => cursor.EntityType == entityType, cancellationToken);

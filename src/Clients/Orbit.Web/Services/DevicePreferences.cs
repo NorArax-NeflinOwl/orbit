@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
@@ -74,6 +75,28 @@ public sealed class DevicePreferences
     /// </summary>
     public bool AllowAdsForDebugger { get; private set; }
 
+    /// <summary>
+    /// How far ahead the dashboard's Upcoming card looks, in days. A week by default: the card holds six
+    /// rows and is glanced at, so a year of appointments turned it into a list of everything that will
+    /// ever happen with next Tuesday somewhere inside it. The calendar is where a horizon longer than
+    /// this is read, and it is one press away from the card's own name.
+    ///
+    /// Zero means no horizon at all - everything, which is what the card used to do and is kept as a
+    /// choice for somebody whose calendar is thin enough to want it. See UpcomingHorizons for what
+    /// Options offers.
+    /// </summary>
+    public int UpcomingDays { get; private set; } = DefaultUpcomingDays;
+
+    /// <summary>A week, which is the horizon a card of six rows can hold without becoming a list.</summary>
+    public const int DefaultUpcomingDays = 7;
+
+    /// <summary>
+    /// What Options offers for <see cref="UpcomingDays"/>, shortest first, with everything last. Listed
+    /// rather than typed in: a horizon is a choice between a few useful answers, not a number somebody
+    /// has an opinion about to the day.
+    /// </summary>
+    public static readonly IReadOnlyList<int> UpcomingHorizons = [1, 7, 30, 90, 0];
+
     /// <summary>The kinds of task entry there are, in the order the editor's kind picker lists them.</summary>
     public static readonly IReadOnlyList<string> EntryKinds =
     [
@@ -110,6 +133,12 @@ public sealed class DevicePreferences
         // Only an explicit "true" turns them on, the same way round as the location: a browser that has
         // never been asked, and one whose storage cannot be read, both mean "nobody asked for them".
         AllowAdsForDebugger = await ReadAsync(StorageKeys.AllowAdsForDebugger) == "true";
+        // A browser that was never asked, and one whose storage cannot be read, both get the week. Only a
+        // number this offers is taken back: anything else stored is a value from a version that offered
+        // it, or something nobody wrote, and neither is a horizon to draw a card with.
+        UpcomingDays = int.TryParse(await ReadAsync(StorageKeys.UpcomingDays), out var days) && UpcomingHorizons.Contains(days)
+            ? days
+            : DefaultUpcomingDays;
     }
 
     public Task SetAllowLocationAsync(bool allowLocation)
@@ -134,6 +163,12 @@ public sealed class DevicePreferences
     {
         MinimumLogLevel = level;
         return WriteAsync(StorageKeys.MinimumLogLevel, level.ToString());
+    }
+
+    public Task SetUpcomingDaysAsync(int days)
+    {
+        UpcomingDays = UpcomingHorizons.Contains(days) ? days : DefaultUpcomingDays;
+        return WriteAsync(StorageKeys.UpcomingDays, UpcomingDays.ToString(CultureInfo.InvariantCulture));
     }
 
     public Task SetAllowAdsForDebuggerAsync(bool allowAds)
@@ -199,6 +234,7 @@ public sealed class DevicePreferences
         public const string DiagnosticsMode = "orbit-diagnostics-mode";
         public const string MinimumLogLevel = "orbit-minimum-log-level";
         public const string AllowAdsForDebugger = "orbit-allow-ads-for-debugger";
+        public const string UpcomingDays = "orbit-upcoming-days";
         public const string KindsFilledFromSuggestions = "orbit-kinds-filled-from-suggestions";
     }
 }

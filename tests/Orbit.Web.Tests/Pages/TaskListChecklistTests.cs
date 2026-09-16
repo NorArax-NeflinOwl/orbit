@@ -27,6 +27,9 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     private readonly List<HttpRequestMessage> _requests = [];
     private readonly List<string> _requestBodies = [];
 
+    /// <summary>The id a made list comes back with, so a test can recognise it in what is saved next.</summary>
+    private readonly Guid _madeTaskListId = Guid.NewGuid();
+
     /// <summary>
     /// Whether the account the gate sees qualifies for the Google links. Set before rendering; the gate
     /// asks once and caches, and xUnit builds a fresh instance of this class per test.
@@ -36,6 +39,7 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     public TaskListChecklistTests()
     {
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+        Services.AddScoped<Clipboard>();
         RegisterGoogleIntegrationAccess();
         RegisterChecklistViewPreference();
         RegisterInventoryApiClient();
@@ -556,6 +560,12 @@ public sealed class TaskListChecklistTests : OrbitTestContext
                     : new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(stockCheck) };
             }
 
+            if (request.Method == HttpMethod.Post)
+            {
+                // A made list answers with its id and nothing else - see TasksApiClient.CreateTaskListAsync.
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(_madeTaskListId) };
+            }
+
             return request.Method == HttpMethod.Put
                 ? new HttpResponseMessage(HttpStatusCode.NoContent)
                 : new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(taskLists) };
@@ -673,6 +683,75 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         cut.FindAll(".editor-rail .overflow-menu-dropdown .avatar-dropdown-item")
             .First(entry => entry.TextContent.Contains(label))
             .Click();
+    }
+
+    /// <summary>
+    /// A list made from inside the group that gathers it - the shape of a group is entries pointing at
+    /// other lists, so making one here is two calls: the list, then this list with one entry more. Built
+    /// on 2026-09-14 and untested until now.
+    /// </summary>
+    [Fact]
+    public void A_sublist_is_made_and_the_group_gains_an_entry_standing_for_it()
+    {
+        var group = TaskList("Renovation", Item("Skirting")) with { IsGroup = true, FolderId = Guid.NewGuid() };
+        RegisterTasksApiClient([group]);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, group.Id));
+
+        ChooseInMenu(cut, "New sublist");
+        cut.Find(".checklist-new-sublist input").Input("Kitchen");
+        cut.Find(".checklist-new-sublist .btn-primary").Click();
+        cut.WaitForAssertion(() => Assert.Contains(_requests, request => request.Method == HttpMethod.Put));
+
+        // It starts where the list it hangs under is - the rule everything else follows about making
+        // something while standing somewhere.
+        var made = JsonDocument.Parse(BodyOf(HttpMethod.Post, "/api/tasks")).RootElement;
+        Assert.Equal("Kitchen", made.GetProperty("title").GetString());
+        Assert.Equal(group.FolderId, made.GetProperty("folderId").GetGuid());
+        Assert.False(made.GetProperty("isGroup").GetBoolean());
+        Assert.False(made.GetProperty("isPrivate").GetBoolean());
+
+        // And the group is saved whole, since the endpoint replaces a list wholesale: what was already
+        // on it, plus one entry named after the list and standing for it.
+        var saved = JsonDocument.Parse(BodyOf(HttpMethod.Put, $"/api/tasks/{group.Id}")).RootElement.GetProperty("items");
+        Assert.Equal(["Skirting", "Kitchen"], saved.EnumerateArray().Select(item => item.GetProperty("description").GetString()));
+        var standingFor = saved.EnumerateArray().Last();
+        Assert.Equal(
+            [_madeTaskListId],
+            standingFor.GetProperty("linkedTaskListIds").EnumerateArray().Select(id => id.GetGuid()));
+    }
+
+    /// <summary>
+    /// Offered where a list of lists is what the page is showing, and nowhere else: a plain list gathers
+    /// nothing, and a list shared to read is not this reader's to add to. See CanAddASublist.
+    /// </summary>
+    [Theory]
+    // A plain list, which gathers nothing.
+    [InlineData(false, "CanEdit")]
+    // A group somebody else shared to read.
+    [InlineData(true, "CanRead")]
+    public void A_sublist_is_offered_only_on_a_group_this_reader_may_add_to(bool isGroup, string accessLevel)
+    {
+        var taskList = TaskList("Renovation", Item("Skirting"))
+            with { IsGroup = isGroup, AccessLevel = accessLevel, IsShared = accessLevel != "CanEdit" };
+        RegisterTasksApiClient([taskList]);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        OpenMenu(cut);
+
+        Assert.DoesNotContain(
+            cut.FindAll(".editor-rail .overflow-menu-dropdown .avatar-dropdown-item"),
+            entry => entry.TextContent.Contains("New sublist"));
+    }
+
+    /// <summary>
+    /// The body of the first request sent this way - the fake records every one, in order, alongside the
+    /// request itself. The path matters as well as the method: one page makes several of both.
+    /// </summary>
+    private string BodyOf(HttpMethod method, string path)
+    {
+        var position = _requests.FindIndex(request => request.Method == method && request.RequestUri!.AbsolutePath == path);
+        Assert.True(position >= 0, $"No {method} to {path} was sent.");
+        return _requestBodies[position];
     }
 
     private static TaskDto TaskList(string title, params TaskItemDto[] items)

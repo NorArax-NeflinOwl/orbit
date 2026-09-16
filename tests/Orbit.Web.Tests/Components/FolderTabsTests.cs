@@ -14,9 +14,9 @@ using Xunit;
 namespace Orbit.Web.Tests.Components;
 
 /// <summary>
-/// The row of tabs the dashboard, the notes and the task lists are read under. The built-in ones are
-/// drawn here rather than fetched - they have no rows at all (see BuiltInFolder) - and the rest are
-/// whatever the reader has made on that page.
+/// The row of tabs every page made of cards is read under. The built-in ones are drawn here rather than
+/// fetched - they have no rows at all (see BuiltInFolder) - and the rest are whatever the reader has
+/// made on that page.
 /// </summary>
 public sealed class FolderTabsTests : OrbitTestContext
 {
@@ -36,7 +36,7 @@ public sealed class FolderTabsTests : OrbitTestContext
 
         var cut = RenderTabs(FolderPage.Tasks);
 
-        Assert.Equal(["Public", "Private", "Finished"], TabNames(cut));
+        Assert.Equal(["Public", "Private", "Finished", "Archived"], TabNames(cut));
     }
 
     /// <summary>
@@ -48,8 +48,49 @@ public sealed class FolderTabsTests : OrbitTestContext
     {
         RegisterFolders([]);
 
-        Assert.Equal(["Public", "Private"], TabNames(RenderTabs(FolderPage.Notes)));
-        Assert.Equal(["Public", "Private"], TabNames(RenderTabs(FolderPage.Dashboard)));
+        Assert.Equal(["Public", "Private", "Archived"], TabNames(RenderTabs(FolderPage.Notes)));
+        Assert.Equal(["Public", "Private", "Archived"], TabNames(RenderTabs(FolderPage.Dashboard)));
+    }
+
+    /// <summary>
+    /// Archived is last of the built-in ones, and on every page including the ones that hide Private or
+    /// Finished: something put away has to be somewhere it can be found again.
+    /// </summary>
+    [Fact]
+    public void Every_page_has_an_Archived_tab()
+    {
+        RegisterFolders([]);
+
+        Assert.Contains("Archived", TabNames(RenderTabs(FolderPage.Notes)));
+        Assert.Contains("Archived", TabNames(RenderTabs(FolderPage.Tasks)));
+        Assert.Contains("Archived", TabNames(RenderTabs(FolderPage.Calendar)));
+        Assert.Contains("Archived", TabNames(RenderTabs(FolderPage.Inventories)));
+        Assert.Contains("Archived", TabNames(RenderTabs(FolderPage.Dashboard)));
+    }
+
+    /// <summary>
+    /// An event cannot be sealed, so a Private tab on the calendar could only ever read zero - the same
+    /// reason the notes have no Finished tab. See FolderPages.HasAPrivateTab.
+    /// </summary>
+    [Fact]
+    public void The_calendar_has_no_Private_tab()
+    {
+        RegisterFolders([]);
+
+        Assert.Equal(["Public", "Archived"], TabNames(RenderTabs(FolderPage.Calendar)));
+        Assert.Equal(["Public", "Private", "Archived"], TabNames(RenderTabs(FolderPage.Inventories)));
+    }
+
+    [Fact]
+    public void The_calendar_and_the_inventories_draw_their_own_folders()
+    {
+        RegisterFolders([AFolderCalled("This week", FolderScope.Calendar), AnotherFolderCalled("Kitchen", FolderScope.Inventories)]);
+
+        Assert.Equal(["Public", "Archived", "This week"], TabNames(RenderTabs(FolderPage.Calendar)));
+        Assert.Equal(["Public", "Private", "Archived", "Kitchen"], TabNames(RenderTabs(FolderPage.Inventories)));
+        // The dashboard draws the shelves' tabs beside the notes' and the lists', but not the
+        // calendar's - see FolderPages.ScopesOn.
+        Assert.Equal(["Public", "Private", "Archived", "Kitchen"], TabNames(RenderTabs(FolderPage.Dashboard)));
     }
 
     [Fact]
@@ -59,7 +100,7 @@ public sealed class FolderTabsTests : OrbitTestContext
 
         var cut = RenderTabs(FolderPage.Tasks);
 
-        Assert.Equal(["Public", "Private", "Finished", "Work"], TabNames(cut));
+        Assert.Equal(["Public", "Private", "Finished", "Archived", "Work"], TabNames(cut));
     }
 
     /// <summary>A folder belongs to one page, so the other page does not draw it - see FolderScope.</summary>
@@ -68,8 +109,8 @@ public sealed class FolderTabsTests : OrbitTestContext
     {
         RegisterFolders([AFolderCalled("Work", FolderScope.Notes)]);
 
-        Assert.Equal(["Public", "Private", "Work"], TabNames(RenderTabs(FolderPage.Notes)));
-        Assert.Equal(["Public", "Private", "Finished"], TabNames(RenderTabs(FolderPage.Tasks)));
+        Assert.Equal(["Public", "Private", "Archived", "Work"], TabNames(RenderTabs(FolderPage.Notes)));
+        Assert.Equal(["Public", "Private", "Finished", "Archived"], TabNames(RenderTabs(FolderPage.Tasks)));
     }
 
     /// <summary>The dashboard shows both kinds of card, so it is read under both pages' tabs.</summary>
@@ -80,7 +121,7 @@ public sealed class FolderTabsTests : OrbitTestContext
 
         var cut = RenderTabs(FolderPage.Dashboard);
 
-        Assert.Equal(["Public", "Private", "Work", "Renovation"], TabNames(cut));
+        Assert.Equal(["Public", "Private", "Archived", "Work", "Renovation"], TabNames(cut));
     }
 
     /// <summary>Public until somebody presses another - see FolderKey.Default.</summary>

@@ -103,7 +103,18 @@ public sealed record TaskItemRequest(
     /// moment of the save for one that has only just been ticked. That is what a client written before
     /// this existed sends, so a save from an installed phone neither wipes a recorded time nor moves it.
     /// </summary>
-    DateTimeOffset? CompletedAtUtc = null)
+    DateTimeOffset? CompletedAtUtc = null,
+    /// <summary>
+    /// Whether every list this entry stands for has to be done before it is, or any one of them is
+    /// enough - see Orbit.Core.Tasks.TaskItem.NeedsEveryLinkedList. Null is "not provided" and keeps what
+    /// is stored, which is what a client written before this existed says by saying nothing: the phone
+    /// goes on saving lists without turning an entry's rule back to the default.
+    ///
+    /// Last in the list on purpose. Every other field here is read positionally by callers that send an
+    /// entry back unchanged (see <see cref="From"/>, and Orbit.Web's TaskEditor), so a field added
+    /// anywhere but the end silently shifts all of them.
+    /// </summary>
+    bool? NeedsEveryLinkedList = null)
 {
     /// <summary>Whichever shape the sender used, read as one - see <see cref="LinkedTaskListIds"/>.</summary>
     public IReadOnlyList<Guid> AllLinkedTaskListIds
@@ -152,5 +163,6 @@ public sealed record TaskItemRequest(
             item.Alternatives,
             item.ReferencesTaskItemId,
             item.RequiredQuantity,
-            item.CompletedAtUtc);
+            item.CompletedAtUtc,
+            item.NeedsEveryLinkedList);
 }

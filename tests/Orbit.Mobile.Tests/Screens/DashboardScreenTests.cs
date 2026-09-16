@@ -82,6 +82,25 @@ public sealed class DashboardScreenTests
     }
 
     /// <summary>
+    /// Today is the reader's day, not UTC's. An entry due at half past midnight two hours east of
+    /// Greenwich falls on the previous UTC day, and counting it there made the strip say the day held
+    /// more than it did - which is how this was reported. Orbit.Web has always asked it locally.
+    /// </summary>
+    [Fact]
+    public async Task Today_is_counted_in_the_readers_own_day_rather_than_in_UTC()
+    {
+        using var context = new DashboardContext();
+        context.Clock.SetLocalTimeZone(TimeZoneInfo.CreateCustomTimeZone("Two ahead", TimeSpan.FromHours(2), "Two ahead", "Two ahead"));
+        // 00:30 on the 28th where the reader is, and still the 27th in UTC.
+        await context.AddTaskListAsync("Errands", ("Post the parcel", DateTimeOffset.Parse("2026-08-27T22:30:00Z"), false));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, screen.Today.TasksDueToday);
+    }
+
+    /// <summary>
     /// The count says how far through the day the reader is, which is the question a strip of numbers
     /// over a date is asked. It used to say only what was left, so a day whose work was all ticked off
     /// read "0 tasks due today" - three tasks that disappeared rather than three that were done.
@@ -160,12 +179,12 @@ public sealed class DashboardScreenTests
     }
 
     [Fact]
-    public async Task The_calendar_card_shows_everything_soonest_first()
+    public async Task The_upcoming_card_shows_what_is_ahead_soonest_first_and_nothing_that_has_been()
     {
-        // Not only what is ahead. Filtering to the future reads as the better idea and was a divergence:
-        // Orbit.Web shows the lot, so an account whose events have all been and gone showed a calendar
-        // card there and none here.
+        // It used to show the lot, on a comment claiming Orbit.Web did too - which it does not. A card
+        // headed "what is coming up" listing something from ten days ago is answering another question.
         using var context = new DashboardContext();
+        await context.AddEventAsync("Next week", Now.AddDays(7));
         await context.AddEventAsync("Tomorrow", Now.AddDays(1));
         await context.AddEventAsync("Long gone", Now.AddDays(-10));
         var screen = context.Open();
@@ -173,7 +192,204 @@ public sealed class DashboardScreenTests
         await screen.LoadCommand.ExecuteAsync(null);
 
         var events = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
-        Assert.Equal(["Long gone", "Tomorrow"], events.Rows.Select(row => row.Title));
+        Assert.Equal(["Tomorrow", "Next week"], events.Rows.Select(row => row.Title));
+    }
+
+    [Fact]
+    public async Task An_account_whose_events_have_all_been_and_gone_gets_no_upcoming_card()
+    {
+        using var context = new DashboardContext();
+        await context.AddEventAsync("Long gone", Now.AddDays(-10));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        // Nothing is coming up, so there is no card - rather than an empty one saying the filter emptied
+        // it, which no filter did.
+        Assert.DoesNotContain(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+    }
+
+    /// <summary>
+    /// An appointment a task list raised is finished when that entry is ticked off or crossed out: the
+    /// entry is where the work is, and the event is only when it happens. The card listed them anyway,
+    /// which is what the reader noticed.
+    /// </summary>
+    [Fact]
+    public async Task An_appointment_whose_entry_is_done_is_off_the_upcoming_card()
+    {
+        using var context = new DashboardContext();
+        var doneWith = await context.AddEventAsync("Dentist", Now.AddDays(2));
+        await context.AddEventAsync("Standup", Now.AddDays(3));
+        await context.RaiseFromATickedEntryAsync("Health", doneWith);
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var events = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+        Assert.Equal(["Standup"], events.Rows.Select(row => row.Title));
+    }
+
+    /// <summary>
+    /// A repeat is one event with a rule on it, not a row per occurrence. Read at the date it is stored
+    /// under, a weekly standup entered in spring sat at the bottom of the card under a date months old -
+    /// which is the same bug as a past event, wearing a different hat. See CalendarOccurrences.
+    /// </summary>
+    [Fact]
+    public async Task A_repeat_is_on_the_card_at_its_next_occurrence_rather_than_at_its_first()
+    {
+        using var context = new DashboardContext();
+        await context.AddRepeatingEventAsync("Standup", Now.AddDays(-25), "Weekly");
+        await context.AddEventAsync("Tomorrow", Now.AddDays(1));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var events = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+        // Tomorrow first, then the standup's next turn - three days off, not the twenty-five-day-old
+        // date the event is stored under.
+        Assert.Equal(["Tomorrow", "Standup"], events.Rows.Select(row => row.Title));
+    }
+
+    [Fact]
+    public async Task The_upcoming_card_stops_at_the_horizon()
+    {
+        using var context = new DashboardContext();
+        context.Horizon.SetDays(7);
+        await context.AddEventAsync("This week", Now.AddDays(3));
+        await context.AddEventAsync("Next month", Now.AddDays(30));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var events = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+        Assert.Equal(["This week"], events.Rows.Select(row => row.Title));
+        // The count is of what the card is showing rather than of what the account has - the same rule
+        // every other card on this page follows.
+        Assert.Equal("1", events.Count);
+    }
+
+    [Fact]
+    public async Task A_horizon_that_empties_the_upcoming_card_leaves_the_card_where_it_was()
+    {
+        using var context = new DashboardContext();
+        context.Horizon.SetDays(1);
+        await context.AddEventAsync("Next month", Now.AddDays(30));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        // Gated on whether the account has anything coming up at all, not on what the horizon leaves -
+        // a card that vanished would take the reader's only way back to it with it.
+        var events = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+        Assert.True(events.HasNothingMatching);
+    }
+
+    [Fact]
+    public async Task No_horizon_at_all_puts_everything_back_on_the_upcoming_card()
+    {
+        using var context = new DashboardContext();
+        context.Horizon.SetDays(0);
+        await context.AddEventAsync("This week", Now.AddDays(3));
+        await context.AddEventAsync("Next year", Now.AddDays(365));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var events = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+        Assert.Equal(["This week", "Next year"], events.Rows.Select(row => row.Title));
+    }
+
+    /// <summary>
+    /// The card gathers deadlines beside appointments, as Orbit.Web's does and for the reason its own
+    /// comment gives: the calendar shows both, and a card headed "Upcoming" that left entries out was not
+    /// what is coming up. The phone's card was appointments only.
+    /// </summary>
+    [Fact]
+    public async Task A_deadline_is_on_the_upcoming_card_beside_the_appointments()
+    {
+        using var context = new DashboardContext();
+        await context.AddEventAsync("Standup", Now.AddDays(3));
+        await context.AddTaskListAsync("Errands", ("Post the parcel", Now.AddDays(2), false));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var upcoming = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+        // Sorted as one question: the parcel is owed before the standup happens, whichever list it is on.
+        // And named after the list it sits on, because a card gathering things from everywhere has to say
+        // where each row came from.
+        Assert.Equal(["Errands: Post the parcel", "Standup"], upcoming.Rows.Select(row => row.Title));
+    }
+
+    [Fact]
+    public async Task A_deadline_already_met_or_already_past_is_not_coming_up()
+    {
+        using var context = new DashboardContext();
+        await context.AddTaskListAsync(
+            "Errands",
+            ("Still owed", Now.AddDays(2), false),
+            ("Already done", Now.AddDays(3), true),
+            ("Long overdue", Now.AddDays(-4), false));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var upcoming = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+        Assert.Equal(["Errands: Still owed"], upcoming.Rows.Select(row => row.Title));
+    }
+
+    /// <summary>
+    /// Marking a list finished with work still on it is a way of saying "no more of this"
+    /// (TaskList.IsMarkedCompleted), and a card headed "what is coming up" that kept listing its
+    /// deadlines would be arguing with the reader.
+    /// </summary>
+    [Fact]
+    public async Task A_deadline_on_a_list_somebody_closed_is_not_coming_up()
+    {
+        using var context = new DashboardContext();
+        var closed = await context.AddTaskListAsync("Errands", ("Post the parcel", Now.AddDays(2), false));
+        await context.CloseTaskListAsync(closed);
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.DoesNotContain(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+    }
+
+    /// <summary>
+    /// An entry that <b>is</b> an appointment would otherwise be written twice, one line under the other:
+    /// once as the appointment and once as its own deadline. See DashboardViewModel.DeadlinesComingUp,
+    /// and CalendarDeadline, which leaves it off the same day on the calendar for the same reason.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_that_is_also_an_appointment_is_written_once()
+    {
+        using var context = new DashboardContext();
+        var dentist = await context.AddEventAsync("Dentist", Now.AddDays(2));
+        await context.RaiseFromAnEntryDueAsync("Health", dentist, Now.AddDays(2));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var upcoming = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+        Assert.Equal(["Dentist"], upcoming.Rows.Select(row => row.Title));
+    }
+
+    [Fact]
+    public async Task Pressing_a_deadline_opens_the_entry_it_is_owed_by()
+    {
+        using var context = new DashboardContext();
+        var errands = await context.AddTaskListAsync("Errands", ("Post the parcel", Now.AddDays(2), false));
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var upcoming = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+        await screen.OpenCommand.ExecuteAsync(Assert.Single(upcoming.Rows));
+
+        // The list is where the work is done, so that is where the row goes - not to the calendar, which
+        // is where an appointment's row still goes.
+        Assert.Equal("ShowTaskItem", context.Navigator.LastDestination);
+        Assert.Equal(errands, context.Navigator.LastTaskItem!.Value.TaskListLocalId);
     }
 
     [Fact]
@@ -1214,6 +1430,10 @@ public sealed class DashboardScreenTests
     {
         private readonly LocalStore _localStore = new();
         private readonly FakeTimeProvider _clock = new(Now);
+
+        /// <summary>The screen's clock - a test about which day "today" is sets its zone on this.</summary>
+        public FakeTimeProvider Clock => _clock;
+
         private readonly LocalNoteRepository _notes;
         private readonly LocalTaskListRepository _taskLists;
         private readonly LocalCalendarEventRepository _calendarEvents;
@@ -1235,7 +1455,7 @@ public sealed class DashboardScreenTests
             _inventories = new LocalInventoryRepository(_localStore, _clock, network, PrivateContent.WithoutAKey());
             _places = new LocalPlaceRepository(_localStore, _clock, network, PrivateContent.WithAKey());
             _chat = new ChatRepository(_localStore, _clock);
-            _syncState = new SyncState(network, _clock);
+            _syncState = new SyncState(Reachability.Over(network), _clock);
             NotesServer = new FakeNotesServer(_clock);
             _permissionServer = new FakeUsersServer();
             _permissionServer.Granted.AddRange(
@@ -1406,7 +1626,22 @@ public sealed class DashboardScreenTests
             => new(_notes, _taskLists, _calendarEvents, _inventories, _places, _chat, _clock, new Translations(new InMemoryLanguageStore()),
                 PrivateItems, _synchronizer, _syncState, _permissions,
                 Pins, Visibility, SharedPositions(), Notifications, Navigator,
-                Folders, ChosenFolders, TagColours);
+                Folders, ChosenFolders, TagColours, Horizon);
+
+        /// <summary>
+        /// How far ahead the Upcoming card looks on this phone - see UpcomingHorizon. A test that says
+        /// nothing about it gets the default week, which is what the application gets too.
+        /// </summary>
+        public UpcomingHorizon Horizon { get; } = new(new InMemoryUpcomingHorizonStore());
+
+        private sealed class InMemoryUpcomingHorizonStore : IUpcomingHorizonStore
+        {
+            private int? _days;
+
+            public int? ReadDays() => _days;
+
+            public void WriteDays(int days) => _days = days;
+        }
 
         /// <summary>The account's tag colours on this phone - see LocalTagColourRepository.</summary>
         public LocalTagColourRepository TagColours => new(_localStore);
@@ -1520,9 +1755,77 @@ public sealed class DashboardScreenTests
             return created.LocalId;
         }
 
-        public async Task AddEventAsync(string title, DateTimeOffset startUtc, string? colour = null)
-            => await _calendarEvents.CreateAsync(new CalendarEventDetailsDto(
-                title, null, null, colour, startUtc, startUtc.AddHours(1), false, null, [], [], ReminderNotificationChannel: "None"));
+        public async Task<Guid> AddEventAsync(string title, DateTimeOffset startUtc, string? colour = null)
+            => (await _calendarEvents.CreateAsync(new CalendarEventDetailsDto(
+                title, null, null, colour, startUtc, startUtc.AddHours(1), false, null, [], [],
+                ReminderNotificationChannel: "None"))).LocalId;
+
+        /// <summary>
+        /// One event with a rule on it, which is how a repeat is stored - see CalendarOccurrences, which
+        /// is what turns it back into the days it falls on.
+        /// </summary>
+        public async Task<Guid> AddRepeatingEventAsync(string title, DateTimeOffset startUtc, string frequency)
+            => (await _calendarEvents.CreateAsync(new CalendarEventDetailsDto(
+                title, null, null, null, startUtc, startUtc.AddHours(1), false,
+                new RecurrenceDto(frequency, 1, null), [], [],
+                ReminderNotificationChannel: "None"))).LocalId;
+
+        /// <summary>
+        /// A task list whose one entry raised this appointment and has since been ticked off, which is
+        /// what takes the appointment off the Upcoming card - see DashboardViewModel.StillToDo.
+        ///
+        /// The event is stamped with a server id here because a server id is what an entry names
+        /// (`TaskItemDto.LinkedCalendarEventId`) and nothing in these tests has pushed anything.
+        /// </summary>
+        public Task RaiseFromATickedEntryAsync(string listTitle, Guid eventLocalId)
+            => RaiseFromAnEntryAsync(listTitle, eventLocalId, dueUtc: null, isCompleted: true);
+
+        /// <summary>
+        /// The same list, with the entry still owed and carrying a deadline of its own - which is the
+        /// entry that would be written twice if the card did not notice that it is the appointment.
+        /// </summary>
+        public Task RaiseFromAnEntryDueAsync(string listTitle, Guid eventLocalId, DateTimeOffset dueUtc)
+            => RaiseFromAnEntryAsync(listTitle, eventLocalId, dueUtc, isCompleted: false);
+
+        private async Task RaiseFromAnEntryAsync(
+            string listTitle, Guid eventLocalId, DateTimeOffset? dueUtc, bool isCompleted)
+        {
+            var serverId = Guid.NewGuid();
+            await using (var dbContext = _localStore.CreateDbContext())
+            {
+                dbContext.CalendarEvents.First(stored => stored.LocalId == eventLocalId).ServerId = serverId;
+                await dbContext.SaveChangesAsync();
+            }
+
+            await _taskLists.CreateAsync(
+                listTitle,
+                [
+                    new TaskItemDto(
+                        Guid.NewGuid(), "Dentist", dueUtc, isCompleted, null, "None", false, "None",
+                        new TimeOnly(9, 0), Kind: "Calendar", LinkedCalendarEventId: serverId)
+                ]);
+        }
+
+        /// <summary>
+        /// Marks a list finished, as its own screen's box does - which closes it whatever is still
+        /// unticked on it.
+        ///
+        /// Through the repository rather than by writing IsCompleted into the row: the dashboard
+        /// synchronises before it draws, so a flag set behind the store's back is pushed as nothing,
+        /// answered by the server's own reading of the entries - one of them unticked, so not finished -
+        /// and written straight back over. The reader's own answer travels as Completion, which is the
+        /// whole reason that field exists (see TaskListCompletion).
+        /// </summary>
+        public async Task CloseTaskListAsync(Guid taskListLocalId)
+        {
+            var stored = await _taskLists.FindAsync(taskListLocalId)
+                ?? throw new InvalidOperationException("No such list on this phone.");
+            await _taskLists.UpdateAsync(
+                taskListLocalId,
+                new TaskListContent(
+                    stored.Title, stored.Items, stored.IsGroup, stored.Priority, stored.IsPrivate,
+                    stored.Description, nameof(Orbit.Core.Tasks.TaskListCompletion.Finished)));
+        }
 
         /// <summary>
         /// Put on the server as well as in the local store, because the dashboard now synchronises on

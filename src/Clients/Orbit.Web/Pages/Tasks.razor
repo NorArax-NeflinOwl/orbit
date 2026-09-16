@@ -32,6 +32,12 @@
     </LeadingAction>
     <Title>@T["Tasks"]</Title>
     <Actions>
+        @* Choosing several to act on at once - see PickedThings, and Notes.razor, which carries the
+           same press in the same place. *@
+        @if (!_picked.IsPicking)
+        {
+            <button type="button" class="btn-secondary" @onclick="StartPicking">@T["Select"]</button>
+        }
         @* The order these cards come in is something a reader sets once and then reads by, so it lives
            behind the menu rather than in a control taking up the top of every visit. Stays open while
            they try one order and then another - see OverflowMenu.StaysOpen. *@
@@ -139,6 +145,12 @@
     }
 </PhoneToolbar>
 
+@* What to do with several at once, while several are chosen - see PickedThings, and Notes.razor on why it
+   is outside the list. *@
+<PickedThingsBar Picked="_picked" Page="FolderPage.Tasks"
+                 EveryChosenOneIsAway="@EveryChosenListIsAway" IsWorking="@_isWorkingOnPicked"
+                 OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync"
+                 OnAllToggled="ToggleAllPicked" OnStopped="StopPicking" />
 <ObjectList IsLoading="_taskLists is null" IsEmpty="_taskLists is { Count: 0 }" EmptyMessage="@T["No task lists yet."]">
     @if (VisibleTaskLists.Count == 0)
     {
@@ -171,6 +183,8 @@
                 <ItemCard Name="@Written(taskList.Title)"
                           OnNameSelected="() => GoToChecklist(taskList.Id)"
                           OnBodySelected="() => GoToChecklist(taskList.Id)"
+                          OffersPicking="_picked.IsPicking" IsPicked="_picked.Holds(taskList.Id)"
+                          OnPickedChanged="() => _picked.Toggle(taskList.Id)"
                           HasUnseenAction="@(UnreadCountFor(taskList) > 0)"
                           IsCollapsed="Arrangement.IsCollapsed(taskList.Id)"
                           OnCollapseToggled="() => ToggleCollapsedAsync(taskList)"
@@ -199,6 +213,8 @@
                         <ObjectMenu EditLabel="@T["Edit"]" OnEdit="() => GoToEditTaskList(taskList.Id)"
                                     DuplicateLabel="@(!taskList.IsShared ? T["Duplicate"] : null)"
                                     OnDuplicate="() => DuplicateTaskListAsync(taskList)"
+                                    ArchiveLabel="@(!taskList.IsShared ? ArchiveLabelFor(taskList.IsArchived) : null)"
+                                    OnArchive="() => SetArchivedAsync(taskList, !taskList.IsArchived)"
                                     DeleteLabel="@(!taskList.IsShared ? T["Delete"] : null)" OnDelete="() => DeleteTaskListAsync(taskList)" />
                     </Menu>
                     <Tags>
@@ -448,6 +464,68 @@
     /// Filtering and sorting happen here rather than on the server: the page already has every list it
     /// owns, so asking again would be a round trip to rearrange what is already on screen.
     /// </summary>
+    /// <summary>Which lists are chosen to be acted on together - see PickedThings.</summary>
+    private readonly PickedThings _picked = new();
+
+    /// <summary>While a round of presses is still going out, so a second press cannot start another.</summary>
+    private bool _isWorkingOnPicked;
+
+    private void StartPicking() => _picked.Start();
+
+    private void StopPicking()
+    {
+        _picked.Stop();
+        _isWorkingOnPicked = false;
+    }
+
+    private void ToggleAllPicked() => _picked.ToggleAll(VisibleTaskLists.Select(taskList => taskList.Id));
+
+    /// <summary>Whether every chosen list is already put away, which is what names the bar's archive button.</summary>
+    private bool EveryChosenListIsAway => _picked.HasAny && ChosenTaskLists.All(taskList => taskList.IsArchived);
+
+    private IReadOnlyList<TaskDto> ChosenTaskLists
+        => [.. (_taskLists ?? []).Where(taskList => _picked.Holds(taskList.Id))];
+
+    /// <inheritdoc cref="ActOnPickedAsync"/>
+    private async Task FilePickedAsync(Guid? folderId)
+        => await ActOnPickedAsync(taskList => TasksApiClient.MoveToFolderAsync(taskList.Id, folderId));
+
+    /// <inheritdoc cref="ActOnPickedAsync"/>
+    private async Task ArchivePickedAsync(bool isArchived)
+        => await ActOnPickedAsync(taskList => TasksApiClient.SetArchivedAsync(taskList.Id, isArchived));
+
+    /// <summary>
+    /// One press over every chosen list - see OnePressEach, and Notes.ActOnPickedAsync, which is the
+    /// same round on the other page. A list somebody else owns is left out: filing and putting away are
+    /// decisions about the owner's own page.
+    /// </summary>
+    private async Task ActOnPickedAsync(Func<TaskDto, Task<bool>> act)
+    {
+        if (!_picked.HasAny || _isWorkingOnPicked)
+        {
+            return;
+        }
+
+        _isWorkingOnPicked = true;
+        try
+        {
+            var stillSignedIn = await OnePressEach.RunAsync(
+                ChosenTaskLists.Where(taskList => !taskList.IsShared), taskList => act(taskList), Logger, "task lists");
+            if (!stillSignedIn)
+            {
+                NavigationManager.NavigateTo("/login");
+                return;
+            }
+
+            _taskLists = await TasksApiClient.GetTaskListsAsync();
+            _picked.KeepOnly(VisibleTaskLists.Select(taskList => taskList.Id));
+        }
+        finally
+        {
+            _isWorkingOnPicked = false;
+        }
+    }
+
     private IReadOnlyList<TaskDto> VisibleTaskLists
     {
         get
@@ -477,12 +555,12 @@
     /// FolderPlacement, which is the same rule the notes and the dashboard read.
     /// </summary>
     private bool InTheOpenFolder(TaskDto taskList)
-        => Folders.ShowsUnderTheChosenTab(FolderPage.Tasks, taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted);
+        => Folders.ShowsUnderTheChosenTab(FolderPage.Tasks, taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted, taskList.IsArchived);
 
     /// <summary>How many lists are under each tab, drawn on the tab itself.</summary>
     private int CountIn(FolderKey folder)
         => (_taskLists ?? []).Count(taskList =>
-            Folders.PlacementOn(FolderPage.Tasks, taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted) == folder);
+            Folders.PlacementOn(FolderPage.Tasks, taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted, taskList.IsArchived) == folder);
 
     /// <summary>
     /// A status chip matches the status the list is in; "Shared" matches where it came from and "Group"
@@ -1020,6 +1098,44 @@
     /// A sealed list keeps its name, because that name is inside a payload the browser would have to
     /// re-seal to change - see DuplicateRequest.Name.
     /// </summary>
+    /// <summary>
+    /// "Archive", or "Put back" for something already put away - see
+    /// Orbit.Core.Folders.BuiltInFolder.Archived. The notes page says the same thing the same way.
+    /// </summary>
+    private string ArchiveLabelFor(bool isArchived) => isArchived ? T["Put back"] : T["Archive"];
+
+    /// <summary>
+    /// Puts one list away, or brings it back - see Orbit.Core.Folders.BuiltInFolder.Archived. The card
+    /// stays where it is until the page is read again: it has not moved anywhere, it is under another tab
+    /// now. A refusal leaves everything as it was rather than redrawing a lie.
+    /// </summary>
+    private async Task SetArchivedAsync(TaskDto taskList, bool isArchived)
+    {
+        Logger.LogInformation(
+            "User clicked '{Action}' for task list {Id}", isArchived ? "Archive" : "Put back", taskList.Id);
+        try
+        {
+            if (!await TasksApiClient.SetArchivedAsync(taskList.Id, isArchived))
+            {
+                return;
+            }
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to archive task list {Id}", taskList.Id);
+            return;
+        }
+
+        _taskLists = _taskLists!
+            .Select(existing => existing.Id == taskList.Id ? existing with { IsArchived = isArchived } : existing)
+            .ToList();
+    }
+
     private async Task DuplicateTaskListAsync(TaskDto taskList)
     {
         Logger.LogInformation("User clicked 'Duplicate' for task list {TaskListId}", taskList.Id);

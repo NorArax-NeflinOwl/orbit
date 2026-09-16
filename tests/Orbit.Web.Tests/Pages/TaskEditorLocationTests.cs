@@ -32,6 +32,7 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
     public TaskEditorLocationTests()
     {
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+        Services.AddScoped<Clipboard>();
         RegisterAuthentication();
         // The overlay's map is Leaflet, which is not loaded here; these tests are about what the editor
         // offers and what it does with the answer.

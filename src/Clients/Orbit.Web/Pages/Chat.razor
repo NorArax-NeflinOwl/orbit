@@ -15,6 +15,7 @@
 @using Orbit.Core.Notifications
 @using Orbit.Core.Permissions
 @using Orbit.Web.Services
+@using Orbit.Core.Text
 @inject ChatApiClient ChatApiClient
 @inject TimeProvider TimeProvider
 @inject CalendarApiClient CalendarApiClient
@@ -547,9 +548,10 @@ else
                 return _establishedChats;
             }
 
+            // Without the marks over a letter: somebody looking for "Michał" types "michal" as often
+            // as not, and a name is the one thing a search box is most often asked for - see LooseText.
             return _establishedChats.Where(contact =>
-                contact.DisplayName.Contains(query, StringComparison.CurrentCultureIgnoreCase)
-                || contact.UserName.Contains(query, StringComparison.CurrentCultureIgnoreCase));
+                LooseText.Holds(contact.DisplayName, query) || LooseText.Holds(contact.UserName, query));
         }
     }
 
@@ -1834,7 +1836,7 @@ else
     /// </summary>
     private IEnumerable<ChatGroupDto> _matchingGroups
         => _chatSearch.Trim() is { Length: > 0 } query
-            ? _groups.Where(group => group.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase))
+            ? _groups.Where(group => LooseText.Holds(group.Name, query))
             : _groups;
 
     private void OpenConversation(Conversation conversation)

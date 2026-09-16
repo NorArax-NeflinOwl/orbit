@@ -22,6 +22,7 @@ using Orbit.Core.Notes.ReleaseNoteLock;
 using Orbit.Core.Notes.SetNotePinned;
 using Orbit.Core.Notes.ShareNote;
 using Orbit.Core.Notes.UpdateNote;
+using Orbit.Core.Notes.ArchiveNote;
 
 namespace Orbit.Api.Notes;
 
@@ -81,7 +82,7 @@ public static class NoteEndpoints
                 new UpdateNoteCommand(
                     GetUserId(user), id, request.Title, ToDomainContent(request.Content), request.IsPrivate,
                     ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
-                    request.Tags),
+                    request.Tags, request.PictureIds),
                 cancellationToken);
             return ToApiResult(outcome);
         });
@@ -107,6 +108,17 @@ public static class NoteEndpoints
             var moved = await dispatcher.SendAsync(
                 new MoveNoteToFolderCommand(GetUserId(user), id, request.FolderId), cancellationToken);
             return moved ? Results.NoContent() : Results.NotFound();
+        });
+
+        // Putting one away and bringing it back - see ArchiveNoteCommand. Its own endpoint beside
+        // the filing above, and for the same reason: an update carries the whole note.
+        notes.MapPut("/{id:guid}/archived", async (
+            Guid id, ArchiveRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var archived = await dispatcher.SendAsync(
+                new ArchiveNoteCommand(GetUserId(user), id, request.IsArchived), cancellationToken);
+            return archived ? Results.NoContent() : Results.NotFound();
         });
 
         // A second note saying the same thing - see DuplicateNoteCommand. The body is optional, and a
@@ -188,11 +200,63 @@ public static class NoteEndpoints
     }
 
     private static IReadOnlyList<NoteContentLine> ToDomainContent(IReadOnlyList<NoteContentLineDto> content)
-        => content.Select(line => new NoteContentLine(
-            line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed && !line.IsChecked)).ToList();
+        => content.Select(line => line.Table is { } table
+            // A line that carries a table is the table and nothing else - see NoteContentLine.OfTable,
+            // which squares it up and leaves no room for words or a box beside it. A picture the same.
+            ? NoteContentLine.OfTable(TableOf(table))
+            : line.Picture is { } picture
+            ? NoteContentLine.OfPicture(new NotePictureLine(picture.PictureId, picture.ContentType, picture.WidthPixels, picture.HeightPixels))
+            // And a rule across the note the same - see NoteContentLine.OfSeparator. What is written on
+            // it is taken as it arrived: it was written when the rule was made, and the server's clock
+            // has nothing to say about it.
+            : line.Separator is { } separator
+            ? NoteContentLine.OfSeparator(separator.Stamp)
+            : new NoteContentLine(
+                line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed && !line.IsChecked,
+                StyleOf(line.Style), MarksOf(line.AllMarks, line.Text))).ToList();
+
+    private static NoteTable TableOf(NoteTableDto table)
+        => new([.. table.Rows.Select(row => new NoteTableRow(
+            [.. row.Cells.Select(cell => new NoteTableCell(cell.Text, MarksOf(cell.AllMarks, cell.Text)))]))]);
+
+    /// <summary>
+    /// A line's marks as they arrived, put in the one shape the rules work in - clipped to the words,
+    /// with anything this build does not know dropped. See NoteTextMarks.Normalized.
+    /// </summary>
+    private static IReadOnlyList<NoteTextRun> MarksOf(IReadOnlyList<NoteTextRunDto> marks, string text)
+        => NoteTextMarks.Normalized(
+            marks.Select(run => new NoteTextRun(run.Start, run.Length, NoteTextMarks.Read(run.Mark))),
+            text.Length);
 
     private static NoteContentLineDto ToDto(NoteContentLine line)
-        => new(line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed);
+        => new(line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed, line.Style.ToString(),
+            MarksSent(line.AllMarks), TableSent(line.Table), PictureSent(line.Picture),
+            line.Separator is null ? null : new NoteSeparatorLineDto(line.Separator.Stamp));
+
+    private static NotePictureLineDto? PictureSent(NotePictureLine? picture)
+        => picture is null ? null : new NotePictureLineDto(picture.PictureId, picture.ContentType, picture.WidthPixels, picture.HeightPixels);
+
+    private static NoteTableDto? TableSent(NoteTable? table)
+        => table is null
+            ? null
+            : new NoteTableDto([.. table.Rows.Select(row => new NoteTableRowDto(
+                [.. row.Cells.Select(cell => new NoteTableCellDto(cell.Text, MarksSent(cell.AllMarks)))]))]);
+
+    /// <summary>
+    /// A line's marks as they go out - null rather than an empty list for a line with none, which is
+    /// nearly every line of nearly every note: the field is then simply absent from the JSON.
+    /// </summary>
+    private static IReadOnlyList<NoteTextRunDto>? MarksSent(IReadOnlyList<NoteTextRun> marks)
+        => marks.Count == 0
+            ? null
+            : marks.Select(run => new NoteTextRunDto(run.Start, run.Length, run.Mark.ToString())).ToList();
+
+    /// <summary>
+    /// A style read off a request. A word this build does not know reads as Body rather than being
+    /// refused: a line drawn plainly is still the reader's line, where refusing the save loses what they
+    /// wrote. See NoteLineStyles.Read, which is that rule and which every client reads styles by.
+    /// </summary>
+    private static NoteLineStyle StyleOf(string? style) => NoteLineStyles.Read(style);
 
 
     /// <summary>Both halves travel together or not at all, so a request carrying only one is treated as carrying neither.</summary>
@@ -212,7 +276,11 @@ public static class NoteEndpoints
             // folder that does not exist on their pages, and a card filed under a tab they cannot see
             // is a card that has vanished.
             note.IsShared ? null : note.FolderId,
-            note.Tags);
+            note.Tags,
+            // Putting away is the owner's too, and for a stronger reason than the filing: a recipient who was
+            // told this was archived would find it gone from their own pages over a decision that was never
+            // theirs. False for them, which is where their own copy already is.
+            !note.IsShared && note.IsArchived);
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

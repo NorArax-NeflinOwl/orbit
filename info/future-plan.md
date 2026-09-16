@@ -280,12 +280,19 @@ the session can read the address off the same page. The stronger answer is to as
 Explicitly called out in the functionality documentation as deliberate limitations of this first
 version, so they aren't mistaken for oversights:
 
-- **Calendar events are not filed in folders, and will not be.** Decided by the user on 2026-09-09,
+- ~~**Calendar events are not filed in folders, and will not be.** Decided by the user on 2026-09-09,
   when folders were given a page of their own (`FolderScope`). A folder holds notes and task lists;
   an event is found by when it happens, which is what the calendar is. Written down because it looks
   like an omission from the outside - the Finished tab's own wording used to say it "concerns tasks and
   events" - and because the change is not a small one: `OP_EVENTS` has no folder column, so this would
-  be a migration, a third `FolderScope`, and a field on the event form.
+  be a migration, a third `FolderScope`, and a field on the event form.~~
+  **Reversed by the user on 2026-09-15**, who asked for folders on the events *and* on the inventories,
+  done the way the notes and the lists have them. It cost exactly what this said it would - one
+  migration (`OP_E_FOLDERID`, `OP_I_FOLDERID`), two more `FolderScope`s and a field on both forms - plus
+  the phone's half and the archive's. What the old decision was right about is kept: a tab on the
+  calendar narrows the grid **and** the list together, so it is still a way of reading the whole
+  calendar rather than a second index of it, and the dashboard draws no calendar tabs, because what it
+  says about the calendar is when things are. See `info/functionality.md`, "Folders".
 - **The month and year calendar views stay filtered to what is still to come.** Also confirmed by the
   user on 2026-09-09, alongside making the week account for everything the way a day does (see
   `Calendar.ShowsEverythingInThisView`). They are read to find something rather than to account for a
@@ -401,7 +408,8 @@ version, so they aren't mistaken for oversights:
   looked at yet. The same seen signal (`ChatReadState`) could drive it.
 - ~~**Task list cycle validation is server-side only.**~~ Done: the editor's "link to list" dropdown now
   leaves out every list that links back to the one being edited, however long the chain
-  (`TaskListLinkCycle`), so a link the save would refuse is never offered. `TaskListLinkValidator` stays
+  (`TaskListLinks`, which the phone's pickers ask too since 2026-09-16), so a link the save would refuse is
+  never offered. `TaskListLinkValidator` stays
   the authority — this only stops the editor asking for something it already knows the answer to.
 
 ## Testing gaps
@@ -434,8 +442,9 @@ since been closed; what is left is recorded below with the same honesty about wh
   on it and `127.0.0.1` is a secure context. Fourteen checks: the round trip, a per-message nonce, a
   tampered message refusing to open, a stranger's key not opening it, two accounts in one browser not
   sharing a key, the password-wrapped backup and its restore, and the key surviving a reload. It runs in
-  the `test` job on every pull request, not only on a deploy - a change that quietly weakens the
-  encryption is not something to find out about afterwards.
+  the `test` job, which gates the deploy - so a change that quietly weakens the encryption cannot reach
+  Azure. It does **not** run before that: the `test` job's only trigger is the push to `main`, so on a
+  feature branch this harness is run by hand (`node ci/verify-browser-crypto.mjs`) or not at all.
 - ~~**`PushNotificationManager`, `pushNotifications.js` and `service-worker.js` have no coverage.**~~
   Closed the same way, by `ci/verify-push-notifications.mjs`. It registers the real worker, grants the
   permission, and delivers real push events through Chrome DevTools' `ServiceWorker.deliverPushMessage`,
@@ -466,12 +475,22 @@ since been closed; what is left is recorded below with the same honesty about wh
   answer to an announcement is driven rather than reasoned about. The slower pace while connected
   (`ConnectedPollInterval`) still is not: it needs a connection that is really up. As first written:
   `LiveUpdatesConnection` raised its events from inside itself and nothing outside could.
-- ~~**Nothing runs on a pull request.**~~ Put back, cheaply. The trigger was removed because every
-  billed minute counted and a day of ordinary work exhausted the allowance; what changed is that a run
-  now costs a fraction of what it did. The android job looks before it builds and does nothing when
-  nothing it builds from changed, a pull request run is cancelled by the next push to the same branch,
-  and documentation-only branches are skipped outright. The deploy job stays out of it either way -
-  guarded on the event as well as gated on the suite.
+- **Nothing runs on a pull request, and this entry said otherwise until 2026-09-14.** It was written as
+  "put back, cheaply" and struck through; re-read against the workflows, nothing had been put back. The
+  three files that would carry it - `main_orbit.yml`, `android-head.yml`, `verify-diagrams.yml` - all
+  trigger on `push` to `main` and `workflow_dispatch` and on nothing else, and the only
+  `pull_request` trigger in the repository is `guard-main.yml`, which comments on a pull request aimed
+  at `main` and runs no tests. Two details the struck-out text claimed are wrong about the workflows as
+  they stand either way: runs are queued, not cancelled (`cancel-in-progress: false`), and what
+  `paths-ignore` skips is a *merge to `main`* that touches only documentation, not a branch.
+
+  So the state is the one `.claude/CLAUDE.md` rule 5 describes: `dotnet test Orbit.CI.slnf` on the
+  machine that made the change is the only check anything gets before it reaches `Coding`. Putting a
+  cheap pull-request run back is still worth weighing - the cost argument in `main_orbit.yml`'s header
+  is about a trigger that also fired on `Coding` and on the integration pull request, which a
+  `pull_request`-only trigger with `cancel-in-progress: true` would not - but it is a decision to make
+  with skill `ci-pipeline` open and the user's word on the runner budget, not a correction to make in
+  passing. Recorded here so the next session does not act on the claim this entry used to make.
 - **What Google actually does with an "Add to Google Calendar" link.** The URL is built and pinned by
   `GoogleLinkTests` - the shape of the dates, the RRULE, what is escaped - but whether Google renders
   a pre-filled event form from it has only ever been checked by reading its documentation. Opening
@@ -539,6 +558,49 @@ since been closed; what is left is recorded below with the same honesty about wh
   `ci/deploy-safety-gates`, since those two mean a bad deploy self-heals automatically - a manual
   approval gate is then about *deliberateness* (did a human mean to ship this now) rather than being
   the only thing standing between a bug and production.
+
+- **Letting the 20 € ceiling enforce itself.** The spending limit is written down and all but one
+  step built: a subscription budget fires at 10 € and at 20 €, the runbook in `orbit-automation`
+  (`scripts/send-cost-instruction-mail.ps1`) mails what to run at each, and on the last day of the
+  month mails the resume commands if anything is still stopped - but a *person* runs them, because
+  the runbook's identity is Reader only and an Azure budget on a pay-as-you-go subscription notifies
+  and nothing more (see [Azure setup — Cost limits](azure-setup.md#cost-limits)). Closing the last gap
+  is small now: Contributor on the resource group for that identity, and a runbook that runs the five
+  stop commands at 20 € instead of mailing them. **Not done deliberately, for two reasons worth
+  weighing before it is:** an automatic block takes the deployment down unattended, possibly over a
+  rating batch nobody has looked at, and Azure restarts a stopped Flexible Server by itself after
+  seven days - so even the automatic version is not a block that holds, just one that fires faster.
+  The forecast notification, which warns when the *month* is projected to reach 20 € rather than when
+  it has, is what makes the manual path workable in the meantime.
+
+- **The phone through a paused server.** The cost stop makes a switched-off `orbit-api` an expected,
+  days-long state, and the phone as it stands does the worst thing available in it: a stopped Container
+  App's address still answers - the environment's front door says 404 - and the phone reads that as
+  the API's opinion, so `TokenRefreshService` signs everyone out within fifteen minutes and
+  `OutboxReplay` starts discarding queued edits after five syncs, on a phone whose database holds
+  everything the reader needs. Both are right against a live server and wrong against a paused one.
+  Analysed 2026-09-14 in [Orbit.Maui — Plan, §15](orbit-maui-plan.md#15-living-without-the-server),
+  and **the two defects were closed on 2026-09-15** (§15.6): the API stamps every answer as its own,
+  the phone lets nothing without the stamp through, and the stop script leaves `status.json` on
+  `orbitdownloads` so the phone says *"Orbit is paused"* and behaves as it does offline. Still open
+  there: watching a real phone against a really stopped server (the 404 assumption is untested),
+  reminders that ring from the phone (all four are server background services today), suggestions from
+  the local database, and a sign-in screen that admits the notes are still on the phone. Chat, sharing
+  and identity stay off, as agreed.
+- **nginx in `orbit-web` runs as root.** The image is `nginx:alpine`, whose master process starts as
+  root so it can bind port 80 - `orbit-api` already drops to `$APP_UID` in its own Dockerfile, so this
+  is the only container in the deployment that does not. The fix is `nginxinc/nginx-unprivileged`,
+  which listens on 8080 instead, so it also means changing the target port on `orbit-web`'s ingress and
+  in `nginx.azure.conf`, and re-verifying the `/api/` proxy path end to end. A real change with a real
+  test rather than a setting, which is why it is written down instead of done - see
+  [Azure security](azure-security.md#deliberately-accepted-and-why).
+- **Whether to buy Defender for open-source relational databases.** Of the paid Defender plans, this is
+  the only one worth weighing here: the PostgreSQL server holds every user's data, it is the one
+  resource with a public endpoint and a password, and at roughly $15 a month it is the cheapest of
+  them - but that is still more than the 10 € warning threshold, spent on monitoring rather than on
+  running anything. The rest of the plans, and what each would close, are costed in
+  [Azure security](azure-security.md#what-the-remaining-points-cost). A decision to take deliberately
+  against the [cost limits](azure-setup.md#cost-limits), not a default.
 
 ## What the footer could grow into
 
@@ -664,12 +726,19 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
-- **`TaskItem.KeepAlternativesOf` can leave the completion time disagreeing with the tick.** Noticed
+- ~~**`TaskItem.KeepAlternativesOf` can leave the completion time disagreeing with the tick.**~~ Fixed
+  2026-09-14, the first of the two ways this offered: `KeepAlternativesOf` calls `RecordWhenItWasDone`
+  itself once the ways have moved the tick, so the pair cannot be left disagreeing by any caller. The
+  constructor guard was not taken - the contradiction is made by a mutation rather than by a
+  construction, so a guard there would not have seen it. Nothing about what a save stores changed: both
+  handlers still call `RecordWhenItWasDone` afterwards and it is idempotent, a time the client sent is
+  still taken at its word, and an entry already done still keeps the stored time rather than being
+  re-stamped. Covered by two tests in `EntryDoneAnyOneOfSeveralWaysTests` - the time kept when the ways
+  bring the tick back, and the time dropped when the ways say the entry is not done. As noticed:
   2026-09-12, merging the round that records when an entry was done into the one that lets it be done any
   one of several ways. The two save handlers call `RecordWhenItWasDone` after it, so what is stored is
   always corrected; a later caller that forgets would store a time for an entry that is not done, or
-  none for one that is. What it would take: either stamping inside `KeepAlternativesOf` itself, or a
-  guard in the constructor that refuses the pairing the way `Place` refuses private-with-nothing-sealed.
+  none for one that is.
 
 - **Three group chat tests failed once under the full suite and have not since.** Noticed 2026-09-12:
   `GroupConversationPagesTests` failed on the first full `dotnet test Orbit.CI.slnf` after the merge,
@@ -693,13 +762,32 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   opt out of the layout's settle for its own address (the chat pages settle on their own terms), and
   checking the other callers of `NewsSettler` still clear what they should.
 
-- **The phone's note screen has no way to indent.** The browser's Tab and Shift+Tab (2026-09-11) have no
+- ~~**The phone's note screen has no way to indent.**~~ Done 2026-09-14, both halves exactly as this
+  said: `NoteDetailViewModel.Indent`/`Outdent` work `NoteSurfaceEdits.Indent`/`Outdent` on the surface
+  the screen already builds, two `IconButton`s sit beside undo and redo over the note's foot (their
+  command set in the code-behind, like the tick box's, because it is the line the caret is in they act
+  on and only the page knows which that is), and `Keycode.Tab` joins the arrows in `NoteLineKeyPresses`
+  - with Shift+Tab outdenting - behind two new `NoteLineKeys` properties, so every other `Entry` in the
+  app keeps Tab as the key that moves the focus on.
+
+  **One deliberate difference from the browser, and it is about the way in rather than the edit.** Both
+  are taken at the *head* of the line rather than at the caret. The browser's Tab puts a tab where the
+  caret is, which is what a Tab key does in a writing surface; here the way in is a button, and a button
+  called Indent means "move this line in a level" rather than "type a tab wherever I happen to be". A
+  press also takes the focus off the field, so the column the caret was in is not something the page
+  could be sure of - and `Outdent` already worked off the head whatever the caret did, so taking
+  `Indent` from there is what makes the pair a pair. The phone's hardware Tab follows the buttons rather
+  than the browser, so there is one rule on the phone rather than two.
+
+  Covered by `NoteDetailScreenTests.Indent` - the level put on and taken off, a level written as spaces,
+  a line with nothing to take away left alone and not recorded as a step, a level as one step of the
+  history, a box kept, and a note shared in to read indenting nothing. **Not yet looked at on a device**,
+  which for the Tab half is the part worth looking at: nothing here has run on a hardware keyboard.
+
+  As noticed: The browser's Tab and Shift+Tab (2026-09-11) have no
   phone counterpart: a soft keyboard has no Tab key, and a hardware keyboard's Tab moves the focus on.
   Indentation typed as spaces, or written by the browser as tabs, is shown and carried on by Enter, but
-  cannot be added or taken away as a level. What it would take: an indent and an outdent button beside
-  undo/redo over the note's foot, using `NoteSurfaceEdits.Indent`/`Outdent` on the surface
-  `NoteDetailViewModel` already builds - and, for a hardware keyboard, `Keycode.Tab` in
-  `NoteLineKeyPresses` beside the arrows.
+  cannot be added or taken away as a level.
 
 - ~~**Enter and Backspace on an empty box follow different rules on the two clients.**~~ Fixed 2026-09-12:
   the browser's, because the web is the model, and by moving the phone's two edits onto
@@ -722,11 +810,20 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   written. Deciding which rule both follow, and moving the phone's two edits onto `NoteSurfaceEdits` if it
   is the browser's, would finish what the paste, undo and several-boxes work started.
 
-- **Choosing several boxes on the phone is only in the note's menu.** A long press on a box would be the
-  faster way in, and the one a phone user tries first, but MAUI has no long-press gesture of its own - it
-  needs a platform handler or CommunityToolkit.Maui's `TouchBehavior`, which Orbit.Maui does not
-  reference. The menu entry, the marks and the hint line (`NoteDetailViewModel.IsPickingLines`) stay as
-  they are; only the way in would be added.
+- ~~**Choosing several boxes on the phone is only in the note's menu.**~~ Done 2026-09-14, by the
+  platform handler rather than the package: `LongPresses` hangs Android's own long click on the button
+  behind a control that asked for one (`LongPress.Command`, forwarded onto `CheckCircle`'s inner button
+  by `CheckCircle.LongPressCommand`), and marks it handled so the press that would otherwise follow -
+  ticking the box - never arrives. Holding a box says both halves at once: `PickThisLineCommand` starts
+  the choosing and chooses that box. The menu entry, the marks and the hint line are untouched, exactly
+  as this said only the way in would be added, and a head that does not read the gesture still has the
+  menu - so nothing is reachable by holding alone.
+
+  A hold does nothing on a line with no box, or on a note with fewer than two boxes: there is nothing to
+  choose it against, and a mode turned on by accident would have to be turned off by hand. Five tests in
+  `NoteDetailScreenTests.SeveralBoxes` cover what the command does; **the gesture itself is not covered
+  and has not been seen on a device** - nothing this project can run raises an Android long click, so
+  whether the hold arrives at all is the one thing still to check there.
 
 - **The phone's multi-line paste rests on an unverified Android detail.** `NoteDetailViewModel.Paste`
   finds a pasted checklist's lines by the line breaks a one-line `Entry` keeps in its text. Android's
@@ -792,7 +889,33 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   shelf editor offers the shelves' types (`InventoryEditor.razor`). Passing the shelves' and entries'
   types to `Knowing` when that screen opens an item is all it takes.
 
-- **An entry that is both late and reminded daily says the same thing twice.** Reported by the user on
+- ~~**"Remind daily" would not let a finished errand stay finished.**~~ Fixed 2026-09-16, the way the
+  user decided (*"Odhaczone zostaje odhaczone"*). As reported, with their own list: "Zapisać się do
+  lekarza" on "Sieradz ToDo" was ticked off on the 15th with a deadline of the 15th at 09:00, and on the
+  16th at 09:00 it was sitting there unticked, its deadline moved to the 16th, under a notification
+  saying it was still waiting to be done. Nothing was misconfigured. `RemindDaily` meant *this happens
+  every day*: `IDailyTaskReminderRepository.GetEligibleAsync` deliberately included finished entries and
+  the loop reopened each one - clearing the tick, clearing the cross, and moving the due date on to
+  today - before saying its piece. That is right for the one entry it was built for and wrong for every
+  errand, and it quietly destroyed a deadline somebody had set, which also meant such an entry could
+  never go overdue.
+
+  **The reading now is "ask until it is done".** A ticked or crossed entry is simply left out of the
+  query, so the reminder falls silent and nothing touches the entry or its deadline. The shelf's standing
+  "Update stock levels" keeps the old behaviour as the stated exception: it is recognised by the words
+  the server writes it with *and* by its list being one an inventory keeps
+  (`DailyTaskReminderCandidate.ComesRoundAgain`), and is the only candidate reopened - which is also what
+  carries its due date forward. The alternative the user turned down was a second switch on every entry,
+  "comes round again", which would have served both wishes at the cost of a column, a migration and a
+  field on both clients' forms; it is here if the distinction is ever wanted per entry.
+
+  **What it does not do is put back what was already overwritten.** Every deadline the old rule moved is
+  gone - the entry now simply keeps whatever date it was last moved to.
+
+- ~~**An entry that is both late and reminded daily says the same thing twice.**~~ Fixed 2026-09-14, the
+  way the user decided: the overdue notice speaks and the daily reminder stands down for the day it goes
+  out - see the entry under "Five of the user's list of 2026-09-14" for which of the two gives way and
+  why. As reported by the user on
   2026-09-12, with both notifications side by side: "Sprawdzenie sprzęgła (nie odbija i się blokuje)"
   from the list "Samochód" arrived as a daily reminder at 09:00 and as an overdue notice at 09:01.
   Nothing is misconfigured - the entry has a due date and "remind daily", and each notification is right
@@ -1159,6 +1282,215 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   `IndexOf` then answers -1, nothing matches, and the list is saved back **with nothing ticked at all**,
   reporting success. It matches on the id now, and by position only for an entry that has none.
 
+- **Five of the user's list of 2026-09-14 need a decision before anything is built.** Eleven of the
+  sixteen went in that day; these are the ones where building the obvious thing would be guessing at
+  which thing was meant, and each is written here with the question rather than with a plan.
+
+  - ~~**An entry that stands for several lists, with "any one of them" instead of "all of them".**~~
+    Settled by the user on 2026-09-14 - one field, "any one of them" by default, a switch for "all of
+    them" - and done the same day. `TaskItem.NeedsEveryLinkedList`, the tick box **Needs all of them**
+    drawn only where an entry names two or more lists, and the eighth field to follow the
+    keep-what-is-stored rule (`EntriesKeepingTheirListRule`) so a save from a phone that has never heard
+    of it does not reset it.
+
+    **The half of it worth remembering is what happened to what was already saved.** The default is the
+    opposite of what every stored entry meant, so the migration (`EntryStandsForAnyOfItsLists`) marks
+    every entry that already points at a list: each of them goes on meaning "all of them", and only
+    entries written afterwards get the new default. Changing the rule *and* rewriting what is stored
+    would have been one change too many - somebody would have found things ticked that they had not
+    ticked.
+
+    Half of what was asked for turned out to be built already: the field has taken more than one list,
+    with chips and a "Add another…", since before this was raised. What was missing was only the rule.
+
+  - ~~**Two notifications for one entry.**~~ Settled by the user on 2026-09-14 and done the same day:
+    the overdue notice replaces the daily reminder, because a late entry has a notification of its own
+    and nothing in Orbit should say one thing twice. `DailyTaskReminderScheduler` asks the overdue
+    repository the question the overdue scheduler asks itself - past its due date, and not notified about
+    yet - and stands down when the answer is yes.
+
+    **Which of the two gives way, and for how long, is the part worth knowing.** The daily one gives
+    way, because it is the one that can: the overdue notice is sent once ever, so the day it goes out is
+    the only day the two collide, and the daily reminder carries on the next day. Standing the overdue
+    notice down instead is the other way to read "replaces" and loses the one piece of news the reader
+    has not had; standing the daily one down *for good* would quietly take away the "remind daily" they
+    turned on. Asked as "is a notice about to go out" rather than "was one sent today" so it does not
+    matter which service polls first - which is what the reported pair came down to, a minute apart.
+
+  - **Pictures pasted into a note.** Confirmed 2026-09-14 as its own round rather than a list item, and
+    written out below under "Pictures in a note, and the note control everywhere a description is".
+
+  - **Stops along a route.** ~~Both ends chosen from the list of pins~~ went in on 2026-09-14: every row
+    in the map's panel - a place, a plan, either list - carries the same one press its pin's popup does,
+    so neither end has to be hunted for among the pins first. **Stops are what is left, and they are the
+    half with a question in it**: a straight line between two points is what the map draws today
+    (`map-route-line-straight`), and stops only mean something against real roads, which means a routing
+    service - a third-party request to gate beside the tiles, and one that would be told where somebody
+    is going.
+
+  - ~~**A sublist made from a group list's own page.**~~ Done 2026-09-14, and the question this entry
+    raised was a false one: a group's members **are** its entries' linked lists (`BuildSections` reads
+    them off exactly that), so "a member or an entry standing for it" is one thing under two names, not
+    two designs to choose between. "New sublist" in the list's menu makes the list and adds the entry in
+    one press. It starts in the folder the group is in, the rule everything else follows about making
+    something while standing somewhere; a sealed list is not offered it, since its entries are sealed by
+    the editor and would be written in the clear from there.
+
+## Pictures in a note, and the note control everywhere a description is
+
+Two asks from 2026-09-14 that belong together, because the second one decides how hard the first is.
+
+### The note control wherever a description is written
+
+**Asked for:** a description - on a task entry, on a task list, on an event - should be the note control,
+with everything the note control does.
+
+**Where it already is.** A task list's and a storage's *title and description* are one note surface
+(`Orbit.Web/Components/TitledDescription.razor`, which is `ChecklistTextEditor` with the checklist half
+switched off: nothing offers the box button, and `[]` typed or pasted stays words). So the shape exists
+and is proven.
+
+**Where it is not**, and these are the two the ask names:
+
+- a task entry's description - `item.Notes`, a plain `<textarea rows="2">` in `TaskEditor.razor`;
+- an event's description - `Model.Description`, a plain `<textarea rows="2">` in `EventFields.razor`.
+
+**Splitting the ask in two is what makes it tractable**, because the features divide cleanly by whether
+they need the stored shape to change:
+
+1. **Everything that works on plain text needs no migration at all.** Undo and redo
+   (`NoteSurfaceHistory`), Tab and Shift+Tab for a level of indentation, a paste that lands at the caret
+   rather than at the start of the line, the arrows walking between lines, the room at the foot so the
+   tools do not sit on the last line. All of that is `ChecklistTextEditor` working on a string, which is
+   exactly what `TitledDescription` already does. **This half is a swap of two textareas**, plus deciding
+   what a two-row box becomes when it grows.
+
+2. **Tick boxes are the one feature that cannot come free.** A description is a `string`; a box is
+   `NoteContentLine.IsChecklistItem`, a field beside the line's text. So either
+
+   - **a description becomes lines**, like a note's content - a contract change on `TaskItemRequest`,
+     `TaskItemDto`, the event contracts and the phone's local store, with a migration on both sides and
+     a rule for every other place a description is *shown* rather than written (a card's preview, a
+     calendar chip, the phone's read-only label); or
+   - **boxes ride in the text as marks** - `[]`, `[x]`, `- ` - which the surface already reads on a paste
+     and already writes on a copy (`NoteSurfaceEdits.ReadPastedLine`, `onCopy` in
+     `checklistTextEditor.js`), so the round trip is built. The cost is that a description then contains
+     its own markup, and everything that shows one without the control shows the brackets.
+
+**The question to answer before either:** is "all its functions" meant to include the boxes? If it is
+the text features that are wanted - and those are the ones an ordinary description is missing - part 1
+stands alone and is small. If the boxes are wanted too, the second bullet above is the cheaper of the two
+ways and the one worth weighing first.
+
+### Pictures pasted into a note
+
+**Asked for:** pasting a picture into a note.
+
+**The thing to know first: Orbit stores no files at all today.** Not one. The only endpoint that takes an
+upload is the diagnostic log (`DiagnosticLogEndpoints`, 2 MB), and what it stores is *text rows in
+PostgreSQL*. The only blob in Azure is `orbitdownloads/apps`, which CI writes the Android APK into. So
+this is the first binary Orbit would keep.
+
+**Three of the decisions were taken by the user on 2026-09-14** and are written here as settled, so
+whoever builds this is not asked them again.
+
+### Settled: the bytes go in blob storage
+
+Not PostgreSQL. The database would otherwise grow by whole photographs, and `orbit-api` runs at 0.25 vCPU
+and 0.5 GiB and would pass every one of them through itself.
+
+**Not the storage account Orbit already has.** `orbitdownloads` exists, and it was created
+`--allow-blob-public-access true` with its `apps` container `--public-access blob` - anonymous read, on
+purpose, because its whole job is handing the Android APK to anybody who opens the download page (see
+[azure-setup.md](azure-setup.md)). An account whose reason for existing is public downloads is the last
+place to put somebody's photographs, sealed or not. So this wants **its own account, with public blob
+access off**, which is a new Azure resource that bills real money: creating it is an `az` action taken
+with skill `azure-cost-guard` open and the user's word at the time. What is recorded here is the design,
+not permission to create anything.
+
+The rest of what blob storage brings, none of it decided yet: how a client is given access to one blob
+and no others (a short-lived SAS is the usual answer), what sweeps a blob whose note or line is gone, and
+that it is a second thing to back up beside the database.
+
+### Settled: a private picture is sealed the way a place is
+
+**The model is `Orbit.Core.Places.Place`** - the pins on the map - and it is worth reading, because it
+seals harder than a note does and the user named it on purpose:
+
+- **the client encrypts before saving**, and the readable columns go *empty* rather than merely unread;
+- **what stays readable is only what draws nothing in particular** - for a place, the colour, the
+  priority, the lists it belongs to and the two timestamps;
+- **the handlers refuse** rather than the screens hiding: a sealed place cannot be shared, copied
+  server-side, or published as a link (`SharePlaceCommandHandler`, `DuplicatePlaceCommandHandler`);
+- **an unsealed private one is refused at construction** - `EnsureSealedWhenPrivate` throws on a private
+  place that arrives unencrypted, so the invariant is not a screen's good manners.
+
+Read onto a picture, that is: the blob holds ciphertext and nothing else; no file name, no content type,
+nothing about the picture is stored readable beside it; a sealed note's picture cannot be shared, copied
+or published, refused in the handler; and a picture arriving for a sealed note unencrypted is refused
+rather than quietly stored in the clear. A picture takes its note's answer rather than having one of its
+own - a place is sealed by default because of what a place is, and a note already has its own default.
+
+One consequence to write down rather than discover: a sealed picture can never be served as a plain
+`<img src="/api/…">`. It is fetched, opened in the browser (the Web Crypto already there for chat), and
+drawn from a `blob:` URL.
+
+### Settled: 50 MB a note
+
+A total across the pictures on one note, not a limit per picture.
+
+Two things follow. **The count has to be kept**, which means each picture's stored length is a readable
+number beside it - and for a sealed note that is the ciphertext's length, which says roughly how big the
+picture is. That is a small leak and the same shape as the one a place already accepts (a sealed place
+still says publicly that it exists, and when it changed); worth stating rather than finding.
+
+**And the per-request limit is a different number.** Kestrel's default is 30 MB a request (see "Known
+scope cuts", where that is already recorded) - so with blob storage a picture is uploaded in a request of
+its own and 30 MB bounds one picture, while 50 MB bounds the note. Scaling in the browser before
+uploading is still almost certainly wanted; a phone photograph is 4-8 MB and four of them would be most
+of the note's allowance.
+
+### Settled: the interaction follows Apple Notes
+
+Which is a steer about *where a picture lives in the writing*, and it is the useful half:
+
+- a picture sits **inline in the flow**, between the lines, rather than in a gallery at the foot;
+- **paste and drag put it where the caret is**, like any other insertion;
+- it is drawn scaled to the width of the note and **opened full size by pressing it**;
+- **backspace over it takes it away** like any other element;
+- it **travels with a copy** of the text around it.
+
+Where Orbit's own surface differs, and this is the piece to design rather than copy: the note is a list
+of `NoteContentLine`, one element per line, and every change of shape is worked out in C#
+(`NoteSurfaceEdits`) with the browser drawing what comes back. So a picture is naturally **a third kind
+of line** beside text and a tick box - which is the same question the section above asks about
+descriptions, and answering it once answers both.
+
+### Still open
+
+- **The phone's half.** `LocalNote.Content` is the same list of lines in SQLite. Pictures have to sync
+  offline: ~~fetched, cached on the handset~~ (done 2026-09-15 - `NotePictureCache`, in the app's cache
+  directory, bytes kept as the server holds them so a sealed picture stays sealed on disk; see
+  `info/functionality.md`), and whatever was pasted without a signal pushed later. That is machinery
+  `NoteSynchronizer` does not have: a picture line in the outbox whose bytes are still on the handset,
+  sent before the note that names it (`AddNotePictureCommand` needs the note to exist), and the sweep
+  the save does (`UpdateNoteRequest.PictureIds`) told about pictures the phone has not sent yet. Two
+  smaller things beside it: the cache is never swept by the app (a picture the note no longer names
+  stays until the OS clears the directory), and a picture is drawn at its natural size capped at a
+  screen's worth rather than scaled to the note's width as the browser does.
+- **Migrations on both sides**, and a `NoteContentLineDto` that older installed phones still read.
+
+~~**A first version that respects all of the above** would be: web only, blob storage, sealed pictures
+included (since the sealing is decided and the browser already has the crypto), 50 MB a note counted
+server-side, and the phone as a deliberate second step. It is still a round of its own.~~ **Built
+2026-09-14, exactly that version** - see `info/functionality.md`, "A picture is a kind of line too".
+What is left is the phone (below) and one thing that cannot be done from a session: **the storage
+account does not exist yet.** The code falls back to a directory when `NotePictures:ConnectionString`
+is unset, so the compose stack and a `dotnet run` keep pictures; on Azure they would go to a directory
+inside the container and be lost on the next revision. The command to make the account is in
+`info/azure-setup.md` ("Where a note's pictures are kept") and is **to be run by the user or with their
+word at the time** - it is a resource that bills.
+
 Written down rather than fixed on the spot, per rule 14 in `.claude/CLAUDE.md`: work that turns up
 beside a task belongs here, not in that task's diff. A defect is the exception and is fixed when found.
 
@@ -1269,6 +1601,120 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   pull requests, but a direct push to `main` deploys before any workflow can run. Real branch
   protection needs GitHub Pro on a private repository.
 
+### Settled 2026-09-14: what was asked and answered
+
+Four questions were put to the user at the end of the formatting round, and all four were answered. They
+are recorded here because each one decides a round that has not been built yet, and a decision that lives
+only in a conversation is a decision the next session asks again.
+
+1. **Attachments need a new Azure storage account, which bills.** Answer: **prepare everything, ask before
+   creating it.** So the code - the upload endpoint, the 50 MB-a-note total, the sealing of a private
+   picture, the browser's paste - is to be written, together with the exact `az storage account create`
+   command (public blob access **off**, resource group `Orbit`, region `polandcentral`), and nothing is to
+   be run against Azure until the user has approved that command and its cost. See rule 6 in
+   `.claude/CLAUDE.md`, which says the same for every resource.
+2. **A table is a kind of line**, not a block in a content list of its own. So `NoteContentLine` gains what
+   kind of line it is, and a table carries its own cells - which is the same answer pictures want, and is
+   why the question was asked once for both. `NoteSurfaceEdits` goes on working a list of lines.
+3. **A description becomes a list of lines**, like a note's content - the full answer rather than markers
+   in the text. That is a contract change on a task entry, a task list, an inventory and an event, a
+   migration on the server and in the phone's store, and a rule for every place a description is *shown*
+   rather than written (a card's preview, a calendar chip, the phone's read-only label). What it buys is
+   that a description is a note: boxes, styles, marks and one day pictures, with no second implementation.
+
+   **The shape to build it in, worked out 2026-09-14 and deliberately not started** - it is the one of the
+   four that touches the database, and after styles, marks, tables and pictures on one uncompiled branch
+   it is the one to start on a green suite:
+
+   - **Beside the text, not instead of it.** Each of the four (`TaskItem.Notes`, `TaskList.Description`,
+     `Inventory.Description`, `CalendarEventDetails.Description`) gains a nullable JSON column of
+     `NoteContentLine` next to the text it has today - one additive migration on the server, one on the
+     phone's SQLite store, no data rewritten. The text stays what it is and is **derived** from the lines
+     on every write (their words, one per line), so every card, chip, preview and label that reads the
+     text today goes on working unchanged, and an installed phone that has never heard of the lines keeps
+     reading the description it always did. Only the editors change, and the read views that want the
+     formatting drawn.
+   - **The keep-what-is-stored rule, for the two writers.** A request carries `DescriptionLines`
+     nullable: null means "not provided" - a client written before this existed - and then the server
+     keeps the stored lines **if the text it sent is the stored text**, and otherwise rebuilds the lines
+     from the text it sent, plainly. That is what stops a phone editing the words from leaving formatting
+     behind that no longer matches them, and it is the eighth field to follow
+     `EntriesKeepingTheirListRule`'s shape.
+   - **The editors.** `TitledDescription` stops joining two strings and carries lines (its pages hand it
+     the lines and get lines back); the task entry's and the event's `<textarea rows="2">` become the same
+     `ChecklistTextEditor` with `TakesStyles` on and the tick box on, which is the whole of what the ask
+     was. Pictures in a description come with the note's own picture store and the same 50 MB counted
+     against the owning item - a second slice.
+   - **The phone carries and draws, the way it does a note's styles**: `NoteLineRow` already is the row
+     to draw with; its editors keep writing text until a cell-by-cell editor exists.
+4. **Bold and italic get the full model**, on both clients, rather than a browser-only version. Done on
+   the day it was asked, apart from the phone's drawing - see *What a note's formatting still leaves
+   undone*.
+
+**The order they are worth doing in**, given that none of them can be compiled in the session that writes
+them: the table first (it needs no migration at all - a note's content is JSON - and it finishes the four
+things the original ask named); then the attachments, which are written but cannot be run until the
+account exists; then descriptions-as-lines, which is the only one of the three that touches the database
+and the one where a mistake costs a migration rather than a redraw.
+
+## What a note's formatting still leaves undone
+
+Paragraph styles landed on 2026-09-14 - `NoteLineStyle`, the "Aa" tool, and the eight Apple Notes offers
+(see `info/functionality.md`, "What a line is"). What that round deliberately did not do:
+
+- **Bold, italic and underline inside a line.** *Started 2026-09-14, on the user's word ("zrób pełny
+  model fragmentów"), and the half that is done is the half everything else rests on.* The marks are
+  **beside** the text rather than folded into it - `NoteContentLine.Marks`, a start, a length and a mark -
+  so nothing that reads a line's words had to change, and the arithmetic that keeps a mark over the words
+  it was put on lives once, in `NoteTextMarks`/`NoteLineText`. Every edit on the surface carries them, the
+  wire and the archive carry them, and both clients hand them back unchanged, so nothing flattens a marked
+  note. **The browser is done** the same day: the surface draws a stretch in real elements and reads the
+  marks back out of what it drew, the four buttons sit at the head of the format panel, Ctrl+B and its
+  friends are routed through the same edit, and a line being read draws them too (`MarkedText`).
+  ~~**What is left is the phone**, where a MAUI `Entry` renders one face for the whole field: it carries
+  marks through every edit and hands them back unchanged, so nothing is lost there, but drawing them
+  wants a `Label` with a `FormattedString` for a line nobody is writing in - the note screen already
+  swaps a `Label` in for a struck-through line, which is the seam - plus a converter in Orbit.Maui, since
+  Orbit.Mobile is plain net10.0 and knows nothing about MAUI's `Span`.~~ **Drawn 2026-09-15** exactly
+  along that seam (`MarkedLabel`, `NoteLineRow.ShowsMarkedWords`), and the field now moves the marks
+  with each change instead of merely keeping them (`NoteTextMarks.Kept` in
+  `NoteDetailViewModel.WhenALineChanges`). **Still left: setting a mark on the phone.** The `Entry`
+  reports a caret but not a selection, so the four buttons have nothing to work on; either read the
+  selection through a handler on Android (`EditText.SelectionStart`/`SelectionEnd`), or let a bare
+  caret mean the whole line - a rule `NoteSurfaceEdits.Mark` does not have today (a collapsed selection
+  is left alone there), so it would be a rule for both clients, not a phone-only one.
+- ~~**A control to set a style on the phone.**~~ Done 2026-09-14, the same day and exactly as this said:
+  an "Aa" button in the bar over the note's foot, beside undo, redo and the indent buttons, opening a
+  sheet of the eight (`NoteDetailViewModel.StyleChoices`, worded there so the wording is testable) and
+  working `NoteSurfaceEdits.Restyle` on the surface the screen already builds - the shape `Indent` and
+  `Outdent` follow. A sheet rather than a row of buttons: eight choices over the writing would be most of
+  the writing on a phone. Covered by `NoteDetailScreenTests.Style`. **Not yet seen on a device.**
+- ~~**Tables.**~~ Done 2026-09-14, as a kind of line, the shape the user chose (decision 2 above):
+  `NoteTable` on `NoteContentLine.Table`, `NoteTables` for its shape, the guards in `NoteSurfaceEdits`
+  written first with `NoteSurfaceTableTests`, then the drawing. See `info/functionality.md`, "A table is
+  a kind of line". ~~**What the phone still lacks:** it draws a table and carries it through every edit
+  unchanged, but its cells cannot be written in - the note screen draws each cell as a `Label` in a
+  `Border`, and writing in one wants an `Entry` per cell that reports back through
+  `NoteTables.WithCell`, plus the table's own menu (a row, a column, the table) on the screen's foot. The
+  same shape the style sheet took on 2026-09-14.~~ **Done 2026-09-15, in exactly that shape**
+  (`NoteTableCellField`, `NoteDetailViewModel.InsertTable`/`ReshapeTable`/`TableActions`, the table
+  button over the foot; `NoteDetailScreenTests.Table`). **Still left on the phone:** marks inside a cell
+  are carried and moved but not drawn there (a cell is always a field, where a line swaps in a
+  `MarkedLabel` when nobody is writing in it - the same swap would do), and nothing walks the cells
+  (no Tab on a soft keyboard; a "next cell" key on the field's Done would be the phone's answer). Marks
+  inside a cell are drawn in the browser; the four buttons do not set them there (the browser's own
+  Ctrl+B does).
+- **A description still cannot carry a style.** `TitledDescription` runs the same surface with
+  `TakesStyles` off, because a list's or a storage's description is stored as one plain string and a
+  style set there would be dropped by the save - the same reason `[]` stays words there. This is a third
+  item for the question the section above asks about descriptions: text features are free, and boxes,
+  styles and pictures all wait on the same decision about the stored shape.
+- ~~**A shared link draws a note's lines plainly.**~~ Done 2026-09-14, as this said: `PublicSharedItemLine`
+  and its DTO carry the style, `PublicSharedItemReader` fills it from the note's own lines, and both
+  clients draw it - `SharedItemPage` with the same `data-style` the note's pages use, the phone's
+  `SharedLinkPage` with the sizes and marks `NoteLineLook` decides. Only a note ever sends one; every
+  other kind of item is a list of things and leaves it at Body.
+
 ## Redrawing the rest of the phone
 
 **Superseded 2026-09-08.** The section below was about pulling the Android head to `app.css`; the
@@ -1315,8 +1761,11 @@ Every screen the design covers has now been redrawn. The passes were:
     is in [`android-design-deltas.md`](android-design-deltas.md), screen by screen, with the six
     disagreements between design and spec listed first and settled in the spec's favour. Nothing there
     is a defect; it is the list of what is still owed if the design is taken as the specification for
-    the rest. The one structural piece everything else waits on: a title menu is *groups* with headings
-    and counts, and `ScreenMenu` can only draw a flat list with one heading.
+    the rest. **What this used to name as the one structural piece everything else waits on - a title
+    menu being *groups* with headings and counts, which `ScreenMenu` could not draw - was built on
+    2026-09-09** (`ScreenMenu.Groups`/`ShowGroups`, `ScreenMenuEntry.Count`); the sentence stood here
+    unchanged until 2026-09-14. What is left in that document is per-screen corrections and a handful of
+    standing decisions, none of them blocked on anything.
 
 One thing the design asks for that belongs to **both clients** rather than to the phone:
 
@@ -1427,6 +1876,230 @@ its shared controls. What that pass left, all of it now overtaken:
   entry is gone. The arrow now follows what it hides rather than merely whether a slot was filled: a
   screen hands over a label that hides itself, and an arrow that opens an empty line is a control that
   does nothing.
+
+## What the user asked for on 2026-09-15, second list
+
+Two things about Orbit.Maui, both now done.
+
+- ~~**The Upcoming card shows events and tasks already done.**~~ Fixed the same day, and it was three
+  faults wearing one hat: an appointment whose end had passed, a repeat drawn at the date it is stored
+  under rather than at its next turn, and an appointment a task list raised and has since ticked off or
+  crossed out. Orbit.Web has asked all three since 2026-09-06; the phone asked none, on a comment
+  claiming the divergence was deliberate and giving "Orbit.Web shows the lot" as the reason, which is not
+  what Orbit.Web does. See `DashboardViewModel.StillToDo`. What the card still does not gather is task
+  deadlines - written down above.
+- ~~**Syncing with the browser lags by days; it should run every few minutes in the background while
+  online.**~~ Done the same day: `PeriodicSync`, five minutes, started and stopped with the window beside
+  the presence heartbeat, with a run at once on being started. A screen left open redraws itself when a
+  run brings something down (`SyncState.BroughtSomethingNew`, `ScreenKeptInStep`). Written up in
+  `info/orbit-maui-plan.md` §5.6, where the two **platform** background-sync paths - Android's
+  `WorkManager` and iOS's `BGAppRefreshTask` or a silent push - are still open: this one runs only while
+  the app is in front of somebody, which is the reliable half rather than the whole of it.
+
+## What the user's list of 2026-09-15 still leaves open
+
+The user read back a list of twenty-three things on 2026-09-15 and asked which were built. Most were:
+the sixteen-item round of 2026-09-14 covers fifteen of them, pictures in a note and folders on the
+events and the shelves cover several more. What follows is only what the check found **missing**, with
+the evidence it was checked against, so the next session does not have to look again. Anything not
+listed here was found built and is described in `info/functionality.md`.
+
+### Built for nobody but the browser
+
+Each of these is finished where it was asked for and absent on the phone. None is a bug; each is the
+same feature owing its second client.
+
+- ~~**The Upcoming horizon.** `DevicePreferences.UpcomingDays` (7 by default, chosen from
+  `UpcomingHorizons` on the Preferences tab) narrows the browser's card; the phone's Upcoming card shows
+  everything, and the phone has no preferences screen entry for it.~~ Done 2026-09-15: `UpcomingHorizon`
+  beside `EntryFilling`, the same five choices as a strip on the account screen's Preferences tab, and
+  `DashboardViewModel.IsInsideTheHorizon` over `shownEvents`. Kept in the phone's own preferences rather
+  than shared with the browser, the way the theme is - the two lists of horizons are written out on both
+  sides, which is what the kinds of entry beside them already do.
+- ~~**"Copy the text" on a note.** `NoteSummary` puts it in the note's menu and writes the round-trippable
+  format (`[x] ` and `- `). The phone's note screen has no clipboard action at all - "copy" there means
+  `CopyForEditingAsync`, which is the copy-to-edit-offline feature and a different thing.~~ Done
+  2026-09-15: the note screen's menu carries "Copy the text", and the format both clients write is one
+  piece of code they share (`NoteWords`) rather than the browser's copy of it.
+- ~~**How much of a list is done, in its light view.** `TaskListChecklist` draws "Done: {0} of {1}" in the
+  rail's extras. The phone shows the same fraction on the dashboard card and on the tasks list row
+  (`TaskListRow.Progress`) but not on the list's own screen, which is the one place somebody reading a
+  long list wants it.~~ Done 2026-09-15: `TaskListDetailViewModel.Progress`, above the status line.
+- ~~**"Needs all of them".** The rule itself is shared (`TaskItem.NeedsEveryLinkedList`), and the phone
+  sends null for it, which the server reads as "keep what is stored" - so nothing is lost. But the phone
+  offers no way to set it, so an entry standing for several lists can only be switched to "all of them"
+  from a browser.~~ Done 2026-09-15: a switch under the lists in the entry's form, drawn only where it
+  stands for two or more, and `ToRequests` now says the rule instead of saying nothing about it. The
+  fake tasks server had to learn the field first - it answered every save with the default, which would
+  have let a phone that never sent it pass.
+- ~~**Deadlines on the phone's Upcoming card.** The browser's card gathers appointments **and task entries
+  with a deadline** (`Dashboard.UpcomingDeadlines`); the phone's card is appointments only, so the two
+  answer the same question differently.~~ Noticed and done on 2026-09-15: `UpcomingThing` is the phone's
+  equivalent of `UpcomingEntry` - one row type over two sources, sorted and filtered as one - and a
+  deadline row opens the entry rather than the calendar (`DashboardRow.EntryId`). The dedupe went further
+  than the browser's: an entry that **is** one of the appointments already on the card that day is left
+  off, which is what the phone's calendar already did (`CalendarDeadline.IsAlreadyDrawnAsItsEvent`).
+- **"New sublist".** Built in `TaskListChecklist` on 2026-09-14. ~~It has **no test** on either side.~~
+  Covered in the browser on 2026-09-15: that the two calls are made - the list in the group's own folder,
+  then the group saved whole with one entry more standing for it - and that the action is offered only on
+  a group this reader may add to. Still nothing on the phone, because there is nothing there to test: its
+  checklist draws one list at a time rather than the tree (see the entry below about flattening), so the
+  action would need the tree first.
+
+### Where the editor's bar is not
+
+The sticky editor rail - Save, Back and the menu under the avatar bar, staying put while the avatar bar
+slides away (`stickyBars.js`, `.editor-rail`) - is on the four object editors and the four read screens.
+It is **not** on the two other places somebody edits in the browser:
+
+- ~~**The place editor** (`PlaceForm`), whose Save sits at the bottom of a scrolling overlay panel.~~
+  Done 2026-09-15, not by giving it the rail - it is an overlay rather than a page, and the rail is a
+  page's furniture - but by the rule the rail follows: its Save and Cancel are first in the panel and
+  stick to its top while the fields scroll (`.place-form > .map-overlay-confirm`). The panel is the
+  scrolling box, so that is the same promise on a different surface.
+- ~~**The Options page**, whose three sections (profile, password, unlock code) each carry their own
+  inline Save that scrolls away with the section.~~ **Settled 2026-09-15: leave it as it is.** A rail
+  carries one Save and that page has three that do different things, so a rail there would either have
+  to know which section is open - turning headings into tabs, and showing one section at a time on a page
+  whose whole shape is that they are all on it - or carry no Save at all, which is furniture pretending
+  to be an editor. Three buttons that stay beside the three things they save is the honest answer for a
+  page that is not an editor of one thing. Nothing to build; written down so nobody proposes it again.
+
+### Said one way in one place and another way in another
+
+- ~~**The phone's notification feed still calls it "Clear".** The browser's notifications page and bell
+  panel were renamed to "Delete history" on 2026-09-14, because the button deletes rather than dismisses.
+  `NotificationFeedPage` was missed; the translation it needs already exists.~~ Renamed 2026-09-15.
+
+### Not built at all
+
+- ~~**A separator in a note, with modes.**~~ Done 2026-09-15. It is another kind of line
+  (`NoteSeparatorLine`, `NoteContentLine.Separator`, the shape a table and a picture already use) rather
+  than a style, since it carries no words of its own and cannot be written in - so it took the same
+  guards in `NoteSurfaceEdits` those two needed, and goes on a key as a picture does
+  (`IsTakenAwayByAKey`). Two modes, told apart by what is written on the rule: a date and time, or
+  nothing. The tool is in both clients' format rows and both ask which before putting one in. No
+  migration - it travels as `NoteContentLineDto.Separator` in the same JSON - and the export, the share
+  link and both read-only views carry it. See `info/functionality.md`, "A rule across the note".
+
+  **Settled 2026-09-15: the stamp is written once, when the separator is made.** That is what somebody
+  means by putting a date in a note - "this is where I got to on Tuesday" - and it is the only reading
+  that survives being read again: a stamp worked out at draw time would make yesterday's separator say
+  today, and there would be no way to tell from the note when anything was actually written. Being part
+  of the line, it travels with the note into the export, onto the phone and into a shared link, and says
+  the same thing in a year. It is stored as the words it was made with rather than as an instant, for the
+  reason the date itself is the point: re-formatting it in another reader's locale would be re-reading it
+  in a different way, which is the thing this decision rules out.
+
+- ~~**Archiving, as protection against deleting.**~~ Done 2026-09-15, all three halves. The server:
+  `IsArchived` on all four aggregates with `Archive(bool)` beside `MoveToFolder`,
+  `BuiltInFolder.Archived` at the head of `FolderPlacement`, one command and one `PUT .../{id}/archived`
+  per kind, the column on each of the four tables (`ThingsCanBePutAwayRatherThanDeleted`), and the flag
+  on each DTO. The browser: `SetArchivedAsync` on all four API clients, an Archive/Put back line in
+  every card's menu (`ObjectMenu.ArchiveLabel`, above Delete), and every placement call reading the flag
+  so an archived card actually leaves its tab. The phone: the local column on all four rows
+  (`PutThingsAwayOnThePhone`), `OutboxOperation.Archive` and `ArchiveAsync` on each local repository,
+  `ArchiveAsync` on each API client, the flag on the way down in every `CopyInto`, the same
+  Archive/Put back line above Delete in each detail page's menu, and `isArchived` passed into every
+  `FolderTabs.Where`. Something put away before the server ever saw it is archived immediately after
+  its create goes up, in the same pass - a create has no room for the flag, deliberately, for the reason
+  `ArchiveRequest` gives. The archive file carries it too (`ArchivedNote.IsArchived` and its three
+  siblings, defaulted and last), so a round trip through a file leaves the tab holding what it held.
+  The original entry, for the reasoning: 
+  put something away rather than lose it. Nothing of it exists on those four - deletion is a real delete
+  plus a sync tombstone, and the only `IsArchived` in Orbit is on a conversation and on a group
+  membership (done 2026-09-09, and the shape to copy). It is a column on each of the four, a command per
+  aggregate, a place to read what is archived, and a decision about what archiving means beside the
+  folders.
+
+  **Settled 2026-09-15: Archived is a built-in folder** (`BuiltInFolder`, beside Public, Private and
+  Finished), not a state of its own beside them. Everything a reader needs of it then exists already -
+  a tab on every page that has tabs, a count beside it, an entry in the phone's folder menu, the
+  dashboard's narrowing, and a name in the archive file - rather than being written a second time as a
+  parallel mechanism with its own list screen and its own filters. The cost is stated rather than
+  discovered: **a thing is in one folder**, so archiving something takes it out of the folder it was in,
+  and taking it out of the archive has to put it somewhere - the built-in one it would have had. Where
+  that matters more than the saving, the second reading is still the other one, and this entry is where
+  to come back to.
+
+- **Choosing several things at once, and doing one thing to all of them** - *the browser is built
+  (2026-09-16); sharing and the phone are not.* Asked for as: select several notes, lists, events or
+  shelves and then file them into a folder, archive them, or share them.
+
+  What exists: `PickedThings` (choosing is a mode, entered by a press), the mark on every `ItemCard`,
+  `PickedThingsBar` over each of the four list pages, and `OnePressEach` - one call per item in order,
+  a refusal stopping nothing, the page read again afterwards. No bulk endpoint was grown, which is what
+  this entry planned. On the calendar only the events are chosen: a deadline drawn there belongs to the
+  task list it is on. Something somebody else owns is left out of every round.
+
+  **Sharing several at once is not built.** Filing and archiving are each one request about one thing,
+  so a loop is the whole of them; a share is not - it takes a recipient, and each one also sends an
+  end-to-end encrypted chat message that only a client can write (`SharedItemSharing`). So the bar would
+  need a contact picker of its own and a round that is half server call and half encrypted message,
+  which is a different piece of work from the two that are here.
+
+  **The phone is not built either.** Its lists are `SelectionMode="Single"`, and it already has the
+  gesture the browser deliberately does not use - holding a box starts choosing several *inside a note* -
+  so the question there is whether a long press on a card should mean the same, which is a decision
+  rather than a port.
+
+- ~~**The Group View box ticking itself.**~~ **Done 2026-09-15.** Asked for: a list whose entries stand
+  for other lists is a group list, so the box should tick itself once there is at least one such entry. Today it is a plain manual toggle in both clients. The signal is already
+  there (`TaskItem.IsALinkToOtherLists`), and the neighbouring "the list is done" box already does
+  exactly this trick, so the shape to copy is one file away.
+
+  **Settled 2026-09-15: the self-tick lives in `TaskList`**, not in the editor's form. A rule that only
+  holds where somebody is looking is not a rule: a list made from the phone, or saved by a browser tab
+  opened before this existed, would gather other lists and not say so, and the group view somebody
+  turned on in one client would be turned off by the next save from another. In the domain it holds for
+  every writer there has ever been.
+
+  It changes stored data, so it gets the care `EntryStandsForAnyOfItsLists` got: a migration that says
+  what it did, marking the lists that already have such an entry, rather than letting them change
+  silently on whatever save happens to come next.
+
+  **And while such an entry is on the list the box cannot be unticked**, which is what was asked for and
+  is the part that makes the rule worth having. A list gathering other lists *is* a group list, whatever
+  a box says; a box that could deny it would be a way to make the checklist draw the group wrongly, and
+  the reader would have no way to tell which of the two answers the page was following. The box is drawn
+  ticked and disabled, saying why. Taking the last such entry off gives it back: the stored answer is
+  then the reader's again, and they may turn it off.
+
+### Half-built, and the missing half is the interesting one
+
+- ~~**Editing a group list together with its children.**~~ Done 2026-09-16 in the browser, the way the
+  user decided (*"wpisy dzieci w formularzu grupy"* - the children's entries in the group's own form,
+  one Save writing them all). A section per list the group gathers, each written on its own request
+  since each is its own list with its own lock and its own history; a refusal does not stop the round,
+  and what is said names the lists that did not go. A member nobody wrote in is not written at all.
+
+  **Direct members only**, and a row is an entry's words and its box: a deadline, what it stands for, a
+  product and the ways it can be done are edited in that member's own editor, one press away at the head
+  of the section. That panel is five hundred lines of `TaskEditor`'s own machinery bound to dozens of its
+  methods, and a group holding four members would be four copies of it - lifting it into a component of
+  its own is the work that would be needed, and is worth doing on its own terms rather than as a rider on
+  this. See `info/functionality.md`, "Writing in a group's member lists".
+
+  **The phone has none of it**, and draws one list at a time with no tree at all - see "The phone cannot
+  flatten a tree of lists" below, which is the same gap seen from the other end.
+
+- ~~**Copying what a list or a note holds, filtered.**~~ Done 2026-09-16. Four choices - the whole
+  thing, what is done, what is still to do, what was given up on (`WhatToCopy`, shared so a note's boxes
+  and a list's entries are narrowed by one rule) - on all four screens, and a task list copied in the
+  format a note's paste reads back (`TaskListWords` beside `NoteWords`). The phone offers the four
+  behind a sheet. See `info/functionality.md`, "And it can be copied in part", for what each choice
+  keeps and why a crossed-out entry goes out as an unticked box.
+
+- **Pasting a list back in** - *the other half of the copy above, and the half still missing.* Asked for
+  as an option inside note and task-list editing that turns copied text into lines or entries. The
+  **conversion** exists for notes and is good: a paste of `[x] ` / `- ` lines becomes boxes and lines on
+  both clients, which is exactly what the copy writes - so copying a filtered list out of one thing and
+  pasting it into a *note* already works end to end. What is missing is (a) an *option* - nothing ever
+  reads the clipboard, it only reacts to the system's paste, so there is nothing to press - and (b) task
+  lists, whose entry field is deliberately a one-line input to stop a multi-line paste arriving as one
+  entry. Reading the clipboard needs a permission the browser only grants on a gesture, and the phone's
+  is `Clipboard.Default.GetTextAsync`; the entry field would have to decide, on a paste with newlines in
+  it, whether it is one entry or several - which is the decision this is waiting on.
 
 ## Smaller identified follow-ups
 

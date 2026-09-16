@@ -17,7 +17,9 @@ export function initializeMapPicker(elementId, dotNetHelper, initialLatitude, in
 
     const hasInitialPosition = initialLatitude !== null && initialLongitude !== null;
     const startPosition = hasInitialPosition ? [initialLatitude, initialLongitude] : defaultCenter;
-    const map = L.map(elementId).setView(startPosition, hasInitialPosition ? 15 : 6);
+    // The wheel does not zoom here either - see locationMap.js, where the same rule is written out. A
+    // picker sits in a form that scrolls, so the wheel has somewhere else it is meant to go.
+    const map = L.map(elementId, { scrollWheelZoom: false }).setView(startPosition, hasInitialPosition ? 15 : 6);
 
     // Asked rather than added: the tiles are the one third-party request Orbit cannot serve itself,
     // so they are the one thing "do not share my personal information" turns off - see mapTiles.js.

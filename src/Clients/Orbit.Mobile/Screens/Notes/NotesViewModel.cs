@@ -106,6 +106,18 @@ public sealed partial class NotesViewModel : ObservableObject
     /// </summary>
     public bool HasNotes => Notes.Count > 0;
 
+    /// <summary>
+    /// What an empty screen means: an account with no notes at all, or a folder tab with none under it.
+    /// "No notes." over an empty Archived tab read as the notes having gone - the browser has always told
+    /// the two apart (Notes.razor).
+    /// </summary>
+    public string NothingHereMessage => _holdsAnyNote
+        ? _translations["Nothing in this folder."]
+        : _translations["No notes."];
+
+    /// <summary>Whether this phone holds a note under any tab - see <see cref="NothingHereMessage"/>.</summary>
+    private bool _holdsAnyNote;
+
     /// <inheritdoc cref="Tasks.TasksViewModel.HasMessage"/>
     public bool HasMessage => Message.Length > 0;
 
@@ -224,17 +236,26 @@ public sealed partial class NotesViewModel : ObservableObject
 
     private bool CanAddNote => NewNoteTitle.Trim().Length > 0;
 
-    private async Task ShowLocalNotesAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Draws the notes from what is on the phone, asking the server nothing.
+    ///
+    /// Public for one caller beyond this class: the page calls it when a sync that nobody on this
+    /// screen asked for has brought something down, so a screen left open stops showing what it was
+    /// shown when it was opened - see PeriodicSync and SyncState.BroughtSomethingNew.
+    /// </summary>
+    public async Task ShowLocalNotesAsync(CancellationToken cancellationToken)
     {
         var stored = await _notes.GetAllAsync(cancellationToken);
         var pending = await _notes.GetPendingNoteLocalIdsAsync(cancellationToken);
+        _holdsAnyNote = stored.Count > 0;
+        OnPropertyChanged(nameof(NothingHereMessage));
         await Folders.ReadAsync(cancellationToken);
 
         // Where each note is, by the rule both clients share - a note has nothing to finish, so the
         // question a task list is asked here is not asked of it. See FolderPlacement.
         var placements = stored.ToDictionary(
             note => note.LocalId,
-            note => Folders.Where(note.FolderId, note.IsPrivate, isFinished: false));
+            note => Folders.Where(note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived));
 
         FolderChoices.Clear();
         foreach (var choice in Folders.Describe(placements.Values))

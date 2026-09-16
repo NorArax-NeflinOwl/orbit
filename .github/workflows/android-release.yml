@@ -68,6 +68,11 @@ env:
   # the About screen links to are served from. A separate address on purpose: the API host above serves
   # no pages - see OrbitWebSettings.
   ORBIT_WEB_BASE_ADDRESS: https://orbit-web.victorioustree-36ad82ca.polandcentral.azurecontainerapps.io/
+  # Where scripts/stop-azure-compute.sh leaves word that the deployment is paused on purpose, which the
+  # phone reads to say "Orbit is paused" rather than "couldn't sync" - see OrbitPauseNoticeSettings. On
+  # the same account the APK is published to, so it follows those variables; empty when there is none,
+  # which builds a phone that never reports a pause.
+  ORBIT_PAUSE_NOTICE_ADDRESS: ${{ vars.DOWNLOADS_STORAGE_ACCOUNT != '' && format('https://{0}.blob.core.windows.net/{1}/status.json', vars.DOWNLOADS_STORAGE_ACCOUNT, vars.DOWNLOADS_CONTAINER) || '' }}
   # The base of the name. The version is glued on once it is known - see "Decide the version" - so a
   # download says which build it is without anybody opening it.
   APK_BASE_NAME: orbit-android
@@ -225,6 +230,7 @@ jobs:
             --configuration Release \
             -p:OrbitApiBaseAddress="$ORBIT_API_BASE_ADDRESS" \
             -p:OrbitWebBaseAddress="$ORBIT_WEB_BASE_ADDRESS" \
+            -p:OrbitPauseNoticeAddress="$ORBIT_PAUSE_NOTICE_ADDRESS" \
             -p:ApplicationDisplayVersion="${{ steps.version.outputs.value }}" \
             -p:ApplicationVersion="${{ github.run_number }}" \
             -p:InformationalVersion="${{ steps.version.outputs.value }}+${{ steps.version.outputs.commit }}" \

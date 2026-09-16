@@ -144,16 +144,23 @@ public sealed class FolderState
     /// Whether a card belongs under the tab open on this page - the question every page made of cards
     /// asks of every card it holds. See FolderPlacement for the rule itself.
     /// </summary>
-    public bool ShowsUnderTheChosenTab(FolderPage page, Guid? folderId, bool isPrivate, bool isFinished = false)
-        => PlacementOn(page, folderId, isPrivate, isFinished) == ChosenOn(page);
+    public bool ShowsUnderTheChosenTab(
+        FolderPage page, Guid? folderId, bool isPrivate, bool isFinished = false, bool isArchived = false)
+        => PlacementOn(page, folderId, isPrivate, isFinished, isArchived) == ChosenOn(page);
 
     /// <summary>
     /// Which of this page's tabs a card is under. The page is asked rather than told whether the card is
     /// finished, so a page with no Finished tab never files anything there - see FolderPages.HasAFinishedTab.
     /// </summary>
-    public FolderKey PlacementOn(FolderPage page, Guid? folderId, bool isPrivate, bool isFinished = false)
+    /// <param name="isArchived">
+    /// Whether its owner has put it away, which beats every other answer - see FolderPlacement. Not
+    /// gated on the page: every page draws the Archived tab, because something put away has to be
+    /// somewhere it can be found again.
+    /// </param>
+    public FolderKey PlacementOn(
+        FolderPage page, Guid? folderId, bool isPrivate, bool isFinished = false, bool isArchived = false)
         => FolderPlacement.Of(
-            folderId, isPrivate, isFinished && page.HasAFinishedTab(), KnownFolderIdsOn(page));
+            folderId, isPrivate, isFinished && page.HasAFinishedTab(), KnownFolderIdsOn(page), isArchived);
 
     /// <summary>What to call a folder on its tab, given the name a built-in one goes by in the reader's language.</summary>
     public string NameOf(FolderKey folder, Func<BuiltInFolder, string> builtInName)

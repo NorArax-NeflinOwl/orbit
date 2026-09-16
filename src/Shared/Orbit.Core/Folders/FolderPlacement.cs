@@ -9,20 +9,27 @@ namespace Orbit.Core.Folders;
 /// something is, not a drawing of it - two clients working that out separately is two clients that can
 /// disagree about which tab a note is under.
 ///
-/// Nothing is stored about the built-in folders (see Orbit.Core.Folders.BuiltInFolder); which one
-/// something is in follows from what it already is, and the first that applies wins:
+/// Only one of the built-in folders is stored at all (see Orbit.Core.Folders.BuiltInFolder): which one
+/// something is in otherwise follows from what it already is, and the first that applies wins:
 ///
 /// <list type="number">
+///   <item>anything its owner has put away is in <b>Archived</b>, filed or not;</item>
 ///   <item>anything filed under a folder that still exists is in that folder, finished or not;</item>
 ///   <item>a task list with everything ticked off is in <b>Finished</b>;</item>
 ///   <item>a sealed item is in <b>Private</b>;</item>
 ///   <item>everything else is in <b>Public</b>.</item>
 /// </list>
 ///
-/// Filing beats finishing, and it used to be the other way round. A list somebody put in "Renovation"
-/// left that tab the moment its last entry was ticked off, which reads as the list having been lost: a
-/// folder is where its owner decided something goes, and finishing the work is not a decision to file
-/// it somewhere else. Finished still gathers everything nobody filed anywhere, which is what it is for.
+/// Archiving beats filing, and filing beats finishing. The second used to be the other way round: a list
+/// somebody put in "Renovation" left that tab the moment its last entry was ticked off, which reads as
+/// the list having been lost - a folder is where its owner decided something goes, and finishing the
+/// work is not a decision to file it somewhere else. Finished still gathers everything nobody filed
+/// anywhere, which is what it is for.
+///
+/// The first is the opposite case and settles the same way round for the opposite reason: putting
+/// something away <em>is</em> a decision about where it goes, and one taken later than the filing. An
+/// archived note still under "Work" would not have been put anywhere. Its folder id is kept untouched,
+/// so bringing it back puts it under "Work" again.
 /// </summary>
 public static class FolderPlacement
 {
@@ -36,8 +43,20 @@ public static class FolderPlacement
     /// Passed false by every page with no Finished tab, which is how a finished list stays visible
     /// there instead of being filed under a tab that page does not draw - see FolderPages.HasAFinishedTab.
     /// </param>
-    public static FolderKey Of(Guid? folderId, bool isPrivate, bool isFinished, IReadOnlyCollection<Guid> knownFolderIds)
+    /// <param name="isArchived">
+    /// Whether its owner has put it away. Unlike the two above this is stored rather than read off what
+    /// the thing is - see BuiltInFolder - and every page draws the tab, so no page passes false to hide
+    /// it: something put away has to be somewhere it can be found again.
+    /// </param>
+    public static FolderKey Of(
+        Guid? folderId, bool isPrivate, bool isFinished, IReadOnlyCollection<Guid> knownFolderIds,
+        bool isArchived = false)
     {
+        if (isArchived)
+        {
+            return FolderKey.Of(BuiltInFolder.Archived);
+        }
+
         if (folderId is { } id && knownFolderIds.Contains(id))
         {
             return FolderKey.Of(id);

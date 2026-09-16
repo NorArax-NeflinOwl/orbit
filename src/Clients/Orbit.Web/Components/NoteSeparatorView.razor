@@ -1,0 +1,19 @@
+@* A rule across a note being read rather than written - see Orbit.Core.Notes.NoteSeparatorLine. The
+   same element the writing surface draws (createSeparatorElement in checklistTextEditor.js), so a
+   separator looks the same whether the note is open for writing, read on its own page or read through
+   a link. What is written on it is drawn as it stands: it was written when the rule was made, and
+   working a date out here would make yesterday's separator say today. *@
+<div class="note-separator" role="separator" aria-label="@Label">
+    @if (Stamp.Length > 0)
+    {
+        <span class="note-separator-stamp">@Stamp</span>
+    }
+</div>
+
+@code {
+    /// <summary>What is written on the rule - empty for a plain one, which draws the rule and nothing else.</summary>
+    [Parameter] public string Stamp { get; set; } = string.Empty;
+
+    /// <summary>What a screen reader is told the rule is, since the words on it are not its name.</summary>
+    [Parameter] public string Label { get; set; } = string.Empty;
+}
