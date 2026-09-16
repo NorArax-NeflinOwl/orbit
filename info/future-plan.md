@@ -2035,11 +2035,9 @@ It is **not** on the two other places somebody edits in the browser:
   this entry planned. On the calendar only the events are chosen: a deadline drawn there belongs to the
   task list it is on. Something somebody else owns is left out of every round.
 
-  **Sharing several at once is not built.** Filing and archiving are each one request about one thing,
-  so a loop is the whole of them; a share is not - it takes a recipient, and each one also sends an
-  end-to-end encrypted chat message that only a client can write (`SharedItemSharing`). So the bar would
-  need a contact picker of its own and a round that is half server call and half encrypted message,
-  which is a different piece of work from the two that are here.
+  ~~**Sharing several at once is not built.**~~ Done on 2026-09-16 in the browser (`SharePickedDialog`,
+  see functionality.md): a contact picker of the bar's own, and a round that is half server call and half
+  encrypted message, as this entry said it would need.
 
   **The phone is not built either.** Its lists are `SelectionMode="Single"`, and it already has the
   gesture the browser deliberately does not use - holding a box starts choosing several *inside a note* -

@@ -635,8 +635,13 @@ filing and putting away are decisions about the owner's own page. On the calenda
 chosen - a deadline drawn there belongs to the task list it is on - and a repeat drawn on five days is
 one event, not five.
 
-**Sharing several at once, and the phone's half, are not built** - see `info/future-plan.md`, which says
-why a share is a different shape from the two that are here.
+**Sharing several at once** (2026-09-16, `SharePickedDialog`): the bar's third press opens one dialog - a
+contact and a level (read-only, can share, can edit) for all of them - and then, for each chosen thing in
+turn, does what sharing one does from its own page: the kind's share request and the end-to-end encrypted
+chat message carrying its Accept. The page hands the dialog its own share call and invitation payload; the
+contacts, the round and the result ("Shared 3. 1 could not be shared.") are the dialog's. Only things this
+reader owns and Orbit can read are shared - one shared with them, or a sealed one, is left out and the
+dialog says how many. **The phone's half is not built** - see `info/future-plan.md`.
 
 **An entry has a priority and a colour of its own** (2026-09-10, `OP_TI_PRIORITY`, `OP_TI_COLOUR`,
 `TaskItem.Priority`/`Colour`). The list has a priority and this is not it: a list of ten errands usually

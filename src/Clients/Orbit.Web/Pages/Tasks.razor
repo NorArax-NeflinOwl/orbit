@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @implements IDisposable
 @using Orbit.Contracts.Calendar
+@using Orbit.Contracts.Chat
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Abstractions
 @using Orbit.Core.Folders
@@ -149,8 +150,17 @@
    is outside the list. *@
 <PickedThingsBar Picked="_picked" Page="FolderPage.Tasks"
                  EveryChosenOneIsAway="@EveryChosenListIsAway" IsWorking="@_isWorkingOnPicked"
-                 OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync"
+                 OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync" OnShare="() => _isSharingPicked = true"
                  OnAllToggled="ToggleAllPicked" OnStopped="StopPicking" />
+@if (_isSharingPicked)
+{
+    @* Only a list this reader owns and Orbit can read - see Notes.razor, which says why. *@
+    <SharePickedDialog Things="@([.. ChosenTaskLists.Where(taskList => !taskList.IsShared && !taskList.IsPrivate).Select(taskList => new SharePickedDialog.ShareableThing(taskList.Id, taskList.Title))])"
+                       LeftOut="@ChosenTaskLists.Count(taskList => taskList.IsShared || taskList.IsPrivate)"
+                       ShareOne="(taskListId, recipientUserId, accessLevel) => TasksApiClient.ShareTaskListAsync(taskListId, recipientUserId, accessLevel)"
+                       Invitation="(shareId, title) => new TaskListShareMessagePayload(shareId, title)"
+                       OnClosed="() => _isSharingPicked = false" />
+}
 <ObjectList IsLoading="_taskLists is null" IsEmpty="_taskLists is { Count: 0 }" EmptyMessage="@T["No task lists yet."]">
     @if (VisibleTaskLists.Count == 0)
     {
@@ -482,6 +492,9 @@
 
     /// <summary>Whether every chosen list is already put away, which is what names the bar's archive button.</summary>
     private bool EveryChosenListIsAway => _picked.HasAny && ChosenTaskLists.All(taskList => taskList.IsArchived);
+
+    /// <summary>While the dialog sharing the chosen lists is open - see SharePickedDialog.</summary>
+    private bool _isSharingPicked;
 
     private IReadOnlyList<TaskDto> ChosenTaskLists
         => [.. (_taskLists ?? []).Where(taskList => _picked.Holds(taskList.Id))];
