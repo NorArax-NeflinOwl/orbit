@@ -28,6 +28,15 @@
         </button>
     </LeadingAction>
     <Title>@T["Notes"]</Title>
+    <Actions>
+        @* Choosing several to act on at once. Its own press rather than a gesture: a page where a long
+           press might mean "choose" is a page that surprises somebody who only paused - see
+           PickedThings, which says why the mode exists at all. *@
+        @if (!_picked.IsPicking)
+        {
+            <button type="button" class="btn-secondary" @onclick="StartPicking">@T["Select"]</button>
+        }
+    </Actions>
 </PageHeader>
 
 @if (_deleteMessage is not null)
@@ -47,12 +56,19 @@
     {
         <p class="empty-hint empty-list">@T["Nothing in this folder."]</p>
     }
+    @* What to do with several at once, while several are chosen - see PickedThings. *@
+    <PickedThingsBar Picked="_picked" Page="FolderPage.Notes"
+                     EveryChosenOneIsAway="@EveryChosenNoteIsAway" IsWorking="@_isWorkingOnPicked"
+                     OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync"
+                     OnAllToggled="ToggleAllPicked" OnStopped="StopPicking" />
     <div class="item-card-list">
         @foreach (var note in Ordered(VisibleNotes))
         {
             <ItemCard Name="@NameOf(note)"
                       OnNameSelected="() => OpenNote(note.Id)"
                       OnBodySelected="() => OpenNote(note.Id)"
+                      OffersPicking="_picked.IsPicking" IsPicked="_picked.Holds(note.Id)"
+                      OnPickedChanged="() => _picked.Toggle(note.Id)"
                       ExtraClass="@(note.IsPinned ? "item-card-pinned" : null)">
                 @* Every card has one, and one control for both cases: the note's pin is this reader's
                    own either way. A note you own carries it on the note; one shared with you carries it
@@ -137,6 +153,88 @@
     /// </summary>
     private IReadOnlyList<NoteDto> VisibleNotes
         => [.. (_notes ?? []).Where(note => Folders.ShowsUnderTheChosenTab(FolderPage.Notes, note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived))];
+
+    /// <summary>
+    /// The notes chosen to be acted on together, and whether the page is choosing at all - see
+    /// PickedThings, which holds the rules.
+    /// </summary>
+    private readonly PickedThings _picked = new();
+
+    /// <summary>While a round of presses is still going out, so a second press cannot start another.</summary>
+    private bool _isWorkingOnPicked;
+
+    private void StartPicking() => _picked.Start();
+
+    private void StopPicking()
+    {
+        _picked.Stop();
+        _isWorkingOnPicked = false;
+    }
+
+    private void ToggleAllPicked() => _picked.ToggleAll(VisibleNotes.Select(note => note.Id));
+
+    /// <summary>
+    /// Whether every chosen note is already put away, which is what names the bar's archive button. An
+    /// empty selection is not "all away": the button reads Archive until something says otherwise.
+    /// </summary>
+    private bool EveryChosenNoteIsAway
+        => _picked.HasAny && ChosenNotes.All(note => note.IsArchived);
+
+    /// <summary>The chosen notes themselves, which is what the actions below loop over.</summary>
+    private IReadOnlyList<NoteDto> ChosenNotes
+        => [.. (_notes ?? []).Where(note => _picked.Holds(note.Id))];
+
+    /// <summary>
+    /// Files every chosen note, one call each - which is what the server already takes, so no bulk
+    /// endpoint had to be grown for this (see info/future-plan.md, where that was the plan). A note
+    /// somebody else owns is left alone: filing is a decision about the owner's own page.
+    ///
+    /// The page is read again at the end rather than each row being patched here: several writes have
+    /// landed, the folder they landed in may not be the tab that is open, and re-reading is what
+    /// every other action on this page does.
+    /// </summary>
+    private async Task FilePickedAsync(Guid? folderId)
+        => await ActOnPickedAsync(note => NotesApiClient.MoveToFolderAsync(note.Id, folderId));
+
+    /// <inheritdoc cref="FilePickedAsync"/>
+    private async Task ArchivePickedAsync(bool isArchived)
+        => await ActOnPickedAsync(note => NotesApiClient.SetArchivedAsync(note.Id, isArchived));
+
+    /// <summary>
+    /// One press over every chosen note - see OnePressEach, which says why one call each and why a
+    /// refusal stops nothing. A note somebody else owns is left out: filing and putting away are
+    /// decisions about the owner's own page.
+    ///
+    /// The page is read again at the end rather than each row being patched here: several writes have
+    /// landed, what they landed in may not be the tab that is open, and re-reading is what every other
+    /// action on this page does.
+    /// </summary>
+    private async Task ActOnPickedAsync(Func<NoteDto, Task<bool>> act)
+    {
+        if (!_picked.HasAny || _isWorkingOnPicked)
+        {
+            return;
+        }
+
+        _isWorkingOnPicked = true;
+        try
+        {
+            var stillSignedIn = await OnePressEach.RunAsync(
+                ChosenNotes.Where(note => !note.IsShared), note => act(note), Logger, "notes");
+            if (!stillSignedIn)
+            {
+                NavigationManager.NavigateTo("/login");
+                return;
+            }
+
+            _notes = await NotesApiClient.GetNotesAsync();
+            _picked.KeepOnly(VisibleNotes.Select(note => note.Id));
+        }
+        finally
+        {
+            _isWorkingOnPicked = false;
+        }
+    }
 
     /// <summary>
     /// How many notes are under each tab, drawn on the tab itself. There is no Finished tab here: a

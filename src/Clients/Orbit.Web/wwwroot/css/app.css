@@ -6847,16 +6847,33 @@ p.field-hint {
     cursor: grab;
 }
 
+.item-card-pick,
 .item-card-pin,
 .item-card-collapse,
 .item-card-menu {
     flex: 0 0 auto;
 }
 
+/* The mark that chooses a card to be acted on with the others - see PickedThings. First in the row and
+   drawn only while the page is choosing, so a list nobody is choosing from looks exactly as it did. */
+.item-card-pick {
+    display: flex;
+    align-items: center;
+}
+
+.item-card-pick input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
 /* Above the name's overlay, so each keeps the press meant for it. The body is here too: where it opens
    something it has its own handler, and where it holds controls of its own - a share panel, a row that
    is itself a link - those are what a press there is for. */
 .item-card-handle,
+.item-card-pick,
 .item-card-pin,
 .item-card-action,
 .item-card-collapse,
@@ -6864,6 +6881,34 @@ p.field-hint {
 .item-card-body {
     position: relative;
     z-index: 1;
+}
+
+/* The bar over a list while cards are being chosen - see PickedThingsBar. Sticky rather than fixed to
+   the foot: it belongs to the list it is acting on, and a bar at the bottom of a long page is one
+   nobody sees until they have scrolled past everything it was about. */
+.picked-bar {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-elevated);
+}
+
+.picked-bar-count {
+    font-weight: 600;
+    margin-right: 4px;
+}
+
+/* The way out, held apart from the actions so it is never pressed by mistake for one of them. */
+.picked-bar-done {
+    margin-left: auto;
 }
 
 /* And the menu above the body, which comes after it in the card. Both were on the same layer, so the

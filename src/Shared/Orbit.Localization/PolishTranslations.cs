@@ -887,6 +887,15 @@ public static class PolishTranslations
         ["This one can't be moved while you're offline."] = "Tego nie da się przenieść bez połączenia.",
         // The menu entry that unfolds the row a folder is named in - see NotesPage.
         ["Move to folder"] = "Przenieś do folderu",
+        // Choosing several cards to act on at once - see Orbit.Web.Services.PickedThings. "Zakończ
+        // zaznaczanie" rather than "Gotowe": this leaves the mode, and "Done" already means "ticked
+        // off" everywhere else in the app.
+        ["Select"] = "Zaznacz",
+        ["Select {0}"] = "Zaznacz: {0}",
+        ["{0} chosen"] = "Zaznaczone: {0}",
+        ["All of them"] = "Wszystkie",
+        ["What to do with the chosen ones"] = "Co zrobić z zaznaczonymi",
+        ["Stop selecting"] = "Zakończ zaznaczanie",
         ["No folder"] = "Bez folderu",
         // Said before a folder goes, because "delete folder" reads as though its notes go too.
         ["Delete the folder \"{0}\"? Nothing in it is deleted - it goes back to Public, or to Private if it is sealed."]

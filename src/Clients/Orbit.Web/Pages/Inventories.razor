@@ -32,6 +32,14 @@
         </button>
     </LeadingAction>
     <Title>@T["Inventory"]</Title>
+    <Actions>
+        @* Choosing several to act on at once - see PickedThings, and Notes.razor, which carries the
+           same press in the same place. *@
+        @if (!_picked.IsPicking)
+        {
+            <button type="button" class="btn-secondary" @onclick="StartPicking">@T["Select"]</button>
+        }
+    </Actions>
 </PageHeader>
 
 @if (_errorMessage is not null)
@@ -96,6 +104,11 @@
     {
         <p class="empty-hint empty-list">@T["Nothing in this folder."]</p>
     }
+    @* What to do with several at once, while several are chosen - see PickedThings. *@
+    <PickedThingsBar Picked="_picked" Page="FolderPage.Inventories"
+                     EveryChosenOneIsAway="@EveryChosenShelfIsAway" IsWorking="@_isWorkingOnPicked"
+                     OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync"
+                     OnAllToggled="ToggleAllPicked" OnStopped="StopPicking" />
     <div class="item-card-list">
         @foreach (var inventory in ArrangedInventories)
         {
@@ -105,6 +118,8 @@
                    on now (InventoryExpiryPushContent), so this page can mark the card rather than
                    leaving a reader to open all of them. *@
                 <ItemCard Name="@inventory.Name" OnNameSelected="() => OpenInventory(inventory.Id)"
+                          OffersPicking="_picked.IsPicking" IsPicked="_picked.Holds(inventory.Id)"
+                          OnPickedChanged="() => _picked.Toggle(inventory.Id)"
                           HasUnseenAction="@HasNewsAbout(inventory)">
                     <Handle>
                         <ReorderControls OnDragStart="() => _cardOrder.Start(inventory)" OnDragEnd="_cardOrder.Finish"
@@ -345,6 +360,69 @@
             (_inventories ?? []).Where(inventory =>
                 Folders.ShowsUnderTheChosenTab(FolderPage.Inventories, inventory.FolderId, inventory.IsPrivate, isFinished: false, inventory.IsArchived)),
             inventory => inventory.Id)];
+
+    /// <summary>Which shelves are chosen to be acted on together - see PickedThings.</summary>
+    private readonly PickedThings _picked = new();
+
+    /// <summary>While a round of presses is still going out, so a second press cannot start another.</summary>
+    private bool _isWorkingOnPicked;
+
+    private void StartPicking() => _picked.Start();
+
+    private void StopPicking()
+    {
+        _picked.Stop();
+        _isWorkingOnPicked = false;
+    }
+
+    private void ToggleAllPicked() => _picked.ToggleAll(ArrangedInventories.Select(inventory => inventory.Id));
+
+    /// <summary>Whether every chosen shelf is already put away, which is what names the bar's archive button.</summary>
+    private bool EveryChosenShelfIsAway => _picked.HasAny && ChosenInventories.All(inventory => inventory.IsArchived);
+
+    private IReadOnlyList<InventoryDto> ChosenInventories
+        => [.. (_inventories ?? []).Where(inventory => _picked.Holds(inventory.Id))];
+
+    /// <inheritdoc cref="ActOnPickedAsync"/>
+    private async Task FilePickedAsync(Guid? folderId)
+        => await ActOnPickedAsync(inventory => InventoryApiClient.MoveToFolderAsync(inventory.Id, folderId));
+
+    /// <inheritdoc cref="ActOnPickedAsync"/>
+    private async Task ArchivePickedAsync(bool isArchived)
+        => await ActOnPickedAsync(inventory => InventoryApiClient.SetArchivedAsync(inventory.Id, isArchived));
+
+    /// <summary>
+    /// One press over every chosen shelf - see OnePressEach, and Notes.ActOnPickedAsync, which is the
+    /// same round on the other page. One somebody else owns is left out: filing and putting away are
+    /// decisions about the owner's own page.
+    /// </summary>
+    private async Task ActOnPickedAsync(Func<InventoryDto, Task<bool>> act)
+    {
+        if (!_picked.HasAny || _isWorkingOnPicked)
+        {
+            return;
+        }
+
+        _isWorkingOnPicked = true;
+        try
+        {
+            var stillSignedIn = await OnePressEach.RunAsync(
+                ChosenInventories.Where(inventory => !inventory.IsShared), inventory => act(inventory),
+                Logger, "inventories");
+            if (!stillSignedIn)
+            {
+                NavigationManager.NavigateTo("/login");
+                return;
+            }
+
+            _inventories = await InventoryApiClient.GetInventoriesAsync();
+            _picked.KeepOnly(ArrangedInventories.Select(inventory => inventory.Id));
+        }
+        finally
+        {
+            _isWorkingOnPicked = false;
+        }
+    }
 
     /// <summary>
     /// How many shelves are under each tab, drawn on the tab itself. There is no Finished tab here - a

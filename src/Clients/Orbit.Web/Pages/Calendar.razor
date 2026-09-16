@@ -35,6 +35,14 @@
     </LeadingAction>
     <Title>@T["Calendar"]</Title>
     <Actions>
+        @* Choosing several to act on at once - see PickedThings, and Notes.razor, which carries the
+           same press in the same place. Only the events are chosen here: a deadline on this list
+           belongs to the task list it is on, and filing it would file somebody's errand by the day it
+           happens to fall on. *@
+        @if (!_picked.IsPicking)
+        {
+            <button type="button" class="btn-secondary" @onclick="StartPicking">@T["Select"]</button>
+        }
         @* The order the list beside the grid comes in. Behind the menu rather than in a control across
            the top, the same as every other list in the app - it is something a reader sets once and
            then reads by. Stays open while they try one order and then another. *@
@@ -91,6 +99,11 @@
         }
         else
         {
+            @* What to do with several at once, while several are chosen - see PickedThings. *@
+            <PickedThingsBar Picked="_picked" Page="FolderPage.Calendar"
+                             EveryChosenOneIsAway="@EveryChosenEventIsAway" IsWorking="@_isWorkingOnPicked"
+                             OnFiled="FilePickedAsync" OnArchive="ArchivePickedAsync"
+                             OnAllToggled="ToggleAllPicked" OnStopped="StopPicking" />
             <div class="item-card-list">
                 @foreach (var thing in ListedThings)
                 {
@@ -102,10 +115,17 @@
 
                            Struck through and greyed once that entry is ticked off (item-card-done), the
                            same mark a done deadline carries below, so the two read alike where "show
-                           everything" puts them side by side. *@
+                           everything" puts them side by side.
+
+                           A repeat is drawn once per day it falls on, each card carrying the event's
+                           own id - so choosing one chooses every occurrence of it, which is right:
+                           where an event is filed and whether it is put away are the event's and not
+                           the day's. See CalendarOccurrences. *@
                         <ItemCard Name="@calendarEvent.Details.Title"
                         OnNameSelected="() => OpenTheEvent(calendarEvent)"
                         OnBodySelected="() => OpenTheEvent(calendarEvent)"
+                        OffersPicking="_picked.IsPicking" IsPicked="_picked.Holds(calendarEvent.Id)"
+                        OnPickedChanged="() => _picked.Toggle(calendarEvent.Id)"
                         AccentColour="@(string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? null : calendarEvent.Details.Color)"
                         ExtraClass="@(IsTickedOff(calendarEvent) ? "item-card-done" : null)"
                         HasUnseenAction="@HasNewsAbout(calendarEvent)"
@@ -903,6 +923,77 @@
                     calendarEvent.Details.StartUtc, calendarEvent.Details.Title, calendarEvent, null))
                 .Concat(_listedDueTasks.Select(dueTask => new ListedThing(
                     dueTask.DueDateUtc, Written(dueTask.Description), null, dueTask))))];
+
+    /// <summary>Which events are chosen to be acted on together - see PickedThings.</summary>
+    private readonly PickedThings _picked = new();
+
+    /// <summary>While a round of presses is still going out, so a second press cannot start another.</summary>
+    private bool _isWorkingOnPicked;
+
+    private void StartPicking() => _picked.Start();
+
+    private void StopPicking()
+    {
+        _picked.Stop();
+        _isWorkingOnPicked = false;
+    }
+
+    /// <summary>
+    /// Every event on the list, each once however many days it falls on - a repeat drawn five times is
+    /// one event, and "all of them" said five would be counting days.
+    /// </summary>
+    private void ToggleAllPicked()
+        => _picked.ToggleAll(ListedEventIds);
+
+    private IReadOnlyList<Guid> ListedEventIds
+        => [.. ListedThings.Where(thing => thing.Event is not null).Select(thing => thing.Event!.Id).Distinct()];
+
+    /// <summary>Whether every chosen event is already put away, which is what names the bar's archive button.</summary>
+    private bool EveryChosenEventIsAway => _picked.HasAny && ChosenEvents.All(calendarEvent => calendarEvent.IsArchived);
+
+    private IReadOnlyList<CalendarEventDto> ChosenEvents
+        => [.. (_events ?? []).Where(calendarEvent => _picked.Holds(calendarEvent.Id))];
+
+    /// <inheritdoc cref="ActOnPickedAsync"/>
+    private async Task FilePickedAsync(Guid? folderId)
+        => await ActOnPickedAsync(calendarEvent => CalendarApiClient.MoveToFolderAsync(calendarEvent.Id, folderId));
+
+    /// <inheritdoc cref="ActOnPickedAsync"/>
+    private async Task ArchivePickedAsync(bool isArchived)
+        => await ActOnPickedAsync(calendarEvent => CalendarApiClient.SetArchivedAsync(calendarEvent.Id, isArchived));
+
+    /// <summary>
+    /// One press over every chosen event - see OnePressEach, and Notes.ActOnPickedAsync, which is the
+    /// same round on the other page. One somebody else owns is left out: filing and putting away are
+    /// decisions about the owner's own page.
+    /// </summary>
+    private async Task ActOnPickedAsync(Func<CalendarEventDto, Task<bool>> act)
+    {
+        if (!_picked.HasAny || _isWorkingOnPicked)
+        {
+            return;
+        }
+
+        _isWorkingOnPicked = true;
+        try
+        {
+            var stillSignedIn = await OnePressEach.RunAsync(
+                ChosenEvents.Where(calendarEvent => !calendarEvent.IsShared), calendarEvent => act(calendarEvent),
+                Logger, "events");
+            if (!stillSignedIn)
+            {
+                NavigationManager.NavigateTo("/login");
+                return;
+            }
+
+            _events = await CalendarApiClient.GetCalendarEventsAsync();
+            _picked.KeepOnly(ListedEventIds);
+        }
+        finally
+        {
+            _isWorkingOnPicked = false;
+        }
+    }
 
     /// <summary>
     /// Whichever order the reader chose. When is the fallback within the other two as well: two things
