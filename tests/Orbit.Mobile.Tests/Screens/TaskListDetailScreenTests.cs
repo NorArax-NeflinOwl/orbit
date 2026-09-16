@@ -1855,6 +1855,34 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// An entry pointing at a list makes its own list a group list, and the save that wrote the entry
+    /// is what says so. The screen used to start a second save for it, awaited by nobody, which outlived
+    /// the screen's store and took the test run down with it - on a phone, the app.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_standing_for_another_list_makes_its_list_a_group_in_the_same_save()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Shopping");
+        var screen = context.OpenTaskList("This week");
+        screen.NewItemDescription = "The shopping";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+        Assert.False(screen.IsGroup);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        screen.BeingEdited!.LinkToCommand.Execute(
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.True(screen.IsGroup);
+        Assert.False(screen.CanChooseGroupView);
+        Assert.False(screen.SaveListCommand.IsRunning);
+        Assert.True((await context.FindAsync(screen)).IsGroup);
+    }
+
+    /// <summary>
     /// The bug this stands for: moving an entry onto a list it already stands for took the whole app
     /// down. The server refuses it - an entry cannot link to the list it belongs to - as a 400 with a
     /// message, and the phone turned every unexpected status into an exception nothing caught.

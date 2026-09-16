@@ -1226,8 +1226,12 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         LocalWriteOutcome outcome;
         try
         {
+            // A list with an entry pointing at another list is a group list whatever the switch says -
+            // the rule Orbit.Core.Tasks.TaskList.IsGroup settles on the server, written here too so this
+            // phone holds the same answer before the sync brings it back.
+            var isGroup = IsGroup || items.Any(item => item.AllLinkedTaskListIds.Count > 0);
             outcome = await _taskLists.UpdateAsync(
-                _localId, new TaskListContent(Title, items, IsGroup, _priority, IsPrivate, Description, _completion, Tags.ToSave),
+                _localId, new TaskListContent(Title, items, isGroup, _priority, IsPrivate, Description, _completion, Tags.ToSave),
                 cancellationToken);
         }
         catch (EncryptionKeyLockedException)
@@ -1442,17 +1446,23 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     /// <summary>
     /// Said whenever the rows are rebuilt, because that is when the answer can change - adding an entry
-    /// that names a list, or taking the last one off. Turning the switch on here is what "automatically"
-    /// means: it saves as everything else on this screen saves, unless the screen is filling itself in,
-    /// where the stored answer is already what the server settled.
+    /// that names a list, or taking the last one off.
+    ///
+    /// Only said, never saved from here: the rows are rebuilt by the save that wrote the entry, and by
+    /// every read of the list, so a save started here was a second write racing the first - started
+    /// without anyone awaiting it, and thrown on no one when the store under it had gone. The write
+    /// carries the answer itself instead - see <see cref="SaveAsync"/>.
     /// </summary>
     private void SayWhetherItGathersOtherLists()
     {
         OnPropertyChanged(nameof(GathersOtherLists));
         OnPropertyChanged(nameof(CanChooseGroupView));
-        if (GathersOtherLists)
+        if (GathersOtherLists && !IsGroup)
         {
+            var wasShowingWhatIsStored = _isShowingWhatIsStored;
+            _isShowingWhatIsStored = true;
             IsGroup = true;
+            _isShowingWhatIsStored = wasShowingWhatIsStored;
         }
     }
 
@@ -1517,9 +1527,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private bool _isShowingWhatIsStored;
 
     /// <summary>
-    /// A press on the switch, or the entries answering it themselves - see
-    /// <see cref="SayWhetherItGathersOtherLists"/>. Either way the list is saved, as everything else on
-    /// this screen is saved as it is chosen.
+    /// A press on the switch, saved as everything else on this screen is saved as it is chosen. The
+    /// entries answering it themselves save nothing here - see <see cref="SayWhetherItGathersOtherLists"/>.
     /// </summary>
     partial void OnIsGroupChanged(bool value)
     {
