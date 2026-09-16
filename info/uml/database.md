@@ -31,6 +31,7 @@ erDiagram
     OS_USERS ||--o| OS_NOTIFICATIONS_SETTINGS : "configures"
     OS_USERS ||--o{ OS_PUSH_SUBSCRIPTIONS : "registered"
     OS_USERS ||--o{ OS_TAGS_COLOURS : "colours its tags"
+    OS_USERS ||--o{ OS_TASKS_TAG_FILTERS : "filters its Tasks card by"
 
     OS_USERS {
         uuid OS_U_ID PK
@@ -51,6 +52,13 @@ erDiagram
         text OS_TC_TAG "as last written - readable, even for a tag only private items carry"
         text OS_TC_COLOUR "hex, as a colour input gives it"
         timestamptz OS_TC_UPDATEDATUTC
+    }
+    OS_TASKS_TAG_FILTERS {
+        uuid OS_TTF_ID PK
+        uuid OS_TTF_USERID FK
+        text OS_TTF_TAGSJSON "the tags, readable like OS_TAGS_COLOURS"
+        bool OS_TTF_MATCHESALL "every tag rather than any"
+        timestamptz OS_TTF_CREATEDATUTC
     }
     OS_REFRESH_TOKENS {
         uuid OS_RT_ID PK

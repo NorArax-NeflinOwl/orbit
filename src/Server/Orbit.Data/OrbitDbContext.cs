@@ -44,6 +44,9 @@ public sealed class OrbitDbContext : DbContext
 
     /// <summary>The colour each of an account's tags is drawn in - see Orbit.Core.Tags.TagColour.</summary>
     public DbSet<TagColourEntity> TagColours => Set<TagColourEntity>();
+
+    /// <summary>The filters an account made for the dashboard's Tasks card - see Orbit.Core.Tasks.TagFilters.TaskTagFilter.</summary>
+    public DbSet<TaskTagFilterEntity> TaskTagFilters => Set<TaskTagFilterEntity>();
     public DbSet<NotificationEntryEntity> NotificationEntries => Set<NotificationEntryEntity>();
     public DbSet<DiagnosticLogEntryEntity> DiagnosticLogEntries => Set<DiagnosticLogEntryEntity>();
     public DbSet<SyncTombstoneEntity> SyncTombstones => Set<SyncTombstoneEntity>();
@@ -686,6 +689,14 @@ public sealed class OrbitDbContext : DbContext
             entity.Property(row => row.NormalizedTag).IsRequired().HasMaxLength(StoredTextLimits.Category);
             entity.Property(row => row.Tag).IsRequired().HasMaxLength(StoredTextLimits.Category);
             entity.Property(row => row.Colour).IsRequired().HasMaxLength(StoredTextLimits.Color);
+        });
+
+        modelBuilder.Entity<TaskTagFilterEntity>(entity =>
+        {
+            entity.HasKey(row => row.Id);
+            // Read by account and nothing else - see TaskTagFilterRepository.GetAllAsync.
+            entity.HasIndex(row => row.UserId);
+            entity.Property(row => row.TagsJson).IsRequired().HasDefaultValue("[]");
         });
 
         modelBuilder.Entity<NotificationSettingsEntity>(entity =>

@@ -64,6 +64,7 @@ internal static class OrbitStorageNames
         [typeof(PermissionCodeEntity)] = new("OS_PERMISSIONS_CODES", "OS_PC_"),
         [typeof(NotificationSettingsEntity)] = new("OS_NOTIFICATIONS_SETTINGS", "OS_NTFS_"),
         [typeof(TagColourEntity)] = new("OS_TAGS_COLOURS", "OS_TC_"),
+        [typeof(TaskTagFilterEntity)] = new("OS_TASKS_TAG_FILTERS", "OS_TTF_"),
         [typeof(PushSubscriptionEntity)] = new("OS_PUSH_SUBSCRIPTIONS", "OS_PS_"),
         [typeof(DiagnosticLogEntryEntity)] = new("OS_DIAGNOSTICS", "OS_D_"),
         [typeof(SyncTombstoneEntity)] = new("OS_SYNC_TOMBSTONES", "OS_ST_"),

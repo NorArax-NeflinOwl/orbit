@@ -202,6 +202,16 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<
             IRequestHandler<Orbit.Core.Tags.SetTagColour.SetTagColourCommand, IReadOnlyList<Orbit.Core.Tags.TagColour>>,
             Orbit.Core.Tags.SetTagColour.SetTagColourCommandHandler>();
+        // The filters an account makes for the dashboard's Tasks card - see Orbit.Core.Tasks.TagFilters.TaskTagFilter.
+        services.AddScoped<
+            IRequestHandler<Orbit.Core.Tasks.TagFilters.GetTaskTagFiltersQuery, IReadOnlyList<Orbit.Core.Tasks.TagFilters.TaskTagFilter>>,
+            Orbit.Core.Tasks.TagFilters.GetTaskTagFiltersQueryHandler>();
+        services.AddScoped<
+            IRequestHandler<Orbit.Core.Tasks.TagFilters.CreateTaskTagFilterCommand, Orbit.Core.Tasks.TagFilters.TaskTagFilter>,
+            Orbit.Core.Tasks.TagFilters.CreateTaskTagFilterCommandHandler>();
+        services.AddScoped<
+            IRequestHandler<Orbit.Core.Tasks.TagFilters.DeleteTaskTagFilterCommand, bool>,
+            Orbit.Core.Tasks.TagFilters.DeleteTaskTagFilterCommandHandler>();
         services.AddScoped<IRequestHandler<DuplicateNoteCommand, Guid?>, DuplicateNoteCommandHandler>();
         services.AddScoped<IRequestHandler<UpdateNoteCommand, EditOutcome>, UpdateNoteCommandHandler>();
         services.AddScoped<IRequestHandler<AddNotePictureCommand, AddNotePictureOutcome>, AddNotePictureCommandHandler>();
