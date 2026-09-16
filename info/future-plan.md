@@ -2060,21 +2060,23 @@ It is **not** on the two other places somebody edits in the browser:
   phone draws one list at a time and has no tree at all (already written down below, "The phone cannot
   flatten a tree of lists").
 
-- **Copying what a list or a note holds, filtered.** Asked for as: copy only what is done, only what is
-  not, only what failed - from the light view and the heavy one, for notes and for task lists. What
-  exists is one unfiltered copy, on a note's light view only. The states to filter on are all there
-  (`IsCompleted`, `IsFailed`, `IsResolved`); what is missing is the menu that offers the four choices,
-  the same menu on a task list, the same on both heavy editors, and the phone's half - it has no
-  clipboard action at all.
+- ~~**Copying what a list or a note holds, filtered.**~~ Done 2026-09-16. Four choices - the whole
+  thing, what is done, what is still to do, what was given up on (`WhatToCopy`, shared so a note's boxes
+  and a list's entries are narrowed by one rule) - on all four screens, and a task list copied in the
+  format a note's paste reads back (`TaskListWords` beside `NoteWords`). The phone offers the four
+  behind a sheet. See `info/functionality.md`, "And it can be copied in part", for what each choice
+  keeps and why a crossed-out entry goes out as an unticked box.
 
-- **Pasting a list back in.** Asked for as an option inside note and task-list editing that turns copied
-  text into lines or entries. The **conversion** exists for notes and is good: a paste of
-  `[x] ` / `- ` lines becomes boxes and lines on both clients, which is exactly what the copy above
-  writes. What is missing is (a) an *option* - nothing ever reads the clipboard, it only reacts to the
-  system's paste, so there is nothing to press - and (b) task lists, whose entry field is deliberately a
-  one-line input to stop a multi-line paste arriving as one entry. Together with the point above these
-  two are one feature: copy a filtered list out of one thing and paste it into another, which is what the
-  user said it was for.
+- **Pasting a list back in** - *the other half of the copy above, and the half still missing.* Asked for
+  as an option inside note and task-list editing that turns copied text into lines or entries. The
+  **conversion** exists for notes and is good: a paste of `[x] ` / `- ` lines becomes boxes and lines on
+  both clients, which is exactly what the copy writes - so copying a filtered list out of one thing and
+  pasting it into a *note* already works end to end. What is missing is (a) an *option* - nothing ever
+  reads the clipboard, it only reacts to the system's paste, so there is nothing to press - and (b) task
+  lists, whose entry field is deliberately a one-line input to stop a multi-line paste arriving as one
+  entry. Reading the clipboard needs a permission the browser only grants on a gesture, and the phone's
+  is `Clipboard.Default.GetTextAsync`; the entry field would have to decide, on a paste with newlines in
+  it, whether it is one entry or several - which is the decision this is waiting on.
 
 ## Smaller identified follow-ups
 

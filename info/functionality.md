@@ -1420,9 +1420,33 @@ note copied here and pasted into another note arrives as the same note. The name
 is what a note's name already is on both clients. **The format itself is shared** (`NoteWords` in
 Orbit.Core) rather than written once per client, because two copies of it would drift and a note copied
 on a phone would paste differently from the same note copied in a browser; a line that is not words at
-all - a table, a picture - is left out rather than written as a blank. The phone says whether it worked:
-Android can refuse the clipboard outright, and a copy that quietly did nothing looks exactly like one
-that worked.
+all - a table, a picture, a rule across the note - is left out rather than written as a blank. The phone
+says whether it worked: Android can refuse the clipboard outright, and a copy that quietly did nothing
+looks exactly like one that worked.
+
+**And it can be copied in part** (2026-09-16, asked for as "copy only what is done, only what is not,
+only what failed"). Four choices - the whole thing, what is done, what is still to do, what was given up
+on (`WhatToCopy`) - offered from the same menu on **all four screens**: a note's light view and its
+editor, a task list's checklist and its editor. On the phone the four are a sheet behind the one "Copy
+the text" entry, the way the styles and the separator's two are asked: four lines saying "Copy…" one
+under the other is most of a menu.
+
+The three narrow choices are questions about tick boxes, so they keep boxes and nothing else - a note's
+ordinary writing travels only in the whole thing, since a page of prose answering "what is still to do"
+with every sentence it holds is not an answer. The name stays whichever is asked for: a handful of
+errands with nothing saying which list they came from is a handful nobody can place. A crossed-out entry
+goes out as an unticked box rather than as a mark of its own, because a paste reads two markers and not
+three, and a third would come back as words pretending to be a line.
+
+**A task list is copied in the same format a note is** (`TaskListWords` beside `NoteWords`), which is
+what the whole thing was asked for: the errands still to do, copied out of a list, arrive in a note as
+those same errands. An entry is its description and nothing else - a deadline, what it stands for and
+how much it needs are real and none of them survives being pasted anywhere - and an entry that only
+points at other lists is left out, a row holding a group together being nobody's work to copy. The
+editors copy what their form holds, unsaved entries included: that is the list in front of the reader.
+
+**What is still missing is the other half**: nothing ever *reads* the clipboard, so there is no
+"paste a list in" to press - see `info/future-plan.md`.
 
 ### Sharing notes and task lists
 
