@@ -49,15 +49,13 @@ duplicate check and both translation sweeps.
 
 ## Still failing / unknown
 
-- **Nothing from batches 9-14 has been compiled or run.** Thirty commits since the last compile
-  (`eeadeea`, session orbit-9e). This is the only thing between the PR and leaving draft.
-- **`InventorySearchTests.A_inventory_this_phone_cannot_open_is_counted_rather_than_ignored`** -
-  believed fixed by `dfb2534`, never re-run.
+- **Compiled and tested on 2026-09-16** (session continuing this handover, Windows, SDK 10.0.401):
+  Release build clean, `dotnet test Orbit.CI.slnf` 4732 passed / 0 failed at `8f0e9f77`. What it found
+  is Batch 15 in PR #288's description - two real defects (`IsArchived` dropped by
+  `LinkedTaskCompletionResolver`; an unawaited group save on the phone that crashed the test host), the
+  compile errors, and tests behind the code. `GroupMembers` (the static class) is `GroupMemberLists` now.
 - **Nothing has been seen in a browser or on a device.** It matters most for batches 12-14, which are
   almost entirely markup. The riskiest single file is `ItemCard.razor`: every list in the app uses it.
-- Two spots worth reading first when it does compile: the extracted `ToFormModel` in `TaskEditor.razor`
-  (its object initialiser's closing brace), and `DailyTaskReminderRepository.GetEligibleAsync` (the
-  `List<Guid>.Contains` in the `where` - the only EF translation risk added this session).
 
 ## Rejected approaches (do not retry)
 
@@ -76,10 +74,9 @@ duplicate check and both translation sweeps.
 
 ## Next step
 
-**Compile the branch and run `dotnet test Orbit.CI.slnf`**, then work the failures before adding
-anything new. Thirty commits of unverified code in an app the user runs daily is more risk than another
-feature is worth - that recommendation was given to the user on 2026-09-16 and they did not overrule it.
-After that, rewrite PR #288's description so it covers batches 11-14.
+**Look at batches 12-14 in a running browser** (choosing several cards, filtered copy, a group's member
+sections) and batches 10-12 on the phone, then take PR #288 out of draft. PR #288's description is
+current as of Batch 15.
 
 ## Environment facts confirmed this session
 
