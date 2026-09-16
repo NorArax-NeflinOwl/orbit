@@ -33,6 +33,27 @@ public sealed partial class NoteDetailScreenTests
     }
 
     /// <summary>
+    /// "Paste from the clipboard" in the note's menu: the words go at the end, on lines of their own, and
+    /// "[x] " and "- " come in as boxes - so a list copied out of Orbit comes back as its lines.
+    /// </summary>
+    [Fact]
+    public async Task Pasting_from_the_clipboard_adds_the_lines_at_the_end()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        screen.PasteFromTheClipboard("Errands\r\n[x] eggs\r\n- flour\r\n");
+
+        Assert.Equal(["milk", "Errands", "eggs", "flour"], screen.Lines.Select(line => line.Text));
+        Assert.False(screen.Lines[1].IsChecklistItem);
+        Assert.True(screen.Lines[2].IsChecklistItem);
+        Assert.True(screen.Lines[2].IsChecked);
+        Assert.True(screen.Lines[3].IsChecklistItem);
+        Assert.False(screen.Lines[3].IsChecked);
+    }
+
+    /// <summary>
     /// Enter at the end of a line starts the next one, which is what the editor is: one surface being
     /// typed on rather than a field with an Add button beside it.
     /// </summary>

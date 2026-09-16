@@ -2090,7 +2090,12 @@ It is **not** on the two other places somebody edits in the browser:
   behind a sheet. See `info/functionality.md`, "And it can be copied in part", for what each choice
   keeps and why a crossed-out entry goes out as an unticked box.
 
-- **Pasting a list back in** - *the other half of the copy above, and the half still missing.* Asked for
+- ~~**Pasting a list back in**~~ Done on 2026-09-16: "Paste from the clipboard" in the menu of the note
+  and task-list editors, on both clients. The user settled the open question - **every line is an
+  entry**, "[x] " done, the list's own name left out when it heads the paste (`TaskListWords.ReadBack`).
+  A note takes the words at the caret in a browser and at the end on the phone, read as any paste is. What
+  was written here before it was built:
+  *the other half of the copy above, and the half still missing.* Asked for
   as an option inside note and task-list editing that turns copied text into lines or entries. The
   **conversion** exists for notes and is good: a paste of `[x] ` / `- ` lines becomes boxes and lines on
   both clients, which is exactly what the copy writes - so copying a filtered list out of one thing and

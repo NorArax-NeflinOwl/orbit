@@ -297,6 +297,13 @@ else
                     <button type="button" class="avatar-dropdown-item"
                             @onclick="() => CopyTheTextAsync(what)">@(_copied == what ? T["Copied"] : T[what.Label()])</button>
                 }
+                @* The other half of the copies above - see PasteFromTheClipboardAsync. Not offered where the
+                   note cannot be written in. *@
+                @if (!_isSharedReadOnly && _lockedByUserName is null)
+                {
+                    <button type="button" class="avatar-dropdown-item"
+                            @onclick="PasteFromTheClipboardAsync">@T["Paste from the clipboard"]</button>
+                }
 
                 @* The two ways of handing the note on, under a line because they are actions rather than
                    settings: each closes the menu and opens its panel over the page. They used to be two
@@ -442,6 +449,31 @@ else
         }
 
         _saveErrorMessage = T["The text could not be copied. Your browser did not allow it."];
+    }
+
+    /// <summary>
+    /// What is on the clipboard, put into the note where the caret was - or at its end, which is where a
+    /// press on the menu leaves it - as a paste would put it: "[x] " and "- " lines come in as boxes, so a
+    /// list or a note copied out of Orbit comes back as the lines it was. Asked for as a menu entry because
+    /// the system's paste needs the caret in the note first and a keyboard to press it with.
+    /// </summary>
+    private async Task PasteFromTheClipboardAsync()
+    {
+        _menu?.Close();
+        if (await Clipboard.TryReadAsync() is not { } pasted)
+        {
+            _saveErrorMessage = T["The clipboard could not be read. Your browser did not allow it."];
+            return;
+        }
+
+        if (pasted.Trim().Length == 0 || _checklistEditorRef is null)
+        {
+            _saveErrorMessage = T["There is nothing on the clipboard to paste."];
+            return;
+        }
+
+        _saveErrorMessage = null;
+        await _checklistEditorRef.PasteTextAsync(pasted);
     }
 
     /// <summary>

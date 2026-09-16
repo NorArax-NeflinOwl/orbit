@@ -181,6 +181,13 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 		// list: copying is reading, and a list shared to read is still read.
 		list.Add(new ScreenMenuEntry(_translations["Copy the text"], () => _ = ChooseWhatToCopyAsync()));
 
+		// The other half of the copy: what is on the clipboard, line by line, as entries - where the list
+		// can be written in. See TaskListDetailViewModel.PasteFromTheClipboardAsync.
+		if (_viewModel.CanEdit)
+		{
+			list.Add(new ScreenMenuEntry(_translations["Paste from the clipboard"], () => _ = PasteFromTheClipboardAsync()));
+		}
+
 		// Where this thing's own copies are found again - see CopyHistoryViewModel. Only once there is
 		// one, and here rather than in the account's menu: a history belongs to the thing it is the
 		// history of.
@@ -252,6 +259,27 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 		{
 			_viewModel.Status = _translations["The text could not be copied."];
 		}
+	}
+
+	/// <summary>
+	/// What is on the clipboard, as entries at the foot of the list - see
+	/// TaskListDetailViewModel.PasteFromTheClipboardAsync. Read here because the clipboard is the
+	/// platform's, and said out loud when it will not be read.
+	/// </summary>
+	private async Task PasteFromTheClipboardAsync()
+	{
+		string? pasted;
+		try
+		{
+			pasted = Clipboard.Default.HasText ? await Clipboard.Default.GetTextAsync() : string.Empty;
+		}
+		catch (Exception exception) when (exception is not OperationCanceledException)
+		{
+			_viewModel.Status = _translations["The clipboard could not be read."];
+			return;
+		}
+
+		await _viewModel.PasteFromTheClipboardAsync(pasted ?? string.Empty);
 	}
 
 	/// <summary>Asked first, as every delete in Orbit is - and named, so the question says which list.</summary>

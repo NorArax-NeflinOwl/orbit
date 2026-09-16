@@ -1133,6 +1133,44 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Words the page read off the clipboard, put at the end of the note on lines of their own - read the
+    /// way any paste here is (NoteSurfaceEdits.Replace with readsMarkers), so "[x] " and "- " lines come in
+    /// as boxes and a list copied out of Orbit comes back as the lines it was. The end rather than the
+    /// caret: the press was on the menu, which is not in the writing, and the end is where something added
+    /// to a note belongs. One step of the history, like any paste.
+    /// </summary>
+    public void PasteFromTheClipboard(string pasted)
+    {
+        var text = pasted.Replace("\r\n", "\n").Replace('\r', '\n').Trim('\n');
+        if (!CanEdit || text.Trim().Length == 0)
+        {
+            Status = CanEdit ? _translations["There is nothing on the clipboard to paste."] : Status;
+            return;
+        }
+
+        var current = _history.Current;
+        var lastLine = current.Lines.Count - 1;
+        var last = current.Lines[lastLine];
+        var end = new SurfacePoint(lastLine, last.IsAnElement ? 0 : last.Text.Length);
+        var before = current with { Anchor = end, Focus = end };
+
+        // On a line of its own unless the note ends on an empty one, which is where it would be typed.
+        var startsALine = last.IsAnElement || last.Text.Length > 0;
+        var pastedState = NoteSurfaceEdits.Replace(before, startsALine ? "\n" + text : text, readsMarkers: true);
+
+        var lines = pastedState.Lines.ToList();
+        if (lines[0].IsChecklistItem)
+        {
+            lines[0] = NoteContentLine.PlainText(lines[0].Text);
+        }
+
+        var after = pastedState with { Lines = lines };
+        Show(after);
+        Record(before, after.Caret, SurfaceEditKind.Pasting);
+        PlaceCaret(after.Caret);
+    }
+
+    /// <summary>
     /// Whether text that came into a field at once has a line break in it - a paste, since a one-line
     /// field's own Enter never puts one there (it raises Completed instead - see NoteDetailPage).
     /// </summary>

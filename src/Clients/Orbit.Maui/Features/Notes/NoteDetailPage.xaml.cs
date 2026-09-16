@@ -563,6 +563,27 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	}
 
 	/// <summary>
+	/// What is on the clipboard, at the end of the note - see NoteDetailViewModel.PasteFromTheClipboard.
+	/// Read here because the clipboard is the platform's; said out loud when it will not be read, for the
+	/// reason <see cref="CopyTheTextAsync"/> gives.
+	/// </summary>
+	private async Task PasteFromTheClipboardAsync()
+	{
+		string? pasted;
+		try
+		{
+			pasted = Clipboard.Default.HasText ? await Clipboard.Default.GetTextAsync() : string.Empty;
+		}
+		catch (Exception exception) when (exception is not OperationCanceledException)
+		{
+			_viewModel.Status = _translations["The clipboard could not be read."];
+			return;
+		}
+
+		_viewModel.PasteFromTheClipboard(pasted ?? string.Empty);
+	}
+
+	/// <summary>
 	/// Asks which part of the note to copy and copies it - the browser's four choices
 	/// (<see cref="NoteDetailViewModel.CopyChoices"/>) as a sheet, since that is how this screen asks
 	/// every other question with more than two answers.
@@ -659,6 +680,12 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		// A sheet rather than four lines in this menu, the way the styles are: four entries saying
 		// "Copy…" one under the other is most of the menu, and which part to copy is one question.
 		entries.Add(new ScreenMenuEntry(_translations["Copy the text"], () => _ = ChooseWhatToCopyAsync()));
+
+		// The other half of the copy, where the note can be written in - see PasteFromTheClipboardAsync.
+		if (_viewModel.CanEdit)
+		{
+			entries.Add(new ScreenMenuEntry(_translations["Paste from the clipboard"], () => _ = PasteFromTheClipboardAsync()));
+		}
 
 		// Only once there is one, and here rather than in the account's menu: a history belongs to the
 		// thing it is the history of.

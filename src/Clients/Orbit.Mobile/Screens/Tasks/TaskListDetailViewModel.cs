@@ -369,6 +369,37 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     [ObservableProperty]
     private TaskItemRow? _rowJustAdded;
 
+    /// <summary>
+    /// Words the page read off the clipboard, as entries at the foot of the list in one save - every line
+    /// an entry, "[x] " coming in done, the list's own name left out when it heads them (see
+    /// TaskListWords.ReadBack, which the browser reads them with too). Says what happened in the status
+    /// line either way, since nothing on the list may be in view to show it.
+    ///
+    /// Each entry is named as it is made rather than left at <see cref="Guid.Empty"/> the way one added
+    /// with the box is: several at once with the same empty id would be one entry to everything on this
+    /// screen that finds a row by its id, and the server keeps an id a client gives an entry.
+    /// </summary>
+    public async Task PasteFromTheClipboardAsync(string pasted, CancellationToken cancellationToken = default)
+    {
+        if (!CanEdit)
+        {
+            return;
+        }
+
+        var entries = TaskListWords.ReadBack(pasted, Title);
+        if (entries.Count == 0)
+        {
+            Status = _translations["There is nothing on the clipboard to paste."];
+            return;
+        }
+
+        // Both channels at Push, as an entry added with the box starts - see AddItemAsync.
+        await SaveAsync(
+            [.. _items, .. entries.Select(entry => new TaskItemDto(
+                Guid.NewGuid(), entry.Text, null, entry.IsDone, null, "Push", false, "Push", new TimeOnly(9, 0)))],
+            cancellationToken);
+    }
+
     private bool CanAddItem => NewItemDescription.Trim().Length > 0;
 
     /// <summary>Opens one entry's details - when it is due, and what it says when it is late.</summary>

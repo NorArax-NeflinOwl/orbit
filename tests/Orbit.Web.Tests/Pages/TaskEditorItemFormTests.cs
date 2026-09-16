@@ -271,6 +271,29 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>
+    /// "Paste from the clipboard" in the list's menu: every line an entry at the foot of the list, "[x] "
+    /// coming in done - see TaskListWords.ReadBack. Saved with the list, as everything on this form is.
+    /// </summary>
+    [Fact]
+    public void Pasting_from_the_clipboard_adds_an_entry_per_line()
+    {
+        JSInterop.Setup<string>("navigator.clipboard.readText").SetResult("- Milk\r\n[x] Bread\r\n");
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        OpenTheRailMenu(cut);
+        ClickButtonSaying(cut, "Paste from the clipboard");
+        ClickButtonSaying(cut, "Save");
+
+        var items = JsonDocument.Parse(_lastSavedJson!).RootElement.GetProperty("items").EnumerateArray().ToList();
+        Assert.Equal(3, items.Count);
+        Assert.Equal("Milk", items[1].GetProperty("description").GetString());
+        Assert.False(items[1].GetProperty("isCompleted").GetBoolean());
+        Assert.Equal("Bread", items[2].GetProperty("description").GetString());
+        Assert.True(items[2].GetProperty("isCompleted").GetBoolean());
+    }
+
+    /// <summary>
     /// A calendar entry can invite people whether the list it is on has been saved yet or not. The
     /// contacts used to be read only alongside an existing list, so a Calendar entry on a brand new one
     /// said there was nobody to invite - which is not the same thing as having no contacts.

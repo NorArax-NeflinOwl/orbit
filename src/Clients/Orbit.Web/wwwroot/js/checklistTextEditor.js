@@ -277,6 +277,24 @@ export async function insertSeparator(container, stamp) {
     }
 }
 
+/// Text read off the clipboard by the page's own "paste from the clipboard", put in exactly as a paste
+/// would be - boxes read back from "[x] " and "- " - see ChecklistTextEditor.PasteTextAsync. Where the
+/// caret was, or at the end of the note when the press on the menu took the caret away: a surface with
+/// no caret in it is read as its end (see SurfaceState in ChecklistTextEditor), which is where something
+/// added to a note belongs.
+export async function pasteText(container, text) {
+    await Promise.resolve();
+    const state = instances.get(container);
+    if (!state || !isWritable(container) || !text) {
+        return;
+    }
+
+    const answer = ask(container, state, 'paste', { text });
+    if (answer) {
+        show(container, state, answer);
+    }
+}
+
 export function getLinesAsJson(container) {
     return JSON.stringify(extractLines(container));
 }

@@ -786,6 +786,14 @@ else
                     <button type="button" class="avatar-dropdown-item"
                             @onclick="() => CopyTheTextAsync(what)">@(_copied == what ? T["Copied"] : T[what.Label()])</button>
                 }
+                @* The other half of the copies above: what is on the clipboard, line by line, as entries at
+                   the foot of the list - see PasteFromTheClipboardAsync. Not offered where the list cannot
+                   be written in. *@
+                @if (!_isSharedReadOnly && _lockedByUserName is null)
+                {
+                    <button type="button" class="avatar-dropdown-item"
+                            @onclick="PasteFromTheClipboardAsync">@T["Paste from the clipboard"]</button>
+                }
 
                 @* Only for a list that exists: nothing below the line can act on one that has never
                    been saved, and a divider over nothing is a line for its own sake. *@
@@ -985,6 +993,44 @@ else
         }
 
         _saveErrorMessage = T["The text could not be copied. Your browser did not allow it."];
+    }
+
+    /// <summary>
+    /// What is on the clipboard, as entries at the foot of the list - every line one entry, a line copied
+    /// as done ("[x] ") coming in done, and the list's own name left out when it heads the paste (see
+    /// TaskListWords.ReadBack, which the phone reads it with too). So a list copied out of anything Orbit
+    /// writes - filtered or whole - comes back in as the entries it was, and a long list typed elsewhere
+    /// comes in without a press of Add item per line. Nothing is saved until Save, like every other change
+    /// on this form.
+    /// </summary>
+    private async Task PasteFromTheClipboardAsync()
+    {
+        _menu?.Close();
+        if (await Clipboard.TryReadAsync() is not { } pasted)
+        {
+            _saveErrorMessage = T["The clipboard could not be read. Your browser did not allow it."];
+            return;
+        }
+
+        var entries = TaskListWords.ReadBack(pasted, _formModel.Title);
+        if (entries.Count == 0)
+        {
+            _saveErrorMessage = T["There is nothing on the clipboard to paste."];
+            return;
+        }
+
+        foreach (var (text, isDone) in entries)
+        {
+            _formModel.Items.Add(new TaskItemFormModel
+            {
+                Id = Guid.NewGuid(),
+                Description = text,
+                IsCompleted = isDone,
+                Event = new EventFormModel(TimeProvider) { Color = TaskItemFormModel.AppointmentColor }
+            });
+        }
+
+        _saveErrorMessage = null;
     }
 
     /// <summary>

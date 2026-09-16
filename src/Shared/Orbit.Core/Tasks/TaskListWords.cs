@@ -36,6 +36,36 @@ public static class TaskListWords
             new[] { title }.Concat(entries.Where(entry => what.Keeps(entry.State)).Select(AsALine)));
 
     /// <summary>
+    /// Words from the clipboard as entries for <paramref name="listTitle"/> - the other half of
+    /// <see cref="Of"/>, for "paste from the clipboard" in a list's editor. The user's rule of 2026-09-16:
+    /// <b>every line is an entry</b>. A line read as a ticked box ("[x] ") comes in done, any other line
+    /// open, with its marker taken off - the same reading a note's paste gives the same words
+    /// (NoteSurfaceEdits.ReadPastedLine), so a list copied out of anything Orbit writes comes back in as
+    /// the entries it was.
+    ///
+    /// Blank lines are left out, and so is a first line that is this list's own name: <see cref="Of"/>
+    /// writes the name first, and pasting a list back into itself would otherwise add an entry saying
+    /// what the list is called. A first line naming another list is kept - it may well be the errand.
+    /// </summary>
+    public static IReadOnlyList<(string Text, bool IsDone)> ReadBack(string pasted, string listTitle)
+    {
+        var lines = pasted.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n')
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0)
+            .ToList();
+
+        if (lines.Count > 0 && string.Equals(lines[0], listTitle.Trim(), StringComparison.CurrentCultureIgnoreCase))
+        {
+            lines.RemoveAt(0);
+        }
+
+        return [.. lines
+            .Select(line => Orbit.Core.Notes.NoteSurfaceEdits.ReadPastedLine(line))
+            .Where(read => read.Text.Trim().Length > 0)
+            .Select(read => (read.Text.Trim(), read.IsChecklistItem && read.IsChecked))];
+    }
+
+    /// <summary>
     /// One entry as the clipboard carries it. A crossed-out entry goes out as an unticked box, for the
     /// reason NoteWords gives: the format has three states' worth of meaning and a paste reads two.
     /// </summary>
