@@ -128,6 +128,12 @@ public abstract class OrbitTestContext : TestContext
         // OverflowMenu and menuAnchor.js. There is no layout to measure here, so it answers and does
         // nothing; without it any test that opens a menu fails on the interop call rather than on
         // whatever it was about.
+        // Which of the two the page is in. The map asks it to start its own light/night switch from
+        // what the map already looks like (see ThemeService.IsDarkNowAsync), so a test about the map
+        // should not fail on a service it never exercises - the same reason Translations is here.
+        // Nothing was stored and the browser here is a light one, which is what a fresh browser gets.
+        Services.AddScoped<ThemeService>();
+        JSInterop.SetupModule("./js/theme.js").Setup<bool>("systemPrefersDark").SetResult(false);
         // And the panel that belongs to a field rather than to a button asks the same module to place
         // it - the suggestions under a box, and the browser a vocabulary is chosen in (ValueBrowser).
         var menuAnchor = JSInterop.SetupModule("./js/menuAnchor.js");

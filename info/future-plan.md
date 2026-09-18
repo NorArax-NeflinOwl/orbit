@@ -2166,10 +2166,21 @@ the session that finishes one strikes it here rather than in a report nobody rea
 - ~~**The Archived folder should not be on the dashboard.**~~ Done: `FolderPages.HasAnArchivedTab`,
   read by both clients' rows of tabs. Nothing about where things are placed changes with it, so an
   archived thing is in a folder the dashboard draws no tab for and is simply not there.
-- **A theme switch on the map**, beside Refresh, turning the map itself between light and night.
-- **The full or stretched map should scroll with the wheel.**
-- **Choosing a pin loses where the map was.** After pressing yes the map is read again and drawn at
-  every pin's own zoom rather than at the view the reader was looking at when they used the pin.
+- ~~**A theme switch on the map**, beside Refresh, turning the map itself between light and night.~~
+  Done: the third square in that corner, saying what it will switch to. The tiles are one picture drawn
+  for a light page and turned dark by a filter, so this is the same filter under the reader's own
+  answer rather than the theme's (`DevicePreferences.MapAtNight`, three-valued - null until they say -
+  and `.map-day` / `.map-night` on the frame). The page's theme is not touched.
+- ~~**The full or stretched map should scroll with the wheel.**~~ Done: the map page's own map zooms
+  with the wheel (`showLocations`' `wheelZooms`), and so does any map while it is full screen - a
+  document-level `fullscreenchange` listener, because Esc and a back gesture leave full screen without
+  going through the button. Every map embedded in something else keeps the wheel off, for the reason
+  it was turned off in the first place: it belongs to the page being scrolled.
+- ~~**Choosing a pin loses where the map was.** After pressing yes the map is read again and drawn at
+  every pin's own zoom rather than at the view the reader was looking at when they used the pin.~~
+  Done: saying yes to a pressed place moves the markers rather than rebuilding the map
+  (`RefreshMapMarkersAsync` instead of `RedrawAsync`), and so does cancelling a found one. Searching
+  still redraws, since being taken to what was found is the point of searching.
 - ~~**The calendar's week view cannot be told to stop showing what has passed.** The option is ticked
   and cannot be unticked; it should be the reader's to set, and remembered per device.~~ Done: the day
   and the week no longer override the choice (`Calendar.ShowsEverythingInThisView` is simply

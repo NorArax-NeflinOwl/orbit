@@ -282,6 +282,9 @@ public static class PolishTranslations
         ["Save settings"] = "Zapisz ustawienia",
         ["Refresh"] = "Odśwież",
         ["Refresh the map"] = "Odśwież mapę",
+        // The map's own light or night, beside the refresh - see MapPage.razor.
+        ["Show the map at night"] = "Pokaż mapę w trybie nocnym",
+        ["Show the map in daylight"] = "Pokaż mapę w trybie dziennym",
         // A route between two pins on the map, chosen from their popups - see MapPage.OnPinRoute.
         ["Start a route here"] = "Zacznij trasę tutaj",
         ["Route to here"] = "Trasa do tego miejsca",

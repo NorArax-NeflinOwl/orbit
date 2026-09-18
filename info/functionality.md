@@ -2392,7 +2392,11 @@ dashboard: four headings each saying "Nobody yet" were most of the panel spent o
 "Share where you are" stays, because it is how any of the others comes to have something in it, and
 "Where your plans are" stays while the past is being shown, because it then holds the field that can
 change the answer. **A refresh button sits beside full screen** on the map: it reads everything again
-and moves the pins in place (`RefreshMapMarkersAsync`), so the pan and zoom it was pressed from are kept.
+and moves the pins in place (`RefreshMapMarkersAsync`), so the pan and zoom it was pressed from are kept;
+a failure inside it is said on screen rather than leaving a button that looks dead. **Saying yes to a
+pressed place keeps the view too** (2026-09-18): it used to rebuild the map, which came back fitted to
+every pin the account holds rather than showing the spot just chosen. Searching still redraws - being
+taken to what was found is the point of searching.
 **A pin's popup takes the theme** - Leaflet paints it white, and in the dark theme its label was light
 text on a white card.
 
@@ -2429,14 +2433,24 @@ whose address is known and whose spot on the map is not obvious. It is deliberat
 whatever pin happens to be on the map: somebody who meant that pin has the question above in front of
 them already. Leaflet's zoom control moved to the bottom-left to make room (`locationMap.js`), since two
 plus signs side by side - one meaning "closer" and the other "remember this spot" - is a corner nobody
-can read. **The wheel does not zoom** (`scrollWheelZoom: false`, both maps): a map sits inside a page
-that scrolls, so reading down past one zoomed it instead, losing the place being looked at and the
-reader's place on the page. The buttons, a pinch and a double press all still do it.
+can read. **The wheel does not zoom a map embedded in something else** (`scrollWheelZoom`): such a map
+sits inside a page that scrolls, so reading down past one zoomed it instead, losing the place being
+looked at and the reader's place on the page. The buttons, a pinch and a double press all still do it.
+**It does zoom the map page's own map, and any map while it is full screen** (2026-09-18,
+`showLocations`' `wheelZooms` and a document-level `fullscreenchange` listener - Esc and a back gesture
+leave full screen without going through the button). Both are maps that *are* the page, so there is
+nothing behind them for the wheel to scroll past.
 
 **The tiles are turned dark with the app** (`:root[data-theme="dark"] .leaflet-tile-pane`).
 OpenStreetMap serves one set, drawn for a light page, so a map was the one white rectangle left on a
 dark screen. Inverted with the hue turned back through 180 degrees, so water stays blue; only the tiles,
 since everything Orbit draws over them is already in the theme's own colours.
+
+**And the reader can say otherwise, for the map alone** (2026-09-18): a third square beside the refresh
+turns the map between light and night, saying which it will switch to. It is the same filter under a
+different answer - `DevicePreferences.MapAtNight`, kept per device and three-valued, since "nothing
+said" has to mean "follow the theme" - and it leaves the page's own theme alone. A map is looked at in a
+room rather than on a page, so a dark page at a bright desk is a real pair of answers.
 
 The place travels in a scoped `ChosenPlace` rather than in the address bar. `/calendar/new?lat=52.2&lon=21.0`
 would write where somebody is going into their browser history and into anything that later reads a URL,

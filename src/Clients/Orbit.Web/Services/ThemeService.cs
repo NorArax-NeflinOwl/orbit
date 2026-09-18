@@ -31,6 +31,23 @@ public sealed class ThemeService(IJSRuntime jsRuntime)
         Current = ToPreference(stored);
     }
 
+    /// <summary>
+    /// Whether the page is dark right now - the stored choice where there is one, and the browser's own
+    /// answer where it is "follow the system". Asked by anything that has to start from what is on
+    /// screen rather than from what was chosen: the map's own light/night switch, which begins at
+    /// whatever the map already looks like.
+    /// </summary>
+    public async Task<bool> IsDarkNowAsync()
+    {
+        if (Current is not ThemePreference.System)
+        {
+            return Current is ThemePreference.Dark;
+        }
+
+        await using var module = await ImportModuleAsync();
+        return await module.InvokeAsync<bool>("systemPrefersDark");
+    }
+
     public async Task SetAsync(ThemePreference preference)
     {
         Current = preference;
