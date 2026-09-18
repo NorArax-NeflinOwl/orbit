@@ -116,46 +116,37 @@
             }
         </div>
 
-        @if (KnownCategories.Count > 0)
-        {
-            <div class="list-controls">
-                <div class="list-filters">
-                    @foreach (var category in KnownCategories)
-                    {
-                        <button type="button" class="filter-chip @(_itemFilter.IsChosen(category) ? "on" : "")"
-                                @onclick="() => _itemFilter.Toggle(category)">
-                            @category <span class="filter-chip-count">@CountEntriesIn(category)</span>
-                        </button>
-                    }
-                </div>
-                @* Only worth asking once two are chosen: with one, "any of them" and "all of them" are
-                   the same question. *@
-                @if (_itemFilter.Categories.Count > 1)
-                {
-                    <label class="task-category-rule">
-                        <input type="checkbox" checked="@_itemFilter.MatchesEveryCategory"
-                               @onchange="changeArgs => _itemFilter.MatchesEveryCategory = changeArgs.Value is true" />
-                        @T["Entries in every chosen category"]
-                    </label>
-                }
-            </div>
-        }
-
+        @* Both narrowings are the browser every short vocabulary is read in - see ValueBrowser. They
+           were rows of chips, which grew with the account until the row was the page and what was
+           chosen had to be found among what was not; the field says what it is narrowed to and keeps
+           the list one press away, with the count still beside each word. *@
         <div class="list-controls">
-            <div class="list-filters">
-                @* "All" is a filter like the rest rather than a way of clearing them, so there is
-                   always exactly one answer to "what am I looking at". *@
-                <button type="button" class="filter-chip @(_filter == TaskListFilter.All ? "on" : "")"
-                        @onclick="() => SetFilter(TaskListFilter.All)">@T["All"]<span class="filter-chip-count">@TaskListsInTheOpenFolder.Count</span>
-                </button>
-                @foreach (var filter in SelectableFilters)
-                {
-                    <button type="button" class="filter-chip @(_filter == filter ? "on" : "")"
-                            @onclick="() => SetFilter(filter)">
-                        @DescribeFilter(filter) <span class="filter-chip-count">@CountMatching(filter)</span>
-                    </button>
-                }
-            </div>
+            @if (KnownCategories.Count > 0)
+            {
+                <ValueBrowser AdditionalClass="value-browser-filter" Offers="@CategoryOffers"
+                              Chosen="@_itemFilter.Categories" ChosenChanged="ChooseCategories"
+                              Placeholder="@(T["Every category"])" AriaLabel="@(T["Categories"])">
+                    <Extra>
+                        @* Only worth asking once two are chosen: with one, "any of them" and "all of
+                           them" are the same question. *@
+                        @if (_itemFilter.Categories.Count > 1)
+                        {
+                            <label class="value-browser-rule">
+                                <input type="checkbox" checked="@_itemFilter.MatchesEveryCategory"
+                                       @onchange="changeArgs => _itemFilter.MatchesEveryCategory = changeArgs.Value is true" />
+                                @T["Entries in every chosen category"]
+                            </label>
+                        }
+                    </Extra>
+                </ValueBrowser>
+            }
+
+            @* "All" is one of the answers rather than a way of clearing them, so there is always
+               exactly one answer to "what am I looking at" - which is why nothing here can be
+               unticked into nothing (ValueBrowser.OnlyOne without CanBeEmpty). *@
+            <ValueBrowser AdditionalClass="value-browser-filter" Offers="@ViewOffers" OnlyOne="true"
+                          Chosen="@([DescribeFilter(_filter)])" ChosenChanged="ChooseView"
+                          AriaLabel="@(T["Show"])" />
         </div>
     }
 </PhoneToolbar>
@@ -456,7 +447,46 @@
             .Distinct(StringComparer.CurrentCultureIgnoreCase)
             .OrderBy(category => category, StringComparer.CurrentCultureIgnoreCase)];
 
-    /// <summary>How many entries carry a category, which is what makes a chip worth pressing or not.</summary>
+    /// <summary>The categories with their counts - what the browser narrowing the entries offers.</summary>
+    private IReadOnlyList<ValueBrowser.Offer> CategoryOffers
+        => [.. KnownCategories.Select(category => new ValueBrowser.Offer(category, CountEntriesIn(category)))];
+
+    /// <summary>
+    /// The views this tab can be read in, each with how many lists it would leave. "All" first and
+    /// always offered; the rest vary with the tab - see SelectableFilters.
+    /// </summary>
+    private IReadOnlyList<ValueBrowser.Offer> ViewOffers
+        => [
+            new(DescribeFilter(TaskListFilter.All), TaskListsInTheOpenFolder.Count),
+            .. SelectableFilters.Select(filter => new ValueBrowser.Offer(DescribeFilter(filter), CountMatching(filter)))
+        ];
+
+    private void ChooseCategories(IReadOnlyList<string> categories) => _itemFilter.Choose(categories);
+
+    /// <summary>
+    /// Back from what the browser shows to the view it stands for. By its own words, since that is what
+    /// the control hands back - and they are this page's own words for its own views, so there is
+    /// nothing to look up: an answer it does not recognise leaves the page as it is rather than
+    /// quietly falling through to "All".
+    /// </summary>
+    private void ChooseView(IReadOnlyList<string> chosen)
+    {
+        if (chosen.FirstOrDefault() is not { } view)
+        {
+            return;
+        }
+
+        foreach (var filter in EverySelectableFilter.Append(TaskListFilter.All))
+        {
+            if (DescribeFilter(filter) == view)
+            {
+                SetFilter(filter);
+                return;
+            }
+        }
+    }
+
+    /// <summary>How many entries carry a category, which is what makes a word worth pressing or not.</summary>
     private int CountEntriesIn(string category)
         => TaskListsInTheOpenFolder
             .SelectMany(taskList => taskList.Items)

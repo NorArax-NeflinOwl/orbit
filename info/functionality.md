@@ -1106,6 +1106,13 @@ than `"[ ]"`/`"[x]"` text every client would have to parse back out, and it is p
 ownership rule as every other endpoint; the Blazor client's notes page asks for confirmation before
 calling it.
 
+**The page narrows by tag** (2026-09-18). Beside the folder tabs, in the same browser the tasks page
+narrows by its categories in (`ValueBrowser`), sits every tag on a note in the folder that is open, each
+with how many notes carry it. Several can be ticked and they mean **any of them**, which is what ticking
+a second usually means; it narrows what the page acts on as well as what it draws, so choosing several
+notes to file or archive cannot reach one that is not on screen. A tag ticked in one tab stays ticked in
+the next, and when nothing there carries it the page says so rather than claiming the folder is empty.
+
 ### Writing a note in the browser
 
 `NoteEditor.razor` is **one field and nothing else on that side of the screen** (2026-09-09), which is
@@ -2823,9 +2830,10 @@ done, and a row that only points at another list is not work itself — so what 
 on the list it points at, and shown with that list's name beside it. A group's card is nothing but such
 rows, and used to fold down to "Nothing left to do." with every one of its members' errands still open.
 
-Chips narrow the page to a status, or to **Shared**, which is about where a list came from rather than
-how far along it is; "All" is a chip like the rest, so there is always exactly one answer to what is on
-screen. The orders live behind the page's menu rather than in a control taking up the top of every
+One field narrows the page to a status, or to **Shared**, which is about where a list came from rather than
+how far along it is - the browser every short vocabulary is read in (`ValueBrowser`), one answer at a
+time and "All" among them, so there is always exactly one answer to what is on screen. The orders live
+behind the page's menu rather than in a control taking up the top of every
 visit: most and least important first, newest and oldest, A to Z and Z to A, and **the way I arranged
 them** — the one order the reader sets by hand. Only under that one do the cards carry a drag handle;
 under any other, moving a card by hand would not survive the next redraw. Both the chosen order and the
@@ -2879,8 +2887,11 @@ unlocked, which offers nothing at all until it is.
 
 ### Finding one entry among every list
 
-Above the chips sit the two questions about what is *on* the lists rather than about the lists
-themselves: a search box, and a row of categories.
+Above the views sit the two questions about what is *on* the lists rather than about the lists
+themselves: a search box, and the categories - a field of their own beside the views, both of them
+browsers (`ValueBrowser`). They were two rows of chips, which grew with the account until the rows were
+the page and what was chosen had to be found among what was not; a field says what it is narrowed to
+and keeps the whole list one press away, each word still carrying its count.
 
 Every entry can be filed under as many categories as apply — free text, read back along the field with
 commas between the words, the way a shelf item's category is written, and chosen from every category
@@ -2889,16 +2900,16 @@ already in use in the browser that opens under it (`TaskItem.Categories`, `Categ
 being made to pick the single truest one is how a category stops being written at all. Every kind of
 entry carries them: an appointment is about something the same way an errand is.
 
-**All of it is about the folder that is open** (`Tasks.TaskListsInTheOpenFolder`) — which chips exist,
+**All of it is about the folder that is open** (`Tasks.TaskListsInTheOpenFolder`) — which words are offered,
 the number on each of them, the number on "All", and what the search looks through. A folder is a place
-rather than one more filter, so a chip is about what is in the place somebody is standing in. Counting
+rather than one more filter, so a word is about what is in the place somebody is standing in. Counting
 the whole account instead is what this page used to do, and it showed: a tab holding two lists had an
-"All" chip saying twelve, and a category chip could offer a word that appears only on a list filed
+"All" saying twelve, and the categories could offer a word that appears only on a list filed
 somewhere else — pressing it emptied the page, leaving the reader to work out that the word belonged to
 a tab they were not on. An empty tab now says it is empty, rather than "no lists are all", which blames
-a chip nobody pressed.
+a filter nobody set.
 
-The search matches a word anywhere in an entry's own words. The chips are built from what entries are
+The search matches a word anywhere in an entry's own words. The categories are built from what entries are
 actually filed under, each with how many carry it. Several can be chosen: **any of them** by default,
 because that is usually what picking a second one means, and a checkbox appears once a second is chosen
 for the reader who means an entry that is both at once. The two narrow independently — a search and a

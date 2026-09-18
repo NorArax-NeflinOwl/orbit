@@ -50,6 +50,19 @@
    phone it folds into one Menu button - see PhoneToolbar, which is nothing at all on a wider screen. *@
 <PhoneToolbar Page="FolderPage.Notes">
     <FolderTabs Page="FolderPage.Notes" CountIn="CountIn" />
+
+    @* Narrowing by the reader's own words for their notes - the same browser the tasks page narrows by
+       its categories in (ValueBrowser), because it is the same question asked of a different page. Only
+       about the folder that is open, as everything in this row is: a count over notes filed somewhere
+       else would be a number about a page nobody is looking at. *@
+    @if (KnownTags.Count > 0)
+    {
+        <div class="list-controls">
+            <ValueBrowser AdditionalClass="value-browser-filter" Offers="@TagOffers" Chosen="@_chosenTags"
+                          ChosenChanged="values => _chosenTags = [.. values]"
+                          Placeholder="@(T["Every tag"])" AriaLabel="@(T["Tags"])" />
+        </div>
+    }
 </PhoneToolbar>
 
 @* What to do with several at once, while several are chosen - see PickedThings. Outside the list rather
@@ -72,7 +85,11 @@
 <ObjectList IsLoading="_notes is null" IsEmpty="_notes is { Count: 0 }" EmptyMessage="@T["No notes."]">
     @if (_notes is { Count: > 0 } && VisibleNotes.Count == 0)
     {
-        <p class="empty-hint empty-list">@T["Nothing in this folder."]</p>
+        @* Which of the two narrowed everything away, since they are undone differently: a folder is
+           left by pressing another tab, a tag by unticking it. The same rule the tasks page follows. *@
+        <p class="empty-hint empty-list">
+            @(NotesInTheOpenFolder.Count == 0 ? T["Nothing in this folder."] : T["No notes carry those tags."])
+        </p>
     }
     <div class="item-card-list">
         @foreach (var note in Ordered(VisibleNotes))
@@ -164,8 +181,38 @@
     /// The notes in the folder that is open. A note nobody filed is still in one - Public, or Private
     /// when it is sealed - see FolderPlacement, which decides it for every page made of cards.
     /// </summary>
-    private IReadOnlyList<NoteDto> VisibleNotes
+    private IReadOnlyList<NoteDto> NotesInTheOpenFolder
         => [.. (_notes ?? []).Where(note => Folders.ShowsUnderTheChosenTab(FolderPage.Notes, note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived))];
+
+    /// <summary>
+    /// And of those, the ones carrying a chosen tag - any of them rather than all, which is what
+    /// choosing a second one usually means ("the work notes and the house ones"). Narrowed here rather
+    /// than only in the drawing, so choosing several to act on cannot reach a note that is not on
+    /// screen.
+    /// </summary>
+    private IReadOnlyList<NoteDto> VisibleNotes
+        => _chosenTags.Count == 0
+            ? NotesInTheOpenFolder
+            : [.. NotesInTheOpenFolder.Where(note => note.AllTags.Any(tag => IsChosenTag(tag)))];
+
+    /// <summary>The tags the reader is narrowing to, in the order they were ticked.</summary>
+    private IReadOnlyList<string> _chosenTags = [];
+
+    private bool IsChosenTag(string tag)
+        => _chosenTags.Contains(tag, StringComparer.CurrentCultureIgnoreCase);
+
+    /// <summary>Every tag on a note in the folder that is open, in the order a reader reads them.</summary>
+    private IReadOnlyList<string> KnownTags
+        => [.. NotesInTheOpenFolder
+            .SelectMany(note => note.AllTags)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(tag => tag, StringComparer.CurrentCultureIgnoreCase)];
+
+    /// <summary>The same words with how many notes carry each - what makes one worth ticking or not.</summary>
+    private IReadOnlyList<ValueBrowser.Offer> TagOffers
+        => [.. KnownTags.Select(tag => new ValueBrowser.Offer(
+            tag,
+            NotesInTheOpenFolder.Count(note => note.AllTags.Contains(tag, StringComparer.CurrentCultureIgnoreCase))))];
 
     /// <summary>
     /// The notes chosen to be acted on together, and whether the page is choosing at all - see

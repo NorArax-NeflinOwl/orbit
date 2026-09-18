@@ -5616,26 +5616,20 @@ input.note-editor-title {
     color: var(--success);
 }
 /* ---- Filtering and sorting a list of cards (Tasks.razor) ---- */
-
+/* The row the narrowings sit in. They are fields now rather than rows of chips (see ValueBrowser), so
+   they line up from the left and wrap together instead of being pushed to opposite ends of the row. */
 .list-controls {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
     margin-bottom: 16px;
-}
-
-.list-filters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
 }
 
 /* The folder tabs, above the cards on every page made of them - see FolderTabs.razor. Tabs rather than
    chips because they answer a different question: a chip narrows what is in front of you, a tab says
    which set you are looking at at all. Hence the shared underline they sit on and the mark under the
-   open one, rather than the pill shape the filters use a row below. */
+   open one, rather than the field shape the narrowings use a row below. */
 .folder-tabs {
     display: flex;
     align-items: center;
@@ -5689,39 +5683,6 @@ input.note-editor-title {
     width: 160px;
     margin: 2px 4px;
     font-size: 13.5px;
-}
-
-.filter-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 12px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: var(--bg-elevated);
-    color: var(--text-secondary);
-    font-family: var(--font-body);
-    font-size: 12.5px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
-}
-
-.filter-chip:hover {
-    border-color: var(--accent);
-    color: var(--text-primary);
-}
-
-.filter-chip.on {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--accent-on);
-}
-
-.filter-chip-count {
-    font-size: 11px;
-    font-weight: 700;
-    opacity: 0.75;
 }
 
 /* A short vocabulary in one control - see ValueBrowser.razor. Closed it is a field with its words

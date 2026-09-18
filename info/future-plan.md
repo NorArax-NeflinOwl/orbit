@@ -2121,10 +2121,12 @@ the session that finishes one strikes it here rather than in a report nobody rea
   along it by comma, opening onto a list where each word has a two-state tick, its name, optionally how
   many things already carry it (what a filter wants) and optionally a colour well (what a tag wants).
   Asked for tags, categories and product types.
-- **The filter buttons on the notes and tasks pages become that browser.** On the tasks page they are
-  the category chips and the row of views (`.filter-chip`); on the notes page there are no filter
-  buttons at all today, so it is read as that page gaining the same control over the tags its cards
-  already carry.
+- ~~**The filter buttons on the notes and tasks pages become that browser.**~~ Done. On the tasks page
+  the category chips and the row of views are two browsers now, each word still carrying its count and
+  the views still answering exactly one at a time (`OnlyOne`). The notes page had no filter buttons at
+  all, so it gained the same control over the tags its cards already carry - which is what the entry
+  said it would be read as. `.filter-chip` and `.list-filters` had no callers left afterwards and went
+  with them.
 
 ### Orbit.Maui
 

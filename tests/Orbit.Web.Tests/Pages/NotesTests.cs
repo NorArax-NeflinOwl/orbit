@@ -37,6 +37,87 @@ public sealed class NotesTests : OrbitTestContext
         Assert.Contains("Ideas", markup);
     }
 
+    /// <summary>
+    /// The page narrows by the reader's own words for their notes, in the browser the tasks page
+    /// narrows by its categories in - see ValueBrowser. Each word says how many notes carry it, which
+    /// is what makes one worth ticking.
+    /// </summary>
+    [Fact]
+    public void Choosing_a_tag_leaves_only_the_notes_carrying_it()
+    {
+        RegisterNotesApiClient([
+            Note("Shopping") with { Tags = ["home"] },
+            Note("Ideas") with { Tags = ["work"] }]);
+        var cut = RenderComponent<Web.Pages.Notes>();
+
+        cut.Find(".value-browser-field").Click();
+        var rows = cut.FindAll(".value-browser-row").ToList();
+        Assert.Equal(["home", "work"], rows.Select(row => row.QuerySelector(".value-browser-name")!.TextContent.Trim()));
+        Assert.Equal(["1", "1"], rows.Select(row => row.QuerySelector(".value-browser-count")!.TextContent.Trim()));
+
+        rows[0].QuerySelector("input[type=checkbox]")!.Change(true);
+
+        Assert.Equal(["Shopping"], cut.FindAll(".item-card-name").Select(card => card.TextContent.Trim()));
+    }
+
+    /// <summary>
+    /// Two ticked words mean either of them, which is what choosing a second one usually means - the
+    /// same reading the tasks page's categories take by default.
+    /// </summary>
+    [Fact]
+    public void Two_tags_mean_either_of_them()
+    {
+        RegisterNotesApiClient([
+            Note("Shopping") with { Tags = ["home"] },
+            Note("Ideas") with { Tags = ["work"] },
+            Note("Poem")]);
+        var cut = RenderComponent<Web.Pages.Notes>();
+
+        cut.Find(".value-browser-field").Click();
+        // Found again between the two ticks: the first re-renders the page, and the second row's
+        // handler belongs to the render before it.
+        for (var index = 0; index < 2; index++)
+        {
+            cut.FindAll(".value-browser-row input[type=checkbox]").ToList()[index].Change(true);
+        }
+
+        Assert.Equal(["Shopping", "Ideas"], cut.FindAll(".item-card-name").Select(card => card.TextContent.Trim()));
+    }
+
+    /// <summary>
+    /// And when the tags narrow everything away the page says which of the two did it: a folder is left
+    /// by pressing another tab, a tag by unticking it.
+    /// </summary>
+    [Fact]
+    public void Tags_that_match_nothing_say_so_rather_than_blaming_the_folder()
+    {
+        RegisterNotesApiClient([
+            Note("Shopping") with { Tags = ["home"] },
+            Note("Diary") with { IsPrivate = true }]);
+        var cut = RenderComponent<Web.Pages.Notes>();
+
+        cut.Find(".value-browser-field").Click();
+        cut.Find(".value-browser-row input[type=checkbox]").Change(true);
+        // A tag chosen in one tab is still chosen in the next, where nothing carries it - which is the
+        // one way this page narrows itself to nothing without the folder being empty.
+        Services.GetRequiredService<FolderState>().Choose(FolderPage.Notes, FolderKey.Of(BuiltInFolder.Private));
+        cut.Render();
+
+        Assert.Contains("No notes carry those tags.", cut.Markup);
+        Assert.DoesNotContain("Nothing in this folder.", cut.Markup);
+    }
+
+    /// <summary>Nothing is tagged, so there is nothing to narrow by and no field offering to.</summary>
+    [Fact]
+    public void A_page_of_untagged_notes_offers_no_tag_filter()
+    {
+        RegisterNotesApiClient([Note("Shopping"), Note("Ideas")]);
+
+        var cut = RenderComponent<Web.Pages.Notes>();
+
+        Assert.Empty(cut.FindAll(".value-browser"));
+    }
+
     [Fact]
     public void A_pinned_note_is_listed_first()
     {

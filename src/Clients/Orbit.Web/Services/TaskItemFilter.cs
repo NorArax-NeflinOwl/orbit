@@ -42,6 +42,17 @@ public sealed class TaskItemFilter
         }
     }
 
+    /// <summary>
+    /// The whole set at once, which is what the browser these are chosen in hands back - it says what
+    /// is ticked rather than which tick was pressed. Kept beside <see cref="Toggle"/> rather than
+    /// replacing it: one category at a time is still how a row of them on a card is pressed.
+    /// </summary>
+    public void Choose(IReadOnlyList<string> categories)
+    {
+        _categories.Clear();
+        _categories.AddRange(categories);
+    }
+
     public void Clear()
     {
         Search = string.Empty;

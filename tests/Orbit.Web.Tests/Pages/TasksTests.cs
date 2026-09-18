@@ -412,7 +412,7 @@ public sealed class TasksTests : OrbitTestContext
             TaskList("Garage", Item("New tyres") with { Categories = ["car"] })]);
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("shopping")).Click();
+        TickTheWord(cut, "shopping");
 
         var shown = cut.FindAll(".item-card-name").Select(card => card.TextContent.Trim()).ToList();
         Assert.Equal(["Kitchen"], shown);
@@ -432,7 +432,7 @@ public sealed class TasksTests : OrbitTestContext
             ["shopping", "weekly"],
             cut.FindAll(".task-preview-row .row-category").Select(category => category.TextContent.Trim()));
 
-        cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("weekly")).Click();
+        TickTheWord(cut, "weekly");
 
         var marked = cut.FindAll(".task-preview-row .row-category.on").Select(category => category.TextContent.Trim());
         Assert.Equal(["weekly"], marked);
@@ -497,7 +497,7 @@ public sealed class TasksTests : OrbitTestContext
         // and whether it gathers other lists. Finished is not among them: it is the folder tab above now
         // (see BuiltInFolder), and asking the same question twice on one page is how the two answers
         // come to disagree.
-        Assert.Equal(7, cut.FindAll(".filter-chip").Count);
+        Assert.Equal(7, WordsOffered(cut, "Show").Count);
     }
 
     [Fact]
@@ -511,7 +511,7 @@ public sealed class TasksTests : OrbitTestContext
         RegisterTasksApiClient([mine, theirs]);
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("Shared")).Click();
+        TickTheWord(cut, "Shared");
 
         Assert.Contains("From Bob", cut.Find(".task-card-grid").InnerHtml);
         Assert.DoesNotContain("Kitchen", cut.Find(".task-card-grid").InnerHtml);
@@ -525,7 +525,7 @@ public sealed class TasksTests : OrbitTestContext
         RegisterTasksApiClient([group, member]);
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("Group")).Click();
+        TickTheWord(cut, "Group");
 
         // One card, and it is the group. Asserted by counting rather than by looking for the member's
         // title, which legitimately appears inside the group's card as the row that points at it.
@@ -625,7 +625,7 @@ public sealed class TasksTests : OrbitTestContext
             TaskList("Garden", "Normal", "Completed", DateTimeOffset.UtcNow)]);
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("Overdue")).Click();
+        TickTheWord(cut, "Overdue");
 
         Assert.Contains("Kitchen", cut.Markup);
         Assert.DoesNotContain("Garden", cut.Find(".task-card-grid").InnerHtml);
@@ -680,7 +680,7 @@ public sealed class TasksTests : OrbitTestContext
         RegisterTasksApiClient([TaskList("Kitchen", "Normal", "New", DateTimeOffset.UtcNow)]);
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("Overdue")).Click();
+        TickTheWord(cut, "Overdue");
 
         Assert.Contains("No lists are", cut.Markup);
     }
@@ -1104,9 +1104,9 @@ public sealed class TasksTests : OrbitTestContext
 
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        var chips = cut.FindAll(".filter-chip").Select(chip => chip.TextContent).ToList();
-        Assert.Contains(chips, chip => chip.Contains("shopping", StringComparison.Ordinal));
-        Assert.DoesNotContain(chips, chip => chip.Contains("money", StringComparison.Ordinal));
+        var offered = WordsOffered(cut, "Categories").Select(NameOf).ToList();
+        Assert.Contains("shopping", offered);
+        Assert.DoesNotContain("money", offered);
     }
 
     /// <summary>
@@ -1123,8 +1123,8 @@ public sealed class TasksTests : OrbitTestContext
 
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        var all = cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("All", StringComparison.Ordinal));
-        Assert.Equal("1", all.QuerySelector(".filter-chip-count")!.TextContent.Trim());
+        var all = WordsOffered(cut, "Show").First(row => NameOf(row) == "All");
+        Assert.Equal("1", all.QuerySelector(".value-browser-count")!.TextContent.Trim());
     }
 
     /// <summary>
@@ -1144,7 +1144,53 @@ public sealed class TasksTests : OrbitTestContext
         Assert.Contains("Nothing is in this folder yet.", cut.Markup);
         // And nothing to narrow it with: a search box over an empty tab offers to find something on a
         // list that is not there.
-        Assert.Empty(cut.FindAll(".filter-chip"));
+        Assert.Empty(cut.FindAll(".value-browser"));
+    }
+
+    /// <summary>
+    /// Ticks a word in whichever of the page's browsers offers it - the categories or the views (see
+    /// ValueBrowser). Each is opened in turn and asked whether it has the word, because which of them
+    /// holds it is the page's business rather than the test's.
+    /// </summary>
+    private static void TickTheWord(IRenderedFragment cut, string word)
+    {
+        for (var index = 0; index < cut.FindAll(".value-browser").Count; index++)
+        {
+            if (cut.FindAll(".value-browser").ToList()[index].QuerySelector(".value-browser-panel") is null)
+            {
+                cut.FindAll(".value-browser-field").ToList()[index].Click();
+            }
+
+            if (RowsIn(cut, index).FirstOrDefault(row => NameOf(row) == word) is { } row)
+            {
+                row.QuerySelector("input[type=checkbox]")!.Change(true);
+                return;
+            }
+        }
+
+        throw new InvalidOperationException($"Nothing on the page offers \"{word}\".");
+    }
+
+    /// <summary>Every word one of the open browsers is offering, with its count where it has one.</summary>
+    private static IReadOnlyList<AngleSharp.Dom.IElement> RowsIn(IRenderedFragment cut, int index)
+        => [.. cut.FindAll(".value-browser").ToList()[index].QuerySelectorAll(".value-browser-row")];
+
+    private static string NameOf(AngleSharp.Dom.IElement row)
+        => row.QuerySelector(".value-browser-name")!.TextContent.Trim();
+
+    /// <summary>Opens a browser by what its field is called, for a test that reads what it offers.</summary>
+    private static IReadOnlyList<AngleSharp.Dom.IElement> WordsOffered(IRenderedFragment cut, string fieldName)
+    {
+        var browsers = cut.FindAll(".value-browser").ToList();
+        var index = browsers.FindIndex(browser =>
+            browser.QuerySelector(".value-browser-field")!.GetAttribute("aria-label") == fieldName);
+        Assert.True(index >= 0, $"No browser on the page is called \"{fieldName}\".");
+        if (browsers[index].QuerySelector(".value-browser-panel") is null)
+        {
+            cut.FindAll(".value-browser-field").ToList()[index].Click();
+        }
+
+        return RowsIn(cut, index);
     }
 
     private void RegisterTasksApiClient(

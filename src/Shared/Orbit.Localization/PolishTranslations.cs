@@ -965,6 +965,7 @@ public static class PolishTranslations
         ["Nothing in it is deleted - everything goes back to Public, or to Private if it is sealed."] =
             "Nic z niego nie zostanie usunięte - wszystko wróci do Publicznych, a rzeczy zaszyfrowane do Prywatnych.",
         ["Nothing in this folder."] = "Nic w tym folderze.",
+        ["No notes carry those tags."] = "Żadna notatka nie ma tych tagów.",
         // Making a second one of something, and what the copy is called - see Orbit.Contracts.DuplicateRequest.
         ["Duplicate"] = "Duplikuj",
         ["{0} (copy)"] = "{0} (kopia)",
@@ -1039,6 +1040,9 @@ public static class PolishTranslations
         // The control that holds a short vocabulary - see ValueBrowser.razor.
         ["Nothing to choose from yet."] = "Nie ma jeszcze z czego wybierać.",
         ["New word"] = "Nowe słowo",
+        // What a browser narrowing a page says while it is narrowing nothing.
+        ["Every category"] = "Wszystkie kategorie",
+        ["Every tag"] = "Wszystkie tagi",
         ["A tag's colour is kept for your whole account, readable on the server - even for a tag only private notes and lists carry."] =
             "Kolor tagu obowiązuje na całym koncie i jest zapisany na serwerze w czytelnej postaci - także dla tagu, który noszą tylko prywatne notatki i listy.",
         ["Brown"] = "Brązowy",
