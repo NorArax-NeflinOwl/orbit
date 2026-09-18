@@ -166,6 +166,14 @@
                        Invitation="(shareId, title) => new TaskListShareMessagePayload(shareId, title)"
                        OnClosed="() => _isSharingPicked = false" />
 }
+@* Handing on one list, from its own card - the same dialog given a list of one. See Notes.razor. *@
+@if (_sharingOne is { } sharedList)
+{
+    <SharePickedDialog Things="@([new SharePickedDialog.ShareableThing(sharedList.Id, sharedList.Title)])"
+                       ShareOne="(taskListId, recipientUserId, accessLevel) => TasksApiClient.ShareTaskListAsync(taskListId, recipientUserId, accessLevel)"
+                       Invitation="(shareId, title) => new TaskListShareMessagePayload(shareId, title)"
+                       OnClosed="() => _sharingOne = null" />
+}
 <ObjectList IsLoading="_taskLists is null" IsEmpty="_taskLists is { Count: 0 }" EmptyMessage="@T["No task lists yet."]">
     @if (VisibleTaskLists.Count == 0)
     {
@@ -228,8 +236,11 @@
                         <ObjectMenu EditLabel="@T["Edit"]" OnEdit="() => GoToEditTaskList(taskList.Id)"
                                     DuplicateLabel="@(!taskList.IsShared ? T["Duplicate"] : null)"
                                     OnDuplicate="() => DuplicateTaskListAsync(taskList)"
+                                    ShareLabel="@(CanBeHandedOn(taskList) ? T["Share"] : null)"
+                                    OnShare="() => _sharingOne = taskList"
                                     ArchiveLabel="@(!taskList.IsShared ? ArchiveLabelFor(taskList.IsArchived) : null)"
                                     OnArchive="() => SetArchivedAsync(taskList, !taskList.IsArchived)"
+                                    IsArchived="taskList.IsArchived"
                                     DeleteLabel="@(!taskList.IsShared ? T["Delete"] : null)" OnDelete="() => DeleteTaskListAsync(taskList)" />
                     </Menu>
                     <Tags>
@@ -557,6 +568,12 @@
 
     /// <summary>While the dialog sharing the chosen lists is open - see SharePickedDialog.</summary>
     private bool _isSharingPicked;
+
+    /// <summary>The one list being handed on from its own card, while one is.</summary>
+    private TaskDto? _sharingOne;
+
+    /// <summary>Whether this list is this reader's to hand to somebody - see Notes.razor, same two questions.</summary>
+    private static bool CanBeHandedOn(TaskDto taskList) => !taskList.IsShared && !taskList.IsPrivate;
 
     private IReadOnlyList<TaskDto> ChosenTaskLists
         => [.. (_taskLists ?? []).Where(taskList => _picked.Holds(taskList.Id))];

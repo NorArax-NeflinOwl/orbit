@@ -182,6 +182,9 @@ public sealed class NoteSummaryTests : OrbitTestContext
     public void Deleting_leaves_for_the_notes_without_leaving_the_note_behind()
     {
         JSInterop.Setup<bool>("confirm", _ => true).SetResult(true);
+        // Delete is reached in the Archived folder and nowhere else - see ObjectMenu.IsArchived - so
+        // this is a note that has already been put away.
+        _note = ANote() with { IsArchived = true };
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         navigationManager.NavigateTo($"/notes/{NoteId}?returnTo=%2F");
         var cut = RenderComponent<NoteSummary>(parameters => parameters.Add(page => page.Id, NoteId));

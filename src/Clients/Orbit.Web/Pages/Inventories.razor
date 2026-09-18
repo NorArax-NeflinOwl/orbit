@@ -147,6 +147,7 @@
                                     ShareLabel="@(CanShare(inventory) ? T["Share"] : null)" OnShare="() => ToggleSharePanel(inventory.Id)"
                                     ArchiveLabel="@(!inventory.IsShared ? ArchiveLabelFor(inventory.IsArchived) : null)"
                                     OnArchive="() => SetArchivedAsync(inventory, !inventory.IsArchived)"
+                                    IsArchived="inventory.IsArchived"
                                     DeleteLabel="@(!inventory.IsShared ? T["Delete"] : null)" OnDelete="() => DeleteInventoryAsync(inventory)" />
                     </Menu>
                     <Tags>

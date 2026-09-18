@@ -106,6 +106,15 @@
                                Invitation="(shareId, title) => new EventShareMessagePayload(shareId, title)"
                                OnClosed="() => _isSharingPicked = false" />
         }
+        @* Handing on one appointment, from its own row - the same dialog given a list of one. See
+           Notes.razor, which says why there is not a second way of sharing. *@
+        @if (_sharingOne is { } sharedEvent)
+        {
+            <SharePickedDialog Things="@([new SharePickedDialog.ShareableThing(sharedEvent.Id, sharedEvent.Details.Title)])"
+                               ShareOne="(eventId, recipientUserId, accessLevel) => CalendarApiClient.ShareCalendarEventAsync(eventId, recipientUserId, accessLevel)"
+                               Invitation="(shareId, title) => new EventShareMessagePayload(shareId, title)"
+                               OnClosed="() => _sharingOne = null" />
+        }
         @if (_events is null || _dueTasks is null)
         {
             <Loading />
@@ -165,8 +174,11 @@
                                     OnEdit="() => GoToEditEvent(calendarEvent.Id)"
                                     DuplicateLabel="@(calendarEvent.IsShared ? null : T["Duplicate"])"
                                     OnDuplicate="() => DuplicateEventAsync(calendarEvent)"
+                                    ShareLabel="@(calendarEvent.IsShared ? null : T["Share"])"
+                                    OnShare="() => _sharingOne = calendarEvent"
                                     ArchiveLabel="@(calendarEvent.IsShared ? null : ArchiveLabelFor(calendarEvent.IsArchived))"
                                     OnArchive="() => SetArchivedAsync(calendarEvent, !calendarEvent.IsArchived)"
+                                    IsArchived="calendarEvent.IsArchived"
                                     DeleteLabel="@T["Delete"]" OnDelete="() => DeleteEventAsync(calendarEvent)" />
                         </Menu>
                         <Body>
@@ -965,6 +977,9 @@
 
     /// <summary>While the dialog sharing the chosen events is open - see SharePickedDialog.</summary>
     private bool _isSharingPicked;
+
+    /// <summary>The one appointment being handed on from its own row, while one is.</summary>
+    private CalendarEventDto? _sharingOne;
 
     private IReadOnlyList<CalendarEventDto> ChosenEvents
         => [.. (_events ?? []).Where(calendarEvent => _picked.Holds(calendarEvent.Id))];

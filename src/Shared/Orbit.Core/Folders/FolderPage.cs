@@ -78,4 +78,17 @@ public static class FolderPages
     /// there could only ever read zero, which is the same reason the notes have no Finished tab.
     /// </summary>
     public static bool HasAPrivateTab(this FolderPage page) => page != FolderPage.Calendar;
+
+    /// <summary>
+    /// Whether things put away gather under a tab of their own here. Everywhere but the dashboard,
+    /// which is the page for what somebody is doing now: the archive is where things go to stop being
+    /// that, and a tab offering to fill the whole dashboard with them is a way of ending up there by
+    /// accident (asked for on 2026-09-18).
+    ///
+    /// Unlike the Finished tab, dropping this one does <em>not</em> change where anything is placed -
+    /// see FolderPlacement, which still answers Archived for something put away. So an archived note is
+    /// in a folder the dashboard draws no tab for, and is simply not on the dashboard, which is the
+    /// point: it is still in the archive, and its own page is still where it is found again.
+    /// </summary>
+    public static bool HasAnArchivedTab(this FolderPage page) => page != FolderPage.Dashboard;
 }

@@ -113,6 +113,7 @@ else
             @* No Edit in here: it is a button of its own on the panel now - see EditorRail.OnEdit. *@
             <ObjectMenu AllLabel="@T["All notes"]" OnAll="GoToNotes"
                         CopyChoices="@CopyChoices" OnCopy="CopyTheTextAsync"
+                        IsArchived="_note.IsArchived"
                         DeleteLabel="@(!_note.IsShared ? T["Delete"] : null)" OnDelete="DeleteAsync" />
         </ChildContent>
     </EditorRail>

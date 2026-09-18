@@ -2153,10 +2153,19 @@ the session that finishes one strikes it here rather than in a report nobody rea
 - **The light note editor should show the list of notes too**, and moving between notes should keep
   what has been changed rather than dropping it; leaving the page should say which notes have unsaved
   changes, or that they will be lost.
-- **Delete goes out of the app**; it is offered in the Archived folder and nowhere else.
-- **A note on the list has no Share in its menu** and should - and the other pages are to be checked
-  for the same gap.
-- **The Archived folder should not be on the dashboard.**
+- ~~**Delete goes out of the app**; it is offered in the Archived folder and nowhere else.~~ Done: the
+  rule is the menu's own (`ObjectMenu.IsArchived`), so a page that forgets to say whether its thing is
+  put away offers no Delete - the safe direction. The exception is the line that is not a deletion:
+  taking somebody else's shared thing off this reader's list needs no archive, since a shared thing
+  cannot be put away at all. The phone's own menus still offer Delete everywhere and are not part of
+  this - the list asked it of Orbit.Web.
+- ~~**A note on the list has no Share in its menu** and should - and the other pages are to be checked
+  for the same gap.~~ Done: checked, and three of the four were missing it - only the inventories had
+  one. Notes, task lists and the calendar's list now carry "Share" in the card's menu, opening the same
+  dialog the bar over the list opens for several, given a list of one.
+- ~~**The Archived folder should not be on the dashboard.**~~ Done: `FolderPages.HasAnArchivedTab`,
+  read by both clients' rows of tabs. Nothing about where things are placed changes with it, so an
+  archived thing is in a folder the dashboard draws no tab for and is simply not there.
 - **A theme switch on the map**, beside Refresh, turning the map itself between light and night.
 - **The full or stretched map should scroll with the wheel.**
 - **Choosing a pin loses where the map was.** After pressing yes the map is read again and drawn at

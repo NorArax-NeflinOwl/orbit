@@ -30,7 +30,7 @@ public sealed class ObjectMenuTests : OrbitTestContext
             .Add(menu => menu.AllLabel, "All notes")
             .Add(menu => menu.EditLabel, "Edit")
             .Add(menu => menu.ShareLabel, "Share")
-            .Add(menu => menu.DeleteLabel, "Delete"));
+            .Add(menu => menu.DeleteLabel, "Delete").Add(menu => menu.IsArchived, true));
 
         var entries = Open(cut);
 
@@ -44,7 +44,8 @@ public sealed class ObjectMenuTests : OrbitTestContext
         var cut = RenderComponent<ObjectMenu>(parameters => parameters
             .Add(menu => menu.AllLabel, "All notes").Add(menu => menu.OnAll, () => pressed = "all")
             .Add(menu => menu.EditLabel, "Edit").Add(menu => menu.OnEdit, () => pressed = "edit")
-            .Add(menu => menu.DeleteLabel, "Delete").Add(menu => menu.OnDelete, () => pressed = "delete"));
+            .Add(menu => menu.DeleteLabel, "Delete").Add(menu => menu.OnDelete, () => pressed = "delete")
+            .Add(menu => menu.IsArchived, true));
 
         cut.Find(".overflow-menu-trigger").Click();
         cut.FindAll(".avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Delete").Click();
@@ -52,15 +53,35 @@ public sealed class ObjectMenuTests : OrbitTestContext
         Assert.Equal("delete", pressed);
     }
 
+    /// <summary>
+    /// Delete is reached in the Archived folder and nowhere else, which is the one rule this menu keeps
+    /// itself - see ObjectMenu.IsArchived. Something still on a list offers the way to put it away
+    /// instead, which is the reversible half of the same wish.
+    /// </summary>
+    [Fact]
+    public void Delete_is_not_offered_for_something_that_has_not_been_put_away()
+    {
+        var cut = RenderComponent<ObjectMenu>(parameters => parameters
+            .Add(menu => menu.EditLabel, "Edit")
+            .Add(menu => menu.ArchiveLabel, "Archive")
+            .Add(menu => menu.DeleteLabel, "Delete"));
+
+        var entries = Open(cut);
+
+        Assert.Equal(["Edit", "Archive"], entries);
+    }
+
     /// <summary>A note somebody else owns is not this reader's to delete: the label changes rather than
     /// the button disappearing, since taking it off this reader's own list is still something to do
-    /// here - see Notes.razor.</summary>
+    /// here - and there is nothing to archive first, because something shared cannot be put away at
+    /// all. See Notes.razor.</summary>
     [Fact]
     public void Delete_can_read_as_something_else_without_disappearing()
     {
         var cut = RenderComponent<ObjectMenu>(parameters => parameters
             .Add(menu => menu.EditLabel, "View")
-            .Add(menu => menu.DeleteLabel, "Remove from my list"));
+            .Add(menu => menu.DeleteLabel, "Remove from my list")
+            .Add(menu => menu.DeleteNeedsTheArchive, false));
 
         Assert.Contains("Remove from my list", Open(cut));
     }
@@ -71,6 +92,7 @@ public sealed class ObjectMenuTests : OrbitTestContext
         var cut = RenderComponent<ObjectMenu>(parameters => parameters
             .Add(menu => menu.EditLabel, "Edit")
             .Add(menu => menu.DeleteLabel, "Delete")
+            .Add(menu => menu.IsArchived, true)
             .Add(menu => menu.DeleteDisabled, true));
 
         cut.Find(".overflow-menu-trigger").Click();

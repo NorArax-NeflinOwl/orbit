@@ -103,6 +103,7 @@ else
                 OnEdit="GoToEditor" EditLabel="@(_event.IsShared ? T["View"] : T["Edit"])">
         @* No Edit in here: it is a button of its own on the panel now - see EditorRail.OnEdit. *@
         <ObjectMenu AllLabel="@T["Calendar"]" OnAll="GoToCalendar"
+                    IsArchived="_event.IsArchived"
                     DeleteLabel="@(!_event.IsShared ? T["Delete"] : null)" OnDelete="DeleteAsync" />
     </EditorRail>
 }

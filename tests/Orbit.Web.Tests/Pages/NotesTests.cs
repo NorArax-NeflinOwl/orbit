@@ -293,9 +293,9 @@ public sealed class NotesTests : OrbitTestContext
     [Fact]
     public void Deleting_a_note_asks_first_and_removes_it_once_confirmed()
     {
-        var note = Note("Shopping");
+        var note = Note("Shopping") with { IsArchived = true };
         RegisterNotesApiClient([note], confirmDeletion: true);
-        var cut = RenderComponent<Web.Pages.Notes>();
+        var cut = ReadingTheArchive();
 
         OpenTheCardMenu(cut);
         FindButton(cut, "Delete").Click();
@@ -307,8 +307,8 @@ public sealed class NotesTests : OrbitTestContext
     [Fact]
     public void Declining_the_confirmation_leaves_the_note_alone()
     {
-        RegisterNotesApiClient([Note("Shopping")], confirmDeletion: false);
-        var cut = RenderComponent<Web.Pages.Notes>();
+        RegisterNotesApiClient([Note("Shopping") with { IsArchived = true }], confirmDeletion: false);
+        var cut = ReadingTheArchive();
 
         OpenTheCardMenu(cut);
         FindButton(cut, "Delete").Click();
@@ -329,6 +329,43 @@ public sealed class NotesTests : OrbitTestContext
         RenderComponent<Web.Pages.Notes>();
 
         Assert.EndsWith("/login", Services.GetRequiredService<NavigationManager>().Uri);
+    }
+
+    /// <summary>
+    /// A note is handed to a contact from its own card. Everything else on this page could be done to
+    /// one note at a time; sharing was the exception - it lived only in the bar over the list, so it
+    /// took entering the choosing mode to hand on a single note. Asked for on 2026-09-18.
+    /// </summary>
+    [Fact]
+    public void A_note_is_handed_to_a_contact_from_its_own_card()
+    {
+        RegisterNotesApiClient([Note("Shopping")]);
+        var cut = RenderComponent<Web.Pages.Notes>();
+
+        OpenTheCardMenu(cut);
+        FindButton(cut, "Share").Click();
+
+        Assert.NotEmpty(cut.FindAll(".dialog-panel"));
+    }
+
+    /// <summary>
+    /// The same two questions the bar asks of everything it was given: a sealed note cannot be shared
+    /// at all (the server refuses one), and a note shared *with* this reader belongs to whoever shared
+    /// it. Neither offers the press rather than offering one that would be refused.
+    /// </summary>
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void A_note_that_is_not_this_readers_to_hand_on_does_not_offer_it(bool isPrivate, bool isShared)
+    {
+        RegisterNotesApiClient([Note("Shopping") with { IsPrivate = isPrivate, IsShared = isShared }]);
+        // A sealed note is drawn under Private rather than under the tab that opens - see FolderPlacement.
+        var cut = isPrivate ? ReadingTheFolder(BuiltInFolder.Private) : RenderComponent<Web.Pages.Notes>();
+
+        OpenTheCardMenu(cut);
+
+        Assert.DoesNotContain(
+            cut.FindAll(".avatar-dropdown-item"), entry => entry.TextContent.Trim() == "Share");
     }
 
     private static IElement FindButton(IRenderedFragment cut, string text)
@@ -393,6 +430,22 @@ public sealed class NotesTests : OrbitTestContext
         var cut = RenderComponent<Web.Pages.Notes>();
 
         Assert.Contains("Private note", cut.Markup);
+    }
+
+    /// <summary>
+    /// The page with the Archived tab open, which is the only place Delete is offered at all - see
+    /// ObjectMenu.IsArchived. A note that has been put away is only drawn under that tab anyway.
+    /// </summary>
+    private IRenderedComponent<Web.Pages.Notes> ReadingTheArchive()
+        => ReadingTheFolder(BuiltInFolder.Archived);
+
+    /// <summary>The page with one of the built-in tabs open - see FolderPlacement, which files into them.</summary>
+    private IRenderedComponent<Web.Pages.Notes> ReadingTheFolder(BuiltInFolder folder)
+    {
+        var cut = RenderComponent<Web.Pages.Notes>();
+        Services.GetRequiredService<FolderState>().Choose(FolderPage.Notes, FolderKey.Of(folder));
+        cut.Render();
+        return cut;
     }
 
     private static NoteDto Note(string title, params string[] lines)

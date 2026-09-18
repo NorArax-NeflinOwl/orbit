@@ -82,6 +82,17 @@
                        Invitation="(shareId, title) => new NoteShareMessagePayload(shareId, title)"
                        OnClosed="() => _isSharingPicked = false" />
 }
+@* Handing on one note, from its own card. The same dialog the bar above opens for several, given a list
+   of one: sharing is sharing whether it is one thing or four, and a second way of doing it would be a
+   second set of rules about who may. Asked for on 2026-09-18 - the card's menu was the one place a note
+   could not be handed to anybody without first entering the choosing mode. *@
+@if (_sharingOne is { } sharedNote)
+{
+    <SharePickedDialog Things="@([new SharePickedDialog.ShareableThing(sharedNote.Id, sharedNote.Title)])"
+                       ShareOne="(noteId, recipientUserId, accessLevel) => NotesApiClient.ShareNoteAsync(noteId, recipientUserId, accessLevel)"
+                       Invitation="(shareId, title) => new NoteShareMessagePayload(shareId, title)"
+                       OnClosed="() => _sharingOne = null" />
+}
 <ObjectList IsLoading="_notes is null" IsEmpty="_notes is { Count: 0 }" EmptyMessage="@T["No notes."]">
     @if (_notes is { Count: > 0 } && VisibleNotes.Count == 0)
     {
@@ -117,8 +128,11 @@
                     <ObjectMenu EditLabel="@(CanBeChanged(note) ? T["Edit"] : T["View"])" OnEdit="() => GoToEditNote(note.Id)"
                                 DuplicateLabel="@(note.IsShared ? null : T["Duplicate"])"
                                 OnDuplicate="() => DuplicateNoteAsync(note)"
+                                ShareLabel="@(CanBeHandedOn(note) ? T["Share"] : null)"
+                                OnShare="() => _sharingOne = note"
                                 ArchiveLabel="@(note.IsShared ? null : ArchiveLabelFor(note.IsArchived))"
                                 OnArchive="() => SetArchivedAsync(note, !note.IsArchived)"
+                                IsArchived="note.IsArchived" DeleteNeedsTheArchive="@(!note.IsShared)"
                                 DeleteLabel="@(note.IsShared ? T["Remove from my list"] : T["Delete"])"
                                 OnDelete="() => DeleteNoteAsync(note)" DeleteDisabled="@(_deletingNoteId == note.Id)" />
                 </Menu>
@@ -242,6 +256,16 @@
 
     /// <summary>While the dialog sharing the chosen notes is open - see SharePickedDialog.</summary>
     private bool _isSharingPicked;
+
+    /// <summary>The one note being handed on from its own card, while one is.</summary>
+    private NoteDto? _sharingOne;
+
+    /// <summary>
+    /// Whether this note is this reader's to hand to somebody. Theirs and readable by Orbit: the server
+    /// refuses to share a sealed one, and one shared *with* this reader belongs to whoever shared it.
+    /// The same two questions the bar over the list asks of everything it was given.
+    /// </summary>
+    private static bool CanBeHandedOn(NoteDto note) => !note.IsShared && !note.IsPrivate;
 
     /// <summary>The chosen notes themselves, which is what the actions below loop over.</summary>
     private IReadOnlyList<NoteDto> ChosenNotes

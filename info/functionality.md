@@ -594,8 +594,12 @@ is, and the first that applies wins:
    which is the whole point: putting something away is a decision about whether it is in front of the
    reader at all, and an archived note still sitting under "Work" would not have been put anywhere. **Its
    folder id is left untouched**, so bringing it back puts it under "Work" again rather than somewhere a
-   rule had to choose. Every page draws the tab - there is no page that hides it the way the calendar
-   hides Private - because something put away has to be somewhere it can be found again. Its own command
+   rule had to choose. Every page a thing is listed on draws the tab, because something put away has to
+   be somewhere it can be found again; **the dashboard does not** (2026-09-18, `FolderPages.HasAnArchivedTab`),
+   since that page is for what somebody is doing now and the archive is where things go to stop being
+   that. Nothing about the placement changes with it, which is the difference from the Finished tab: a
+   finished list is placed as unfinished where there is no tab for it and so stays on the page, while
+   something put away is placed in the archive everywhere and is therefore simply not on the dashboard. Its own command
    and its own endpoint on each of the four (`PUT .../{id}/archived`, `ArchiveRequest`), for the reason
    filing has its own: an update carries the whole thing, so a client that had never heard of archiving
    would bring back everything its owner had put away, every time it saved. A recipient is told nothing
@@ -603,9 +607,14 @@ is, and the first that applies wins:
    that was never theirs would take the thing off their own pages.
 
    **In the browser it is a line in every card's menu** ("Archive", or "Put back" for something already
-   away), immediately above Delete and deliberately so: it is the other way out of a list, and somebody
-   reaching for Delete because they want a thing gone from in front of them meets it on the way. The two
-   say different things, and one of them is reversible. Left out on something reached through a share.
+   away), and since 2026-09-18 it is the **only** way out of a list a card offers: **Delete is reached
+   in the Archived folder and nowhere else** (`ObjectMenu.IsArchived`, applied by the menu itself rather
+   than by each page, so a page that forgets to say offers no Delete at all - the safe direction for a
+   rule about deleting). Archiving exists to be the reversible answer, and a Delete beside it on every
+   card made the irreversible one the easier to reach. The exception is a line that is not a deletion:
+   taking somebody else's shared thing off this reader's own list needs no archive first, because
+   something shared cannot be put away at all (`ObjectMenu.DeleteNeedsTheArchive`). Left out on
+   something reached through a share.
    The card stays where it is until the page is read again - it has not moved anywhere, it is under
    another tab now - and a refusal leaves the page as it was rather than redrawing a lie.
 
@@ -675,6 +684,14 @@ chat message carrying its Accept. The page hands the dialog its own share call a
 contacts, the round and the result ("Shared 3. 1 could not be shared.") are the dialog's. Only things this
 reader owns and Orbit can read are shared - one shared with them, or a sealed one, is left out and the
 dialog says how many.
+
+**And one at a time, from its own card** (2026-09-18): "Share" is a line in every card's menu on the
+notes, the task lists, the calendar's list and the inventories, and on the first three it opens that same
+dialog given a list of one. Sharing is sharing whether it is one thing or four, and a second way of doing
+it would be a second set of rules about who may - which is also why the line is drawn under the same two
+questions the bar asks of what it was given: the thing is this reader's, and Orbit can read it. Until
+then the only way to hand on a single note was to enter the choosing mode and pick it, which is what the
+list of 2026-09-18 reported.
 
 **The phone chooses several too** (2026-09-16, `PickingSeveral` over the same `PickedThings`, which moved
 to `Orbit.Core.Folders` for it; `PickingBar` in the head). On notes, task lists, inventories and the
