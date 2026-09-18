@@ -2142,7 +2142,9 @@ the session that finishes one strikes it here rather than in a report nobody rea
 - **The formatting row sits under the keyboard**; it belongs above it, where it can be reached.
 - **Editing an entry on a task list does not scroll as one form.** Part of it scrolls and part is
   fixed, so half the screen is blocked and covers what is being read.
-- **Separators made in the browser are not read correctly on Android.**
+- **Separators made in the browser are not read correctly on Android.** Every step of the path was
+  read and the sync was covered with a test, and none of it loses one - see issue #294, which says what
+  was checked and what would settle it.
 - **The press target for an item is too small** - the name itself has to be hit for the press to count.
 - **The note editor carries furniture it does not need**: the footer with information at the bottom
   goes, and the tags belong in the menu rather than on the page.
@@ -2220,8 +2222,9 @@ the session that finishes one strikes it here rather than in a report nobody rea
   open and moves the pins (`MapPage.RefreshTheMapAsync`, covered by a test that the places list is read
   again). What *would* look exactly like this is an exception thrown inside it - an event handler that
   throws leaves the page as it was - so the handler now catches, logs and says so on screen rather than
-  failing silently. **Still open** until it is seen again: what the reader expects it to change, and
-  whether the browser's console says anything when it is pressed, is what would settle it.
+  failing silently. **Still open** as issue #293, which says what was checked and what would settle it:
+  what the reader expects it to change, and whether the browser's console says anything when it is
+  pressed.
 - ~~**Addresses do not wrap in the preview**, and wherever else text that should wrap does not.~~ Done:
   the address on an entry's page and on an appointment's is prose rather than a value
   (`.row-meta-prose`, which already existed for descriptions), and so are the guests and the
@@ -2234,7 +2237,9 @@ the session that finishes one strikes it here rather than in a report nobody rea
   attach an empty one and press "Add missing to the replenishment list" - and that adds only the
   entries of the main list, so nothing from the sublists ever reaches the inventory.
 - **A separator made on one client is not drawn by the other**, either way round. The Android entry
-  above is the same fault seen from one side only.
+  above is the same fault seen from one side only, and both are issue #294: the wire, both clients'
+  mappings, the phone's local store, its template and the sync were all read, and a test now holds the
+  sync. Whatever this is, it is not on the path the code describes.
 - ~~**A group list's light view shows the same entry once per sublist.** They should be summed into one
   entry carrying the minimum wanted on the list and its tags, with the note of which sublist it came
   from taken away.~~ Done in the browser (`FlatRowsToShow`): one row per thing said, how much is wanted
