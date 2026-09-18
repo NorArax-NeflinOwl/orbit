@@ -2108,6 +2108,76 @@ It is **not** on the two other places somebody edits in the browser:
   is `Clipboard.Default.GetTextAsync`; the entry field would have to decide, on a paste with newlines in
   it, whether it is one entry or several - which is the decision this is waiting on.
 
+## What the user asked for on 2026-09-18
+
+The round this session is working through, written down before any of it was built so that the list
+itself cannot be lost between sessions. Three more items arrived while the first was being built and
+are in "Added the same day" at the foot. Struck-through entries are done; everything else is open, and
+the session that finishes one strikes it here rather than in a report nobody reads again.
+
+### The control, and where it goes
+
+- ~~**A browser for a short vocabulary.**~~ Built as `ValueBrowser`: a field with what it holds written
+  along it by comma, opening onto a list where each word has a two-state tick, its name, optionally how
+  many things already carry it (what a filter wants) and optionally a colour well (what a tag wants).
+  Asked for tags, categories and product types.
+- **The filter buttons on the notes and tasks pages become that browser.** On the tasks page they are
+  the category chips and the row of views (`.filter-chip`); on the notes page there are no filter
+  buttons at all today, so it is read as that page gaining the same control over the tags its cards
+  already carry.
+
+### Orbit.Maui
+
+- **A note's lines do not wrap while it is being edited.**
+- **The formatting row sits under the keyboard**; it belongs above it, where it can be reached.
+- **Editing an entry on a task list does not scroll as one form.** Part of it scrolls and part is
+  fixed, so half the screen is blocked and covers what is being read.
+- **Separators made in the browser are not read correctly on Android.**
+- **The press target for an item is too small** - the name itself has to be hit for the press to count.
+- **The note editor carries furniture it does not need**: the footer with information at the bottom
+  goes, and the tags belong in the menu rather than on the page.
+- **Something edited later still shows as it was.** An event made one day and edited the next is drawn
+  on the phone as if the second edit had never happened; the browser shows the edit. Seen again on
+  2026-09-18 with screenshots of both clients side by side.
+- **There is no way to put a blank line under a picture in a note.**
+
+### Orbit.Web
+
+- **The light note editor should show the list of notes too**, and moving between notes should keep
+  what has been changed rather than dropping it; leaving the page should say which notes have unsaved
+  changes, or that they will be lost.
+- **Delete goes out of the app**; it is offered in the Archived folder and nowhere else.
+- **A note on the list has no Share in its menu** and should - and the other pages are to be checked
+  for the same gap.
+- **The Archived folder should not be on the dashboard.**
+- **A theme switch on the map**, beside Refresh, turning the map itself between light and night.
+- **The full or stretched map should scroll with the wheel.**
+- **Choosing a pin loses where the map was.** After pressing yes the map is read again and drawn at
+  every pin's own zoom rather than at the view the reader was looking at when they used the pin.
+- **The calendar's week view cannot be told to stop showing what has passed.** The option is ticked and
+  cannot be unticked; it should be the reader's to set, and remembered per device.
+- **Group inventories.** One entry on the list of inventories, holding smaller inventories inside it,
+  which can answer to different task lists.
+- **A mark on the folder button where a notification's thing is**, so somebody following a notification
+  can see which folder holds it - in the web's mobile view as well.
+- **Delete goes out of a pinned list's entry editor** in a group list's heavy editing; it belongs under
+  the expanded form.
+- **Opening a task list from the dashboard opens the wrong folder's lists** - the one last chosen on
+  /tasks rather than the one the list is in.
+- **Refresh on the map does nothing.**
+- **Addresses do not wrap in the preview**, and wherever else text that should wrap does not.
+
+### Added the same day
+
+- **An inventory cannot be generated from a task list.** The only way round is to make an inventory,
+  attach an empty one and press "Add missing to the replenishment list" - and that adds only the
+  entries of the main list, so nothing from the sublists ever reaches the inventory.
+- **A separator made on one client is not drawn by the other**, either way round. The Android entry
+  above is the same fault seen from one side only.
+- **A group list's light view shows the same entry once per sublist.** They should be summed into one
+  entry carrying the minimum wanted on the list and its tags, with the note of which sublist it came
+  from taken away.
+
 ## Smaller identified follow-ups
 
 - ~~**The phone's wait does not look like the web's yet.**~~ Fixed 2026-09-11: `OrbitLoading` (Controls) is
