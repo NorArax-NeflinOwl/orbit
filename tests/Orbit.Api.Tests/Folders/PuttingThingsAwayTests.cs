@@ -135,11 +135,70 @@ public sealed class PuttingThingsAwayTests
         var inventory = Inventory.Create(OwnerUserId, "Pantry");
         await _inventories.AddAsync(inventory, CancellationToken.None);
 
-        var archived = await new ArchiveInventoryCommandHandler(_inventories).HandleAsync(
+        var archived = await new ArchiveInventoryCommandHandler(_inventories, _taskLists).HandleAsync(
             new ArchiveInventoryCommand(OwnerUserId, inventory.Id, IsArchived: true), CancellationToken.None);
 
         Assert.True(archived);
         Assert.True(inventory.IsArchived);
+    }
+
+    /// <summary>
+    /// And goes off the lists it was measured against. Asked for on 2026-09-18: putting a shelf away
+    /// says it is done with, and a list still measured against it went on showing a stock check against
+    /// a shelf its owner had filed out of sight - and went on raising restock errands from it.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_put_away_comes_off_the_lists_measured_against_it()
+    {
+        var inventory = Inventory.Create(OwnerUserId, "Pantry");
+        await _inventories.AddAsync(inventory, CancellationToken.None);
+        var shopping = TaskList.Create(OwnerUserId, "Shopping", []);
+        shopping.LinkToInventory(inventory.Id);
+        await _taskLists.AddAsync(shopping, CancellationToken.None);
+
+        await new ArchiveInventoryCommandHandler(_inventories, _taskLists).HandleAsync(
+            new ArchiveInventoryCommand(OwnerUserId, inventory.Id, IsArchived: true), CancellationToken.None);
+
+        Assert.Null(shopping.LinkedInventoryId);
+    }
+
+    /// <summary>
+    /// Bringing it back does not put the links back: nothing records which lists they were, and guessing
+    /// would be inventing a choice nobody made. Choosing it again is one press.
+    /// </summary>
+    [Fact]
+    public async Task And_bringing_it_back_does_not_put_them_back()
+    {
+        var inventory = Inventory.Create(OwnerUserId, "Pantry");
+        await _inventories.AddAsync(inventory, CancellationToken.None);
+        var shopping = TaskList.Create(OwnerUserId, "Shopping", []);
+        shopping.LinkToInventory(inventory.Id);
+        await _taskLists.AddAsync(shopping, CancellationToken.None);
+        var handler = new ArchiveInventoryCommandHandler(_inventories, _taskLists);
+
+        await handler.HandleAsync(
+            new ArchiveInventoryCommand(OwnerUserId, inventory.Id, IsArchived: true), CancellationToken.None);
+        await handler.HandleAsync(
+            new ArchiveInventoryCommand(OwnerUserId, inventory.Id, IsArchived: false), CancellationToken.None);
+
+        Assert.Null(shopping.LinkedInventoryId);
+        Assert.False(inventory.IsArchived);
+    }
+
+    /// <summary>Somebody else's list is not this owner's to unpick - the lists read are their own.</summary>
+    [Fact]
+    public async Task Another_readers_list_is_left_alone()
+    {
+        var inventory = Inventory.Create(OwnerUserId, "Pantry");
+        await _inventories.AddAsync(inventory, CancellationToken.None);
+        var theirs = TaskList.Create(Guid.NewGuid(), "Shopping", []);
+        theirs.LinkToInventory(inventory.Id);
+        await _taskLists.AddAsync(theirs, CancellationToken.None);
+
+        await new ArchiveInventoryCommandHandler(_inventories, _taskLists).HandleAsync(
+            new ArchiveInventoryCommand(OwnerUserId, inventory.Id, IsArchived: true), CancellationToken.None);
+
+        Assert.Equal(inventory.Id, theirs.LinkedInventoryId);
     }
 
     /// <summary>Saying again what is already so changes nothing, and does not restamp when it was changed.</summary>
