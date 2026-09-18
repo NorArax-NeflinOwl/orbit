@@ -291,11 +291,19 @@ public sealed partial class DashboardViewModel : ObservableObject
         // falling out of every tab the screen draws - see FolderPages.HasAFinishedTab.
         await Folders.ReadAsync(cancellationToken);
 
+        // And which of them hold something the reader has not seen, so the menu can say which folder to
+        // open - the dot the browser puts on the tab. See UnreadNews, and _unreadUrls, which this screen
+        // has already read for the cards.
         FolderChoices.Clear();
         foreach (var choice in Folders.Describe(
-            notes.Select(note => Folders.Where(note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived))
-                .Concat(taskLists.Select(list => Folders.Where(
-                    list.FolderId, list.IsPrivate, list.IsCompleted, list.IsArchived)))))
+            [
+                .. notes.Select(note => new RowInAFolder(
+                    Folders.Where(note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived),
+                    note.ServerId is { } noteId && UnreadNews.About(_unreadUrls, $"/notes/{noteId}"))),
+                .. taskLists.Select(list => new RowInAFolder(
+                    Folders.Where(list.FolderId, list.IsPrivate, list.IsCompleted, list.IsArchived),
+                    list.ServerId is { } listId && UnreadNews.About(_unreadUrls, $"/tasks/{listId}")))
+            ]))
         {
             FolderChoices.Add(choice);
         }

@@ -117,7 +117,9 @@ public partial class TasksPage : ContentPage, ITitleMenu
 				choice.Name,
 				() => _viewModel.ChooseFolderCommand.Execute(choice.Key),
 				choice.IsChosen,
-				count: ScreenMenuEntry.CountOf(choice.Count)))),
+				count: ScreenMenuEntry.CountOf(choice.Count),
+				// The dot saying a folder holds something the reader has not seen - see FolderChoice.HasNews.
+				hasNews: choice.HasNews))),
 
 			new(_translations["Folder"], FolderActions()),
 

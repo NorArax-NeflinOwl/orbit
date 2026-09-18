@@ -2266,9 +2266,13 @@ the session that finishes one strikes it here rather than in a report nobody rea
   `FolderTabs.HasNewsIn` puts a dot on the tab, and `PhoneToolbar.HasNews` the same dot on the button
   the tabs fold into on a narrow screen - only for folders that are not open, since a card in front of
   the reader already carries its own mark. The notes, the task lists and the inventories answer it; the
-  calendar does not, because its tabs narrow a grid rather than a list of cards. **The phone's own
-  folder menu has no mark yet** - `FolderTabs.Describe` there counts rows and knows nothing about the
-  feed, which is where this lands next.
+  calendar does not, because its tabs narrow a grid rather than a list of cards. **And on the phone**
+  since 2026-09-18: `FolderTabs.Describe` takes what the feed says about each row as well as where it is
+  (`RowInAFolder`), and a folder holding something unseen carries the same dot on its menu entry
+  (`ScreenMenuEntry.HasNews`) - the notes, the task lists, the inventories and the dashboard. The
+  calendar's menu takes the mark but nothing sets it, for the reason the browser's tabs do not carry one.
+  Found on the way: `UnreadNews` compared addresses whole, so an entry naming a row after a "?" marked
+  nothing at all - it reads the path through `NotificationUrl` now, as the browser does.
 - ~~**Delete goes out of a pinned list's entry editor** in a group list's heavy editing; it belongs
   under the expanded form.~~ Done: the member's rows now follow the rule this form's own entries have
   always followed - Remove is last inside the expanded details rather than beside the box somebody is

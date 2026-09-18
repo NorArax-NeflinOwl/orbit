@@ -80,7 +80,10 @@ public partial class NotesPage : ContentPage, ITitleMenu
 					choice.Name,
 					() => _viewModel.ChooseFolderCommand.Execute(choice.Key),
 					choice.IsChosen,
-					count: ScreenMenuEntry.CountOf(choice.Count)))),
+					count: ScreenMenuEntry.CountOf(choice.Count),
+					// The dot saying a folder holds something the reader has not seen - see FolderChoice.HasNews,
+					// and the same dot on the browser's own tab.
+					hasNews: choice.HasNews))),
 			new ScreenMenuGroup(_translations["Folder"], FolderActions()),
 			// Choosing several notes to file, put away or share together - see PickingSeveral. Ticked
 			// while it is on, and the same entry leaves it.

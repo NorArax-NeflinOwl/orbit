@@ -23,6 +23,13 @@ namespace Orbit.Mobile.Screens.Notes;
 public sealed partial class NotesViewModel : ObservableObject
 {
     private readonly LocalNoteRepository _notes;
+
+    /// <summary>
+    /// The feed, only so a folder can say it holds something unseen - see the menu below. Optional
+    /// because a test about what this screen lists has no business standing one up, and a screen with no
+    /// feed simply marks nothing.
+    /// </summary>
+    private readonly LocalNotificationRepository? _notifications;
     private readonly NoteSynchronizer _synchronizer;
     private readonly NotesClient _notesClient;
     private readonly INetworkStatus _networkStatus;
@@ -65,8 +72,9 @@ public sealed partial class NotesViewModel : ObservableObject
         SyncState syncState, IScreenNavigator navigator, TimeProvider clock,
         IListArrangementStore arrangements, LocalFolderRepository folders, IChosenFolderStore chosenFolder,
         FolderSynchronizer folderSynchronizer, LocalTagColourRepository? tagColours = null,
-        SharingSeveral? sharingSeveral = null)
+        SharingSeveral? sharingSeveral = null, LocalNotificationRepository? notifications = null)
     {
+        _notifications = notifications;
         Picking = new PickingSeveral(
             translations,
             new PickingActions(
@@ -313,8 +321,19 @@ public sealed partial class NotesViewModel : ObservableObject
             note => note.LocalId,
             note => Folders.Where(note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived));
 
+        // And which folders hold something the reader has not seen - a note somebody shared, say - so
+        // the menu can say which one to open. The browser puts the same dot on the tab; following a
+        // notification is how somebody arrives here, and the screen opens on whatever folder it was
+        // last left on. See UnreadNews.
+        var unread = _notifications is null
+            ? []
+            : UnreadNews.AddressesIn(await _notifications.GetUnreadAsync(cancellationToken));
+
         FolderChoices.Clear();
-        foreach (var choice in Folders.Describe(placements.Values))
+        foreach (var choice in Folders.Describe(
+            [.. stored.Select(note => new RowInAFolder(
+                placements[note.LocalId],
+                note.ServerId is { } serverId && UnreadNews.About(unread, $"/notes/{serverId}")))]))
         {
             FolderChoices.Add(choice);
         }

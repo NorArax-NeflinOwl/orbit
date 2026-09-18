@@ -4926,7 +4926,15 @@ left, which may be another folder entirely - so a dot sits on every tab holding 
 (`PhoneToolbar.HasNews`). A dot rather than a count: how many is on the card itself, and this only has
 to say "in here". The open tab is never marked, since whatever it holds is already in front of the
 reader. The notes, the task lists and the inventories answer it; the calendar's tabs narrow a grid
-rather than a list of cards, and the phone's own folder menu does not carry it yet.
+rather than a list of cards.
+
+**The phone carries the same dot in its folder menu** (`RowInAFolder`, `FolderChoice.HasNews`,
+`ScreenMenuEntry.HasNews`, 2026-09-18). It has no room for a row of tabs, so the folders are entries in
+the menu under the screen's name - and a screen tells `FolderTabs.Describe` what the feed says about each
+row as well as where the row is. The notes, the task lists, the inventories and the dashboard answer it;
+the calendar's entries take the mark and nothing sets it, for the reason its tabs carry none in the
+browser. Unlike the browser the open folder is marked too: a menu is read as a list of places to go to,
+and leaving one out of the marking would read as that place holding nothing.
 
 **Which cards can say which row, and which can only say "here".** It depends on what the notification's
 address names, not on the card:
