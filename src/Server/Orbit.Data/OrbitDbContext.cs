@@ -38,6 +38,9 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<InventoryEntity> Inventories => Set<InventoryEntity>();
     public DbSet<InventoryShareEntity> InventoryShares => Set<InventoryShareEntity>();
     public DbSet<InventoryItemEntity> InventoryItems => Set<InventoryItemEntity>();
+
+    /// <summary>Which shelves a group shelf gathers - see Orbit.Core.Inventories.Inventory.GathersInventoryIds.</summary>
+    public DbSet<InventoryGatheredEntity> InventoriesGathered => Set<InventoryGatheredEntity>();
     public DbSet<InventoryManagedTaskListEntity> InventoryManagedTaskLists => Set<InventoryManagedTaskListEntity>();
     public DbSet<InventoryExpiryNotificationDeliveryEntity> InventoryExpiryNotificationDeliveries => Set<InventoryExpiryNotificationDeliveryEntity>();
     public DbSet<NotificationSettingsEntity> NotificationSettings => Set<NotificationSettingsEntity>();
@@ -654,6 +657,17 @@ public sealed class OrbitDbContext : DbContext
             entity.Property(inventory => inventory.LockedByUserName).HasMaxLength(64);
             // Listing a user's own inventories is the most common inventory query.
             entity.HasIndex(inventory => inventory.UserId);
+        });
+
+        modelBuilder.Entity<InventoryGatheredEntity>(entity =>
+        {
+            entity.HasKey(gathered => new { gathered.InventoryId, gathered.GatheredInventoryId });
+
+            // No foreign key to the shelf being gathered, for the reason an entry's links to lists have
+            // none: a member that has since been deleted reads as "nothing there" when the group is
+            // walked (see InventoryGroups), and a constraint here would instead refuse the delete or
+            // silently take the group's row with it.
+            entity.HasIndex(gathered => gathered.GatheredInventoryId);
         });
 
         modelBuilder.Entity<InventoryShareEntity>(entity =>

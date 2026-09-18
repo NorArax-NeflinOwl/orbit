@@ -55,6 +55,7 @@ using Orbit.Core.Inventories.ReconcileRestockList;
 using Orbit.Core.Inventories.RestockListSettingsAccess;
 using Orbit.Core.Inventories.ExpiryReminders;
 using Orbit.Core.Inventories.GetInventoryItems;
+using Orbit.Core.Inventories.GatherInventories;
 using Orbit.Core.Inventories.GetShelfDemand;
 using Orbit.Core.Inventories.AcceptInventoryShare;
 using Orbit.Core.Inventories.AcquireInventoryLock;
@@ -456,6 +457,9 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<CreateInventoryCommand, Guid>, CreateInventoryCommandHandler>();
         services.AddScoped<IRequestHandler<DuplicateInventoryCommand, Guid?>, DuplicateInventoryCommandHandler>();
         services.AddScoped<IRequestHandler<MoveInventoryToFolderCommand, bool>, MoveInventoryToFolderCommandHandler>();
+        // A shelf that gathers other shelves, and what reads one - see InventoryGroups.
+        services.AddScoped<InventoryGroups>();
+        services.AddScoped<IRequestHandler<GatherInventoriesCommand, bool>, GatherInventoriesCommandHandler>();
         services.AddScoped<IRequestHandler<ArchiveInventoryCommand, bool>, ArchiveInventoryCommandHandler>();
         services.AddScoped<IRequestHandler<GetInventoriesQuery, IReadOnlyList<Inventory>>, GetInventoriesQueryHandler>();
         services.AddScoped<IRequestHandler<GetInventoryByIdQuery, Inventory?>, GetInventoryByIdQueryHandler>();

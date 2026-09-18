@@ -2445,6 +2445,18 @@ public static class PolishTranslations
 
         // The last of the web left in English: the restock-list settings, the two suggestion panels,
         // and a handful of lines nobody had swept up. See the coverage test that now keeps this closed.
+        // A group shelf - one entry on the list of inventories holding smaller ones inside it.
+        ["Inventories gathered here"] = "Magazyny zebrane tutaj",
+        ["A group shelf holds smaller shelves. Each keeps its own items and its own tie to a list; this only decides what is read together."] =
+            "Magazyn grupowy zawiera mniejsze magazyny. Każdy zachowuje własne elementy i własne powiązanie z listą — to ustala tylko, co czytane jest razem.",
+        ["There are no other inventories to gather."] = "Nie ma innych magazynów do zebrania.",
+        ["Gather {0} into this inventory"] = "Zbierz „{0}” do tego magazynu",
+        ["Couldn't put \"{0}\" in this group. It may already gather this one."] =
+            "Nie udało się dodać „{0}” do tej grupy. Możliwe, że ten magazyn już zbiera bieżący.",
+        ["Couldn't put \"{0}\" in this group. Try again."] = "Nie udało się dodać „{0}” do tej grupy. Spróbuj ponownie.",
+        ["answers to {0}"] = "odpowiada liście: {0}",
+        ["One of the inventories this one gathers. Open it to change what is on it."] =
+            "Jeden z magazynów zbieranych przez ten. Otwórz go, żeby zmienić jego zawartość.",
         ["Keep a restock list for this inventory"] = "Prowadź listę uzupełnień dla tego magazynu",
         ["Remind me to update stock levels"] = "Przypominaj mi o aktualizacji stanów",
         ["Priority of the restock list"] = "Priorytet listy uzupełnień",

@@ -2246,8 +2246,16 @@ the session that finishes one strikes it here rather than in a report nobody rea
   localStorage. The reasoning the override was built on is kept where the property is - it is still
   true of what the reader now chooses, and which of the two readings they want is theirs. The phone
   never had the override, so the two clients agree again.
-- **Group inventories.** One entry on the list of inventories, holding smaller inventories inside it,
-  which can answer to different task lists.
+- ~~**Group inventories.** One entry on the list of inventories, holding smaller inventories inside it,
+  which can answer to different task lists.~~ Done in the browser (`Inventory.GathersInventoryIds`,
+  `InventoryGroups`, `OL_INVENTORIES_GATHERED`). Gathering rather than containing: a member keeps its own
+  rows, its own restock list and its own tie to a list, and it stays on the list of inventories where it
+  was - the group is a way of reading several at once, so taking one out leaves it exactly as it was.
+  Membership is its own endpoint, not part of the save, for the reason filing is; a ring is refused, and
+  so is a shelf that is not the caller's. The card on `/inventory` lists what a group gathers, the
+  group's own page draws each member's shelf under its name, and the editor has the boxes that arrange
+  it. **The phone shows none of it yet** - its inventory list and detail screens read their own store,
+  and would need the membership carried through the sync first.
 - ~~**A mark on the folder button where a notification's thing is**, so somebody following a
   notification can see which folder holds it - in the web's mobile view as well.~~ Done in the browser:
   `FolderTabs.HasNewsIn` puts a dot on the tab, and `PhoneToolbar.HasNews` the same dot on the button

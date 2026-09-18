@@ -214,6 +214,7 @@ erDiagram
     OP_INVENTORIES_ITEMS ||--o{ OP_INVENTORIES_CATEGORIES : "tagged"
     OP_INVENTORIES ||--o{ OL_INVENTORIES_TASKS : "restocked through"
     OP_TASKS ||--o{ OL_INVENTORIES_TASKS : "restocks"
+    OP_INVENTORIES ||--o{ OL_INVENTORIES_GATHERED : "gathers"
 
     OP_TASKS {
         uuid OP_T_ID PK
@@ -283,6 +284,11 @@ erDiagram
         uuid OL_TI_TASKITEMID PK,FK
         uuid OL_TI_LINKEDTASKLISTID PK,FK
         int OL_TI_POSITION
+    }
+    OL_INVENTORIES_GATHERED {
+        uuid OL_IG_INVENTORYID PK "the group"
+        uuid OL_IG_GATHEREDINVENTORYID PK "no FK - a deleted member reads as nothing there"
+        int OL_IG_POSITION "the order somebody arranged them in"
     }
 ```
 

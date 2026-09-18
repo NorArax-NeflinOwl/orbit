@@ -29,10 +29,11 @@ public sealed class InventoryRepository : IInventoryRepository
         }
 
         var entities = await query.ToListAsync(cancellationToken);
+        var gathered = await GatheredByAsync([.. entities.Select(inventory => inventory.Id)], cancellationToken);
 
         return entities
             .OrderBy(inventory => inventory.Name)
-            .Select(ToDomain)
+            .Select(entity => ToDomain(entity, gathered))
             .ToList();
     }
 
@@ -42,19 +43,65 @@ public sealed class InventoryRepository : IInventoryRepository
             .AsNoTracking()
             .FirstOrDefaultAsync(inventory => inventory.Id == id && inventory.UserId == userId, cancellationToken);
 
-        return entity is null ? null : ToDomain(entity);
+        return entity is null ? null : ToDomain(entity, await GatheredByAsync([id], cancellationToken));
     }
 
     public async Task AddAsync(Inventory inventory, CancellationToken cancellationToken)
     {
         _dbContext.Inventories.Add(ToEntity(inventory));
+        WriteWhatItGathers(inventory);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task UpdateAsync(Inventory inventory, CancellationToken cancellationToken)
     {
         _dbContext.Inventories.Update(ToEntity(inventory));
+        // Read first, because the rows are replaced wholesale below and EF needs to be tracking what is
+        // being removed. Only this group's - a shelf gathered by two groups has a row under each.
+        var stored = await _dbContext.InventoriesGathered
+            .Where(gathered => gathered.InventoryId == inventory.Id)
+            .ToListAsync(cancellationToken);
+        _dbContext.InventoriesGathered.RemoveRange(stored);
+        WriteWhatItGathers(inventory);
         await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The membership as the domain holds it: deleted and written again rather than reconciled, which is
+    /// what makes the stored order the arranged one - see InventoryGatheredEntity.Position.
+    /// </summary>
+    private void WriteWhatItGathers(Inventory inventory)
+    {
+        foreach (var (gatheredId, position) in inventory.GathersInventoryIds.Select((id, at) => (id, at)))
+        {
+            _dbContext.InventoriesGathered.Add(new InventoryGatheredEntity
+            {
+                InventoryId = inventory.Id,
+                GatheredInventoryId = gatheredId,
+                Position = position
+            });
+        }
+    }
+
+    /// <summary>
+    /// What each of these shelves gathers, in the order somebody arranged it. Read in one query for the
+    /// whole page rather than one per shelf: the inventories list asks this of every row it draws.
+    /// </summary>
+    private async Task<ILookup<Guid, Guid>> GatheredByAsync(
+        IReadOnlyList<Guid> inventoryIds, CancellationToken cancellationToken)
+    {
+        if (inventoryIds.Count == 0)
+        {
+            return Array.Empty<(Guid, Guid)>().ToLookup(pair => pair.Item1, pair => pair.Item2);
+        }
+
+        var rows = await _dbContext.InventoriesGathered
+            .AsNoTracking()
+            .Where(gathered => inventoryIds.Contains(gathered.InventoryId))
+            .OrderBy(gathered => gathered.Position)
+            .ToListAsync(cancellationToken);
+
+        return rows.ToLookup(gathered => gathered.InventoryId, gathered => gathered.GatheredInventoryId);
     }
 
     /// <summary>The three columns a lock is, and nothing else - see IInventoryRepository.UpdateLockAsync.</summary>
@@ -77,6 +124,14 @@ public sealed class InventoryRepository : IInventoryRepository
         }
 
         _dbContext.Inventories.Remove(entity);
+        // Both ends of any gathering it took part in. There is no foreign key here - a member that has
+        // gone reads as "nothing there" when a group is walked, deliberately - so the rows are taken
+        // away by hand, or a group would go on counting a shelf nobody can open and a deleted group
+        // would leave its own list behind.
+        var gathering = await _dbContext.InventoriesGathered
+            .Where(gathered => gathered.InventoryId == id || gathered.GatheredInventoryId == id)
+            .ToListAsync(cancellationToken);
+        _dbContext.InventoriesGathered.RemoveRange(gathering);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
@@ -100,13 +155,13 @@ public sealed class InventoryRepository : IInventoryRepository
             ? new EncryptedPayload(ciphertext, nonce)
             : null;
 
-    private static Inventory ToDomain(InventoryEntity entity)
+    private static Inventory ToDomain(InventoryEntity entity, ILookup<Guid, Guid> gathered)
         => Inventory.FromPersistence(
             entity.Id, entity.UserId, entity.Name, entity.IsPrivate,
             ToEncryptedPayload(entity.EncryptedCiphertext, entity.EncryptedNonce),
             entity.CreatedAtUtc, entity.UpdatedAtUtc,
             entity.LockedByUserId, entity.LockedByUserName, entity.LockExpiresAtUtc, entity.Description,
-            entity.FolderId, entity.IsArchived);
+            entity.FolderId, entity.IsArchived, [.. gathered[entity.Id]]);
 
     private static InventoryEntity ToEntity(Inventory inventory)
         => new()

@@ -89,6 +89,33 @@ else
             </div>
         }
     </SummaryCard>
+
+    @* And the smaller shelves inside it, each under its own name - see
+       Orbit.Core.Inventories.Inventory.GathersInventoryIds. A group is read as one thing and stocked as
+       several, so the division is what this page is for; the rows are drawn the way this shelf's own
+       are, except that counting one up or down is done on the shelf it belongs to. *@
+    @foreach (var member in _gathered)
+    {
+        <h2>@member.Inventory.Name<FieldHint>@T["One of the inventories this one gathers. Open it to change what is on it."]</FieldHint></h2>
+        <SummaryCard OnOpen="() => GoToInventory(member.Inventory.Id)">
+            @if (member.Shelf.Count == 0)
+            {
+                <p class="checklist-empty">@T["Nothing on this shelf yet."]</p>
+            }
+            @foreach (var batch in member.Shelf)
+            {
+                <div class="list-row shelf-batch @(TheBellMeans(batch) ? "row-unseen" : "")">
+                    <span class="row-title">@batch.Name</span>
+                    <span class="row-meta shelf-batch-amount">@Amount(batch)</span>
+                    <span class="row-meta">
+                        @(batch.ExpiryDate is { } expires
+                            ? T.Format("best before {0}", expires.LocalDateTime.ToString("dd.MM.yyyy"))
+                            : T["keeps"])
+                    </span>
+                </div>
+            }
+        </SummaryCard>
+    }
 }
 
 </div>
@@ -195,6 +222,7 @@ else
                 : await InventoryApiClient.GetInventoryItemsAsync(InventoryId) ?? [];
             _isReadOnly = _inventory is not null
                 && _inventory.IsShared && !SharedItemAccess.For(_inventory.IsShared, _inventory.AccessLevel).CanEdit;
+            await ReadWhatItGathersAsync();
         }
         catch (HttpRequestException exception)
         {
@@ -207,6 +235,45 @@ else
             _isLoading = false;
         }
     }
+
+    /// <summary>One of the smaller shelves a group gathers, and what is on it.</summary>
+    private sealed record GatheredShelf(InventoryDto Inventory, IReadOnlyList<InventoryItemDto> Shelf);
+
+    private IReadOnlyList<GatheredShelf> _gathered = [];
+
+    /// <summary>
+    /// Reads the shelves this one gathers, each with its rows - see
+    /// Orbit.Core.Inventories.Inventory.GathersInventoryIds. Only its own members, not what those gather
+    /// in turn: a group inside a group is a page of its own, and drawing the whole tree here would make
+    /// the page longer the deeper somebody arranged it.
+    ///
+    /// Costs nothing for an ordinary shelf, which is nearly all of them. A member that cannot be read -
+    /// deleted, or a share withdrawn - is passed over rather than drawn as an empty heading.
+    /// </summary>
+    private async Task ReadWhatItGathersAsync()
+    {
+        if (_inventory is not { } inventory || !inventory.IsGroup)
+        {
+            _gathered = [];
+            return;
+        }
+
+        var gathered = new List<GatheredShelf>();
+        foreach (var memberId in inventory.AllGathered)
+        {
+            if (await InventoryApiClient.GetInventoryByIdAsync(memberId) is not { } member)
+            {
+                continue;
+            }
+
+            gathered.Add(new GatheredShelf(member, await InventoryApiClient.GetInventoryItemsAsync(memberId) ?? []));
+        }
+
+        _gathered = gathered;
+    }
+
+    private void GoToInventory(Guid inventoryId)
+        => NavigationManager.NavigateTo(ReturnTo.Link($"/inventory/{inventoryId}", NavigationTrail.Here));
 
     /// <summary>How much there is, in what it is counted in - "3 pcs", "1.5 kg".</summary>
     private string Amount(InventoryItemDto batch)

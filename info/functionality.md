@@ -947,6 +947,26 @@ Usage for as long as an item's own restock errand was open. The phone saves thro
 gets the one-entry write-through; it cannot yet raise the question, so a shared row saved from a phone
 leaves the lists alone.
 
+**A shelf can gather other shelves** (`Inventory.GathersInventoryIds`, `InventoryGroups`,
+`OL_INVENTORIES_GATHERED`, `PUT /api/inventories/{id}/gathers`, 2026-09-18). One entry on the list of
+inventories, holding smaller inventories inside it, each of which can go on answering to a different task
+list - a kitchen read as one thing and stocked as three.
+
+**Gathering, not containing.** A member keeps its own rows, its own restock list and its own tie to a
+list, and it stays on the list of inventories where it was: the group is a way of reading several at
+once, not a box they are moved into. Taking one out again leaves it exactly as it was, and deleting a
+member leaves the group reading one row shorter rather than failing. `IsGroup` is derived - a shelf that
+gathers nothing is not one - unlike a task list's own answer, which the reader is given a say in because
+a list can hold an entry pointing at another list without meaning to become a group.
+
+Membership travels on its own endpoint rather than in the save, for the reason filing and pinning do: a
+save is the whole inventory, so a client that had never heard of gathering would scatter every group it
+touched. The whole membership is sent each time, in order. **A ring is refused** - two shelves gathering
+each other would be walked forever - and so is a shelf that is not the caller's own. Three places show
+it: the card on `/inventory` carries a **Group** badge and lists what it gathers, each row opening that
+shelf; the group's own page draws every member's shelf under its name; and the editor has **Inventories
+gathered here**, a box per shelf that says which list each answers to. The phone shows none of this yet.
+
 **And a save of the shelf crosses off what it now answers** (2026-09-18). The rule is
 `StockedEntryCompletion`'s and a save of a *list* has always gone through it; this is the same question
 asked from the other end, which is where it was missing - somebody stocking a shelf put four of something
