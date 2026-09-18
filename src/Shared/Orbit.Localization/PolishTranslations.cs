@@ -1701,10 +1701,12 @@ public static class PolishTranslations
         ["{0} min before"] = "{0} min wcześniej",
         ["Delete \"{0}\"?"] = "Usunąć „{0}”?",
         ["Delete event \"{0}\"?"] = "Usunąć wydarzenie „{0}”?",
-        ["One more"] = "O jeden więcej",
-        ["One fewer"] = "O jeden mniej",
-        ["One more: {0}"] = "O jeden więcej: {0}",
-        ["One fewer: {0}"] = "O jeden mniej: {0}",
+        // The two buttons on a shelf row. They used to move it by one - see InventorySummary.Step for
+        // why half. The number is written the way each language writes it.
+        ["0.5 more"] = "O 0,5 więcej",
+        ["0.5 less"] = "O 0,5 mniej",
+        ["0.5 more: {0}"] = "O 0,5 więcej: {0}",
+        ["0.5 less: {0}"] = "O 0,5 mniej: {0}",
         ["No"] = "Nie",
         ["another user"] = "inny użytkownik",
         ["This login is already taken."] = "Ten login jest już zajęty.",

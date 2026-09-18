@@ -57,16 +57,16 @@ else
                and says so in words beside the name: a shelf of thirty rows with a warning about one of
                them left the reader to work out which. See TheBellMeans. *@
             <div class="list-row shelf-batch @(Highlight == batch.Id ? "highlighted" : "") @(TheBellMeans(batch) ? "row-unseen" : "")">
-                @* Before the name, where the eye starts on the row: taking one off the shelf and
-                   putting one back are the two things somebody does standing in front of it, and
+                @* Before the name, where the eye starts on the row: taking some off the shelf and
+                   putting some back are the two things somebody does standing in front of it, and
                    opening an editor to type a number is not what either of them feels like. *@
                 <span class="shelf-batch-count" @onclick="() => { }" @onclick:stopPropagation="true">
                     <button type="button" class="icon-btn" disabled="@(batch.Quantity <= 0)"
-                            title="@(T["One fewer"])" aria-label="@T.Format("One fewer: {0}", batch.Name)"
-                            @onclick="() => Count(batch, -1)">−</button>
-                    <button type="button" class="icon-btn" title="@(T["One more"])"
-                            aria-label="@T.Format("One more: {0}", batch.Name)"
-                            @onclick="() => Count(batch, 1)">+</button>
+                            title="@(T["0.5 less"])" aria-label="@T.Format("0.5 less: {0}", batch.Name)"
+                            @onclick="() => Count(batch, -Step)">−</button>
+                    <button type="button" class="icon-btn" title="@(T["0.5 more"])"
+                            aria-label="@T.Format("0.5 more: {0}", batch.Name)"
+                            @onclick="() => Count(batch, Step)">+</button>
                 </span>
                 <span class="row-title">@batch.Name</span>
                 @if (TheBellMeans(batch))
@@ -130,6 +130,15 @@ else
     /// </summary>
     [Parameter, SupplyParameterFromQuery(Name = "highlight")]
     public Guid? Highlight { get; set; }
+
+    /// <summary>
+    /// How much the two buttons on a row move the shelf by. Half rather than one, asked for on
+    /// 2026-09-18: most of what a shelf holds is counted in something a half of makes sense of - half a
+    /// kilo, half a litre, half a packet - and somebody who wants a whole one presses twice. Going the
+    /// other way round, a shelf that could only move in ones could not record half a bottle at all
+    /// without opening the form and typing it.
+    /// </summary>
+    private const decimal Step = 0.5m;
 
     private InventoryDto? _inventory;
     private IReadOnlyList<InventoryItemDto> _shelf = [];
@@ -211,8 +220,9 @@ else
     private string? _message;
 
     /// <summary>
-    /// Takes one off the shelf, or puts one back. Never below nothing: a shelf holding minus one of
-    /// something is a number nobody can act on, and the button that would make it is offered greyed.
+    /// Takes some off the shelf, or puts some back - see <see cref="Step"/> for how much. Never below
+    /// nothing: a shelf holding minus one of something is a number nobody can act on, and the button
+    /// that would make it is offered greyed.
     /// </summary>
     private void Count(InventoryItemDto batch, decimal by)
     {

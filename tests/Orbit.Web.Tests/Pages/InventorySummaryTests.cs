@@ -128,9 +128,12 @@ public sealed class InventorySummaryTests : OrbitTestContext
     /// The two things somebody standing in front of a shelf does. Counted here rather than typed in an
     /// editor, and saved with one press - until then nothing has been written, which is what makes the
     /// pair safe to lean on.
+    ///
+    /// Half at a time since 2026-09-18 - see InventorySummary.Step. Most of what a shelf holds is
+    /// counted in something a half of makes sense of, and a whole one is two presses.
     /// </summary>
     [Fact]
-    public void One_off_the_shelf_and_one_back_on_it_are_a_press_each()
+    public void Some_off_the_shelf_and_some_back_on_it_are_a_press_each()
     {
         _shelf = [Batch(FirstBatchId, "Flour", 1, DateTime.Today, expires: null)];
         var cut = RenderComponent<InventorySummary>(parameters => parameters.Add(page => page.InventoryId, InventoryId));
@@ -140,9 +143,35 @@ public sealed class InventorySummaryTests : OrbitTestContext
 
         cut.FindAll(".shelf-batch-count button").First(button => button.TextContent.Contains('+')).Click();
 
-        Assert.Contains("2", cut.Find(".shelf-batch-amount").TextContent);
+        Assert.Contains("1.5", cut.Find(".shelf-batch-amount").TextContent);
         Assert.False(
             cut.FindAll("button").First(button => button.GetAttribute("aria-label") == "Save").HasAttribute("disabled"));
+    }
+
+    /// <summary>And down by the same half, which is what records the bottle somebody half emptied.</summary>
+    [Fact]
+    public void And_down_by_the_same_half()
+    {
+        _shelf = [Batch(FirstBatchId, "Milk", 1, DateTime.Today, expires: null)];
+        var cut = RenderComponent<InventorySummary>(parameters => parameters.Add(page => page.InventoryId, InventoryId));
+
+        cut.FindAll(".shelf-batch-count button").First(button => button.TextContent.Contains('−')).Click();
+
+        Assert.Contains("0.5", cut.Find(".shelf-batch-amount").TextContent);
+    }
+
+    /// <summary>Half of a half is nothing, and the button that would go below it is greyed from there.</summary>
+    [Fact]
+    public void Counting_the_last_half_down_lands_on_nothing_rather_than_below_it()
+    {
+        _shelf = [Batch(FirstBatchId, "Milk", 0.5m, DateTime.Today, expires: null)];
+        var cut = RenderComponent<InventorySummary>(parameters => parameters.Add(page => page.InventoryId, InventoryId));
+
+        cut.FindAll(".shelf-batch-count button").First(button => button.TextContent.Contains('−')).Click();
+
+        Assert.Contains("0", cut.Find(".shelf-batch-amount").TextContent);
+        Assert.True(
+            cut.FindAll(".shelf-batch-count button").First(button => button.TextContent.Contains('−')).HasAttribute("disabled"));
     }
 
     /// <summary>
