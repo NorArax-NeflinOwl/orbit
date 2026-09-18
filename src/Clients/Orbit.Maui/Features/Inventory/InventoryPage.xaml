@@ -94,6 +94,14 @@
                                                TextColor="{AppThemeBinding Light={StaticResource TaskLight}, Dark={StaticResource TaskDark}}" />
                                     </Border>
 
+                                    <!-- A shelf that gathers smaller shelves - see
+                                         Orbit.Core.Inventories.Inventory.GathersInventoryIds, and the
+                                         badge Orbit.Web's own card carries. -->
+                                    <Border Style="{StaticResource CardBadge}" IsVisible="{Binding IsGroup}">
+                                        <Label Text="{controls:Translate 'Group'}"
+                                               Style="{StaticResource CardBadgeLabel}" />
+                                    </Border>
+
                                     <!-- Two cards with the same name are otherwise indistinguishable,
                                          and the reader has no way of telling which one they wrote in. -->
                                     <Border Style="{StaticResource CardBadge}" IsVisible="{Binding IsCopy}">
@@ -113,6 +121,12 @@
                                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.UnlockPrivateCommand, x:DataType=inventory:InventoryPage}" />
                                     <Label Text="{Binding Contents}" IsVisible="{Binding CanBeOpened}"
                                            Style="{StaticResource ItemCardBody}" />
+                                    <!-- What a group gathers, named on one line rather than as rows of
+                                         its own: this is a list of shelves, and a tree drawn inside one
+                                         of them stops it being a list. Opening the group is where the
+                                         division is read - see InventoryDetailViewModel. -->
+                                    <Label Text="{Binding Gathers}" IsVisible="{Binding HasGathers}"
+                                           LineBreakMode="WordWrap" Style="{StaticResource ItemCardBody}" />
                                 </VerticalStackLayout>
                             </controls:ItemCard.Body>
 

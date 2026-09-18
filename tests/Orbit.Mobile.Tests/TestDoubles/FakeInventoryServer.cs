@@ -30,11 +30,17 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
     public IReadOnlyList<InventoryItemDto> ItemsIn(Guid inventoryId)
         => _items.TryGetValue(inventoryId, out var items) ? items : [];
 
-    public InventoryDto AddInventory(string name, bool isSharedWithOthers = false, bool isPrivate = false)
+    /// <param name="gathers">
+    /// The shelves this one gathers, for a group - see Orbit.Core.Inventories.Inventory.GathersInventoryIds.
+    /// </param>
+    public InventoryDto AddInventory(
+        string name, bool isSharedWithOthers = false, bool isPrivate = false,
+        IReadOnlyList<Guid>? gathers = null)
     {
         var now = _timeProvider.GetUtcNow();
         var inventory = new InventoryDto(
-            Guid.NewGuid(), name, now, now, false, null, "CanEdit", null, null, isPrivate, null, isSharedWithOthers);
+            Guid.NewGuid(), name, now, now, false, null, "CanEdit", null, null, isPrivate, null, isSharedWithOthers,
+            GathersInventoryIds: gathers);
 
         _inventories[inventory.Id] = inventory;
         _items[inventory.Id] = [];
@@ -65,13 +71,16 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
     }
 
     /// <param name="usage">What the task lists ask of it, which the server counts - see InventoryItem.Usage.</param>
+    /// <param name="minimum">The level it is kept at, or null for a row nobody set one for.</param>
     public void AddItem(
-        Guid inventoryId, string name, decimal quantity, bool isCheckedRegularly = false, decimal usage = 0)
+        Guid inventoryId, string name, decimal quantity, bool isCheckedRegularly = false, decimal usage = 0,
+        decimal? minimum = null)
     {
         var now = _timeProvider.GetUtcNow();
         _items[inventoryId].Add(new InventoryItemDto(
-            Guid.NewGuid(), name, "Piece", "General", quantity, null, nameof(InventoryUnit.Piece), null, "None",
-            false, false, now, now, isCheckedRegularly, Categories: null, Usage: usage));
+            Guid.NewGuid(), name, "Piece", "General", quantity, minimum, nameof(InventoryUnit.Piece), null, "None",
+            minimum is { } kept && quantity < kept, false, now, now, isCheckedRegularly,
+            Categories: null, Usage: usage));
     }
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)

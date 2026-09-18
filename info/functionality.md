@@ -980,7 +980,15 @@ touched. The whole membership is sent each time, in order. **A ring is refused**
 each other would be walked forever - and so is a shelf that is not the caller's own. Three places show
 it: the card on `/inventory` carries a **Group** badge and lists what it gathers, each row opening that
 shelf; the group's own page draws every member's shelf under its name; and the editor has **Inventories
-gathered here**, a box per shelf that says which list each answers to. The phone shows none of this yet.
+gathered here**, a box per shelf that says which list each answers to.
+
+**The phone shows it too**, read-only (`LocalInventory.GathersServerIds`, 2026-09-18). Its list of
+inventories carries the **Group** badge and names what a group holds on one line ("Holds: Fridge,
+Pantry"); the group's own screen draws each smaller shelf above its own rows, with how much is on it and
+how much of it is short, each opening by being pressed. **Arranging a group stays in the browser**, where
+the whole list of shelves is in front of the reader - the phone keeps the membership beside the items the
+way it keeps the arrival dates and the usage counts, as something the server decides and the phone draws.
+A member this phone has not got yet is passed over rather than drawn as a shelf that cannot be opened.
 
 **And a save of the shelf crosses off what it now answers** (2026-09-18). The rule is
 `StockedEntryCompletion`'s and a save of a *list* has always gone through it; this is the same question

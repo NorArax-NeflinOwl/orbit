@@ -95,6 +95,43 @@
                 <Button Grid.Column="1" Text="{controls:Translate 'Show everything'}" FontSize="12"
                         Style="{StaticResource LinkButton}" Command="{Binding ShowEverythingCommand}" />
             </Grid>
+
+            <!-- The smaller shelves a group gathers, above its own rows because on a group that is what
+                 the screen is about - see Orbit.Core.Inventories.Inventory.GathersInventoryIds. Each is
+                 a shelf of its own and opens by being pressed; how much is on it and how much of it is
+                 short are said here, so the reader can tell which part of the kitchen is empty without
+                 opening all three.
+
+                 A BindableLayout rather than a second CollectionView: a scrolling list inside a
+                 scrolling list is how a phone stops being able to scroll either. There are never many -
+                 a group is a handful of shelves. -->
+            <VerticalStackLayout Spacing="6" IsVisible="{Binding IsGroup}">
+                <Label Text="{controls:Translate 'Inventories gathered here'}" Style="{StaticResource FieldLabel}" />
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Gathered}" Spacing="0">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="screens:InventoryRow">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,8">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenGatheredCommand, x:DataType=inventory:InventoryDetailPage}"
+                                        CommandParameter="{Binding .}" />
+                                </Grid.GestureRecognizers>
+                                <VerticalStackLayout Grid.Column="0" Spacing="2">
+                                    <Label Text="{Binding DisplayName}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                    <Label Text="{Binding Contents}" IsVisible="{Binding CanBeOpened}"
+                                           Style="{StaticResource ItemCardBody}" />
+                                </VerticalStackLayout>
+                                <Border Grid.Column="1" Style="{StaticResource CardBadge}" VerticalOptions="Center"
+                                        IsVisible="{Binding HasRunningLow}"
+                                        Stroke="{AppThemeBinding Light={StaticResource TaskLight}, Dark={StaticResource TaskDark}}">
+                                    <Label Text="{Binding RunningLow}" Style="{StaticResource CardBadgeLabel}"
+                                           TextColor="{AppThemeBinding Light={StaticResource TaskLight}, Dark={StaticResource TaskDark}}" />
+                                </Border>
+                            </Grid>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
         </VerticalStackLayout>
 
         <CollectionView x:Name="Shelf" Grid.Row="3" ItemsSource="{Binding Items}" IsVisible="{Binding IsShowingList}">

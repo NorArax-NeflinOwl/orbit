@@ -2254,8 +2254,13 @@ the session that finishes one strikes it here rather than in a report nobody rea
   Membership is its own endpoint, not part of the save, for the reason filing is; a ring is refused, and
   so is a shelf that is not the caller's. The card on `/inventory` lists what a group gathers, the
   group's own page draws each member's shelf under its name, and the editor has the boxes that arrange
-  it. **The phone shows none of it yet** - its inventory list and detail screens read their own store,
-  and would need the membership carried through the sync first.
+  it. **The phone shows it too**, read-only (`LocalInventory.GathersServerIds`): the membership travels
+  on the change feed and sits beside the items, the way the arrival dates and the usage counts do, so the
+  list of inventories carries the badge and names what a group holds and the group's own screen draws
+  each smaller shelf with what is on it and how much of it is short. Arranging a group stays in the
+  browser - that is a decision made with the whole list of shelves in front of the reader, and a phone
+  answering it would be answering with a guess. **Offering it on the phone** is the next step if it is
+  wanted: the screen has the shelves and the ids already, so it is a sheet of boxes and one PUT.
 - ~~**A mark on the folder button where a notification's thing is**, so somebody following a
   notification can see which folder holds it - in the web's mobile view as well.~~ Done in the browser:
   `FolderTabs.HasNewsIn` puts a dot on the tab, and `PhoneToolbar.HasNews` the same dot on the button

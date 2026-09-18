@@ -310,6 +310,10 @@ public sealed class InventorySynchronizer
                 : null;
         inventory.Name = incoming.Name;
         inventory.Description = incoming.Description;
+        // The shelves it gathers, as the server arranged them - read and never pushed back, see
+        // LocalInventory.GathersServerIds. A server that has not learned about gathering answers null,
+        // which reads as gathering nothing.
+        inventory.GathersServerIds = incoming.AllGathered;
         inventory.IsPrivate = incoming.IsPrivate;
         inventory.EncryptedCiphertext = incoming.EncryptedContent?.Ciphertext;
         inventory.EncryptedNonce = incoming.EncryptedContent?.Nonce;

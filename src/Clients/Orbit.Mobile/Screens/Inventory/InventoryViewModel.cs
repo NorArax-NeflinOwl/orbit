@@ -507,7 +507,11 @@ public sealed partial class InventoryViewModel : ObservableObject
         {
             Inventories.Add(InventoryRow.From(
                 inventory, _pending.Contains(inventory.LocalId), _networkStatus, _translations,
-                _privateItems.IsUnlocked, _translations["Private"]));
+                _privateItems.IsUnlocked, _translations["Private"],
+                // Every shelf, not the ones under this tab: a group may gather one filed somewhere
+                // else, and a row that named only the members that happen to share its folder would be
+                // telling half the truth. See InventoryRow.Gathering.
+                _everyShelf));
         }
 
         // Also what marks the rows just drawn, through Changed.

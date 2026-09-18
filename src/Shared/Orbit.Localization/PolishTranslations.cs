@@ -2447,6 +2447,8 @@ public static class PolishTranslations
         // and a handful of lines nobody had swept up. See the coverage test that now keeps this closed.
         // A group shelf - one entry on the list of inventories holding smaller ones inside it.
         ["Inventories gathered here"] = "Magazyny zebrane tutaj",
+        // What a group's row on the phone's list of inventories says it holds - see InventoryRow.Gathering.
+        ["Holds: {0}"] = "Zawiera: {0}",
         ["A group shelf holds smaller shelves. Each keeps its own items and its own tie to a list; this only decides what is read together."] =
             "Magazyn grupowy zawiera mniejsze magazyny. Każdy zachowuje własne elementy i własne powiązanie z listą — to ustala tylko, co czytane jest razem.",
         ["There are no other inventories to gather."] = "Nie ma innych magazynów do zebrania.",

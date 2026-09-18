@@ -61,6 +61,59 @@ public sealed class InventoryDetailScreenTests
     }
 
     /// <summary>
+    /// A group shelf draws the smaller shelves it gathers, each as the row the list of inventories draws
+    /// it as - so the reader can tell which part of the kitchen is short without opening all three. See
+    /// Orbit.Core.Inventories.Inventory.GathersInventoryIds. 2026-09-18.
+    /// </summary>
+    [Fact]
+    public async Task A_group_draws_the_smaller_shelves_it_gathers()
+    {
+        using var context = new ScreenContext();
+        var fridge = context.Server.AddInventory("Fridge");
+        context.Server.AddItem(fridge.Id, "Milk", quantity: 0, minimum: 2);
+        var kitchen = context.Server.AddInventory("Kitchen", gathers: [fridge.Id]);
+        var stored = await context.PullEverythingAsync(kitchen.Id);
+
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        Assert.True(screen.IsGroup);
+        var member = Assert.Single(screen.Gathered);
+        Assert.Equal("Fridge", member.Name);
+        // And says how much of it is short, which is the reason for looking at a group at all.
+        Assert.True(member.HasRunningLow);
+    }
+
+    /// <summary>An ordinary shelf gathers nothing, so the section is not there at all.</summary>
+    [Fact]
+    public async Task An_ordinary_shelf_draws_no_such_section()
+    {
+        using var context = new ScreenContext();
+        var inventory = await context.PullInventoryAsync("Pantry", "Flour");
+
+        var screen = await context.OpenAsync(inventory.LocalId);
+
+        Assert.False(screen.IsGroup);
+        Assert.Empty(screen.Gathered);
+    }
+
+    /// <summary>
+    /// A member this phone has not got - not synced yet, or deleted - is passed over rather than drawn
+    /// as a shelf that cannot be opened.
+    /// </summary>
+    [Fact]
+    public async Task A_member_this_phone_has_not_got_is_passed_over()
+    {
+        using var context = new ScreenContext();
+        var kitchen = context.Server.AddInventory("Kitchen", gathers: [Guid.NewGuid()]);
+        var stored = await context.PullEverythingAsync(kitchen.Id);
+
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        Assert.False(screen.IsGroup);
+        Assert.Empty(screen.Gathered);
+    }
+
+    /// <summary>
     /// A shelf opened from somewhere that meant one product - an errand naming it, or a search that
     /// found it - marks that row. Sixty rows and no sign of which one was meant is half an answer, and
     /// Orbit.Web's own shelf marks the row its ?highlight= names.
@@ -886,6 +939,16 @@ public sealed class InventoryDetailScreenTests
 
             await _synchronizer.SynchroniseAsync(CancellationToken.None);
             return (await _inventories.GetAllAsync()).Single(inventory => inventory.ServerId == remote.Id);
+        }
+
+        /// <summary>
+        /// Pulls everything the server holds and hands back the one shelf named. For a group, whose
+        /// members have to be here too before it can draw them.
+        /// </summary>
+        public async Task<LocalInventory> PullEverythingAsync(Guid serverId)
+        {
+            await _synchronizer.SynchroniseAsync(CancellationToken.None);
+            return (await _inventories.GetAllAsync()).Single(inventory => inventory.ServerId == serverId);
         }
 
         /// <summary>

@@ -188,6 +188,19 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
 
     public ObservableCollection<InventoryItemRow> Items { get; } = [];
 
+    /// <summary>
+    /// The smaller shelves this one gathers, if it is a group - see
+    /// Orbit.Core.Inventories.Inventory.GathersInventoryIds. The same row the list of inventories draws,
+    /// because that is what each of these is: a shelf of its own, opened by pressing it.
+    ///
+    /// Read only. How a group is arranged is decided in the browser, where the whole list of shelves is
+    /// in front of the reader; here it is drawn.
+    /// </summary>
+    public ObservableCollection<InventoryRow> Gathered { get; } = [];
+
+    /// <summary>Whether this shelf gathers anything worth drawing - a group is one entry holding smaller ones.</summary>
+    public bool IsGroup => Gathered.Count > 0;
+
     /// <summary>True while the screen fills itself in, so loading does not look like a person choosing.</summary>
     private bool _isShowingWhatIsStored;
 
@@ -548,8 +561,9 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
         _items = inventory.Items;
         _arrivals = inventory.ItemArrivals;
         _usage = inventory.ItemUsage;
-        _knownProductTypes = KnownProductTypes.From(
-            await _inventories.GetAllAsync(cancellationToken), await _taskLists.GetAllAsync(cancellationToken));
+        var everyShelf = await _inventories.GetAllAsync(cancellationToken);
+        _knownProductTypes = KnownProductTypes.From(everyShelf, await _taskLists.GetAllAsync(cancellationToken));
+        ShowWhatItGathers(inventory, everyShelf);
         // What this shelf's restock list asks for, and when - see RestockListSettingsPanel.
         await RestockList.ShowFor(inventory.ServerId, cancellationToken);
 
@@ -585,6 +599,44 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
         }
 
         ShowWhatIsOnTheShelf();
+    }
+
+    /// <summary>
+    /// Draws the smaller shelves a group gathers, each as the row the list of inventories draws it as -
+    /// so the reader sees how much is on each and how much of it is short without opening any of them.
+    ///
+    /// A member this phone has not got - not synced yet, or deleted - is passed over rather than drawn
+    /// as a shelf that cannot be opened, the same way a link to a list nobody has reads as nothing
+    /// there. Costs nothing for an ordinary shelf, which is nearly every one.
+    /// </summary>
+    private void ShowWhatItGathers(LocalInventory inventory, IReadOnlyList<LocalInventory> everyShelf)
+    {
+        Gathered.Clear();
+        foreach (var memberId in inventory.GathersServerIds)
+        {
+            if (everyShelf.FirstOrDefault(candidate => candidate.ServerId == memberId) is not { } member)
+            {
+                continue;
+            }
+
+            Gathered.Add(InventoryRow.From(
+                member, hasUnsentChanges: false, _networkStatus, _translations,
+                // Private members are left locked here as they are on the list: what a sealed shelf
+                // holds is what being sealed keeps back, and a group is not a way round that.
+                privateItemsAreUnlocked: false, _translations["Private"], everyShelf));
+        }
+
+        OnPropertyChanged(nameof(IsGroup));
+    }
+
+    /// <summary>Opens one of the smaller shelves - it is a shelf of its own, and this is how it is reached.</summary>
+    [RelayCommand]
+    private void OpenGathered(InventoryRow? row)
+    {
+        if (row is { CanBeOpened: true })
+        {
+            _navigator.ShowInventory(row.LocalId);
+        }
     }
 
     /// <summary>
