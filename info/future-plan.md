@@ -2178,10 +2178,22 @@ the session that finishes one strikes it here rather than in a report nobody rea
   can see which folder holds it - in the web's mobile view as well.
 - **Delete goes out of a pinned list's entry editor** in a group list's heavy editing; it belongs under
   the expanded form.
-- **Opening a task list from the dashboard opens the wrong folder's lists** - the one last chosen on
-  /tasks rather than the one the list is in.
-- **Refresh on the map does nothing.**
-- **Addresses do not wrap in the preview**, and wherever else text that should wrap does not.
+- ~~**Opening a task list from the dashboard opens the wrong folder's lists** - the one last chosen on
+  /tasks rather than the one the list is in.~~ Done: opening a list, a note or a shelf from the
+  dashboard now opens that page's own tab on the folder the thing is in (`Dashboard.GoToTaskList` and
+  its two siblings, through `FolderState.PlacementOn`). The dashboard's own tab is left alone - it
+  answers a question about the dashboard.
+- **Refresh on the map does nothing.** Not reproduced: the handler reads everything the page reads on
+  open and moves the pins (`MapPage.RefreshTheMapAsync`, covered by a test that the places list is read
+  again). What *would* look exactly like this is an exception thrown inside it - an event handler that
+  throws leaves the page as it was - so the handler now catches, logs and says so on screen rather than
+  failing silently. **Still open** until it is seen again: what the reader expects it to change, and
+  whether the browser's console says anything when it is pressed, is what would settle it.
+- ~~**Addresses do not wrap in the preview**, and wherever else text that should wrap does not.~~ Done:
+  the address on an entry's page and on an appointment's is prose rather than a value
+  (`.row-meta-prose`, which already existed for descriptions), and so are the guests and the
+  "waiting for" line. `.row-meta` itself no longer runs off the card either: it shrinks and ends in an
+  ellipsis, so a value too long for its row is cut visibly rather than clipped by the card's edge.
 
 ### Added the same day
 

@@ -2219,7 +2219,15 @@ input.note-editor-title {
 .row-meta {
     font-size: 12px;
     color: var(--text-tertiary);
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    /* A value is one line - "3/7", a date - so it does not wrap. But it must not run off the card
+       either: a long one used to be drawn straight over the edge and simply clipped, with nothing to
+       say it had been (an address on the entry's page, reported on 2026-09-18). It shrinks and ends in
+       an ellipsis now, and anything that is prose rather than a value says so - see .row-meta-prose,
+       which is what the address itself takes. */
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
 }
 

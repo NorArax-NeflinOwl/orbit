@@ -1507,6 +1507,7 @@ public static class PolishTranslations
         ["Location forgotten."] = "Położenie usunięte.",
         ["Couldn't save your location. Try again."] = "Nie udało się zapisać położenia. Spróbuj ponownie.",
         ["Couldn't load your location. Try again."] = "Nie udało się wczytać położenia. Spróbuj ponownie.",
+        ["Couldn't refresh the map. Try again."] = "Nie udało się odświeżyć mapy. Spróbuj ponownie.",
         ["Couldn't clear your location. Try again."] = "Nie udało się usunąć położenia. Spróbuj ponownie.",
         ["Couldn't share your location. Try again."] = "Nie udało się udostępnić położenia. Spróbuj ponownie.",
         ["Record where you are first - there is nothing to share yet."] =

@@ -55,7 +55,7 @@ else
             <Trailing><span class="row-meta">@WhenItHappens(_event.Details)</span></Trailing>
         </Row>
         <Row Title="@T["Where"]">
-            <Trailing><span class="row-meta">@(_place.Length > 0 ? _place : T["No place set"])</span></Trailing>
+            <Trailing><span class="row-meta row-meta-prose">@(_place.Length > 0 ? _place : T["No place set"])</span></Trailing>
         </Row>
         @if (_event.Details.Description is { Length: > 0 } description)
         {
@@ -66,7 +66,7 @@ else
         @if (_event.Details.Guests.Count > 0)
         {
             <Row Title="@T["Guests:"]">
-                <Trailing><span class="row-meta">@string.Join(", ", _event.Details.Guests.Select(NameOfTheGuest))</span></Trailing>
+                <Trailing><span class="row-meta row-meta-prose">@string.Join(", ", _event.Details.Guests.Select(NameOfTheGuest))</span></Trailing>
             </Row>
         }
         @* What it will say, and when. The channel is left out: what a reminder arrives on is a setting

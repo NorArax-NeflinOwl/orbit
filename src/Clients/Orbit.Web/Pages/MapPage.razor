@@ -1728,10 +1728,23 @@ else
     {
         Logger.LogInformation("User refreshed the map");
         _isRefreshing = true;
+        _message = null;
         try
         {
             await LoadAsync();
             await RefreshMapMarkersAsync();
+        }
+        catch (Exception exception)
+        {
+            // Anything LoadAsync did not expect - a position that will not open, an answer that will
+            // not parse. Caught here rather than left to the renderer because of what the failure looks
+            // like from outside: an event handler that throws leaves the page exactly as it was, which
+            // is indistinguishable from a button that was never wired up. Reported as "Refresh does
+            // nothing" on 2026-09-18, and a silent failure is the only way that report can be true of
+            // this code. Said on screen as well as logged - see the rule the rest of this page follows.
+            Logger.LogError(exception, "The map could not be refreshed");
+            _hasFailed = true;
+            _message = T["Couldn't refresh the map. Try again."];
         }
         finally
         {

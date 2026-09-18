@@ -121,7 +121,7 @@ else
                 }
                 @foreach (var note in NotesToShow)
                 {
-                    <Row Title="@note.Title" OnPressed="() => GoToNote(note.Id)">
+                    <Row Title="@note.Title" OnPressed="() => GoToNote(note)">
                         <Trailing>
                             <TagChips Tags="note.AllTags" />
                             @RenderPriorityBadge(note.Priority)
@@ -181,7 +181,7 @@ else
                 {
                     @* Struck through where it is finished - which on this card means pinned, since an
                        unpinned finished list is not shown at all. See TaskListsToShow. *@
-                    <Row Title="@Written(taskList.Title)" OnPressed="() => GoToTaskList(taskList.Id)"
+                    <Row Title="@Written(taskList.Title)" OnPressed="() => GoToTaskList(taskList)"
                          AdditionalClass="@RowClasses(taskList.IsCompleted ? "completed" : null, HasNewsAbout(taskList.Id, "/tasks"))">
                         <Trailing>
                             <TagChips Tags="taskList.AllTags" />
@@ -281,7 +281,7 @@ else
                 <Body>
                 @foreach (var inventory in InventoriesUnderTheOpenTab)
                 {
-                    <Row Title="@inventory.Name" OnPressed="() => GoToInventory(inventory.Id)"
+                    <Row Title="@inventory.Name" OnPressed="() => GoToInventory(inventory)"
                          AdditionalClass="@RowClasses(null, HasNewsAbout(inventory.Id, "/inventory"))">
                         <Trailing>
                             @if (inventory.IsPrivate)
@@ -1282,17 +1282,33 @@ else
     private void OpenUpcoming(UpcomingEntry entry)
         => NavigationManager.NavigateTo(ReturnTo.Link(entry.Url, "/"));
 
-    private void GoToNote(Guid noteId)
+    /// <summary>Opens the note, and the notes page's own tab on the folder it is in - see GoToTaskList.</summary>
+    private void GoToNote(NoteDto note)
     {
-        Logger.LogInformation("User clicked a note on the dashboard ({NoteId})", noteId);
-        NavigationManager.NavigateTo(ReturnTo.Link($"/notes/{noteId}", "/"));
+        Logger.LogInformation("User clicked a note on the dashboard ({NoteId})", note.Id);
+        Folders.Choose(
+            FolderPage.Notes,
+            Folders.PlacementOn(FolderPage.Notes, note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived));
+        NavigationManager.NavigateTo(ReturnTo.Link($"/notes/{note.Id}", "/"));
     }
 
-    /// <summary>Opens the checklist, which is what getting on with a list means - see GoToNote above.</summary>
-    private void GoToTaskList(Guid taskListId)
+    /// <summary>
+    /// Opens the checklist, which is what getting on with a list means - see GoToNote above.
+    ///
+    /// And opens the tasks page's own tab on the folder this list is in, so that leaving the checklist
+    /// arrives at the lists it is among. The two pages keep their tabs separately (see FolderState),
+    /// which is right - the dashboard's tab is about the whole dashboard - but it meant that opening a
+    /// list filed under "Home" from here and then stepping out of it landed on whatever tab /tasks was
+    /// last left on, with the list nowhere in sight. Reported on 2026-09-18.
+    /// </summary>
+    private void GoToTaskList(TaskDto taskList)
     {
-        Logger.LogInformation("User clicked a task list on the dashboard ({TaskListId})", taskListId);
-        NavigationManager.NavigateTo(ReturnTo.Link($"/tasks/{taskListId}", "/"));
+        Logger.LogInformation("User clicked a task list on the dashboard ({TaskListId})", taskList.Id);
+        Folders.Choose(
+            FolderPage.Tasks,
+            Folders.PlacementOn(
+                FolderPage.Tasks, taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted, taskList.IsArchived));
+        NavigationManager.NavigateTo(ReturnTo.Link($"/tasks/{taskList.Id}", "/"));
     }
 
     /// <summary>
@@ -1325,9 +1341,14 @@ else
     private static string PlaceColour(PlaceDto place)
         => place.Colour.Length > 0 ? place.Colour : "var(--accent)";
 
-    private void GoToInventory(Guid inventoryId)
+    /// <summary>Opens the shelf, and the inventories page's own tab on the folder it is in - see GoToTaskList.</summary>
+    private void GoToInventory(InventoryDto inventory)
     {
-        Logger.LogInformation("User clicked an inventory on the dashboard ({InventoryId})", inventoryId);
-        NavigationManager.NavigateTo(ReturnTo.Link($"/inventory/{inventoryId}", "/"));
+        Logger.LogInformation("User clicked an inventory on the dashboard ({InventoryId})", inventory.Id);
+        Folders.Choose(
+            FolderPage.Inventories,
+            Folders.PlacementOn(
+                FolderPage.Inventories, inventory.FolderId, inventory.IsPrivate, isFinished: false, inventory.IsArchived));
+        NavigationManager.NavigateTo(ReturnTo.Link($"/inventory/{inventory.Id}", "/"));
     }
 }
