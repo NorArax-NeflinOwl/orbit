@@ -5795,6 +5795,12 @@ input.note-editor-title {
     flex-direction: column;
     max-height: 300px;
     overflow-y: auto;
+    /* And never sideways. A row holds a tick, a name, a count and two colour buttons; squeezed narrow
+       enough, those buttons cannot shrink any further and the panel grew a horizontal scrollbar with
+       the names hidden off to the left of it. The width the panel is given is a floor as well as a
+       measurement now (see menuAnchor.js), and this is what stops anything spilling past it anyway. */
+    overflow-x: hidden;
+    max-width: calc(100vw - 8px);
     padding: 4px;
     background: var(--bg-elevated);
     border: 1px solid var(--border);
@@ -5834,6 +5840,36 @@ input.note-editor-title {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* On a phone the panel is as wide as the window allows and no wider, so a long word has nowhere to go
+   sideways: it wraps onto a second line rather than ending in an ellipsis that hides which word it is.
+   The opposite trade from a wide screen, where one line per row keeps the list scannable and a word too
+   long for it is rare. Asked for on 2026-09-18 along with the width itself.
+
+   The row's parts line up at the top once a name can be two lines: centred against a tall name puts the
+   tick and the colour buttons in the middle of nowhere. */
+@media (max-width: 480px) {
+    .value-browser-name {
+        overflow: visible;
+        text-overflow: clip;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .value-browser-tick {
+        align-items: flex-start;
+    }
+
+    .value-browser-row {
+        align-items: flex-start;
+    }
+
+    /* And the buttons keep their own line's height rather than stretching down the wrapped name. */
+    .value-browser-colour,
+    .value-browser-uncolour {
+        margin-top: 4px;
+    }
 }
 
 /* A word the account gave a colour, drawn in it here as well as on the cards - so the colour being
@@ -7920,30 +7956,10 @@ span.calendar-task-chip {
     font-size: 12.5px;
 }
 
-/* The lists one entry stands for, each with a way to take it off again. A row of chips rather than a
-   multi-select: what matters is reading which lists these are, and a multi-select shows that only
-   while it is open. */
-.linked-list-chips {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-}
-
-.linked-list-chips li {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 3px 4px 3px 10px;
-    /* Quieter than the card it sits on, which is what a chip on a card should be - and defined, unlike
-       the --surface it used to ask for. */
-    background: var(--bg-subtle);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    font-size: 13px;
-}
+/* The lists one entry stood for were a row of chips under a picker: reading which they are matters, and
+   a multi-select shows that only while it is open. The browser answers both at once - the closed field
+   says what is taken and the whole list is a press away - so the picker and the chips both went on
+   2026-09-18, and this went with them. See ValueBrowser. */
 
 /* An entry's ways, one to a line under their label - see TaskEditor's "Ways to get it done". */
 .entry-ways {
