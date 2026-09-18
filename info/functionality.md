@@ -3183,9 +3183,22 @@ than unfolding forever (`LinkedTaskListTree`).
 ### Reading a nested list flat, and keeping how it reads
 
 A tree two levels deep reads as a stack of cards, which is right for seeing how the work is organised
-and wrong for working through it. **Show single items** folds the whole tree into one run of items, each
-labelled with the list it came from, leaving out the rows that only point at another list. It is offered
-only where there is something to flatten.
+and wrong for working through it. **Show single items** folds the whole tree into one run of items,
+leaving out the rows that only point at another list. It is offered only where there is something to
+flatten.
+
+**Entries that say the same thing are one row** (2026-09-18, `TaskListChecklist.FlatRowsToShow`). Three
+lists asking for milk are three entries and one errand; read flat they were three rows saying "Milk",
+each labelled with the list it came from, and the reader had to add them up. The row now carries **how
+much is wanted altogether** - each entry's `RequiredQuantity`, or its product's minimum where nothing
+has linked it to a shelf yet, summed per unit, since two kilograms and two packs are not four of
+anything - the union of what they are filed under, and the soonest deadline any of them carries. What is
+gone is the note of which list it came from: that is the tree view's question. Alike means *what the row
+says*, compared without case or surrounding space, because that is what the reader sees as the same
+thing; matching on the shelf item behind it would gather some of them and leave the rest alone. The box
+answers for all of them - one press ticks the errand off every list that asked for it, each list written
+on its own, and an entry that cannot go through (waiting on a step, or done by ways) asks its question
+under the row without stopping the others.
 
 **Sort** chooses between the list's own order, A to Z, and what is left to do first - which puts the
 undone at the top and the done at the bottom, each alphabetically, so a half-finished list reads as what

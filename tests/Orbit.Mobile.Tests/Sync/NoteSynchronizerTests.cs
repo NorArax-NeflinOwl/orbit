@@ -362,6 +362,35 @@ public sealed class NoteSynchronizerTests
         Assert.Equal("Written elsewhere", (await context.DbContext.Notes.SingleAsync()).Title);
     }
 
+    /// <summary>
+    /// And everything on it arrives with it, a rule across the note included - see
+    /// Orbit.Core.Notes.NoteSeparatorLine. Reported on 2026-09-18 as a separator made in the browser
+    /// not being read on the phone, so this is the wire being held to rather than the drawing: the
+    /// stamp it was made with comes down as it was written, since it is words rather than an instant.
+    /// </summary>
+    [Fact]
+    public async Task A_rule_across_a_note_written_on_the_web_arrives_with_it()
+    {
+        using var context = new SyncContext();
+        var written = context.Server.AddNote("Written elsewhere");
+        context.Server.ReplaceForTest(written with
+        {
+            Content =
+            [
+                new NoteContentLineDto("bought the paint", false, false),
+                new NoteContentLineDto(
+                    string.Empty, IsChecklistItem: false, IsChecked: false,
+                    Separator: new NoteSeparatorLineDto("Tuesday, 15 September 2026 11:20"))
+            ]
+        });
+
+        await context.SynchroniseAsync();
+
+        var line = (await context.DbContext.Notes.SingleAsync()).Content[1];
+        Assert.NotNull(line.Separator);
+        Assert.Equal("Tuesday, 15 September 2026 11:20", line.Separator.Stamp);
+    }
+
     [Fact]
     public async Task A_note_deleted_on_the_web_leaves_the_phone_too()
     {

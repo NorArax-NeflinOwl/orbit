@@ -2229,9 +2229,13 @@ the session that finishes one strikes it here rather than in a report nobody rea
   entries of the main list, so nothing from the sublists ever reaches the inventory.
 - **A separator made on one client is not drawn by the other**, either way round. The Android entry
   above is the same fault seen from one side only.
-- **A group list's light view shows the same entry once per sublist.** They should be summed into one
+- ~~**A group list's light view shows the same entry once per sublist.** They should be summed into one
   entry carrying the minimum wanted on the list and its tags, with the note of which sublist it came
-  from taken away.
+  from taken away.~~ Done in the browser (`FlatRowsToShow`): one row per thing said, how much is wanted
+  summed per unit, the union of the categories, the soonest deadline, and no note of the list it came
+  from. The box answers for every entry behind it, each list written on its own. **The phone has no flat
+  view at all** ("The phone cannot flatten a tree of lists", above), so there is nothing there to gather
+  yet - that entry is where this lands when it is built.
 
 ## Smaller identified follow-ups
 
