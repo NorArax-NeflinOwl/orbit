@@ -2169,9 +2169,12 @@ the session that finishes one strikes it here rather than in a report nobody rea
   scrolled and took as much height as it wanted. Both are inside the one scroller now, still as two
   stacks because they read different binding contexts (the entry's own fields, and what is about the
   entry from the list's side). **Not seen on a device.**
-- **Separators made in the browser are not read correctly on Android.** Every step of the path was
-  read and the sync was covered with a test, and none of it loses one - see issue #294, which says what
-  was checked and what would settle it.
+- **Separators made in the browser are not read correctly on Android.** Explained on 2026-09-19: this
+  is the fault `af12718d` fixed on 2026-09-16. `extractLines`, the browser's read of its own writing
+  surface - which runs on every keystroke and on every save - read a table and a picture back and not a
+  rule, so a separator drawn in the browser was stored as an empty line and Android read an empty line.
+  The fix reached `main` the same evening (`ef227ee4`) and the deployed browser carries it. Left open
+  for a confirmation on the current build - see issue #294.
 - ~~**The press target for an item is too small** - the name itself has to be hit for the press to
   count.~~ Done for a task list's entries, which is where it was reported: the tap that opens an entry
   is on the row and the row has a transparent fill, so the empty half of a short line counts. It used
@@ -2349,9 +2352,10 @@ the session that finishes one strikes it here rather than in a report nobody rea
   not one to hold a save on. **The row hint is still only the browser's** - the phone's shelf rows say
   what the lists ask for as a number (`InventoryItemRow.KeptAt`) and not which lists they are.
 - **A separator made on one client is not drawn by the other**, either way round. The Android entry
-  above is the same fault seen from one side only, and both are issue #294: the wire, both clients'
-  mappings, the phone's local store, its template and the sync were all read, and a test now holds the
-  sync. Whatever this is, it is not on the path the code describes.
+  above is the same fault seen from the other side, and both are issue #294 - and both are explained by
+  `af12718d` (2026-09-16): the browser's read of its own writing surface dropped the rule on the next
+  keystroke or save, so one made on the phone survived only until the browser touched the note. Deployed
+  since that evening; left open for a confirmation on the current build.
 - ~~**A group list's light view shows the same entry once per sublist.** They should be summed into one
   entry carrying the minimum wanted on the list and its tags, with the note of which sublist it came
   from taken away.~~ Done in the browser (`FlatRowsToShow`): one row per thing said, how much is wanted
