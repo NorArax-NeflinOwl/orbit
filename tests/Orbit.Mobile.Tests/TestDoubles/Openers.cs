@@ -37,6 +37,19 @@ internal static class Openers
             localStore, new TasksClient(StubHttpMessageHandler.Unreachable().ToHttpClient()),
             TimeProvider.System, new SyncGate(), NullLogger<TaskListSynchronizer>.Instance);
 
+    /// <summary>
+    /// The stored shelves an opener reads to turn a warning's server id into the local one - the same
+    /// two ids the task lists have, and the same reason.
+    /// </summary>
+    public static LocalInventoryRepository InventoriesIn(LocalStore localStore)
+        => new(localStore, TimeProvider.System, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
+
+    /// <inheritdoc cref="NoTaskListServer"/>
+    public static InventorySynchronizer NoInventoryServer(LocalStore localStore)
+        => new(
+            localStore, new InventoryClient(StubHttpMessageHandler.Unreachable().ToHttpClient()),
+            TimeProvider.System, new SyncGate(), NullLogger<InventorySynchronizer>.Instance);
+
     public static NotificationOpener AgainstNobody(LocalStore localStore, IScreenNavigator navigator)
         => AgainstNobody(localStore, navigator, new PendingNotificationTap());
 
@@ -66,6 +79,7 @@ internal static class Openers
             chat,
             new ChatSynchronizer(chat, chatClient, usersClient, sender, NullLogger<ChatSynchronizer>.Instance),
             usersClient, TaskListsIn(localStore), NoTaskListServer(localStore),
+            InventoriesIn(localStore), NoInventoryServer(localStore),
             pendingTap, navigator);
     }
 }

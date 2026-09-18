@@ -180,7 +180,8 @@ public sealed class TappedNotificationLaunchTests
                 repository, chatClient, usersClient, sender, NullLogger<ChatSynchronizer>.Instance);
 
             Opener = new NotificationOpener(
-                repository, synchronizer, usersClient, Openers.TaskListsIn(_localStore), Openers.NoTaskListServer(_localStore), _pendingTap, Navigator);
+                repository, synchronizer, usersClient, Openers.TaskListsIn(_localStore), Openers.NoTaskListServer(_localStore),
+                Openers.InventoriesIn(_localStore), Openers.NoInventoryServer(_localStore), _pendingTap, Navigator);
         }
 
         public NotificationOpener Opener { get; }

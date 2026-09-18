@@ -248,6 +248,7 @@ public sealed class NotificationFeedScreenTests
                 repository, chatClient, usersClient, sender, NullLogger<ChatSynchronizer>.Instance);
             _opener = new NotificationOpener(
                 repository, _synchronizer, usersClient, Openers.TaskListsIn(_localStore), Openers.NoTaskListServer(_localStore),
+                Openers.InventoriesIn(_localStore), Openers.NoInventoryServer(_localStore),
                 new PendingNotificationTap(), Navigator);
         }
 

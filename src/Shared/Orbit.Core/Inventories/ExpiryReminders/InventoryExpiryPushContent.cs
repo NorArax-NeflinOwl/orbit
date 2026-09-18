@@ -19,7 +19,7 @@ public static class InventoryExpiryPushContent
             // (see TaskListChecklist's links to a shelf item). Following the warning opens the shelf with
             // that row picked out, and the shelf marks it - a card saying "something happened here" over
             // thirty rows still left the reader to find which. The page is still the page: the address
-            // that settles this entry is the one before the "?" - see NotificationFeedState.Settles.
-            $"/inventory/{reminder.InventoryId}?highlight={reminder.InventoryItemId}");
+            // that settles this entry is the one before the "?" - see NotificationUrl.
+            NotificationUrl.Naming($"/inventory/{reminder.InventoryId}", reminder.InventoryItemId));
     }
 }

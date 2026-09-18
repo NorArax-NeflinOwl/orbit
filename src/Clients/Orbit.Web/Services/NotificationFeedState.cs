@@ -112,35 +112,14 @@ public sealed class NotificationFeedState
             || reached.StartsWith(notificationPath + "/", StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>The address without its query or fragment - see <see cref="Settles"/>.</summary>
-    private static string PathOf(string url)
-        => url[..(url.IndexOfAny(['?', '#']) is >= 0 and var at ? at : url.Length)];
-
     /// <summary>
-    /// The row an entry's address names, if it names one: "?highlight={id}". Null for every other entry,
-    /// and for a "highlight" that is not an id - an address is data from the server, and a malformed one
-    /// means "no row" rather than a page that fails to draw.
+    /// Both taken from Orbit.Core.Notifications.NotificationUrl, which is where the addresses are
+    /// written - the two clients read them the same way because they read them with the same code.
     /// </summary>
-    private static Guid? ThingNamedIn(string url)
-    {
-        const string names = "highlight=";
-        var at = url.IndexOf('?');
-        if (at < 0)
-        {
-            return null;
-        }
+    private static string PathOf(string url) => Orbit.Core.Notifications.NotificationUrl.PathOf(url);
 
-        foreach (var part in url[(at + 1)..].Split('&'))
-        {
-            if (part.StartsWith(names, StringComparison.OrdinalIgnoreCase)
-                && Guid.TryParse(part[names.Length..], out var thing))
-            {
-                return thing;
-            }
-        }
-
-        return null;
-    }
+    /// <inheritdoc cref="Orbit.Core.Notifications.NotificationUrl.RowNamedIn"/>
+    private static Guid? ThingNamedIn(string url) => Orbit.Core.Notifications.NotificationUrl.RowNamedIn(url);
 
     /// <summary>
     /// Drops the entries pointing at url, matching what the server was just told. Applied locally rather
