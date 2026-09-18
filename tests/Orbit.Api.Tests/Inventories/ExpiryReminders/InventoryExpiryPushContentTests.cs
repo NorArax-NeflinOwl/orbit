@@ -18,7 +18,24 @@ public sealed class InventoryExpiryPushContentTests
 
         var payload = InventoryExpiryPushContent.Build(AReminder(inventoryId));
 
-        Assert.Equal($"/inventory/{inventoryId}", payload.Url);
+        Assert.StartsWith($"/inventory/{inventoryId}?", payload.Url);
+    }
+
+    /// <summary>
+    /// And the row on it, the way everything in Orbit names a row it wants landed on. Following the
+    /// warning opens the shelf with that row picked out, and the shelf marks it - a card saying
+    /// "something happened here" over thirty rows still left the reader to find which. Asked for on
+    /// 2026-09-18.
+    /// </summary>
+    [Fact]
+    public void And_the_row_it_is_about()
+    {
+        var reminder = AReminder(Guid.NewGuid());
+
+        var payload = InventoryExpiryPushContent.Build(reminder);
+
+        Assert.Equal(
+            $"/inventory/{reminder.InventoryId}?highlight={reminder.InventoryItemId}", payload.Url);
     }
 
     /// <summary>
@@ -43,5 +60,5 @@ public sealed class InventoryExpiryPushContentTests
         => new(
             InventoryItemId: Guid.NewGuid(), InventoryId: inventoryId, UserId: Guid.NewGuid(),
             Name: "Milk", ExpiryDate: new DateTimeOffset(2026, 3, 15, 0, 0, 0, TimeSpan.Zero),
-            NotificationChannel: NotificationChannel.Push);
+            NotificationChannel: NotificationChannel.Push, Quantity: 1);
 }

@@ -195,6 +195,67 @@ public sealed class InventorySummaryTests : OrbitTestContext
         Assert.True(fewer.HasAttribute("disabled"));
     }
 
+    /// <summary>
+    /// A shelf of thirty rows with a warning about one of them left the reader to work out which. The
+    /// warning names the row (InventoryExpiryPushContent), and the shelf marks it. Asked for 2026-09-18.
+    /// </summary>
+    [Fact]
+    public void The_row_the_bell_is_talking_about_is_marked()
+    {
+        var other = Guid.NewGuid();
+        _shelf = [
+            Batch(FirstBatchId, "Flour", 2, new DateTime(2026, 8, 20), new DateTime(2026, 9, 20)),
+            Batch(other, "Sugar", 1, new DateTime(2026, 8, 20), expires: null)];
+        TheBellSays($"/inventory/{InventoryId}?highlight={FirstBatchId}");
+
+        var cut = RenderComponent<InventorySummary>(
+            parameters => parameters.Add(page => page.InventoryId, InventoryId));
+
+        // Indexed off a list rather than the collection: bUnit's own indexer binds to an AngleSharp
+        // overload this build does not have.
+        var marked = cut.FindAll(".shelf-batch.row-unseen").ToList();
+        Assert.Contains("Flour", Assert.Single(marked).TextContent);
+    }
+
+    /// <summary>
+    /// Kept for the visit rather than asked afresh as each row draws: arriving here is what marks those
+    /// notifications read, so a mark that followed the shared set would flash and go - see
+    /// InventorySummary's own comment on it.
+    /// </summary>
+    [Fact]
+    public async Task And_stays_marked_once_the_bell_has_been_emptied()
+    {
+        _shelf = [Batch(FirstBatchId, "Flour", 2, new DateTime(2026, 8, 20), new DateTime(2026, 9, 20))];
+        var bell = TheBellSays($"/inventory/{InventoryId}?highlight={FirstBatchId}");
+
+        var cut = RenderComponent<InventorySummary>(
+            parameters => parameters.Add(page => page.InventoryId, InventoryId));
+        await cut.InvokeAsync(() => bell.Clear());
+
+        Assert.Single(cut.FindAll(".shelf-batch.row-unseen"));
+    }
+
+    [Fact]
+    public void A_shelf_the_bell_has_said_nothing_about_marks_nothing()
+    {
+        _shelf = [Batch(FirstBatchId, "Flour", 2, new DateTime(2026, 8, 20), new DateTime(2026, 9, 20))];
+
+        var cut = RenderComponent<InventorySummary>(
+            parameters => parameters.Add(page => page.InventoryId, InventoryId));
+
+        Assert.Empty(cut.FindAll(".shelf-batch.row-unseen"));
+    }
+
+    /// <summary>Puts one unread entry in the shared feed, and hands it back so a test can empty it.</summary>
+    private NotificationFeedState TheBellSays(string url)
+    {
+        var bell = Services.GetRequiredService<NotificationFeedState>();
+        bell.Set([new Contracts.Notifications.NotificationEntryDto(
+            Guid.NewGuid(), "InventoryItemExpiring", "Expiring soon", "Body", url, DateTimeOffset.UtcNow,
+            IsRead: false)]);
+        return bell;
+    }
+
     private static InventoryItemDto Batch(Guid id, string name, decimal quantity, DateTime added, DateTime? expires)
         => new(
             id, name, "Food", "Dry goods", quantity, MinimumQuantity: null, Unit: "Piece",

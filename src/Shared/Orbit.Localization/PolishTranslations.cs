@@ -265,6 +265,8 @@ public static class PolishTranslations
         ["Could not leave that group. Check your connection and try again."] = "Nie udało się opuścić grupy. Sprawdź połączenie i spróbuj ponownie.",
         ["Private note"] = "Notatka prywatna",
         ["Something happened here"] = "Coś się tu wydarzyło",
+        // The same thing said of one row rather than of a whole card - see InventorySummary.
+        ["This is what the bell is talking about"] = "O tym mówi powiadomienie",
         ["This place goes to the event in the calendar, pin and all."] = "To miejsce trafia do wydarzenia w kalendarzu, razem z pinezką.",
         ["Point at this place on the map so the calendar knows where it is - a name on its own stays on the entry."] = "Wskaż to miejsce na mapie, aby kalendarz wiedział, gdzie ono jest - sama nazwa zostaje przy pozycji.",
         ["\"{0}\" already has an event in the calendar, so its type can't be changed. Detach it from the event first, then decide what to do with the event itself."] = "„{0}” ma już wydarzenie w kalendarzu, więc nie można zmienić jego typu. Najpierw odłącz je od wydarzenia, potem zdecyduj, co zrobić z samym wydarzeniem.",

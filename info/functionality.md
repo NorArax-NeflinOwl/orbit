@@ -3887,6 +3887,26 @@ the top and shows a passive "Expires soon"/"Expired" badge, computed client-side
 today — keeping that half of the feature entirely client-side rather than adding another notification
 path.
 
+**Nothing goes off when there is none of it** (`InventoryExpiryReminderScheduler`, 2026-09-18). A row at
+zero is a product the shelf remembers rather than one it holds — its name, unit and keeping time are what
+let the next delivery be counted in — so no warning is sent about it. Reported with a shelf whose rows
+had been counted down to zero and were still being warned about. The rule is in the scheduler rather than
+in the query, so it can be read and tested; the repository goes on answering "what is near its date" and
+carries `Quantity` with each row. Restocking makes the row eligible again on the very next sweep, with no
+reset: the delivery row is keyed by the date, so a date that has not moved is still warned about only
+once.
+
+**The warning names the row, not only the shelf** (`InventoryExpiryPushContent`, 2026-09-18). Its address
+is `/inventory/{inventoryId}?highlight={itemId}` — the `?highlight=` the whole app already uses to land
+on a row. Following it opens the shelf with that row picked out, and **the shelf marks the row the bell
+is talking about** (`InventorySummary`, the `.row-unseen` outline plus the red dot a card carries): a
+card saying "something happened here" over thirty rows still left the reader to find which. The page is
+still the page — `NotificationFeedState` compares addresses without their query, so opening
+`/inventory/{id}` settles an entry about one of its rows, and the card and folder marks are unchanged.
+The shelf takes the set of marked rows as it opens and keeps it for the visit: arriving is what marks
+those entries read, so a mark that followed the shared set would flash and go. The phone has no such mark
+yet.
+
 ### The restock list
 
 One per inventory, pinned, named after it - "Restock supplies - Pantry" - and renamed with it, unless

@@ -71,9 +71,76 @@ public sealed class NotificationFeedState
             .Where(url => Settles(url, path))
             .Distinct(StringComparer.OrdinalIgnoreCase)];
 
+    /// <summary>
+    /// Whether anything unread is about one thing <b>inside</b> a page, rather than about a page of its
+    /// own - a row on a shelf, say. Such an entry points at the page and names the row it means with the
+    /// "highlight" the whole app already uses to land on a row (see TaskListChecklist's links to a shelf
+    /// item, and InventorySummary.Highlight).
+    ///
+    /// Kept apart from <see cref="HasNewsAbout(string)"/> because it asks a narrower question: the page
+    /// still has news, and this says which row of it.
+    /// </summary>
+    public bool HasNewsAbout(string url, Guid thingOnThePage)
+        => ThingsNamedFor(url).Contains(thingOnThePage);
+
+    /// <summary>
+    /// Every row on this page the unread entries name - see <see cref="HasNewsAbout(string, Guid)"/>.
+    ///
+    /// Asked all at once by the page those rows are on, and for a reason: arriving there is what marks
+    /// those entries read (see NewsSettler, which MainLayout runs on every navigation), so a page that
+    /// asked row by row as it drew would be asking a set that is about to empty. It takes this the
+    /// moment it opens and keeps it for the visit.
+    /// </summary>
+    public IReadOnlyList<Guid> ThingsNamedFor(string url)
+        => [.. _unreadEntries
+            .Select(entry => entry.Url)
+            .OfType<string>()
+            .Where(entryUrl => string.Equals(PathOf(entryUrl), PathOf(url), StringComparison.OrdinalIgnoreCase))
+            .Select(ThingNamedIn)
+            .OfType<Guid>()
+            .Distinct()];
+
     private static bool Settles(string notificationUrl, string path)
-        => string.Equals(notificationUrl, path, StringComparison.OrdinalIgnoreCase)
-            || path.StartsWith(notificationUrl + "/", StringComparison.OrdinalIgnoreCase);
+    {
+        // The page each address is, without what it was asked to do on arrival: an entry about a row
+        // points at its page and names the row after a "?" (see the overload above), and a reader who
+        // opens that page has read it. Comparing the addresses whole would leave such an entry lit for
+        // good - nothing ever navigates to the "?highlight=" spelling except the notification itself.
+        var notificationPath = PathOf(notificationUrl);
+        var reached = PathOf(path);
+        return string.Equals(notificationPath, reached, StringComparison.OrdinalIgnoreCase)
+            || reached.StartsWith(notificationPath + "/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The address without its query or fragment - see <see cref="Settles"/>.</summary>
+    private static string PathOf(string url)
+        => url[..(url.IndexOfAny(['?', '#']) is >= 0 and var at ? at : url.Length)];
+
+    /// <summary>
+    /// The row an entry's address names, if it names one: "?highlight={id}". Null for every other entry,
+    /// and for a "highlight" that is not an id - an address is data from the server, and a malformed one
+    /// means "no row" rather than a page that fails to draw.
+    /// </summary>
+    private static Guid? ThingNamedIn(string url)
+    {
+        const string names = "highlight=";
+        var at = url.IndexOf('?');
+        if (at < 0)
+        {
+            return null;
+        }
+
+        foreach (var part in url[(at + 1)..].Split('&'))
+        {
+            if (part.StartsWith(names, StringComparison.OrdinalIgnoreCase)
+                && Guid.TryParse(part[names.Length..], out var thing))
+            {
+                return thing;
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// Drops the entries pointing at url, matching what the server was just told. Applied locally rather

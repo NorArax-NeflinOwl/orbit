@@ -2336,6 +2336,20 @@ the session that finishes one strikes it here rather than in a report nobody rea
   view at all** ("The phone cannot flatten a tree of lists", above), so there is nothing there to gather
   yet - that entry is where this lands when it is built.
 
+### Added 2026-09-18, with a picture of the shelf
+
+- ~~**A mark on the shelf row a notification is about.**~~ Done in the browser. The warning's address is
+  `/inventory/{id}?highlight={itemId}` now (`InventoryExpiryPushContent`), and `InventorySummary` draws
+  the `.row-unseen` outline and the red dot on that row. `NotificationFeedState` compares addresses
+  without their query, so the page is still settled by being opened and the card and folder marks are
+  untouched; the page takes its set of marked rows as it opens and keeps it for the visit, since arriving
+  is exactly what marks those entries read. **The phone has no such mark**, and its shelf screen would
+  need the same: the feed it already reads, the row's own id, and the dot.
+- ~~**A shelf holding none of something still warned that it was nearing its date.**~~ Done
+  (`InventoryExpiryReminderScheduler`): a row at zero is a product the shelf remembers rather than one it
+  holds, so nothing is sent about it. The rule is in the scheduler, not the query, so it can be read and
+  tested; restocking makes the row eligible again on the next sweep with no reset.
+
 ## Smaller identified follow-ups
 
 - ~~**The phone's wait does not look like the web's yet.**~~ Fixed 2026-09-11: `OrbitLoading` (Controls) is

@@ -1,5 +1,6 @@
 @page "/inventory/{InventoryId:guid}"
 @attribute [Authorize]
+@implements IDisposable
 @using System.Net
 @using Orbit.Contracts.Inventories
 @using Orbit.Core.Abstractions
@@ -7,6 +8,7 @@
 @inject InventoryApiClient InventoryApiClient
 @inject NavigationManager NavigationManager
 @inject NavigationTrail NavigationTrail
+@inject NotificationFeedState NotificationFeedState
 @inject IJSRuntime JSRuntime
 @inject ILogger<InventorySummary> Logger
 @inject Translations T
@@ -51,7 +53,10 @@ else
         }
         @foreach (var batch in _shelf)
         {
-            <div class="list-row shelf-batch @(Highlight == batch.Id ? "highlighted" : "")">
+            @* The row the bell is talking about takes the outline every such row takes (.row-unseen),
+               and says so in words beside the name: a shelf of thirty rows with a warning about one of
+               them left the reader to work out which. See TheBellMeans. *@
+            <div class="list-row shelf-batch @(Highlight == batch.Id ? "highlighted" : "") @(TheBellMeans(batch) ? "row-unseen" : "")">
                 @* Before the name, where the eye starts on the row: taking one off the shelf and
                    putting one back are the two things somebody does standing in front of it, and
                    opening an editor to type a number is not what either of them feels like. *@
@@ -64,6 +69,13 @@ else
                             @onclick="() => Count(batch, 1)">+</button>
                 </span>
                 <span class="row-title">@batch.Name</span>
+                @if (TheBellMeans(batch))
+                {
+                    @* The same mark a card carries when something happened on it, on the row it happened
+                       to - see .item-card-action, whose shape and colour this takes. *@
+                    <span class="item-card-action" title="@(T["This is what the bell is talking about"])"
+                          aria-label="@(T["This is what the bell is talking about"])"></span>
+                }
                 <span class="row-meta shelf-batch-amount">@Amount(batch)</span>
                 @* When it arrived, and how long it keeps. A shelf answers "have we got any" with the
                    first and "is it still good" with the second, and neither is worth opening an editor
@@ -123,6 +135,45 @@ else
     private IReadOnlyList<InventoryItemDto> _shelf = [];
     private bool _isLoading = true;
     private bool _isReadOnly;
+
+    /// <summary>
+    /// The rows the bell has said something about. Taken the moment the page opens and only ever added
+    /// to, because arriving here is what marks those notifications read (NewsSettler, run by MainLayout
+    /// on every navigation): a page that asked the shared set as it drew each row would be asking a set
+    /// about to empty, and the mark would flash and go. Kept for the visit and no longer - opening the
+    /// shelf again after reading them shows none.
+    /// </summary>
+    private readonly HashSet<Guid> _rowsTheBellMeant = [];
+
+    /// <summary>Whether an unread notification is about this row - see <see cref="_rowsTheBellMeant"/>.</summary>
+    private bool TheBellMeans(InventoryItemDto batch) => _rowsTheBellMeant.Contains(batch.Id);
+
+    /// <summary>
+    /// Taken before the first await, so it is read before the settle that arriving here sets off can
+    /// finish - that goes to the server and back first. See <see cref="_rowsTheBellMeant"/>.
+    /// </summary>
+    protected override void OnInitialized()
+    {
+        NoteWhatTheBellMeans();
+        NotificationFeedState.Changed += OnNotificationsChanged;
+    }
+
+    private void NoteWhatTheBellMeans()
+    {
+        foreach (var row in NotificationFeedState.ThingsNamedFor($"/inventory/{InventoryId}"))
+        {
+            _rowsTheBellMeant.Add(row);
+        }
+    }
+
+    /// <summary>Something arrived while the shelf was open - it marks its row too, without waiting for a reload.</summary>
+    private void OnNotificationsChanged()
+    {
+        NoteWhatTheBellMeans();
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => NotificationFeedState.Changed -= OnNotificationsChanged;
 
     protected override async Task OnParametersSetAsync()
     {
