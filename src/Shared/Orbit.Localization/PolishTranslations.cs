@@ -1977,7 +1977,6 @@ public static class PolishTranslations
         // Under the heading on the registration screen: one account, both clients.
         ["One account for the browser and this phone."] = "Jedno konto dla przeglądarki i tego telefonu.",
         // The one place the note editor says where a tick box comes from - see NoteDetailPage's foot.
-        ["Type [] for a checkbox"] = "Wpisz [], aby dodać pole",
         ["Untitled"] = "Bez tytułu",
         ["Someone"] = "Ktoś",
         ["Live · updated {0}"] = "Na żywo · zaktualizowano {0}",

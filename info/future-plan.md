@@ -2138,16 +2138,29 @@ the session that finishes one strikes it here rather than in a report nobody rea
 
 ### Orbit.Maui
 
-- **A note's lines do not wrap while it is being edited.**
+- ~~**A note's lines do not wrap while it is being edited.**~~ Done: a line is written in an `Editor`
+  with `AutoSize` rather than a one-line `Entry`, so a long sentence is read rather than dragged
+  sideways. The return key then writes a newline instead of raising Completed, so Enter is read from
+  the text - one newline and nothing else goes through the same surface Enter as before
+  (`NoteDetailViewModel.EnterWasTypedInto`), keeping the indentation and the box; several lines at once
+  are still a paste. Built and covered by tests, **not seen on a device**.
 - **The formatting row sits under the keyboard**; it belongs above it, where it can be reached.
 - **Editing an entry on a task list does not scroll as one form.** Part of it scrolls and part is
   fixed, so half the screen is blocked and covers what is being read.
 - **Separators made in the browser are not read correctly on Android.** Every step of the path was
   read and the sync was covered with a test, and none of it loses one - see issue #294, which says what
   was checked and what would settle it.
-- **The press target for an item is too small** - the name itself has to be hit for the press to count.
-- **The note editor carries furniture it does not need**: the footer with information at the bottom
-  goes, and the tags belong in the menu rather than on the page.
+- ~~**The press target for an item is too small** - the name itself has to be hit for the press to
+  count.~~ Done for a task list's entries, which is where it was reported: the tap that opens an entry
+  is on the row and the row has a transparent fill, so the empty half of a short line counts. It used
+  to sit on the stack of labels, which is exactly as wide and as tall as what is written there. The
+  circle and the "⋯" answer their own presses. **Not seen on a device.**
+- ~~**The note editor carries furniture it does not need**: the footer with information at the bottom
+  goes, and the tags belong in the menu rather than on the page.~~ Done: the foot is gone - the line
+  saying who shared the note in and when it last changed (that is on the note's row in the list), and
+  the hint about typing `[]`, which now lives only in `info/functionality.md`. The tags are a "Tags"
+  entry in the menu under the note's name, drawn under the writing when asked for; `Footnote` and its
+  two tests went with the foot. **Not seen on a device.**
 - ~~**Something edited later still shows as it was.**~~ Not a sync fault at all, which is why it
   survived being reported twice: the two clients were reading **different fields**. An entry tied to an
   appointment keeps the day and the hour on the *event* - that is where an editor writes them - and its

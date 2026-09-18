@@ -85,7 +85,21 @@
                 <DataTemplate x:DataType="screens:TaskItemRow">
                     <!-- A hairline above every row, as every list in this design has - see ItemCard's
                          row shape, which is the same rule drawn by a different control. -->
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="0,8" RowDefinitions="Auto">
+                    <!-- The tap that opens the entry is on the row rather than on the words, and the row
+                         is given a transparent fill so the empty half of a short line counts as part of
+                         it. It used to sit on the stack of labels, which is exactly as wide and as tall
+                         as what is written there - so opening an entry meant hitting its name, and the
+                         rest of the row did nothing. Reported on 2026-09-18.
+
+                         The circle and the "⋯" answer their own presses: a tap a child handles is not
+                         also the row's. -->
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="0,8" RowDefinitions="Auto"
+                          BackgroundColor="Transparent">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.EditItemCommand, x:DataType=tasks:TaskListDetailPage}"
+                                CommandParameter="{Binding .}" />
+                        </Grid.GestureRecognizers>
                         <BoxView Grid.ColumnSpan="3" Style="{StaticResource Hairline}" VerticalOptions="Start"
                                  Margin="0,-8,0,0" />
                         <controls:CheckCircle Grid.Column="0" Diameter="22" VerticalOptions="Center"
@@ -94,14 +108,9 @@
                                               Description="{Binding Description}"
                                               Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleItemCommand, x:DataType=tasks:TaskListDetailPage}"
                                               CommandParameter="{Binding .}" />
-                        <!-- Tapping the line opens the rest of the entry: when it is due, what it
-                             says when it is late, whether it repeats daily. -->
+                        <!-- What the entry says, and the few things about it worth reading without
+                             opening it. The tap that opens the rest is on the row around this. -->
                         <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-                            <VerticalStackLayout.GestureRecognizers>
-                                <TapGestureRecognizer
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.EditItemCommand, x:DataType=tasks:TaskListDetailPage}"
-                                    CommandParameter="{Binding .}" />
-                            </VerticalStackLayout.GestureRecognizers>
                             <Label Text="{Binding Description}" LineBreakMode="WordWrap">
                                 <Label.Triggers>
                                     <!-- Struck through and quietened once it is done, which is what the

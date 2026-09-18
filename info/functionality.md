@@ -1223,7 +1223,9 @@ read.
 - **The checklist tool types `[]`**, which the surface then turns into a tick box
   (`checklistTextEditor.js`, `CHECKLIST_MARKER`). Typing the same two characters at the head of a line
   does the same thing, so the button is a shortcut into the rule rather than a second way in - which is
-  how the phone has always done it (`NoteDetailPage`, "Type [] for a checkbox"). **Not in a list's or an
+  how the phone has always done it. **The phone's editor no longer says so anywhere** (2026-09-18): the
+  line under the writing that carried the hint went with the rest of that foot, so this paragraph is the
+  only place the trick is now written down. **Not in a list's or an
   inventory's name and description** (`TitledDescription`, the same surface with
   `ChecklistTextEditor.ReadsMarkers` off): those store only text, so `[]` typed or pasted there stays
   words rather than becoming a box the save would drop.
@@ -1436,11 +1438,22 @@ read.
 
 ### Writing a note on the phone
 
-`NoteDetailPage` (view) over `NoteDetailViewModel` (decisions, in `Orbit.Mobile`) is a column of one-line
-fields, one per line, because a line can carry a real tick box and no text box can hold a control. The
-name is the first field. Enter starts the next line keeping the indentation, backspace at the head of a
-line joins it to the line above, a hardware keyboard's arrows walk between lines, and its Tab indents the
-line rather than moving the focus on (`NoteLineKeys`, read on Android by `NoteLineKeyPresses`). Nothing is written until Save; leaving asks first when something would
+`NoteDetailPage` (view) over `NoteDetailViewModel` (decisions, in `Orbit.Mobile`) is a column of fields,
+one per line, because a line can carry a real tick box and no text box can hold a control. The name is
+the first field. **Each line's field wraps** (2026-09-18: an `Editor` with `AutoSize`, where it used to
+be a one-line `Entry`) - a note is mostly long sentences, and a single-line field put each of them on a
+rail the reader had to drag sideways. A field that wraps has a return key that writes a newline instead
+of the "next" the page used to catch, so **Enter arrives as a newline written into the line** and the
+view model reads it as Enter: one newline and nothing else goes through the same surface Enter as before
+(`EnterWasTypedInto`), keeping the indentation and the box, and several lines at once are still a paste.
+Backspace at the head of a line joins it to the line above, a hardware keyboard's arrows walk between
+lines, and its Tab indents the line rather than moving the focus on (`NoteLineKeys`, read on Android by
+`NoteLineKeyPresses`, which listens on both kinds of field since the lines became `Editor`s).
+
+**The tags are behind the menu** under the note's name (2026-09-18), drawn under the writing once they
+are asked for; **the foot is gone** - the line saying who shared the note in and when it last changed,
+and the hint beside it about typing `[]`. The screen is the note: both were furniture under its last
+line, and what the first said is on the note's row in the list it came from. Nothing is written until Save; leaving asks first when something would
 be lost. Where it follows the browser's editor, it uses the same rules from `Orbit.Core/Notes` - the note
 is handed to them as a `SurfaceState` whose line 0 is the name:
 

@@ -72,6 +72,56 @@ public sealed partial class NoteDetailScreenTests
     }
 
     /// <summary>
+    /// And Enter arrives as a newline written into the line, because the field a line is written in
+    /// wraps now - a field that wraps has a return key that writes one, where the single-line field it
+    /// replaced had a "next" the page caught. It still means what it always meant: the words after the
+    /// break go onto a line of their own, and no line is ever left holding a newline.
+    /// </summary>
+    [Fact]
+    public async Task A_newline_typed_into_a_line_breaks_it_in_two()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk and bread");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        screen.Lines[0].Text = "milk\n and bread";
+
+        Assert.Equal(["milk", " and bread"], screen.Lines.Select(line => line.Text));
+    }
+
+    /// <summary>
+    /// And it keeps what Enter keeps: the indentation of the line it was pressed on, so a list stays a
+    /// list. The same surface Enter as the key press, which is the point of routing it there.
+    /// </summary>
+    [Fact]
+    public async Task A_newline_typed_in_keeps_the_indentation_of_the_line_it_breaks()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "\t\tmilk");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        screen.Lines[0].Text = "\t\tmilk\n";
+
+        Assert.Equal(["\t\tmilk", "\t\t"], screen.Lines.Select(line => line.Text));
+    }
+
+    /// <summary>
+    /// Several lines at once is still a paste, not a run of Enters: what comes in becomes lines of its
+    /// own, boxes and all. Only the single break is read as the return key.
+    /// </summary>
+    [Fact]
+    public async Task Two_lines_written_into_one_are_still_a_paste()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", string.Empty);
+        var screen = await context.OpenAsync(note.LocalId);
+
+        screen.Lines[0].Text = "milk\neggs\nbread";
+
+        Assert.Equal(["milk", "eggs", "bread"], screen.Lines.Select(line => line.Text));
+    }
+
+    /// <summary>
     /// A new line keeps the indentation of the one above it. A list stays a list when a line is added
     /// to the middle of it, which is the first thing an editor doing anything else gets wrong.
     /// </summary>
@@ -836,37 +886,10 @@ public sealed partial class NoteDetailScreenTests
         Assert.False((await context.OpenAsync(copy.LocalId)).IsCopyOffered);
     }
 
-    /// <summary>
-    /// The left half of the editor's foot: when the note last changed, in the words its card on the list
-    /// uses - see LastChanged. It was left out because the screen kept no such state; the row had it.
-    /// </summary>
-    [Fact]
-    public async Task The_foot_says_when_the_note_last_changed()
-    {
-        using var context = new ScreenContext();
-        var note = await context.AddNoteAsync("Groceries", "Milk");
-
-        var screen = await context.OpenAsync(note.LocalId);
-
-        Assert.Equal("Today", screen.Footnote);
-    }
-
-    /// <summary>And whose it is, when it is not the reader's own - the same words the list's card says.</summary>
-    [Fact]
-    public async Task The_foot_of_a_note_shared_in_says_who_shared_it()
-    {
-        using var context = new ScreenContext();
-        var note = await context.AddSharedNoteAsync("Groceries", "Milk");
-        await using (var dbContext = context.Store.CreateDbContext())
-        {
-            dbContext.Notes.Single(candidate => candidate.LocalId == note.LocalId).SharedByUserName = "ala";
-            await dbContext.SaveChangesAsync();
-        }
-
-        var screen = await context.OpenAsync(note.LocalId);
-
-        Assert.Equal("Shared by ala · Today", screen.Footnote);
-    }
+    // The two tests about the editor's foot went with the foot itself on 2026-09-18 - the line saying
+    // whose note it is and when it last changed. What they held is still held where it is still drawn:
+    // NotesScreenTests covers the same words on the note's row in the list (LastChanged), which is where
+    // a reader meets them now.
 
     private sealed class ScreenContext : IDisposable
     {
