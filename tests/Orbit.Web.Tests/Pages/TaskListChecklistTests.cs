@@ -942,6 +942,42 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     }
 
     /// <summary>
+    /// Making the shelf a list needs, from the list itself. It used to live only in the list's form, so
+    /// somebody reading a shopping list had to open the editor to find it - reported on 2026-09-18. Not
+    /// offered for a list already measured against one, or for a restock list, which is a shelf's own
+    /// output.
+    /// </summary>
+    [Fact]
+    public void An_inventory_can_be_built_from_the_list_being_read()
+    {
+        var shopping = TaskList("Shopping", Item("Milk"));
+        RegisterTasksApiClient([shopping]);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, shopping.Id));
+
+        OpenMenu(cut);
+        cut.FindAll(".avatar-dropdown-item")
+            .First(entry => entry.TextContent.Contains("Generate inventory", StringComparison.Ordinal))
+            .Click();
+
+        // The overlay that asks what to call it and what its restock list should do.
+        Assert.NotEmpty(cut.FindAll(".form-overlay-panel"));
+    }
+
+    [Fact]
+    public void A_list_already_measured_against_a_shelf_is_not_offered_another()
+    {
+        var shopping = TaskList("Shopping", Item("Milk")) with { LinkedInventoryId = Guid.NewGuid() };
+        RegisterTasksApiClient([shopping]);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, shopping.Id));
+
+        OpenMenu(cut);
+
+        Assert.DoesNotContain(
+            cut.FindAll(".avatar-dropdown-item"),
+            entry => entry.TextContent.Contains("Generate inventory", StringComparison.Ordinal));
+    }
+
+    /// <summary>
     /// Three lists asking for milk are three entries and one errand. Read flat - which is the view for
     /// "what do I actually have to do" - they used to be three rows saying "Milk", each labelled with
     /// the list it came from, and the reader had to add them up. One row now, with how much is wanted

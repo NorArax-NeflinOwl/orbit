@@ -1,7 +1,9 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
+using Orbit.Contracts.Notifications;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
 
@@ -90,17 +92,29 @@ public abstract class OrbitTestContext : TestContext
         // page cannot be rendered at all without one. Empty unless a test puts something in it, which is
         // the right answer for a test that has not.
         Services.AddSingleton(new NotificationFeedState());
-        // Marking the bell's entries read once a page is reached. Registered here for the same reason
-        // Translations is: several pages settle their own news now, and a test about what a page shows
-        // should not fail on a service it never exercises. It answers every request with "nothing to
-        // mark", which is what a page with an empty bell in front of it should see - a test that is
-        // about the settling registers its own.
+        // How this account can be reached, and marking the bell's entries read once a page is reached.
+        // Registered here for the same reason Translations is: several pages settle their own news and
+        // several ask which notification channels to offer ungreyed (see GenerateInventoryOverlay), and
+        // a test about what a page draws should not fail on a service it never exercises. Nothing to
+        // mark, and an account that can be reached every way - which is what a fresh one looks like. A
+        // test about either registers its own over this.
+        Services.AddScoped(_ => new NotificationsApiClient(new HttpClient(
+            new StubHttpMessageHandler(request => request.Method == HttpMethod.Get
+                // An account that can be reached every way, which is what a fresh one looks like. A
+                // 204 here would be a body the client cannot read: the settings endpoint always
+                // answers with settings.
+                ? new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(new NotificationSettingsDto(
+                        AllowNotifications: true, AllowPush: true, AllowEmail: true, AllowMobileBanner: true,
+                        ShowExceptionDetails: false, BannerVisibleSeconds: 5, BannerMinimumGapSeconds: 5))
+                }
+                : new HttpResponseMessage(HttpStatusCode.NoContent)))
+        {
+            BaseAddress = new Uri("https://example.test/")
+        }));
         Services.AddScoped(services => new NewsSettler(
-            new NotificationsApiClient(new HttpClient(
-                new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.NoContent)))
-            {
-                BaseAddress = new Uri("https://example.test/")
-            }),
+            services.GetRequiredService<NotificationsApiClient>(),
             services.GetRequiredService<NotificationFeedState>()));
         // The questions asked before a task list is deleted, which three pages now inject - see
         // TaskListDeletion. Registered here for the same reason Translations is: a test about what a

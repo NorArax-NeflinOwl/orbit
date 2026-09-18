@@ -3216,6 +3216,13 @@ the screen meant for ticking through is work that gets missed. Each list is draw
 places link to it, and a list that links back to one of its own ancestors stops at the repeat rather
 than unfolding forever (`LinkedTaskListTree`).
 
+**A list is walked because of what is on it, not because of how it is being read** (2026-09-18). The
+server's own walk stopped at a list whose "Group list" box was off - which was the same thing until the
+box became the reader's to untick (2026-09-16). After that, a list they had turned it off on was not
+walked at all: the stock check counted the top list alone, and an inventory generated from it held
+nothing any sublist asked for. That is the fault reported as "only the main list's entries reach the
+inventory". An entry that stands for another list is a link whatever a box says.
+
 ### Reading a nested list flat, and keeping how it reads
 
 A tree two levels deep reads as a stack of cards, which is right for seeing how the work is organised
@@ -3569,12 +3576,18 @@ an inventory's editor carries a checklist of the lists measured against it. "Gen
 refused to a list that already has one: it would build a second and quietly move the list onto it,
 leaving the first with nothing pointing at it.
 
-**And it is only offered where there is something on the list a shelf could be about** (2026-09-09,
-`GeneratedInventorySource`, asked by both clients): an entry describing a product, or one standing for a
-list that has one, however deep that goes. On a list of plain errands the menu entry was an offer to
-build an empty storage and quietly point the list at it. The rule lives on the clients rather than in the
-endpoint, which still builds a shelf out of whatever the work names - so a list of errands can still be
-turned into one by anything that calls it, it is simply not *offered* any more.
+**And it is offered wherever there is work on the list** (2026-09-18, `GeneratedInventorySource`, asked
+by both clients): anything that is not merely a row pointing at another list, directly or through such a
+row, however deep that goes. Only a list made of links to lists holding nothing is refused. **It asked
+for a *product* from 2026-09-09 until then** - an entry of the Inventory kind or one already pointing at
+a shelf item - on the reading that "a list of plain errands has nothing a shelf would be about". That is
+wrong about the commonest case there is: a shopping list of plain lines is exactly what somebody builds a
+shelf from, and the endpoint builds one, counting every entry the tree names. The rule hid the offer from
+the lists it is most useful on, which is how it was reported.
+
+**And it is reached from the list itself again** (2026-09-18): "Generate inventory" is in the menu on the
+checklist as well as in the list's form. It had been left on the form alone, which is a page somebody
+reading a shopping list has no other reason to open.
 
 `POST /api/tasks/{id}/inventory` goes the other way: it builds the shelf the work needs - one entry per
 distinct thing, **each carrying how many the job needs as its minimum**, and starting with whatever the

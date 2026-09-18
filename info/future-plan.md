@@ -2281,9 +2281,33 @@ the session that finishes one strikes it here rather than in a report nobody rea
 
 ### Added the same day
 
-- **An inventory cannot be generated from a task list.** The only way round is to make an inventory,
+- ~~**An inventory cannot be generated from a task list.** The only way round is to make an inventory,
   attach an empty one and press "Add missing to the replenishment list" - and that adds only the
-  entries of the main list, so nothing from the sublists ever reaches the inventory.
+  entries of the main list, so nothing from the sublists ever reaches the inventory.~~ Done, and it was
+  three faults wearing one hat:
+
+  1. **The offer was hidden.** `GeneratedInventorySource` asked for a *product* on the list - an entry
+     of the Inventory kind - so a shopping list of plain lines was never offered the menu entry at all.
+     It asks for **work** now: anything that is not merely a row pointing at another list. The rule was
+     written on 2026-09-09 believing "a list of plain errands has nothing a shelf would be about", and
+     the endpoint has always built a shelf out of every entry the tree names.
+  2. **The sublists were invisible.** `LinkedTaskListTree` refused to walk a list whose group view was
+     off, which stopped being the same thing as "gathers nothing" when the box became the reader's to
+     untick on 2026-09-16. So the stock check counted the top list alone - which is exactly "only the
+     entries of the main list" - and a shelf generated from such a list held nothing its sublists
+     asked for.
+  3. **It was only in the list's form.** "Generate inventory" is in the menu on the list's own page
+     again, which is the page somebody reading a shopping list is on.
+
+  What is **not** done is the other half of the same message: an update on the list writing through to
+  the inventory and back, with the warning when an edited item is wanted by more than one list and the
+  "Split evenly" answer. That is its own entry below.
+- **A change on a list should reach the inventory, and a change on the inventory the list** - with a
+  warning where the item being edited is wanted by more than one list, and "Split evenly" as the other
+  answer, since the reader otherwise has to go and correct each list themselves. Asked for on
+  2026-09-18, after the entry above. Not started: today a save writes the shelf row an entry stands for
+  (see "Writing in a group's member lists" and the shelf-correction path), but nothing asks what a
+  shared row means for the other lists asking for it.
 - **A separator made on one client is not drawn by the other**, either way round. The Android entry
   above is the same fault seen from one side only, and both are issue #294: the wire, both clients'
   mappings, the phone's local store, its template and the sync were all read, and a test now holds the

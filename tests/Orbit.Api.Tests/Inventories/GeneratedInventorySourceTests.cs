@@ -5,14 +5,19 @@ namespace Orbit.Api.Tests.Inventories;
 
 /// <summary>
 /// Whether building a storage out of a task list is worth offering. Both clients ask this before
-/// drawing the menu entry: on a list of plain errands it was an offer to build an empty storage and
-/// quietly point the list at it.
+/// drawing the menu entry: the only list it is refused on is one made of links to lists with nothing
+/// on them, where there is genuinely nothing for a shelf to hold.
 /// </summary>
 public sealed class GeneratedInventorySourceTests
 {
+    /// <summary>
+    /// A shopping list of plain lines is exactly what somebody wants a shelf built from, and the
+    /// endpoint builds one out of every entry the tree names. The rule asked for a *product* until
+    /// 2026-09-18, which hid the offer from the lists it is most useful on.
+    /// </summary>
     [Fact]
-    public void A_list_of_plain_errands_has_nothing_a_shelf_would_be_about()
-        => Assert.False(GeneratedInventorySource.HasSomethingToBuildFrom(
+    public void A_list_of_plain_errands_is_a_shelf_waiting_to_be_built()
+        => Assert.True(GeneratedInventorySource.HasSomethingToBuildFrom(
             [Errand(), Errand()], _ => null));
 
     [Fact]
@@ -34,14 +39,27 @@ public sealed class GeneratedInventorySourceTests
             taskListId => taskListId == shopping ? [Product()] : null));
     }
 
+    /// <summary>And one gathering lists of plain errands counts too, for the reason above.</summary>
     [Fact]
-    public void A_list_standing_for_one_with_only_errands_on_it_does_not()
+    public void A_list_standing_for_one_with_only_errands_on_it_counts_as_well()
     {
         var chores = Guid.NewGuid();
 
-        Assert.False(GeneratedInventorySource.HasSomethingToBuildFrom(
+        Assert.True(GeneratedInventorySource.HasSomethingToBuildFrom(
             [StandsFor(chores)],
             taskListId => taskListId == chores ? [Errand()] : null));
+    }
+
+    /// <summary>Nothing anywhere below it: links all the way down to lists holding no work at all.</summary>
+    [Fact]
+    public void A_list_of_links_to_empty_lists_has_nothing_to_build_from()
+    {
+        var middle = Guid.NewGuid();
+        var empty = Guid.NewGuid();
+
+        Assert.False(GeneratedInventorySource.HasSomethingToBuildFrom(
+            [StandsFor(middle)],
+            taskListId => taskListId == middle ? [StandsFor(empty)] : taskListId == empty ? [] : null));
     }
 
     /// <summary>However deep it goes: a group list of group lists is still a way of reading the work.</summary>

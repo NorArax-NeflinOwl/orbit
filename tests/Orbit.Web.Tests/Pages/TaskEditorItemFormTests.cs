@@ -1349,19 +1349,19 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>
-    /// Only a list with something on it a shelf could be about is offered one - see
-    /// GeneratedInventorySource. On a list of plain errands the entry was an offer to build an empty
-    /// storage and quietly point the list at it.
+    /// A list with work on it is offered one, whether or not any of that work describes a product - see
+    /// GeneratedInventorySource. The rule asked for a product until 2026-09-18, which hid the offer from
+    /// a shopping list of plain lines: the commonest thing anybody builds a shelf from.
     /// </summary>
     [Fact]
-    public void A_list_of_plain_errands_is_not_offered_a_storage()
+    public void A_list_of_plain_errands_is_offered_a_storage()
     {
         RegisterApiClients(AnItem());
         var cut = Render();
 
         OpenTheRailMenu(cut);
 
-        Assert.DoesNotContain(
+        Assert.Contains(
             cut.FindAll(".editor-rail .avatar-dropdown-item"),
             entry => entry.TextContent.Contains("Generate inventory", StringComparison.Ordinal));
     }
