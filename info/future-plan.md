@@ -2349,6 +2349,41 @@ the session that finishes one strikes it here rather than in a report nobody rea
   (`InventoryExpiryReminderScheduler`): a row at zero is a product the shelf remembers rather than one it
   holds, so nothing is sent about it. The rule is in the scheduler, not the query, so it can be read and
   tested; restocking makes the row eligible again on the next sweep with no reset.
+- ~~**The two buttons on a shelf row should move it by half, not by one.**~~ Done
+  (`InventorySummary.Step`): most of what a shelf holds is counted in something a half of makes sense
+  of, a whole one is two presses, and half a bottle could not be recorded at all before without opening
+  the form. The buttons say the number they move by rather than "one more".
+- ~~**Something put away should come off what it was attached to** - archiving an inventory should take
+  it off every list it was on.~~ Done for the inventory (`ArchiveInventoryCommandHandler`): a list still
+  measured against a shelf its owner had filed out of sight went on showing a stock check against it and
+  raising restock errands from it. Only on the way in - bringing it back does not put the links back,
+  because nothing records which lists they were and guessing would be inventing a choice nobody made.
+  **The same rule for a task list** - taking an archived list out of the group lists that gather it - is
+  *not* done: it is the same shape, but a group losing a member cannot be undone by un-archiving either,
+  and that is a bigger thing to do unasked. Worth a yes or no before it is built.
+- ~~**Private and made-up folders should only be tabs on the dashboard where they hold something, and
+  with only Public left the whole bar should go.**~~ Done (`FolderTabRow`, `FolderTabs.HoldsAnything`):
+  what the reader has put away on the dashboard is counted too, since a folder is not empty because its
+  card is hidden. Public and whatever is open always stay. Only the dashboard prunes: elsewhere a folder
+  is a place things are filed into, so an empty one has to be reachable.
+- ~~**Reading a notification on the phone did not work.**~~ Half found. A notification's address may now
+  carry a row to land on after a "?", and `NotificationDestination.Parse` read that as part of the id -
+  so every warning about something going off became one that led nowhere and could not be marked read by
+  tapping it. Parse ignores the query now. And a tap marks the entry read **whatever** happened next:
+  one leading somewhere this build does not know, or to something the phone has not caught up with,
+  stayed unread for good with nothing short of "Mark all read" to shift it. **Clearing the feed is not
+  reproduced** - the path is covered by tests that pass - and is issue #296.
+- ~~**The restock list could not be switched off from the phone.**~~ Done
+  (`RestockListSettingsPanel.IsEnabled`): the phone drew two of the settings and not the switch the rest
+  of them hang off, so a list somebody did not want was reachable only from a browser. What turning it
+  off costs is said beside it, and the rest of the section greys out while it is off - the same shape
+  Orbit.Web's own section has.
+- ~~**"Recent chats" should say the last activity or the last message, whichever is later.**~~ Done
+  (`Conversation.LastAnythingFrom`): the card said it was ordered by the most recently active
+  conversation and measured that by the last message alone, so somebody online an hour ago sat under a
+  conversation nobody had touched for a week. Both the row and the order read the later of the two now.
+  **The phone's own conversation list is not changed** - it draws its rows from its own store and would
+  need the same answer written there.
 
 ## Smaller identified follow-ups
 
