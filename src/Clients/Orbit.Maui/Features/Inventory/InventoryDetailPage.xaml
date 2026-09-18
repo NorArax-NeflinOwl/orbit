@@ -231,7 +231,24 @@
                                  IsVisible="{Binding IsOffered}">
                 <Label Text="{controls:Translate 'Restock list'}" Style="{StaticResource FieldLabel}" />
 
+                <!-- The switch the rest of the section hangs off, and the one the phone had no way to
+                     reach at all: a list somebody did not want could only be switched off from a
+                     browser. First, because everything under it is about a list this decides whether to
+                     keep. What turning it off costs is said beside it rather than discovered after. -->
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <VerticalStackLayout Grid.Column="0">
+                        <Label Text="{controls:Translate 'Keep a restock list for this inventory'}"
+                               LineBreakMode="WordWrap" />
+                        <Label Text="{Binding KeepingTheListDescription}" FontSize="12" LineBreakMode="WordWrap"
+                               Style="{StaticResource SubtleLabel}" />
+                    </VerticalStackLayout>
+                    <Switch Grid.Column="1" IsToggled="{Binding IsEnabled}" VerticalOptions="Center"
+                            SemanticProperties.Description="{controls:Translate 'Keep a restock list for this inventory'}" />
+                </Grid>
+
+                <!-- Greyed out while the list is off rather than hidden, as Orbit.Web greys its own:
+                     somebody deciding whether to turn it back on should see what they would get. -->
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsEnabled="{Binding IsEnabled}">
                     <VerticalStackLayout Grid.Column="0">
                         <Label Text="{controls:Translate 'Only what a dated task is waiting on'}"
                                LineBreakMode="WordWrap" />
@@ -242,7 +259,7 @@
                             SemanticProperties.Description="{controls:Translate 'Only what a dated task is waiting on'}" />
                 </Grid>
 
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsEnabled="{Binding IsEnabled}">
                     <controls:FieldHint Grid.Column="0"
                                         Label="{controls:Translate 'Comes round at'}"
                                         Text="{controls:Translate 'When the standing &quot;Update stock levels&quot; reminder arrives.'}" />
