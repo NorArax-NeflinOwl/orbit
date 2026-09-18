@@ -101,8 +101,13 @@ public sealed record NotificationDestination(
     /// </summary>
     public static NotificationDestination? Parse(string? url)
     {
-        var segments = (url ?? string.Empty)
-            .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        // The path, without what the browser is asked to do on arrival. An address may carry a row to
+        // land on - "?highlight={itemId}", which is how the warning about something going off names the
+        // shelf row it is about - and reading that as part of the last segment made the id unparseable,
+        // so the whole notification became one that leads nowhere. Nothing here uses the query yet; the
+        // point is that having one does not stop the path being followed.
+        var path = WithoutTheQuery(url ?? string.Empty);
+        var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         return segments switch
         {
@@ -138,6 +143,10 @@ public sealed record NotificationDestination(
             _ => null
         };
     }
+
+    /// <summary>Everything before the first "?" or "#" - see <see cref="Parse"/>.</summary>
+    private static string WithoutTheQuery(string url)
+        => url[..(url.IndexOfAny(['?', '#']) is >= 0 and var at ? at : url.Length)];
 
     private static NotificationDestination? ForId(NotificationTarget target, string id)
         => Guid.TryParse(id, out var parsed) ? new NotificationDestination(target, parsed) : null;

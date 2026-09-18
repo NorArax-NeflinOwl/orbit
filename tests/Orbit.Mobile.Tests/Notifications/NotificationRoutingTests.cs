@@ -85,4 +85,27 @@ public sealed class NotificationRoutingTests
             NotificationDestination.Parse($"/chat/groups/{groupId}"),
             NotificationDestination.Parse($"/chat/groups/{groupId}/"));
     }
+
+    /// <summary>
+    /// Nor does what the browser is asked to do on arrival. A warning about something going off names
+    /// the shelf row it is about after a "?" (InventoryExpiryPushContent) - read as part of the id, that
+    /// made the whole notification one that leads nowhere and could not even be marked read by tapping
+    /// it. Caught on 2026-09-18, the day the row was added to that address.
+    /// </summary>
+    [Fact]
+    public void And_neither_does_a_row_named_after_a_question_mark()
+    {
+        var inventoryId = Guid.NewGuid();
+
+        Assert.Equal(
+            new NotificationDestination(NotificationTarget.Inventory, inventoryId),
+            NotificationDestination.Parse($"/inventory/{inventoryId}?highlight={Guid.NewGuid()}"));
+    }
+
+    /// <summary>The same for a destination that names nothing beyond its own page.</summary>
+    [Fact]
+    public void A_query_on_a_path_that_names_nothing_is_ignored_too()
+        => Assert.Equal(
+            new NotificationDestination(NotificationTarget.Map),
+            NotificationDestination.Parse("/map?from=push"));
 }
