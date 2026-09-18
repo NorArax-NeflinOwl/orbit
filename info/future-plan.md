@@ -2426,7 +2426,12 @@ the session that finishes one strikes it here rather than in a report nobody rea
   tapping it. Parse ignores the query now. And a tap marks the entry read **whatever** happened next:
   one leading somewhere this build does not know, or to something the phone has not caught up with,
   stayed unread for good with nothing short of "Mark all read" to shift it. **Clearing the feed is not
-  reproduced** - the path is covered by tests that pass - and is issue #296.
+  reproduced** - the path is covered by tests that pass - and is issue #296. The one thing in it no test
+  can exercise is the connection check that greys "Delete history" and "Mark all read", and a greyed
+  entry with nothing beside it is a press that did not register as far as the reader is concerned. The
+  feed's menu now carries `ConnectionRequirement.Explanation` as its heading while the phone is offline
+  (2026-09-19), which says the same thing the share panel and a task list say - and tells the two
+  candidates apart the next time it is seen.
 - ~~**The restock list could not be switched off from the phone.**~~ Done
   (`RestockListSettingsPanel.IsEnabled`): the phone drew two of the settings and not the switch the rest
   of them hang off, so a list somebody did not want was reachable only from a browser. What turning it
