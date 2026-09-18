@@ -936,7 +936,8 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
         Items.Clear();
         foreach (var item in _items.Where(_filter.Matches))
         {
-            Items.Add(InventoryItemRow.From(item, _translations, _pointedAtProductId, ArrivalOf(item), UsageOf(item)));
+            Items.Add(InventoryItemRow.From(
+                item, _translations, _pointedAtProductId, ArrivalOf(item), UsageOf(item), ListsAskingFor(item)));
         }
 
         OnPropertyChanged(nameof(PointedAtRow));
@@ -955,6 +956,19 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
     /// <summary>How much of this product the task lists ask for - see LocalInventory.ItemUsage.</summary>
     private decimal UsageOf(InventoryItemRequest item)
         => item.Id is { } id && _usage.TryGetValue(id, out var asked) ? asked : 0;
+
+    /// <summary>
+    /// The lists asking for a row, named and said once each: two entries of one list asking for the same
+    /// flour is still one list to go and change. The same rule the browser's shelf follows - see
+    /// InventoryEditor.ListsAskingFor - read off the demand this screen already holds for the save's
+    /// question, so naming them costs no second request.
+    /// </summary>
+    private IReadOnlyList<string> ListsAskingFor(InventoryItemRequest item)
+        => item.Id is { } id
+            ? [.. _demand.Where(claim => claim.InventoryItemId == id)
+                .Select(claim => claim.TaskListName)
+                .Distinct(StringComparer.CurrentCultureIgnoreCase)]
+            : [];
 
     partial void OnChosenProductTypeChanged(string? value)
     {

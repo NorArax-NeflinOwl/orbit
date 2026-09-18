@@ -25,7 +25,8 @@ public sealed record InventoryItemRow(
 {
     public static InventoryItemRow From(
         InventoryItemRequest item, Translations translations, Guid? pointedAtProductId = null,
-        DateTimeOffset? arrivedAtUtc = null, decimal usage = 0)
+        DateTimeOffset? arrivedAtUtc = null, decimal usage = 0,
+        IReadOnlyList<string>? askedForBy = null)
         => new(
             item,
             Describe(item, translations, usage),
@@ -45,6 +46,9 @@ public sealed record InventoryItemRow(
             Arrived = arrivedAtUtc is { } arrived
                 ? translations.Format(
                     "added {0}", arrived.LocalDateTime.ToString("d", translations.DisplayCulture))
+                : string.Empty,
+            AskedFor = askedForBy is { Count: > 0 } asking
+                ? translations.Format("asked for by {0}", string.Join(", ", asking))
                 : string.Empty
         };
 
@@ -66,6 +70,18 @@ public sealed record InventoryItemRow(
     public string Arrived { get; private init; } = string.Empty;
 
     public bool HasArrived => Arrived.Length > 0;
+
+    /// <summary>
+    /// Which lists ask for this row, named and said once each - see Orbit.Core.Inventories.ShelfDemand,
+    /// and Orbit.Web's shelf, which says the same thing beside the same field. The number alone was
+    /// here before, in <see cref="Detail"/>'s minimum: it says a change to this row reaches somebody
+    /// without saying whom, and somebody typing a new minimum is deciding for those lists. Empty for a
+    /// row nothing asks for, and for a shelf whose demand this phone could not read - see
+    /// InventoryDetailViewModel.ReadWhoAsksForTheseAsync, which is best effort on purpose.
+    /// </summary>
+    public string AskedFor { get; private init; } = string.Empty;
+
+    public bool IsAskedFor => AskedFor.Length > 0;
 
     private static string Describe(InventoryItemRequest item, Translations translations, decimal usage)
     {

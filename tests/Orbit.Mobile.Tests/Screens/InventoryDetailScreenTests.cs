@@ -84,6 +84,37 @@ public sealed class InventoryDetailScreenTests
     }
 
     /// <summary>
+    /// A row says which lists ask for it, not only how much they ask for. The number was here already,
+    /// in the row's minimum; what it did not say is whom a change to that number reaches, which is the
+    /// whole reason the save stops to ask about a shared row. Orbit.Web's shelf says the same thing
+    /// beside the same field - see InventoryEditor.ListsAskingFor. 2026-09-19.
+    /// </summary>
+    [Fact]
+    public async Task A_row_names_the_lists_asking_for_it()
+    {
+        using var context = new ScreenContext();
+        var (stored, _) = await context.PullSharedShelfAsync();
+
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        var row = Assert.Single(screen.Items);
+        Assert.True(row.IsAskedFor);
+        Assert.Equal("asked for by Bread, Pizza", row.AskedFor);
+    }
+
+    /// <summary>A row nothing asks for says nothing - there is no list to name, and no warning to give.</summary>
+    [Fact]
+    public async Task A_row_no_list_asks_for_names_nobody()
+    {
+        using var context = new ScreenContext();
+        var stored = await context.PullInventoryAsync("Pantry", "Flour");
+
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        Assert.False(Assert.Single(screen.Items).IsAskedFor);
+    }
+
+    /// <summary>
     /// A minimum several of the reader's lists ask for cannot be divided without being told how, so the
     /// save stops and asks - the same question Orbit.Web puts, in the same words. Until now the phone
     /// saved and the server left both lists alone, which is the safe answer rather than the right one.

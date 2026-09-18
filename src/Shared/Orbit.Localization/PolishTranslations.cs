@@ -1691,6 +1691,7 @@ public static class PolishTranslations
         ["That inventory no longer exists."] = "Tego magazynu już nie ma.",
         ["Nothing on this shelf yet."] = "Na tej półce nic jeszcze nie ma.",
         ["added {0}"] = "dodano {0}",
+        ["asked for by {0}"] = "prosi o to: {0}",
         ["best before {0}"] = "najlepiej spożyć przed {0}",
         ["keeps"] = "nie psuje się",
         ["That note no longer exists."] = "Tej notatki już nie ma.",

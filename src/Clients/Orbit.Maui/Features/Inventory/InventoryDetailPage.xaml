@@ -228,6 +228,11 @@
                                  arrived is what tells them apart. See InventoryItemRow.Arrived. -->
                             <Label Text="{Binding Arrived}" IsVisible="{Binding HasArrived}" FontSize="11"
                                    Style="{StaticResource SubtleLabel}" />
+                            <!-- Which lists ask for this row, not only how many of them: a change to
+                                 the minimum reaches them, and whoever types one is deciding for them.
+                                 See InventoryItemRow.AskedFor, and the same line on Orbit.Web's shelf. -->
+                            <Label Text="{Binding AskedFor}" IsVisible="{Binding IsAskedFor}" FontSize="11"
+                                   LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
                         </VerticalStackLayout>
 
                         <controls:OverflowMenu Grid.Column="2" VerticalOptions="Center"
