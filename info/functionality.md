@@ -1453,7 +1453,13 @@ lines, and its Tab indents the line rather than moving the focus on (`NoteLineKe
 **The tags are behind the menu** under the note's name (2026-09-18), drawn under the writing once they
 are asked for; **the foot is gone** - the line saying who shared the note in and when it last changed,
 and the hint beside it about typing `[]`. The screen is the note: both were furniture under its last
-line, and what the first said is on the note's row in the list it came from. Nothing is written until Save; leaving asks first when something would
+line, and what the first said is on the note's row in the list it came from.
+
+**The room under the last line is pressable**, and pressing it writes there (2026-09-18) - the way Apple
+Notes uses the same room, which is the editor this one follows. It is how a note that **ends in a
+picture, a table or a rule** goes on at all: an element draws no field, so there was nothing to put the
+caret in and nothing to press Enter on. An empty line already waiting at the end takes the caret instead
+of a second one being made. Nothing is written until Save; leaving asks first when something would
 be lost. Where it follows the browser's editor, it uses the same rules from `Orbit.Core/Notes` - the note
 is handed to them as a `SurfaceState` whose line 0 is the name:
 

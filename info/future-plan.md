@@ -2144,9 +2144,20 @@ the session that finishes one strikes it here rather than in a report nobody rea
   the text - one newline and nothing else goes through the same surface Enter as before
   (`NoteDetailViewModel.EnterWasTypedInto`), keeping the indentation and the box; several lines at once
   are still a paste. Built and covered by tests, **not seen on a device**.
-- **The formatting row sits under the keyboard**; it belongs above it, where it can be reached.
-- **Editing an entry on a task list does not scroll as one form.** Part of it scrolls and part is
-  fixed, so half the screen is blocked and covers what is being read.
+- ~~**The formatting row sits under the keyboard**; it belongs above it, where it can be reached.~~
+  Answered for Android 15 and later, where the cause is: the activity asks for `AdjustResize`, and from
+  API 35 Android draws every app edge to edge and stops resizing the window for the keyboard at all -
+  the keyboard is an inset the app has to account for, so anything anchored to the foot of a page ends
+  up beneath it. `MainActivity.KeepTheKeyboardOffTheFootOfThePage` pads the content by the keyboard's
+  own inset and by nothing else, only from 35 up, since below that `AdjustResize` is still doing the
+  work. **Not seen on a device, and it assumes the phone is on 15 or later** - if it is older, the
+  cause is something else and this changed nothing.
+- ~~**Editing an entry on a task list does not scroll as one form.** Part of it scrolls and part is
+  fixed, so half the screen is blocked and covers what is being read.~~ Done: the form was two halves -
+  a `ScrollView` in the page's `*` row and a second stack in the `Auto` row below it, which never
+  scrolled and took as much height as it wanted. Both are inside the one scroller now, still as two
+  stacks because they read different binding contexts (the entry's own fields, and what is about the
+  entry from the list's side). **Not seen on a device.**
 - **Separators made in the browser are not read correctly on Android.** Every step of the path was
   read and the sync was covered with a test, and none of it loses one - see issue #294, which says what
   was checked and what would settle it.
@@ -2169,7 +2180,13 @@ the session that finishes one strikes it here rather than in a report nobody rea
   the entry's page and on its row. Both follow the event now (`EventWhen` on the phone, beside the
   calendar row's own wording, and `TaskItemRow.From`'s `appointment`), and a row is late once the
   appointment has *ended* rather than once it has begun. Found from the screenshots of 2026-09-18.
-- **There is no way to put a blank line under a picture in a note.**
+- ~~**There is no way to put a blank line under a picture in a note.**~~ Done: the room under the last
+  line is pressable, and pressing it writes there - which is what Apple Notes does with the same room,
+  and this editor follows it. A note ending in a picture, a table or a rule had no way to go on at all:
+  an element draws no field, so there was nothing to put the caret in and nothing to press Enter on. An
+  empty line already waiting at the end takes the caret rather than a second one being made. The
+  surface has always known what Enter on an element means; only the way in was missing. **Not seen on a
+  device.**
 
 ### Orbit.Web
 

@@ -243,6 +243,20 @@
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
 
+                <!-- The room under the last line, and pressing it writes there. A note that ends in a
+                     picture, a table or a rule had no way to go on at all: an element draws no field, so
+                     there was nothing to put the caret in and nothing to press Enter on - reported on
+                     2026-09-18 as no way to add a line under a picture. Tapping under the writing is
+                     what Apple Notes does with the same room, which is the editor this one follows.
+
+                     An empty line already waiting at the end takes the caret instead of a second one
+                     being made, so pressing here twice does not leave a blank line behind. -->
+                <Grid HeightRequest="72" BackgroundColor="Transparent" IsVisible="{Binding CanEdit}">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnRoomUnderTheWritingPressed" />
+                    </Grid.GestureRecognizers>
+                </Grid>
+
                 <!-- What the note is about in a word or two - see TagsForm. Saved with the note, by the
                      button in the corner; a colour is saved there and then, for the whole account.
 

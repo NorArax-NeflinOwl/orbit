@@ -54,6 +54,7 @@ public class MainActivity : MauiAppCompatActivity
 		base.OnCreate(savedInstanceState);
 		OnBackPressedDispatcher.AddCallback(this, new GoUpOnBack(this));
 		KeepContentInsideTheSystemBars();
+		KeepTheKeyboardOffTheFootOfThePage();
 		MatchStatusBarToTheme();
 
 		// Choosing Orbit's own theme changes no configuration, so OnConfigurationChanged never runs for
@@ -83,6 +84,55 @@ public class MainActivity : MauiAppCompatActivity
 		}
 
 		WindowCompat.SetDecorFitsSystemWindows(Window, true);
+	}
+
+	/// <summary>
+	/// Keeps the foot of the page above the keyboard from API 35 on.
+	///
+	/// The activity asks for AdjustResize (see the attribute at the top of this file), and below 35 that
+	/// is the whole answer: the window shrinks to the room left over and anything anchored to the bottom
+	/// of a page sits on top of the keyboard. From 35 Android draws every app edge to edge and stops
+	/// resizing the window for the keyboard at all - the keyboard is an *inset* the app is expected to
+	/// account for - so the note editor's row of writing tools, which is anchored to the foot of the
+	/// page, was drawn underneath it. Reported on 2026-09-18.
+	///
+	/// Only the keyboard's inset, and only on the versions that need it: the system bars are MAUI's own
+	/// business (it applies those from 35 up), and padding for them here would count them twice. Below
+	/// 35 nothing is touched, because AdjustResize is still doing the work and this would be the second
+	/// answer to one question.
+	/// </summary>
+	private void KeepTheKeyboardOffTheFootOfThePage()
+	{
+		if (!OperatingSystem.IsAndroidVersionAtLeast(35)
+			|| Window?.DecorView.FindViewById(Android.Resource.Id.Content) is not { } content)
+		{
+			return;
+		}
+
+		ViewCompat.SetOnApplyWindowInsetsListener(content, new KeyboardRoom());
+	}
+
+	/// <summary>
+	/// Pads the content by however much of the keyboard is over it, and by nothing when it is away. A
+	/// listener rather than a one-off read: the keyboard opens and closes long after the activity is
+	/// built, and the height differs between keyboards and between a keyboard and its suggestion strip.
+	/// </summary>
+	private sealed class KeyboardRoom : Java.Lang.Object, AndroidX.Core.View.IOnApplyWindowInsetsListener
+	{
+		public WindowInsetsCompat? OnApplyWindowInsets(Android.Views.View? view, WindowInsetsCompat? insets)
+		{
+			if (view is null || insets is null)
+			{
+				return insets;
+			}
+
+			var keyboard = insets.GetInsets(WindowInsetsCompat.Type.Ime())?.Bottom ?? 0;
+			view.SetPadding(view.PaddingLeft, view.PaddingTop, view.PaddingRight, keyboard);
+
+			// Handed on rather than consumed: the system bars' insets are somebody else's to apply, and
+			// a listener that swallowed them would take the status bar's room away from MAUI.
+			return insets;
+		}
 	}
 
 	/// <summary>

@@ -210,6 +210,32 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	// NoteDetailViewModel.EnterWasTypedInto.
 
 	/// <summary>
+	/// The room under the last line was pressed, so the writing goes on there - see the Grid in
+	/// NoteDetailPage.xaml, which says why a note that ends in a picture needed it.
+	///
+	/// An empty line already waiting at the end is where the caret goes; anything else - words, or an
+	/// element that draws no field at all - gets a line started under it, which is the same surface
+	/// Enter every other new line goes through.
+	/// </summary>
+	private void OnRoomUnderTheWritingPressed(object? sender, TappedEventArgs eventArgs)
+	{
+		if (!_viewModel.CanEdit)
+		{
+			return;
+		}
+
+		var last = _viewModel.Lines.LastOrDefault();
+		if (last is { IsAnElement: false, Text.Length: 0 })
+		{
+			last.IsBeingWrittenIn = true;
+			PutTheCaretIn(last);
+			return;
+		}
+
+		_viewModel.AddLineAfter(last);
+	}
+
+	/// <summary>
 	/// Puts the caret in a line, if its field is there to take it - and if it is not, leaves the ask for
 	/// <see cref="OnLineLoaded"/> to honour when the field arrives.
 	///
