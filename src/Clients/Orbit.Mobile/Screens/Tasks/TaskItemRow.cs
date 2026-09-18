@@ -1,3 +1,4 @@
+using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Tasks;
 using Orbit.Mobile.Localization;
@@ -26,18 +27,28 @@ public sealed record TaskItemRow(
     TaskItemDto Item, string Detail, bool IsOverdue, IReadOnlyList<TaskItemReference> References,
     bool IsWaitingToReachTheServer = false, string WrittenDescription = "")
 {
+    /// <param name="appointment">
+    /// The event this entry is tied to, where this phone has it. When it happens then comes from there
+    /// rather than from the entry's own due date - see <see cref="Describe"/>.
+    /// </param>
     public static TaskItemRow From(
         TaskItemDto item, Translations translations, DateTimeOffset nowUtc,
-        IReadOnlyList<TaskItemReference>? references = null, bool isWaitingToReachTheServer = false)
+        IReadOnlyList<TaskItemReference>? references = null, bool isWaitingToReachTheServer = false,
+        CalendarEventDetailsDto? appointment = null)
         => new(
             item,
-            Describe(item, translations),
+            Describe(item, appointment, translations),
             // Only worth saying about something still to do: an entry that is finished with - ticked
-            // off or crossed out - cannot be late any more.
-            !item.IsCompleted && !item.IsFailed && item.DueDateUtc is { } due && due < nowUtc,
+            // off or crossed out - cannot be late any more. An appointment is late once it has ended,
+            // not once it has begun, which is why this reads the end rather than the start.
+            !item.IsCompleted && !item.IsFailed && WhenItIsOver(item, appointment) is { } over && over < nowUtc,
             references ?? [],
             isWaitingToReachTheServer,
             translations.Written(item.Description));
+
+    /// <summary>When there is nothing left of it - the appointment's end, or the entry's own deadline.</summary>
+    private static DateTimeOffset? WhenItIsOver(TaskItemDto item, CalendarEventDetailsDto? appointment)
+        => appointment?.EndUtc ?? item.DueDateUtc;
 
     public Guid Id => Item.Id;
 
@@ -86,10 +97,24 @@ public sealed record TaskItemRow(
     /// </summary>
     public bool HasReachedTheServer => Item.LinkedCalendarEventId is not null;
 
-    private static string Describe(TaskItemDto item, Translations translations)
+    /// <summary>
+    /// What the row says under the words: when it happens, and whether it repeats daily.
+    ///
+    /// An entry tied to an appointment says the appointment's day and hours rather than its own due
+    /// date. The two are not the same thing and drift apart the moment somebody moves the appointment
+    /// in a browser, which writes the new time onto the event and leaves the entry's deadline where it
+    /// was - the row then said the old day with nothing to say it was old. The entry's page follows the
+    /// same rule, and so has Orbit.Web's all along.
+    /// </summary>
+    private static string Describe(
+        TaskItemDto item, CalendarEventDetailsDto? appointment, Translations translations)
     {
         var parts = new List<string>();
-        if (item.DueDateUtc is { } due)
+        if (appointment is { } tied)
+        {
+            parts.Add(Calendar.EventWhen.Reads(tied, translations));
+        }
+        else if (item.DueDateUtc is { } due)
         {
             parts.Add(translations.Format(
                 "Due {0}", due.LocalDateTime.ToString("d", translations.DisplayCulture)));

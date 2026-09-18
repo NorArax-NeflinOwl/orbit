@@ -2138,9 +2138,14 @@ the session that finishes one strikes it here rather than in a report nobody rea
 - **The press target for an item is too small** - the name itself has to be hit for the press to count.
 - **The note editor carries furniture it does not need**: the footer with information at the bottom
   goes, and the tags belong in the menu rather than on the page.
-- **Something edited later still shows as it was.** An event made one day and edited the next is drawn
-  on the phone as if the second edit had never happened; the browser shows the edit. Seen again on
-  2026-09-18 with screenshots of both clients side by side.
+- ~~**Something edited later still shows as it was.**~~ Not a sync fault at all, which is why it
+  survived being reported twice: the two clients were reading **different fields**. An entry tied to an
+  appointment keeps the day and the hour on the *event* - that is where an editor writes them - and its
+  own `DueDateUtc` stays whatever it was when the entry was made. Orbit.Web's entry page has read the
+  event first since it was written (`TaskItemSummary.WhenItIs`); the phone read only the due date, on
+  the entry's page and on its row. Both follow the event now (`EventWhen` on the phone, beside the
+  calendar row's own wording, and `TaskItemRow.From`'s `appointment`), and a row is late once the
+  appointment has *ended* rather than once it has begun. Found from the screenshots of 2026-09-18.
 - **There is no way to put a blank line under a picture in a note.**
 
 ### Orbit.Web

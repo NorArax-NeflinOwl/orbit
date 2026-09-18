@@ -143,6 +143,32 @@ public sealed class TaskItemSummaryScreenTests
         Assert.True(screen.HasGuests);
     }
 
+    /// <summary>
+    /// And when it happens comes from the event as well. The day and the hour are written onto the
+    /// event by whoever edits the appointment, so an entry's own due date is only ever what it was when
+    /// the entry was made: an appointment moved to another day in a browser left this screen showing
+    /// the old one, with nothing to say it was old. Reported with both screens side by side on
+    /// 2026-09-18; Orbit.Web's entry page has read the event first all along.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_tied_to_an_event_says_when_the_event_is_rather_than_when_it_was_made()
+    {
+        using var context = new ScreenContext();
+        var eventId = await context.AddEventAsync(
+            "Dentist", "Wały Piastowskie 1, Gdańsk", 54.3540, 18.6560,
+            from: new DateTimeOffset(2026, 9, 21, 11, 0, 0, TimeSpan.Zero));
+        var opened = await context.AddEntryAsync(
+            "Dentist", due: new DateTime(2026, 9, 17, 9, 0, 0), tiedTo: eventId);
+
+        var screen = await context.OpenAsync(opened);
+
+        var happensOn = new DateTimeOffset(2026, 9, 21, 11, 0, 0, TimeSpan.Zero).LocalDateTime;
+        Assert.Contains(
+            happensOn.ToString("d", new Translations(new InMemoryLanguageStore()).DisplayCulture),
+            screen.When);
+        Assert.DoesNotContain("17", screen.When);
+    }
+
     [Fact]
     public async Task An_entry_that_is_only_a_deadline_says_neither()
     {
@@ -583,9 +609,9 @@ public sealed class TaskItemSummaryScreenTests
         /// </summary>
         public async Task<Guid> AddEventAsync(
             string title, string address, double latitude, double longitude,
-            string? description = null, IReadOnlyList<Guid>? guests = null)
+            string? description = null, IReadOnlyList<Guid>? guests = null, DateTimeOffset? from = null)
         {
-            var start = _clock.GetUtcNow();
+            var start = from ?? _clock.GetUtcNow();
             var created = await _events.CreateAsync(new CalendarEventDetailsDto(
                 title, description, new EventLocationDto(address, latitude, longitude), null,
                 start, start.AddHours(1), false, null, guests ?? [], [], ReminderNotificationChannel: "None"));

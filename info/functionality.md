@@ -2710,6 +2710,16 @@ a list opens one entry standing at that place, as a `Location`. The pin's coordi
 somebody who did mean an appointment changes the type on the spot and the event lands at the point they
 pressed rather than at a re-lookup of its name.
 
+**And so is when it happens** (both clients since 2026-09-18). The day and the hour of an entry tied to
+an event live on the **event** - that is where an editor writes them - so the entry's own `DueDateUtc`
+is only ever what it was when the entry was made. Every screen that says when such an entry happens
+reads the event first and falls back to the deadline: `TaskItemSummary.WhenItIs` in the browser, and on
+the phone the entry's screen and its row on the list (`EventWhen`, `TaskItemRow.From`'s `appointment`).
+The phone read only the deadline until then, which is what made an appointment moved in a browser look
+on a phone as though the move had never happened - reported twice as a sync fault, and it was never
+one. A row carrying an appointment is late once that appointment has **ended** rather than once it has
+begun, since an hour you are in the middle of is not an hour you have missed.
+
 **The place is stored once.** An entry tied to an event keeps no location of its own: the event already
 holds one, and a second copy is how the two come to disagree. A `Location` entry is tied to no event, so
 its own field is the only copy there is and it always keeps it. Every other kind of entry has nowhere to
