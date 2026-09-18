@@ -2349,8 +2349,10 @@ the session that finishes one strikes it here rather than in a report nobody rea
   lists ask for stops and asks, naming the rows and the lists. The answer travels with the queued change
   and the synchroniser clears it once that change has gone - left standing it would divide whatever was
   edited next. A shelf out of reach is asked nothing and saves as before: an answer nobody can check is
-  not one to hold a save on. **The row hint is still only the browser's** - the phone's shelf rows say
-  what the lists ask for as a number (`InventoryItemRow.KeptAt`) and not which lists they are.
+  not one to hold a save on. The row hint is on both now (2026-09-19): a phone's shelf row names the
+  lists asking for it (`InventoryItemRow.AskedFor`), read off the demand the screen already holds for
+  the save's question, and said once per list. It said only the number before
+  (`InventoryItemRow.KeptAt`), which is whom a change reaches left out. **Not seen on a device.**
 - **A separator made on one client is not drawn by the other**, either way round. The Android entry
   above is the same fault seen from the other side, and both are issue #294 - and both are explained by
   `af12718d` (2026-09-16): the browser's read of its own writing surface dropped the rule on the next
