@@ -553,8 +553,6 @@ else
                                     @onclick="() => ToggleExpanded(item)">
                                 <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
                             </button>
-                            <button type="button" class="btn-secondary"
-                                    @onclick="() => member.Form.Items.Remove(item)">@T["Remove"]</button>
                         </div>
                         @if (IsExpanded(item))
                         {
@@ -565,6 +563,15 @@ else
                                 {
                                     @(Reminders(item))
                                 }
+                                @* Last, and behind the toggle with everything else - the rule this
+                                   form's own entries have always followed, which the members' rows did
+                                   not: taking an entry off a list is not something to have one click
+                                   away from the box somebody is typing in, and on a group's form there
+                                   is a row of them belonging to somebody else's list. Asked for on
+                                   2026-09-18. *@
+                                <span class="field-break"></span>
+                                <button type="button" class="btn-secondary"
+                                        @onclick="() => member.Form.Items.Remove(item)">@T["Remove"]</button>
                             </div>
                         }
                     }
@@ -1706,8 +1713,9 @@ else
         @* What the entry is about, whatever kind it is - as many words as apply rather
            than making somebody pick the truest one. It was one box holding
            "shopping, car", which asked the reader to know that the comma was the
-           separator; it is now a word at a time, with every category already in use on
-           this account listed under the box - see TagField.
+           separator; it is now the browser every short vocabulary is chosen in, so what
+           the entry is filed under is written along the field and every category already
+           in use on this account is one press away - see ValueBrowser.
 
            For an inventory entry this is also what the product it stands for is filed
            under: the shelf form below leaves its own box out, because the two sat one
@@ -1715,10 +1723,11 @@ else
            said which was which. See KnownCategoriesFor and ProductAsked. *@
         <div class="editor-item-tags">
             <span class="editor-item-tags-label">@T["Categories"]</span>
-            <TagField Values="item.Categories" ValuesChanged="values => item.Categories = [.. values]"
-                      Known="KnownCategoriesFor(item)" Placeholder="@(T["Add a category"])"
-                      AriaLabel="@(T["Categories"])"
-                      IsReadOnly="@isReadOnly" />
+            <ValueBrowser Offers="@ValueBrowser.Words(KnownCategoriesFor(item))" Chosen="item.Categories"
+                          ChosenChanged="values => item.Categories = [.. values]"
+                          CanAddNew="true" NewPlaceholder="@(T["Add a category"])"
+                          Placeholder="@(T["Add a category"])" AriaLabel="@(T["Categories"])"
+                          IsReadOnly="@isReadOnly" />
         </div>
         @* What the entry is about, as opposed to what it is called. A calendar entry has
            always had one - it was the event's - and nothing else did, so a checklist

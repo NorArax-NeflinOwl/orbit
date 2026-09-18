@@ -352,6 +352,27 @@ public sealed class MapPageTests : OrbitTestContext
         Assert.Equal(54.354, handedOver.Latitude);
     }
 
+    /// <summary>
+    /// Saying yes to a pressed place moves the pins and leaves the map where it is. It used to rebuild
+    /// the map, which threw away the pan and the zoom the reader had pressed *through*: the map came
+    /// back fitted to every pin the account holds, which is a view of everything rather than of the
+    /// spot just chosen. Reported on 2026-09-18.
+    /// </summary>
+    [Fact]
+    public async Task Putting_a_pin_where_the_map_was_pressed_keeps_the_view_it_was_pressed_from()
+    {
+        GrantLocations();
+        var mapModule = JSInterop.SetupModule("./js/locationMap.js");
+        var cut = RenderComponent<MapPage>();
+        await cut.InvokeAsync(() => cut.Instance.OnMapPressed(54.354, 18.656));
+        var timesDrawn = mapModule.Invocations["showLocations"].Count;
+
+        YesTo(cut, ".map-press-asks");
+
+        Assert.Equal(timesDrawn, mapModule.Invocations["showLocations"].Count);
+        Assert.NotEmpty(mapModule.Invocations["updateLocations"]);
+    }
+
     private static void UseThePlace(IRenderedFragment cut)
         => cut.FindAll(".map-create-event button").First(button => button.TextContent.Contains("Yes, use it")).Click();
 
@@ -820,6 +841,33 @@ public sealed class MapPageTests : OrbitTestContext
         cut.Find(".map-refresh-button").Click();
 
         Assert.Contains("The good bakery", SectionNamed(cut, "Places you keep").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// And beside that, the map's own light or night. The tiles are one picture drawn for a light page
+    /// and turned dark by a filter, so which of the two the map is in is a question about the room
+    /// somebody is in rather than about the theme - and the answer is kept for this device.
+    /// </summary>
+    [Fact]
+    public void The_map_can_be_turned_to_night_and_back_without_touching_the_theme()
+    {
+        GrantLocations();
+        var preferences = Services.GetRequiredService<DevicePreferences>();
+        var cut = RenderComponent<MapPage>();
+
+        // The browser here is a light one, so the map starts in daylight and the switch offers night.
+        Assert.Contains("map-day", cut.Find(".location-map-frame").ClassName);
+        cut.Find(".map-theme-button").Click();
+
+        Assert.Contains("map-night", cut.Find(".location-map-frame").ClassName);
+        Assert.True(preferences.MapAtNight);
+        // The page's own theme is not what was asked about and is left where it was.
+        Assert.Equal(ThemePreference.System, Services.GetRequiredService<ThemeService>().Current);
+
+        cut.Find(".map-theme-button").Click();
+
+        Assert.Contains("map-day", cut.Find(".location-map-frame").ClassName);
+        Assert.False(preferences.MapAtNight);
     }
 
     private static void ShowPastPlaces(IRenderedFragment cut)

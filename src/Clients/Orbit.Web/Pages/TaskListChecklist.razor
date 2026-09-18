@@ -9,7 +9,9 @@
 @page "/tasks/{Id:guid}"
 @page "/tasks/{Id:guid}/checklist"
 @attribute [Authorize]
+@using System.Globalization
 @using Orbit.Contracts.Inventories
+@using Orbit.Contracts.Notifications
 @using Orbit.Core.Inventories
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Abstractions
@@ -22,6 +24,7 @@
 @inject GoogleIntegrationAccess GoogleIntegrationAccess
 @inject ChecklistViewPreference ChecklistViewPreference
 @inject InventoryApiClient InventoryApiClient
+@inject NotificationsApiClient NotificationsApiClient
 @inject TaskListDeletion TaskListDeletion
 @inject TaskItemCompletion TaskItemCompletion
 @inject IJSRuntime JSRuntime
@@ -191,46 +194,55 @@ else
            only point at another list left out - those are how the tree is held together, not something
            to tick. *@
         <div class="card checklist-card">
-            @if (FlatItemsToShow.Count == 0)
+            @if (FlatRowsToShow.Count == 0)
             {
                 <p class="checklist-empty">@T["No items."]</p>
             }
-            @foreach (var entry in FlatItemsToShow)
+            @foreach (var row in FlatRowsToShow)
             {
+                var entry = row.First;
                 @* The words open the entry and the box ticks it, which is what the grouped view below
                    has always done. Reading this list flat used to mean the opposite: pressing what an
-                   entry said crossed it off, because the row was a label. *@
-                <CheckRow Title="@Written(entry.Item.Description)" State="@TickOf(entry.Item)"
-                          IsDisabled="@IsItemLocked(entry.Section, entry.Item)"
+                   entry said crossed it off, because the row was a label.
+
+                   One row per piece of work, however many lists ask for it - see FlatRowsToShow. The
+                   words open the first of them; the box answers for all of them. *@
+                <CheckRow Title="@Written(entry.Item.Description)" State="@row.State"
+                          IsDisabled="@row.Entries.Any(one => IsItemLocked(one.Section, one.Item))"
                           AriaLabel="@T.Format("Done: {0}", Written(entry.Item.Description))"
                           AdditionalClass="@RowMark(entry.Item)"
                           OnTitlePressed="() => GoToEntry(entry.Section.TaskList.Id, entry.Item.Id)"
-                          OnCycled="state => PressAsync(entry.Section.TaskList, entry.Item, state)">
+                          OnCycled="state => PressTheRowAsync(row, state)">
                     <Trailing>
+                        @* How much is wanted altogether, which is the question this view is read to
+                           answer on a group of shopping lists - see FlatChecklistRow.HowMuchIsWanted. *@
+                        @foreach (var wanted in row.HowMuchIsWanted)
+                        {
+                            <span class="row-meta">@HowMuchItSays(wanted)</span>
+                        }
                         @* What it is about, the same marks the cards on /tasks carry - see TaskItem.Categories. *@
-                        @foreach (var category in entry.Item.AllCategories)
+                        @foreach (var category in row.Categories)
                         {
                             <span class="row-category">@category</span>
                         }
-                        @* Which list it came from, since the headings are gone in this view. *@
-                        <span class="row-meta">@Written(entry.Section.TaskList.Title)</span>
-                        @if (IsAChecklistEntry(entry.Item) && entry.Item.DueDateUtc is { } flatDueDate)
+                        @if (IsAChecklistEntry(entry.Item) && row.DueDateUtc is { } flatDueDate)
                         {
                             <span class="row-meta">@T.Format("due {0}", flatDueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm"))</span>
                         }
                     </Trailing>
                 </CheckRow>
-                @* The same answer the grouped view gives, under the same row - see PressAsync. *@
-                @if (_waitingOn == entry.Item.Id)
+                @* The same answer the grouped view gives, under the same row - see PressAsync. Asked
+                   about any of the entries this row stands for, since the press went to all of them. *@
+                @if (row.Entries.FirstOrDefault(one => _waitingOn == one.Item.Id) is { } waiting)
                 {
                     <div class="check-row-asks">
-                        <span>@T.Format("Waiting for {0}.", WhatItWaitsForNamed(entry.Section.TaskList, entry.Item))</span>
+                        <span>@T.Format("Waiting for {0}.", WhatItWaitsForNamed(waiting.Section.TaskList, waiting.Item))</span>
                         <button type="button" class="btn-secondary" @onclick="() => _waitingOn = null">@T["OK"]</button>
                     </div>
                 }
-                @if (_askedAboutWays == entry.Item.Id)
+                @if (row.Entries.FirstOrDefault(one => _askedAboutWays == one.Item.Id) is { } asked)
                 {
-                    @WaysAsked(entry.Section.TaskList, entry.Item)
+                    @WaysAsked(asked.Section.TaskList, asked.Item)
                 }
             }
         </div>
@@ -423,11 +435,23 @@ else
             <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting"
                     @onclick="DeleteAsync">@T["Delete"]</button>
         }
-        @* One button where "Generate inventory" and "Recalculate against the inventory" used to
-           be. Both did half of something else - one made an inventory out of a list, the other
-           counted a list against one - and neither answered the question somebody has in front
-           of a restock list, which is "is this still what I need?". Offered only there, since
-           that is the only list Orbit maintains. *@
+        @* Making the shelf this list needs, from the list itself. It used to be here, was taken away as
+           half of something else, and came back on 2026-09-18 because the page it was left on is the
+           list's *form*: somebody reading a shopping list and wanting the shelf for it had to open the
+           editor to find it. The same overlay and the same call the editor uses - see
+           GenerateInventoryOverlay - and not offered for a list that already has one, or for one this
+           reader does not own. *@
+        @if (CanBuildAnInventoryFromThisList)
+        {
+            <button type="button" class="avatar-dropdown-item" disabled="@_isWorkingOnInventory"
+                    @onclick="() => _isNamingTheInventory = true">
+                @T["Generate inventory"]
+            </button>
+        }
+        @* And the one button that stayed when "Generate inventory" and "Recalculate against the
+           inventory" were taken away: neither answered the question somebody has in front of a restock
+           list, which is "is this still what I need?". Offered only there, since that is the only list
+           Orbit maintains. *@
         @if (IsARestockList)
         {
             <button type="button" class="avatar-dropdown-item" disabled="@_isWorkingOnInventory"
@@ -439,6 +463,17 @@ else
     </ChildContent>
 </EditorRail>
 </div>
+}
+
+@* What to call the shelf this list will become, and what its restock list should do - the same overlay
+   the list's own form opens, asked here because this is the page somebody is reading the list on. *@
+@if (_isNamingTheInventory && _sections.Count > 0)
+{
+    <GenerateInventoryOverlay DefaultName="@Written(_sections[0].TaskList.Title)"
+                              NotificationSettings="_notificationSettings"
+                              IsWorking="_isWorkingOnInventory"
+                              OnConfirmed="GenerateInventoryAsync"
+                              OnCancelled="() => _isNamingTheInventory = false" />
 }
 
 @code {
@@ -698,6 +733,19 @@ else
         }
 
         _hasGoogleExtras = await GoogleIntegrationAccess.IsAvailableAsync();
+
+        // Best effort, the way the editor reads the same thing: it only decides which notification
+        // channels the overlay offers ungreyed, and a failure leaves every one of them on rather than
+        // stopping the page from drawing the list.
+        try
+        {
+            _notificationSettings = await NotificationsApiClient.GetSettingsAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to load notification settings");
+        }
+
         _sections = BuildSections();
         await SettleFinishedErrandsAsync();
         await LoadInventoryReferencesAsync();
@@ -860,6 +908,60 @@ else
     /// </summary>
     private bool IsARestockList
         => _sections.Count > 0 && RestockTaskNaming.IsManagedTitle(_sections[0].TaskList.Title);
+
+    /// <summary>
+    /// Whether this list can be turned into the shelf its work needs. This reader's own, not already
+    /// measured against one, and not a restock list - that one is a shelf's own output, and generating a
+    /// shelf from it would build a shelf of the things another shelf is short of.
+    /// </summary>
+    private bool CanBuildAnInventoryFromThisList
+        => _sections.Count > 0
+            && !_sections[0].TaskList.IsShared
+            && !IsARestockList
+            && _sections[0].TaskList.LinkedInventoryId is null;
+
+    /// <summary>Which notification channels this account can be reached on - see GenerateInventoryOverlay.</summary>
+    private NotificationSettingsDto _notificationSettings =
+        new(true, true, true, true, true, BannerVisibleSeconds: 5, BannerMinimumGapSeconds: 5);
+
+    /// <summary>While the form asking what to build is open - see GenerateInventoryOverlay.</summary>
+    private bool _isNamingTheInventory;
+
+    /// <summary>
+    /// Builds the shelf this list's work needs and measures the list against it, from the list itself.
+    /// The same call the editor makes (see TaskEditor.GenerateInventoryAsync), minus the save it does
+    /// first: nothing here is unsaved - this page ticks entries and writes them as it goes.
+    /// </summary>
+    private async Task GenerateInventoryAsync(GenerateInventoryRequest request)
+    {
+        _isWorkingOnInventory = true;
+        _inventoryMessage = null;
+        Logger.LogInformation("User generated an inventory from task list {TaskListId}", Id);
+        try
+        {
+            if (await TasksApiClient.GenerateInventoryAsync(Id, request) is not { } inventoryId)
+            {
+                _inventoryMessage = T["Couldn't generate an inventory from this list."];
+                return;
+            }
+
+            _isNamingTheInventory = false;
+            _linkedInventoryId = inventoryId.ToString();
+            _inventoryMessage = T["Inventory generated from this list."];
+            // Read again rather than patched in place: the list is measured against the new shelf now,
+            // and what that check says is the server's answer rather than this page's guess.
+            await LoadAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to generate an inventory from task list {TaskListId}", Id);
+            _inventoryMessage = T["Couldn't generate an inventory from this list."];
+        }
+        finally
+        {
+            _isWorkingOnInventory = false;
+        }
+    }
 
     /// <summary>
     /// Rebuilds this list against the inventory behind it and the settings that inventory carries - what
@@ -1051,6 +1153,29 @@ else
     /// an entry standing for other lists answers with where the tick belongs instead - see
     /// AskAboutTheListsBehind.
     /// </summary>
+    /// <summary>
+    /// A press on one row of the flat view, which may stand for several entries - see FlatRowsToShow.
+    /// Each in turn and in order, the way every other round of presses in Orbit goes (OnePressEach):
+    /// one that cannot go through - it is waiting on a step, or it is done by ways - asks its question
+    /// under the row and stops nothing else from going.
+    /// </summary>
+    private async Task PressTheRowAsync(FlatChecklistRow row, TickState state)
+    {
+        foreach (var entry in row.Entries)
+        {
+            await PressAsync(entry.Section.TaskList, entry.Item, state);
+        }
+    }
+
+    /// <summary>How much is wanted, written the way an errand writes it - "3 pcs". See InventoryUnitShortForm.</summary>
+    private string HowMuchItSays((decimal Amount, string Unit) wanted)
+        => Enum.TryParse<InventoryUnit>(wanted.Unit, out var unit)
+            // A number and a short form with a space between them, which is the same in both languages -
+            // only the short form itself is translated (see InventoryUnitShortForm and the tail of an
+            // errand Orbit writes). A "{0} {1}" through the dictionary would be a key nobody can read.
+            ? $"{wanted.Amount.ToString("0.##", CultureInfo.CurrentCulture)} {T[InventoryUnitShortForm.Of(unit)]}"
+            : wanted.Amount.ToString("0.##", CultureInfo.CurrentCulture);
+
     private Task PressAsync(TaskDto taskList, TaskItemDto item, TickState state)
     {
         // An entry done by ways is not ticked either: the press offers the ways - see WaysAsked.
@@ -1208,8 +1333,66 @@ else
     /// <param name="Depth">How far below the list being viewed this one sits - 0 for that list itself.</param>
     private sealed record ChecklistSection(TaskDto TaskList, bool IsMember, int Depth);
 
-    /// <summary>One item in the flattened view, with the list it came from - shown beside it, and saved against.</summary>
+    /// <summary>One item in the flattened view, with the list it came from - what it is saved against.</summary>
     private sealed record FlatChecklistEntry(ChecklistSection Section, TaskItemDto Item);
+
+    /// <summary>
+    /// One row of the flattened view: every entry that says the same thing, gathered - see
+    /// <see cref="FlatRowsToShow"/>. Usually one entry; on a group list of shopping lists, often several.
+    /// </summary>
+    private sealed record FlatChecklistRow(IReadOnlyList<FlatChecklistEntry> Entries)
+    {
+        /// <summary>The first of them, which is the one the row is named and identified by.</summary>
+        public FlatChecklistEntry First => Entries[0];
+
+        public bool IsSeveral => Entries.Count > 1;
+
+        /// <summary>
+        /// Where the row stands: done when every entry behind it is, given up on when every one of them
+        /// is, and otherwise still to do. Anything mixed reads as work left, which is what it is.
+        /// </summary>
+        public TickState State
+            => Entries.All(entry => entry.Item.IsCompleted)
+                ? TickState.Completed
+                : Entries.All(entry => entry.Item.IsFailed)
+                    ? TickState.Failed
+                    : TickState.None;
+
+        /// <summary>What the row is filed under: every entry's categories, each word once.</summary>
+        public IReadOnlyList<string> Categories
+            => [.. Entries
+                .SelectMany(entry => entry.Item.AllCategories)
+                .Distinct(StringComparer.CurrentCultureIgnoreCase)];
+
+        /// <summary>
+        /// How much is wanted altogether, by unit: "3 pcs", or "3 pcs · 1 kg" where the lists asking do
+        /// not agree on the unit. An entry's own answer where it has one (RequiredQuantity, what this
+        /// list needs of a shelf item) and its product's minimum where it stands for one nothing has
+        /// linked yet - the pair TaskEditor saves as one number.
+        ///
+        /// Summed rather than listed, because that is the question a group list of shopping lists is
+        /// read to answer: how much to put in the basket for all of them. Amounts with different units
+        /// are kept apart rather than added, since two kilograms and two packs are not four of anything.
+        /// </summary>
+        public IReadOnlyList<(decimal Amount, string Unit)> HowMuchIsWanted
+            => [.. Entries
+                .Select(entry => (
+                    Amount: entry.Item.RequiredQuantity ?? entry.Item.Product?.MinimumQuantity,
+                    Unit: entry.Item.Product?.Unit ?? string.Empty))
+                .Where(wanted => wanted.Amount is > 0)
+                .GroupBy(wanted => wanted.Unit, StringComparer.Ordinal)
+                .Select(byUnit => (Amount: byUnit.Sum(wanted => wanted.Amount!.Value), Unit: byUnit.Key))];
+
+        /// <summary>
+        /// The soonest deadline any of them carries, or none. The row is one piece of work, so the date
+        /// that matters is the first one it is wanted by.
+        /// </summary>
+        public DateTimeOffset? DueDateUtc
+            => Entries.Select(entry => entry.Item.DueDateUtc).OfType<DateTimeOffset>().DefaultIfEmpty().Min() is { } due
+                && due != default
+                    ? due
+                    : null;
+    }
 
     /// <summary>
     /// Reads the inventories to choose from and, when one is already chosen, what the work costs against
@@ -1435,4 +1618,24 @@ else
             .ThenBy(entry => entry.Item.Description, StringComparer.CurrentCultureIgnoreCase)],
         _ => _flatItems
     };
+
+    /// <summary>
+    /// The flat view's rows: the entries above with everything saying the same thing gathered into one
+    /// row, in the order the first of each appeared.
+    ///
+    /// Three lists asking for milk are three entries and one errand. Read flat - which is the view for
+    /// "what do I actually have to do" - they were three rows saying "Milk", each labelled with the list
+    /// it came from, and the reader had to add them up themselves. Asked for on 2026-09-18: one row,
+    /// with how much is wanted altogether, what it is filed under, and no note of which list it came
+    /// from. The tree view is where a list's own entries are read as its own.
+    ///
+    /// Alike is **what the row says**, compared without case or surrounding space, because that is what
+    /// the reader sees as the same thing. Not the shelf item behind it: an entry standing for a product
+    /// and one nobody has linked yet are the same errand to whoever is holding the basket, and matching
+    /// on the link would gather some of them and leave the rest alone.
+    /// </summary>
+    private IReadOnlyList<FlatChecklistRow> FlatRowsToShow
+        => [.. FlatItemsToShow
+            .GroupBy(entry => entry.Item.Description.Trim(), StringComparer.CurrentCultureIgnoreCase)
+            .Select(alike => new FlatChecklistRow([.. alike]))];
 }

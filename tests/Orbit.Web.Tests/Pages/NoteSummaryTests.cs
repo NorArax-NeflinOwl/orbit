@@ -36,7 +36,13 @@ public sealed class NoteSummaryTests : OrbitTestContext
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
             }
 
-            return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(_note) };
+            // The list and the one note are different shapes, and this stub used to answer the note to
+            // both - so the page's own column of neighbouring notes (see NoteSummary) read an object
+            // where a list belongs. A double that answers a shape the server never sends is a double
+            // that makes a correct page look broken.
+            return request.RequestUri!.AbsolutePath.TrimEnd('/').EndsWith("/api/notes", StringComparison.Ordinal)
+                ? new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new[] { _note }) }
+                : new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(_note) };
         }))
         {
             BaseAddress = new Uri("https://example.test/")
@@ -182,6 +188,9 @@ public sealed class NoteSummaryTests : OrbitTestContext
     public void Deleting_leaves_for_the_notes_without_leaving_the_note_behind()
     {
         JSInterop.Setup<bool>("confirm", _ => true).SetResult(true);
+        // Delete is reached in the Archived folder and nowhere else - see ObjectMenu.IsArchived - so
+        // this is a note that has already been put away.
+        _note = ANote() with { IsArchived = true };
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         navigationManager.NavigateTo($"/notes/{NoteId}?returnTo=%2F");
         var cut = RenderComponent<NoteSummary>(parameters => parameters.Add(page => page.Id, NoteId));

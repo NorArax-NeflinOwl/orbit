@@ -1,4 +1,5 @@
 using Orbit.Core.Inventories;
+using Orbit.Core.Inventories.UpdateInventory;
 using Orbit.Core.Users;
 
 namespace Orbit.Api.Tests.TestDoubles;
@@ -37,6 +38,15 @@ internal sealed class InventoryTestContext
     /// <summary>Puts a list's product entries on the shelf it is measured against - see ProductEntryPlacement.</summary>
     public ProductEntryPlacement ProductEntryPlacement { get; }
 
+    /// <summary>Which lists Orbit keeps for itself, so neither count counts one twice - see ManagedRestockLists.</summary>
+    public ManagedRestockLists ManagedRestockLists { get; }
+
+    /// <summary>Writes an amount edited on the shelf back onto the entries asking for it - see ShelfDemand.</summary>
+    public ShelfDemand ShelfDemand { get; }
+
+    /// <summary>Counts what the lists ask of each shelf item - see ShelfUsage.</summary>
+    public ShelfUsage ShelfUsage { get; }
+
     public InventoryTestContext()
     {
         AccessResolver = new InventoryAccessResolver(InventoryRepository, InventoryShareRepository, UserRepository);
@@ -50,7 +60,17 @@ internal sealed class InventoryTestContext
         StockedEntryCompletion = new StockedEntryCompletion(InventoryRepository, InventoryItemRepository);
         ItemsSaver = new InventoryItemsSaver(InventoryItemRepository, TaskListCoordinator);
         ProductEntryPlacement = new ProductEntryPlacement(AccessResolver, InventoryItemRepository, RestockListRefresh);
+        ManagedRestockLists = new ManagedRestockLists(ManagedTaskListRepository);
+        ShelfDemand = new ShelfDemand(TaskRepository, ManagedRestockLists);
+        ShelfUsage = new ShelfUsage(TaskRepository, InventoryItemRepository, ManagedRestockLists);
     }
+
+    /// <summary>
+    /// A save of an inventory, wired the way DI wires it. Its own method here because the handler has
+    /// six collaborators now and every test that saves an inventory needs the same six.
+    /// </summary>
+    public UpdateInventoryCommandHandler InventorySave()
+        => new(AccessResolver, InventoryRepository, InventoryItemRepository, ItemsSaver, ShelfDemand, ShelfUsage);
 
     /// <summary>Creates and stores an inventory owned by ownerUserId, returning its id - the starting point for almost every inventory test.</summary>
     public Guid AddInventory(Guid ownerUserId, string name = "Kitchen")

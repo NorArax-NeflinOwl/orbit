@@ -809,6 +809,15 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             : _appointmentsWaitingToBeNamed.GetValueOrDefault(item.Description);
 
     /// <summary>
+    /// The appointment a row says the time of - <see cref="AppointmentFor"/>, but only for an entry
+    /// that is an appointment. The fallback there matches on the words, which is the right answer for
+    /// the form (an entry saved offline has no id to match on yet) and the wrong one for a row: a
+    /// checklist line that happens to read the same as a waiting appointment would take its hours.
+    /// </summary>
+    private CalendarEventDetailsDto? AppointmentBehind(TaskItemDto item)
+        => item.Kind == nameof(TaskItemKind.Calendar) ? AppointmentFor(item) : null;
+
+    /// <summary>
     /// Appointments made on this phone that the server has not named yet, by the entry they belong to.
     /// Without this an entry saved offline would reopen on an empty form, and the next save would make a
     /// second event rather than correcting the first - see PendingCalendarLink.
@@ -1477,7 +1486,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         {
             Items.Add(TaskItemRow.From(
                 item, _translations, _timeProvider.GetUtcNow(), ReferencesFor(item),
-                _appointmentsWaitingToBeNamed.ContainsKey(item.Description)));
+                _appointmentsWaitingToBeNamed.ContainsKey(item.Description),
+                AppointmentBehind(item)));
         }
 
         // The fraction is worked out from the rows, so it is said again whenever they are rebuilt -

@@ -22,6 +22,8 @@
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject NavigationTrail NavigationTrail
+@inject NoteDrafts Drafts
+@inject IJSRuntime JSRuntime
 @inject ILogger<NoteEditor> Logger
 @inject Clipboard Clipboard
 @inject Translations T
@@ -84,6 +86,14 @@ else
                                      OwnerUserId="ownerUserId" OwnUserId="_ownUserId"
                                      OwnerDisplayName="@(_sharedByUserName ?? "them")" />
         }
+    }
+
+    @* Said when the note opens holding writing the server has not got: the reader left it for another
+       note and has come back. A page that quietly showed unsaved work as though it were saved would be
+       the worse half of losing it. See NoteDrafts. *@
+    @if (_draftMessage is not null)
+    {
+        <p class="info">@_draftMessage</p>
     }
 
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form note-editor-form">
@@ -827,6 +837,9 @@ else
         // The note being left behind is not being edited any more, and somebody else may want it.
         if (_hasLoaded && _loadedId is { } previousNoteId)
         {
+            // What was written in it and not saved is kept first - see NoteDrafts. Pressing another
+            // note in the column beside the writing is moving your eyes, not abandoning this one.
+            KeepWhatIsUnsaved(previousNoteId);
             await ReleaseLockAsync(previousNoteId);
         }
 
@@ -948,8 +961,130 @@ else
             _formModel.IsPrivate = chosen == FolderKey.Of(BuiltInFolder.Private);
         }
 
+        // What the note says as it is stored, to compare against when this form is left - see
+        // KeepWhatIsUnsaved. Taken before any draft is put back, so a draft is still read as unsaved.
+        _asStored = WhatTheFormHolds();
+
+        // And what was written here before and never saved, if there is any: the reader left this note
+        // for another one and has come back to it. Said out loud - a note that opens saying something
+        // the server does not hold has to say why.
+        if (Id is { } openedId && Drafts.For(openedId) is { } unsaved)
+        {
+            _formModel.Lines = unsaved.Lines;
+            _formModel.IsPrivate = unsaved.IsPrivate;
+            _formModel.Priority = unsaved.Priority;
+            _formModel.FolderId = unsaved.FolderId;
+            _formModel.Tags = [.. unsaved.Tags];
+            _draftMessage = T["What you had written here is back. It still has to be saved."];
+        }
+        else
+        {
+            _draftMessage = null;
+        }
+
         _isLoading = false;
         await ListTheNotesBesideItAsync();
+    }
+
+    /// <summary>The note as the server holds it, for telling whether this form has been written in.</summary>
+    private NoteDrafts.Draft? _asStored;
+
+    /// <summary>
+    /// Watches for the page being left, so that writing nobody saved is not thrown away silently - see
+    /// NoteDrafts. Held so it can be let go of with the page; a handler left registered would ask about
+    /// notes on every navigation for the rest of the session.
+    /// </summary>
+    private IDisposable? _watchingForTheWayOut;
+
+    protected override void OnInitialized()
+        => _watchingForTheWayOut = NavigationManager.RegisterLocationChangingHandler(AskBeforeLeavingAsync);
+
+    /// <summary>
+    /// Leaving the editor with writing nobody saved: says which notes it is and lets the reader stop.
+    ///
+    /// Moving to another note's editor is not leaving - that is the column beside the writing, and what
+    /// is in the form is kept for it (see OnParametersSetAsync). Everything else is the way out: the
+    /// drafts are named, and going anyway is what throws them away, which is the one moment anybody can
+    /// cheaply not do that.
+    /// </summary>
+    private async ValueTask AskBeforeLeavingAsync(LocationChangingContext leaving)
+    {
+        if (IsAnotherNotesEditor(leaving.TargetLocation))
+        {
+            return;
+        }
+
+        if (_loadedId is { } noteId)
+        {
+            KeepWhatIsUnsaved(noteId);
+        }
+
+        if (!Drafts.HasAny)
+        {
+            return;
+        }
+
+        var unsaved = string.Join(", ", Drafts.Names);
+        if (await Confirms(T.Format("Not saved yet: {0}. Leave and lose what you wrote?", unsaved)))
+        {
+            Drafts.ForgetEverything();
+            return;
+        }
+
+        leaving.PreventNavigation();
+    }
+
+    /// <summary>Whether this address is another note's own editor - the column beside the writing.</summary>
+    private static bool IsAnotherNotesEditor(string target)
+        => target.Contains("/notes/", StringComparison.OrdinalIgnoreCase)
+            && target.Contains("/edit", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The browser's own question. A confirm rather than a dialog of Orbit's: this is asked while a
+    /// navigation is being held, and anything drawn on the page would need the navigation to finish
+    /// first to be pressed.
+    /// </summary>
+    private async Task<bool> Confirms(string question)
+    {
+        try
+        {
+            return await JSRuntime.InvokeAsync<bool>("confirm", question);
+        }
+        catch (JSException)
+        {
+            // Nothing to ask with, so the reader is not held on a page they asked to leave.
+            return true;
+        }
+    }
+
+    /// <summary>Said when a note opens holding writing the server does not have - see LoadTheNoteAsync.</summary>
+    private string? _draftMessage;
+
+    /// <summary>Everything about this note the form can change, in the shape a draft is kept in.</summary>
+    private NoteDrafts.Draft WhatTheFormHolds()
+        => new(
+            _formModel.Title.Length > 0 ? _formModel.Title : T["Untitled"],
+            _formModel.Lines,
+            _formModel.IsPrivate,
+            _formModel.Priority,
+            _formModel.FolderId,
+            _formModel.Tags);
+
+    /// <summary>
+    /// Keeps what is in the form as this note is left, or drops what was kept for it when the form says
+    /// nothing the stored note does not - see NoteDrafts, which decides which of the two it is.
+    ///
+    /// A note this reader cannot write in is never kept: there is nothing of theirs in it to lose, and a
+    /// warning naming it would be about a note they did not change.
+    /// </summary>
+    private void KeepWhatIsUnsaved(Guid noteId)
+    {
+        if (_isSharedReadOnly || _lockedByUserName is not null || _asStored is not { } stored)
+        {
+            return;
+        }
+
+        Drafts.Keep(noteId, WhatTheFormHolds(), stored);
     }
 
     /// <summary>
@@ -1120,6 +1255,15 @@ else
             _isSaving = false;
         }
 
+        // Saved is saved: there is nothing unsaved left in this note to warn about or to put back the
+        // next time it is opened - see NoteDrafts.
+        if (Id is { } savedNoteId)
+        {
+            Drafts.Forget(savedNoteId);
+        }
+
+        _draftMessage = null;
+
         // Without this form left behind it: Back after saving a new note would open the form again, one
         // press from saving it twice. See NavigationTrail.
         await NavigationTrail.FinishAsync(WhenFinished);
@@ -1176,6 +1320,10 @@ else
         Logger.LogInformation("User clicked 'Cancel'");
         if (Id is { } noteId)
         {
+            // Cancel is this note's answer to "keep what I wrote?" and the answer is no, so nothing of
+            // it is kept for the next time it is opened. Another note's unsaved writing is not this
+            // press's business, and the warning on the way out still names it.
+            Drafts.Forget(noteId);
             await ReleaseLockAsync(noteId);
         }
 
@@ -1275,6 +1423,8 @@ else
 
     public async ValueTask DisposeAsync()
     {
+        _watchingForTheWayOut?.Dispose();
+
         if (Id is { } noteId)
         {
             await ReleaseLockAsync(noteId);

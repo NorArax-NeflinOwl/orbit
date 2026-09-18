@@ -1,0 +1,394 @@
+@using Orbit.Core.Tags
+@using Orbit.Core.Text
+@using Orbit.Web.Services
+@implements IAsyncDisposable
+@inject TagColourBook TagColourBook
+@inject IJSRuntime JSRuntime
+@inject Translations T
+
+@* One short vocabulary, in one control: the words it holds written along the field, and everything it
+   could hold one press away. A tick each, the name, optionally how many things already carry that word,
+   and optionally the colour it is drawn in.
+
+   It is not UsedValueBrowser, which hangs under a box while somebody types and answers "what have I
+   called things like this before". This one is closed until it is asked for and shows the whole
+   vocabulary at once, which is what filing and filtering both need: the point of a category is that the
+   twenty-first thing goes under one of the twenty words already in use, and the point of a filter is to
+   see what is worth narrowing to before narrowing.
+
+   The panel is placed by measurement rather than by CSS, for the reason menuAnchor.js gives: a control
+   on a row deep in a scrolling form would otherwise be clipped by the form. *@
+<div class="value-browser @AdditionalClass" @onfocusin="() => _keptFocus = true" @onfocusout="CloseIfFocusLeftAsync">
+    <button type="button" class="form-control value-browser-field @(_isOpen ? "open" : null)"
+            disabled="@IsReadOnly" aria-haspopup="listbox" aria-expanded="@(_isOpen ? "true" : "false")"
+            aria-label="@AriaLabel" title="@AriaLabel" @onclick="Toggle" @onkeydown="OnKeyDown">
+        @* What the field stands for, written out the way somebody would say it. A name too long for the
+           row is cut by the CSS rather than wrapped: the field keeps the height of one line, and the
+           panel below it is where the whole list is read. *@
+        <span class="value-browser-written @(Chosen.Count == 0 ? "is-empty" : null)">
+            @(Chosen.Count == 0 ? Placeholder : string.Join(", ", Chosen))
+        </span>
+        <svg class="value-browser-caret" viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"
+             fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m5 8 5 5 5-5" />
+        </svg>
+    </button>
+    @if (_isOpen && !IsReadOnly)
+    {
+        <div class="value-browser-panel" @ref="_panel" role="listbox"
+             aria-multiselectable="@(OnlyOne ? "false" : "true")" aria-label="@AriaLabel">
+            @* The box at the head of the panel does both jobs it can do: it narrows what is listed, and
+               where the caller allows it, what it holds can be taken as a word of its own. A vocabulary
+               longer than a glance is one somebody types at rather than scrolls - which is the whole
+               reason the panel that hangs under a box (UsedValueBrowser) narrows as it is typed into. *@
+            @if (IsTypedInto)
+            {
+                <div class="value-browser-new">
+                    <input type="text" class="form-control" value="@_typed" placeholder="@BoxSays"
+                           aria-label="@BoxSays"
+                           @oninput="args => _typed = args.Value?.ToString() ?? string.Empty"
+                           @onkeydown="OnNewKeyDownAsync" />
+                    @if (CanAddNew)
+                    {
+                        <button type="button" class="icon-btn value-browser-add" title="@(T["Add"])" aria-label="@(T["Add"])"
+                                disabled="@(_typed.Trim().Length == 0)" @onclick="AddTheNewWordAsync">
+                            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none"
+                                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
+                        </button>
+                    }
+                </div>
+            }
+            @if (Offered.Count == 0)
+            {
+                <p class="empty-hint value-browser-empty">
+                    @(_typed.Trim().Length > 0 ? T["Nothing matches that."] : EmptyMessage ?? T["Nothing to choose from yet."])
+                </p>
+            }
+            @foreach (var offer in Offered)
+            {
+                var colour = OffersColours ? TagColourBook.ColourOf(offer.Name) : null;
+                <div class="value-browser-row" role="option" aria-selected="@(IsChosen(offer.Name) ? "true" : "false")">
+                    @* The whole row is the label, so the press that chooses is the width of the row
+                       rather than the width of the word - see the phone, where a tick you have to hit
+                       exactly is the thing that gets reported as "it does not react". *@
+                    <label class="value-browser-tick">
+                        <input type="checkbox" checked="@IsChosen(offer.Name)"
+                               @onchange="args => ChooseAsync(offer.Name, args.Value is true)" />
+                        <span class="value-browser-name @(colour is null ? null : "value-browser-name-coloured")"
+                              style="@(colour is null ? null : $"--tag-colour: {colour}")">@offer.Name</span>
+                    </label>
+                    @* How many things already carry this word. Only where the caller counted: on a
+                       filter it is the size of what pressing this would leave, and on a field being
+                       filled in it would be a number about other things entirely. *@
+                    @if (offer.Count is { } count)
+                    {
+                        <span class="value-browser-count">@count</span>
+                    }
+                    @if (OffersColours)
+                    {
+                        @* The colour belongs to the word for the whole account (see TagColourBook), so
+                           it is saved the moment it is picked rather than with whatever is being
+                           edited - and cancelling that form is not a way of taking it back. *@
+                        <input type="color" class="value-browser-colour" value="@(colour ?? PlainColour)"
+                               aria-label="@T.Format("Colour of {0}", offer.Name)"
+                               @onchange="args => SetColourAsync(offer.Name, args.Value?.ToString() ?? string.Empty)" />
+                        @if (colour is not null)
+                        {
+                            <button type="button" class="icon-btn value-browser-uncolour"
+                                    title="@(T["No colour"])" aria-label="@T.Format("No colour for {0}", offer.Name)"
+                                    @onclick="() => SetColourAsync(offer.Name, string.Empty)">✕</button>
+                        }
+                    }
+                </div>
+            }
+            @* Whatever else belongs to this choice rather than to one of its words - the rule saying
+               whether every chosen word has to hold, on the filters that ask it. *@
+            @Extra
+            @if (_error is not null)
+            {
+                <p class="error">@_error</p>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>What the well shows for a word drawn plain: a colour input always holds one, so it holds a quiet grey.</summary>
+    private const string PlainColour = "#8a8580";
+
+    /// <summary>One word on offer, and - where the caller counted them - how many things carry it.</summary>
+    /// <param name="Name">The word as it was written when it was first used.</param>
+    /// <param name="Count">How many things this would leave, or null where the number means nothing.</param>
+    public sealed record Offer(string Name, int? Count = null);
+
+    /// <summary>
+    /// Words with no count beside them - what a field being filled in offers. A number about how many
+    /// other things carry the word is a number about something else on a form; only a filter counts.
+    /// </summary>
+    public static IReadOnlyList<Offer> Words(IEnumerable<string> words)
+        => [.. words.Select(word => new Offer(word))];
+
+    /// <summary>Everything this control could hold, in the order to read them in.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<Offer> Offers { get; set; } = [];
+
+    /// <summary>The words it holds now. A word chosen but not offered is still drawn - see <see cref="Offered"/>.</summary>
+    [Parameter] public IReadOnlyList<string> Chosen { get; set; } = [];
+
+    [Parameter] public EventCallback<IReadOnlyList<string>> ChosenChanged { get; set; }
+
+    /// <summary>What the closed field says while nothing is chosen.</summary>
+    [Parameter] public string? Placeholder { get; set; }
+
+    /// <summary>What the field is called, for a reader who cannot see the label beside it.</summary>
+    [Parameter] public string? AriaLabel { get; set; }
+
+    /// <summary>Said in the panel when there is nothing to offer at all.</summary>
+    [Parameter] public string? EmptyMessage { get; set; }
+
+    /// <summary>A colour well per word, saved for the whole account at once - the tags.</summary>
+    [Parameter] public bool OffersColours { get; set; }
+
+    /// <summary>One answer at a time: ticking a word replaces whatever was ticked - the views a page can be read in.</summary>
+    [Parameter] public bool OnlyOne { get; set; }
+
+    /// <summary>
+    /// Whether "nothing" is one of the answers, which only matters where one is wanted: a shelf item
+    /// with no product type is a shelf item, and a page read in no view at all is not a page.
+    /// </summary>
+    [Parameter] public bool CanBeEmpty { get; set; }
+
+    /// <summary>A box in the panel for a word nothing carries yet - a field being filled in, not a filter.</summary>
+    [Parameter] public bool CanAddNew { get; set; }
+
+    [Parameter] public string? NewPlaceholder { get; set; }
+
+    [Parameter] public bool IsReadOnly { get; set; }
+
+    [Parameter] public string? AdditionalClass { get; set; }
+
+    /// <summary>Drawn at the foot of the open panel - see the comment where it is rendered.</summary>
+    [Parameter] public RenderFragment? Extra { get; set; }
+
+    /// <summary>Words written here that nothing carries yet, so they stay on offer until the form is saved.</summary>
+    private readonly List<string> _added = [];
+
+    private bool _isOpen;
+    private string _typed = string.Empty;
+    private string? _error;
+
+    /// <summary>Set by focus arriving anywhere inside, and read by the focusout - see <see cref="CloseIfFocusLeftAsync"/>.</summary>
+    private bool _keptFocus;
+
+    /// <summary>The open panel, so JS can measure it and place it - see menuAnchor.js.</summary>
+    private ElementReference _panel;
+
+    private IJSObjectReference? _anchoring;
+
+    /// <summary>
+    /// What the panel lists: what the caller offers, then anything chosen or written here that is not
+    /// among them. A word the reader has already taken and cannot see reads as the control having lost
+    /// it - and on a field being filled in the item's own word is exactly the one nothing else carries.
+    /// </summary>
+    public IReadOnlyList<Offer> Offered
+    {
+        get
+        {
+            var offered = Offers.ToList();
+            foreach (var word in Chosen.Concat(_added))
+            {
+                if (!offered.Any(offer => TagNames.KeyOf(offer.Name) == TagNames.KeyOf(word)))
+                {
+                    offered.Add(new Offer(word));
+                }
+            }
+
+            // Contains rather than starts-with, since somebody who files things under "Food, dry" will
+            // type "dry" - and loosely, so the marks over a letter do not have to be typed to find a
+            // word written with them. The same rule the suggestions panel follows (LooseText).
+            return _typed.Trim().Length == 0
+                ? offered
+                : [.. offered.Where(offer => LooseText.Holds(offer.Name, _typed))];
+        }
+    }
+
+    /// <summary>
+    /// Whether the panel has a box at its head. A vocabulary somebody can add to always does; one only
+    /// being read gets one once it is longer than a glance, because past that the list is a scroll
+    /// rather than a choice.
+    /// </summary>
+    private bool IsTypedInto => CanAddNew || Offers.Count > LongEnoughToTypeAt;
+
+    /// <summary>Past this many words, reading the list stops being quicker than typing at it.</summary>
+    private const int LongEnoughToTypeAt = 10;
+
+    /// <summary>What the box says it is for, which depends on whether it can also make a word.</summary>
+    private string BoxSays => CanAddNew ? NewPlaceholder ?? T["New word"] : T["Search"];
+
+    private bool IsChosen(string word) => Chosen.Any(chosen => TagNames.KeyOf(chosen) == TagNames.KeyOf(word));
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!OffersColours)
+        {
+            return;
+        }
+
+        TagColourBook.Changed += Redraw;
+        await TagColourBook.LoadAsync();
+    }
+
+    /// <summary>
+    /// Measured on every render rather than only the first: the panel grows as words are written into it,
+    /// and one measured once sits where a shorter version of itself used to be.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_isOpen)
+        {
+            return;
+        }
+
+        try
+        {
+            _anchoring ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/menuAnchor.js");
+            await _anchoring.InvokeVoidAsync("anchorToField", _panel, ".value-browser-field");
+        }
+        catch (JSException)
+        {
+            // The panel is still readable where CSS put it; this only improves where that is.
+        }
+        catch (JSDisconnectedException)
+        {
+            // The page is going away with the panel open.
+        }
+    }
+
+    private void Toggle() => _isOpen = !_isOpen;
+
+    /// <summary>Escape closes without touching what is chosen, which is what it means everywhere else here.</summary>
+    private void OnKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+        {
+            _isOpen = false;
+        }
+    }
+
+    /// <summary>
+    /// Closes once focus has actually left the control, rather than on the way between its own ticks.
+    /// focusout fires before the matching focusin, so this waits a turn and then asks whether anything
+    /// inside took the focus in between - the same pattern the chat's message menu follows.
+    /// </summary>
+    private async Task CloseIfFocusLeftAsync()
+    {
+        _keptFocus = false;
+        await Task.Yield();
+
+        if (_keptFocus || !_isOpen)
+        {
+            return;
+        }
+
+        _isOpen = false;
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Ticking a word takes it; unticking gives it back. Where one answer is wanted, ticking replaces
+    /// whatever held, and unticking the one that holds either empties the field or does nothing -
+    /// see <see cref="CanBeEmpty"/>, which is the difference between a field and a view.
+    /// </summary>
+    private async Task ChooseAsync(string word, bool isChosen)
+    {
+        if (OnlyOne)
+        {
+            if (isChosen)
+            {
+                await ChosenChanged.InvokeAsync([word]);
+            }
+            else if (CanBeEmpty)
+            {
+                await ChosenChanged.InvokeAsync([]);
+            }
+
+            return;
+        }
+
+        IReadOnlyList<string> chosen = isChosen
+            ? [.. Chosen, word]
+            : [.. Chosen.Where(taken => TagNames.KeyOf(taken) != TagNames.KeyOf(word))];
+        await ChosenChanged.InvokeAsync(chosen);
+    }
+
+    private async Task AddTheNewWordAsync()
+    {
+        var word = _typed.Trim();
+        if (word.Length == 0)
+        {
+            return;
+        }
+
+        if (!_added.Any(added => TagNames.KeyOf(added) == TagNames.KeyOf(word))
+            && !Offers.Any(offer => TagNames.KeyOf(offer.Name) == TagNames.KeyOf(word)))
+        {
+            _added.Add(word);
+        }
+
+        _typed = string.Empty;
+        if (!IsChosen(word))
+        {
+            await ChooseAsync(word, isChosen: true);
+        }
+    }
+
+    /// <summary>Enter adds the word, as it does in every box that takes a list of them - and must not reach the form.</summary>
+    private async Task OnNewKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            await AddTheNewWordAsync();
+        }
+        else if (args.Key == "Escape")
+        {
+            _isOpen = false;
+        }
+    }
+
+    /// <summary>Saved at once, for the whole account - and said in the panel when it did not save.</summary>
+    private async Task SetColourAsync(string tag, string colour)
+    {
+        _error = null;
+        try
+        {
+            await TagColourBook.SetAsync(tag, colour);
+        }
+        catch (HttpRequestException)
+        {
+            _error = T["That colour could not be saved."];
+        }
+    }
+
+    private void Redraw() => _ = InvokeAsync(StateHasChanged);
+
+    public async ValueTask DisposeAsync()
+    {
+        if (OffersColours)
+        {
+            TagColourBook.Changed -= Redraw;
+        }
+
+        if (_anchoring is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _anchoring.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // Nothing left to release.
+        }
+    }
+}

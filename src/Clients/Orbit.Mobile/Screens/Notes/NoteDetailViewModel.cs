@@ -106,14 +106,11 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     /// </summary>
     public event EventHandler<NoteCaret>? CaretPlaced;
 
-    /// <summary>
-    /// The left half of the editor's foot, as the design draws it: whose note this is when it is not the
-    /// reader's own, and when it last changed - in the words the note's card on the list uses, so the two
-    /// say the same thing (see LastChanged). Somebody the reader shared it *with* is not named: this
-    /// phone keeps only that it is shared, not with whom.
-    /// </summary>
-    [ObservableProperty]
-    private string _footnote = string.Empty;
+    // The editor's foot is gone (2026-09-18): the line saying whose note it is and when it last changed,
+    // and the hint beside it about typing "[]" for a tick box. The screen is the note, and both were
+    // furniture under the last line of it. What the first said is on the note's row in the list it came
+    // from (LastChanged, which the row already uses); the second is written down in
+    // info/functionality.md, which is now the only place it lives.
 
     [ObservableProperty]
     private string _title = string.Empty;
@@ -829,10 +826,6 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         }
 
         IsSharedWithMe = note.IsShared;
-        var lastChanged = LastChanged.Describe(note.UpdatedAtUtc, _timeProvider.GetUtcNow(), _translations);
-        Footnote = note is { IsShared: true, SharedByUserName: { Length: > 0 } sharedBy }
-            ? _translations.Format("Shared by {0} · {1}", sharedBy, lastChanged)
-            : lastChanged;
         FolderId = note.FolderId;
         IsArchived = note.IsArchived;
         Folders = [.. (await _folders.GetAllAsync(FolderScope.Notes, cancellationToken))];
@@ -1058,6 +1051,18 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         var line = index + 1;
         var change = NoteTextChange.Between(row.TextBefore, row.Text);
 
+        // One newline typed into a line, with nothing else in the same change, is **Enter** rather than
+        // a paste. A note's line is written in a field that wraps now (an Editor rather than an Entry,
+        // so a long line is read rather than scrolled sideways), and a field that wraps has a return key
+        // that writes a newline where the old one had a "next" that raised Completed. It has to keep
+        // meaning what it always meant - a line started under this one, keeping its indentation and its
+        // box - so it goes through the same surface Enter the key press went through.
+        if (change.Inserted is "\n" or "\r\n" or "\r" && change.Removed == 0)
+        {
+            EnterWasTypedInto(row, change.Start, change.Inserted.Length);
+            return;
+        }
+
         if (IsSeveralLines(change.Inserted))
         {
             Paste(line, change);
@@ -1174,6 +1179,28 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     /// Whether text that came into a field at once has a line break in it - a paste, since a one-line
     /// field's own Enter never puts one there (it raises Completed instead - see NoteDetailPage).
     /// </summary>
+    /// <summary>
+    /// Enter, arriving as a newline written into the line rather than as a key the page caught - see
+    /// the caller. The newline itself is taken back out first, because a line never holds one: what it
+    /// means is that everything after it belongs to a line of its own, which is what AddLineAfter does
+    /// with the surface. Putting it back is not an edit anybody made, so it is done inside the guard
+    /// that keeps this method from hearing its own writing.
+    /// </summary>
+    private void EnterWasTypedInto(NoteLineRow row, int at, int howLongTheBreakIs)
+    {
+        _applying++;
+        try
+        {
+            row.Text = row.Text.Remove(at, howLongTheBreakIs);
+        }
+        finally
+        {
+            _applying--;
+        }
+
+        AddLineAfter(row, at);
+    }
+
     private static bool IsSeveralLines(string inserted) => inserted.AsSpan().IndexOfAny('\n', '\r') >= 0;
 
     private static bool IsBlank(string text) => text.All(character => character is ' ' or '\t');

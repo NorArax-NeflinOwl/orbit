@@ -17,6 +17,12 @@ public sealed class ShelfUsageTests
     private readonly InMemoryTaskRepository _tasks = new();
     private readonly InMemoryInventoryItemRepository _shelf = new();
 
+    /// <summary>
+    /// Nothing is registered here, so every list in these tests is the reader's own - which is what
+    /// these tests are about. That Orbit's own restock list is not counted is ShelfDemandTests' job.
+    /// </summary>
+    private readonly ManagedRestockLists _orbitsOwnLists = new(new InMemoryInventoryManagedTaskListRepository());
+
     private async Task<InventoryItem> AShelfItemAsync(decimal? minimum = null, decimal quantity = 0)
     {
         var item = InventoryItem.Create(
@@ -38,7 +44,7 @@ public sealed class ShelfUsageTests
         await _tasks.AddAsync(TaskList.Create(UserId, "Bread", [AnEntryFor(flour, 2), AnEntryFor(flour, needs: null)]), CancellationToken.None);
         await _tasks.AddAsync(TaskList.Create(UserId, "Pizza", [AnEntryFor(flour, 3)]), CancellationToken.None);
 
-        await new ShelfUsage(_tasks, _shelf).RecountAsync(UserId, new HashSet<Guid> { flour.Id }, CancellationToken.None);
+        await new ShelfUsage(_tasks, _shelf, _orbitsOwnLists).RecountAsync(UserId, new HashSet<Guid> { flour.Id }, CancellationToken.None);
 
         // Two, three, and one for the entry that says nothing - the counting rule's answer for a bare line.
         Assert.Equal(6, flour.Usage);
@@ -101,5 +107,5 @@ public sealed class ShelfUsageTests
                 new InMemoryInventoryRepository(), new InMemoryTaskRepository()),
             new StockedEntryCompletion(new InMemoryInventoryRepository(), new InMemoryInventoryItemRepository()),
             new InventoryTestContext().ProductEntryPlacement,
-            new ShelfUsage(_tasks, _shelf));
+            new ShelfUsage(_tasks, _shelf, _orbitsOwnLists));
 }

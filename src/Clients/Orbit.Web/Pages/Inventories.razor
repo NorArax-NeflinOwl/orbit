@@ -94,8 +94,8 @@
 
 @* Which folder is being read - the inventories' own, since a folder belongs to one page (see
    FolderScope). On a phone it folds into one Menu button. *@
-<PhoneToolbar Page="FolderPage.Inventories">
-    <FolderTabs Page="FolderPage.Inventories" CountIn="CountIn" />
+<PhoneToolbar Page="FolderPage.Inventories" HasNews="@NewsIsInAFolderThatIsNotOpen">
+    <FolderTabs Page="FolderPage.Inventories" CountIn="CountIn" HasNewsIn="HasNewsIn" />
 </PhoneToolbar>
 
 @* What to do with several at once, while several are chosen - see PickedThings, and Notes.razor on why it
@@ -147,6 +147,7 @@
                                     ShareLabel="@(CanShare(inventory) ? T["Share"] : null)" OnShare="() => ToggleSharePanel(inventory.Id)"
                                     ArchiveLabel="@(!inventory.IsShared ? ArchiveLabelFor(inventory.IsArchived) : null)"
                                     OnArchive="() => SetArchivedAsync(inventory, !inventory.IsArchived)"
+                                    IsArchived="inventory.IsArchived"
                                     DeleteLabel="@(!inventory.IsShared ? T["Delete"] : null)" OnDelete="() => DeleteInventoryAsync(inventory)" />
                     </Menu>
                     <Tags>
@@ -444,6 +445,23 @@
     private int CountIn(FolderKey folder)
         => (_inventories ?? []).Count(inventory =>
             Folders.PlacementOn(FolderPage.Inventories, inventory.FolderId, inventory.IsPrivate, isFinished: false, inventory.IsArchived) == folder);
+
+    /// <summary>Where a shelf's tab is - one answer for the count above and the two questions below.</summary>
+    private FolderKey PlacementOf(InventoryDto inventory)
+        => Folders.PlacementOn(
+            FolderPage.Inventories, inventory.FolderId, inventory.IsPrivate, isFinished: false, inventory.IsArchived);
+
+    /// <summary>
+    /// Whether a shelf under this tab holds something the reader has not seen - the mark on the tab, so
+    /// somebody following a notification can see which folder holds it. See FolderTabs.HasNewsIn.
+    /// </summary>
+    private bool HasNewsIn(FolderKey folder)
+        => (_inventories ?? []).Any(inventory => HasNewsAbout(inventory) && PlacementOf(inventory) == folder);
+
+    /// <summary>The same question asked of the tabs a phone folds away - see PhoneToolbar.HasNews.</summary>
+    private bool NewsIsInAFolderThatIsNotOpen
+        => (_inventories ?? []).Any(inventory =>
+            HasNewsAbout(inventory) && PlacementOf(inventory) != Folders.ChosenOn(FolderPage.Inventories));
 
     /// <summary>The card being dragged to a new place, while one is - see RowArrangement.</summary>
     private readonly RowArrangement<InventoryDto> _cardOrder = new();

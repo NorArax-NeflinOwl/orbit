@@ -160,9 +160,6 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
         IsCompleted = item.IsCompleted;
         IsFailed = item.IsFailed;
         CompletedOn = DescribeCompletion(item.CompletedAtUtc);
-        When = item.DueDateUtc is { } due
-            ? due.LocalDateTime.ToString("g", _translations.DisplayCulture)
-            : _translations["No date set"];
 
         await ShowWhereItIsAsync(item, cancellationToken);
     }
@@ -187,6 +184,18 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
             AppointmentDescription = appointment.Details.Description ?? string.Empty;
             Guests = await NameTheGuestsAsync(appointment.Details.Guests, cancellationToken);
         }
+
+        // When it happens comes from the appointment wherever there is one, which is what Orbit.Web has
+        // always done here (TaskItemSummary.WhenItIs). The day and the hour live on the event - an
+        // editor writes them there - so the entry's own due date is whatever it was when the entry was
+        // made, and reading it left an appointment moved in a browser still showing its old day here
+        // with nothing to say it had been moved. Asked for again on 2026-09-18, with both screens
+        // side by side.
+        When = appointment is { } tied
+            ? Calendar.EventWhen.Reads(tied.Details, _translations)
+            : item.DueDateUtc is { } due
+                ? due.LocalDateTime.ToString("g", _translations.DisplayCulture)
+                : _translations["No date set"];
 
         if (appointment is { Details.Location: { } location })
         {

@@ -15,4 +15,11 @@ public sealed record UpdateInventoryCommand(
     Guid UserId, Guid InventoryId, string Name, IReadOnlyList<InventoryItemInput> Items,
     bool IsPrivate, EncryptedPayload? EncryptedContent,
     /// <summary>Null leaves the stored description alone - see SaveInventoryRequest.</summary>
-    string? Description = null) : IRequest<EditOutcome>;
+    string? Description = null,
+    /// <summary>
+    /// The shelf items whose new amount is to be divided equally between every entry asking for them -
+    /// the reader's answer to the warning a shared shelf row raises. See ShelfDemand: a row asked for by
+    /// one entry is written back to it whatever this says, and a shared one named nowhere here is left
+    /// alone, which is what "I'll change the list myself" means.
+    /// </summary>
+    IReadOnlyList<Guid>? SplitEvenlyAcross = null) : IRequest<EditOutcome>;

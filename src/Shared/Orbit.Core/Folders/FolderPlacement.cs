@@ -45,8 +45,13 @@ public static class FolderPlacement
     /// </param>
     /// <param name="isArchived">
     /// Whether its owner has put it away. Unlike the two above this is stored rather than read off what
-    /// the thing is - see BuiltInFolder - and every page draws the tab, so no page passes false to hide
-    /// it: something put away has to be somewhere it can be found again.
+    /// the thing is - see BuiltInFolder - and no page passes false to hide it: something put away has to
+    /// be somewhere it can be found again.
+    ///
+    /// The dashboard draws no Archived tab (see FolderPages.HasAnArchivedTab) and still passes this,
+    /// which is the difference between the two rules: a finished list is placed as unfinished where
+    /// there is no tab for it, so it stays on the page, while something put away is placed in the
+    /// archive everywhere and is therefore simply not on a page with no tab for it.
     /// </param>
     public static FolderKey Of(
         Guid? folderId, bool isPrivate, bool isFinished, IReadOnlyCollection<Guid> knownFolderIds,

@@ -726,6 +726,25 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **Two of Orbit.Web's test classes fail once in a while under the whole suite and pass alone**
+  (2026-09-18). `NameSuggestionSourceTests` was the timer rather than the subject - the panel waits out
+  a 150ms settle delay and the wait was left at bUnit's own one second, which a machine running the
+  suite in parallel drifts past; both its waits now allow five seconds. **That was not the whole of
+  it**, and the failure was caught in the act afterwards:
+
+  > `A_kind_switched_off_is_offered_as_words_only` - `Assert.Equal() Failure: Strings differ.
+  > Expected: "Sauce". Actual: null`
+
+  So the panel *was* drawn and the option *was* found and pressed - the wait had already passed - and
+  the press did not reach `OnChosen`. That points at the press landing on a panel the component has
+  since redrawn (the settle timer coming round again under load) rather than at any timer of the
+  test's. Whoever picks this up should start there: `NameSuggestions.OnChosen` and what a second
+  lookup does to the options while one is being pressed.
+
+  `ChatThreadTests.A_notification_stays_while_their_newest_message_is_not_yet_in_view` and
+  `GroupConversationPagesTests` have each done it once in the same session, and neither has been caught
+  yet. The chat one's own waits are already 15 seconds, so it is not a deadline either.
+
 - ~~**`TaskItem.KeepAlternativesOf` can leave the completion time disagreeing with the tick.**~~ Fixed
   2026-09-14, the first of the two ways this offered: `KeepAlternativesOf` calls `RecordWhenItWasDone`
   itself once the ways have moved the tick, so the pair cannot be left disagreeing by any caller. The
@@ -2107,6 +2126,215 @@ It is **not** on the two other places somebody edits in the browser:
   entry. Reading the clipboard needs a permission the browser only grants on a gesture, and the phone's
   is `Clipboard.Default.GetTextAsync`; the entry field would have to decide, on a paste with newlines in
   it, whether it is one entry or several - which is the decision this is waiting on.
+
+## What the user asked for on 2026-09-18
+
+The round this session is working through, written down before any of it was built so that the list
+itself cannot be lost between sessions. Three more items arrived while the first was being built and
+are in "Added the same day" at the foot. Struck-through entries are done; everything else is open, and
+the session that finishes one strikes it here rather than in a report nobody reads again.
+
+### The control, and where it goes
+
+- ~~**A browser for a short vocabulary.**~~ Built as `ValueBrowser`: a field with what it holds written
+  along it by comma, opening onto a list where each word has a two-state tick, its name, optionally how
+  many things already carry it (what a filter wants) and optionally a colour well (what a tag wants).
+  Asked for tags, categories and product types.
+- ~~**The filter buttons on the notes and tasks pages become that browser.**~~ Done. On the tasks page
+  the category chips and the row of views are two browsers now, each word still carrying its count and
+  the views still answering exactly one at a time (`OnlyOne`). The notes page had no filter buttons at
+  all, so it gained the same control over the tags its cards already carry - which is what the entry
+  said it would be read as. `.filter-chip` and `.list-filters` had no callers left afterwards and went
+  with them.
+
+### Orbit.Maui
+
+- ~~**A note's lines do not wrap while it is being edited.**~~ Done: a line is written in an `Editor`
+  with `AutoSize` rather than a one-line `Entry`, so a long sentence is read rather than dragged
+  sideways. The return key then writes a newline instead of raising Completed, so Enter is read from
+  the text - one newline and nothing else goes through the same surface Enter as before
+  (`NoteDetailViewModel.EnterWasTypedInto`), keeping the indentation and the box; several lines at once
+  are still a paste. Built and covered by tests, **not seen on a device**.
+- ~~**The formatting row sits under the keyboard**; it belongs above it, where it can be reached.~~
+  Answered for Android 15 and later, where the cause is: the activity asks for `AdjustResize`, and from
+  API 35 Android draws every app edge to edge and stops resizing the window for the keyboard at all -
+  the keyboard is an inset the app has to account for, so anything anchored to the foot of a page ends
+  up beneath it. `MainActivity.KeepTheKeyboardOffTheFootOfThePage` pads the content by the keyboard's
+  own inset and by nothing else, only from 35 up, since below that `AdjustResize` is still doing the
+  work. **Not seen on a device, and it assumes the phone is on 15 or later** - if it is older, the
+  cause is something else and this changed nothing.
+- ~~**Editing an entry on a task list does not scroll as one form.** Part of it scrolls and part is
+  fixed, so half the screen is blocked and covers what is being read.~~ Done: the form was two halves -
+  a `ScrollView` in the page's `*` row and a second stack in the `Auto` row below it, which never
+  scrolled and took as much height as it wanted. Both are inside the one scroller now, still as two
+  stacks because they read different binding contexts (the entry's own fields, and what is about the
+  entry from the list's side). **Not seen on a device.**
+- **Separators made in the browser are not read correctly on Android.** Every step of the path was
+  read and the sync was covered with a test, and none of it loses one - see issue #294, which says what
+  was checked and what would settle it.
+- ~~**The press target for an item is too small** - the name itself has to be hit for the press to
+  count.~~ Done for a task list's entries, which is where it was reported: the tap that opens an entry
+  is on the row and the row has a transparent fill, so the empty half of a short line counts. It used
+  to sit on the stack of labels, which is exactly as wide and as tall as what is written there. The
+  circle and the "⋯" answer their own presses. **Not seen on a device.**
+- ~~**The note editor carries furniture it does not need**: the footer with information at the bottom
+  goes, and the tags belong in the menu rather than on the page.~~ Done: the foot is gone - the line
+  saying who shared the note in and when it last changed (that is on the note's row in the list), and
+  the hint about typing `[]`, which now lives only in `info/functionality.md`. The tags are a "Tags"
+  entry in the menu under the note's name, drawn under the writing when asked for; `Footnote` and its
+  two tests went with the foot. **Not seen on a device.**
+- ~~**Something edited later still shows as it was.**~~ Not a sync fault at all, which is why it
+  survived being reported twice: the two clients were reading **different fields**. An entry tied to an
+  appointment keeps the day and the hour on the *event* - that is where an editor writes them - and its
+  own `DueDateUtc` stays whatever it was when the entry was made. Orbit.Web's entry page has read the
+  event first since it was written (`TaskItemSummary.WhenItIs`); the phone read only the due date, on
+  the entry's page and on its row. Both follow the event now (`EventWhen` on the phone, beside the
+  calendar row's own wording, and `TaskItemRow.From`'s `appointment`), and a row is late once the
+  appointment has *ended* rather than once it has begun. Found from the screenshots of 2026-09-18.
+- ~~**There is no way to put a blank line under a picture in a note.**~~ Done: the room under the last
+  line is pressable, and pressing it writes there - which is what Apple Notes does with the same room,
+  and this editor follows it. A note ending in a picture, a table or a rule had no way to go on at all:
+  an element draws no field, so there was nothing to put the caret in and nothing to press Enter on. An
+  empty line already waiting at the end takes the caret rather than a second one being made. The
+  surface has always known what Enter on an element means; only the way in was missing. **Not seen on a
+  device.**
+
+### Orbit.Web
+
+- ~~**The light note editor should show the list of notes too**, and moving between notes should keep
+  what has been changed rather than dropping it; leaving the page should say which notes have unsaved
+  changes, or that they will be lost.~~ Done, all three. The note's own page draws the same column of
+  the folder's notes the editor one press further in already had, and pressing one opens it at the same
+  depth. What is written and not saved is kept per note while the tab lives (`NoteDrafts`, in memory
+  only - a draft is unfinished writing, and a private note's lines are not something to leave in
+  localStorage), put back when the note is opened again with a line saying it is still unsaved, and
+  dropped by a save or by Cancel. Leaving the editor for anywhere but another note's editor names every
+  note that would be lost and lets the reader stop
+  (`NoteEditor.AskBeforeLeavingAsync`, over `RegisterLocationChangingHandler`).
+- ~~**Delete goes out of the app**; it is offered in the Archived folder and nowhere else.~~ Done: the
+  rule is the menu's own (`ObjectMenu.IsArchived`), so a page that forgets to say whether its thing is
+  put away offers no Delete - the safe direction. The exception is the line that is not a deletion:
+  taking somebody else's shared thing off this reader's list needs no archive, since a shared thing
+  cannot be put away at all. The phone's own menus still offer Delete everywhere and are not part of
+  this - the list asked it of Orbit.Web.
+- ~~**A note on the list has no Share in its menu** and should - and the other pages are to be checked
+  for the same gap.~~ Done: checked, and three of the four were missing it - only the inventories had
+  one. Notes, task lists and the calendar's list now carry "Share" in the card's menu, opening the same
+  dialog the bar over the list opens for several, given a list of one.
+- ~~**The Archived folder should not be on the dashboard.**~~ Done: `FolderPages.HasAnArchivedTab`,
+  read by both clients' rows of tabs. Nothing about where things are placed changes with it, so an
+  archived thing is in a folder the dashboard draws no tab for and is simply not there.
+- ~~**A theme switch on the map**, beside Refresh, turning the map itself between light and night.~~
+  Done: the third square in that corner, saying what it will switch to. The tiles are one picture drawn
+  for a light page and turned dark by a filter, so this is the same filter under the reader's own
+  answer rather than the theme's (`DevicePreferences.MapAtNight`, three-valued - null until they say -
+  and `.map-day` / `.map-night` on the frame). The page's theme is not touched.
+- ~~**The full or stretched map should scroll with the wheel.**~~ Done: the map page's own map zooms
+  with the wheel (`showLocations`' `wheelZooms`), and so does any map while it is full screen - a
+  document-level `fullscreenchange` listener, because Esc and a back gesture leave full screen without
+  going through the button. Every map embedded in something else keeps the wheel off, for the reason
+  it was turned off in the first place: it belongs to the page being scrolled.
+- ~~**Choosing a pin loses where the map was.** After pressing yes the map is read again and drawn at
+  every pin's own zoom rather than at the view the reader was looking at when they used the pin.~~
+  Done: saying yes to a pressed place moves the markers rather than rebuilding the map
+  (`RefreshMapMarkersAsync` instead of `RedrawAsync`), and so does cancelling a found one. Searching
+  still redraws, since being taken to what was found is the point of searching.
+- ~~**The calendar's week view cannot be told to stop showing what has passed.** The option is ticked
+  and cannot be unticked; it should be the reader's to set, and remembered per device.~~ Done: the day
+  and the week no longer override the choice (`Calendar.ShowsEverythingInThisView` is simply
+  `CalendarListOrder.ShowsEverything` now), and that answer was already kept per device in
+  localStorage. The reasoning the override was built on is kept where the property is - it is still
+  true of what the reader now chooses, and which of the two readings they want is theirs. The phone
+  never had the override, so the two clients agree again.
+- **Group inventories.** One entry on the list of inventories, holding smaller inventories inside it,
+  which can answer to different task lists.
+- ~~**A mark on the folder button where a notification's thing is**, so somebody following a
+  notification can see which folder holds it - in the web's mobile view as well.~~ Done in the browser:
+  `FolderTabs.HasNewsIn` puts a dot on the tab, and `PhoneToolbar.HasNews` the same dot on the button
+  the tabs fold into on a narrow screen - only for folders that are not open, since a card in front of
+  the reader already carries its own mark. The notes, the task lists and the inventories answer it; the
+  calendar does not, because its tabs narrow a grid rather than a list of cards. **The phone's own
+  folder menu has no mark yet** - `FolderTabs.Describe` there counts rows and knows nothing about the
+  feed, which is where this lands next.
+- ~~**Delete goes out of a pinned list's entry editor** in a group list's heavy editing; it belongs
+  under the expanded form.~~ Done: the member's rows now follow the rule this form's own entries have
+  always followed - Remove is last inside the expanded details rather than beside the box somebody is
+  typing in. It matters more on a group's form than anywhere else, since the row belongs to another
+  list.
+- ~~**Opening a task list from the dashboard opens the wrong folder's lists** - the one last chosen on
+  /tasks rather than the one the list is in.~~ Done: opening a list, a note or a shelf from the
+  dashboard now opens that page's own tab on the folder the thing is in (`Dashboard.GoToTaskList` and
+  its two siblings, through `FolderState.PlacementOn`). The dashboard's own tab is left alone - it
+  answers a question about the dashboard.
+- **Refresh on the map does nothing.** Not reproduced: the handler reads everything the page reads on
+  open and moves the pins (`MapPage.RefreshTheMapAsync`, covered by a test that the places list is read
+  again). What *would* look exactly like this is an exception thrown inside it - an event handler that
+  throws leaves the page as it was - so the handler now catches, logs and says so on screen rather than
+  failing silently. **Still open** as issue #293, which says what was checked and what would settle it:
+  what the reader expects it to change, and whether the browser's console says anything when it is
+  pressed.
+- ~~**Addresses do not wrap in the preview**, and wherever else text that should wrap does not.~~ Done:
+  the address on an entry's page and on an appointment's is prose rather than a value
+  (`.row-meta-prose`, which already existed for descriptions), and so are the guests and the
+  "waiting for" line. `.row-meta` itself no longer runs off the card either: it shrinks and ends in an
+  ellipsis, so a value too long for its row is cut visibly rather than clipped by the card's edge.
+
+### Added the same day
+
+- ~~**An inventory cannot be generated from a task list.** The only way round is to make an inventory,
+  attach an empty one and press "Add missing to the replenishment list" - and that adds only the
+  entries of the main list, so nothing from the sublists ever reaches the inventory.~~ Done, and it was
+  three faults wearing one hat:
+
+  1. **The offer was hidden.** `GeneratedInventorySource` asked for a *product* on the list - an entry
+     of the Inventory kind - so a shopping list of plain lines was never offered the menu entry at all.
+     It asks for **work** now: anything that is not merely a row pointing at another list. The rule was
+     written on 2026-09-09 believing "a list of plain errands has nothing a shelf would be about", and
+     the endpoint has always built a shelf out of every entry the tree names.
+  2. **The sublists were invisible.** `LinkedTaskListTree` refused to walk a list whose group view was
+     off, which stopped being the same thing as "gathers nothing" when the box became the reader's to
+     untick on 2026-09-16. So the stock check counted the top list alone - which is exactly "only the
+     entries of the main list" - and a shelf generated from such a list held nothing its sublists
+     asked for.
+  3. **It was only in the list's form.** "Generate inventory" is in the menu on the list's own page
+     again, which is the page somebody reading a shopping list is on.
+
+  The other half of the same message - an update on the inventory writing back to the lists, with the
+  warning and "Split evenly" - is the entry below, and is done in the browser.
+- ~~**A change on a list should reach the inventory, and a change on the inventory the list** - with a
+  warning where the item being edited is wanted by more than one list, and "Split evenly" as the other
+  answer, since the reader otherwise has to go and correct each list themselves.~~ Done in the browser
+  (`ShelfDemand`, `GET /api/inventories/{id}/demand`, `UpdateInventoryCommand.SplitEvenlyAcross`). The
+  list-to-shelf half already existed (`ShelfUsage`); the shelf-to-list half is new. A save of an
+  inventory carries every **Min** that actually moved - compared against what the page read, not against
+  an empty box - back to the entries standing for that item: written straight in where one entry asks,
+  refused where several do unless the reader chose **Split evenly** (*Podziel równo*), which divides it
+  equally and to the penny. The other answer, **I'll change the lists myself**, saves the shelf and
+  leaves every list alone; so does closing the panel. Each row's hint under **Min** now names the lists
+  asking rather than only counting them.
+
+  Two things found on the way. **Orbit's own restock list counted as a list asking** - its errands point
+  at the shelf item exactly as a real entry does - which made every row that had ever run low look
+  shared, and added one to `Usage` for as long as the errand was open. `ManagedRestockLists` leaves them
+  out of both counts now. And **the phone can only take the easy half**: it saves through the same
+  endpoint, so a row one entry asks for is written through there too, but it cannot raise the question,
+  so a shared row saved from a phone leaves the lists alone. The phone's side of the warning is below.
+- **The phone cannot ask about a shelf row several lists want.** It saves inventories through the same
+  endpoint as the browser and gets the same write-through for a row exactly one entry asks for, but it
+  never reads `/demand`, so it can neither name the lists on the row nor offer "Split evenly" - a shared
+  row edited there simply leaves the lists as they are, which is the safe answer rather than the right
+  one. What it needs is the read, the row hint, and the two-answer sheet. 2026-09-18.
+- **A separator made on one client is not drawn by the other**, either way round. The Android entry
+  above is the same fault seen from one side only, and both are issue #294: the wire, both clients'
+  mappings, the phone's local store, its template and the sync were all read, and a test now holds the
+  sync. Whatever this is, it is not on the path the code describes.
+- ~~**A group list's light view shows the same entry once per sublist.** They should be summed into one
+  entry carrying the minimum wanted on the list and its tags, with the note of which sublist it came
+  from taken away.~~ Done in the browser (`FlatRowsToShow`): one row per thing said, how much is wanted
+  summed per unit, the union of the categories, the soonest deadline, and no note of the list it came
+  from. The box answers for every entry behind it, each list written on its own. **The phone has no flat
+  view at all** ("The phone cannot flatten a tree of lists", above), so there is nothing there to gather
+  yet - that entry is where this lands when it is built.
 
 ## Smaller identified follow-ups
 

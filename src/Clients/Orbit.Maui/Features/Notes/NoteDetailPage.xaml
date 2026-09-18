@@ -88,27 +88,38 @@
                                        VerticalOptions="Start" IsVisible="{Binding ShowsListMark}"
                                        Style="{StaticResource SubtleLabel}" />
 
-                                <Entry Grid.Column="1" Text="{Binding Text}" VerticalOptions="Center"
+                                <!-- An Editor rather than an Entry, which is the whole difference
+                                     between a line that wraps and one that scrolls sideways: a
+                                     single-line field puts a long sentence on a rail the reader has to
+                                     drag, and a note is mostly long sentences. AutoSize grows the field
+                                     with the words, so the line is as tall as what is written on it.
+
+                                     The return key writes a newline here where the old field raised
+                                     Completed. That is read as Enter by the view model rather than by
+                                     the page - see NoteDetailViewModel, where one newline and nothing
+                                     else goes through the same surface Enter the key press did. -->
+                                <Editor Grid.Column="1" Text="{Binding Text}" VerticalOptions="Center"
+                                       AutoSize="TextChanges"
                                        FontSize="{Binding DrawnFontSize}"
                                        IsVisible="{Binding IsOpenForWriting}"
-                                       controls:BareField.IsBare="True" ReturnType="Next"
+                                       controls:BareField.IsBare="True"
                                        IsReadOnly="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.IsReadOnly, x:DataType=notes:NoteDetailPage}"
                                        controls:NoteLineKeys.JoinsTheLineAbove="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=JoinTheLineAboveCommand, x:DataType=notes:NoteDetailPage}"
                                        controls:NoteLineKeys.GoesToTheLineAbove="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=GoToTheLineAboveCommand, x:DataType=notes:NoteDetailPage}"
                                        controls:NoteLineKeys.GoesToTheLineBelow="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=GoToTheLineBelowCommand, x:DataType=notes:NoteDetailPage}"
                                        controls:NoteLineKeys.IndentsTheLine="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=IndentTheLineCommand, x:DataType=notes:NoteDetailPage}"
                                        controls:NoteLineKeys.OutdentsTheLine="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=OutdentTheLineCommand, x:DataType=notes:NoteDetailPage}"
-                                       Completed="OnLineCompleted" Focused="OnLineFocused"
+                                       Focused="OnLineFocused"
                                        Unfocused="OnLineUnfocused" Loaded="OnLineLoaded">
                                     <!-- A heading is bold. A trigger rather than a bound
                                          FontAttributes, because Orbit.Mobile is plain net10.0 and knows
                                          nothing about MAUI's own types - see NoteLineRow.IsDrawnBold. -->
-                                    <Entry.Triggers>
-                                        <DataTrigger TargetType="Entry" Binding="{Binding IsDrawnBold}" Value="True">
+                                    <Editor.Triggers>
+                                        <DataTrigger TargetType="Editor" Binding="{Binding IsDrawnBold}" Value="True">
                                             <Setter Property="FontAttributes" Value="Bold" />
                                         </DataTrigger>
-                                    </Entry.Triggers>
-                                </Entry>
+                                    </Editor.Triggers>
+                                </Editor>
 
                                 <!-- A ticked line is struck through, from its box rightwards - which on
                                      a line whose box is at its head is the whole line. A Label rather
@@ -232,29 +243,34 @@
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
 
-                <!-- Under the writing, quiet, and the only place the trick is written down: typing "[]"
-                     at the head of a line turns it into a tick box, which is the design's own way in and
-                     the reason there is no toolbar. A reader who never finds that never finds it at all.
+                <!-- The room under the last line, and pressing it writes there. A note that ends in a
+                     picture, a table or a rule had no way to go on at all: an element draws no field, so
+                     there was nothing to put the caret in and nothing to press Enter on - reported on
+                     2026-09-18 as no way to add a line under a picture. Tapping under the writing is
+                     what Apple Notes does with the same room, which is the editor this one follows.
 
-                     The left half is the design's other half of the foot: who shared the note in, when
-                     somebody did, and when it last changed - see NoteDetailViewModel.Footnote. It stays on
-                     a note nobody can edit, where the trick has nothing to offer.
-
-                     The hairline runs between the two so the line reads as a foot rather than as another
-                     line of the note. -->
-                <!-- What the note is about in a word or two, under the writing rather than in it - see
-                     TagsForm. Saved with the note, by the button in the corner; a colour is saved there
-                     and then, for the whole account. -->
-                <controls:TagsFieldView BindingContext="{Binding Tags}" Margin="0,20,0,0" />
-
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="0,24,0,0">
-                    <Label Grid.Column="0" Text="{Binding Footnote}"
-                           Style="{StaticResource ItemCardFooter}" VerticalOptions="Center" />
-                    <BoxView Grid.Column="1" Style="{StaticResource Hairline}" VerticalOptions="Center" />
-                    <Label Grid.Column="2" Text="{controls:Translate 'Type [] for a checkbox'}"
-                           IsVisible="{Binding CanEdit}"
-                           Style="{StaticResource ItemCardFooter}" VerticalOptions="Center" />
+                     An empty line already waiting at the end takes the caret instead of a second one
+                     being made, so pressing here twice does not leave a blank line behind. -->
+                <Grid HeightRequest="72" BackgroundColor="Transparent" IsVisible="{Binding CanEdit}">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnRoomUnderTheWritingPressed" />
+                    </Grid.GestureRecognizers>
                 </Grid>
+
+                <!-- What the note is about in a word or two - see TagsForm. Saved with the note, by the
+                     button in the corner; a colour is saved there and then, for the whole account.
+
+                     Asked for from the menu under the note's name rather than standing here (2026-09-18):
+                     this screen is the note, and a field for something most notes never carry was
+                     furniture between the last line and the foot. It is drawn here when it is asked for,
+                     which is where a note's tags have always been.
+
+                     The foot that used to follow it is gone with it - who shared the note in and when it
+                     last changed, and the line saying that typing "[]" starts a tick box. The first is
+                     on the note's row in the list it came from; the second is written down in
+                     info/functionality.md, which is the only place it now lives. -->
+                <controls:TagsFieldView x:Name="TagsField" BindingContext="{Binding Tags}"
+                                        IsVisible="False" Margin="0,20,0,0" />
             </VerticalStackLayout>
         </ScrollView>
 

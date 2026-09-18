@@ -54,11 +54,11 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		// which is built there and reads a page's plain property exactly once - see
 		// CalendarEventDetailPage, where the same order matters for the same reason.
 		ShowTitleMenuCommand = new Command(ShowNoteMenu);
-		JoinTheLineAboveCommand = new Command<Entry>(JoinTheLineAbove);
-		GoToTheLineAboveCommand = new Command<Entry>(field => WalkToAnotherLine(field, upwards: true));
-		GoToTheLineBelowCommand = new Command<Entry>(field => WalkToAnotherLine(field, upwards: false));
-		IndentTheLineCommand = new Command<Entry>(field => Reindent(field, more: true));
-		OutdentTheLineCommand = new Command<Entry>(field => Reindent(field, more: false));
+		JoinTheLineAboveCommand = new Command<InputView>(JoinTheLineAbove);
+		GoToTheLineAboveCommand = new Command<InputView>(field => WalkToAnotherLine(field, upwards: true));
+		GoToTheLineBelowCommand = new Command<InputView>(field => WalkToAnotherLine(field, upwards: false));
+		IndentTheLineCommand = new Command<InputView>(field => Reindent(field, more: true));
+		OutdentTheLineCommand = new Command<InputView>(field => Reindent(field, more: false));
 		OpenForWritingCommand = new Command<NoteLineRow>(OpenForWriting);
 
 		InitializeComponent();
@@ -202,28 +202,37 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 			_translations["Keep writing"]);
 	}
 
+	// Enter used to be caught here, as Completed on a single-line field with a "next" return key. The
+	// field a line is written in wraps now (an Editor - see NoteDetailPage.xaml), so its return key
+	// writes a newline into the line instead, and the view model reads that as Enter: one newline and
+	// nothing else goes through the same surface Enter this did, keeping the indentation and the box,
+	// and saying where the caret lands through CaretPlaced exactly as before. See
+	// NoteDetailViewModel.EnterWasTypedInto.
+
 	/// <summary>
-	/// Enter at the end of a line starts the next one and puts the caret in it. The new line inherits
-	/// the indentation of this one, and starts with a tick box while the button in the corner is on -
-	/// see NoteDetailViewModel.AddLineAfter.
+	/// The room under the last line was pressed, so the writing goes on there - see the Grid in
+	/// NoteDetailPage.xaml, which says why a note that ends in a picture needed it.
+	///
+	/// An empty line already waiting at the end is where the caret goes; anything else - words, or an
+	/// element that draws no field at all - gets a line started under it, which is the same surface
+	/// Enter every other new line goes through.
 	/// </summary>
-	private void OnLineCompleted(object? sender, EventArgs eventArgs)
+	private void OnRoomUnderTheWritingPressed(object? sender, TappedEventArgs eventArgs)
 	{
-		if (!_viewModel.CanEdit || sender is not Entry field || field.BindingContext is not NoteLineRow row)
+		if (!_viewModel.CanEdit)
 		{
 			return;
 		}
 
-		// Where the press happened, so whatever follows it moves down onto the new line - Enter in the
-		// middle of a sentence breaks the sentence, as it does in every text field there is.
-		//
-		// The view model says where the caret goes - the start of the new line's words, after the
-		// indentation it inherits - through CaretPlaced, and OnCaretPlaced honours it at once when the
-		// field is already built and from Loaded when it is not. It is usually built already: a
-		// BindableLayout answers a row being added straight away, while AddLineAfter is still running.
-		// Left to Loaded alone the ask arrived too late every time, and the only thing that moved the
-		// caret was Android's own answer to the key, which takes it out of the writing altogether.
-		_viewModel.AddLineAfter(row, field.CursorPosition);
+		var last = _viewModel.Lines.LastOrDefault();
+		if (last is { IsAnElement: false, Text.Length: 0 })
+		{
+			last.IsBeingWrittenIn = true;
+			PutTheCaretIn(last);
+			return;
+		}
+
+		_viewModel.AddLineAfter(last);
 	}
 
 	/// <summary>
@@ -264,7 +273,7 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 
 	private void OnLineFocused(object? sender, FocusEventArgs eventArgs)
 	{
-		if ((sender as Entry)?.BindingContext is NoteLineRow row)
+		if ((sender as InputView)?.BindingContext is NoteLineRow row)
 		{
 			_beingWrittenIn = row;
 			_cellBeingWrittenIn = null;
@@ -291,7 +300,7 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	/// </summary>
 	private void OnLineUnfocused(object? sender, FocusEventArgs eventArgs)
 	{
-		if ((sender as Entry)?.BindingContext is NoteLineRow row)
+		if ((sender as InputView)?.BindingContext is NoteLineRow row)
 		{
 			row.IsBeingWrittenIn = false;
 		}
@@ -334,7 +343,7 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	/// </summary>
 	private void OnLineLoaded(object? sender, EventArgs eventArgs)
 	{
-		if (sender is not Entry field || field.BindingContext is not NoteLineRow row)
+		if (sender is not InputView field || field.BindingContext is not NoteLineRow row)
 		{
 			return;
 		}
@@ -364,7 +373,7 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	/// A BindableLayout builds one field per row and keeps it, rather than recycling as a CollectionView
 	/// does, so a row is a stable key. Rebuilt from scratch whenever the note is read back.
 	/// </summary>
-	private readonly Dictionary<NoteLineRow, Entry> _fields = [];
+	private readonly Dictionary<NoteLineRow, InputView> _fields = [];
 
 	/// <summary>
 	/// Backspace with the caret at the head of a line: the line joins the one above it and the caret
@@ -379,7 +388,7 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	/// MergeIntoTheLineAbove, which says the line is still there. The field keeps the caret it already
 	/// had, which is where the reader left it, and the box simply goes.
 	/// </summary>
-	private void JoinTheLineAbove(Entry? field)
+	private void JoinTheLineAbove(InputView? field)
 	{
 		if (!_viewModel.CanEdit || field?.BindingContext is not NoteLineRow row)
 		{
@@ -394,7 +403,7 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	}
 
 	/// <inheritdoc cref="GoToTheLineAboveCommand"/>
-	private void WalkToAnotherLine(Entry? field, bool upwards)
+	private void WalkToAnotherLine(InputView? field, bool upwards)
 	{
 		if (field?.BindingContext is not NoteLineRow row)
 		{
@@ -437,7 +446,7 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	/// <see cref="PutTheCaretIn(NoteLineRow?)"/>: the press that got us here has not finished being
 	/// dealt with, and Android moves the focus itself once it has.
 	/// </summary>
-	private void PutTheCaretIn(Entry field, int column)
+	private void PutTheCaretIn(InputView field, int column)
 		=> Dispatcher.Dispatch(() =>
 		{
 			field.Focus();
@@ -602,7 +611,7 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	}
 
 	/// <inheritdoc cref="IndentTheLineCommand"/>
-	private void Reindent(Entry? field, bool more)
+	private void Reindent(InputView? field, bool more)
 	{
 		if (!_viewModel.CanEdit || field?.BindingContext is not NoteLineRow row)
 		{
@@ -656,6 +665,16 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 					_viewModel.IsPickingLines));
 			}
 		}
+
+		// What the note is about in a word or two. Behind the menu since 2026-09-18 rather than standing
+		// under the writing: this screen is the note, and a field for something most notes never carry
+		// was furniture between the last line and the foot. Offered whatever this reader may do to the
+		// note - the field itself knows whether it can be written in (TagsForm.IsReadOnly) - and drawn
+		// where it always was, under the writing, once it is asked for.
+		entries.Add(new ScreenMenuEntry(
+			_translations["Tags"],
+			() => TagsField.IsVisible = !TagsField.IsVisible,
+			TagsField.IsVisible));
 
 		// The other way out of a list, and immediately above Delete on purpose: somebody reaching for
 		// Delete because they want this out of the way should meet it first - one of the two is

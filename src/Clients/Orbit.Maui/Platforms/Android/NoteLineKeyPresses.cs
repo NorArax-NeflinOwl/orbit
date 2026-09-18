@@ -28,10 +28,21 @@ internal static class NoteLineKeyPresses
 	/// </summary>
 	private static readonly ConditionalWeakTable<EditText, EventHandler<Android.Views.View.KeyEventArgs>> Listening = [];
 
+	/// <summary>
+	/// Both kinds of field, because a note's lines are written in an `Editor` now - one that wraps, so a
+	/// long line is read rather than dragged sideways - while a table's cells are still `Entry`s. Both
+	/// are an `EditText` down here, so there is one listener for the two of them; a field that has not
+	/// asked for these keys is left with Android's own either way.
+	/// </summary>
 	public static void ReadTheNoteKeysOnEveryNoteField()
-		=> EntryHandler.Mapper.AppendToMapping(
+	{
+		EntryHandler.Mapper.AppendToMapping(
 			nameof(IView.Background),
 			(handler, view) => Listen(handler.PlatformView, view));
+		EditorHandler.Mapper.AppendToMapping(
+			nameof(IView.Background),
+			(handler, view) => Listen(handler.PlatformView, view));
+	}
 
 	private static void Listen(EditText? field, IView asked)
 	{

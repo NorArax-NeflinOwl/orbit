@@ -920,12 +920,13 @@ public sealed class CalendarTests : OrbitTestContext
     }
 
     /// <summary>
-    /// Opening one particular day is asking what happened on it, and half an answer to that is worse
-    /// than none - a day showing one of the two things on it looks like a day with one thing on it.
-    /// So the day view shows what is over whatever the menu says, and says so on the menu.
+    /// What is over is left out of every view until the reader asks for it - the day and the week
+    /// included. They used to show it whatever the menu said, on the reasoning that opening one
+    /// particular day is asking what happened on it; the user asked for the choice back on 2026-09-18,
+    /// because a mark that is ticked and cannot be unticked is a control that refuses.
     /// </summary>
     [Fact]
-    public void The_day_view_shows_what_is_already_finished_whatever_the_menu_says()
+    public void The_day_view_leaves_out_what_is_finished_until_the_reader_asks_for_it()
     {
         Services.AddSingleton(new CalendarListOrder(new StubJSRuntime()));
         var todayMorning = new DateTime(DateTime.Today.Year, DateTime.Today.Month, DateTime.Today.Day, 10, 0, 0);
@@ -935,19 +936,20 @@ public sealed class CalendarTests : OrbitTestContext
             TickedOff(CreateTaskListWithDueItem(todayMorning, "Already done"))]);
         var cut = RenderComponent<Calendar>();
 
+        FindViewSwitchButton(cut, "Day").Click();
         Assert.Equal(["Still to do"], ListedNames(cut));
 
-        FindViewSwitchButton(cut, "Day").Click();
+        ShowEverything(cut);
 
         Assert.Equal(["Still to do", "Already done"], ListedNames(cut));
     }
 
     /// <summary>
-    /// And the menu says so rather than showing an unticked box over a screen full of finished work,
-    /// which would be the control lying about what is in front of somebody.
+    /// And the menu entry can be pressed in every view, in both directions - it was ticked and greyed
+    /// in the day and the week, with no way back to what is still to come.
     /// </summary>
     [Fact]
-    public void The_day_view_marks_the_menu_entry_it_is_overriding()
+    public void The_menu_entry_is_the_readers_in_the_day_view_too()
     {
         Services.AddSingleton(new CalendarListOrder(new StubJSRuntime()));
         RegisterCalendarApiClient([]);
@@ -955,13 +957,28 @@ public sealed class CalendarTests : OrbitTestContext
         var cut = RenderComponent<Calendar>();
 
         FindViewSwitchButton(cut, "Day").Click();
-        cut.Find(".page-header-actions .overflow-menu-trigger").Click();
 
-        var entry = cut.FindAll(".page-header-actions .avatar-dropdown-item")
-            .First(item => item.TextContent.Contains("Everything", StringComparison.Ordinal));
-        Assert.Contains("chosen", entry.ClassList);
-        Assert.True(entry.HasAttribute("disabled"));
+        Assert.DoesNotContain("chosen", EverythingEntry(cut).ClassList);
+        Assert.False(EverythingEntry(cut).HasAttribute("disabled"));
+
+        // The menu is already open, so this presses the entry rather than the trigger again.
+        EverythingEntry(cut).Click();
+
+        Assert.Contains("chosen", EverythingEntry(cut).ClassList);
     }
+
+    /// <summary>The menu entry that asks for what is over, which exists only once the menu is open.</summary>
+    private static IElement EverythingEntry(IRenderedFragment cut)
+    {
+        if (cut.FindAll(".page-header-actions .avatar-dropdown-item").Count == 0)
+        {
+            cut.Find(".page-header-actions .overflow-menu-trigger").Click();
+        }
+
+        return cut.FindAll(".page-header-actions .avatar-dropdown-item")
+            .First(item => item.TextContent.Contains("Everything", StringComparison.Ordinal));
+    }
+
 
     /// <summary>
     /// A link can name the view and the day, which is how the dashboard's summary of today arrives at

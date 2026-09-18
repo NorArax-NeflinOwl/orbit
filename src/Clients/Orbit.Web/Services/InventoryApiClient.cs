@@ -263,6 +263,23 @@ public sealed class InventoryApiClient
         return await response.Content.ReadFromJsonAsync<bool>(cancellationToken: cancellationToken);
     }
 
+    /// <summary>
+    /// Which of this reader's task entries ask for each row on the shelf - see Orbit.Core.Inventories.ShelfDemand.
+    /// Empty rather than null when nothing is asking, or when the read failed: this only decides whether
+    /// an editor warns before saving, and a shelf that could not be asked is one nothing is known about.
+    /// </summary>
+    public async Task<IReadOnlyList<ShelfClaimDto>> GetShelfDemandAsync(
+        Guid inventoryId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.GetAsync($"api/inventories/{inventoryId}/demand", cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            return [];
+        }
+
+        return await response.Content.ReadFromJsonAsync<List<ShelfClaimDto>>(cancellationToken: cancellationToken) ?? [];
+    }
+
     /// <summary>Null when the caller has no access to that inventory at all, as opposed to an empty list for one with no items.</summary>
     public async Task<IReadOnlyList<InventoryItemDto>?> GetInventoryItemsAsync(
         Guid inventoryId, CancellationToken cancellationToken = default)

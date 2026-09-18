@@ -458,6 +458,32 @@ public sealed class TaskItem
         }
     }
 
+    /// <summary>
+    /// Sets how much of its shelf item this entry asks for, when the amount was settled on the shelf
+    /// rather than here - see Orbit.Core.Inventories.ShelfDemand. Answers whether it moved, so a list
+    /// nothing changed on is not written again.
+    ///
+    /// Internal, and with no public counterpart: an amount a reader typed on a list arrives through a
+    /// save of that list, and this exists only so the shelf can say it the other way round.
+    /// </summary>
+    internal bool AskFor(decimal quantity)
+    {
+        if (RequiredQuantity == quantity)
+        {
+            return false;
+        }
+
+        RequiredQuantity = quantity;
+        // The one answer in two places the constructor keeps - see RequiredQuantity. An entry pointing
+        // at a shelf item carries no product of its own, so this is for the day one does.
+        if (Product is not null)
+        {
+            Product = Product with { MinimumQuantity = quantity };
+        }
+
+        return true;
+    }
+
     /// <summary>When this entry was first stored - see <see cref="CreatedAtUtc"/> and TaskItemReferences.StampCreationTimes.</summary>
     internal void StampCreation(DateTimeOffset? createdAtUtc) => CreatedAtUtc = createdAtUtc;
 

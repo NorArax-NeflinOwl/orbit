@@ -132,6 +132,16 @@ public sealed class InventoryDescriptionTests : OrbitTestContext
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(items ?? []) };
             }
 
+            // Which of the reader's lists ask for each row - see ShelfDemand. Nothing here is about
+            // that, and a list is what the server answers there.
+            if (path.EndsWith("/demand", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(Array.Empty<ShelfClaimDto>())
+                };
+            }
+
             // Which lists are measured against this inventory, and what the other inventories are called
             // - none of these tests are about either, and the editor draws its checklist empty rather
             // than failing to open.

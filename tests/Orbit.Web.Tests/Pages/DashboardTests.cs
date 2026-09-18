@@ -606,6 +606,35 @@ public sealed class DashboardTests : OrbitTestContext
         => [.. FindColumn(cut, heading).QuerySelectorAll(".row-title").Select(row => row.TextContent.Trim())];
 
     /// <summary>
+    /// Opening a list from here opens the tasks page's own tab on the folder that list is in. The two
+    /// pages keep their tabs separately, which is right - the dashboard's tab is about the dashboard -
+    /// but stepping out of the checklist then landed on whatever tab /tasks was last left on, with the
+    /// list nowhere among the cards. Reported on 2026-09-18.
+    /// </summary>
+    [Fact]
+    public void Opening_a_list_from_here_opens_the_tasks_page_on_that_lists_folder()
+    {
+        var recipes = Guid.NewGuid();
+        RegisterChatApiClient([]);
+        RegisterEmptyCalendarApiClient();
+        RegisterTasksApiClient([TaskList("Pierogi") with { FolderId = recipes }]);
+        RegisterFolders(new FolderDto(
+            recipes, "Recipes", nameof(FolderScope.Tasks), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
+        var folders = Services.GetRequiredService<FolderState>();
+        // Somewhere else entirely, which is what the reader last looked at over there.
+        folders.Choose(FolderPage.Tasks, FolderKey.Of(BuiltInFolder.Private));
+        var cut = RenderComponent<Dashboard>();
+        // The dashboard reading that same folder, which is where somebody meets the list.
+        OpenTheTab(cut, "Recipes");
+
+        cut.FindAll(".list-row-button")
+            .First(row => row.TextContent.Contains("Pierogi", StringComparison.Ordinal))
+            .Click();
+
+        Assert.Equal(FolderKey.Of(recipes), folders.ChosenOn(FolderPage.Tasks));
+    }
+
+    /// <summary>
     /// A folder somebody made belongs to one kind of thing - recipes are task lists, receipts are notes
     /// - so opening its tab leaves that card standing and nothing else. The dashboard used to answer
     /// "show me this folder" with the whole page and one card narrowed inside it.

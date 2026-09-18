@@ -167,7 +167,5 @@ public sealed class UnchangedWhenNotProvidedTests
     }
 
     private static UpdateInventoryCommandHandler AInventoryHandler(InventoryTestContext context)
-        => new(
-            new InventoryAccessResolver(context.InventoryRepository, new InMemoryInventoryShareRepository(), new InMemoryUserRepository()),
-            context.InventoryRepository, context.ItemsSaver);
+        => context.InventorySave();
 }

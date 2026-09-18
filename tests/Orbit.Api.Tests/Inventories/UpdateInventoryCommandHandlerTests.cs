@@ -218,7 +218,7 @@ public sealed class UpdateInventoryCommandHandlerTests
     }
 
     private static UpdateInventoryCommandHandler CreateHandler(InventoryTestContext context)
-        => new(context.AccessResolver, context.InventoryRepository, context.ItemsSaver);
+        => context.InventorySave();
 
     private static Task<EditOutcome> AcquireLockAsync(InventoryTestContext context, Guid userId, Guid inventoryId)
         => new AcquireInventoryLockCommandHandler(context.AccessResolver, context.InventoryRepository, context.UserRepository)
