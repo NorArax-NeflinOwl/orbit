@@ -179,6 +179,17 @@ public sealed class InventoryEditorTests : OrbitTestContext
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(items) };
             }
 
+            // Which of the reader's lists ask for each row - see ShelfDemand. None of these tests are
+            // about that, and an editor told nothing is asking never stops to warn before it saves.
+            // Answered as a list, because that is what the server answers there.
+            if (path.EndsWith("/demand", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(Array.Empty<ShelfClaimDto>())
+                };
+            }
+
             // ShareLinkButton asks on render whether this inventory already has a public link, and the
             // lock is taken when the editor opens. NoContent answers both with "nothing to report".
             // Which lists are measured against this inventory, and what the other inventories are called

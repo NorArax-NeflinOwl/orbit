@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Inventories;
 using Orbit.Core.Abstractions;
 using Orbit.Contracts.Users;
 using Orbit.Web.Pages;
@@ -760,6 +761,37 @@ public sealed class TaskListChecklistTests : OrbitTestContext
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
 
+    /// <summary>
+    /// Shopping → [Weekend → Dairy] and Breakfast: a tree two levels deep, which is what makes the flat
+    /// view worth offering at all (see HasNestedLists). The first entry goes on Dairy and the rest on
+    /// Breakfast, so a test can put the same errand on two lists that are nowhere near each other.
+    /// </summary>
+    private static (TaskDto Group, IReadOnlyList<TaskDto> Lists) AShoppingTree(
+        TaskItemDto onDairy, params TaskItemDto[] onBreakfast)
+    {
+        var dairy = TaskList("Dairy", onDairy);
+        var weekend = TaskList("Weekend", Item("Dairy done", linkedTaskListId: dairy.Id)) with { IsGroup = true };
+        var breakfast = TaskList("Breakfast", onBreakfast);
+        var shopping = TaskList("Shopping",
+            Item("Weekend done", linkedTaskListId: weekend.Id),
+            Item("Breakfast done", linkedTaskListId: breakfast.Id)) with { IsGroup = true };
+        return (shopping, [shopping, weekend, dairy, breakfast]);
+    }
+
+    /// <summary>
+    /// An errand for a product nothing has linked to a shelf yet, asking for some of it - the shape the
+    /// flat view adds up when several lists ask for the same thing. See TaskItemProductDto.
+    /// </summary>
+    private static TaskItemDto WantedItem(string description, decimal howMany, IReadOnlyList<string>? categories = null)
+        => Item(description, kind: "Inventory") with
+        {
+            Categories = categories,
+            Product = new TaskItemProductDto(
+                ProductType: string.Empty, Categories: null, Quantity: 0, MinimumQuantity: howMany,
+                Unit: nameof(InventoryUnit.Piece), ExpiryDate: null, ExpiryNotificationChannel: "None",
+                IsCheckedRegularly: false)
+        };
+
     private static TaskItemDto Item(
         string description, bool isCompleted = false, Guid? linkedTaskListId = null, DateTimeOffset? dueDateUtc = null,
         string kind = "Checklist")
@@ -907,6 +939,96 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         // The rows that only point at another list are how the tree is held together, not work to tick.
         Assert.DoesNotContain(rows, row => row.Contains("Kitchen done"));
         Assert.Empty(cut.FindAll(".checklist-card .card-title"));
+    }
+
+    /// <summary>
+    /// Making the shelf a list needs, from the list itself. It used to live only in the list's form, so
+    /// somebody reading a shopping list had to open the editor to find it - reported on 2026-09-18. Not
+    /// offered for a list already measured against one, or for a restock list, which is a shelf's own
+    /// output.
+    /// </summary>
+    [Fact]
+    public void An_inventory_can_be_built_from_the_list_being_read()
+    {
+        var shopping = TaskList("Shopping", Item("Milk"));
+        RegisterTasksApiClient([shopping]);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, shopping.Id));
+
+        OpenMenu(cut);
+        cut.FindAll(".avatar-dropdown-item")
+            .First(entry => entry.TextContent.Contains("Generate inventory", StringComparison.Ordinal))
+            .Click();
+
+        // The overlay that asks what to call it and what its restock list should do.
+        Assert.NotEmpty(cut.FindAll(".form-overlay-panel"));
+    }
+
+    [Fact]
+    public void A_list_already_measured_against_a_shelf_is_not_offered_another()
+    {
+        var shopping = TaskList("Shopping", Item("Milk")) with { LinkedInventoryId = Guid.NewGuid() };
+        RegisterTasksApiClient([shopping]);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, shopping.Id));
+
+        OpenMenu(cut);
+
+        Assert.DoesNotContain(
+            cut.FindAll(".avatar-dropdown-item"),
+            entry => entry.TextContent.Contains("Generate inventory", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Three lists asking for milk are three entries and one errand. Read flat - which is the view for
+    /// "what do I actually have to do" - they used to be three rows saying "Milk", each labelled with
+    /// the list it came from, and the reader had to add them up. One row now, with how much is wanted
+    /// altogether and no note of where it came from. Asked for on 2026-09-18.
+    /// </summary>
+    [Fact]
+    public void The_flat_view_gathers_the_same_errand_from_every_list_that_asks_for_it()
+    {
+        var (shopping, lists) = AShoppingTree(
+            WantedItem("Milk", 2, categories: ["dairy"]), WantedItem("milk ", 3), Item("Toast"));
+        RegisterTasksApiClient(lists);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, shopping.Id));
+
+        ChooseInMenu(cut, "Show single items");
+
+        var rows = cut.FindAll(".check-row").ToList();
+        // Two rows: the milk both lists ask for, and the toast only one does.
+        Assert.Equal(2, rows.Count);
+        var milk = rows.First(row => row.TextContent.Contains("Milk", StringComparison.Ordinal));
+        // Five, because that is how much to put in the basket for both lists.
+        Assert.Contains("5 pcs", milk.TextContent, StringComparison.Ordinal);
+        Assert.Contains("dairy", milk.TextContent, StringComparison.Ordinal);
+        // And nothing about which list it came from: that is the tree view's question.
+        Assert.DoesNotContain("Dairy", milk.TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("Breakfast", milk.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// And the box answers for all of them: one press ticks the errand off every list that asked for
+    /// it, which is what a single row standing for several has to mean.
+    /// </summary>
+    [Fact]
+    public async Task Ticking_a_gathered_row_ticks_every_entry_behind_it()
+    {
+        var (shopping, lists) = AShoppingTree(WantedItem("Milk", 2), WantedItem("Milk", 3));
+        var dairy = lists.Single(list => list.Title == "Dairy");
+        var breakfast = lists.Single(list => list.Title == "Breakfast");
+        RegisterTasksApiClient(lists);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, shopping.Id));
+        ChooseInMenu(cut, "Show single items");
+
+        cut.Find(".check-row .tick-box").Click();
+
+        // One save per list, since each list is written whole and on its own - see TaskItemCompletion.
+        var saved = _requests
+            .Where(request => request.Method == HttpMethod.Put)
+            .Select(request => request.RequestUri!.AbsolutePath)
+            .ToList();
+        Assert.Equal(2, saved.Count);
+        Assert.Contains(saved, path => path.Contains(dairy.Id.ToString(), StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(saved, path => path.Contains(breakfast.Id.ToString(), StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

@@ -19,6 +19,15 @@ namespace Orbit.Contracts.Inventories;
 /// own endpoint (PUT /api/inventories/{id}/folder), so that null here can go on meaning "nothing said"
 /// rather than "take it out of its folder" - see Orbit.Core.Inventories.Inventory.MoveToFolder.
 /// </param>
+/// <param name="SplitEvenlyAcross">
+/// The shelf items whose changed minimum is to be divided equally between every task entry asking for
+/// them - the reader's answer to the warning a shared row raises. <b>Read only when the inventory is
+/// being saved</b>, for the same reason FolderId is read only as one is created: nothing asks a shelf
+/// that does not exist yet for anything. See Orbit.Core.Inventories.ShelfDemand for the rule, including
+/// what happens to a row asked for by exactly one entry (it is written back whatever this says) and to a
+/// shared one this does not name (it is left alone).
+/// </param>
 public sealed record SaveInventoryRequest(
     string Name, IReadOnlyList<InventoryItemRequest> Items, bool IsPrivate = false,
-    EncryptedContentDto? EncryptedContent = null, string? Description = null, Guid? FolderId = null);
+    EncryptedContentDto? EncryptedContent = null, string? Description = null, Guid? FolderId = null,
+    IReadOnlyList<Guid>? SplitEvenlyAcross = null);

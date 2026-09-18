@@ -244,6 +244,17 @@ public static class PolishTranslations
             "Ile tego potrzebuje ta pozycja. Minimum w magazynie nigdy nie spada poniżej tego, czego potrzebują razem wszystkie Twoje listy.",
         ["Your lists ask for {0} of this, so it is never kept below that."] =
             "Twoje listy potrzebują tego {0}, więc stan nigdy nie jest utrzymywany poniżej tej wartości.",
+        // The same sentence with the lists named - see InventoryEditor and ShelfDemand.
+        ["{0} ask for {1} of this, so it is never kept below that."] =
+            "{0} potrzebują tego {1}, więc stan nigdy nie jest utrzymywany poniżej tej wartości.",
+        ["More than one list asks for this"] = "Więcej niż jedna lista potrzebuje tego produktu",
+        ["Several of your lists ask for these, so Orbit can't tell which one you changed."] =
+            "Kilka Twoich list potrzebuje tych produktów, więc Orbit nie wie, na której z nich coś się zmieniło.",
+        ["now {0}, asked for by {1}"] = "teraz {0}, potrzebują tego: {1}",
+        ["Split evenly divides each amount equally between the entries asking for it. Leaving the lists alone saves the shelf and changes nothing on them."] =
+            "„Podziel równo” rozdziela każdą ilość po równo między pozycje, które jej potrzebują. Pozostawienie list bez zmian zapisuje magazyn i nie zmienia na nich niczego.",
+        ["Split evenly"] = "Podziel równo",
+        ["I'll change the lists myself"] = "Sam zmienię listy",
         ["Open {0}"] = "Otwórz: {0}",
         ["done: {0}"] = "zrobione: {0}",
         ["any one of: {0}"] = "dowolne z: {0}",
@@ -282,6 +293,9 @@ public static class PolishTranslations
         ["Save settings"] = "Zapisz ustawienia",
         ["Refresh"] = "Odśwież",
         ["Refresh the map"] = "Odśwież mapę",
+        // The map's own light or night, beside the refresh - see MapPage.razor.
+        ["Show the map at night"] = "Pokaż mapę w trybie nocnym",
+        ["Show the map in daylight"] = "Pokaż mapę w trybie dziennym",
         // A route between two pins on the map, chosen from their popups - see MapPage.OnPinRoute.
         ["Start a route here"] = "Zacznij trasę tutaj",
         ["Route to here"] = "Trasa do tego miejsca",
@@ -752,7 +766,6 @@ public static class PolishTranslations
         ["Day"] = "Dzień",
         ["Week"] = "Tydzień",
         ["Month"] = "Miesiąc",
-        ["A day and a week show everything that fell in them."] = "Dzień i tydzień pokazują wszystko, co na nie przypadło.",
         ["Year"] = "Rok",
         ["Today"] = "Dziś",
         ["Yesterday"] = "Wczoraj",
@@ -915,6 +928,8 @@ public static class PolishTranslations
         // finished one is keyed "Finished" rather than "Done", which is a list's status elsewhere - both
         // read "Ukończone", so a tab and the status it gathers say the same word.
         ["Folders"] = "Foldery",
+        // The dot on a folder's tab, and on the phone's Menu button - see FolderTabs.HasNewsIn.
+        ["Something new is in here"] = "Jest tu coś nowego",
         // When filing is refused because the thing is somebody else's and there is no connection to ask.
         ["This one can't be moved while you're offline."] = "Tego nie da się przenieść bez połączenia.",
         // The menu entry that unfolds the row a folder is named in - see NotesPage.
@@ -965,6 +980,7 @@ public static class PolishTranslations
         ["Nothing in it is deleted - everything goes back to Public, or to Private if it is sealed."] =
             "Nic z niego nie zostanie usunięte - wszystko wróci do Publicznych, a rzeczy zaszyfrowane do Prywatnych.",
         ["Nothing in this folder."] = "Nic w tym folderze.",
+        ["No notes carry those tags."] = "Żadna notatka nie ma tych tagów.",
         // Making a second one of something, and what the copy is called - see Orbit.Contracts.DuplicateRequest.
         ["Duplicate"] = "Duplikuj",
         ["{0} (copy)"] = "{0} (kopia)",
@@ -1034,7 +1050,14 @@ public static class PolishTranslations
         ["Add a tag"] = "Dodaj tag",
         ["Tags, separated by commas"] = "Tagi, rozdzielone przecinkami",
         ["Colour of {0}"] = "Kolor tagu {0}",
+        ["No colour for {0}"] = "Bez koloru dla {0}",
         ["That colour could not be saved."] = "Nie udało się zapisać tego koloru.",
+        // The control that holds a short vocabulary - see ValueBrowser.razor.
+        ["Nothing to choose from yet."] = "Nie ma jeszcze z czego wybierać.",
+        ["New word"] = "Nowe słowo",
+        // What a browser narrowing a page says while it is narrowing nothing.
+        ["Every category"] = "Wszystkie kategorie",
+        ["Every tag"] = "Wszystkie tagi",
         ["A tag's colour is kept for your whole account, readable on the server - even for a tag only private notes and lists carry."] =
             "Kolor tagu obowiązuje na całym koncie i jest zapisany na serwerze w czytelnej postaci - także dla tagu, który noszą tylko prywatne notatki i listy.",
         ["Brown"] = "Brązowy",
@@ -1499,6 +1522,7 @@ public static class PolishTranslations
         ["Location forgotten."] = "Położenie usunięte.",
         ["Couldn't save your location. Try again."] = "Nie udało się zapisać położenia. Spróbuj ponownie.",
         ["Couldn't load your location. Try again."] = "Nie udało się wczytać położenia. Spróbuj ponownie.",
+        ["Couldn't refresh the map. Try again."] = "Nie udało się odświeżyć mapy. Spróbuj ponownie.",
         ["Couldn't clear your location. Try again."] = "Nie udało się usunąć położenia. Spróbuj ponownie.",
         ["Couldn't share your location. Try again."] = "Nie udało się udostępnić położenia. Spróbuj ponownie.",
         ["Record where you are first - there is nothing to share yet."] =
@@ -1963,9 +1987,12 @@ public static class PolishTranslations
         ["Keep writing"] = "Pisz dalej",
         // Under the heading on the registration screen: one account, both clients.
         ["One account for the browser and this phone."] = "Jedno konto dla przeglądarki i tego telefonu.",
-        // The one place the note editor says where a tick box comes from - see NoteDetailPage's foot.
-        ["Type [] for a checkbox"] = "Wpisz [], aby dodać pole",
         ["Untitled"] = "Bez tytułu",
+        // Writing kept while a note is left for another one, and the warning on the way out - see NoteDrafts.
+        ["What you had written here is back. It still has to be saved."] =
+            "To, co tu napisałeś, wróciło. Nadal trzeba to zapisać.",
+        ["Not saved yet: {0}. Leave and lose what you wrote?"] =
+            "Niezapisane: {0}. Wyjść i stracić to, co napisałeś?",
         ["Someone"] = "Ktoś",
         ["Live · updated {0}"] = "Na żywo · zaktualizowano {0}",
         ["One-off · shared {0}"] = "Jednorazowo · udostępniono {0}",

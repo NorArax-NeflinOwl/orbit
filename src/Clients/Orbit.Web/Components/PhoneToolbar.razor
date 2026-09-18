@@ -29,6 +29,14 @@
             <path d="M3 6h14M3 10h14M3 14h9" />
         </svg>
         @Says
+        @* And the same mark the tabs carry, since on a phone they are inside this button: a reader
+           following a notification would otherwise have to open the panel to find out that one of the
+           folders holds what they were sent to. See FolderTabs.HasNewsIn. *@
+        @if (HasNews)
+        {
+            <span class="folder-tab-news" aria-label="@(T["Something new is in here"])"
+                  title="@(T["Something new is in here"])"></span>
+        }
     </button>
 </SectionContent>
 
@@ -56,6 +64,12 @@
     /// there is no folder to name.
     /// </summary>
     [Parameter] public FolderPage? Page { get; set; }
+
+    /// <summary>
+    /// Whether any folder other than the open one holds something the reader has not seen. The tabs are
+    /// folded away behind this button on a phone, so the mark they carry has to be on it as well.
+    /// </summary>
+    [Parameter] public bool HasNews { get; set; }
 
     /// <summary>What the button says: the open folder's name, or "Menu" where there is none to give.</summary>
     private string Says => Page is { } page ? BuiltInFolderNames.Open(Folders, page, T) : T["Menu"];

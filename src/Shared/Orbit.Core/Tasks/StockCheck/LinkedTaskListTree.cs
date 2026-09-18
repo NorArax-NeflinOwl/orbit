@@ -1,9 +1,12 @@
 namespace Orbit.Core.Tasks.StockCheck;
 
 /// <summary>
-/// Gathers a group list and everything linked below it - the lists its items point at, the lists those
-/// point at, and so on. The same walk the checklist screen draws, done here because the stock check has
-/// to count the whole tree's work, not just the top list's.
+/// Gathers a list and everything linked below it - the lists its items point at, the lists those point
+/// at, and so on. The same walk the checklist screen draws, done here because the stock check has to
+/// count the whole tree's work, not just the top list's.
+///
+/// A list is walked because of what is on it rather than because of how it is being read: an entry that
+/// stands for another list is a link whether or not the group view is on - see <see cref="Append"/>.
 /// </summary>
 public static class LinkedTaskListTree
 {
@@ -33,11 +36,13 @@ public static class LinkedTaskListTree
         }
 
         gathered.Add(taskList);
-        if (!taskList.IsGroup)
-        {
-            return;
-        }
 
+        // Whatever the group view says. It used to stop here on a list whose IsGroup was off, which was
+        // the same thing until 2026-09-16: the box ticked itself the moment an entry came to stand for
+        // another list and could not be unticked. It is the reader's now (see TaskList.IsGroup), and a
+        // list they had turned it off on stopped being walked at all - so the stock check counted the
+        // top list alone and an inventory generated from it held nothing any sublist asked for.
+        // Reported on 2026-09-18. What a list is made of is its entries, not how somebody is reading it.
         foreach (var linkedId in taskList.Items.SelectMany(item => item.LinkedTaskListIds))
         {
             if (byId.TryGetValue(linkedId, out var linked))

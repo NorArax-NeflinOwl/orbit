@@ -85,7 +85,21 @@
                 <DataTemplate x:DataType="screens:TaskItemRow">
                     <!-- A hairline above every row, as every list in this design has - see ItemCard's
                          row shape, which is the same rule drawn by a different control. -->
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="0,8" RowDefinitions="Auto">
+                    <!-- The tap that opens the entry is on the row rather than on the words, and the row
+                         is given a transparent fill so the empty half of a short line counts as part of
+                         it. It used to sit on the stack of labels, which is exactly as wide and as tall
+                         as what is written there - so opening an entry meant hitting its name, and the
+                         rest of the row did nothing. Reported on 2026-09-18.
+
+                         The circle and the "⋯" answer their own presses: a tap a child handles is not
+                         also the row's. -->
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="0,8" RowDefinitions="Auto"
+                          BackgroundColor="Transparent">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.EditItemCommand, x:DataType=tasks:TaskListDetailPage}"
+                                CommandParameter="{Binding .}" />
+                        </Grid.GestureRecognizers>
                         <BoxView Grid.ColumnSpan="3" Style="{StaticResource Hairline}" VerticalOptions="Start"
                                  Margin="0,-8,0,0" />
                         <controls:CheckCircle Grid.Column="0" Diameter="22" VerticalOptions="Center"
@@ -94,14 +108,9 @@
                                               Description="{Binding Description}"
                                               Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleItemCommand, x:DataType=tasks:TaskListDetailPage}"
                                               CommandParameter="{Binding .}" />
-                        <!-- Tapping the line opens the rest of the entry: when it is due, what it
-                             says when it is late, whether it repeats daily. -->
+                        <!-- What the entry says, and the few things about it worth reading without
+                             opening it. The tap that opens the rest is on the row around this. -->
                         <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-                            <VerticalStackLayout.GestureRecognizers>
-                                <TapGestureRecognizer
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.EditItemCommand, x:DataType=tasks:TaskListDetailPage}"
-                                    CommandParameter="{Binding .}" />
-                            </VerticalStackLayout.GestureRecognizers>
                             <Label Text="{Binding Description}" LineBreakMode="WordWrap">
                                 <Label.Triggers>
                                     <!-- Struck through and quietened once it is done, which is what the
@@ -181,6 +190,13 @@
         <!-- In place of the list, one entry at a time - see TaskListDetailViewModel.BeingEdited. -->
         <ScrollView Grid.Row="3" IsVisible="{Binding IsEditingItem}"
                     BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
+            <!-- The whole form in one scroller. It used to be two halves: this one, and a second stack
+                 in the row below that never scrolled - so on a phone the fixed half took most of the
+                 screen and the half being written in was a slot in the middle of it. Reported on
+                 2026-09-18. The two keep their own binding contexts, which is why they are still two
+                 stacks: the fields above are the entry's own, and what follows is about the entry from
+                 the list's side (moving it, the lists it stands for) and reads the view model. -->
+            <VerticalStackLayout Spacing="10">
             <VerticalStackLayout Padding="0,8" Spacing="10" BindingContext="{Binding BeingEdited}"
                                  x:DataType="screens:TaskItemEditor">
                 <Entry Placeholder="{controls:Translate 'Checklist item'}" Text="{Binding Description}" />
@@ -354,142 +370,142 @@
                         SemanticProperties.Description="{controls:Translate 'How the daily reminder arrives'}" />
 
             </VerticalStackLayout>
+            <VerticalStackLayout Spacing="10">
+
+                <!-- What this entry stands for. A group list gathers other lists through entries pointing
+                     at them, so without this a group made on the phone gathered nothing. Inside the form,
+                     unlike moving: it is a fact about the entry, and it is saved with it. -->
+                <VerticalStackLayout Spacing="4" IsVisible="{Binding BeingEdited.CanStandForLists}">
+                    <Label Text="{controls:Translate 'Link to list'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                    <!-- The picker says what to add next rather than what is already there: one entry may
+                         stand for several lists, and choosing adds one and clears the picker. -->
+                    <Picker x:Name="LinkedTaskListPicker" ItemsSource="{Binding BeingEdited.LinkableTaskListsLeft}"
+                            ItemDisplayBinding="{Binding Name, x:DataType=screens:TaskListChoice}"
+                            SelectedIndexChanged="OnLinkedTaskListPicked"
+                            SemanticProperties.Description="{controls:Translate 'Link to list'}" />
+
+                    <!-- What it stands for now, each with a way off. Orbit.Web draws the same pair. -->
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding BeingEdited.LinkedTaskLists}"
+                                         IsVisible="{Binding BeingEdited.IsALinkToOtherLists}" Spacing="2">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="screens:TaskListChoice">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <Label Grid.Column="0" Text="{Binding Name}" VerticalOptions="Center"
+                                           LineBreakMode="TailTruncation" />
+                                    <Button Grid.Column="1" Text="✕" FontSize="14" WidthRequest="44" Padding="0"
+                                            BackgroundColor="Transparent" BorderWidth="0"
+                                            SemanticProperties.Description="{controls:Translate 'Remove'}"
+                                            TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
+                                            Command="{Binding ViewModel.BeingEdited.UnlinkCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=tasks:TaskListDetailPage}"
+                                            CommandParameter="{Binding .}" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <!-- Which of them have to be done. Any one of them unless this is on - the user's rule,
+                         settled 2026-09-14. Only where there are two to choose between: with one list the
+                         question has one answer. Orbit.Web draws its own tick box on the same terms. -->
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8"
+                          IsVisible="{Binding BeingEdited.CanChooseHowManyListsAreNeeded}">
+                        <Label Grid.Column="0" Text="{controls:Translate 'Needs all of them'}"
+                               VerticalOptions="Center" LineBreakMode="WordWrap" />
+                        <Switch Grid.Column="1" IsToggled="{Binding BeingEdited.NeedsEveryLinkedList}"
+                                SemanticProperties.Description="{controls:Translate 'Needs all of them'}" />
+                    </Grid>
+                    <Label IsVisible="{Binding BeingEdited.CanChooseHowManyListsAreNeeded}"
+                           FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}"
+                           Text="{controls:Translate 'Off, this entry is done as soon as any one of the lists it stands for is. On, every one of them has to be done.'}" />
+                </VerticalStackLayout>
+
+                <!-- The ways this entry can be got done, any one of which is enough - "the sauce": buy a
+                     ready one, or make it from a list of its own. Offered while it stands for no list, and
+                     the lists above hide while it has ways; Orbit.Web draws the same pair. -->
+                <VerticalStackLayout Spacing="4" IsVisible="{Binding BeingEdited.CanHaveWays}">
+                    <Label Text="{controls:Translate 'Ways to get it done'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding BeingEdited.Ways}" Spacing="2">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="screens:TaskItemWay">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsDone}" IsVisible="{Binding IsALine}"
+                                              SemanticProperties.Description="{controls:Translate 'Done this way'}" />
+                                    <Entry Grid.Column="1" Text="{Binding Description}" IsVisible="{Binding IsALine}"
+                                           Placeholder="{controls:Translate 'A way of doing it'}" />
+                                    <Label Grid.Column="1" Text="{Binding ListName}" IsVisible="{Binding IsAList}"
+                                           VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                                    <Button Grid.Column="2" Text="✕" FontSize="14" WidthRequest="44" Padding="0"
+                                            BackgroundColor="Transparent" BorderWidth="0"
+                                            SemanticProperties.Description="{controls:Translate 'Remove'}"
+                                            TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
+                                            Command="{Binding ViewModel.BeingEdited.RemoveWayCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=tasks:TaskListDetailPage}"
+                                            CommandParameter="{Binding .}" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                    <Button Text="{controls:Translate 'Add a way'}" HorizontalOptions="Start"
+                            FontSize="12" Padding="12,6" Style="{StaticResource SecondaryButton}"
+                            Command="{Binding BeingEdited.AddAWayCommand}" />
+                    <!-- The same picker the lists above use, and settled the same way - see OnWayListPicked. -->
+                    <Picker Title="{controls:Translate 'Or a list…'}" ItemsSource="{Binding BeingEdited.WayListsLeft}"
+                            IsVisible="{Binding BeingEdited.HasWayListsLeft}"
+                            ItemDisplayBinding="{Binding Name, x:DataType=screens:TaskListChoice}"
+                            SelectedIndexChanged="OnWayListPicked"
+                            SemanticProperties.Description="{controls:Translate 'Or a list'}" />
+                </VerticalStackLayout>
+
+                <!-- The order the work on this list has to be done in - "hang the door" after "fit the
+                     hinges". A different thing from the lists above: that is one entry meaning whole other
+                     lists, this is where this entry stands among the others here. Offered whatever the
+                     entry's kind, because the rule reads it off every one of them - see TaskListSteps, and
+                     Orbit.Web's editor, which draws the same pair in the same order. -->
+                <VerticalStackLayout Spacing="4" IsVisible="{Binding BeingEdited.CanWaitForAnything}">
+                    <Label Text="{controls:Translate 'Waits for'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                    <!-- Says what to add next rather than what is already there, like the link picker: one
+                         entry may wait for several, and choosing adds one and clears the picker. -->
+                    <Picker x:Name="StepPicker" ItemsSource="{Binding BeingEdited.WaitableEntriesLeft}"
+                            ItemDisplayBinding="{Binding Description, x:DataType=screens:TaskEntryChoice}"
+                            SelectedIndexChanged="OnStepPicked"
+                            SemanticProperties.Description="{controls:Translate 'Waits for'}" />
+
+                    <!-- What it waits for now, each with a way off. -->
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding BeingEdited.WaitsFor}"
+                                         IsVisible="{Binding BeingEdited.WaitsForAnything}" Spacing="2">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="screens:TaskEntryChoice">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <Label Grid.Column="0" Text="{Binding Description}" VerticalOptions="Center"
+                                           LineBreakMode="TailTruncation" />
+                                    <Button Grid.Column="1" Text="✕" FontSize="14" WidthRequest="44" Padding="0"
+                                            BackgroundColor="Transparent" BorderWidth="0"
+                                            SemanticProperties.Description="{controls:Translate 'Remove'}"
+                                            TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
+                                            Command="{Binding ViewModel.BeingEdited.StopWaitingForCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=tasks:TaskListDetailPage}"
+                                            CommandParameter="{Binding .}" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+
+                <!-- Outside the entry's own form, because moving is a change to two lists rather than to
+                     the entry: choosing a list does it there and then, and this form's Save is not involved. -->
+                <VerticalStackLayout Spacing="4" IsVisible="{Binding CanMoveItem}">
+                    <Label Text="{controls:Translate 'Move to list'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                    <Picker Title="{controls:Translate 'Move to…'}" ItemsSource="{Binding MoveTargetsForTheEntry}"
+                            SelectedIndexChanged="OnMoveTargetChosen"
+                            ItemDisplayBinding="{Binding Name, x:DataType=screens:TaskListChoice}"
+                            SemanticProperties.Description="{controls:Translate 'Move to list'}" />
+                </VerticalStackLayout>
+
+                <HorizontalStackLayout Spacing="16">
+                    <Button Text="{controls:Translate 'Save'}" Command="{Binding SaveItemCommand}" />
+                    <Button Text="{controls:Translate 'Cancel'}" Style="{StaticResource LinkButton}"
+                            Command="{Binding CancelItemEditCommand}" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+            </VerticalStackLayout>
         </ScrollView>
-
-        <VerticalStackLayout Grid.Row="4" Spacing="10" IsVisible="{Binding IsEditingItem}">
-
-            <!-- What this entry stands for. A group list gathers other lists through entries pointing
-                 at them, so without this a group made on the phone gathered nothing. Inside the form,
-                 unlike moving: it is a fact about the entry, and it is saved with it. -->
-            <VerticalStackLayout Spacing="4" IsVisible="{Binding BeingEdited.CanStandForLists}">
-                <Label Text="{controls:Translate 'Link to list'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
-                <!-- The picker says what to add next rather than what is already there: one entry may
-                     stand for several lists, and choosing adds one and clears the picker. -->
-                <Picker x:Name="LinkedTaskListPicker" ItemsSource="{Binding BeingEdited.LinkableTaskListsLeft}"
-                        ItemDisplayBinding="{Binding Name, x:DataType=screens:TaskListChoice}"
-                        SelectedIndexChanged="OnLinkedTaskListPicked"
-                        SemanticProperties.Description="{controls:Translate 'Link to list'}" />
-
-                <!-- What it stands for now, each with a way off. Orbit.Web draws the same pair. -->
-                <VerticalStackLayout BindableLayout.ItemsSource="{Binding BeingEdited.LinkedTaskLists}"
-                                     IsVisible="{Binding BeingEdited.IsALinkToOtherLists}" Spacing="2">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="screens:TaskListChoice">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                <Label Grid.Column="0" Text="{Binding Name}" VerticalOptions="Center"
-                                       LineBreakMode="TailTruncation" />
-                                <Button Grid.Column="1" Text="✕" FontSize="14" WidthRequest="44" Padding="0"
-                                        BackgroundColor="Transparent" BorderWidth="0"
-                                        SemanticProperties.Description="{controls:Translate 'Remove'}"
-                                        TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
-                                        Command="{Binding ViewModel.BeingEdited.UnlinkCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=tasks:TaskListDetailPage}"
-                                        CommandParameter="{Binding .}" />
-                            </Grid>
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
-                </VerticalStackLayout>
-
-                <!-- Which of them have to be done. Any one of them unless this is on - the user's rule,
-                     settled 2026-09-14. Only where there are two to choose between: with one list the
-                     question has one answer. Orbit.Web draws its own tick box on the same terms. -->
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8"
-                      IsVisible="{Binding BeingEdited.CanChooseHowManyListsAreNeeded}">
-                    <Label Grid.Column="0" Text="{controls:Translate 'Needs all of them'}"
-                           VerticalOptions="Center" LineBreakMode="WordWrap" />
-                    <Switch Grid.Column="1" IsToggled="{Binding BeingEdited.NeedsEveryLinkedList}"
-                            SemanticProperties.Description="{controls:Translate 'Needs all of them'}" />
-                </Grid>
-                <Label IsVisible="{Binding BeingEdited.CanChooseHowManyListsAreNeeded}"
-                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}"
-                       Text="{controls:Translate 'Off, this entry is done as soon as any one of the lists it stands for is. On, every one of them has to be done.'}" />
-            </VerticalStackLayout>
-
-            <!-- The ways this entry can be got done, any one of which is enough - "the sauce": buy a
-                 ready one, or make it from a list of its own. Offered while it stands for no list, and
-                 the lists above hide while it has ways; Orbit.Web draws the same pair. -->
-            <VerticalStackLayout Spacing="4" IsVisible="{Binding BeingEdited.CanHaveWays}">
-                <Label Text="{controls:Translate 'Ways to get it done'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
-                <VerticalStackLayout BindableLayout.ItemsSource="{Binding BeingEdited.Ways}" Spacing="2">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="screens:TaskItemWay">
-                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-                                <CheckBox Grid.Column="0" IsChecked="{Binding IsDone}" IsVisible="{Binding IsALine}"
-                                          SemanticProperties.Description="{controls:Translate 'Done this way'}" />
-                                <Entry Grid.Column="1" Text="{Binding Description}" IsVisible="{Binding IsALine}"
-                                       Placeholder="{controls:Translate 'A way of doing it'}" />
-                                <Label Grid.Column="1" Text="{Binding ListName}" IsVisible="{Binding IsAList}"
-                                       VerticalOptions="Center" LineBreakMode="TailTruncation" />
-                                <Button Grid.Column="2" Text="✕" FontSize="14" WidthRequest="44" Padding="0"
-                                        BackgroundColor="Transparent" BorderWidth="0"
-                                        SemanticProperties.Description="{controls:Translate 'Remove'}"
-                                        TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
-                                        Command="{Binding ViewModel.BeingEdited.RemoveWayCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=tasks:TaskListDetailPage}"
-                                        CommandParameter="{Binding .}" />
-                            </Grid>
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
-                </VerticalStackLayout>
-                <Button Text="{controls:Translate 'Add a way'}" HorizontalOptions="Start"
-                        FontSize="12" Padding="12,6" Style="{StaticResource SecondaryButton}"
-                        Command="{Binding BeingEdited.AddAWayCommand}" />
-                <!-- The same picker the lists above use, and settled the same way - see OnWayListPicked. -->
-                <Picker Title="{controls:Translate 'Or a list…'}" ItemsSource="{Binding BeingEdited.WayListsLeft}"
-                        IsVisible="{Binding BeingEdited.HasWayListsLeft}"
-                        ItemDisplayBinding="{Binding Name, x:DataType=screens:TaskListChoice}"
-                        SelectedIndexChanged="OnWayListPicked"
-                        SemanticProperties.Description="{controls:Translate 'Or a list'}" />
-            </VerticalStackLayout>
-
-            <!-- The order the work on this list has to be done in - "hang the door" after "fit the
-                 hinges". A different thing from the lists above: that is one entry meaning whole other
-                 lists, this is where this entry stands among the others here. Offered whatever the
-                 entry's kind, because the rule reads it off every one of them - see TaskListSteps, and
-                 Orbit.Web's editor, which draws the same pair in the same order. -->
-            <VerticalStackLayout Spacing="4" IsVisible="{Binding BeingEdited.CanWaitForAnything}">
-                <Label Text="{controls:Translate 'Waits for'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
-                <!-- Says what to add next rather than what is already there, like the link picker: one
-                     entry may wait for several, and choosing adds one and clears the picker. -->
-                <Picker x:Name="StepPicker" ItemsSource="{Binding BeingEdited.WaitableEntriesLeft}"
-                        ItemDisplayBinding="{Binding Description, x:DataType=screens:TaskEntryChoice}"
-                        SelectedIndexChanged="OnStepPicked"
-                        SemanticProperties.Description="{controls:Translate 'Waits for'}" />
-
-                <!-- What it waits for now, each with a way off. -->
-                <VerticalStackLayout BindableLayout.ItemsSource="{Binding BeingEdited.WaitsFor}"
-                                     IsVisible="{Binding BeingEdited.WaitsForAnything}" Spacing="2">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="screens:TaskEntryChoice">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                <Label Grid.Column="0" Text="{Binding Description}" VerticalOptions="Center"
-                                       LineBreakMode="TailTruncation" />
-                                <Button Grid.Column="1" Text="✕" FontSize="14" WidthRequest="44" Padding="0"
-                                        BackgroundColor="Transparent" BorderWidth="0"
-                                        SemanticProperties.Description="{controls:Translate 'Remove'}"
-                                        TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
-                                        Command="{Binding ViewModel.BeingEdited.StopWaitingForCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=tasks:TaskListDetailPage}"
-                                        CommandParameter="{Binding .}" />
-                            </Grid>
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
-                </VerticalStackLayout>
-            </VerticalStackLayout>
-
-            <!-- Outside the entry's own form, because moving is a change to two lists rather than to
-                 the entry: choosing a list does it there and then, and this form's Save is not involved. -->
-            <VerticalStackLayout Spacing="4" IsVisible="{Binding CanMoveItem}">
-                <Label Text="{controls:Translate 'Move to list'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
-                <Picker Title="{controls:Translate 'Move to…'}" ItemsSource="{Binding MoveTargetsForTheEntry}"
-                        SelectedIndexChanged="OnMoveTargetChosen"
-                        ItemDisplayBinding="{Binding Name, x:DataType=screens:TaskListChoice}"
-                        SemanticProperties.Description="{controls:Translate 'Move to list'}" />
-            </VerticalStackLayout>
-
-            <HorizontalStackLayout Spacing="16">
-                <Button Text="{controls:Translate 'Save'}" Command="{Binding SaveItemCommand}" />
-                <Button Text="{controls:Translate 'Cancel'}" Style="{StaticResource LinkButton}"
-                        Command="{Binding CancelItemEditCommand}" />
-            </HorizontalStackLayout>
-        </VerticalStackLayout>
 
         <!-- What the list itself is, rather than what is on it - behind "Edit" in the menu under the
              screen's name, with the fields at the top of the page. The panel's own BindingContext would

@@ -162,9 +162,13 @@ public sealed class FolderTabs
             choices.Add(Choice(FolderKey.Of(BuiltInFolder.Finished), _translations["Finished"], counts));
         }
 
-        // Last of the built-in ones, and on every screen: something put away has to be somewhere it can
-        // be found again, so there is no screen that hides this the way the calendar hides Private.
-        choices.Add(Choice(FolderKey.Of(BuiltInFolder.Archived), _translations["Archived"], counts));
+        // Last of the built-in ones, and on every screen but the dashboard - see
+        // FolderPages.HasAnArchivedTab, which says why that one is the exception. Gated here as well as
+        // in the browser's row for the reason the Private tab above is: one rule, read by both.
+        if (Page.HasAnArchivedTab())
+        {
+            choices.Add(Choice(FolderKey.Of(BuiltInFolder.Archived), _translations["Archived"], counts));
+        }
 
         choices.AddRange(_made.Select(folder => Choice(FolderKey.Of(folder.LocalId), folder.Name, counts)));
         return choices;

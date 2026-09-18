@@ -58,12 +58,11 @@ public sealed record CalendarEventRow(
     /// </summary>
     public string Where { get; init; } = string.Empty;
 
+    /// <summary>
+    /// The one wording, shared with the entry an appointment belongs to - see EventWhen, which this
+    /// row's own copy became when a second screen needed to say the same thing.
+    /// </summary>
     private static string Describe(
         DateTimeOffset startUtc, DateTimeOffset endUtc, bool isAllDay, Translations translations)
-        => isAllDay
-            ? translations.Format("{0} · all day", startUtc.LocalDateTime.ToString("d", translations.DisplayCulture))
-            : translations.Format(
-                "{0} – {1}",
-                startUtc.LocalDateTime.ToString("g", translations.DisplayCulture),
-                endUtc.LocalDateTime.ToString("t", translations.DisplayCulture));
+        => EventWhen.Reads(startUtc, endUtc, isAllDay, translations);
 }

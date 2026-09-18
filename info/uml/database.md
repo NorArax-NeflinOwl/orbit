@@ -263,7 +263,7 @@ erDiagram
         uuid OP_II_INVENTORYID FK
         text OP_II_NAME
         numeric OP_II_QUANTITY
-        numeric OP_II_MINIMUMQUANTITY
+        numeric OP_II_MINIMUMQUANTITY "written back onto the asking entries when it changes - ShelfDemand"
         numeric OP_II_USAGE "what the lists ask for, recounted by ShelfUsage; the minimum is never read below it"
         text OP_II_UNIT
         date OP_II_EXPIRYDATE

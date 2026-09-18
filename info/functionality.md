@@ -425,10 +425,13 @@ writes one by itself, and an uncoloured tag on a private item is never named any
 are deleted with the account, and the colour form says so beside the colour well. Somebody who wants a
 private tag kept unreadable leaves it uncoloured.
 
-**In the browser** the field is `TagsField` - the categories' own word-at-a-time box (`TagField`) under the
-list's title and description (`TaskEditor`) and under a note's writing (`NoteEditor`, which has no separate
-title box), offering the tags this account's notes or lists already carry plus every coloured one, with a
-colour well per tag underneath that saves at once (`TagColourBook`, `PUT /api/tags/colours`). The cards on
+**In the browser** the field is `TagsField` - the browser every short vocabulary is chosen in
+(`ValueBrowser`) under the list's title and description (`TaskEditor`) and under a note's writing
+(`NoteEditor`, which has no separate title box). The tags it carries are written along the closed field;
+opened, it lists the tags this account's notes or lists already carry plus every coloured one, each with
+a tick, and a colour well on the word itself that saves at once (`TagColourBook`,
+`PUT /api/tags/colours`). A tag nothing carries yet is written in the box at the head of the panel,
+which also narrows the list. The cards on
 `/notes`, `/tasks` and the dashboard's rows draw them with `TagChips`, beside "Pinned" and "Shared": a wash
 of the tag's colour behind the word and the colour as the outline, the word itself in the page's own text
 colour, so any colour reads in either theme; a colour that is not "#rrggbb" is never written into a style.
@@ -591,8 +594,12 @@ is, and the first that applies wins:
    which is the whole point: putting something away is a decision about whether it is in front of the
    reader at all, and an archived note still sitting under "Work" would not have been put anywhere. **Its
    folder id is left untouched**, so bringing it back puts it under "Work" again rather than somewhere a
-   rule had to choose. Every page draws the tab - there is no page that hides it the way the calendar
-   hides Private - because something put away has to be somewhere it can be found again. Its own command
+   rule had to choose. Every page a thing is listed on draws the tab, because something put away has to
+   be somewhere it can be found again; **the dashboard does not** (2026-09-18, `FolderPages.HasAnArchivedTab`),
+   since that page is for what somebody is doing now and the archive is where things go to stop being
+   that. Nothing about the placement changes with it, which is the difference from the Finished tab: a
+   finished list is placed as unfinished where there is no tab for it and so stays on the page, while
+   something put away is placed in the archive everywhere and is therefore simply not on the dashboard. Its own command
    and its own endpoint on each of the four (`PUT .../{id}/archived`, `ArchiveRequest`), for the reason
    filing has its own: an update carries the whole thing, so a client that had never heard of archiving
    would bring back everything its owner had put away, every time it saved. A recipient is told nothing
@@ -600,9 +607,14 @@ is, and the first that applies wins:
    that was never theirs would take the thing off their own pages.
 
    **In the browser it is a line in every card's menu** ("Archive", or "Put back" for something already
-   away), immediately above Delete and deliberately so: it is the other way out of a list, and somebody
-   reaching for Delete because they want a thing gone from in front of them meets it on the way. The two
-   say different things, and one of them is reversible. Left out on something reached through a share.
+   away), and since 2026-09-18 it is the **only** way out of a list a card offers: **Delete is reached
+   in the Archived folder and nowhere else** (`ObjectMenu.IsArchived`, applied by the menu itself rather
+   than by each page, so a page that forgets to say offers no Delete at all - the safe direction for a
+   rule about deleting). Archiving exists to be the reversible answer, and a Delete beside it on every
+   card made the irreversible one the easier to reach. The exception is a line that is not a deletion:
+   taking somebody else's shared thing off this reader's own list needs no archive first, because
+   something shared cannot be put away at all (`ObjectMenu.DeleteNeedsTheArchive`). Left out on
+   something reached through a share.
    The card stays where it is until the page is read again - it has not moved anywhere, it is under
    another tab now - and a refusal leaves the page as it was rather than redrawing a lie.
 
@@ -672,6 +684,14 @@ chat message carrying its Accept. The page hands the dialog its own share call a
 contacts, the round and the result ("Shared 3. 1 could not be shared.") are the dialog's. Only things this
 reader owns and Orbit can read are shared - one shared with them, or a sealed one, is left out and the
 dialog says how many.
+
+**And one at a time, from its own card** (2026-09-18): "Share" is a line in every card's menu on the
+notes, the task lists, the calendar's list and the inventories, and on the first three it opens that same
+dialog given a list of one. Sharing is sharing whether it is one thing or four, and a second way of doing
+it would be a second set of rules about who may - which is also why the line is drawn under the same two
+questions the bar asks of what it was given: the thing is this reader's, and Orbit can read it. Until
+then the only way to hand on a single note was to enter the choosing mode and pick it, which is what the
+list of 2026-09-18 reported.
 
 **The phone chooses several too** (2026-09-16, `PickingSeveral` over the same `PickedThings`, which moved
 to `Orbit.Core.Folders` for it; `PickingBar` in the head). On notes, task lists, inventories and the
@@ -903,6 +923,30 @@ shown as a number of its own anywhere else. The phone keeps the same count besid
 shelf (`LocalInventory.ItemUsage`, filled by the sync the way the arrival dates are), so a product its
 lists ask more of than its typed minimum reads as running low there too (`InventoryItemRow.KeptAt`).
 
+**And a change on the shelf reaches the lists** (`ShelfDemand`, `GetShelfDemandQuery`,
+`GET /api/inventories/{id}/demand`, 2026-09-18). The count above was one-way: saving a list wrote the
+shelf, and editing the shelf wrote nothing back. Saving an inventory now carries every **Min** that
+actually moved - not every box on the form, only the ones whose number changed since the page was read -
+back to the entries that stand for that item:
+
+- **Nothing asks for it**: nothing to write. The shelf keeps the minimum as typed.
+- **One entry asks**: that entry is the whole of the demand, so it is given the new amount without a
+  word, and the count is taken again, leaving the two agreeing.
+- **Several ask**: the save stops and says so, naming the lists. Six between two recipes is not three
+  and three unless somebody says it is. The reader either presses **Split evenly** (*Podziel równo*),
+  which divides the amount equally between every entry asking - to the penny, the first share carrying
+  the rounding - or **I'll change the lists myself**, which saves the shelf and leaves every list exactly
+  as it was. Closing the panel means the second.
+
+Each row's hint under **Min** now names the lists asking rather than only counting them, so the choice is
+readable before Save is pressed. Clearing a minimum writes nothing back: "no minimum here" is not an
+amount to ask a list for, and the shelf goes back to being kept at whatever the lists want. **Orbit's own
+restock list is not one of the lists** (`ManagedRestockLists`): its errands point at the shelf item
+exactly as a real entry does, so before this they counted as a second list asking - and added one to
+Usage for as long as an item's own restock errand was open. The phone saves through the same endpoint and
+gets the one-entry write-through; it cannot yet raise the question, so a shared row saved from a phone
+leaves the lists alone.
+
 **The phone** offers the same picks under the entry's name as chips. After a pick it shows the '!' note
 and **Make it separate**. It sets only the words and the pointer; the group's details arrive with the
 next sync, once the server has filled them in. The web fills them in on screen at once.
@@ -1103,12 +1147,36 @@ than `"[ ]"`/`"[x]"` text every client would have to parse back out, and it is p
 ownership rule as every other endpoint; the Blazor client's notes page asks for confirmation before
 calling it.
 
+**The page narrows by tag** (2026-09-18). Beside the folder tabs, in the same browser the tasks page
+narrows by its categories in (`ValueBrowser`), sits every tag on a note in the folder that is open, each
+with how many notes carry it. Several can be ticked and they mean **any of them**, which is what ticking
+a second usually means; it narrows what the page acts on as well as what it draws, so choosing several
+notes to file or archive cannot reach one that is not on screen. A tag ticked in one tab stays ticked in
+the next, and when nothing there carries it the page says so rather than claiming the folder is empty.
+
 ### Writing a note in the browser
 
 `NoteEditor.razor` is **one field and nothing else on that side of the screen** (2026-09-09), which is
 the shape the phone's note screen has had since the redesign: the first line is the note's title and is
 drawn as one, everything under it is the note, and there is no separate title box for the two to
 disagree in.
+
+**A column of the folder's notes sits beside it**, most recently changed first, and pressing one opens
+it in place of this one; below 1100px it is dropped, where a fifth of the width is too narrow to name a
+note in. **The note's own page has the same column** (2026-09-18), landing at its own depth - reading
+one note and then the next is reading, not editing.
+
+**What is written and not saved is kept** (2026-09-18, `NoteDrafts`). Moving to another note used to
+throw it away, which is a page deciding that looking at the next note means abandoning this one. It is
+kept per note while the tab lives - in memory and nowhere else, since a draft is unfinished writing and
+a private note's lines are not something to leave in localStorage - put back when the note is opened
+again with a line saying it still has to be saved, and dropped by a save or by Cancel, which is that
+note's own "no". **Leaving the editor asks first**: anywhere but another note's editor, the notes that
+would be lost are named and the reader can stay (`AskBeforeLeavingAsync` over
+`NavigationManager.RegisterLocationChangingHandler`); going anyway is what throws them away. A note
+nobody wrote in keeps nothing, so reading one and leaving warns about nothing - what counts as written
+in is what the note *says*, compared as one string because a line carries lists of its own and two
+records holding equal lists are not equal.
 
 **Turning editing on puts the caret at the end of the writing** (`ChecklistTextEditor.FocusesAtTheEnd`):
 after the last line's words, or in the last cell of a table the note ends in, or - past a closing picture
@@ -1196,7 +1264,9 @@ read.
 - **The checklist tool types `[]`**, which the surface then turns into a tick box
   (`checklistTextEditor.js`, `CHECKLIST_MARKER`). Typing the same two characters at the head of a line
   does the same thing, so the button is a shortcut into the rule rather than a second way in - which is
-  how the phone has always done it (`NoteDetailPage`, "Type [] for a checkbox"). **Not in a list's or an
+  how the phone has always done it. **The phone's editor no longer says so anywhere** (2026-09-18): the
+  line under the writing that carried the hint went with the rest of that foot, so this paragraph is the
+  only place the trick is now written down. **Not in a list's or an
   inventory's name and description** (`TitledDescription`, the same surface with
   `ChecklistTextEditor.ReadsMarkers` off): those store only text, so `[]` typed or pasted there stays
   words rather than becoming a box the save would drop.
@@ -1409,11 +1479,28 @@ read.
 
 ### Writing a note on the phone
 
-`NoteDetailPage` (view) over `NoteDetailViewModel` (decisions, in `Orbit.Mobile`) is a column of one-line
-fields, one per line, because a line can carry a real tick box and no text box can hold a control. The
-name is the first field. Enter starts the next line keeping the indentation, backspace at the head of a
-line joins it to the line above, a hardware keyboard's arrows walk between lines, and its Tab indents the
-line rather than moving the focus on (`NoteLineKeys`, read on Android by `NoteLineKeyPresses`). Nothing is written until Save; leaving asks first when something would
+`NoteDetailPage` (view) over `NoteDetailViewModel` (decisions, in `Orbit.Mobile`) is a column of fields,
+one per line, because a line can carry a real tick box and no text box can hold a control. The name is
+the first field. **Each line's field wraps** (2026-09-18: an `Editor` with `AutoSize`, where it used to
+be a one-line `Entry`) - a note is mostly long sentences, and a single-line field put each of them on a
+rail the reader had to drag sideways. A field that wraps has a return key that writes a newline instead
+of the "next" the page used to catch, so **Enter arrives as a newline written into the line** and the
+view model reads it as Enter: one newline and nothing else goes through the same surface Enter as before
+(`EnterWasTypedInto`), keeping the indentation and the box, and several lines at once are still a paste.
+Backspace at the head of a line joins it to the line above, a hardware keyboard's arrows walk between
+lines, and its Tab indents the line rather than moving the focus on (`NoteLineKeys`, read on Android by
+`NoteLineKeyPresses`, which listens on both kinds of field since the lines became `Editor`s).
+
+**The tags are behind the menu** under the note's name (2026-09-18), drawn under the writing once they
+are asked for; **the foot is gone** - the line saying who shared the note in and when it last changed,
+and the hint beside it about typing `[]`. The screen is the note: both were furniture under its last
+line, and what the first said is on the note's row in the list it came from.
+
+**The room under the last line is pressable**, and pressing it writes there (2026-09-18) - the way Apple
+Notes uses the same room, which is the editor this one follows. It is how a note that **ends in a
+picture, a table or a rule** goes on at all: an element draws no field, so there was nothing to put the
+caret in and nothing to press Enter on. An empty line already waiting at the end takes the caret instead
+of a second one being made. Nothing is written until Save; leaving asks first when something would
 be lost. Where it follows the browser's editor, it uses the same rules from `Orbit.Core/Notes` - the note
 is handed to them as a `SurfaceState` whose line 0 is the name:
 
@@ -2365,7 +2452,11 @@ dashboard: four headings each saying "Nobody yet" were most of the panel spent o
 "Share where you are" stays, because it is how any of the others comes to have something in it, and
 "Where your plans are" stays while the past is being shown, because it then holds the field that can
 change the answer. **A refresh button sits beside full screen** on the map: it reads everything again
-and moves the pins in place (`RefreshMapMarkersAsync`), so the pan and zoom it was pressed from are kept.
+and moves the pins in place (`RefreshMapMarkersAsync`), so the pan and zoom it was pressed from are kept;
+a failure inside it is said on screen rather than leaving a button that looks dead. **Saying yes to a
+pressed place keeps the view too** (2026-09-18): it used to rebuild the map, which came back fitted to
+every pin the account holds rather than showing the spot just chosen. Searching still redraws - being
+taken to what was found is the point of searching.
 **A pin's popup takes the theme** - Leaflet paints it white, and in the dark theme its label was light
 text on a white card.
 
@@ -2402,14 +2493,24 @@ whose address is known and whose spot on the map is not obvious. It is deliberat
 whatever pin happens to be on the map: somebody who meant that pin has the question above in front of
 them already. Leaflet's zoom control moved to the bottom-left to make room (`locationMap.js`), since two
 plus signs side by side - one meaning "closer" and the other "remember this spot" - is a corner nobody
-can read. **The wheel does not zoom** (`scrollWheelZoom: false`, both maps): a map sits inside a page
-that scrolls, so reading down past one zoomed it instead, losing the place being looked at and the
-reader's place on the page. The buttons, a pinch and a double press all still do it.
+can read. **The wheel does not zoom a map embedded in something else** (`scrollWheelZoom`): such a map
+sits inside a page that scrolls, so reading down past one zoomed it instead, losing the place being
+looked at and the reader's place on the page. The buttons, a pinch and a double press all still do it.
+**It does zoom the map page's own map, and any map while it is full screen** (2026-09-18,
+`showLocations`' `wheelZooms` and a document-level `fullscreenchange` listener - Esc and a back gesture
+leave full screen without going through the button). Both are maps that *are* the page, so there is
+nothing behind them for the wheel to scroll past.
 
 **The tiles are turned dark with the app** (`:root[data-theme="dark"] .leaflet-tile-pane`).
 OpenStreetMap serves one set, drawn for a light page, so a map was the one white rectangle left on a
 dark screen. Inverted with the hue turned back through 180 degrees, so water stays blue; only the tiles,
 since everything Orbit draws over them is already in the theme's own colours.
+
+**And the reader can say otherwise, for the map alone** (2026-09-18): a third square beside the refresh
+turns the map between light and night, saying which it will switch to. It is the same filter under a
+different answer - `DevicePreferences.MapAtNight`, kept per device and three-valued, since "nothing
+said" has to mean "follow the theme" - and it leaves the page's own theme alone. A map is looked at in a
+room rather than on a page, so a dark page at a bright desk is a real pair of answers.
 
 The place travels in a scoped `ChosenPlace` rather than in the address bar. `/calendar/new?lat=52.2&lon=21.0`
 would write where somebody is going into their browser history and into anything that later reads a URL,
@@ -2605,15 +2706,13 @@ device (`CalendarListReading`). Its grid keeps everything too.
 the device the way the list's order is (`CalendarListOrder`, localStorage - it describes one page for
 one reader on one screen).
 
-**The day and week views show everything whatever that says** (`Calendar.ShowsEverythingInThisView`).
-Opening one particular day - or one particular week - is asking what happened in it, and half an answer
-to that is worse than none: a day showing three of the five things on it looks like a day with three
-things on it, with nothing saying otherwise, and a week does the same over seven columns. The month and
-the year are not the same question: they are read to find something rather than to account for a
-stretch, and a month drawn full of struck-through appointments is exactly what the default keeps out of
-the way. The menu entry is ticked and greyed on the two that override it, with the reason on it — an
-unticked box over a screen full of finished work would be the control lying about what is in front of
-somebody.
+**It is the reader's answer in every view** (`Calendar.ShowsEverythingInThisView`, 2026-09-18). The day
+and the week used to force it on, on the reasoning that opening one particular day is asking what
+happened in it and half an answer to that is worse than none: a day showing three of the five things on
+it looks like a day with three things on it, with nothing saying otherwise. The menu entry was then
+ticked and greyed on those two — which is a control that refuses, and the user asked for it back. The
+reasoning is still true of what they now choose; which of the two readings they want is theirs, and the
+answer is kept per device like the order beside it.
 
 ## Refusing a request
 
@@ -2699,6 +2798,16 @@ had been chosen. It is the kind the map hands over now: pressing a place on the 
 a list opens one entry standing at that place, as a `Location`. The pin's coordinates travel with it, so
 somebody who did mean an appointment changes the type on the spot and the event lands at the point they
 pressed rather than at a re-lookup of its name.
+
+**And so is when it happens** (both clients since 2026-09-18). The day and the hour of an entry tied to
+an event live on the **event** - that is where an editor writes them - so the entry's own `DueDateUtc`
+is only ever what it was when the entry was made. Every screen that says when such an entry happens
+reads the event first and falls back to the deadline: `TaskItemSummary.WhenItIs` in the browser, and on
+the phone the entry's screen and its row on the list (`EventWhen`, `TaskItemRow.From`'s `appointment`).
+The phone read only the deadline until then, which is what made an appointment moved in a browser look
+on a phone as though the move had never happened - reported twice as a sync fault, and it was never
+one. A row carrying an appointment is late once that appointment has **ended** rather than once it has
+begun, since an hour you are in the middle of is not an hour you have missed.
 
 **The place is stored once.** An entry tied to an event keeps no location of its own: the event already
 holds one, and a second copy is how the two come to disagree. A `Location` entry is tied to no event, so
@@ -2820,9 +2929,10 @@ done, and a row that only points at another list is not work itself — so what 
 on the list it points at, and shown with that list's name beside it. A group's card is nothing but such
 rows, and used to fold down to "Nothing left to do." with every one of its members' errands still open.
 
-Chips narrow the page to a status, or to **Shared**, which is about where a list came from rather than
-how far along it is; "All" is a chip like the rest, so there is always exactly one answer to what is on
-screen. The orders live behind the page's menu rather than in a control taking up the top of every
+One field narrows the page to a status, or to **Shared**, which is about where a list came from rather than
+how far along it is - the browser every short vocabulary is read in (`ValueBrowser`), one answer at a
+time and "All" among them, so there is always exactly one answer to what is on screen. The orders live
+behind the page's menu rather than in a control taking up the top of every
 visit: most and least important first, newest and oldest, A to Z and Z to A, and **the way I arranged
 them** — the one order the reader sets by hand. Only under that one do the cards carry a drag handle;
 under any other, moving a card by hand would not survive the next redraw. Both the chosen order and the
@@ -2876,25 +2986,29 @@ unlocked, which offers nothing at all until it is.
 
 ### Finding one entry among every list
 
-Above the chips sit the two questions about what is *on* the lists rather than about the lists
-themselves: a search box, and a row of categories.
+Above the views sit the two questions about what is *on* the lists rather than about the lists
+themselves: a search box, and the categories - a field of their own beside the views, both of them
+browsers (`ValueBrowser`). They were two rows of chips, which grew with the account until the rows were
+the page and what was chosen had to be found among what was not; a field says what it is narrowed to
+and keeps the whole list one press away, each word still carrying its count.
 
-Every entry can be filed under as many categories as apply — free text, typed on one line and separated
-by commas, the way a shelf item's category is written, with every category already in use offered
-underneath it (`TaskItem.Categories`, `CategoryText`). One errand is often two subjects at once, so
+Every entry can be filed under as many categories as apply — free text, read back along the field with
+commas between the words, the way a shelf item's category is written, and chosen from every category
+already in use in the browser that opens under it (`TaskItem.Categories`, `CategoryText`,
+`ValueBrowser`). One errand is often two subjects at once, so
 being made to pick the single truest one is how a category stops being written at all. Every kind of
 entry carries them: an appointment is about something the same way an errand is.
 
-**All of it is about the folder that is open** (`Tasks.TaskListsInTheOpenFolder`) — which chips exist,
+**All of it is about the folder that is open** (`Tasks.TaskListsInTheOpenFolder`) — which words are offered,
 the number on each of them, the number on "All", and what the search looks through. A folder is a place
-rather than one more filter, so a chip is about what is in the place somebody is standing in. Counting
+rather than one more filter, so a word is about what is in the place somebody is standing in. Counting
 the whole account instead is what this page used to do, and it showed: a tab holding two lists had an
-"All" chip saying twelve, and a category chip could offer a word that appears only on a list filed
+"All" saying twelve, and the categories could offer a word that appears only on a list filed
 somewhere else — pressing it emptied the page, leaving the reader to work out that the word belonged to
 a tab they were not on. An empty tab now says it is empty, rather than "no lists are all", which blames
-a chip nobody pressed.
+a filter nobody set.
 
-The search matches a word anywhere in an entry's own words. The chips are built from what entries are
+The search matches a word anywhere in an entry's own words. The categories are built from what entries are
 actually filed under, each with how many carry it. Several can be chosen: **any of them** by default,
 because that is usually what picking a second one means, and a checkbox appears once a second is chosen
 for the reader who means an entry that is both at once. The two narrow independently — a search and a
@@ -3126,12 +3240,32 @@ the screen meant for ticking through is work that gets missed. Each list is draw
 places link to it, and a list that links back to one of its own ancestors stops at the repeat rather
 than unfolding forever (`LinkedTaskListTree`).
 
+**A list is walked because of what is on it, not because of how it is being read** (2026-09-18). The
+server's own walk stopped at a list whose "Group list" box was off - which was the same thing until the
+box became the reader's to untick (2026-09-16). After that, a list they had turned it off on was not
+walked at all: the stock check counted the top list alone, and an inventory generated from it held
+nothing any sublist asked for. That is the fault reported as "only the main list's entries reach the
+inventory". An entry that stands for another list is a link whatever a box says.
+
 ### Reading a nested list flat, and keeping how it reads
 
 A tree two levels deep reads as a stack of cards, which is right for seeing how the work is organised
-and wrong for working through it. **Show single items** folds the whole tree into one run of items, each
-labelled with the list it came from, leaving out the rows that only point at another list. It is offered
-only where there is something to flatten.
+and wrong for working through it. **Show single items** folds the whole tree into one run of items,
+leaving out the rows that only point at another list. It is offered only where there is something to
+flatten.
+
+**Entries that say the same thing are one row** (2026-09-18, `TaskListChecklist.FlatRowsToShow`). Three
+lists asking for milk are three entries and one errand; read flat they were three rows saying "Milk",
+each labelled with the list it came from, and the reader had to add them up. The row now carries **how
+much is wanted altogether** - each entry's `RequiredQuantity`, or its product's minimum where nothing
+has linked it to a shelf yet, summed per unit, since two kilograms and two packs are not four of
+anything - the union of what they are filed under, and the soonest deadline any of them carries. What is
+gone is the note of which list it came from: that is the tree view's question. Alike means *what the row
+says*, compared without case or surrounding space, because that is what the reader sees as the same
+thing; matching on the shelf item behind it would gather some of them and leave the rest alone. The box
+answers for all of them - one press ticks the errand off every list that asked for it, each list written
+on its own, and an entry that cannot go through (waiting on a step, or done by ways) asks its question
+under the row without stopping the others.
 
 **Sort** chooses between the list's own order, A to Z, and what is left to do first - which puts the
 undone at the top and the done at the bottom, each alphabetically, so a half-finished list reads as what
@@ -3466,12 +3600,18 @@ an inventory's editor carries a checklist of the lists measured against it. "Gen
 refused to a list that already has one: it would build a second and quietly move the list onto it,
 leaving the first with nothing pointing at it.
 
-**And it is only offered where there is something on the list a shelf could be about** (2026-09-09,
-`GeneratedInventorySource`, asked by both clients): an entry describing a product, or one standing for a
-list that has one, however deep that goes. On a list of plain errands the menu entry was an offer to
-build an empty storage and quietly point the list at it. The rule lives on the clients rather than in the
-endpoint, which still builds a shelf out of whatever the work names - so a list of errands can still be
-turned into one by anything that calls it, it is simply not *offered* any more.
+**And it is offered wherever there is work on the list** (2026-09-18, `GeneratedInventorySource`, asked
+by both clients): anything that is not merely a row pointing at another list, directly or through such a
+row, however deep that goes. Only a list made of links to lists holding nothing is refused. **It asked
+for a *product* from 2026-09-09 until then** - an entry of the Inventory kind or one already pointing at
+a shelf item - on the reading that "a list of plain errands has nothing a shelf would be about". That is
+wrong about the commonest case there is: a shopping list of plain lines is exactly what somebody builds a
+shelf from, and the endpoint builds one, counting every entry the tree names. The rule hid the offer from
+the lists it is most useful on, which is how it was reported.
+
+**And it is reached from the list itself again** (2026-09-18): "Generate inventory" is in the menu on the
+checklist as well as in the list's form. It had been left on the form alone, which is a page somebody
+reading a shopping list has no other reason to open.
 
 `POST /api/tasks/{id}/inventory` goes the other way: it builds the shelf the work needs - one entry per
 distinct thing, **each carrying how many the job needs as its minimum**, and starting with whatever the
@@ -3835,13 +3975,15 @@ expiry and its notification channel - in the task editor, behind the entry's own
 the kind and the link were for: the row already knows which product it means, so correcting the amount
 should not mean opening the inventory in another tab and finding it again.
 
-**The product type is picked, not only typed.** One answer per product, so it is a single box rather than
-the categories' row of words - but it offers what the account already calls kinds of product the way the
-categories box offers categories: every shelf's product types (`GET /api/suggestions/used-values`, kind
+**The product type is picked, not only typed.** One answer per product, so it holds one word rather than
+the set the categories hold - but it offers what the account already calls kinds of product the way the
+categories field offers categories: every shelf's product types (`GET /api/suggestions/used-values`, kind
 `InventoryItemProductType`) together with every task entry's own (`TaskItemProduct.ProductType`, read off
 the lists the editor already loads). The entries' half matters because an entry describing something no
 shelf holds yet carries its type itself, and an account whose products were all still written on lists
-was offered nothing. The browser draws it as `SuggestedTextField`; the phone puts the same list as chips
+was offered nothing. The browser draws it as a `ValueBrowser` holding one answer that may also be none
+(`OnlyOne`, `CanBeEmpty`), so a type is ticked from the list or written in the panel's own box; the phone
+puts the same list as chips
 under its box (`InventoryItemEditor.OfferedProductTypes`, filled by the list screen and by the
 inventory's own screen from this phone's copies of the shelves and lists - `KnownProductTypes` - so it
 works offline). Taking one replaces what is in the box; typing a new
@@ -4681,6 +4823,14 @@ A contact with messages waiting is marked the same way, from the unread count th
 carries - what the reader is being told about is a row on this page either way. The row's outline does
 not pulse: the card around it already does, and two animations out of step is what a page looks like
 when it is trying too hard.
+
+**And the folder tab says which tab.** Following a notification lands on the page as that page was last
+left, which may be another folder entirely - so a dot sits on every tab holding something unread
+(`FolderTabs.HasNewsIn`, 2026-09-18), and on the button the tabs fold into on a narrow screen
+(`PhoneToolbar.HasNews`). A dot rather than a count: how many is on the card itself, and this only has
+to say "in here". The open tab is never marked, since whatever it holds is already in front of the
+reader. The notes, the task lists and the inventories answer it; the calendar's tabs narrow a grid
+rather than a list of cards, and the phone's own folder menu does not carry it yet.
 
 **Which cards can say which row, and which can only say "here".** It depends on what the notification's
 address names, not on the card:

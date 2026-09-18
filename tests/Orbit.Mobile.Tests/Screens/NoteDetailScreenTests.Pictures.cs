@@ -82,4 +82,35 @@ public sealed partial class NoteDetailScreenTests
         Assert.Equal(PictureId, stored.Content[0].Picture!.PictureId);
         Assert.Equal("the beach at dusk", stored.Content[1].Text);
     }
+
+    /// <summary>
+    /// A note that ends in a picture can still be written on. A picture draws no field, so there was
+    /// nothing to put the caret in and nothing to press Enter on - reported on 2026-09-18 as no way to
+    /// add a line under one. The screen now offers the room under the writing (a press there reaches
+    /// this), and the surface has always known what Enter on an element means: ordinary writing under
+    /// it.
+    /// </summary>
+    [Fact]
+    public async Task A_line_can_be_started_under_a_picture_that_ends_the_note()
+    {
+        using var context = new ScreenContext();
+        context.Server.Pictures[PictureId] = PictureBytes;
+        var note = await context.Notes.CreateAsync("Holiday", [new("the beach", false, false), APictureLine()]);
+        await context.SynchroniseAsync();
+        var screen = await context.OpenAsync(note.LocalId);
+
+        var started = screen.AddLineAfter(screen.Lines[^1]);
+
+        Assert.NotNull(started);
+        Assert.False(started.IsAnElement);
+        Assert.Equal(3, screen.Lines.Count);
+        Assert.True(screen.Lines[1].IsAPicture);
+
+        started.Text = "and the walk back";
+        await screen.SaveLinesCommand.ExecuteAsync(null);
+
+        var stored = (await context.Notes.FindAsync(note.LocalId))!;
+        Assert.Equal(PictureId, stored.Content[1].Picture!.PictureId);
+        Assert.Equal("and the walk back", stored.Content[2].Text);
+    }
 }

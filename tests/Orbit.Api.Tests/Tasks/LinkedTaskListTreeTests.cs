@@ -77,6 +77,30 @@ public sealed class LinkedTaskListTreeTests
         Assert.Equal(["Plain", "Other"], gathered.Select(list => list.Title));
     }
 
+    /// <summary>
+    /// And it gathers them with the group view turned off. The box ticks itself when a list first
+    /// gathers another and has been the reader's to untick since 2026-09-16 - so a list they had turned
+    /// it off on was not walked at all, and the stock check counted the top list alone. Reported on
+    /// 2026-09-18 as an inventory generated from a list holding nothing its sublists asked for.
+    /// </summary>
+    [Fact]
+    public void A_list_read_as_a_plain_one_still_gathers_what_its_entries_point_at()
+    {
+        var pantry = List("Pantry", isGroup: false, Work("Flour"));
+        var link = LinkTo(pantry);
+        // Restored rather than created: creating one that gathers another ticks the box itself, and
+        // what this is about is the list somebody afterwards turned it off on.
+        var shopping = TaskList.FromPersistence(
+            Guid.NewGuid(), Guid.NewGuid(), "Shopping", [link, Work("Milk")], isGroup: false,
+            isPrivate: false, encryptedContent: null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null,
+            priority: Orbit.Core.Abstractions.ItemPriority.Normal, isPinned: false);
+
+        var work = LinkedTaskListTree.WorkIn(shopping, [shopping, pantry]);
+
+        Assert.Equal(["Milk", "Flour"], work.Select(item => item.Description));
+    }
+
     [Fact]
     public void A_link_pointing_at_nothing_reachable_is_skipped()
     {

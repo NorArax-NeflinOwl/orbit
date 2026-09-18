@@ -167,8 +167,7 @@ public sealed class PrivateInventoryTests
 
         public Task<EditOutcome> SaveAsync(
             Guid inventoryId, string name, IReadOnlyList<InventoryItemInput> items, bool isPrivate, EncryptedPayload? encryptedContent)
-            => new UpdateInventoryCommandHandler(
-                    _inventory.AccessResolver, _inventory.InventoryRepository, _inventory.ItemsSaver)
+            => _inventory.InventorySave()
                 .HandleAsync(
                     new UpdateInventoryCommand(OwnerId, inventoryId, name, items, isPrivate, encryptedContent),
                     CancellationToken.None);

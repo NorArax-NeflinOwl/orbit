@@ -50,7 +50,7 @@ else
             <Trailing><span class="row-meta">@WhenItIs()</span></Trailing>
         </Row>
         <Row Title="@T["Where"]">
-            <Trailing><span class="row-meta">@(_place.Length > 0 ? _place : T["No place set"])</span></Trailing>
+            <Trailing><span class="row-meta row-meta-prose">@(_place.Length > 0 ? _place : T["No place set"])</span></Trailing>
         </Row>
         @* What the entry says about itself. Every kind carries one now (TaskItem.Notes); a calendar
            entry's is its event's, and an appointment written before entries had one of their own still
@@ -65,7 +65,7 @@ else
         @if (_event is { Details.Guests.Count: > 0 } withGuests)
         {
             <Row Title="@T["Guests:"]">
-                <Trailing><span class="row-meta">@string.Join(", ", withGuests.Details.Guests.Select(NameOfTheGuest))</span></Trailing>
+                <Trailing><span class="row-meta row-meta-prose">@string.Join(", ", withGuests.Details.Guests.Select(NameOfTheGuest))</span></Trailing>
             </Row>
         }
         @* The tick that finishes this entry, offered where the entry is read. It used to say "Already
@@ -77,7 +77,7 @@ else
         @if (_waitingOn is { Length: > 0 } waitingFor)
         {
             <Row Title="@T["Done"]">
-                <Trailing><span class="row-meta">@T.Format("Waiting for {0}.", waitingFor)</span></Trailing>
+                <Trailing><span class="row-meta row-meta-prose">@T.Format("Waiting for {0}.", waitingFor)</span></Trailing>
             </Row>
         }
         @if (TaskItemCompletion.IsTickedElsewhere(_item))

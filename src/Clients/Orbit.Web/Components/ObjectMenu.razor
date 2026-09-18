@@ -30,7 +30,7 @@
     {
         <button type="button" class="avatar-dropdown-item" @onclick="OnArchive">@ArchiveLabel</button>
     }
-    @if (DeleteLabel is not null)
+    @if (DeleteLabel is not null && (IsArchived || !DeleteNeedsTheArchive))
     {
         <button type="button" class="avatar-dropdown-item" disabled="@DeleteDisabled" @onclick="OnDelete">@DeleteLabel</button>
     }
@@ -101,4 +101,24 @@
     [Parameter] public EventCallback OnDelete { get; set; }
 
     [Parameter] public bool DeleteDisabled { get; set; }
+
+    /// <summary>
+    /// Whether this thing is already put away - see Orbit.Core.Folders.BuiltInFolder.Archived.
+    ///
+    /// This is the one rule the menu applies itself rather than taking from the page, and deliberately:
+    /// **Delete is reached in the Archived folder and nowhere else** (asked for on 2026-09-18). Archiving
+    /// exists to be the way out of a list, and a Delete sitting beside it on every card made the
+    /// reversible answer the harder one to find - the two presses are worth it for the one action here
+    /// that cannot be undone. A page that forgets to say whether its thing is archived therefore offers
+    /// no Delete at all, which is the safe direction for a rule about deleting things.
+    /// </summary>
+    [Parameter] public bool IsArchived { get; set; }
+
+    /// <summary>
+    /// Whether the line above is a deletion at all. False where pressing it takes somebody else's thing
+    /// off this reader's own list - the owner keeps it, nothing is destroyed, and there is nothing to
+    /// archive first: something shared cannot be put away, so requiring the archive would make a share
+    /// impossible to be rid of.
+    /// </summary>
+    [Parameter] public bool DeleteNeedsTheArchive { get; set; } = true;
 }

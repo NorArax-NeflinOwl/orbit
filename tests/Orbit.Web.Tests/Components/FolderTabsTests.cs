@@ -49,15 +49,16 @@ public sealed class FolderTabsTests : OrbitTestContext
         RegisterFolders([]);
 
         Assert.Equal(["Public", "Private", "Archived"], TabNames(RenderTabs(FolderPage.Notes)));
-        Assert.Equal(["Public", "Private", "Archived"], TabNames(RenderTabs(FolderPage.Dashboard)));
+        Assert.Equal(["Public", "Private"], TabNames(RenderTabs(FolderPage.Dashboard)));
     }
 
     /// <summary>
-    /// Archived is last of the built-in ones, and on every page including the ones that hide Private or
-    /// Finished: something put away has to be somewhere it can be found again.
+    /// Archived is last of the built-in ones, and on every page a thing of that kind is listed on -
+    /// including the ones that hide Private or Finished: something put away has to be somewhere it can
+    /// be found again.
     /// </summary>
     [Fact]
-    public void Every_page_has_an_Archived_tab()
+    public void Every_page_a_thing_is_listed_on_has_an_Archived_tab()
     {
         RegisterFolders([]);
 
@@ -65,7 +66,19 @@ public sealed class FolderTabsTests : OrbitTestContext
         Assert.Contains("Archived", TabNames(RenderTabs(FolderPage.Tasks)));
         Assert.Contains("Archived", TabNames(RenderTabs(FolderPage.Calendar)));
         Assert.Contains("Archived", TabNames(RenderTabs(FolderPage.Inventories)));
-        Assert.Contains("Archived", TabNames(RenderTabs(FolderPage.Dashboard)));
+    }
+
+    /// <summary>
+    /// But not the dashboard, which is the page for what somebody is doing now - see
+    /// FolderPages.HasAnArchivedTab. Things put away are still placed in the archive, so with no tab
+    /// for it they are simply not on the dashboard, which is what was asked for.
+    /// </summary>
+    [Fact]
+    public void The_dashboard_has_no_Archived_tab()
+    {
+        RegisterFolders([]);
+
+        Assert.DoesNotContain("Archived", TabNames(RenderTabs(FolderPage.Dashboard)));
     }
 
     /// <summary>
@@ -90,7 +103,7 @@ public sealed class FolderTabsTests : OrbitTestContext
         Assert.Equal(["Public", "Private", "Archived", "Kitchen"], TabNames(RenderTabs(FolderPage.Inventories)));
         // The dashboard draws the shelves' tabs beside the notes' and the lists', but not the
         // calendar's - see FolderPages.ScopesOn.
-        Assert.Equal(["Public", "Private", "Archived", "Kitchen"], TabNames(RenderTabs(FolderPage.Dashboard)));
+        Assert.Equal(["Public", "Private", "Kitchen"], TabNames(RenderTabs(FolderPage.Dashboard)));
     }
 
     [Fact]
@@ -121,7 +134,7 @@ public sealed class FolderTabsTests : OrbitTestContext
 
         var cut = RenderTabs(FolderPage.Dashboard);
 
-        Assert.Equal(["Public", "Private", "Archived", "Work", "Renovation"], TabNames(cut));
+        Assert.Equal(["Public", "Private", "Work", "Renovation"], TabNames(cut));
     }
 
     /// <summary>Public until somebody presses another - see FolderKey.Default.</summary>

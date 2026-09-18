@@ -29,6 +29,15 @@
                 {
                     <span class="folder-tab-count">@CountIn(tab)</span>
                 }
+                @* Where the thing a notification is about actually is. Following one used to land on a
+                   page narrowed to another folder, with nothing saying which tab held it - see
+                   HasNewsIn. A dot rather than a count: the count is on the card itself, and this only
+                   has to say "in here". *@
+                @if (HasNewsIn?.Invoke(tab) == true)
+                {
+                    <span class="folder-tab-news" aria-label="@(T["Something new is in here"])"
+                          title="@(T["Something new is in here"])"></span>
+                }
             </button>
         }
     }
@@ -111,6 +120,16 @@
     /// </summary>
     [Parameter] public Func<FolderKey, int>? CountIn { get; set; }
 
+    /// <summary>
+    /// Whether anything under a tab is something the reader has not seen yet - a share, a reminder.
+    /// Null draws no marks, which is the right answer for a page whose cards carry none.
+    ///
+    /// It exists because following a notification is how somebody arrives here, and the page opens on
+    /// whatever tab it was last left on: the thing they were sent to could be under any of them, with
+    /// nothing saying which. Asked for on 2026-09-18.
+    /// </summary>
+    [Parameter] public Func<FolderKey, bool>? HasNewsIn { get; set; }
+
     private bool _isNaming;
     private bool _isDeleting;
     private Guid? _folderBeingRenamed;
@@ -143,9 +162,12 @@
                 builtIn.Add(FolderKey.Of(BuiltInFolder.Finished));
             }
 
-            // Last of the built-in ones, and on every page: something put away has to be somewhere it
-            // can be found again, so there is no page that hides this the way the calendar hides Private.
-            builtIn.Add(FolderKey.Of(BuiltInFolder.Archived));
+            // Last of the built-in ones, and on every page but the dashboard - see
+            // FolderPages.HasAnArchivedTab, which says why that one is the exception.
+            if (Page.HasAnArchivedTab())
+            {
+                builtIn.Add(FolderKey.Of(BuiltInFolder.Archived));
+            }
 
             // A folder somebody took off the dashboard is not a tab there - see
             // DashboardCardPreferences.IsFolderShown. Only here: the page the folder belongs to keeps

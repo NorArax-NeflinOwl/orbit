@@ -140,6 +140,16 @@ public sealed class InventoryMeasuredListsTests : OrbitTestContext
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(Array.Empty<InventoryItemDto>()) };
             }
 
+            // Which of the reader's lists ask for each row - see ShelfDemand. Nothing here is about
+            // that, and a list is what the server answers there.
+            if (path.EndsWith("/demand", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(Array.Empty<ShelfClaimDto>())
+                };
+            }
+
             if (path.EndsWith("/lock", StringComparison.Ordinal) || path.StartsWith("/api/share-links", StringComparison.Ordinal))
             {
                 return new HttpResponseMessage(HttpStatusCode.NoContent);

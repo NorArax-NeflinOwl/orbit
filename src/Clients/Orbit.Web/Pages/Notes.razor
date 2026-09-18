@@ -48,8 +48,21 @@
 @* Which folder is being read. The notes' own folders, and only those: a folder belongs to one page, so
    the tab called "Work" here is not the tab called "Work" on the task lists - see FolderScope. On a
    phone it folds into one Menu button - see PhoneToolbar, which is nothing at all on a wider screen. *@
-<PhoneToolbar Page="FolderPage.Notes">
-    <FolderTabs Page="FolderPage.Notes" CountIn="CountIn" />
+<PhoneToolbar Page="FolderPage.Notes" HasNews="@NewsIsInAFolderThatIsNotOpen">
+    <FolderTabs Page="FolderPage.Notes" CountIn="CountIn" HasNewsIn="HasNewsIn" />
+
+    @* Narrowing by the reader's own words for their notes - the same browser the tasks page narrows by
+       its categories in (ValueBrowser), because it is the same question asked of a different page. Only
+       about the folder that is open, as everything in this row is: a count over notes filed somewhere
+       else would be a number about a page nobody is looking at. *@
+    @if (KnownTags.Count > 0)
+    {
+        <div class="list-controls">
+            <ValueBrowser AdditionalClass="value-browser-filter" Offers="@TagOffers" Chosen="@_chosenTags"
+                          ChosenChanged="values => _chosenTags = [.. values]"
+                          Placeholder="@(T["Every tag"])" AriaLabel="@(T["Tags"])" />
+        </div>
+    }
 </PhoneToolbar>
 
 @* What to do with several at once, while several are chosen - see PickedThings. Outside the list rather
@@ -69,10 +82,25 @@
                        Invitation="(shareId, title) => new NoteShareMessagePayload(shareId, title)"
                        OnClosed="() => _isSharingPicked = false" />
 }
+@* Handing on one note, from its own card. The same dialog the bar above opens for several, given a list
+   of one: sharing is sharing whether it is one thing or four, and a second way of doing it would be a
+   second set of rules about who may. Asked for on 2026-09-18 - the card's menu was the one place a note
+   could not be handed to anybody without first entering the choosing mode. *@
+@if (_sharingOne is { } sharedNote)
+{
+    <SharePickedDialog Things="@([new SharePickedDialog.ShareableThing(sharedNote.Id, sharedNote.Title)])"
+                       ShareOne="(noteId, recipientUserId, accessLevel) => NotesApiClient.ShareNoteAsync(noteId, recipientUserId, accessLevel)"
+                       Invitation="(shareId, title) => new NoteShareMessagePayload(shareId, title)"
+                       OnClosed="() => _sharingOne = null" />
+}
 <ObjectList IsLoading="_notes is null" IsEmpty="_notes is { Count: 0 }" EmptyMessage="@T["No notes."]">
     @if (_notes is { Count: > 0 } && VisibleNotes.Count == 0)
     {
-        <p class="empty-hint empty-list">@T["Nothing in this folder."]</p>
+        @* Which of the two narrowed everything away, since they are undone differently: a folder is
+           left by pressing another tab, a tag by unticking it. The same rule the tasks page follows. *@
+        <p class="empty-hint empty-list">
+            @(NotesInTheOpenFolder.Count == 0 ? T["Nothing in this folder."] : T["No notes carry those tags."])
+        </p>
     }
     <div class="item-card-list">
         @foreach (var note in Ordered(VisibleNotes))
@@ -100,8 +128,11 @@
                     <ObjectMenu EditLabel="@(CanBeChanged(note) ? T["Edit"] : T["View"])" OnEdit="() => GoToEditNote(note.Id)"
                                 DuplicateLabel="@(note.IsShared ? null : T["Duplicate"])"
                                 OnDuplicate="() => DuplicateNoteAsync(note)"
+                                ShareLabel="@(CanBeHandedOn(note) ? T["Share"] : null)"
+                                OnShare="() => _sharingOne = note"
                                 ArchiveLabel="@(note.IsShared ? null : ArchiveLabelFor(note.IsArchived))"
                                 OnArchive="() => SetArchivedAsync(note, !note.IsArchived)"
+                                IsArchived="note.IsArchived" DeleteNeedsTheArchive="@(!note.IsShared)"
                                 DeleteLabel="@(note.IsShared ? T["Remove from my list"] : T["Delete"])"
                                 OnDelete="() => DeleteNoteAsync(note)" DeleteDisabled="@(_deletingNoteId == note.Id)" />
                 </Menu>
@@ -164,8 +195,38 @@
     /// The notes in the folder that is open. A note nobody filed is still in one - Public, or Private
     /// when it is sealed - see FolderPlacement, which decides it for every page made of cards.
     /// </summary>
-    private IReadOnlyList<NoteDto> VisibleNotes
+    private IReadOnlyList<NoteDto> NotesInTheOpenFolder
         => [.. (_notes ?? []).Where(note => Folders.ShowsUnderTheChosenTab(FolderPage.Notes, note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived))];
+
+    /// <summary>
+    /// And of those, the ones carrying a chosen tag - any of them rather than all, which is what
+    /// choosing a second one usually means ("the work notes and the house ones"). Narrowed here rather
+    /// than only in the drawing, so choosing several to act on cannot reach a note that is not on
+    /// screen.
+    /// </summary>
+    private IReadOnlyList<NoteDto> VisibleNotes
+        => _chosenTags.Count == 0
+            ? NotesInTheOpenFolder
+            : [.. NotesInTheOpenFolder.Where(note => note.AllTags.Any(tag => IsChosenTag(tag)))];
+
+    /// <summary>The tags the reader is narrowing to, in the order they were ticked.</summary>
+    private IReadOnlyList<string> _chosenTags = [];
+
+    private bool IsChosenTag(string tag)
+        => _chosenTags.Contains(tag, StringComparer.CurrentCultureIgnoreCase);
+
+    /// <summary>Every tag on a note in the folder that is open, in the order a reader reads them.</summary>
+    private IReadOnlyList<string> KnownTags
+        => [.. NotesInTheOpenFolder
+            .SelectMany(note => note.AllTags)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(tag => tag, StringComparer.CurrentCultureIgnoreCase)];
+
+    /// <summary>The same words with how many notes carry each - what makes one worth ticking or not.</summary>
+    private IReadOnlyList<ValueBrowser.Offer> TagOffers
+        => [.. KnownTags.Select(tag => new ValueBrowser.Offer(
+            tag,
+            NotesInTheOpenFolder.Count(note => note.AllTags.Contains(tag, StringComparer.CurrentCultureIgnoreCase))))];
 
     /// <summary>
     /// The notes chosen to be acted on together, and whether the page is choosing at all - see
@@ -195,6 +256,16 @@
 
     /// <summary>While the dialog sharing the chosen notes is open - see SharePickedDialog.</summary>
     private bool _isSharingPicked;
+
+    /// <summary>The one note being handed on from its own card, while one is.</summary>
+    private NoteDto? _sharingOne;
+
+    /// <summary>
+    /// Whether this note is this reader's to hand to somebody. Theirs and readable by Orbit: the server
+    /// refuses to share a sealed one, and one shared *with* this reader belongs to whoever shared it.
+    /// The same two questions the bar over the list asks of everything it was given.
+    /// </summary>
+    private static bool CanBeHandedOn(NoteDto note) => !note.IsShared && !note.IsPrivate;
 
     /// <summary>The chosen notes themselves, which is what the actions below loop over.</summary>
     private IReadOnlyList<NoteDto> ChosenNotes
@@ -260,6 +331,28 @@
     private int CountIn(FolderKey folder)
         => (_notes ?? []).Count(note =>
             Folders.PlacementOn(FolderPage.Notes, note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived) == folder);
+
+    /// <summary>
+    /// Whether a note under this tab is something the reader has not seen yet - what puts the mark on
+    /// the tab, so somebody following a notification can see which folder holds what they were sent to.
+    /// See FolderTabs.HasNewsIn.
+    /// </summary>
+    private bool HasNewsIn(FolderKey folder)
+        => (_notes ?? []).Any(note =>
+            NotificationFeedState.HasNewsAbout($"/notes/{note.Id}")
+            && Folders.PlacementOn(FolderPage.Notes, note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived) == folder);
+
+    /// <summary>
+    /// The same question asked of the tabs the phone folds away: is what the reader has not seen under
+    /// one of the folders they are not looking at? The mark then goes on the button that holds them -
+    /// see PhoneToolbar.HasNews. Only the ones that are not open, since a card in front of them carries
+    /// its own mark already.
+    /// </summary>
+    private bool NewsIsInAFolderThatIsNotOpen
+        => (_notes ?? []).Any(note =>
+            NotificationFeedState.HasNewsAbout($"/notes/{note.Id}")
+            && Folders.PlacementOn(FolderPage.Notes, note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived)
+                != Folders.ChosenOn(FolderPage.Notes));
 
     /// <summary>
     /// Pinned notes first, and the rest in the order the API sent them - most recently updated first.

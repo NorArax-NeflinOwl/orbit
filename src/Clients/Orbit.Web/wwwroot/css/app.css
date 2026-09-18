@@ -2219,7 +2219,15 @@ input.note-editor-title {
 .row-meta {
     font-size: 12px;
     color: var(--text-tertiary);
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    /* A value is one line - "3/7", a date - so it does not wrap. But it must not run off the card
+       either: a long one used to be drawn straight over the edge and simply clipped, with nothing to
+       say it had been (an address on the entry's page, reported on 2026-09-18). It shrinks and ends in
+       an ellipsis now, and anything that is prose rather than a value says so - see .row-meta-prose,
+       which is what the address itself takes. */
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
 }
 
@@ -4712,84 +4720,6 @@ input.note-editor-title {
     resize: vertical;
 }
 
-.tag-field {
-    position: relative;
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 6px;
-    flex: 1 1 auto;
-    min-width: 0;
-}
-
-.tag-field-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-}
-
-/* What has been filed already. Drawn as what a category mark looks like everywhere else in Orbit, with
-   a cross of its own - see .row-category, which these become once the entry is saved. */
-.tag-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 1px 6px 1px 8px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: var(--bg-subtle);
-    color: var(--text-secondary);
-    font-size: 11.5px;
-    white-space: nowrap;
-}
-
-.tag-chip-remove {
-    padding: 0;
-    border: 0;
-    background: none;
-    color: var(--text-tertiary);
-    font: inherit;
-    font-size: 10px;
-    line-height: 1;
-    cursor: pointer;
-}
-
-.tag-chip-remove:hover {
-    color: var(--danger, var(--accent));
-}
-
-.tag-field-row {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex: 1 1 120px;
-    min-width: 0;
-}
-
-.tag-field-input {
-    flex: 1 1 auto;
-    min-width: 0;
-}
-
-/* Small, quiet, and beside the box rather than under it: it is the second half of one control, not an
-   action of its own. Disabled while the box is empty, so it never reads as the button that saves. */
-.tag-field-add {
-    flex: 0 0 auto;
-    width: 26px;
-    height: 26px;
-}
-
-.tag-field-add:disabled {
-    opacity: 0.4;
-    cursor: default;
-}
-
-/* The word the arrow keys are on. Same treatment the name-suggestions panel gives its own highlight. */
-.name-suggestion-option.highlighted {
-    background: var(--bg-subtle);
-    color: var(--accent);
-}
-
 .editor-item-details .field-break {
     flex-basis: 100%;
     height: 0;
@@ -5443,6 +5373,31 @@ input.note-editor-title {
     opacity: 0.6;
 }
 
+/* And beside that one, the same square again: the map's own light or night - see MapPage.razor. Third
+   from the right, so the two that were there keep the corners they had. */
+.map-theme-button {
+    position: absolute;
+    top: 10px;
+    right: 82px;
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    cursor: pointer;
+    color: var(--text-primary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 1px 4px oklch(20% 0.02 60 / 0.25);
+}
+
+.map-theme-button:hover {
+    background: var(--bg-subtle);
+}
+
 /* A form rather than a question, so it is given the room a form needs and its fields are allowed to
    scroll - the panel is capped by .map-overlay-panel and a place with six lists on it would otherwise
    push its own Create button off the bottom of the screen. */
@@ -5694,26 +5649,20 @@ input.note-editor-title {
     color: var(--success);
 }
 /* ---- Filtering and sorting a list of cards (Tasks.razor) ---- */
-
+/* The row the narrowings sit in. They are fields now rather than rows of chips (see ValueBrowser), so
+   they line up from the left and wrap together instead of being pushed to opposite ends of the row. */
 .list-controls {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
     margin-bottom: 16px;
-}
-
-.list-filters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
 }
 
 /* The folder tabs, above the cards on every page made of them - see FolderTabs.razor. Tabs rather than
    chips because they answer a different question: a chip narrows what is in front of you, a tab says
    which set you are looking at at all. Hence the shared underline they sit on and the mark under the
-   open one, rather than the pill shape the filters use a row below. */
+   open one, rather than the field shape the narrowings use a row below. */
 .folder-tabs {
     display: flex;
     align-items: center;
@@ -5756,6 +5705,18 @@ input.note-editor-title {
     opacity: 0.7;
 }
 
+/* Something under this tab has not been seen - see FolderTabs.HasNewsIn. A dot rather than a number:
+   how many is on the card itself, and this only has to say "in here" to somebody who arrived by
+   following a notification and is looking at the wrong folder. The same dot on the phone's Menu
+   button, which is where the tabs go on a narrow screen. */
+.folder-tab-news {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex: 0 0 auto;
+}
+
 /* The plus at the end of the row. Quieter than the tabs: making a folder is rarer than reading one. */
 .folder-tab-add {
     color: var(--text-tertiary);
@@ -5769,37 +5730,189 @@ input.note-editor-title {
     font-size: 13.5px;
 }
 
-.filter-chip {
-    display: inline-flex;
+/* A short vocabulary in one control - see ValueBrowser.razor. Closed it is a field with its words
+   written along it; open it is a list with a tick, a name, optionally a count and optionally a colour.
+   It replaced two shapes that said the same thing differently: a row of chips that grew until it was
+   the page, and a field whose words could only be read by opening a dialog. */
+.value-browser {
+    position: relative;
+    display: block;
+}
+
+/* The closed field. A button drawn as a form control, because that is what it is: pressing it opens the
+   list, and what it says is what the field holds. */
+.value-browser-field {
+    display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 5px 12px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: var(--bg-elevated);
-    color: var(--text-secondary);
-    font-family: var(--font-body);
-    font-size: 12.5px;
-    font-weight: 600;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
     cursor: pointer;
-    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
-.filter-chip:hover {
+.value-browser-field:hover:not(:disabled) {
     border-color: var(--accent);
+}
+
+.value-browser-field:disabled {
+    cursor: default;
+    opacity: 0.7;
+}
+
+/* One line, whatever it holds: the field keeps the height of a field, and the panel is where a long
+   vocabulary is read. */
+.value-browser-written {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Nothing chosen yet, so what is written is the invitation rather than an answer. */
+.value-browser-written.is-empty {
+    color: var(--text-tertiary);
+}
+
+.value-browser-caret {
+    flex: 0 0 auto;
+    color: var(--text-tertiary);
+    transition: transform 120ms ease;
+}
+
+.value-browser-field.open .value-browser-caret {
+    transform: rotate(180deg);
+}
+
+/* The open list. Placed by measurement - menuAnchor.js gives it its position and its width - so
+   everything here is what it looks like once placed. Fixed rather than absolute for the reason the
+   suggestions panel is: a control on a row deep in a scrolling form is otherwise clipped by the form. */
+.value-browser-panel {
+    position: fixed;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 4px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.value-browser-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 6px 2px 4px;
+    border-radius: 6px;
+}
+
+.value-browser-row:hover {
+    background: var(--bg-subtle);
+}
+
+/* The whole row chooses, not the word: a target the width of the name is the one that gets reported as
+   a press that did not register. */
+.value-browser-tick {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 4px;
+    font-size: 13.5px;
     color: var(--text-primary);
+    cursor: pointer;
 }
 
-.filter-chip.on {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--accent-on);
+.value-browser-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.filter-chip-count {
+/* A word the account gave a colour, drawn in it here as well as on the cards - so the colour being
+   picked is visible on the thing it is being picked for. */
+.value-browser-name-coloured {
+    padding: 1px 8px;
+    border: 1px solid color-mix(in oklch, var(--tag-colour) 75%, transparent);
+    border-radius: 999px;
+    background: color-mix(in oklch, var(--tag-colour) 22%, transparent);
+}
+
+/* How many things carry this word. Quiet: it is the size of the answer, not the answer. */
+.value-browser-count {
+    flex: 0 0 auto;
     font-size: 11px;
     font-weight: 700;
-    opacity: 0.75;
+    color: var(--text-tertiary);
+}
+
+.value-browser-colour {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: none;
+}
+
+.value-browser-uncolour {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    color: var(--text-tertiary);
+    font-size: 11px;
+}
+
+/* A word nothing carries yet, written where the list would have offered it. */
+.value-browser-new {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 4px 4px;
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+}
+
+.value-browser-new input {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 13px;
+}
+
+.value-browser-add {
+    flex: 0 0 auto;
+}
+
+.value-browser-empty {
+    padding: 8px 6px;
+    margin: 0;
+}
+
+/* What belongs to the choice rather than to one of its words - "entries in every chosen category". */
+.value-browser-rule {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 4px 4px;
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+}
+
+/* In a toolbar rather than in a form: wide enough to read a few words, narrow enough that two sit
+   beside each other on anything but a phone. */
+.value-browser-filter {
+    flex: 0 1 260px;
+    min-width: 180px;
 }
 
 .list-sort {
@@ -6658,6 +6771,21 @@ p.field-hint {
    between two of them - is drawn in the theme's own colours already, and inverting those would undo
    exactly the work that made them readable. */
 :root[data-theme="dark"] .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.7);
+}
+
+/* And the reader's own answer, where they have given one - the switch beside the map's refresh (see
+   MapPage.razor and DevicePreferences.MapAtNight). A map is looked at in a room rather than on a page,
+   so which of the two it is drawn in is worth being able to say without changing the theme for
+   everything else.
+
+   These two carry the same weight as the rule above and come after it, which is what lets them win.
+   The frame is what they sit on rather than the pane, because the frame is what the page can name. */
+.location-map-frame.map-day .leaflet-tile-pane {
+    filter: none;
+}
+
+.location-map-frame.map-night .leaflet-tile-pane {
     filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.7);
 }
 
@@ -8045,4 +8173,22 @@ span.calendar-task-chip {
     align-items: center;
     gap: 8px;
     padding: 4px 0;
+}
+
+/* The rows a save of a shelf stopped to ask about: an amount several lists want, which only the reader
+   can divide - see InventoryEditor and ShelfDemand. A plain stack of name-over-detail, because each row
+   is two facts read together rather than a value beside a label. */
+.shared-shelf-rows {
+    list-style: none;
+    margin: 0 0 10px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.shared-shelf-rows li {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }

@@ -55,6 +55,7 @@ using Orbit.Core.Inventories.ReconcileRestockList;
 using Orbit.Core.Inventories.RestockListSettingsAccess;
 using Orbit.Core.Inventories.ExpiryReminders;
 using Orbit.Core.Inventories.GetInventoryItems;
+using Orbit.Core.Inventories.GetShelfDemand;
 using Orbit.Core.Inventories.AcceptInventoryShare;
 using Orbit.Core.Inventories.AcquireInventoryLock;
 using Orbit.Core.Inventories.ReleaseInventoryLock;
@@ -425,8 +426,12 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<StockedEntryCompletion>();
         services.AddScoped<RestockListRefresh>();
         services.AddScoped<ProductEntryPlacement>();
+        // Which lists are Orbit's own rather than the reader's, so neither count below counts one twice.
+        services.AddScoped<ManagedRestockLists>();
         // What the task lists ask of each shelf item, recounted as lists are saved - see ShelfUsage.
         services.AddScoped<ShelfUsage>();
+        // And the same number written the other way, when the shelf is what somebody edited - see ShelfDemand.
+        services.AddScoped<ShelfDemand>();
 
         // How an inventory's restock list is built and when it comes round, plus the manual rebuild.
         services.AddScoped<IRequestHandler<GetRestockListSettingsQuery, RestockListSettings?>, GetRestockListSettingsQueryHandler>();
@@ -443,6 +448,8 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<GetUsedValuesQuery, IReadOnlyList<string>>, GetUsedValuesQueryHandler>();
         services.AddScoped<IRequestHandler<FinishRestockingCommand, int>, FinishRestockingCommandHandler>();
         services.AddScoped<IRequestHandler<GetInventoryItemsQuery, IReadOnlyList<InventoryItem>?>, GetInventoryItemsQueryHandler>();
+        // Which entries ask for each row on a shelf, so an amount edited there can be written back - see ShelfDemand.
+        services.AddScoped<IRequestHandler<GetShelfDemandQuery, IReadOnlyList<ShelfClaim>?>, GetShelfDemandQueryHandler>();
 
         // Inventories - the container inventory items now belong to, with Notes-style sharing on top.
         services.AddScoped<InventoryAccessResolver>();

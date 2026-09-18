@@ -114,6 +114,14 @@ public sealed class DevicePreferences
     /// </summary>
     public IReadOnlySet<string> KindsFilledFromSuggestions { get; private set; } = new HashSet<string>(EntryKinds);
 
+    /// <summary>
+    /// Whether the map is drawn dark, where the reader has said. Null until they do, and then it is
+    /// theirs: the map follows the app's theme by default, and a reader on a dark page at a bright desk
+    /// - or the other way round - can say otherwise without changing the theme for everything else.
+    /// Per device, like everything here, since it is about the screen in front of somebody.
+    /// </summary>
+    public bool? MapAtNight { get; private set; }
+
     public async Task InitializeAsync()
     {
         // Nothing stored means every kind; an empty string is somebody having switched every one off.
@@ -139,6 +147,23 @@ public sealed class DevicePreferences
         UpcomingDays = int.TryParse(await ReadAsync(StorageKeys.UpcomingDays), out var days) && UpcomingHorizons.Contains(days)
             ? days
             : DefaultUpcomingDays;
+        // Three answers, not two: nothing stored means the map follows the theme, which is what every
+        // reader gets until they say otherwise - see MapAtNight.
+        MapAtNight = await ReadAsync(StorageKeys.MapAtNight) switch
+        {
+            "true" => true,
+            "false" => false,
+            _ => null
+        };
+    }
+
+    /// <summary>Says how the map is drawn on this device, or hands it back to the theme with null.</summary>
+    public Task SetMapAtNightAsync(bool? atNight)
+    {
+        MapAtNight = atNight;
+        return atNight is { } answer
+            ? WriteAsync(StorageKeys.MapAtNight, answer ? "true" : "false")
+            : RemoveAsync(StorageKeys.MapAtNight);
     }
 
     public Task SetAllowLocationAsync(bool allowLocation)
@@ -227,9 +252,27 @@ public sealed class DevicePreferences
         }
     }
 
+    /// <summary>Hands a preference back to its default - see SetMapAtNightAsync, the one that has three answers.</summary>
+    private async Task RemoveAsync(string key)
+    {
+        try
+        {
+            await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", key);
+        }
+        catch (JSException)
+        {
+            // As above: it applies for this session and is simply not remembered.
+        }
+        finally
+        {
+            Changed?.Invoke();
+        }
+    }
+
     private static class StorageKeys
     {
         public const string AllowLocation = "orbit-allow-location";
+        public const string MapAtNight = "orbit-map-at-night";
         public const string AllowGoogleExtras = "orbit-allow-google-extras";
         public const string DiagnosticsMode = "orbit-diagnostics-mode";
         public const string MinimumLogLevel = "orbit-minimum-log-level";

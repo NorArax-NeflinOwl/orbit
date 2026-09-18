@@ -21,7 +21,7 @@ export async function showLocation(elementId, latitude, longitude, label) {
 /// `dotNetHelper` is optional. Given one, every press on the map is reported to it as
 /// `OnMapPressed(latitude, longitude)`; without one the map is read-only, which is what every other
 /// caller wants.
-export async function showLocations(elementId, points, dotNetHelper) {
+export async function showLocations(elementId, points, dotNetHelper, wheelZooms) {
     dispose(elementId);
 
     const element = document.getElementById(elementId);
@@ -47,11 +47,16 @@ export async function showLocations(elementId, points, dotNetHelper) {
     // "remember this spot", is a corner nobody can read - and of the two the zoom is the one that has
     // another way in, since the buttons below and a pinch both do it.
     //
-    // The wheel is not one of those ways any more (scrollWheelZoom). A map inside a scrolling page
-    // swallows the wheel the page was being read with: the reader scrolls past the map and the map
-    // zooms instead, losing both the place they were looking at and their place on the page. The
-    // buttons, a pinch and a double press all still zoom, so nothing is only reachable by the wheel.
-    const map = L.map(elementId, { zoomControl: false, scrollWheelZoom: false })
+    // The wheel is off by default (scrollWheelZoom). A map inside a scrolling page swallows the wheel
+    // the page was being read with: the reader scrolls past the map and the map zooms instead, losing
+    // both the place they were looking at and their place on the page. The buttons, a pinch and a
+    // double press all still zoom, so nothing is only reachable by the wheel.
+    //
+    // A map that *is* the page is the exception, and the caller says so (wheelZooms): there is nothing
+    // behind it to scroll past, so the wheel has no other job there. A map taken full screen is the
+    // same case arrived at from the other side and is switched on while it lasts - see the
+    // fullscreenchange listener at the foot of this file.
+    const map = L.map(elementId, { zoomControl: false, scrollWheelZoom: wheelZooms === true })
         .setView(start, drawn.length > 0 ? 14 : 6);
     L.control.zoom({ position: 'bottomleft' }).addTo(map);
     // Asked rather than added: the tiles are the one third-party request Orbit cannot serve itself,
@@ -86,8 +91,24 @@ export async function showLocations(elementId, points, dotNetHelper) {
     const resizeObserver = new ResizeObserver(() => map.invalidateSize({ animate: false }));
     resizeObserver.observe(element);
 
-    mapInstancesByElementId.set(elementId, { map, resizeObserver, markersByKey, dotNetHelper });
+    mapInstancesByElementId.set(
+        elementId, { map, resizeObserver, markersByKey, dotNetHelper, wheelZooms: wheelZooms === true });
 }
+
+/// Turns the wheel on for whichever map is full screen, and back to what each map was asked for when
+/// nothing is. Listening here rather than in toggleFullscreen because leaving can also happen through
+/// Esc or a back gesture, which that function never sees - the same reason its own label is left to
+/// CSS. One listener for every map on the page, since only one of them can be full screen at a time.
+document.addEventListener('fullscreenchange', () => {
+    for (const instance of mapInstancesByElementId.values()) {
+        const isFullScreen = document.fullscreenElement?.contains(instance.map.getContainer()) === true;
+        if (isFullScreen || instance.wheelZooms) {
+            instance.map.scrollWheelZoom.enable();
+        } else {
+            instance.map.scrollWheelZoom.disable();
+        }
+    }
+});
 
 /// Draws each point's marker and returns them keyed by point.key (falling back to its coordinates, for
 /// showLocation's single-point callers, which never carry one) - the identity updateLocations matches

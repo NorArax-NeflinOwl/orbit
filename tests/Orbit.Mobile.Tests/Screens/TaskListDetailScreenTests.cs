@@ -178,18 +178,19 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
-    /// Building a storage out of a list is only offered where there is something on it a shelf could be
-    /// about - see GeneratedInventorySource, which Orbit.Web's own menu asks the same question of.
+    /// Building a storage out of a list is offered wherever there is work on it - see
+    /// GeneratedInventorySource, which Orbit.Web's own menu asks the same question of. It asked for a
+    /// product until 2026-09-18, which hid it from a shopping list of plain lines.
     /// </summary>
     [Fact]
-    public async Task A_list_of_plain_errands_has_nothing_to_build_a_storage_from()
+    public async Task A_list_of_plain_errands_is_something_to_build_a_storage_from()
     {
         using var context = new ScreenContext();
         var screen = context.OpenTaskList("Chores");
         screen.NewItemDescription = "Post the parcel";
         await screen.AddItemCommand.ExecuteAsync(null);
 
-        Assert.False(screen.HasSomethingToBuildAStorageFrom);
+        Assert.True(screen.HasSomethingToBuildAStorageFrom);
     }
 
     [Fact]

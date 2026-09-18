@@ -14,14 +14,21 @@ public readonly record struct TaskEntrySummary(bool IsAProduct, IReadOnlyList<Gu
 /// <summary>
 /// Whether building a storage out of a task list is worth offering at all.
 ///
-/// It is offered when the list has something on it that describes a product - directly, or through an
-/// entry standing for another list that has one, however deep that goes. A list of plain errands has
-/// nothing a shelf would be about, and the menu entry on it was an offer to build an empty storage and
-/// quietly point the list at it.
+/// It is offered when the list has **work** on it - anything that is not merely a row pointing at
+/// another list - directly or through such a row, however deep that goes. Only a list made of links to
+/// lists with nothing on them is refused: there is genuinely nothing for a shelf to hold.
 ///
-/// The question is asked of the clients rather than of the server: the endpoint still builds a shelf
-/// from whatever the work names (see GenerateInventoryFromTaskListCommandHandler), and this is about
-/// when a reader is invited to press it.
+/// **It used to ask for a product** (2026-09-09): an entry of the Inventory kind, or one already
+/// pointing at a shelf item. That read "a list of plain errands has nothing a shelf would be about",
+/// and it is wrong about the commonest case there is - a shopping list of plain lines is exactly what
+/// somebody wants a shelf built from, and the endpoint builds one: it counts every entry the tree
+/// names, product or not (StockRequirementCounter). So the rule hid the offer from the lists it was
+/// most useful on, which is what the user reported on 2026-09-18 as not being able to generate an
+/// inventory from a list at all.
+///
+/// The question is asked of the clients rather than of the server: the endpoint builds a shelf from
+/// whatever the work names (see GenerateInventoryFromTaskListCommandHandler), and this is about when a
+/// reader is invited to press it.
 /// </summary>
 public static class GeneratedInventorySource
 {
@@ -39,7 +46,9 @@ public static class GeneratedInventorySource
         Func<Guid, IReadOnlyList<TaskEntrySummary>?> entriesOn,
         HashSet<Guid> alreadyWalked)
     {
-        if (entries.Any(entry => entry.IsAProduct))
+        // Work is anything that is not only a link: a line somebody has to do something about, whether
+        // or not it says which shelf item it means - see the summary above.
+        if (entries.Any(entry => entry.LinkedTaskListIds.Count == 0))
         {
             return true;
         }

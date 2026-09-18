@@ -16,6 +16,7 @@ using Orbit.Core.Inventories.AcquireInventoryLock;
 using Orbit.Core.Inventories.CreateInventory;
 using Orbit.Core.Inventories.DeleteInventory;
 using Orbit.Core.Inventories.GetInventoryItems;
+using Orbit.Core.Inventories.GetShelfDemand;
 using Orbit.Core.Inventories.GetInventoryById;
 using Orbit.Core.Inventories.GetInventories;
 using Orbit.Core.Inventories.GetInventoryShareStatus;
@@ -88,7 +89,8 @@ public static class InventoryEndpoints
             var outcome = await dispatcher.SendAsync(
                 new UpdateInventoryCommand(
                     GetUserId(user), inventoryId, request.Name, ToDomainItems(request.Items),
-                    request.IsPrivate, ToDomainPayload(request.EncryptedContent), request.Description),
+                    request.IsPrivate, ToDomainPayload(request.EncryptedContent), request.Description,
+                    request.SplitEvenlyAcross),
                 cancellationToken);
             return ToApiResult(outcome);
         });
@@ -211,6 +213,16 @@ public static class InventoryEndpoints
             return result is null ? Results.NotFound() : Results.Ok(result.Select(ToDto));
         });
 
+        // Which of the caller's task entries ask for each row on this shelf - see ShelfDemand. Read by an
+        // editor before it saves, so changing an amount several lists are asking for can warn rather than
+        // pick one of them at random.
+        inventories.MapGet("/{inventoryId:guid}/demand", async (
+            Guid inventoryId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var result = await dispatcher.SendAsync(new GetShelfDemandQuery(GetUserId(user), inventoryId), cancellationToken);
+            return result is null ? Results.NotFound() : Results.Ok(result.Select(ToDto));
+        });
+
         // Items have no routes of their own: they are created, changed, and removed through the inventory
         // save above, exactly as task items are through their task list.
         inventories.MapPost("/{inventoryId:guid}/lock", async (
@@ -301,6 +313,11 @@ public static class InventoryEndpoints
             item.Unit.ToString(), item.ExpiryDate, item.ExpiryNotificationChannel.ToString(), item.IsBelowMinimum,
             item.PendingRestockTaskItemId is not null, item.CreatedAtUtc, item.UpdatedAtUtc,
             item.IsCheckedRegularly, item.Categories, item.Usage);
+
+    private static ShelfClaimDto ToDto(ShelfClaim claim)
+        => new(
+            claim.ShelfItemId, claim.TaskListId, claim.TaskListName, claim.TaskItemId, claim.Description,
+            claim.Quantity);
 
     private static IResult ToApiResult(EditOutcome outcome)
         => outcome.Kind switch

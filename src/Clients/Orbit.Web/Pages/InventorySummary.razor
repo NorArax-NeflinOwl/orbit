@@ -93,6 +93,7 @@ else
         <ChildContent>
             @* No Edit in here: it is a button of its own on the panel now - see EditorRail.OnEdit. *@
             <ObjectMenu AllLabel="@T["All inventories"]" OnAll="GoToInventories"
+                        IsArchived="_inventory!.IsArchived"
                         DeleteLabel="@(!_inventory!.IsShared ? T["Delete"] : null)" OnDelete="DeleteAsync" />
         </ChildContent>
     </EditorRail>

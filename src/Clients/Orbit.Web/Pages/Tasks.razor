@@ -95,8 +95,8 @@
 
    On a phone the lot folds into one Menu button - see PhoneToolbar, which is nothing at all on a wider
    screen. *@
-<PhoneToolbar Page="FolderPage.Tasks">
-    <FolderTabs Page="FolderPage.Tasks" CountIn="CountIn" />
+<PhoneToolbar Page="FolderPage.Tasks" HasNews="@NewsIsInAFolderThatIsNotOpen">
+    <FolderTabs Page="FolderPage.Tasks" CountIn="CountIn" HasNewsIn="HasNewsIn" />
 
     @* Only once there is something to narrow, and only about the folder that is open: a search box
        over an empty tab offers to find something on a list that is not there, and the chips would be
@@ -116,46 +116,37 @@
             }
         </div>
 
-        @if (KnownCategories.Count > 0)
-        {
-            <div class="list-controls">
-                <div class="list-filters">
-                    @foreach (var category in KnownCategories)
-                    {
-                        <button type="button" class="filter-chip @(_itemFilter.IsChosen(category) ? "on" : "")"
-                                @onclick="() => _itemFilter.Toggle(category)">
-                            @category <span class="filter-chip-count">@CountEntriesIn(category)</span>
-                        </button>
-                    }
-                </div>
-                @* Only worth asking once two are chosen: with one, "any of them" and "all of them" are
-                   the same question. *@
-                @if (_itemFilter.Categories.Count > 1)
-                {
-                    <label class="task-category-rule">
-                        <input type="checkbox" checked="@_itemFilter.MatchesEveryCategory"
-                               @onchange="changeArgs => _itemFilter.MatchesEveryCategory = changeArgs.Value is true" />
-                        @T["Entries in every chosen category"]
-                    </label>
-                }
-            </div>
-        }
-
+        @* Both narrowings are the browser every short vocabulary is read in - see ValueBrowser. They
+           were rows of chips, which grew with the account until the row was the page and what was
+           chosen had to be found among what was not; the field says what it is narrowed to and keeps
+           the list one press away, with the count still beside each word. *@
         <div class="list-controls">
-            <div class="list-filters">
-                @* "All" is a filter like the rest rather than a way of clearing them, so there is
-                   always exactly one answer to "what am I looking at". *@
-                <button type="button" class="filter-chip @(_filter == TaskListFilter.All ? "on" : "")"
-                        @onclick="() => SetFilter(TaskListFilter.All)">@T["All"]<span class="filter-chip-count">@TaskListsInTheOpenFolder.Count</span>
-                </button>
-                @foreach (var filter in SelectableFilters)
-                {
-                    <button type="button" class="filter-chip @(_filter == filter ? "on" : "")"
-                            @onclick="() => SetFilter(filter)">
-                        @DescribeFilter(filter) <span class="filter-chip-count">@CountMatching(filter)</span>
-                    </button>
-                }
-            </div>
+            @if (KnownCategories.Count > 0)
+            {
+                <ValueBrowser AdditionalClass="value-browser-filter" Offers="@CategoryOffers"
+                              Chosen="@_itemFilter.Categories" ChosenChanged="ChooseCategories"
+                              Placeholder="@(T["Every category"])" AriaLabel="@(T["Categories"])">
+                    <Extra>
+                        @* Only worth asking once two are chosen: with one, "any of them" and "all of
+                           them" are the same question. *@
+                        @if (_itemFilter.Categories.Count > 1)
+                        {
+                            <label class="value-browser-rule">
+                                <input type="checkbox" checked="@_itemFilter.MatchesEveryCategory"
+                                       @onchange="changeArgs => _itemFilter.MatchesEveryCategory = changeArgs.Value is true" />
+                                @T["Entries in every chosen category"]
+                            </label>
+                        }
+                    </Extra>
+                </ValueBrowser>
+            }
+
+            @* "All" is one of the answers rather than a way of clearing them, so there is always
+               exactly one answer to "what am I looking at" - which is why nothing here can be
+               unticked into nothing (ValueBrowser.OnlyOne without CanBeEmpty). *@
+            <ValueBrowser AdditionalClass="value-browser-filter" Offers="@ViewOffers" OnlyOne="true"
+                          Chosen="@([DescribeFilter(_filter)])" ChosenChanged="ChooseView"
+                          AriaLabel="@(T["Show"])" />
         </div>
     }
 </PhoneToolbar>
@@ -174,6 +165,14 @@
                        ShareOne="(taskListId, recipientUserId, accessLevel) => TasksApiClient.ShareTaskListAsync(taskListId, recipientUserId, accessLevel)"
                        Invitation="(shareId, title) => new TaskListShareMessagePayload(shareId, title)"
                        OnClosed="() => _isSharingPicked = false" />
+}
+@* Handing on one list, from its own card - the same dialog given a list of one. See Notes.razor. *@
+@if (_sharingOne is { } sharedList)
+{
+    <SharePickedDialog Things="@([new SharePickedDialog.ShareableThing(sharedList.Id, sharedList.Title)])"
+                       ShareOne="(taskListId, recipientUserId, accessLevel) => TasksApiClient.ShareTaskListAsync(taskListId, recipientUserId, accessLevel)"
+                       Invitation="(shareId, title) => new TaskListShareMessagePayload(shareId, title)"
+                       OnClosed="() => _sharingOne = null" />
 }
 <ObjectList IsLoading="_taskLists is null" IsEmpty="_taskLists is { Count: 0 }" EmptyMessage="@T["No task lists yet."]">
     @if (VisibleTaskLists.Count == 0)
@@ -237,8 +236,11 @@
                         <ObjectMenu EditLabel="@T["Edit"]" OnEdit="() => GoToEditTaskList(taskList.Id)"
                                     DuplicateLabel="@(!taskList.IsShared ? T["Duplicate"] : null)"
                                     OnDuplicate="() => DuplicateTaskListAsync(taskList)"
+                                    ShareLabel="@(CanBeHandedOn(taskList) ? T["Share"] : null)"
+                                    OnShare="() => _sharingOne = taskList"
                                     ArchiveLabel="@(!taskList.IsShared ? ArchiveLabelFor(taskList.IsArchived) : null)"
                                     OnArchive="() => SetArchivedAsync(taskList, !taskList.IsArchived)"
+                                    IsArchived="taskList.IsArchived"
                                     DeleteLabel="@(!taskList.IsShared ? T["Delete"] : null)" OnDelete="() => DeleteTaskListAsync(taskList)" />
                     </Menu>
                     <Tags>
@@ -456,7 +458,46 @@
             .Distinct(StringComparer.CurrentCultureIgnoreCase)
             .OrderBy(category => category, StringComparer.CurrentCultureIgnoreCase)];
 
-    /// <summary>How many entries carry a category, which is what makes a chip worth pressing or not.</summary>
+    /// <summary>The categories with their counts - what the browser narrowing the entries offers.</summary>
+    private IReadOnlyList<ValueBrowser.Offer> CategoryOffers
+        => [.. KnownCategories.Select(category => new ValueBrowser.Offer(category, CountEntriesIn(category)))];
+
+    /// <summary>
+    /// The views this tab can be read in, each with how many lists it would leave. "All" first and
+    /// always offered; the rest vary with the tab - see SelectableFilters.
+    /// </summary>
+    private IReadOnlyList<ValueBrowser.Offer> ViewOffers
+        => [
+            new(DescribeFilter(TaskListFilter.All), TaskListsInTheOpenFolder.Count),
+            .. SelectableFilters.Select(filter => new ValueBrowser.Offer(DescribeFilter(filter), CountMatching(filter)))
+        ];
+
+    private void ChooseCategories(IReadOnlyList<string> categories) => _itemFilter.Choose(categories);
+
+    /// <summary>
+    /// Back from what the browser shows to the view it stands for. By its own words, since that is what
+    /// the control hands back - and they are this page's own words for its own views, so there is
+    /// nothing to look up: an answer it does not recognise leaves the page as it is rather than
+    /// quietly falling through to "All".
+    /// </summary>
+    private void ChooseView(IReadOnlyList<string> chosen)
+    {
+        if (chosen.FirstOrDefault() is not { } view)
+        {
+            return;
+        }
+
+        foreach (var filter in EverySelectableFilter.Append(TaskListFilter.All))
+        {
+            if (DescribeFilter(filter) == view)
+            {
+                SetFilter(filter);
+                return;
+            }
+        }
+    }
+
+    /// <summary>How many entries carry a category, which is what makes a word worth pressing or not.</summary>
     private int CountEntriesIn(string category)
         => TaskListsInTheOpenFolder
             .SelectMany(taskList => taskList.Items)
@@ -527,6 +568,12 @@
 
     /// <summary>While the dialog sharing the chosen lists is open - see SharePickedDialog.</summary>
     private bool _isSharingPicked;
+
+    /// <summary>The one list being handed on from its own card, while one is.</summary>
+    private TaskDto? _sharingOne;
+
+    /// <summary>Whether this list is this reader's to hand to somebody - see Notes.razor, same two questions.</summary>
+    private static bool CanBeHandedOn(TaskDto taskList) => !taskList.IsShared && !taskList.IsPrivate;
 
     private IReadOnlyList<TaskDto> ChosenTaskLists
         => [.. (_taskLists ?? []).Where(taskList => _picked.Holds(taskList.Id))];
@@ -606,6 +653,24 @@
     private int CountIn(FolderKey folder)
         => (_taskLists ?? []).Count(taskList =>
             Folders.PlacementOn(FolderPage.Tasks, taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted, taskList.IsArchived) == folder);
+
+    /// <summary>Where the tab is placed - one answer, so the two questions below cannot drift apart.</summary>
+    private FolderKey PlacementOf(TaskDto taskList)
+        => Folders.PlacementOn(
+            FolderPage.Tasks, taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted, taskList.IsArchived);
+
+    /// <summary>
+    /// Whether a list under this tab holds something the reader has not seen - what puts the mark on the
+    /// tab, so somebody following a notification can see which folder holds what they were sent to. See
+    /// FolderTabs.HasNewsIn.
+    /// </summary>
+    private bool HasNewsIn(FolderKey folder)
+        => (_taskLists ?? []).Any(taskList => UnreadCountFor(taskList) > 0 && PlacementOf(taskList) == folder);
+
+    /// <summary>The same question asked of the tabs a phone folds away - see PhoneToolbar.HasNews.</summary>
+    private bool NewsIsInAFolderThatIsNotOpen
+        => (_taskLists ?? []).Any(taskList =>
+            UnreadCountFor(taskList) > 0 && PlacementOf(taskList) != Folders.ChosenOn(FolderPage.Tasks));
 
     /// <summary>
     /// A status chip matches the status the list is in; "Shared" matches where it came from and "Group"
