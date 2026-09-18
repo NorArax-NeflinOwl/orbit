@@ -96,9 +96,15 @@ else
        up, the people - is not filed anywhere and is left alone by it. Read-only, and no Finished tab:
        nothing here is filed from this page, so there is no folder to make - see FolderPages. On a phone
        it folds into one Menu button - see PhoneToolbar, which is nothing at all on a wider screen. *@
-    <PhoneToolbar Page="FolderPage.Dashboard">
-        <FolderTabs Page="FolderPage.Dashboard" />
-    </PhoneToolbar>
+    @* And not at all when there is nowhere else to go: the row of tabs is the whole of this page's
+       toolbar, so a page with one tab left would fold into a button that opens an empty panel. See
+       FolderTabRow.IsWorthDrawing, which the row itself asks too. *@
+    @if (ThereIsMoreThanOneFolder)
+    {
+        <PhoneToolbar Page="FolderPage.Dashboard">
+            <FolderTabs Page="FolderPage.Dashboard" HoldsAnything="HoldsAnything" />
+        </PhoneToolbar>
+    }
 
     <div class="card-grid">
         @if (NotesUnderTheOpenTab.Count > 0 && ShowsCard("notes"))
@@ -548,6 +554,32 @@ else
                 .Matches(taskList.AllTags))]
         : [.. TaskListsUnderTheOpenTab.Where(taskList => Matches("tasks", taskList.IsPinned, taskList.Priority))];
 
+    /// <summary>
+    /// Whether a tab would narrow this page to anything at all - see FolderTabs.HoldsAnything, which
+    /// draws only the tabs that would.
+    ///
+    /// Asked of every kind of thing this page files, and of all of them rather than of the cards it is
+    /// currently drawing: a folder is not empty because its card has been put away (see
+    /// DashboardCardPreferences.IsVisible), and a tab that vanished when somebody hid the notes card
+    /// would be saying something about the page rather than about the folder.
+    ///
+    /// A finished list counts, unlike on the card itself. "Is there anything in here" and "is there
+    /// anything still on your plate in here" are different questions, and a tab that disappeared the
+    /// moment the last list under it was ticked off would take its own folder with it.
+    /// </summary>
+    private bool HoldsAnything(FolderKey tab)
+        => (_notes ?? []).Any(note => IsUnder(tab, note.FolderId, note.IsPrivate, note.IsArchived))
+            || (_taskLists ?? []).Any(taskList => IsUnder(tab, taskList.FolderId, taskList.IsPrivate, taskList.IsArchived))
+            || (_inventories ?? []).Any(inventory => IsUnder(tab, inventory.FolderId, inventory.IsPrivate, inventory.IsArchived));
+
+    /// <summary>Which of this page's tabs one card is under - see FolderState.PlacementOn.</summary>
+    private bool IsUnder(FolderKey tab, Guid? folderId, bool isPrivate, bool isArchived)
+        => Folders.PlacementOn(FolderPage.Dashboard, folderId, isPrivate, isFinished: false, isArchived) == tab;
+
+    /// <inheritdoc cref="FolderTabRow.IsWorthDrawing"/>
+    private bool ThereIsMoreThanOneFolder
+        => FolderTabRow.IsWorthDrawing(FolderPage.Dashboard, Folders, CardPreferences, HoldsAnything);
+
     /// <summary>Whether the Tasks card is on the page: something under the open tab, or a tag filter chosen over any list at all.</summary>
     private bool HasATasksCard
         => TaskListsUnderTheOpenTab.Count > 0 || (ChosenTagFilter is not null && (_taskLists?.Count ?? 0) > 0);
@@ -967,6 +999,11 @@ else
         // The tabs are shared with the notes and the task lists - pressing one there re-filters the two
         // cards here that hold folderable things.
         Folders.Changed += OnFoldersChanged;
+        // Read here rather than left to the row of tabs, which used to be the only thing that asked.
+        // This page now decides whether to draw that row at all (see ThereIsMoreThanOneFolder), and a
+        // page deciding that from folders nobody had read yet would answer "there is only Public",
+        // never draw the row, and so never let the row read them.
+        await Folders.EnsureLoadedAsync();
         await Permissions.EnsureLoadedAsync();
         await DashboardPins.InitializeAsync();
         await CardPreferences.InitializeAsync();
