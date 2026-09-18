@@ -139,6 +139,14 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
             return Json(ItemsIn(inventoryId).ToList());
         }
 
+        // Which of this reader's task entries ask for each row here - see Orbit.Core.Inventories.ShelfDemand.
+        if (path.EndsWith("/demand", StringComparison.Ordinal))
+        {
+            var inventoryId = Guid.Parse(path.Split('/')[^2]);
+            return Json(Demand.Where(claim => ItemsIn(inventoryId).Any(item => item.Id == claim.InventoryItemId))
+                .ToList());
+        }
+
         // Filing has its own endpoint, and this fake has to have it too - the real one keeps it off the
         // save so that a client which had never heard of folders cannot empty it. See MoveToFolderRequest.
         if (path.EndsWith("/folder", StringComparison.Ordinal))
@@ -160,6 +168,20 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
             _ => Json(_inventories.Values.ToList())
         };
     }
+
+    /// <summary>
+    /// Which task entries ask for which rows - see Orbit.Core.Inventories.ShelfDemand. Nothing asks for
+    /// anything unless a test says so, which is what a shelf nobody has built a list against looks like.
+    /// </summary>
+    public List<ShelfClaimDto> Demand { get; } = [];
+
+    /// <summary>What the last save asked to be divided equally - see SaveInventoryRequest.SplitEvenlyAcross.</summary>
+    public IReadOnlyList<Guid> LastSplitEvenlyAcross { get; private set; } = [];
+
+    /// <summary>Says that one list asks for one row, which is how a test builds a shared row out of two calls.</summary>
+    public void AddDemand(Guid inventoryItemId, string taskListName, decimal quantity = 1)
+        => Demand.Add(new ShelfClaimDto(
+            inventoryItemId, Guid.NewGuid(), taskListName, Guid.NewGuid(), taskListName, quantity));
 
     /// <summary>What a refresh of an inventory's restock list answers with, and how often one was asked for.</summary>
     public RestockRefreshResultDto RestockRefresh { get; set; } = new(0, 0);
@@ -232,6 +254,9 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
         }
 
         var body = await ReadAsync<SaveInventoryRequest>(request, cancellationToken);
+        // Kept rather than acted on: dividing an amount between the entries asking for it is the
+        // server's own job (ShelfDemand), and what a test of this client needs to know is what it sent.
+        LastSplitEvenlyAcross = body!.SplitEvenlyAcross ?? [];
         var now = _timeProvider.GetUtcNow();
         _inventories[id] = existing with
         {

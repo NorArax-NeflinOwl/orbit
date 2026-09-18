@@ -958,9 +958,16 @@ readable before Save is pressed. Clearing a minimum writes nothing back: "no min
 amount to ask a list for, and the shelf goes back to being kept at whatever the lists want. **Orbit's own
 restock list is not one of the lists** (`ManagedRestockLists`): its errands point at the shelf item
 exactly as a real entry does, so before this they counted as a second list asking - and added one to
-Usage for as long as an item's own restock errand was open. The phone saves through the same endpoint and
-gets the one-entry write-through; it cannot yet raise the question, so a shared row saved from a phone
-leaves the lists alone.
+Usage for as long as an item's own restock errand was open.
+
+**The phone asks the same question** (`InventoryDetailViewModel`, `LocalInventory.SplitEvenlyAcross`,
+2026-09-18). It reads the demand when the shelf opens and compares each row's minimum against what it
+read, so a save that moved one several lists ask for stops and puts the question in the screen's own menu,
+naming the rows and the lists: **Split evenly** or **I'll change the lists myself**. The answer travels
+with the queued change rather than being a fact about the shelf, and the synchroniser clears it once that
+change has gone - left standing it would divide whatever was edited next. A shelf the server has never
+seen, or one out of reach, is asked nothing and every save goes through as before: an answer nobody can
+check is not one to hold a save on.
 
 **A shelf can gather other shelves** (`Inventory.GathersInventoryIds`, `InventoryGroups`,
 `OL_INVENTORIES_GATHERED`, `PUT /api/inventories/{id}/gathers`, 2026-09-18). One entry on the list of

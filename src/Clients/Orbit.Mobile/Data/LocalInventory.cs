@@ -63,6 +63,20 @@ public sealed class LocalInventory : ISharedState, ICopyableForEditing
     /// </summary>
     public IReadOnlyList<Guid> GathersServerIds { get; set; } = [];
 
+    /// <summary>
+    /// The shelf rows whose changed minimum the reader said to divide equally between the entries asking
+    /// for them - see Orbit.Core.Inventories.ShelfDemand, and the question the screen puts before a save
+    /// that would touch a row several lists want.
+    ///
+    /// An answer to the change that is queued, not a fact about the shelf, which is why the synchroniser
+    /// clears it once that change has gone: leaving it would divide whatever was edited next, which is
+    /// not what anybody said. Empty for every save that asked nothing, which is nearly all of them.
+    ///
+    /// By the ids the server knows the rows by, like everything else here that names something the
+    /// server owns.
+    /// </summary>
+    public IReadOnlyList<Guid> SplitEvenlyAcross { get; set; } = [];
+
 
     public bool IsPrivate { get; set; }
 

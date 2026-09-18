@@ -255,6 +255,9 @@ public static class PolishTranslations
             "„Podziel równo” rozdziela każdą ilość po równo między pozycje, które jej potrzebują. Pozostawienie list bez zmian zapisuje magazyn i nie zmienia na nich niczego.",
         ["Split evenly"] = "Podziel równo",
         ["I'll change the lists myself"] = "Sam zmienię listy",
+        // The same question on the phone, where it is a menu and its heading has to carry the whole of
+        // it - see InventoryDetailViewModel.AskAboutTheSharedRows.
+        ["{0}: {1} ask for these. Which is it?"] = "{0}: potrzebują tego {1}. Co zrobić?",
         ["Open {0}"] = "Otwórz: {0}",
         ["done: {0}"] = "zrobione: {0}",
         ["any one of: {0}"] = "dowolne z: {0}",

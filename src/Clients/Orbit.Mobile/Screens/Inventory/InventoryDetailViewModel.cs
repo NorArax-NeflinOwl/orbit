@@ -189,6 +189,13 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
     public ObservableCollection<InventoryItemRow> Items { get; } = [];
 
     /// <summary>
+    /// The one question this screen asks before it writes: what to do about an amount several of the
+    /// reader's lists ask for - see AskAboutTheSharedRows. Its own menu rather than the page's, because
+    /// the view model is what asks it and the page's belongs to the bar above the shelf.
+    /// </summary>
+    public ScreenMenu Question { get; } = new();
+
+    /// <summary>
     /// The smaller shelves this one gathers, if it is a group - see
     /// Orbit.Core.Inventories.Inventory.GathersInventoryIds. The same row the list of inventories draws,
     /// because that is what each of these is: a shelf of its own, opened by pressing it.
@@ -497,13 +504,35 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
         "Somebody else can change this inventory, and Orbit can't be reached to check. "
         + "It stays read-only until you're back online.";
 
+    /// <summary>
+    /// Saves the shelf, stopping first to ask about any amount several of the reader's lists are asking
+    /// for - see ShelfDemand, and TheSharedRowsIn, which is where the question is worked out.
+    ///
+    /// The browser asks the same question in the same words. The phone asks it here rather than leaving
+    /// the server to guess, for the same reason: six between two recipes is not three and three unless
+    /// somebody says it is, and a save that quietly left both lists alone was the only answer this
+    /// client could give until now.
+    /// </summary>
     private async Task SaveAsync(IReadOnlyList<InventoryItemRequest> items, CancellationToken cancellationToken)
+    {
+        if (TheSharedRowsIn(items) is { Count: > 0 } shared)
+        {
+            AskAboutTheSharedRows(shared, items);
+            return;
+        }
+
+        await SaveNowAsync(items, cancellationToken);
+    }
+
+    private async Task SaveNowAsync(IReadOnlyList<InventoryItemRequest> items, CancellationToken cancellationToken)
     {
         LocalWriteOutcome outcome;
         try
         {
             outcome = await _inventories.UpdateAsync(
-                _localId, new InventoryContent(Name, items, IsPrivate, Description), cancellationToken);
+                _localId,
+                new InventoryContent(Name, items, IsPrivate, Description, _splitEvenlyAcross),
+                cancellationToken);
         }
         catch (EncryptionKeyLockedException)
         {
@@ -519,8 +548,123 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
             return;
         }
 
+        // Put back, so the next save asks again rather than quietly splitting whatever is edited then.
+        _splitEvenlyAcross = [];
         await ShowStoredInventoryAsync(cancellationToken);
         await SynchroniseAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Which of this reader's task entries ask for each row on this shelf, read when the screen opens -
+    /// see ShelfDemand. Empty where the shelf has never been synced, or the server is out of reach, and
+    /// then no save ever stops to ask: an answer nobody could check is not one to hold a save on.
+    /// </summary>
+    private IReadOnlyList<ShelfClaimDto> _demand = [];
+
+    /// <summary>
+    /// What each row's minimum was when the screen last read the shelf, so a save can tell which the
+    /// reader actually moved. The rows themselves are not enough: after editing, every row says what is
+    /// in it, and "this is what it says" and "this is what somebody changed" are different questions.
+    /// </summary>
+    private IReadOnlyDictionary<Guid, decimal?> _minimumsAsRead = new Dictionary<Guid, decimal?>();
+
+    /// <summary>The answer to the question below, read by the save that follows and then put back.</summary>
+    private IReadOnlyList<Guid> _splitEvenlyAcross = [];
+
+    /// <summary>
+    /// Reads which of the reader's lists ask for each row here. Best effort, and deliberately: a shelf
+    /// the server has never seen has nothing to ask about, and one that cannot be reached leaves every
+    /// save going through without a question - which is the same answer this client gave before the
+    /// question existed, rather than a save held up on something nobody can check.
+    /// </summary>
+    private async Task ReadWhoAsksForTheseAsync(LocalInventory inventory, CancellationToken cancellationToken)
+    {
+        if (inventory is not { ServerId: { } serverId, IsPrivate: false })
+        {
+            _demand = [];
+            return;
+        }
+
+        try
+        {
+            _demand = await _inventoryClient.GetShelfDemandAsync(serverId, cancellationToken);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            _demand = [];
+        }
+    }
+
+    /// <summary>
+    /// The rows in this save whose minimum moved and that more than one list asks for - the ones a save
+    /// cannot divide on its own. A row exactly one entry asks for needs no question: that entry is the
+    /// whole of the demand, and the server writes the new amount straight into it.
+    /// </summary>
+    private IReadOnlyList<InventoryItemRequest> TheSharedRowsIn(IReadOnlyList<InventoryItemRequest> items)
+        => [.. items.Where(item =>
+            item.Id is { } id
+            && item.MinimumQuantity is not null
+            && _minimumsAsRead.TryGetValue(id, out var before)
+            && before != item.MinimumQuantity
+            && _demand.Count(claim => claim.InventoryItemId == id) > 1)];
+
+    /// <summary>
+    /// Puts the question. Two answers under one heading in the screen's own menu, which is where this
+    /// app asks anything with more than one answer - the heading names the rows and the lists, since
+    /// "several of your lists" without saying which is not something anybody can act on.
+    /// </summary>
+    private void AskAboutTheSharedRows(
+        IReadOnlyList<InventoryItemRequest> shared, IReadOnlyList<InventoryItemRequest> items)
+    {
+        var rows = string.Join(", ", shared.Select(item => item.Name));
+        var lists = string.Join(
+            ", ",
+            _demand.Where(claim => shared.Any(item => item.Id == claim.InventoryItemId))
+                .Select(claim => claim.TaskListName)
+                .Distinct(StringComparer.CurrentCultureIgnoreCase));
+
+        _waitingOnTheAnswer = (shared, items);
+        Question.Show(
+            [
+                new ScreenMenuEntry(
+                    _translations["Split evenly"], () => SplitEvenlyCommand.Execute(null)),
+                new ScreenMenuEntry(
+                    _translations["I'll change the lists myself"], () => LeaveTheListsAloneCommand.Execute(null))
+            ],
+            _translations.Format("{0}: {1} ask for these. Which is it?", rows, lists));
+    }
+
+    /// <summary>
+    /// The save the question is holding up: which rows it is about, and the whole item list it was
+    /// going to write. Held rather than passed through the menu, because a menu entry is an action with
+    /// no room for either - and holding it is what lets the two answers below be commands, which can be
+    /// awaited by whoever presses them.
+    /// </summary>
+    private (IReadOnlyList<InventoryItemRequest> Shared, IReadOnlyList<InventoryItemRequest> Items)? _waitingOnTheAnswer;
+
+    /// <summary>Divide what was typed equally between the entries asking for it - see ShelfDemand.</summary>
+    [RelayCommand]
+    private Task SplitEvenlyAsync(CancellationToken cancellationToken)
+        => AnswerAboutTheSharedRowsAsync(splitEvenly: true, cancellationToken);
+
+    /// <summary>
+    /// Save the shelf and leave the lists exactly as they are - the reader will go and change the one
+    /// that actually moved. The amount they typed is what they meant for the shelf either way.
+    /// </summary>
+    [RelayCommand]
+    private Task LeaveTheListsAloneAsync(CancellationToken cancellationToken)
+        => AnswerAboutTheSharedRowsAsync(splitEvenly: false, cancellationToken);
+
+    private async Task AnswerAboutTheSharedRowsAsync(bool splitEvenly, CancellationToken cancellationToken)
+    {
+        if (_waitingOnTheAnswer is not { } waiting)
+        {
+            return;
+        }
+
+        _waitingOnTheAnswer = null;
+        _splitEvenlyAcross = splitEvenly ? [.. waiting.Shared.Select(item => item.Id!.Value)] : [];
+        await SaveNowAsync(waiting.Items, cancellationToken);
     }
 
     private async Task ShowStoredInventoryAsync(CancellationToken cancellationToken)
@@ -561,6 +705,12 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
         _items = inventory.Items;
         _arrivals = inventory.ItemArrivals;
         _usage = inventory.ItemUsage;
+        // What each row's minimum is as read, and which lists ask for each - together they are what a
+        // save needs to know before it touches a row several lists want. See TheSharedRowsIn.
+        _minimumsAsRead = inventory.Items
+            .Where(item => item.Id is not null)
+            .ToDictionary(item => item.Id!.Value, item => item.MinimumQuantity);
+        await ReadWhoAsksForTheseAsync(inventory, cancellationToken);
         var everyShelf = await _inventories.GetAllAsync(cancellationToken);
         _knownProductTypes = KnownProductTypes.From(everyShelf, await _taskLists.GetAllAsync(cancellationToken));
         ShowWhatItGathers(inventory, everyShelf);

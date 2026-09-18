@@ -83,6 +83,117 @@ public sealed class InventoryDetailScreenTests
         Assert.True(member.HasRunningLow);
     }
 
+    /// <summary>
+    /// A minimum several of the reader's lists ask for cannot be divided without being told how, so the
+    /// save stops and asks - the same question Orbit.Web puts, in the same words. Until now the phone
+    /// saved and the server left both lists alone, which is the safe answer rather than the right one.
+    /// The user's rule, 2026-09-18: "warn, and the user changes the list themselves or chooses Split
+    /// evenly".
+    /// </summary>
+    [Fact]
+    public async Task Changing_an_amount_two_lists_ask_for_stops_to_ask_which()
+    {
+        using var context = new ScreenContext();
+        var (stored, flour) = await context.PullSharedShelfAsync();
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.MinimumQuantity = "9";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.True(screen.Question.IsOpen);
+        Assert.Equal(
+            ["Split evenly", "I'll change the lists myself"],
+            screen.Question.Entries.Select(entry => entry.Label));
+        // And nothing has been written: the question is what the save is waiting on.
+        Assert.NotEqual(9, context.Stored().Items.Single().MinimumQuantity);
+    }
+
+    /// <summary>Split evenly tells the server to divide it - the rule itself is ShelfDemand's.</summary>
+    [Fact]
+    public async Task Split_evenly_sends_the_row_to_be_divided()
+    {
+        using var context = new ScreenContext();
+        var (stored, _) = await context.PullSharedShelfAsync();
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.MinimumQuantity = "9";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        await ChooseInTheQuestionAsync(screen, "Split evenly");
+
+        Assert.Equal(
+            [context.Stored().Items.Single().Id!.Value],
+            context.Server.LastSplitEvenlyAcross);
+    }
+
+    /// <summary>
+    /// And the other answer saves the shelf and leaves the lists alone - the amount typed is what was
+    /// meant for the shelf either way.
+    /// </summary>
+    [Fact]
+    public async Task Changing_the_lists_yourself_saves_the_shelf_and_sends_nothing_to_divide()
+    {
+        using var context = new ScreenContext();
+        var (stored, _) = await context.PullSharedShelfAsync();
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.MinimumQuantity = "9";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        await ChooseInTheQuestionAsync(screen, "I'll change the lists myself");
+
+        Assert.Equal(9, context.Stored().Items.Single().MinimumQuantity);
+        Assert.Empty(context.Server.LastSplitEvenlyAcross);
+    }
+
+    /// <summary>
+    /// A row exactly one list asks for is no question at all: that entry is the whole of the demand, so
+    /// the server writes the new amount straight into it and the save goes through on the press.
+    /// </summary>
+    [Fact]
+    public async Task A_row_only_one_list_asks_for_saves_without_a_word()
+    {
+        using var context = new ScreenContext();
+        var (stored, _) = await context.PullSharedShelfAsync(askedBy: ["Bread"]);
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.MinimumQuantity = "9";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.False(screen.Question.IsOpen);
+        Assert.Equal(9, context.Stored().Items.Single().MinimumQuantity);
+    }
+
+    /// <summary>
+    /// And neither is a save that moved no minimum: correcting a count, renaming the shelf or reordering
+    /// its rows must not put a question about amounts in front of anybody.
+    /// </summary>
+    [Fact]
+    public async Task A_save_that_moves_no_minimum_asks_nothing()
+    {
+        using var context = new ScreenContext();
+        var (stored, _) = await context.PullSharedShelfAsync();
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Quantity = "4";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.False(screen.Question.IsOpen);
+        Assert.Equal(4, context.Stored().Items.Single().Quantity);
+    }
+
+    /// <summary>Presses one of the two answers the question offers.</summary>
+    private static Task ChooseInTheQuestionAsync(InventoryDetailViewModel screen, string answer)
+        // Through the command the entry stands for rather than the entry itself: a menu entry is an
+        // Action, which nothing can await, and the two answers are commands exactly so that whoever
+        // presses one can wait for the save it sets off. The entries are checked where they are drawn.
+        => answer == "Split evenly"
+            ? screen.SplitEvenlyCommand.ExecuteAsync(null)
+            : screen.LeaveTheListsAloneCommand.ExecuteAsync(null);
+
     /// <summary>An ordinary shelf gathers nothing, so the section is not there at all.</summary>
     [Fact]
     public async Task An_ordinary_shelf_draws_no_such_section()
@@ -939,6 +1050,26 @@ public sealed class InventoryDetailScreenTests
 
             await _synchronizer.SynchroniseAsync(CancellationToken.None);
             return (await _inventories.GetAllAsync()).Single(inventory => inventory.ServerId == remote.Id);
+        }
+
+        /// <summary>
+        /// A shelf with one row that the named lists ask for - two of them by default, which is the
+        /// case a save has to stop and ask about (see ShelfDemand). Hands back the shelf as this phone
+        /// stores it, and the row as the server holds it.
+        /// </summary>
+        public async Task<(LocalInventory Stored, InventoryItemDto Row)> PullSharedShelfAsync(
+            params string[] askedBy)
+        {
+            var remote = Server.AddInventory("Pantry");
+            Server.AddItem(remote.Id, "Flour", quantity: 1, minimum: 2);
+            var row = Server.ItemsIn(remote.Id).Single();
+            foreach (var listName in askedBy.Length > 0 ? askedBy : ["Bread", "Pizza"])
+            {
+                Server.AddDemand(row.Id, listName);
+            }
+
+            await _synchronizer.SynchroniseAsync(CancellationToken.None);
+            return ((await _inventories.GetAllAsync()).Single(shelf => shelf.ServerId == remote.Id), row);
         }
 
         /// <summary>

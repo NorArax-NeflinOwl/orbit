@@ -2332,11 +2332,14 @@ the session that finishes one strikes it here rather than in a report nobody rea
   out of both counts now. And **the phone can only take the easy half**: it saves through the same
   endpoint, so a row one entry asks for is written through there too, but it cannot raise the question,
   so a shared row saved from a phone leaves the lists alone. The phone's side of the warning is below.
-- **The phone cannot ask about a shelf row several lists want.** It saves inventories through the same
-  endpoint as the browser and gets the same write-through for a row exactly one entry asks for, but it
-  never reads `/demand`, so it can neither name the lists on the row nor offer "Split evenly" - a shared
-  row edited there simply leaves the lists as they are, which is the safe answer rather than the right
-  one. What it needs is the read, the row hint, and the two-answer sheet. 2026-09-18.
+- ~~**The phone cannot ask about a shelf row several lists want.**~~ Done
+  (`InventoryDetailViewModel.Question`, `LocalInventory.SplitEvenlyAcross`). It reads `/demand` when the
+  shelf opens and compares each row's minimum against what it read, so a save that moved one several
+  lists ask for stops and asks, naming the rows and the lists. The answer travels with the queued change
+  and the synchroniser clears it once that change has gone - left standing it would divide whatever was
+  edited next. A shelf out of reach is asked nothing and saves as before: an answer nobody can check is
+  not one to hold a save on. **The row hint is still only the browser's** - the phone's shelf rows say
+  what the lists ask for as a number (`InventoryItemRow.KeptAt`) and not which lists they are.
 - **A separator made on one client is not drawn by the other**, either way round. The Android entry
   above is the same fault seen from one side only, and both are issue #294: the wire, both clients'
   mappings, the phone's local store, its template and the sync were all read, and a test now holds the

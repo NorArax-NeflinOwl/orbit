@@ -150,6 +150,9 @@ public sealed class OrbitLocalDbContext : DbContext
             inventory.Property(entity => entity.GathersServerIds)
                 .HasConversion(TaskListIdsConverter)
                 .Metadata.SetValueComparer(TaskListIdsComparer);
+            inventory.Property(entity => entity.SplitEvenlyAcross)
+                .HasConversion(TaskListIdsConverter)
+                .Metadata.SetValueComparer(TaskListIdsComparer);
 
             inventory.Property(entity => entity.CopyBaseLines)
                 .HasConversion(LinesConverter)

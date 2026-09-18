@@ -104,6 +104,28 @@ public sealed class InventoryClient : ILockableItems
     /// How this inventory's restock list is built, and when it comes round. Null when the inventory is
     /// not this reader's to look at - a share can be read without carrying the settings behind it.
     /// </summary>
+    /// <summary>
+    /// Which of this reader's task entries ask for each row on the shelf - see
+    /// Orbit.Core.Inventories.ShelfDemand. Empty rather than null when nothing asks, or when the read
+    /// failed: this only decides whether a save stops to ask about a shared row, and a shelf that could
+    /// not be asked is one nothing is known about.
+    ///
+    /// Not kept in the local store, unlike the counts beside the items: it is read to decide one save,
+    /// and an answer from a week ago about which lists ask for the flour is worse than no answer.
+    /// </summary>
+    public async Task<IReadOnlyList<ShelfClaimDto>> GetShelfDemandAsync(
+        Guid inventoryId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync($"api/inventories/{inventoryId}/demand", cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            return [];
+        }
+
+        return await response.Content.ReadFromJsonAsync<IReadOnlyList<ShelfClaimDto>>(cancellationToken)
+            ?? [];
+    }
+
     public async Task<RestockListSettingsDto?> GetRestockListSettingsAsync(
         Guid inventoryId, CancellationToken cancellationToken = default)
     {

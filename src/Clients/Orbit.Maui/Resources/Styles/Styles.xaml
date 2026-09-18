@@ -878,6 +878,10 @@
         <Setter Property="CharacterSpacing" Value="1.2" />
         <Setter Property="Padding" Value="8,6,8,4" />
         <Setter Property="TextColor" Value="{DynamicResource Accent}" />
+        <!-- A heading is usually a word - "Show", "Sort" - and one of them is a whole question, naming
+             the rows and the lists it is about (see InventoryDetailViewModel.AskAboutTheSharedRows).
+             Cut off at the panel's edge it would be a question nobody can read. -->
+        <Setter Property="LineBreakMode" Value="WordWrap" />
     </Style>
 
     <!-- .row-title and .row-meta: the two halves of a .list-row - a fact and its value. -->
