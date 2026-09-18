@@ -562,6 +562,39 @@ public sealed class TasksTests : OrbitTestContext
         Assert.Equal(2, cut.FindAll(".task-preview-row").Count);
     }
 
+    /// <summary>
+    /// And the folder holding it says so too. Following a notification lands on the page as it was last
+    /// left, which may be another tab entirely - with nothing to say which one holds what the reader was
+    /// sent to. Asked for on 2026-09-18; the mark is a dot, since the count is on the card itself.
+    /// </summary>
+    [Fact]
+    public void The_folder_holding_something_unread_is_marked()
+    {
+        var sealedList = TaskList("Diary", Item("Ring the bank")) with { IsPrivate = true };
+        RegisterTasksApiClient([TaskList("Kitchen", Item("Paint walls")), sealedList]);
+        _notifications.Set([Notification($"/tasks/{sealedList.Id}")]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        var marked = Assert.Single(cut.FindAll(".folder-tab"), tab => tab.QuerySelector(".folder-tab-news") is not null);
+        Assert.Contains("Private", marked.TextContent, StringComparison.Ordinal);
+        // And the button the tabs fold into on a phone carries it, since the tabs are inside it there.
+        Assert.NotNull(cut.Find(".phone-toolbar-trigger").QuerySelector(".folder-tab-news"));
+    }
+
+    /// <summary>The tab the reader is already on needs no mark: the card in front of them carries one.</summary>
+    [Fact]
+    public void The_phones_own_button_says_nothing_when_the_news_is_in_the_open_folder()
+    {
+        var reminded = TaskList("Garden", Item("Mow"));
+        RegisterTasksApiClient([reminded]);
+        _notifications.Set([Notification($"/tasks/{reminded.Id}")]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        Assert.Null(cut.Find(".phone-toolbar-trigger").QuerySelector(".folder-tab-news"));
+    }
+
     [Fact]
     public void A_list_something_unread_is_about_says_so_in_front_of_its_name()
     {

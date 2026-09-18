@@ -5705,6 +5705,18 @@ input.note-editor-title {
     opacity: 0.7;
 }
 
+/* Something under this tab has not been seen - see FolderTabs.HasNewsIn. A dot rather than a number:
+   how many is on the card itself, and this only has to say "in here" to somebody who arrived by
+   following a notification and is looking at the wrong folder. The same dot on the phone's Menu
+   button, which is where the tabs go on a narrow screen. */
+.folder-tab-news {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex: 0 0 auto;
+}
+
 /* The plus at the end of the row. Quieter than the tabs: making a folder is rarer than reading one. */
 .folder-tab-add {
     color: var(--text-tertiary);

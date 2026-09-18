@@ -917,6 +917,8 @@ public static class PolishTranslations
         // finished one is keyed "Finished" rather than "Done", which is a list's status elsewhere - both
         // read "Ukończone", so a tab and the status it gathers say the same word.
         ["Folders"] = "Foldery",
+        // The dot on a folder's tab, and on the phone's Menu button - see FolderTabs.HasNewsIn.
+        ["Something new is in here"] = "Jest tu coś nowego",
         // When filing is refused because the thing is somebody else's and there is no connection to ask.
         ["This one can't be moved while you're offline."] = "Tego nie da się przenieść bez połączenia.",
         // The menu entry that unfolds the row a folder is named in - see NotesPage.

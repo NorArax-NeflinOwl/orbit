@@ -2198,8 +2198,14 @@ the session that finishes one strikes it here rather than in a report nobody rea
   never had the override, so the two clients agree again.
 - **Group inventories.** One entry on the list of inventories, holding smaller inventories inside it,
   which can answer to different task lists.
-- **A mark on the folder button where a notification's thing is**, so somebody following a notification
-  can see which folder holds it - in the web's mobile view as well.
+- ~~**A mark on the folder button where a notification's thing is**, so somebody following a
+  notification can see which folder holds it - in the web's mobile view as well.~~ Done in the browser:
+  `FolderTabs.HasNewsIn` puts a dot on the tab, and `PhoneToolbar.HasNews` the same dot on the button
+  the tabs fold into on a narrow screen - only for folders that are not open, since a card in front of
+  the reader already carries its own mark. The notes, the task lists and the inventories answer it; the
+  calendar does not, because its tabs narrow a grid rather than a list of cards. **The phone's own
+  folder menu has no mark yet** - `FolderTabs.Describe` there counts rows and knows nothing about the
+  feed, which is where this lands next.
 - ~~**Delete goes out of a pinned list's entry editor** in a group list's heavy editing; it belongs
   under the expanded form.~~ Done: the member's rows now follow the rule this form's own entries have
   always followed - Remove is last inside the expanded details rather than beside the box somebody is

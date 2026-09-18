@@ -4751,6 +4751,14 @@ carries - what the reader is being told about is a row on this page either way. 
 not pulse: the card around it already does, and two animations out of step is what a page looks like
 when it is trying too hard.
 
+**And the folder tab says which tab.** Following a notification lands on the page as that page was last
+left, which may be another folder entirely - so a dot sits on every tab holding something unread
+(`FolderTabs.HasNewsIn`, 2026-09-18), and on the button the tabs fold into on a narrow screen
+(`PhoneToolbar.HasNews`). A dot rather than a count: how many is on the card itself, and this only has
+to say "in here". The open tab is never marked, since whatever it holds is already in front of the
+reader. The notes, the task lists and the inventories answer it; the calendar's tabs narrow a grid
+rather than a list of cards, and the phone's own folder menu does not carry it yet.
+
 **Which cards can say which row, and which can only say "here".** It depends on what the notification's
 address names, not on the card:
 

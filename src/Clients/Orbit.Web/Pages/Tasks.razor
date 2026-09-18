@@ -95,8 +95,8 @@
 
    On a phone the lot folds into one Menu button - see PhoneToolbar, which is nothing at all on a wider
    screen. *@
-<PhoneToolbar Page="FolderPage.Tasks">
-    <FolderTabs Page="FolderPage.Tasks" CountIn="CountIn" />
+<PhoneToolbar Page="FolderPage.Tasks" HasNews="@NewsIsInAFolderThatIsNotOpen">
+    <FolderTabs Page="FolderPage.Tasks" CountIn="CountIn" HasNewsIn="HasNewsIn" />
 
     @* Only once there is something to narrow, and only about the folder that is open: a search box
        over an empty tab offers to find something on a list that is not there, and the chips would be
@@ -653,6 +653,24 @@
     private int CountIn(FolderKey folder)
         => (_taskLists ?? []).Count(taskList =>
             Folders.PlacementOn(FolderPage.Tasks, taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted, taskList.IsArchived) == folder);
+
+    /// <summary>Where the tab is placed - one answer, so the two questions below cannot drift apart.</summary>
+    private FolderKey PlacementOf(TaskDto taskList)
+        => Folders.PlacementOn(
+            FolderPage.Tasks, taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted, taskList.IsArchived);
+
+    /// <summary>
+    /// Whether a list under this tab holds something the reader has not seen - what puts the mark on the
+    /// tab, so somebody following a notification can see which folder holds what they were sent to. See
+    /// FolderTabs.HasNewsIn.
+    /// </summary>
+    private bool HasNewsIn(FolderKey folder)
+        => (_taskLists ?? []).Any(taskList => UnreadCountFor(taskList) > 0 && PlacementOf(taskList) == folder);
+
+    /// <summary>The same question asked of the tabs a phone folds away - see PhoneToolbar.HasNews.</summary>
+    private bool NewsIsInAFolderThatIsNotOpen
+        => (_taskLists ?? []).Any(taskList =>
+            UnreadCountFor(taskList) > 0 && PlacementOf(taskList) != Folders.ChosenOn(FolderPage.Tasks));
 
     /// <summary>
     /// A status chip matches the status the list is in; "Shared" matches where it came from and "Group"
