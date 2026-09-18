@@ -415,7 +415,9 @@ else
                     <Row Title="@contact.DisplayName" OnPressed="() => GoToChat(contact.UserId)"
                          AdditionalClass="@RowClasses(contact.UnreadCount > 0 ? "unread" : null, contact.UnreadCount > 0)">
                         <Leading><span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<UnreadBadge Count="contact.UnreadCount" /><PresenceDot Status="Conversation.PresenceOf(contact)" /></span></Leading>
-                        <Trailing><span class="row-meta">@FormatRelative(contact.LastMessageAtUtc)</span></Trailing>
+                        @* The last message or the last time they were here, whichever is later - see
+                           Conversation.LastAnythingFrom, which is also what the rows are ordered by. *@
+                        <Trailing><span class="row-meta">@FormatRelative(Conversation.LastAnythingFrom(contact))</span></Trailing>
                     </Row>
                 }
                 </Body>
@@ -861,9 +863,14 @@ else
     /// <summary>Matches Orbit.Core.Chat.Groups.ChatGroupRole.Admin, which the API sends by name.</summary>
     private const string AdminRole = "Admin";
 
-    /// <summary>The "Chats" column's ordering - most recently active conversation first.</summary>
+    /// <summary>
+    /// The "Chats" column's ordering - most recently active conversation first, where "active" is the
+    /// last message or the last time the person was here, whichever is later. See
+    /// Conversation.LastAnythingFrom, and the row, which shows the same answer: a list ordered by one
+    /// number and labelled with another reads as broken.
+    /// </summary>
     private IEnumerable<ContactDto> _recentContacts
-        => (_contacts ?? []).OrderByDescending(contact => contact.LastMessageAtUtc);
+        => (_contacts ?? []).OrderByDescending(Conversation.LastAnythingFrom);
 
     /// <summary>
     /// The "Contacts" column's ordering - a plain directory rather than a recency-based list. Excludes

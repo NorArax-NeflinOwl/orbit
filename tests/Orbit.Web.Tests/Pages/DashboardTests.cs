@@ -268,6 +268,32 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.DoesNotContain("Bartek Nowak", contactsColumnText);
     }
 
+    /// <summary>
+    /// "Recent chats" says it is ordered by the most recently active conversation, and measured that by
+    /// the last message alone: somebody who had been online an hour ago sat under a conversation nobody
+    /// had touched for a week, with "3 days ago" beside a name that had been about all morning. Asked
+    /// for on 2026-09-18 - the later of the two answers, in the row and in the order.
+    /// </summary>
+    [Fact]
+    public void A_chat_row_says_the_later_of_the_last_message_and_the_last_time_they_were_here()
+    {
+        var now = DateTimeOffset.UtcNow;
+        RegisterChatApiClient([
+            Contact("Anna Kowalska", lastMessageAtUtc: now.AddDays(-3), lastSeenAtUtc: now.AddMinutes(-5)),
+            Contact("Bartek Nowak", lastMessageAtUtc: now.AddDays(-1), lastSeenAtUtc: null)]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        var rows = FindColumn(cut, "Recent chats").QuerySelectorAll(".list-row-button")
+            .Select(row => row.TextContent)
+            .ToList();
+        // Anna first, because she was here five minutes ago even though the conversation is older.
+        Assert.Contains("Anna Kowalska", rows[0]);
+        Assert.DoesNotContain("3 d", rows[0]);
+        // And Bartek, who has never been seen, is still measured by the one answer there is.
+        Assert.Contains("Bartek Nowak", rows[1]);
+    }
+
     [Fact]
     public void Nobody_is_told_about_chat_requests_that_are_not_there()
     {
@@ -850,11 +876,13 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.DoesNotContain("item-card-unseen", FindColumn(cut, "Recent chats").ClassName);
     }
 
-    private static ContactDto Contact(string displayName, int unread = 0)
+    private static ContactDto Contact(
+        string displayName, int unread = 0, DateTimeOffset? lastMessageAtUtc = null,
+        DateTimeOffset? lastSeenAtUtc = null)
         => new(
             Guid.NewGuid(), displayName.ToLowerInvariant(), displayName, $"{displayName}@example.com", "public-key",
-            DateTimeOffset.UtcNow, RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false,
-            unread);
+            lastMessageAtUtc ?? DateTimeOffset.UtcNow, RequiresApprovalFromCurrentUser: false,
+            IsPendingApprovalFromOtherParty: false, unread, LastSeenAtUtc: lastSeenAtUtc);
 
     private static IElement FindColumn(IRenderedComponent<Dashboard> cut, string heading)
         => cut.FindAll(".item-card").Single(column => column.QuerySelector(".item-card-name")!.TextContent == heading);
