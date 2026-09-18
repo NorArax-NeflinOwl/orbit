@@ -1034,7 +1034,11 @@ public static class PolishTranslations
         ["Add a tag"] = "Dodaj tag",
         ["Tags, separated by commas"] = "Tagi, rozdzielone przecinkami",
         ["Colour of {0}"] = "Kolor tagu {0}",
+        ["No colour for {0}"] = "Bez koloru dla {0}",
         ["That colour could not be saved."] = "Nie udało się zapisać tego koloru.",
+        // The control that holds a short vocabulary - see ValueBrowser.razor.
+        ["Nothing to choose from yet."] = "Nie ma jeszcze z czego wybierać.",
+        ["New word"] = "Nowe słowo",
         ["A tag's colour is kept for your whole account, readable on the server - even for a tag only private notes and lists carry."] =
             "Kolor tagu obowiązuje na całym koncie i jest zapisany na serwerze w czytelnej postaci - także dla tagu, który noszą tylko prywatne notatki i listy.",
         ["Brown"] = "Brązowy",

@@ -128,7 +128,11 @@ public abstract class OrbitTestContext : TestContext
         // OverflowMenu and menuAnchor.js. There is no layout to measure here, so it answers and does
         // nothing; without it any test that opens a menu fails on the interop call rather than on
         // whatever it was about.
-        JSInterop.SetupModule("./js/menuAnchor.js").SetupVoid("anchorToTrigger", _ => true).SetVoidResult();
+        // And the panel that belongs to a field rather than to a button asks the same module to place
+        // it - the suggestions under a box, and the browser a vocabulary is chosen in (ValueBrowser).
+        var menuAnchor = JSInterop.SetupModule("./js/menuAnchor.js");
+        menuAnchor.SetupVoid("anchorToTrigger", _ => true).SetVoidResult();
+        menuAnchor.SetupVoid("anchorToField", _ => true).SetVoidResult();
         // How every editor and summary finishes - see NavigationTrail. Made when the page asks for it,
         // so its trail starts wherever the test has navigated to by then: a test about where a screen
         // ends navigates first. Stepping back is a call into the browser, answered here and read back

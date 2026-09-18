@@ -5802,6 +5802,191 @@ input.note-editor-title {
     opacity: 0.75;
 }
 
+/* A short vocabulary in one control - see ValueBrowser.razor. Closed it is a field with its words
+   written along it; open it is a list with a tick, a name, optionally a count and optionally a colour.
+   It replaced two shapes that said the same thing differently: a row of chips that grew until it was
+   the page, and a field whose words could only be read by opening a dialog. */
+.value-browser {
+    position: relative;
+    display: block;
+}
+
+/* The closed field. A button drawn as a form control, because that is what it is: pressing it opens the
+   list, and what it says is what the field holds. */
+.value-browser-field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+}
+
+.value-browser-field:hover:not(:disabled) {
+    border-color: var(--accent);
+}
+
+.value-browser-field:disabled {
+    cursor: default;
+    opacity: 0.7;
+}
+
+/* One line, whatever it holds: the field keeps the height of a field, and the panel is where a long
+   vocabulary is read. */
+.value-browser-written {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Nothing chosen yet, so what is written is the invitation rather than an answer. */
+.value-browser-written.is-empty {
+    color: var(--text-tertiary);
+}
+
+.value-browser-caret {
+    flex: 0 0 auto;
+    color: var(--text-tertiary);
+    transition: transform 120ms ease;
+}
+
+.value-browser-field.open .value-browser-caret {
+    transform: rotate(180deg);
+}
+
+/* The open list. Placed by measurement - menuAnchor.js gives it its position and its width - so
+   everything here is what it looks like once placed. Fixed rather than absolute for the reason the
+   suggestions panel is: a control on a row deep in a scrolling form is otherwise clipped by the form. */
+.value-browser-panel {
+    position: fixed;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 4px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.value-browser-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 6px 2px 4px;
+    border-radius: 6px;
+}
+
+.value-browser-row:hover {
+    background: var(--bg-subtle);
+}
+
+/* The whole row chooses, not the word: a target the width of the name is the one that gets reported as
+   a press that did not register. */
+.value-browser-tick {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 4px;
+    font-size: 13.5px;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.value-browser-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* A word the account gave a colour, drawn in it here as well as on the cards - so the colour being
+   picked is visible on the thing it is being picked for. */
+.value-browser-name-coloured {
+    padding: 1px 8px;
+    border: 1px solid color-mix(in oklch, var(--tag-colour) 75%, transparent);
+    border-radius: 999px;
+    background: color-mix(in oklch, var(--tag-colour) 22%, transparent);
+}
+
+/* How many things carry this word. Quiet: it is the size of the answer, not the answer. */
+.value-browser-count {
+    flex: 0 0 auto;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-tertiary);
+}
+
+.value-browser-colour {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: none;
+}
+
+.value-browser-uncolour {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    color: var(--text-tertiary);
+    font-size: 11px;
+}
+
+/* A word nothing carries yet, written where the list would have offered it. */
+.value-browser-new {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 4px 4px;
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+}
+
+.value-browser-new input {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 13px;
+}
+
+.value-browser-add {
+    flex: 0 0 auto;
+}
+
+.value-browser-empty {
+    padding: 8px 6px;
+    margin: 0;
+}
+
+/* What belongs to the choice rather than to one of its words - "entries in every chosen category". */
+.value-browser-rule {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 4px 4px;
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+}
+
+/* In a toolbar rather than in a form: wide enough to read a few words, narrow enough that two sit
+   beside each other on anything but a phone. */
+.value-browser-filter {
+    flex: 0 1 260px;
+    min-width: 180px;
+}
+
 .list-sort {
     display: inline-flex;
     align-items: center;
