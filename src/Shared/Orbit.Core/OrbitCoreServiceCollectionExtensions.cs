@@ -425,6 +425,8 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<StockedEntryCompletion>();
         services.AddScoped<RestockListRefresh>();
         services.AddScoped<ProductEntryPlacement>();
+        // Which lists are Orbit's own rather than the reader's, so neither count below counts one twice.
+        services.AddScoped<ManagedRestockLists>();
         // What the task lists ask of each shelf item, recounted as lists are saved - see ShelfUsage.
         services.AddScoped<ShelfUsage>();
 

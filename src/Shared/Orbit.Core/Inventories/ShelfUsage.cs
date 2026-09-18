@@ -14,9 +14,14 @@ namespace Orbit.Core.Inventories;
 ///
 /// Every entry counts, ticked or not, on every one of the owner's lists that the server can read: the
 /// user's rule is that a product is needed as many times as it is written down. Private lists hold no
-/// entries on the server, so theirs cannot be counted.
+/// entries on the server, so theirs cannot be counted - and Orbit's own restock lists are left out, for
+/// the reason ManagedRestockLists gives: an errand raised *because* the shelf ran low is not a second
+/// plan wanting the same thing.
 /// </summary>
-public sealed class ShelfUsage(ITaskRepository taskRepository, IInventoryItemRepository inventoryItemRepository)
+public sealed class ShelfUsage(
+    ITaskRepository taskRepository,
+    IInventoryItemRepository inventoryItemRepository,
+    ManagedRestockLists managedRestockLists)
 {
     /// <summary>The shelf items these lists' entries stand for - what a save of them may change the count of.</summary>
     public static IReadOnlySet<Guid> ShelfItemsOf(IEnumerable<TaskList> taskLists)
@@ -34,8 +39,14 @@ public sealed class ShelfUsage(ITaskRepository taskRepository, IInventoryItemRep
             return;
         }
 
-        var entries = (await taskRepository.GetAllAsync(ownerId, updatedSinceUtc: null, cancellationToken))
-            .Where(taskList => !taskList.IsPrivate)
+        var asking = (await taskRepository.GetAllAsync(ownerId, updatedSinceUtc: null, cancellationToken))
+            .Where(taskList => !taskList.IsPrivate
+                && taskList.Items.Any(item => item.LinkedInventoryItemId is { } linked && shelfItemIds.Contains(linked)))
+            .ToList();
+
+        var orbitsOwn = await managedRestockLists.AmongAsync(asking.Select(taskList => taskList.Id), cancellationToken);
+        var entries = asking
+            .Where(taskList => !orbitsOwn.Contains(taskList.Id))
             .SelectMany(taskList => taskList.Items)
             .Where(item => item.LinkedInventoryItemId is { } linked && shelfItemIds.Contains(linked))
             .ToList();
