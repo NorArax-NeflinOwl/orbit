@@ -49,7 +49,12 @@ public sealed class NameSuggestionSourceTests : OrbitTestContext
             .Add(field => field.OnSourceChosen, EventCallback.Factory.Create<NameSuggestionPick>(this, pick => picked = pick)));
 
         cut.SetParametersAndRender(parameters => parameters.Add(field => field.Value, "Sau"));
-        cut.WaitForAssertion(() => Assert.Single(cut.FindAll(".name-suggestion-option")));
+        // Five seconds rather than bUnit's own second: the panel waits out a 150ms settle delay before it
+        // asks for anything (NameSuggestions.SettleDelay), and on a machine running the whole suite in
+        // parallel that had drifted past a second often enough to fail a run for the timer rather than
+        // for the subject.
+        cut.WaitForAssertion(
+            () => Assert.Single(cut.FindAll(".name-suggestion-option")), TimeSpan.FromSeconds(5));
 
         var option = cut.Find(".name-suggestion-option");
         Assert.Contains("in Burger", option.TextContent, StringComparison.Ordinal);
@@ -74,7 +79,12 @@ public sealed class NameSuggestionSourceTests : OrbitTestContext
             .Add(field => field.OnSourceChosen, EventCallback.Factory.Create<NameSuggestionPick>(this, pick => picked = pick)));
 
         cut.SetParametersAndRender(parameters => parameters.Add(field => field.Value, "Sau"));
-        cut.WaitForAssertion(() => Assert.Single(cut.FindAll(".name-suggestion-option")));
+        // Five seconds rather than bUnit's own second: the panel waits out a 150ms settle delay before it
+        // asks for anything (NameSuggestions.SettleDelay), and on a machine running the whole suite in
+        // parallel that had drifted past a second often enough to fail a run for the timer rather than
+        // for the subject.
+        cut.WaitForAssertion(
+            () => Assert.Single(cut.FindAll(".name-suggestion-option")), TimeSpan.FromSeconds(5));
 
         Assert.DoesNotContain("in Burger", cut.Find(".name-suggestion-option").TextContent, StringComparison.Ordinal);
         cut.Find(".name-suggestion-option").Click();

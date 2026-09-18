@@ -726,6 +726,14 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **Two of Orbit.Web's test classes fail once in a while under the whole suite and pass alone**
+  (2026-09-18). `NameSuggestionSourceTests` was the timer rather than the subject - the panel waits out
+  a 150ms settle delay and the wait was left at bUnit's own one second, which a machine running the
+  suite in parallel drifts past; both its waits now allow five seconds. `GroupConversationPagesTests`
+  did it once in the same session and was not caught in the act: it has no `WaitForAssertion` at all,
+  so the cause is something else and is still open. Worth a run or two with `--blame` the next time it
+  appears rather than a guess now.
+
 - ~~**`TaskItem.KeepAlternativesOf` can leave the completion time disagreeing with the tick.**~~ Fixed
   2026-09-14, the first of the two ways this offered: `KeepAlternativesOf` calls `RecordWhenItWasDone`
   itself once the ways have moved the tick, so the pair cannot be left disagreeing by any caller. The
@@ -2192,8 +2200,11 @@ the session that finishes one strikes it here rather than in a report nobody rea
   which can answer to different task lists.
 - **A mark on the folder button where a notification's thing is**, so somebody following a notification
   can see which folder holds it - in the web's mobile view as well.
-- **Delete goes out of a pinned list's entry editor** in a group list's heavy editing; it belongs under
-  the expanded form.
+- ~~**Delete goes out of a pinned list's entry editor** in a group list's heavy editing; it belongs
+  under the expanded form.~~ Done: the member's rows now follow the rule this form's own entries have
+  always followed - Remove is last inside the expanded details rather than beside the box somebody is
+  typing in. It matters more on a group's form than anywhere else, since the row belongs to another
+  list.
 - ~~**Opening a task list from the dashboard opens the wrong folder's lists** - the one last chosen on
   /tasks rather than the one the list is in.~~ Done: opening a list, a note or a shelf from the
   dashboard now opens that page's own tab on the folder the thing is in (`Dashboard.GoToTaskList` and

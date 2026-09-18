@@ -553,8 +553,6 @@ else
                                     @onclick="() => ToggleExpanded(item)">
                                 <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
                             </button>
-                            <button type="button" class="btn-secondary"
-                                    @onclick="() => member.Form.Items.Remove(item)">@T["Remove"]</button>
                         </div>
                         @if (IsExpanded(item))
                         {
@@ -565,6 +563,15 @@ else
                                 {
                                     @(Reminders(item))
                                 }
+                                @* Last, and behind the toggle with everything else - the rule this
+                                   form's own entries have always followed, which the members' rows did
+                                   not: taking an entry off a list is not something to have one click
+                                   away from the box somebody is typing in, and on a group's form there
+                                   is a row of them belonging to somebody else's list. Asked for on
+                                   2026-09-18. *@
+                                <span class="field-break"></span>
+                                <button type="button" class="btn-secondary"
+                                        @onclick="() => member.Form.Items.Remove(item)">@T["Remove"]</button>
                             </div>
                         }
                     }
