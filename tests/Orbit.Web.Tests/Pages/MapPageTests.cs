@@ -844,6 +844,24 @@ public sealed class MapPageTests : OrbitTestContext
     }
 
     /// <summary>
+    /// And says it has. The button keeps the pan and the zoom and only moves the pins, so a press with
+    /// nothing new behind it changes nothing on the screen at all - which is the whole of "Refresh does
+    /// nothing", reported 2026-09-18 and not reproducible any other way. Said in the same place the page
+    /// says "Location recorded.". 2026-09-19.
+    /// </summary>
+    [Fact]
+    public void Refreshing_the_map_says_it_did()
+    {
+        GrantLocations();
+        var cut = RenderComponent<MapPage>();
+
+        cut.Find(".map-refresh-button").Click();
+
+        var said = cut.Find("p.info");
+        Assert.Contains("up to date", said.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// And beside that, the map's own light or night. The tiles are one picture drawn for a light page
     /// and turned dark by a filter, so which of the two the map is in is a question about the room
     /// somebody is in rather than about the theme - and the answer is kept for this device.

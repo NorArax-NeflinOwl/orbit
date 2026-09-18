@@ -2294,9 +2294,12 @@ the session that finishes one strikes it here rather than in a report nobody rea
   open and moves the pins (`MapPage.RefreshTheMapAsync`, covered by a test that the places list is read
   again). What *would* look exactly like this is an exception thrown inside it - an event handler that
   throws leaves the page as it was - so the handler now catches, logs and says so on screen rather than
-  failing silently. **Still open** as issue #293, which says what was checked and what would settle it:
-  what the reader expects it to change, and whether the browser's console says anything when it is
-  pressed.
+  failing silently. And the likeliest reading of the report needs nothing to have gone wrong at all
+  (2026-09-19): the button keeps the pan and the zoom it was pressed from and only moves the pins, so a
+  press with nothing new behind it changes not one pixel - a button that gives no answer reads as a
+  button that does nothing. It says "The map is up to date." now, where the page already says "Location
+  recorded." and "Location forgotten.". **Still open** as issue #293 until somebody sees it again: if
+  that line appears and the map is still stale, the fault is in what is read rather than in the press.
 - ~~**Addresses do not wrap in the preview**, and wherever else text that should wrap does not.~~ Done:
   the address on an entry's page and on an appointment's is prose rather than a value
   (`.row-meta-prose`, which already existed for descriptions), and so are the guests and the

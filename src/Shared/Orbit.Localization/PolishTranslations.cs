@@ -1525,6 +1525,7 @@ public static class PolishTranslations
             "Nie udało się zaktualizować subskrypcji powiadomień push. Spróbuj ponownie.",
         ["Location recorded."] = "Położenie zapisane.",
         ["Location forgotten."] = "Położenie usunięte.",
+        ["The map is up to date."] = "Mapa jest aktualna.",
         ["Couldn't save your location. Try again."] = "Nie udało się zapisać położenia. Spróbuj ponownie.",
         ["Couldn't load your location. Try again."] = "Nie udało się wczytać położenia. Spróbuj ponownie.",
         ["Couldn't refresh the map. Try again."] = "Nie udało się odświeżyć mapy. Spróbuj ponownie.",
