@@ -947,6 +947,15 @@ Usage for as long as an item's own restock errand was open. The phone saves thro
 gets the one-entry write-through; it cannot yet raise the question, so a shared row saved from a phone
 leaves the lists alone.
 
+**And a save of the shelf crosses off what it now answers** (2026-09-18). The rule is
+`StockedEntryCompletion`'s and a save of a *list* has always gone through it; this is the same question
+asked from the other end, which is where it was missing - somebody stocking a shelf put four of something
+on it and the list standing in front of them went on asking until they next opened that list. Only the
+reader's own lists, only those holding an outstanding entry for a row on this shelf, and last of the
+three steps, because what the shelf covers depends on the count the write-back may just have moved. A
+list that moved is stamped as changed (`TaskList.RecountWhatIsDone`), so the tick reaches every other
+copy of it.
+
 **The phone** offers the same picks under the entry's name as chips. After a pick it shows the '!' note
 and **Make it separate**. It sets only the words and the pointer; the group's details arrive with the
 next sync, once the server has filled them in. The web fills them in on screen at once.
