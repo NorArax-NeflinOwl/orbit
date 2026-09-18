@@ -967,7 +967,10 @@ naming the rows and the lists: **Split evenly** or **I'll change the lists mysel
 with the queued change rather than being a fact about the shelf, and the synchroniser clears it once that
 change has gone - left standing it would divide whatever was edited next. A shelf the server has never
 seen, or one out of reach, is asked nothing and every save goes through as before: an answer nobody can
-check is not one to hold a save on.
+check is not one to hold a save on. Its rows name the lists asking for them as well
+(`InventoryItemRow.AskedFor`, 2026-09-19), read off the demand the screen already holds, said once per
+list and nothing at all for a row nobody asks for - the browser's row hint said whom a change reaches
+and the phone's said only how much.
 
 **A shelf can gather other shelves** (`Inventory.GathersInventoryIds`, `InventoryGroups`,
 `OL_INVENTORIES_GATHERED`, `PUT /api/inventories/{id}/gathers`, 2026-09-18). One entry on the list of
@@ -2519,7 +2522,9 @@ dashboard: four headings each saying "Nobody yet" were most of the panel spent o
 "Where your plans are" stays while the past is being shown, because it then holds the field that can
 change the answer. **A refresh button sits beside full screen** on the map: it reads everything again
 and moves the pins in place (`RefreshMapMarkersAsync`), so the pan and zoom it was pressed from are kept;
-a failure inside it is said on screen rather than leaving a button that looks dead. **Saying yes to a
+a failure inside it is said on screen rather than leaving a button that looks dead, and a success says
+**"The map is up to date."** (2026-09-19) for the same reason - keeping the view means a press with
+nothing new behind it changes nothing at all on the screen. **Saying yes to a
 pressed place keeps the view too** (2026-09-18): it used to rebuild the map, which came back fitted to
 every pin the account holds rather than showing the spot just chosen. Searching still redraws - being
 taken to what was found is the point of searching.
@@ -5309,7 +5314,10 @@ about**, and there are three ways to do that, all of them the same rule (`NewsSe
 **Reading them all at once is a press of its own** - "Mark all read" on the notifications page, beside
 Delete history, which is the arrangement the phone already had
 (`NotificationFeedViewModel.MarkEverythingRead`). Read and cleared stay different things, as the server
-keeps them: read means "I have seen these", cleared means "take them out of my way".
+keeps them: read means "I have seen these", cleared means "take them out of my way". Both need a
+connection, so on the phone both are greyed without one - and the menu says why, carrying
+`ConnectionRequirement.Explanation` as its heading while the phone is offline (2026-09-19): a greyed
+entry with nothing beside it is, to the reader, a press that did not register.
 
 **Desktop opens a popup; a phone opens a page.** A 320px panel anchored to the mobile top bar leaves
 almost nothing readable, so on that breakpoint the entry navigates to `/notifications`
