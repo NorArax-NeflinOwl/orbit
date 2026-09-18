@@ -127,8 +127,7 @@ public sealed class InventorySharingTests
         var recipientUserId = Guid.NewGuid();
         var inventoryId = context.AddInventory(ownerUserId, "Kitchen");
         context.AddAcceptedShare(inventoryId, ownerUserId, recipientUserId, ShareAccessLevel.ReadOnly);
-        var handler = new UpdateInventoryCommandHandler(
-            context.AccessResolver, context.InventoryRepository, context.ItemsSaver);
+        var handler = context.InventorySave();
 
         var outcome = await handler.HandleAsync(
             new UpdateInventoryCommand(recipientUserId, inventoryId, "Renamed", [], IsPrivate: false, EncryptedContent: null), CancellationToken.None);

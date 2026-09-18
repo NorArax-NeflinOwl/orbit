@@ -185,7 +185,13 @@ else
                                        InventoryItem.Usage. Said as a warning while the typed minimum is lower. *@
                                     @if (item.Usage > 0)
                                     {
-                                        <FieldHint Warns="@((item.MinimumQuantity ?? 0) < item.Usage)">@T.Format("Your lists ask for {0} of this, so it is never kept below that.", item.Usage.ToString("0.##"))</FieldHint>
+                                        @* Which lists, not only how many of them: changing this number
+                                           reaches them, and somebody deciding what to type here is
+                                           deciding for those lists - see ShelfDemand. Said the moment
+                                           the row is read rather than only when Save stops to ask. *@
+                                        <FieldHint Warns="@((item.MinimumQuantity ?? 0) < item.Usage)">@(ListsAskingFor(item) is { Count: > 0 } asking
+                                            ? T.Format("{0} ask for {1} of this, so it is never kept below that.", string.Join(", ", asking), item.Usage.ToString("0.##"))
+                                            : T.Format("Your lists ask for {0} of this, so it is never kept below that.", item.Usage.ToString("0.##")))</FieldHint>
                                     }
                                 </label>
                                 @* The unit reads on the row it qualifies - "2" and "2 kg" are different
@@ -416,6 +422,35 @@ else
         <ShareLinkButton ItemType="Inventory" ItemId="InventoryId!.Value" />
     </Dialog>
 }
+
+@* The one thing a save of the shelf cannot decide on its own. An amount only one list asks for is
+   written straight into it; an amount two lists ask for divides between them in a way only the reader
+   knows - one of the two recipes got bigger, not both a little. So the lists are named, and the reader
+   either splits it equally or goes and changes the one that actually moved. Closing the panel is the
+   second answer: the shelf still saves, and nothing on any list is touched. See ShelfDemand. *@
+@if (_sharedRowsInQuestion.Count > 0)
+{
+    <Dialog Title="@T["More than one list asks for this"]" OnClosed="() => AnswerAboutSharedRowsAsync(false)">
+        <ChildContent>
+            <p>@T["Several of your lists ask for these, so Orbit can't tell which one you changed."]</p>
+            <ul class="shared-shelf-rows">
+                @foreach (var row in _sharedRowsInQuestion)
+                {
+                    <li>
+                        <strong>@(row.Name.Trim().Length > 0 ? row.Name : T["Item name"])</strong>
+                        @* Prose rather than a value, so the list names wrap instead of being cut off - see .row-meta-prose. *@
+                        <span class="row-meta row-meta-prose">@T.Format("now {0}, asked for by {1}", (row.MinimumQuantity ?? 0).ToString("0.##"), string.Join(", ", ListsAskingFor(row)))</span>
+                    </li>
+                }
+            </ul>
+            <p class="field-hint">@T["Split evenly divides each amount equally between the entries asking for it. Leaving the lists alone saves the shelf and changes nothing on them."]</p>
+        </ChildContent>
+        <Footer>
+            <button type="button" class="btn-primary" @onclick="() => AnswerAboutSharedRowsAsync(true)">@T["Split evenly"]</button>
+            <button type="button" class="btn-secondary" @onclick="() => AnswerAboutSharedRowsAsync(false)">@T["I'll change the lists myself"]</button>
+        </Footer>
+    </Dialog>
+}
 }
 
 @code {
@@ -492,6 +527,30 @@ else
     /// <summary>What the reader has narrowed the shelf down to. Never touches what is saved - see ItemFilter.</summary>
     private readonly ItemFilter _filter = new();
     private string? _saveErrorMessage;
+
+    /// <summary>
+    /// Every row's minimum as the page read it, so a save can tell which ones this reader actually moved.
+    /// The form model is not enough on its own: after typing, every row says what is in the box, and
+    /// "this is what it says" and "this is what somebody changed" are different questions - only the
+    /// second may rewrite a task list. See ShelfDemand.
+    /// </summary>
+    private IReadOnlyDictionary<Guid, decimal?> _minimumsAsLoaded = new Dictionary<Guid, decimal?>();
+
+    /// <summary>Which of this reader's task entries ask for each row on the shelf - see ShelfDemand.</summary>
+    private IReadOnlyList<ShelfClaimDto> _shelfDemand = [];
+
+    /// <summary>
+    /// The rows whose changed minimum several lists are asking for, while the question about them is
+    /// open. Empty at every other moment: it is filled the moment Save finds one, and emptied by
+    /// whichever answer the reader gives.
+    /// </summary>
+    private IReadOnlyList<InventoryItemFormModel> _sharedRowsInQuestion = [];
+
+    /// <summary>
+    /// Whether the reader answered "split it evenly" to that question. Read by the save that follows and
+    /// then put back, so a second save of the same page asks again rather than quietly splitting again.
+    /// </summary>
+    private bool _splitTheSharedRowsEvenly;
 
     private bool _isShared;
     private string? _sharedByUserName;
@@ -597,6 +656,12 @@ else
             _formModel = InventoryFormModel.FromDto(inventory, items);
             _folderId = inventory.FolderId;
             _savedFolderId = inventory.FolderId;
+
+            // What every row's minimum was when the page opened, and which entries ask for it. Together
+            // they are what a save needs to know: which minimums this reader actually moved, and whether
+            // moving one reaches a list - see AmountsThatMoved and ShelfDemand.
+            _minimumsAsLoaded = items.ToDictionary(item => item.Id, item => item.MinimumQuantity);
+            _shelfDemand = await InventoryApiClient.GetShelfDemandAsync(InventoryId.Value);
 
             if (!_isReadOnly)
             {
@@ -943,7 +1008,68 @@ else
     /// </summary>
     private Task GoBack() => NavigationTrail.FinishAsync(WhenFinished);
 
+    /// <summary>
+    /// The rows whose minimum this reader actually moved. Not "what the boxes say": after typing, every
+    /// box says something, and only a number somebody changed is a reason to rewrite a task list - see
+    /// _minimumsAsLoaded. A cleared minimum is left out too, for the reason
+    /// UpdateInventoryCommandHandler.WriteTheAmountsBackToTheListsAsync gives.
+    /// </summary>
+    private IReadOnlyList<InventoryItemFormModel> RowsWhoseMinimumMoved()
+        => [.. _formModel.Items.Where(item =>
+            item.Id is { } id
+            && item.MinimumQuantity is not null
+            && _minimumsAsLoaded.TryGetValue(id, out var before)
+            && before != item.MinimumQuantity)];
+
+    /// <summary>Which of this reader's entries ask for one shelf row - see ShelfDemand.</summary>
+    private IReadOnlyList<ShelfClaimDto> WhatAsksFor(InventoryItemFormModel item)
+        => item.Id is { } id ? [.. _shelfDemand.Where(claim => claim.InventoryItemId == id)] : [];
+
+    /// <summary>
+    /// The changed rows more than one entry asks for - the ones a save cannot divide on its own, and so
+    /// the ones the reader is asked about. A row exactly one entry asks for needs no question: that entry
+    /// is the whole of the demand and the server writes the new amount straight into it.
+    /// </summary>
+    private IReadOnlyList<InventoryItemFormModel> SharedRowsBeingChanged()
+        => [.. RowsWhoseMinimumMoved().Where(item => WhatAsksFor(item).Count > 1)];
+
+    /// <summary>
+    /// The lists asking for a row, named and said once each: two entries of one list asking for the same
+    /// flour is still one list to go and change.
+    /// </summary>
+    private IReadOnlyList<string> ListsAskingFor(InventoryItemFormModel item)
+        => [.. WhatAsksFor(item).Select(claim => claim.TaskListName).Distinct(StringComparer.CurrentCultureIgnoreCase)];
+
+    /// <summary>
+    /// Save, stopping first to ask about any amount several lists are asking for - see ShelfDemand for
+    /// why it cannot be divided without being told how. Everything else saves straight through, the
+    /// single-list rows included: those are written back without a word, which is what "a change on the
+    /// shelf reaches the list" means.
+    /// </summary>
     private async Task SaveAsync()
+    {
+        if (SharedRowsBeingChanged() is { Count: > 0 } shared)
+        {
+            _sharedRowsInQuestion = shared;
+            return;
+        }
+
+        await SaveNowAsync();
+    }
+
+    /// <summary>
+    /// The reader's answer to that question: split what they typed equally between the entries asking, or
+    /// leave the lists alone and go and change the one that actually moved. Either way the shelf itself
+    /// saves - the amount they typed is what they meant for the shelf.
+    /// </summary>
+    private async Task AnswerAboutSharedRowsAsync(bool splitEvenly)
+    {
+        _splitTheSharedRowsEvenly = splitEvenly;
+        _sharedRowsInQuestion = [];
+        await SaveNowAsync();
+    }
+
+    private async Task SaveNowAsync()
     {
         _saveErrorMessage = null;
         _isSaving = true;
@@ -964,7 +1090,8 @@ else
             }
             else
             {
-                var outcome = await InventoryApiClient.UpdateInventoryAsync(InventoryId!.Value, _formModel.ToRequest(_folderId));
+                var outcome = await InventoryApiClient.UpdateInventoryAsync(
+                    InventoryId!.Value, _formModel.ToRequest(_folderId, SharedRowsToSplit()));
                 if (outcome.Kind == EditOutcomeKind.Locked)
                 {
                     _lockedByUserName = outcome.LockedByUserName;
@@ -1018,10 +1145,23 @@ else
         finally
         {
             _isSaving = false;
+            // Put back, so a second save from the same page asks again rather than quietly splitting
+            // whatever was edited next.
+            _splitTheSharedRowsEvenly = false;
         }
 
         await GoBack();
     }
+
+    /// <summary>
+    /// The shelf rows whose new amount the server may divide equally - only when the reader said so, and
+    /// only the rows they were actually asked about. Empty otherwise, which leaves every shared row's
+    /// lists exactly as they are. See ShelfDemand.
+    /// </summary>
+    private IReadOnlyList<Guid> SharedRowsToSplit()
+        => _splitTheSharedRowsEvenly
+            ? [.. SharedRowsBeingChanged().Select(item => item.Id!.Value)]
+            : [];
 
     private async Task AcquireLockAsync()
     {
@@ -1118,9 +1258,13 @@ else
         /// <summary>
         /// The body a save sends. <paramref name="folderId"/> is read by the server only when the
         /// inventory is being made - filing one that exists is its own request - see SaveInventoryRequest.
+        /// <paramref name="splitEvenlyAcross"/> is the reader's answer about the rows several lists ask
+        /// for - see ShelfDemand.
         /// </summary>
-        public SaveInventoryRequest ToRequest(Guid? folderId = null)
-            => new(Name, [.. Items.Select(item => item.ToDto())], IsPrivate, Description: Description, FolderId: folderId);
+        public SaveInventoryRequest ToRequest(Guid? folderId = null, IReadOnlyList<Guid>? splitEvenlyAcross = null)
+            => new(
+                Name, [.. Items.Select(item => item.ToDto())], IsPrivate, Description: Description,
+                FolderId: folderId, SplitEvenlyAcross: splitEvenlyAcross);
     }
 
 }

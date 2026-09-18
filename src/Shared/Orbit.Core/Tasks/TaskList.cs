@@ -351,6 +351,33 @@ public sealed class TaskList
     }
 
     /// <summary>
+    /// Writes how much the named entries ask for, where the amount was settled on the shelf rather than
+    /// on this list - see Orbit.Core.Inventories.ShelfDemand. Entries this list does not hold are
+    /// ignored: the caller works from every list at once and hands each the whole answer.
+    ///
+    /// Stamps the list as changed when anything moved, so the change feed carries the new amount to
+    /// every other copy of the list, and answers whether it did - a list nothing landed on is not saved.
+    /// </summary>
+    internal bool AskFor(IReadOnlyDictionary<Guid, decimal> byEntryId)
+    {
+        var moved = false;
+        foreach (var item in Items)
+        {
+            if (byEntryId.TryGetValue(item.Id, out var quantity))
+            {
+                moved |= item.AskFor(quantity);
+            }
+        }
+
+        if (moved)
+        {
+            UpdatedAtUtc = DateTimeOffset.UtcNow;
+        }
+
+        return moved;
+    }
+
+    /// <summary>
     /// Points this list at an inventory, or at none. Its own command rather than part of an update, for
     /// the same reason pinning is: it changes what the list is measured against, not what is on it.
     ///

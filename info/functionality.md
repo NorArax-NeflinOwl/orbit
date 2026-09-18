@@ -923,6 +923,30 @@ shown as a number of its own anywhere else. The phone keeps the same count besid
 shelf (`LocalInventory.ItemUsage`, filled by the sync the way the arrival dates are), so a product its
 lists ask more of than its typed minimum reads as running low there too (`InventoryItemRow.KeptAt`).
 
+**And a change on the shelf reaches the lists** (`ShelfDemand`, `GetShelfDemandQuery`,
+`GET /api/inventories/{id}/demand`, 2026-09-18). The count above was one-way: saving a list wrote the
+shelf, and editing the shelf wrote nothing back. Saving an inventory now carries every **Min** that
+actually moved - not every box on the form, only the ones whose number changed since the page was read -
+back to the entries that stand for that item:
+
+- **Nothing asks for it**: nothing to write. The shelf keeps the minimum as typed.
+- **One entry asks**: that entry is the whole of the demand, so it is given the new amount without a
+  word, and the count is taken again, leaving the two agreeing.
+- **Several ask**: the save stops and says so, naming the lists. Six between two recipes is not three
+  and three unless somebody says it is. The reader either presses **Split evenly** (*Podziel równo*),
+  which divides the amount equally between every entry asking - to the penny, the first share carrying
+  the rounding - or **I'll change the lists myself**, which saves the shelf and leaves every list exactly
+  as it was. Closing the panel means the second.
+
+Each row's hint under **Min** now names the lists asking rather than only counting them, so the choice is
+readable before Save is pressed. Clearing a minimum writes nothing back: "no minimum here" is not an
+amount to ask a list for, and the shelf goes back to being kept at whatever the lists want. **Orbit's own
+restock list is not one of the lists** (`ManagedRestockLists`): its errands point at the shelf item
+exactly as a real entry does, so before this they counted as a second list asking - and added one to
+Usage for as long as an item's own restock errand was open. The phone saves through the same endpoint and
+gets the one-entry write-through; it cannot yet raise the question, so a shared row saved from a phone
+leaves the lists alone.
+
 **The phone** offers the same picks under the entry's name as chips. After a pick it shows the '!' note
 and **Make it separate**. It sets only the words and the pointer; the group's details arrive with the
 next sync, once the server has filled them in. The web fills them in on screen at once.

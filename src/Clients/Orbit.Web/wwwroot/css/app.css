@@ -8174,3 +8174,21 @@ span.calendar-task-chip {
     gap: 8px;
     padding: 4px 0;
 }
+
+/* The rows a save of a shelf stopped to ask about: an amount several lists want, which only the reader
+   can divide - see InventoryEditor and ShelfDemand. A plain stack of name-over-detail, because each row
+   is two facts read together rather than a value beside a label. */
+.shared-shelf-rows {
+    list-style: none;
+    margin: 0 0 10px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.shared-shelf-rows li {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}

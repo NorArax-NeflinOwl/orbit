@@ -2299,15 +2299,31 @@ the session that finishes one strikes it here rather than in a report nobody rea
   3. **It was only in the list's form.** "Generate inventory" is in the menu on the list's own page
      again, which is the page somebody reading a shopping list is on.
 
-  What is **not** done is the other half of the same message: an update on the list writing through to
-  the inventory and back, with the warning when an edited item is wanted by more than one list and the
-  "Split evenly" answer. That is its own entry below.
-- **A change on a list should reach the inventory, and a change on the inventory the list** - with a
+  The other half of the same message - an update on the inventory writing back to the lists, with the
+  warning and "Split evenly" - is the entry below, and is done in the browser.
+- ~~**A change on a list should reach the inventory, and a change on the inventory the list** - with a
   warning where the item being edited is wanted by more than one list, and "Split evenly" as the other
-  answer, since the reader otherwise has to go and correct each list themselves. Asked for on
-  2026-09-18, after the entry above. Not started: today a save writes the shelf row an entry stands for
-  (see "Writing in a group's member lists" and the shelf-correction path), but nothing asks what a
-  shared row means for the other lists asking for it.
+  answer, since the reader otherwise has to go and correct each list themselves.~~ Done in the browser
+  (`ShelfDemand`, `GET /api/inventories/{id}/demand`, `UpdateInventoryCommand.SplitEvenlyAcross`). The
+  list-to-shelf half already existed (`ShelfUsage`); the shelf-to-list half is new. A save of an
+  inventory carries every **Min** that actually moved - compared against what the page read, not against
+  an empty box - back to the entries standing for that item: written straight in where one entry asks,
+  refused where several do unless the reader chose **Split evenly** (*Podziel równo*), which divides it
+  equally and to the penny. The other answer, **I'll change the lists myself**, saves the shelf and
+  leaves every list alone; so does closing the panel. Each row's hint under **Min** now names the lists
+  asking rather than only counting them.
+
+  Two things found on the way. **Orbit's own restock list counted as a list asking** - its errands point
+  at the shelf item exactly as a real entry does - which made every row that had ever run low look
+  shared, and added one to `Usage` for as long as the errand was open. `ManagedRestockLists` leaves them
+  out of both counts now. And **the phone can only take the easy half**: it saves through the same
+  endpoint, so a row one entry asks for is written through there too, but it cannot raise the question,
+  so a shared row saved from a phone leaves the lists alone. The phone's side of the warning is below.
+- **The phone cannot ask about a shelf row several lists want.** It saves inventories through the same
+  endpoint as the browser and gets the same write-through for a row exactly one entry asks for, but it
+  never reads `/demand`, so it can neither name the lists on the row nor offer "Split evenly" - a shared
+  row edited there simply leaves the lists as they are, which is the safe answer rather than the right
+  one. What it needs is the read, the row hint, and the two-answer sheet. 2026-09-18.
 - **A separator made on one client is not drawn by the other**, either way round. The Android entry
   above is the same fault seen from one side only, and both are issue #294: the wire, both clients'
   mappings, the phone's local store, its template and the sync were all read, and a test now holds the

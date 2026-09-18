@@ -244,6 +244,17 @@ public static class PolishTranslations
             "Ile tego potrzebuje ta pozycja. Minimum w magazynie nigdy nie spada poniżej tego, czego potrzebują razem wszystkie Twoje listy.",
         ["Your lists ask for {0} of this, so it is never kept below that."] =
             "Twoje listy potrzebują tego {0}, więc stan nigdy nie jest utrzymywany poniżej tej wartości.",
+        // The same sentence with the lists named - see InventoryEditor and ShelfDemand.
+        ["{0} ask for {1} of this, so it is never kept below that."] =
+            "{0} potrzebują tego {1}, więc stan nigdy nie jest utrzymywany poniżej tej wartości.",
+        ["More than one list asks for this"] = "Więcej niż jedna lista potrzebuje tego produktu",
+        ["Several of your lists ask for these, so Orbit can't tell which one you changed."] =
+            "Kilka Twoich list potrzebuje tych produktów, więc Orbit nie wie, na której z nich coś się zmieniło.",
+        ["now {0}, asked for by {1}"] = "teraz {0}, potrzebują tego: {1}",
+        ["Split evenly divides each amount equally between the entries asking for it. Leaving the lists alone saves the shelf and changes nothing on them."] =
+            "„Podziel równo” rozdziela każdą ilość po równo między pozycje, które jej potrzebują. Pozostawienie list bez zmian zapisuje magazyn i nie zmienia na nich niczego.",
+        ["Split evenly"] = "Podziel równo",
+        ["I'll change the lists myself"] = "Sam zmienię listy",
         ["Open {0}"] = "Otwórz: {0}",
         ["done: {0}"] = "zrobione: {0}",
         ["any one of: {0}"] = "dowolne z: {0}",
