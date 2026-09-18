@@ -194,6 +194,107 @@ public sealed class InventoryDetailScreenTests
             ? screen.SplitEvenlyCommand.ExecuteAsync(null)
             : screen.LeaveTheListsAloneCommand.ExecuteAsync(null);
 
+    /// <summary>
+    /// A group can be arranged from the phone as well as from the browser: the sheet offers every other
+    /// shelf this reader has, ticked where it is already gathered here, and a tick is written straight
+    /// through. 2026-09-19 - the browser had it since gathering existed.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_can_be_put_in_the_group_from_the_phone()
+    {
+        using var context = new ScreenContext();
+        var kitchen = context.Server.AddInventory("Kitchen");
+        var fridge = context.Server.AddInventory("Fridge");
+        var stored = await context.PullEverythingAsync(kitchen.Id);
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.ArrangeTheGroupCommand.Execute(null);
+        var offered = Assert.Single(screen.Gathering.Entries);
+        Assert.Equal("Fridge", offered.Label);
+        Assert.False(offered.IsChosen);
+        offered.ChooseCommand.Execute(null);
+        await Task.Yield();
+
+        Assert.Equal([fridge.Id], context.Server.GatheredBy(kitchen.Id));
+    }
+
+    /// <summary>And taking one out again, which is the same tick the other way.</summary>
+    [Fact]
+    public async Task And_taken_out_again()
+    {
+        using var context = new ScreenContext();
+        var fridge = context.Server.AddInventory("Fridge");
+        var kitchen = context.Server.AddInventory("Kitchen", gathers: [fridge.Id]);
+        var stored = await context.PullEverythingAsync(kitchen.Id);
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.ArrangeTheGroupCommand.Execute(null);
+        var offered = Assert.Single(screen.Gathering.Entries);
+        Assert.True(offered.IsChosen);
+        offered.ChooseCommand.Execute(null);
+        await Task.Yield();
+
+        Assert.Empty(context.Server.GatheredBy(kitchen.Id));
+    }
+
+    /// <summary>
+    /// The shelf being read is never among the ones it could gather: a shelf gathering itself is one
+    /// read forever, and it is not something anybody means.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_is_never_offered_to_gather_itself()
+    {
+        using var context = new ScreenContext();
+        var kitchen = context.Server.AddInventory("Kitchen");
+        var stored = await context.PullEverythingAsync(kitchen.Id);
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.ArrangeTheGroupCommand.Execute(null);
+
+        Assert.Empty(screen.Gathering.Entries);
+    }
+
+    /// <summary>
+    /// A refusal is said rather than swallowed. The one a reader can trip over from here is a shelf that
+    /// already gathers this one, directly or further down - see InventoryGroups.
+    /// </summary>
+    [Fact]
+    public async Task A_refused_arrangement_says_why()
+    {
+        using var context = new ScreenContext();
+        var kitchen = context.Server.AddInventory("Kitchen");
+        context.Server.AddInventory("Fridge");
+        var stored = await context.PullEverythingAsync(kitchen.Id);
+        var screen = await context.OpenAsync(stored.LocalId);
+        context.Server.RefuseGathering = true;
+
+        screen.ArrangeTheGroupCommand.Execute(null);
+        Assert.Single(screen.Gathering.Entries).ChooseCommand.Execute(null);
+        await Task.Yield();
+
+        Assert.Contains("Fridge", screen.Status);
+        Assert.Empty(context.Server.GatheredBy(kitchen.Id));
+    }
+
+    /// <summary>
+    /// And it is not offered at all without a connection: gathering is written straight through, so
+    /// there is nothing local for it to be true of in the meantime.
+    /// </summary>
+    [Fact]
+    public async Task Arranging_a_group_is_not_offered_offline()
+    {
+        using var context = new ScreenContext();
+        var kitchen = context.Server.AddInventory("Kitchen");
+        var stored = await context.PullEverythingAsync(kitchen.Id);
+        var screen = await context.OpenAsync(stored.LocalId);
+        Assert.True(screen.CanArrangeTheGroup);
+
+        context.Network.Becomes(false);
+        var offline = await context.OpenAsync(stored.LocalId);
+
+        Assert.False(offline.CanArrangeTheGroup);
+    }
+
     /// <summary>An ordinary shelf gathers nothing, so the section is not there at all.</summary>
     [Fact]
     public async Task An_ordinary_shelf_draws_no_such_section()

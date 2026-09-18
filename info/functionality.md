@@ -989,13 +989,20 @@ it: the card on `/inventory` carries a **Group** badge and lists what it gathers
 shelf; the group's own page draws every member's shelf under its name; and the editor has **Inventories
 gathered here**, a box per shelf that says which list each answers to.
 
-**The phone shows it too**, read-only (`LocalInventory.GathersServerIds`, 2026-09-18). Its list of
-inventories carries the **Group** badge and names what a group holds on one line ("Holds: Fridge,
-Pantry"); the group's own screen draws each smaller shelf above its own rows, with how much is on it and
-how much of it is short, each opening by being pressed. **Arranging a group stays in the browser**, where
-the whole list of shelves is in front of the reader - the phone keeps the membership beside the items the
-way it keeps the arrival dates and the usage counts, as something the server decides and the phone draws.
-A member this phone has not got yet is passed over rather than drawn as a shelf that cannot be opened.
+**The phone shows it too** (`LocalInventory.GathersServerIds`, 2026-09-18). Its list of inventories
+carries the **Group** badge and names what a group holds on one line ("Holds: Fridge, Pantry"); the
+group's own screen draws each smaller shelf above its own rows, with how much is on it and how much of it
+is short, each opening by being pressed. A member this phone has not got yet is passed over rather than
+drawn as a shelf that cannot be opened.
+
+**And arranges one** (`InventoryDetailViewModel.Gathering`, 2026-09-19): **Inventories gathered here** in
+the shelf's own menu opens a sheet of every other shelf this reader has, ticked where it is already
+gathered, staying open so several can be moved in one visit. A tick is written straight through, the way
+the restock list's settings are and unlike everything else the phone edits: how a group is arranged is not
+part of what the shelf holds, and there is nothing local for it to be true of in the meantime. So it needs
+a connection, and is greyed rather than hidden without one - along with a shelf the server has never seen,
+a sealed one, and one reached through a share, which is its owner's to arrange. A refusal is said in
+words: the one rule a reader can trip over from here is a shelf that already gathers this one.
 
 **And a save of the shelf crosses off what it now answers** (2026-09-18). The rule is
 `StockedEntryCompletion`'s and a save of a *list* has always gone through it; this is the same question

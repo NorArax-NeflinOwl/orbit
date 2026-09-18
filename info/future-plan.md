@@ -2259,8 +2259,12 @@ the session that finishes one strikes it here rather than in a report nobody rea
   list of inventories carries the badge and names what a group holds and the group's own screen draws
   each smaller shelf with what is on it and how much of it is short. Arranging a group stays in the
   browser - that is a decision made with the whole list of shelves in front of the reader, and a phone
-  answering it would be answering with a guess. **Offering it on the phone** is the next step if it is
-  wanted: the screen has the shelves and the ids already, so it is a sheet of boxes and one PUT.
+  answering it would be answering with a guess. ~~**Offering it on the phone** is the next step if it is
+  wanted: the screen has the shelves and the ids already, so it is a sheet of boxes and one PUT.~~ Done
+  2026-09-19, and it was exactly that: **Inventories gathered here** in the shelf's own menu opens a sheet
+  of every other shelf, ticked where it is gathered, staying open so several can be moved at once. Written
+  straight through rather than queued, the way the restock list's settings are - so it needs a connection
+  and is greyed without one.
 - ~~**A mark on the folder button where a notification's thing is**, so somebody following a
   notification can see which folder holds it - in the web's mobile view as well.~~ Done in the browser:
   `FolderTabs.HasNewsIn` puts a dot on the tab, and `PhoneToolbar.HasNews` the same dot on the button

@@ -341,6 +341,10 @@
              opened cannot collide. -->
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
                               BindingContext="{Binding Question}" />
+        <!-- And the sheet of boxes that arranges the group - see InventoryDetailViewModel.Gathering.
+             Its own again for the same reason, and only one menu is ever open. -->
+        <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
+                              BindingContext="{Binding Gathering}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
         <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>

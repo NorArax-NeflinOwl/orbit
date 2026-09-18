@@ -196,6 +196,93 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
     public ScreenMenu Question { get; } = new();
 
     /// <summary>
+    /// The sheet of boxes that arranges this group: every other shelf this reader has, ticked where it
+    /// is gathered here. Its own menu beside the question above, for the same reason - the page's menu
+    /// belongs to the bar over the shelf, and this hangs off an entry in it.
+    /// </summary>
+    public ScreenMenu Gathering { get; } = new();
+
+    /// <summary>
+    /// Whether arranging the group can be offered at all: a shelf the server has never seen has nothing
+    /// to gather with, one sealed keeps no readable membership, one reached through a share is its
+    /// owner's to arrange, and a reader with no connection cannot be told whether the server took it -
+    /// gathering is written straight through, like the restock list's settings.
+    /// </summary>
+    public bool CanArrangeTheGroup
+        => _serverId is not null && !IsPrivate && !IsReadOnly && _networkStatus.IsOnline;
+
+    /// <summary>
+    /// Opens that sheet. Every other shelf of this reader's, each a tick, and the sheet stays open so
+    /// several can be moved in one visit - which is what StaysOpen is for.
+    /// </summary>
+    [RelayCommand]
+    private void ArrangeTheGroup()
+    {
+        if (_serverId is not { } serverId)
+        {
+            return;
+        }
+
+        Gathering.Show(
+            [.. _everyOtherShelf.Select(shelf => new ScreenMenuEntry(
+                shelf.IsSealed ? _translations["Private"] : shelf.Name,
+                () => _ = GatherAsync(serverId, shelf),
+                isChosen: _gathers.Contains(shelf.ServerId!.Value),
+                canBeChosen: !shelf.IsSealed,
+                staysOpen: true))],
+            _translations["Inventories gathered here"]);
+    }
+
+    /// <summary>
+    /// Puts a shelf in this group or takes it out, and says so at once. The whole membership goes up
+    /// each time, because that is what the server takes - see GatherInventoriesRequest.
+    ///
+    /// A refusal is said rather than swallowed: the one rule a reader can trip over from here is a shelf
+    /// that already gathers this one, directly or further down, which would close a ring.
+    /// </summary>
+    private async Task GatherAsync(Guid serverId, LocalInventory shelf)
+    {
+        var memberId = shelf.ServerId!.Value;
+        var wanted = _gathers.Contains(memberId)
+            ? [.. _gathers.Where(gathered => gathered != memberId)]
+            : new List<Guid>([.. _gathers, memberId]);
+
+        try
+        {
+            if (!await _inventoryClient.GatherAsync(serverId, wanted, CancellationToken.None))
+            {
+                Status = _translations.Format(
+                    "Couldn't put \"{0}\" in this group. It may already gather this one.", shelf.Name);
+                return;
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            Status = _translations.Format("Couldn't put \"{0}\" in this group. Try again.", shelf.Name);
+            return;
+        }
+
+        _gathers = wanted;
+        Status = string.Empty;
+        // Drawn again: the sheet stays open, so the tick that was just pressed has to move - and the
+        // shelves below it are what this group now stands for.
+        ArrangeTheGroup();
+        await ShowStoredInventoryAsync(CancellationToken.None);
+    }
+
+    /// <summary>The server's id for this shelf, or null for one it has never seen.</summary>
+    private Guid? _serverId;
+
+    /// <summary>What it gathers, as the server last answered - see Inventory.GathersInventoryIds.</summary>
+    private IReadOnlyList<Guid> _gathers = [];
+
+    /// <summary>
+    /// The shelves it could gather: this reader's own, other than itself, and only those the server
+    /// knows - a group is an arrangement the server keeps, so a shelf it has never seen cannot be in one.
+    /// </summary>
+    private IReadOnlyList<LocalInventory> _everyOtherShelf = [];
+
+    /// <summary>
     /// The smaller shelves this one gathers, if it is a group - see
     /// Orbit.Core.Inventories.Inventory.GathersInventoryIds. The same row the list of inventories draws,
     /// because that is what each of these is: a shelf of its own, opened by pressing it.
@@ -761,6 +848,17 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
     /// </summary>
     private void ShowWhatItGathers(LocalInventory inventory, IReadOnlyList<LocalInventory> everyShelf)
     {
+        // What arranging the group needs: this shelf's own id, what it gathers now, and the shelves it
+        // could gather - see ArrangeTheGroup.
+        _serverId = inventory.ServerId;
+        _gathers = inventory.GathersServerIds;
+        _everyOtherShelf =
+        [
+            .. everyShelf.Where(candidate =>
+                candidate.LocalId != inventory.LocalId && candidate.ServerId is not null && !candidate.IsShared)
+        ];
+        OnPropertyChanged(nameof(CanArrangeTheGroup));
+
         Gathered.Clear();
         foreach (var memberId in inventory.GathersServerIds)
         {

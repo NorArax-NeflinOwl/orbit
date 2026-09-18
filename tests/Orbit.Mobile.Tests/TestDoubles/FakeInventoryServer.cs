@@ -139,6 +139,26 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
             return Json(ItemsIn(inventoryId).ToList());
         }
 
+        // Which shelves this one gathers - see Orbit.Core.Inventories.GatherInventories. The real server
+        // refuses a ring and a shelf that is not the caller's; this keeps whatever it is given, and a
+        // test that is about a refusal says so with RefuseGathering.
+        if (path.EndsWith("/gathers", StringComparison.Ordinal))
+        {
+            if (RefuseGathering)
+            {
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }
+
+            var inventoryId = Guid.Parse(path.Split('/')[^2]);
+            var asked = await ReadAsync<GatherInventoriesRequest>(request, cancellationToken);
+            _inventories[inventoryId] = _inventories[inventoryId] with
+            {
+                GathersInventoryIds = asked!.InventoryIds,
+                UpdatedAtUtc = _timeProvider.GetUtcNow()
+            };
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        }
+
         // Which of this reader's task entries ask for each row here - see Orbit.Core.Inventories.ShelfDemand.
         if (path.EndsWith("/demand", StringComparison.Ordinal))
         {
@@ -177,6 +197,16 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
 
     /// <summary>What the last save asked to be divided equally - see SaveInventoryRequest.SplitEvenlyAcross.</summary>
     public IReadOnlyList<Guid> LastSplitEvenlyAcross { get; private set; } = [];
+
+    /// <summary>
+    /// Whether arranging a group is refused - which the real server does for a ring and for a shelf that
+    /// is not the caller's. The one refusal a reader can trip over from the screen.
+    /// </summary>
+    public bool RefuseGathering { get; set; }
+
+    /// <summary>What one shelf gathers here, so a test can read back what the screen sent.</summary>
+    public IReadOnlyList<Guid> GatheredBy(Guid inventoryId)
+        => _inventories.TryGetValue(inventoryId, out var inventory) ? inventory.AllGathered : [];
 
     /// <summary>Says that one list asks for one row, which is how a test builds a shared row out of two calls.</summary>
     public void AddDemand(Guid inventoryItemId, string taskListName, decimal quantity = 1)
