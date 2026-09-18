@@ -31,7 +31,10 @@ public sealed class InventoryExpiryNotificationRepository : IInventoryExpiryNoti
         return rows
             .Select(row => new DueExpiryReminder(
                 row.Item.Id, row.InventoryId, row.UserId, row.Item.Name, row.Item.ExpiryDate!.Value,
-                Enum.Parse<NotificationChannel>(row.Item.ExpiryNotificationChannel, ignoreCase: true)))
+                Enum.Parse<NotificationChannel>(row.Item.ExpiryNotificationChannel, ignoreCase: true),
+                // How much of it there is. Whether that is a reason not to warn is the scheduler's
+                // answer, not this query's - see InventoryExpiryReminderScheduler.
+                row.Item.Quantity))
             .ToList();
     }
 

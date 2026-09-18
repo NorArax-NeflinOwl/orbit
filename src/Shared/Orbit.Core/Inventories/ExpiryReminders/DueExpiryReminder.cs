@@ -12,10 +12,16 @@ namespace Orbit.Core.Inventories.ExpiryReminders;
 /// "/inventory" leaves every page that reads it able to say something is about to go off and unable to
 /// say where - see InventoryExpiryPushContent.
 /// </param>
+/// <param name="Quantity">
+/// How much of it is actually on the shelf. Carried because nothing goes off when there is none of it:
+/// see InventoryExpiryReminderScheduler, which is where that rule lives. Deliberately without a default
+/// - a caller that forgot to say would have every one of its reminders silently dropped.
+/// </param>
 public sealed record DueExpiryReminder(
     Guid InventoryItemId,
     Guid InventoryId,
     Guid UserId,
     string Name,
     DateTimeOffset ExpiryDate,
-    NotificationChannel NotificationChannel);
+    NotificationChannel NotificationChannel,
+    decimal Quantity);
