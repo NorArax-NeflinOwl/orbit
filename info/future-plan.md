@@ -2366,9 +2366,14 @@ the session that finishes one strikes it here rather than in a report nobody rea
   measured against a shelf its owner had filed out of sight went on showing a stock check against it and
   raising restock errands from it. Only on the way in - bringing it back does not put the links back,
   because nothing records which lists they were and guessing would be inventing a choice nobody made.
-  **The same rule for a task list** - taking an archived list out of the group lists that gather it - is
-  *not* done: it is the same shape, but a group losing a member cannot be undone by un-archiving either,
-  and that is a bigger thing to do unasked. Worth a yes or no before it is built.
+  **And the same rule for a task list** (`ArchiveTaskListCommandHandler`, `TaskList.StopGathering`),
+  confirmed by the user the same day: putting a list away takes it out of every group gathering it. A
+  group's row that stood only for that list goes with it - a pointer at other lists is not work of its
+  own, so one left pointing at nothing would become an errand nobody wrote, outstanding for good - and a
+  row standing for two lists keeps the other. A row that also stood for a shelf item takes its share of
+  that item's count with it, so the count is taken again. **A "way" of doing something that points at
+  the archived list** (`TaskItemAlternative`) is deliberately left alone: that is a choice between ways
+  rather than group membership, and if it should follow the same rule it is its own small change.
 - ~~**Private and made-up folders should only be tabs on the dashboard where they hold something, and
   with only Public left the whole bar should go.**~~ Done (`FolderTabRow`, `FolderTabs.HoldsAnything`):
   what the reader has put away on the dashboard is counted too, since a folder is not empty because its

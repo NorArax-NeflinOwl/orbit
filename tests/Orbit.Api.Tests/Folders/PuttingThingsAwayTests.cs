@@ -143,6 +143,89 @@ public sealed class PuttingThingsAwayTests
     }
 
     /// <summary>
+    /// The same rule for a list: putting one away takes it out of every group gathering it. Confirmed by
+    /// the user on 2026-09-18 - a group went on standing for a list its owner had filed out of sight,
+    /// counting its work into its own progress with nothing on screen saying why.
+    /// </summary>
+    [Fact]
+    public async Task A_list_put_away_comes_out_of_the_groups_gathering_it()
+    {
+        var shopping = TaskList.Create(OwnerUserId, "Shopping", []);
+        await _taskLists.AddAsync(shopping, CancellationToken.None);
+        var week = TaskList.Create(
+            OwnerUserId, "This week",
+            [TaskItem.Create("Shopping", null, false, linkedTaskListIds: [shopping.Id])]);
+        await _taskLists.AddAsync(week, CancellationToken.None);
+
+        await new ArchiveTaskListCommandHandler(_taskLists).HandleAsync(
+            new ArchiveTaskListCommand(OwnerUserId, shopping.Id, IsArchived: true), CancellationToken.None);
+
+        // The row existed to point at it, so it goes with the pointing - see TaskList.StopGathering.
+        Assert.Empty(week.Items);
+    }
+
+    /// <summary>
+    /// A row standing for two lists keeps the other one. Only what it stood for is taken away, not the
+    /// row: it is still a pointer, and still says something.
+    /// </summary>
+    [Fact]
+    public async Task A_row_standing_for_two_lists_keeps_the_one_that_stayed()
+    {
+        var shopping = TaskList.Create(OwnerUserId, "Shopping", []);
+        var chores = TaskList.Create(OwnerUserId, "Chores", []);
+        await _taskLists.AddAsync(shopping, CancellationToken.None);
+        await _taskLists.AddAsync(chores, CancellationToken.None);
+        var week = TaskList.Create(
+            OwnerUserId, "This week",
+            [TaskItem.Create("Errands", null, false, linkedTaskListIds: [shopping.Id, chores.Id])]);
+        await _taskLists.AddAsync(week, CancellationToken.None);
+
+        await new ArchiveTaskListCommandHandler(_taskLists).HandleAsync(
+            new ArchiveTaskListCommand(OwnerUserId, shopping.Id, IsArchived: true), CancellationToken.None);
+
+        Assert.Equal([chores.Id], Assert.Single(week.Items).LinkedTaskListIds);
+    }
+
+    /// <summary>
+    /// Bringing it back does not put it back into the groups: nothing records which they were, and
+    /// guessing would be writing a row nobody wrote.
+    /// </summary>
+    [Fact]
+    public async Task And_bringing_a_list_back_does_not_put_it_back_in_them()
+    {
+        var shopping = TaskList.Create(OwnerUserId, "Shopping", []);
+        await _taskLists.AddAsync(shopping, CancellationToken.None);
+        var week = TaskList.Create(
+            OwnerUserId, "This week",
+            [TaskItem.Create("Shopping", null, false, linkedTaskListIds: [shopping.Id])]);
+        await _taskLists.AddAsync(week, CancellationToken.None);
+        var handler = new ArchiveTaskListCommandHandler(_taskLists);
+
+        await handler.HandleAsync(
+            new ArchiveTaskListCommand(OwnerUserId, shopping.Id, IsArchived: true), CancellationToken.None);
+        await handler.HandleAsync(
+            new ArchiveTaskListCommand(OwnerUserId, shopping.Id, IsArchived: false), CancellationToken.None);
+
+        Assert.Empty(week.Items);
+        Assert.False(shopping.IsArchived);
+    }
+
+    /// <summary>A list nothing gathers is put away and nothing else is touched.</summary>
+    [Fact]
+    public async Task A_list_nothing_gathers_leaves_the_others_alone()
+    {
+        var shopping = TaskList.Create(OwnerUserId, "Shopping", []);
+        await _taskLists.AddAsync(shopping, CancellationToken.None);
+        var week = TaskList.Create(OwnerUserId, "This week", [TaskItem.Create("Hoover", null, false)]);
+        await _taskLists.AddAsync(week, CancellationToken.None);
+
+        await new ArchiveTaskListCommandHandler(_taskLists).HandleAsync(
+            new ArchiveTaskListCommand(OwnerUserId, shopping.Id, IsArchived: true), CancellationToken.None);
+
+        Assert.Single(week.Items);
+    }
+
+    /// <summary>
     /// And goes off the lists it was measured against. Asked for on 2026-09-18: putting a shelf away
     /// says it is done with, and a list still measured against it went on showing a stock check against
     /// a shelf its owner had filed out of sight - and went on raising restock errands from it.

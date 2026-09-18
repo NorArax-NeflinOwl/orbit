@@ -629,6 +629,21 @@ is, and the first that applies wins:
    server ever saw it is archived in the pass straight after its create goes up, since a create has no
    room for the flag.
 
+   **Putting something away takes it off what it was attached to** (2026-09-18). A shelf comes off every
+   list measured against it (`ArchiveInventoryCommandHandler`), and a task list comes out of every group
+   gathering it (`ArchiveTaskListCommandHandler`, `TaskList.StopGathering`). Both were the same fault:
+   the tie went on meaning something while the thing at the other end of it was filed out of sight, so a
+   list kept showing a stock check against a shelf nobody could see and a group kept counting the work of
+   a list nobody could see. A group's row that stood only for the archived list goes with it - a pointer
+   at other lists is not work of its own, so one left pointing at nothing would become an errand nobody
+   wrote, outstanding for good; a row standing for two lists keeps the other. **Only on the way in**:
+   bringing something back does not put the ties back, because nothing records what they were and
+   guessing would be inventing a choice nobody made. Choosing it again is one press either way. A row
+   that also stood for a shelf item takes its share of that item's count with it, so the count is taken
+   again (`ShelfUsage`). Private lists are passed over, since the server holds no readable entries for
+   one. **A "way" of doing something that points at the archived list** (`TaskItemAlternative`) is left
+   alone: that is a choice between ways rather than group membership.
+
    **The export carries it** (`ArchivedNote.IsArchived` and its three siblings, defaulted and last, as
    every late field is), so a round trip through a file leaves the Archived tab holding what it held
    rather than emptying it back onto the pages.
