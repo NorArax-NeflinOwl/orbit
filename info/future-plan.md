@@ -2170,8 +2170,13 @@ the session that finishes one strikes it here rather than in a report nobody rea
 - **The full or stretched map should scroll with the wheel.**
 - **Choosing a pin loses where the map was.** After pressing yes the map is read again and drawn at
   every pin's own zoom rather than at the view the reader was looking at when they used the pin.
-- **The calendar's week view cannot be told to stop showing what has passed.** The option is ticked and
-  cannot be unticked; it should be the reader's to set, and remembered per device.
+- ~~**The calendar's week view cannot be told to stop showing what has passed.** The option is ticked
+  and cannot be unticked; it should be the reader's to set, and remembered per device.~~ Done: the day
+  and the week no longer override the choice (`Calendar.ShowsEverythingInThisView` is simply
+  `CalendarListOrder.ShowsEverything` now), and that answer was already kept per device in
+  localStorage. The reasoning the override was built on is kept where the property is - it is still
+  true of what the reader now chooses, and which of the two readings they want is theirs. The phone
+  never had the override, so the two clients agree again.
 - **Group inventories.** One entry on the list of inventories, holding smaller inventories inside it,
   which can answer to different task lists.
 - **A mark on the folder button where a notification's thing is**, so somebody following a notification
