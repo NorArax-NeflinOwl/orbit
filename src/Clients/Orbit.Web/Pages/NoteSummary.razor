@@ -22,6 +22,27 @@
    thing is, with the form a named press further in. *@
 <PageTitle>@(_note is null ? T["Note"] : Written(_note.Title))</PageTitle>
 
+@* Three columns on a wide screen, the shape the editor one press further in already has: the notes in
+   this folder on the far left, the note being read in the middle, and its panel on the right. Reading a
+   note is reading one of a set, and moving between them should not mean going back to a page of cards
+   each time - asked for on 2026-09-18, and the reason the column is here as well as there. Dropped
+   below 1100px, where a fifth of the width is too narrow to name a note in. *@
+<div class="note-workspace">
+@if (!_isLoading && _notesBeside.Count > 0)
+{
+    <aside class="note-workspace-list">
+        <h2 class="note-workspace-list-heading">@T["Notes"]</h2>
+        @foreach (var note in _notesBeside)
+        {
+            <button type="button" class="note-workspace-row @(note.Id == Id ? "chosen" : null)"
+                    @onclick="() => GoToNote(note.Id)">
+                <span class="note-workspace-row-title">@Written(NameOf(note))</span>
+                <span class="row-meta">@note.UpdatedAtUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
+            </button>
+        }
+    </aside>
+}
+
 @* Two panels: the note on the left, which scrolls, and the panel on the right, which does not - see
    EditorRail. On a narrow screen the right one becomes a bar along the foot of the window. *@
 <div class="editor-page">
@@ -118,6 +139,7 @@ else
         </ChildContent>
     </EditorRail>
 }
+</div>
 </div>
 
 @code {
@@ -221,7 +243,60 @@ else
         _lines = [.. _note.Content];
         _isReadOnly = _note.IsShared && !SharedItemAccess.For(_note.IsShared, _note.AccessLevel).CanEdit;
         _hasChanges = false;
+        await ListTheNotesBesideItAsync();
     }
+
+    /// <summary>The notes in this note's folder, most recently changed first - the column beside it.</summary>
+    private IReadOnlyList<NoteDto> _notesBeside = [];
+
+    /// <summary>
+    /// The notes this one is read among. The same list the editor draws one press further in, narrowed
+    /// the same way: this note's own folder, so the column is the tab the reader came from rather than
+    /// the whole account. A failure leaves it empty - a note that would not open over a list of its
+    /// neighbours would be a note lost for nothing.
+    /// </summary>
+    private async Task ListTheNotesBesideItAsync()
+    {
+        try
+        {
+            _notesBeside =
+            [
+                .. (await NotesApiClient.GetNotesAsync())
+                    .Where(note => note.FolderId == _note!.FolderId)
+                    .OrderByDescending(note => note.UpdatedAtUtc)
+            ];
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't list the notes beside the one being read");
+            _notesBeside = [];
+        }
+    }
+
+    /// <summary>
+    /// Opens another note from the column, in place of this one - the same press the editor's own column
+    /// takes, landing at the same depth: reading one note and then the next is reading, not editing.
+    /// </summary>
+    private void GoToNote(Guid noteId)
+    {
+        if (noteId == Id)
+        {
+            return;
+        }
+
+        Logger.LogInformation("User opened note {NoteId} from the column beside {FromNoteId}", noteId, Id);
+        NavigationManager.NavigateTo(ReturnTo.Link($"/notes/{noteId}", ComeBackTo));
+    }
+
+    /// <summary>
+    /// What to call a note in the column - its own title, and a word for the two cases that have none:
+    /// one nobody has named, and a private one this browser could not open. The same fallback the
+    /// editor's column uses.
+    /// </summary>
+    private string NameOf(NoteDto note)
+        => note.Title is { Length: > 0 } title
+            ? title
+            : note.IsPrivate ? T["Private note"] : T["Untitled"];
 
     /// <summary>
     /// How a line is marked: struck through when it is finished with, either way, and told apart so a

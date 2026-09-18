@@ -1976,8 +1976,12 @@ public static class PolishTranslations
         ["Keep writing"] = "Pisz dalej",
         // Under the heading on the registration screen: one account, both clients.
         ["One account for the browser and this phone."] = "Jedno konto dla przeglądarki i tego telefonu.",
-        // The one place the note editor says where a tick box comes from - see NoteDetailPage's foot.
         ["Untitled"] = "Bez tytułu",
+        // Writing kept while a note is left for another one, and the warning on the way out - see NoteDrafts.
+        ["What you had written here is back. It still has to be saved."] =
+            "To, co tu napisałeś, wróciło. Nadal trzeba to zapisać.",
+        ["Not saved yet: {0}. Leave and lose what you wrote?"] =
+            "Niezapisane: {0}. Wyjść i stracić to, co napisałeś?",
         ["Someone"] = "Ktoś",
         ["Live · updated {0}"] = "Na żywo · zaktualizowano {0}",
         ["One-off · shared {0}"] = "Jednorazowo · udostępniono {0}",

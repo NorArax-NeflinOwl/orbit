@@ -410,6 +410,21 @@ public sealed class NoteEditorTests : OrbitTestContext
     }
 
     /// <summary>
+    /// Writes in the note the way the reader does: the surface says what it now holds, which is what
+    /// the form binds to (see ChecklistTextEditor.LinesChanged). The first line is the note's name.
+    /// </summary>
+    private static void WriteInTheNote(IRenderedComponent<NoteEditor> cut, string title, string line)
+    {
+        var surface = cut.FindComponent<Web.Components.ChecklistTextEditor>();
+        cut.InvokeAsync(() => surface.Instance.LinesChanged.InvokeAsync(
+            new List<NoteContentLineDto>
+            {
+                new(title, false, false),
+                new(line, false, false)
+            })).GetAwaiter().GetResult();
+    }
+
+    /// <summary>
     /// What the note is called, which is the first line of the one field the editor has - there is no
     /// separate title box any more, so this reads it where it actually lives.
     /// </summary>
@@ -679,6 +694,48 @@ public sealed class NoteEditorTests : OrbitTestContext
         cut.FindAll(".note-workspace-row").First(row => row.TextContent.Contains("Packing")).Click();
 
         Assert.EndsWith($"/notes/{other.Id}/edit", navigationManager.Uri);
+    }
+
+    /// <summary>
+    /// Opening another note from that column keeps what was written in this one, and coming back puts
+    /// it in front of the reader again, saying it is still unsaved. Moving your eyes to the next note
+    /// used to throw it away - reported on 2026-09-18. See NoteDrafts.
+    /// </summary>
+    [Fact]
+    public void Writing_left_behind_for_another_note_is_there_on_the_way_back()
+    {
+        var folderId = Guid.NewGuid();
+        var note = Note("Shopping") with { FolderId = folderId };
+        var other = Note("Packing") with { FolderId = folderId };
+        RegisterApiClients(note, alsoInTheList: [other]);
+        var drafts = Services.GetRequiredService<NoteDrafts>();
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        WriteInTheNote(cut, "Shopping", "milk and bread");
+        cut.SetParametersAndRender(parameters => parameters.Add(editor => editor.Id, other.Id));
+
+        Assert.Equal(["Shopping"], drafts.Names);
+
+        cut.SetParametersAndRender(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        Assert.Contains("milk and bread", drafts.For(note.Id)!.Lines.Select(line => line.Text));
+        Assert.Contains("still has to be saved", cut.Find(".info").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>A note read and left exactly as it was is not unsaved writing, and nothing is kept for it.</summary>
+    [Fact]
+    public void A_note_nobody_wrote_in_leaves_nothing_behind()
+    {
+        var folderId = Guid.NewGuid();
+        var note = Note("Shopping") with { FolderId = folderId };
+        var other = Note("Packing") with { FolderId = folderId };
+        RegisterApiClients(note, alsoInTheList: [other]);
+        var drafts = Services.GetRequiredService<NoteDrafts>();
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        cut.SetParametersAndRender(parameters => parameters.Add(editor => editor.Id, other.Id));
+
+        Assert.False(drafts.HasAny);
     }
 
     /// <summary>

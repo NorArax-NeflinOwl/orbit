@@ -729,10 +729,21 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 - **Two of Orbit.Web's test classes fail once in a while under the whole suite and pass alone**
   (2026-09-18). `NameSuggestionSourceTests` was the timer rather than the subject - the panel waits out
   a 150ms settle delay and the wait was left at bUnit's own one second, which a machine running the
-  suite in parallel drifts past; both its waits now allow five seconds. `GroupConversationPagesTests`
-  did it once in the same session and was not caught in the act: it has no `WaitForAssertion` at all,
-  so the cause is something else and is still open. Worth a run or two with `--blame` the next time it
-  appears rather than a guess now.
+  suite in parallel drifts past; both its waits now allow five seconds. **That was not the whole of
+  it**, and the failure was caught in the act afterwards:
+
+  > `A_kind_switched_off_is_offered_as_words_only` - `Assert.Equal() Failure: Strings differ.
+  > Expected: "Sauce". Actual: null`
+
+  So the panel *was* drawn and the option *was* found and pressed - the wait had already passed - and
+  the press did not reach `OnChosen`. That points at the press landing on a panel the component has
+  since redrawn (the settle timer coming round again under load) rather than at any timer of the
+  test's. Whoever picks this up should start there: `NameSuggestions.OnChosen` and what a second
+  lookup does to the options while one is being pressed.
+
+  `ChatThreadTests.A_notification_stays_while_their_newest_message_is_not_yet_in_view` and
+  `GroupConversationPagesTests` have each done it once in the same session, and neither has been caught
+  yet. The chat one's own waits are already 15 seconds, so it is not a deadline either.
 
 - ~~**`TaskItem.KeepAlternativesOf` can leave the completion time disagreeing with the tick.**~~ Fixed
   2026-09-14, the first of the two ways this offered: `KeepAlternativesOf` calls `RecordWhenItWasDone`
@@ -2190,9 +2201,16 @@ the session that finishes one strikes it here rather than in a report nobody rea
 
 ### Orbit.Web
 
-- **The light note editor should show the list of notes too**, and moving between notes should keep
+- ~~**The light note editor should show the list of notes too**, and moving between notes should keep
   what has been changed rather than dropping it; leaving the page should say which notes have unsaved
-  changes, or that they will be lost.
+  changes, or that they will be lost.~~ Done, all three. The note's own page draws the same column of
+  the folder's notes the editor one press further in already had, and pressing one opens it at the same
+  depth. What is written and not saved is kept per note while the tab lives (`NoteDrafts`, in memory
+  only - a draft is unfinished writing, and a private note's lines are not something to leave in
+  localStorage), put back when the note is opened again with a line saying it is still unsaved, and
+  dropped by a save or by Cancel. Leaving the editor for anywhere but another note's editor names every
+  note that would be lost and lets the reader stop
+  (`NoteEditor.AskBeforeLeavingAsync`, over `RegisterLocationChangingHandler`).
 - ~~**Delete goes out of the app**; it is offered in the Archived folder and nowhere else.~~ Done: the
   rule is the menu's own (`ObjectMenu.IsArchived`), so a page that forgets to say whether its thing is
   put away offers no Delete - the safe direction. The exception is the line that is not a deletion:

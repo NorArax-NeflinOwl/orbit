@@ -1137,6 +1137,23 @@ the shape the phone's note screen has had since the redesign: the first line is 
 drawn as one, everything under it is the note, and there is no separate title box for the two to
 disagree in.
 
+**A column of the folder's notes sits beside it**, most recently changed first, and pressing one opens
+it in place of this one; below 1100px it is dropped, where a fifth of the width is too narrow to name a
+note in. **The note's own page has the same column** (2026-09-18), landing at its own depth - reading
+one note and then the next is reading, not editing.
+
+**What is written and not saved is kept** (2026-09-18, `NoteDrafts`). Moving to another note used to
+throw it away, which is a page deciding that looking at the next note means abandoning this one. It is
+kept per note while the tab lives - in memory and nowhere else, since a draft is unfinished writing and
+a private note's lines are not something to leave in localStorage - put back when the note is opened
+again with a line saying it still has to be saved, and dropped by a save or by Cancel, which is that
+note's own "no". **Leaving the editor asks first**: anywhere but another note's editor, the notes that
+would be lost are named and the reader can stay (`AskBeforeLeavingAsync` over
+`NavigationManager.RegisterLocationChangingHandler`); going anyway is what throws them away. A note
+nobody wrote in keeps nothing, so reading one and leaving warns about nothing - what counts as written
+in is what the note *says*, compared as one string because a line carries lists of its own and two
+records holding equal lists are not equal.
+
 **Turning editing on puts the caret at the end of the writing** (`ChecklistTextEditor.FocusesAtTheEnd`):
 after the last line's words, or in the last cell of a table the note ends in, or - past a closing picture
 or rule - after the last line that has words. The phone has no editing switch to turn on: a note opens

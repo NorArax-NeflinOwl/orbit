@@ -128,6 +128,10 @@ public abstract class OrbitTestContext : TestContext
         // OverflowMenu and menuAnchor.js. There is no layout to measure here, so it answers and does
         // nothing; without it any test that opens a menu fails on the interop call rather than on
         // whatever it was about.
+        // What has been written in a note and not saved - see NoteDrafts. The editor keeps and reads it
+        // on every load, so a test about that page should not fail on a service it never exercises.
+        // Empty here, which is a browser where nothing has been left unsaved.
+        Services.AddScoped<NoteDrafts>();
         // Which of the two the page is in. The map asks it to start its own light/night switch from
         // what the map already looks like (see ThemeService.IsDarkNowAsync), so a test about the map
         // should not fail on a service it never exercises - the same reason Translations is here.

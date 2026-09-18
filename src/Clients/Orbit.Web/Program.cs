@@ -79,6 +79,10 @@ builder.Services.AddHttpClient<NotesApiClient>(httpClient => httpClient.BaseAddr
 builder.Services.AddHttpClient<NotePicturesApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddScoped<NotePictureSource>();
+// What is written in a note and not saved, kept while this tab lives - see NoteDrafts. Scoped like
+// everything else here, which in a WebAssembly app is the life of the tab: a draft is unfinished
+// writing, and it goes when the tab does.
+builder.Services.AddScoped<NoteDrafts>();
 builder.Services.AddHttpClient<TasksApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<InventoryApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
