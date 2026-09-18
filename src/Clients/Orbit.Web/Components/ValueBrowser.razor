@@ -1,4 +1,5 @@
 @using Orbit.Core.Tags
+@using Orbit.Core.Text
 @using Orbit.Web.Services
 @implements IAsyncDisposable
 @inject TagColourBook TagColourBook
@@ -36,9 +37,32 @@
     {
         <div class="value-browser-panel" @ref="_panel" role="listbox"
              aria-multiselectable="@(OnlyOne ? "false" : "true")" aria-label="@AriaLabel">
+            @* The box at the head of the panel does both jobs it can do: it narrows what is listed, and
+               where the caller allows it, what it holds can be taken as a word of its own. A vocabulary
+               longer than a glance is one somebody types at rather than scrolls - which is the whole
+               reason the panel that hangs under a box (UsedValueBrowser) narrows as it is typed into. *@
+            @if (IsTypedInto)
+            {
+                <div class="value-browser-new">
+                    <input type="text" class="form-control" value="@_typed" placeholder="@BoxSays"
+                           aria-label="@BoxSays"
+                           @oninput="args => _typed = args.Value?.ToString() ?? string.Empty"
+                           @onkeydown="OnNewKeyDownAsync" />
+                    @if (CanAddNew)
+                    {
+                        <button type="button" class="icon-btn value-browser-add" title="@(T["Add"])" aria-label="@(T["Add"])"
+                                disabled="@(_typed.Trim().Length == 0)" @onclick="AddTheNewWordAsync">
+                            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none"
+                                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
+                        </button>
+                    }
+                </div>
+            }
             @if (Offered.Count == 0)
             {
-                <p class="empty-hint value-browser-empty">@(EmptyMessage ?? T["Nothing to choose from yet."])</p>
+                <p class="empty-hint value-browser-empty">
+                    @(_typed.Trim().Length > 0 ? T["Nothing matches that."] : EmptyMessage ?? T["Nothing to choose from yet."])
+                </p>
             }
             @foreach (var offer in Offered)
             {
@@ -77,21 +101,6 @@
                     }
                 </div>
             }
-            @* A word the reader has not used yet. Added ticked, because writing it here is choosing it. *@
-            @if (CanAddNew)
-            {
-                <div class="value-browser-new">
-                    <input type="text" class="form-control" value="@_typed" placeholder="@(NewPlaceholder ?? T["New word"])"
-                           aria-label="@(NewPlaceholder ?? T["New word"])"
-                           @oninput="args => _typed = args.Value?.ToString() ?? string.Empty"
-                           @onkeydown="OnNewKeyDownAsync" />
-                    <button type="button" class="icon-btn value-browser-add" title="@(T["Add"])" aria-label="@(T["Add"])"
-                            disabled="@(_typed.Trim().Length == 0)" @onclick="AddTheNewWordAsync">
-                        <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none"
-                             stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
-                    </button>
-                </div>
-            }
             @* Whatever else belongs to this choice rather than to one of its words - the rule saying
                whether every chosen word has to hold, on the filters that ask it. *@
             @Extra
@@ -111,6 +120,13 @@
     /// <param name="Name">The word as it was written when it was first used.</param>
     /// <param name="Count">How many things this would leave, or null where the number means nothing.</param>
     public sealed record Offer(string Name, int? Count = null);
+
+    /// <summary>
+    /// Words with no count beside them - what a field being filled in offers. A number about how many
+    /// other things carry the word is a number about something else on a form; only a filter counts.
+    /// </summary>
+    public static IReadOnlyList<Offer> Words(IEnumerable<string> words)
+        => [.. words.Select(word => new Offer(word))];
 
     /// <summary>Everything this control could hold, in the order to read them in.</summary>
     [Parameter, EditorRequired] public IReadOnlyList<Offer> Offers { get; set; } = [];
@@ -134,6 +150,12 @@
 
     /// <summary>One answer at a time: ticking a word replaces whatever was ticked - the views a page can be read in.</summary>
     [Parameter] public bool OnlyOne { get; set; }
+
+    /// <summary>
+    /// Whether "nothing" is one of the answers, which only matters where one is wanted: a shelf item
+    /// with no product type is a shelf item, and a page read in no view at all is not a page.
+    /// </summary>
+    [Parameter] public bool CanBeEmpty { get; set; }
 
     /// <summary>A box in the panel for a word nothing carries yet - a field being filled in, not a filter.</summary>
     [Parameter] public bool CanAddNew { get; set; }
@@ -180,9 +202,27 @@
                 }
             }
 
-            return offered;
+            // Contains rather than starts-with, since somebody who files things under "Food, dry" will
+            // type "dry" - and loosely, so the marks over a letter do not have to be typed to find a
+            // word written with them. The same rule the suggestions panel follows (LooseText).
+            return _typed.Trim().Length == 0
+                ? offered
+                : [.. offered.Where(offer => LooseText.Holds(offer.Name, _typed))];
         }
     }
+
+    /// <summary>
+    /// Whether the panel has a box at its head. A vocabulary somebody can add to always does; one only
+    /// being read gets one once it is longer than a glance, because past that the list is a scroll
+    /// rather than a choice.
+    /// </summary>
+    private bool IsTypedInto => CanAddNew || Offers.Count > LongEnoughToTypeAt;
+
+    /// <summary>Past this many words, reading the list stops being quicker than typing at it.</summary>
+    private const int LongEnoughToTypeAt = 10;
+
+    /// <summary>What the box says it is for, which depends on whether it can also make a word.</summary>
+    private string BoxSays => CanAddNew ? NewPlaceholder ?? T["New word"] : T["Search"];
 
     private bool IsChosen(string word) => Chosen.Any(chosen => TagNames.KeyOf(chosen) == TagNames.KeyOf(word));
 
@@ -255,8 +295,8 @@
 
     /// <summary>
     /// Ticking a word takes it; unticking gives it back. Where one answer is wanted, ticking replaces
-    /// whatever held and unticking the one that holds does nothing: a page read in no view at all is not
-    /// one of the answers, and leaving it blank would be a way of hiding everything.
+    /// whatever held, and unticking the one that holds either empties the field or does nothing -
+    /// see <see cref="CanBeEmpty"/>, which is the difference between a field and a view.
     /// </summary>
     private async Task ChooseAsync(string word, bool isChosen)
     {
@@ -265,6 +305,10 @@
             if (isChosen)
             {
                 await ChosenChanged.InvokeAsync([word]);
+            }
+            else if (CanBeEmpty)
+            {
+                await ChosenChanged.InvokeAsync([]);
             }
 
             return;

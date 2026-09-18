@@ -58,20 +58,23 @@ public sealed class TagChipsTests : OrbitTestContext
     }
 
     /// <summary>
-    /// A colour is picked in the tags field and saved there and then, for the whole account - it belongs to
-    /// the word, not to the note being edited - and the chip beside the well takes it at once.
+    /// A colour is picked in the tags field - in the browser the tags are chosen in, beside the word
+    /// itself - and saved there and then for the whole account, since it belongs to the word rather
+    /// than to the note being edited. The word takes it at once.
     /// </summary>
     [Fact]
-    public void Picking_a_colour_saves_it_for_the_account_and_the_chip_takes_it()
+    public void Picking_a_colour_saves_it_for_the_account_and_the_word_takes_it()
     {
         var cut = RenderComponent<TagsField>(parameters => parameters.Add(field => field.Values, ["home"]));
 
-        cut.Find(".tags-field-colour input[type=color]").Change("#113355");
+        cut.Find(".value-browser-field").Click();
+        // This word's own well: the panel also lists "work", which the account has already coloured.
+        RowFor(cut, "home").QuerySelector(".value-browser-colour")!.Change("#113355");
 
         var asked = Assert.Single(_set);
         Assert.Equal(("home", "#113355"), (asked.Tag, asked.Colour));
         cut.WaitForAssertion(() => Assert.Contains(
-            "--tag-colour: #113355", cut.Find(".tags-field-colour .card-badge-tag").GetAttribute("style")));
+            "--tag-colour: #113355", RowFor(cut, "home").QuerySelector(".value-browser-name")!.GetAttribute("style")));
     }
 
     /// <summary>
@@ -83,8 +86,27 @@ public sealed class TagChipsTests : OrbitTestContext
     {
         var cut = RenderComponent<TagsField>(parameters => parameters.Add(field => field.Values, ["home"]));
 
+        cut.Find(".value-browser-field").Click();
+
         Assert.Contains("readable on the server", cut.Markup);
     }
+
+    /// <summary>
+    /// The words are readable without opening anything, which is what the row of chips and the row of
+    /// colour wells under it could not do once there were more than a few - see ValueBrowser.
+    /// </summary>
+    [Fact]
+    public void The_tags_a_thing_carries_are_written_along_the_closed_field()
+    {
+        var cut = RenderComponent<TagsField>(parameters => parameters.Add(field => field.Values, ["home", "work"]));
+
+        Assert.Equal("home, work", cut.Find(".value-browser-written").TextContent.Trim());
+    }
+
+    /// <summary>One word's row in the open browser, by the word itself - see ValueBrowser.</summary>
+    private static AngleSharp.Dom.IElement RowFor(IRenderedFragment cut, string word)
+        => cut.FindAll(".value-browser-row")
+            .First(row => row.QuerySelector(".value-browser-name")!.TextContent.Trim() == word);
 
     private HttpResponseMessage Answer(HttpRequestMessage request)
     {

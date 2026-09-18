@@ -179,8 +179,8 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>
-    /// A list's tags sit under its title and description, in the same word-at-a-time box an entry's
-    /// categories use, and go with the save - always said, since this form has a box for them.
+    /// A list's tags sit under its title and description, in the same browser an entry's categories are
+    /// chosen in, and go with the save - always said, since this form has a field for them.
     /// </summary>
     [Fact]
     public void A_lists_tags_are_saved_with_it()
@@ -188,8 +188,8 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         RegisterApiClients(AnItem());
         var cut = Render();
 
-        // The list's own box: no entry is open, so it is the only one on the page.
-        cut.Find(".tag-field-input").Input("work");
+        // The list's own field: no entry is open, so it is the only browser on the page.
+        WriteTheWord(cut, ".editor-item-tags", "work");
         ClickButtonSaying(cut, "Save");
 
         Assert.Contains("\"tags\":[\"work\"]", _lastSavedJson);
@@ -252,8 +252,8 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     [Fact]
     public void An_inventory_entrys_product_type_offers_the_types_entries_already_use()
     {
-        // The panel places itself under its box by measurement (see UsedValueBrowser), which is a call
-        // into the page this fixture has nothing to answer with.
+        // The panel places itself by measurement (see ValueBrowser), which is a call into the page this
+        // fixture has nothing to answer with.
         JSInterop.Mode = JSRuntimeMode.Loose;
         RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)) with
         {
@@ -264,10 +264,11 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        cut.Find(".suggested-text-input").Input(string.Empty);
+        // The product type's own browser, which is the one that holds what this entry asks for.
+        ProductTypeBrowser(cut).Click();
 
         Assert.Contains(
-            cut.FindAll(".name-suggestion-option"), option => option.TextContent.Trim() == "Dry goods");
+            cut.FindAll(".value-browser-name"), word => word.TextContent.Trim() == "Dry goods");
     }
 
     /// <summary>
@@ -459,9 +460,8 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>
-    /// A word at a time, with "+" between them - see TagField. What is in the box when Save is pressed
-    /// counts whether or not "+" was pressed on it, which is the whole point of the control: the button
-    /// is for adding a second word, not for confirming the first.
+    /// A word at a time, each taken as it is written - see ValueBrowser. They go on in the order they
+    /// were written, which is the order the field then reads them out in.
     /// </summary>
     [Fact]
     public void What_an_entry_is_about_is_added_a_word_at_a_time()
@@ -470,12 +470,10 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        cut.Find(".editor-item-details .tag-field-input").Input("shopping");
-        cut.Find(".editor-item-details .tag-field-add").Click();
-        cut.Find(".editor-item-details .tag-field-input").Input("Car");
+        WriteTheWord(cut, ".editor-item-details", "shopping");
+        WriteTheWord(cut, ".editor-item-details", "Car");
         ClickButtonSaying(cut, "Save");
 
-        // The second was never added, and is saved all the same.
         Assert.Contains("\"categories\":[\"shopping\",\"Car\"]", _lastSavedJson);
     }
 
@@ -486,9 +484,8 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        cut.Find(".editor-item-details .tag-field-input").Input("shopping");
-        cut.Find(".editor-item-details .tag-field-add").Click();
-        cut.Find(".editor-item-details .tag-field-input").Input("Shopping");
+        WriteTheWord(cut, ".editor-item-details", "shopping");
+        WriteTheWord(cut, ".editor-item-details", "Shopping");
         ClickButtonSaying(cut, "Save");
 
         Assert.Contains("\"categories\":[\"shopping\"]", _lastSavedJson);
@@ -501,10 +498,13 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        // Chips rather than a line of text: what is already filed is a set of things, and the box below
-        // them is empty and ready for the next one.
-        Assert.Equal(["shopping", "car"], cut.FindAll(".tag-chip").Select(chip => chip.TextContent.Replace("✕", string.Empty).Trim()));
-        Assert.Equal(string.Empty, cut.Find(".editor-item-details .tag-field-input").GetAttribute("value"));
+        // Readable without opening anything: what the entry is filed under is written along the field,
+        // and the list of everything else it could be filed under is a press away.
+        Assert.Equal(
+            "shopping, car",
+            cut.Find(".editor-item-details .value-browser-written").TextContent.Trim());
+        cut.Find(".editor-item-details .value-browser-field").Click();
+        Assert.Equal(string.Empty, cut.Find(".editor-item-details .value-browser-new input").GetAttribute("value"));
     }
 
     /// <summary>
@@ -808,9 +808,12 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        // Typed rather than committed on leaving the box: it is a SuggestedTextField now, and the panel
-        // under it keeps up with what is being written - see InventoryFields.
-        cut.FindAll("input").First(box => box.GetAttribute("placeholder") == "Product type").Input("Dry goods");
+        // Written into the browser's own box and taken from there: a kind of thing is one answer, and
+        // one nothing on this account has asked for yet is made where the list would have offered it -
+        // see InventoryFields.
+        ProductTypeBrowser(cut).Click();
+        cut.Find(".value-browser-new input").Input("Dry goods");
+        cut.Find(".value-browser-add").Click();
         cut.Find(".editor-item-unit").Change("Kilogram");
         ClickButtonSaying(cut, "Save");
 
@@ -848,8 +851,7 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        cut.Find(".editor-item-details .tag-field-input").Input("Dry goods");
-        cut.Find(".editor-item-details .tag-field-add").Click();
+        WriteTheWord(cut, ".editor-item-details", "Dry goods");
         ClickButtonSaying(cut, "Save");
 
         Assert.Contains("\"categories\":[\"Dry goods\"]", _lastSavedJson);
@@ -878,8 +880,8 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         ExpandTheOnlyItem(cut);
 
         Assert.Equal(
-            ["Dry goods"],
-            cut.FindAll(".tag-chip").Select(chip => chip.TextContent.Replace("✕", string.Empty).Trim()));
+            "Dry goods",
+            cut.Find(".editor-item-details .value-browser-written").TextContent.Trim());
     }
 
     /// <summary>
@@ -1127,8 +1129,7 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        cut.Find(".editor-item-details .tag-field-input").Input("Dry goods");
-        cut.Find(".editor-item-details .tag-field-add").Click();
+        WriteTheWord(cut, ".editor-item-details", "Dry goods");
         ClickButtonSaying(cut, "Save");
 
         Assert.Contains("\"description\":\"Buy milk\"", _lastSavedJson);
@@ -1528,6 +1529,30 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
 
     private static void ClickButtonSaying(IRenderedFragment cut, string label)
         => ButtonSaying(cut, label).Click();
+
+    /// <summary>
+    /// The product type's field, told from the entry's categories by the label it carries - both are
+    /// browsers in the same details block.
+    /// </summary>
+    private static AngleSharp.Dom.IElement ProductTypeBrowser(IRenderedFragment cut)
+        => cut.FindAll(".editor-item-details .value-browser-field")
+            .First(field => field.GetAttribute("aria-label") == "Product type");
+
+    /// <summary>
+    /// Writes a word into the browser a short vocabulary is chosen in, and takes it - see
+    /// ValueBrowser. The field has to be opened first: what it holds is readable closed, what it could
+    /// hold is a press away. <paramref name="within"/> says which browser, on a page holding several.
+    /// </summary>
+    private static void WriteTheWord(IRenderedFragment cut, string within, string word)
+    {
+        if (cut.FindAll($"{within} .value-browser-panel").Count == 0)
+        {
+            cut.Find($"{within} .value-browser-field").Click();
+        }
+
+        cut.Find($"{within} .value-browser-new input").Input(word);
+        cut.Find($"{within} .value-browser-add").Click();
+    }
 
     /// <summary>
     /// A button by what it says - its words, or the name it carries for a screen reader, since an

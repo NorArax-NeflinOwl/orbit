@@ -425,10 +425,13 @@ writes one by itself, and an uncoloured tag on a private item is never named any
 are deleted with the account, and the colour form says so beside the colour well. Somebody who wants a
 private tag kept unreadable leaves it uncoloured.
 
-**In the browser** the field is `TagsField` - the categories' own word-at-a-time box (`TagField`) under the
-list's title and description (`TaskEditor`) and under a note's writing (`NoteEditor`, which has no separate
-title box), offering the tags this account's notes or lists already carry plus every coloured one, with a
-colour well per tag underneath that saves at once (`TagColourBook`, `PUT /api/tags/colours`). The cards on
+**In the browser** the field is `TagsField` - the browser every short vocabulary is chosen in
+(`ValueBrowser`) under the list's title and description (`TaskEditor`) and under a note's writing
+(`NoteEditor`, which has no separate title box). The tags it carries are written along the closed field;
+opened, it lists the tags this account's notes or lists already carry plus every coloured one, each with
+a tick, and a colour well on the word itself that saves at once (`TagColourBook`,
+`PUT /api/tags/colours`). A tag nothing carries yet is written in the box at the head of the panel,
+which also narrows the list. The cards on
 `/notes`, `/tasks` and the dashboard's rows draw them with `TagChips`, beside "Pinned" and "Shared": a wash
 of the tag's colour behind the word and the colour as the outline, the word itself in the page's own text
 colour, so any colour reads in either theme; a colour that is not "#rrggbb" is never written into a style.
@@ -2879,9 +2882,10 @@ unlocked, which offers nothing at all until it is.
 Above the chips sit the two questions about what is *on* the lists rather than about the lists
 themselves: a search box, and a row of categories.
 
-Every entry can be filed under as many categories as apply — free text, typed on one line and separated
-by commas, the way a shelf item's category is written, with every category already in use offered
-underneath it (`TaskItem.Categories`, `CategoryText`). One errand is often two subjects at once, so
+Every entry can be filed under as many categories as apply — free text, read back along the field with
+commas between the words, the way a shelf item's category is written, and chosen from every category
+already in use in the browser that opens under it (`TaskItem.Categories`, `CategoryText`,
+`ValueBrowser`). One errand is often two subjects at once, so
 being made to pick the single truest one is how a category stops being written at all. Every kind of
 entry carries them: an appointment is about something the same way an errand is.
 
@@ -3835,13 +3839,15 @@ expiry and its notification channel - in the task editor, behind the entry's own
 the kind and the link were for: the row already knows which product it means, so correcting the amount
 should not mean opening the inventory in another tab and finding it again.
 
-**The product type is picked, not only typed.** One answer per product, so it is a single box rather than
-the categories' row of words - but it offers what the account already calls kinds of product the way the
-categories box offers categories: every shelf's product types (`GET /api/suggestions/used-values`, kind
+**The product type is picked, not only typed.** One answer per product, so it holds one word rather than
+the set the categories hold - but it offers what the account already calls kinds of product the way the
+categories field offers categories: every shelf's product types (`GET /api/suggestions/used-values`, kind
 `InventoryItemProductType`) together with every task entry's own (`TaskItemProduct.ProductType`, read off
 the lists the editor already loads). The entries' half matters because an entry describing something no
 shelf holds yet carries its type itself, and an account whose products were all still written on lists
-was offered nothing. The browser draws it as `SuggestedTextField`; the phone puts the same list as chips
+was offered nothing. The browser draws it as a `ValueBrowser` holding one answer that may also be none
+(`OnlyOne`, `CanBeEmpty`), so a type is ticked from the list or written in the panel's own box; the phone
+puts the same list as chips
 under its box (`InventoryItemEditor.OfferedProductTypes`, filled by the list screen and by the
 inventory's own screen from this phone's copies of the shelves and lists - `KnownProductTypes` - so it
 works offline). Taking one replaces what is in the box; typing a new

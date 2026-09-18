@@ -82,7 +82,7 @@ public sealed partial class InventoryItemEditor : ObservableObject
 
     /// <summary>
     /// What this account already calls kinds of product, offered under the box as it is typed into -
-    /// the phone's half of Orbit.Web's SuggestedTextField. Still one answer: taking one replaces what is
+    /// the phone's half of the field the browser draws as a ValueBrowser. Still one answer: taking one replaces what is
     /// in the box rather than adding to it, and typing something nobody has used before is as good an
     /// answer as picking. Empty until the screen hands the known ones over - see <see cref="Knowing"/>.
     /// </summary>
@@ -91,7 +91,7 @@ public sealed partial class InventoryItemEditor : ObservableObject
     /// <inheritdoc cref="OfferedProductTypes"/>
     public bool HasOfferedProductTypes => OfferedProductTypes.Count > 0;
 
-    /// <summary>How many are offered at once - the number Orbit.Web's panel stops at (UsedValueBrowser.Most).</summary>
+    /// <summary>How many are offered at once - as many as the browser's own panel was cut at before it grew a box to narrow itself.</summary>
     private const int MostProductTypesOffered = 12;
 
     private IReadOnlyList<string> _knownProductTypes = [];
@@ -128,7 +128,7 @@ public sealed partial class InventoryItemEditor : ObservableObject
 
     partial void OnProductTypeChanged(string value) => OfferProductTypes();
 
-    /// <summary>The rule SuggestedTextField.OfferedNow applies: anything containing what is typed, but not what is typed itself.</summary>
+    /// <summary>The rule the browser's panel applies (ValueBrowser.Offered): anything containing what is typed, but not what is typed itself.</summary>
     private void OfferProductTypes()
     {
         var typed = ProductType.Trim();

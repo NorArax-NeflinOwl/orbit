@@ -514,9 +514,11 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
         var cut = RenderComponent<TaskEditor>();
         // The entry arrives as a Location one; this reader did mean a meeting, and says so here.
         cut.Find(".editor-item-details select").Change(nameof(Orbit.Core.Tasks.TaskItemKind.Calendar));
-        // The first box in the details block, which is what this entry is filed under - see TagField.
-        // Incidental to what is being held here, but it was what this line always wrote to.
-        cut.Find(".editor-item-details .tag-field-input").Input("Dentist");
+        // What this entry is filed under - see ValueBrowser. Incidental to what is being held here, but
+        // it was what this line always wrote to.
+        cut.Find(".editor-item-details .value-browser-field").Click();
+        cut.Find(".editor-item-details .value-browser-new input").Input("Dentist");
+        cut.Find(".editor-item-details .value-browser-add").Click();
         SayWhenItHappens(cut);
 
         Save(cut);
