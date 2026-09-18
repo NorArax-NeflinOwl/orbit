@@ -2349,6 +2349,22 @@ the session that finishes one strikes it here rather than in a report nobody rea
   view at all** ("The phone cannot flatten a tree of lists", above), so there is nothing there to gather
   yet - that entry is where this lands when it is built.
 
+### Added 2026-09-18, after the round above
+
+- ~~**The browser is too narrow on the web's mobile version** - give it a minimum, and wrap lines where
+  needed.~~ Done (`ValueBrowser.NarrowestPanel`, `menuAnchor.js`, and a rule under 480px). The panel took
+  the width of the field it hangs off, which is right under a text box and wrong under a button: "Add
+  tag" is two words wide, and every row's tick, name, count and two colour buttons were squeezed into
+  about ninety pixels with the names ellipsised away behind a sideways scrollbar. It has a floor now,
+  never goes past the window, and a long word wraps on a narrow screen.
+- ~~**The browser should be used everywhere more than one thing can be chosen** - "Stands for these
+  lists", "Waits for", and the rest.~~ Done for those two and for a place's **Belongs to**: each was a
+  picker that added one at a time with a row of chips to remove them. An offer can now be a *thing*
+  rather than a word (`ValueBrowser.Offer.Key`), so two lists honestly called the same stay apart.
+  **Nothing else on the web takes more than one answer through a picker** - the folder fields, the
+  priorities and the kinds are all one answer, and `linked-list-chips` has no users left. If a place is
+  missed, it is one of those.
+
 ### Added 2026-09-18, with a picture of the shelf
 
 - ~~**A mark on the shelf row a notification is about.**~~ Done in the browser. The warning's address is

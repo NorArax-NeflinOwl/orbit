@@ -2446,6 +2446,9 @@ public static class PolishTranslations
         // The last of the web left in English: the restock-list settings, the two suggestion panels,
         // and a handful of lines nobody had swept up. See the coverage test that now keeps this closed.
         // A group shelf - one entry on the list of inventories holding smaller ones inside it.
+        // What the browser says where there is nothing to choose between - see ValueBrowser.EmptyMessage.
+        ["Nothing else on this list yet."] = "Nie ma jeszcze nic innego na tej liście.",
+        ["No other lists yet."] = "Nie ma jeszcze innych list.",
         ["Inventories gathered here"] = "Magazyny zebrane tutaj",
         // What a group's row on the phone's list of inventories says it holds - see InventoryRow.Gathering.
         ["Holds: {0}"] = "Zawiera: {0}",

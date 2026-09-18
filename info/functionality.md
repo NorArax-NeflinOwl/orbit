@@ -3044,6 +3044,23 @@ browsers (`ValueBrowser`). They were two rows of chips, which grew with the acco
 the page and what was chosen had to be found among what was not; a field says what it is narrowed to
 and keeps the whole list one press away, each word still carrying its count.
 
+**The browser is what every "more than one of these" is** (2026-09-18, asked for after the tags and the
+categories had it): **Waits for** and **Stands for these lists** on an entry, and **Belongs to** on a
+place, were each a picker that added one at a time with a row of chips underneath to remove them. They
+are browsers now - what is taken is written along the closed field, the whole list is one press away, and
+a tick each adds or removes. An offer can be a *thing* rather than a word (`ValueBrowser.Offer.Key`):
+`Chosen` then holds ids and the field writes the names beside them, so two lists honestly called the same
+stay apart - which a control folding two spellings of one word together could not do. A chosen id with no
+offer behind it is drawn as nothing rather than as an id.
+
+**The panel has a floor to its width** (`ValueBrowser.NarrowestPanel`, `menuAnchor.js`). It used to be
+exactly as wide as the field it hangs off, which is right for a list of completions under a text box and
+wrong for a field that is a button: "Add tag" is two words wide, and on a phone that left every row's
+tick, name, count and two colour buttons squeezed into about ninety pixels, the names ellipsised away to
+nothing behind a sideways scrollbar. It is now at least wide enough for a row and never wider than the
+window, and **on a narrow screen a long word wraps** rather than ending in an ellipsis that hides which
+word it is.
+
 Every entry can be filed under as many categories as apply — free text, read back along the field with
 commas between the words, the way a shelf item's category is written, and chosen from every category
 already in use in the browser that opens under it (`TaskItem.Categories`, `CategoryText`,

@@ -220,32 +220,19 @@ else
                            product. Beside Move to list, which is the other question about where this
                            entry stands among the others, and above the long kind-specific forms - after
                            a whole event form it would be a field nobody scrolls to. *@
+                        @* One browser rather than a picker that adds and a row of chips that remove:
+                           what it waits for is written along the closed field, and each entry is a tick
+                           away. See ValueBrowser, and the same change made to the tags and the
+                           categories - asked for again on 2026-09-18 for every place that takes more
+                           than one answer. *@
                         <span class="field-break"></span>
                         <label>@T["Waits for"]
-                            <select value="" @onchange="args => WaitForTheEntry(item, args.Value)"
-                                    aria-label="@(T["Waits for"])">
-                                <option value="">@(item.WaitsForTaskItemIds.Count > 0 ? T["Add another…"] : T["None"])</option>
-                                @foreach (var step in StepsAvailableTo(item))
-                                {
-                                    <option value="@step.Id">@Written(DescriptionOfEntry(step))</option>
-                                }
-                            </select>
+                            <ValueBrowser Offers="StepsOfferedTo(item)"
+                                          Chosen="@ChosenIds(item.WaitsForTaskItemIds)"
+                                          ChosenChanged="chosen => WaitForTheEntries(item, chosen)"
+                                          Placeholder="@(T["None"])" AriaLabel="@(T["Waits for"])"
+                                          EmptyMessage="@(T["Nothing else on this list yet."])" />
                         </label>
-                        @if (item.WaitsForTaskItemIds.Count > 0)
-                        {
-                            <span class="field-break"></span>
-                            <ul class="linked-list-chips">
-                                @foreach (var stepId in item.WaitsForTaskItemIds)
-                                {
-                                    <li>
-                                        <span>@Written(DescriptionOfEntry(stepId))</span>
-                                        <button type="button" class="icon-btn" title="@(T["Remove"])"
-                                                aria-label="@(T["Remove"])"
-                                                @onclick="() => StopWaitingForTheEntry(item, stepId)">✕</button>
-                                    </li>
-                                }
-                            </ul>
-                        }
                         @* Somewhere the work happens, with nothing in the calendar behind it - see
                            TaskItemKind.Location. An address was Calendar's to carry until now, which put
                            an appointment in the calendar for every address anybody wrote down: "pick the
@@ -379,18 +366,17 @@ else
                             @* An entry can stand for several lists - "the flat is ready" is the kitchen
                                and the bathroom and the hall. Written as one step rather than three
                                entries saying the same thing, and done only when all of them are. *@
+                            @* One browser rather than a picker that adds and a row of chips that remove -
+                               see the "Waits for" above, and ValueBrowser. *@
                             @if (!item.HasAlternatives)
                             {
                                 <span class="field-break"></span>
                                 <label>@T["Stands for these lists"]
-                                    <select value="" @onchange="args => LinkToTheList(item, args.Value)"
-                                            aria-label="@(T["Stands for these lists"])">
-                                        <option value="">@(item.IsALinkToOtherLists ? T["Add another…"] : T["None"])</option>
-                                        @foreach (var linkableTaskList in LinkableListsFor(item))
-                                        {
-                                            <option value="@linkableTaskList.Id">@Written(linkableTaskList.Title)</option>
-                                        }
-                                    </select>
+                                    <ValueBrowser Offers="ListsOfferedTo(item)"
+                                                  Chosen="@ChosenIds(item.LinkedTaskListIds)"
+                                                  ChosenChanged="chosen => LinkToTheLists(item, chosen)"
+                                                  Placeholder="@(T["None"])" AriaLabel="@(T["Stands for these lists"])"
+                                                  EmptyMessage="@(T["No other lists yet."])" />
                                 </label>
                             }
                             @* Which of the lists have to be done. Any one of them unless this is ticked -
@@ -403,21 +389,6 @@ else
                                 <label>
                                     <input type="checkbox" checked="@item.NeedsEveryLinkedList"
                                            @onchange="args => item.NeedsEveryLinkedList = args.Value is true" />@T["Needs all of them"]<FieldHint>@T["Off, this entry is done as soon as any one of the lists it stands for is. On, every one of them has to be done."]</FieldHint></label>
-                            }
-                            @if (item.IsALinkToOtherLists)
-                            {
-                                <span class="field-break"></span>
-                                <ul class="linked-list-chips">
-                                    @foreach (var linkedId in item.LinkedTaskListIds)
-                                    {
-                                        <li>
-                                            <span>@Written(TitleOfTaskList(linkedId))</span>
-                                            <button type="button" class="icon-btn" title="@(T["Remove"])"
-                                                    aria-label="@(T["Remove"])"
-                                                    @onclick="() => UnlinkFromTheList(item, linkedId)">✕</button>
-                                        </li>
-                                    }
-                                </ul>
                             }
                             @* Or done any one of several ways - "the sauce": buy a ready one, or make it
                                from a list of its own. The other half of the lists above, so an entry has
@@ -1140,33 +1111,36 @@ else
     private static TaskEntrySummary Summarise(TaskItemDto item)
         => new(item.Kind == nameof(TaskItemKind.Inventory), item.AllLinkedTaskListIds);
 
-    /// <summary>
-    /// The lists this entry could still be pointed at: every linkable one it does not already name.
-    /// Offering a list it already stands for would be offering to say the same thing twice.
-    /// </summary>
-    private IReadOnlyList<TaskDto> LinkableListsFor(TaskItemFormModel item)
-        => [.. _linkableTaskLists.Where(candidate => !item.LinkedTaskListIds.Contains(candidate.Id))];
 
     /// <summary>
-    /// Points an entry at a list. The first entry on the form to do so turns the list into a group list,
-    /// in the same press, as the server does when that save arrives (TaskList.IsGroup) - so the box says
-    /// what will be saved. Only the first: once the list gathers others the box is the reader's.
+    /// Every list this entry could stand for, as the browser takes them - what it already stands for
+    /// included, since a browser shows the whole vocabulary with what is taken ticked rather than a
+    /// picker's list of what is left. See ValueBrowser.Things.
     /// </summary>
-    private void LinkToTheList(TaskItemFormModel item, object? chosenValue)
+    private IReadOnlyList<ValueBrowser.Offer> ListsOfferedTo(TaskItemFormModel item)
+        => ValueBrowser.Things(_linkableTaskLists, candidate => candidate.Id, candidate => Written(candidate.Title));
+
+    /// <summary>What the browser holds for a list of ids - see ValueBrowser.Offer.Key.</summary>
+    private static IReadOnlyList<string> ChosenIds(IEnumerable<Guid> ids)
+        => [.. ids.Select(id => id.ToString())];
+
+    /// <summary>
+    /// What this entry stands for, as the browser handed it back. The first list an entry points at
+    /// turns this into a group list in the same press, as the server does when the save arrives
+    /// (TaskList.IsGroup) - so the box says what will be saved. Only the first: once the list gathers
+    /// others the box is the reader's.
+    /// </summary>
+    private void LinkToTheLists(TaskItemFormModel item, IReadOnlyList<string> chosen)
     {
-        if (Guid.TryParse(chosenValue?.ToString(), out var taskListId) && !item.LinkedTaskListIds.Contains(taskListId))
+        var gatheredBefore = GathersOtherLists;
+        item.LinkedTaskListIds.Clear();
+        item.LinkedTaskListIds.AddRange(ValueBrowser.IdsIn(chosen));
+        if (!gatheredBefore && item.LinkedTaskListIds.Count > 0)
         {
-            var gatheredBefore = GathersOtherLists;
-            item.LinkedTaskListIds.Add(taskListId);
-            if (!gatheredBefore)
-            {
-                _formModel.IsGroup = true;
-            }
+            _formModel.IsGroup = true;
         }
     }
 
-    private static void UnlinkFromTheList(TaskItemFormModel item, Guid taskListId)
-        => item.LinkedTaskListIds.Remove(taskListId);
 
     /// <summary>
     /// A name picked for what it is the name of: the entry takes on everything that thing says and becomes
@@ -1290,32 +1264,34 @@ else
     /// it - and on a list being written for the first time, nothing could wait for anything. Every entry
     /// names itself now (see TaskItemFormModel.Id), which is what the phone already did.
     /// </summary>
-    private IReadOnlyList<TaskItemFormModel> StepsAvailableTo(TaskItemFormModel item)
-        => [.. _formModel.Items.Where(candidate =>
-            candidate != item && candidate.Id is { } candidateId
-            && !item.WaitsForTaskItemIds.Contains(candidateId))];
+    /// <summary>
+    /// Every other entry on this form, as the browser takes them - what this one already waits for
+    /// included, since a browser shows them all with the taken ones ticked. An entry with no id yet is
+    /// left out: it is one somebody is still writing, and nothing can wait for a row that does not exist.
+    /// </summary>
+    private IReadOnlyList<ValueBrowser.Offer> StepsOfferedTo(TaskItemFormModel item)
+        => ValueBrowser.Things(
+            _formModel.Items.Where(candidate => candidate != item && candidate.Id is not null),
+            candidate => candidate.Id!.Value,
+            candidate => Written(DescriptionOfEntry(candidate)));
 
-    private static void WaitForTheEntry(TaskItemFormModel item, object? chosenValue)
+    /// <summary>What this entry waits for, as the browser handed it back.</summary>
+    private static void WaitForTheEntries(TaskItemFormModel item, IReadOnlyList<string> chosen)
     {
-        if (Guid.TryParse(chosenValue?.ToString(), out var stepId) && !item.WaitsForTaskItemIds.Contains(stepId))
-        {
-            item.WaitsForTaskItemIds.Add(stepId);
-        }
+        item.WaitsForTaskItemIds.Clear();
+        item.WaitsForTaskItemIds.AddRange(ValueBrowser.IdsIn(chosen));
     }
 
-    private static void StopWaitingForTheEntry(TaskItemFormModel item, Guid stepId)
-        => item.WaitsForTaskItemIds.Remove(stepId);
 
     /// <summary>
-    /// What an entry on this list says. An id nothing on the form answers to - a step whose entry has
-    /// just been removed - reads as a line that is no longer here rather than as a blank chip; the save
-    /// drops it either way, see TaskListSteps.
+    /// What an entry on this list says. An entry with nothing written in it yet is a row somebody is
+    /// still filling in, and "…" is the only honest thing to call it.
+    ///
+    /// There used to be an overload taking an id, for the chips that listed what an entry waited for: a
+    /// step whose entry had been removed read as "an entry that is no longer here". The browser lists
+    /// the entries themselves and ticks the taken ones, so there is no longer an id with nothing behind
+    /// it to name - see StepsOfferedTo, and TaskListSteps for the save dropping it either way.
     /// </summary>
-    private string DescriptionOfEntry(Guid stepId)
-        => _formModel.Items.FirstOrDefault(candidate => candidate.Id == stepId) is { } step
-            ? DescriptionOfEntry(step)
-            : T["an entry that is no longer here"];
-
     private static string DescriptionOfEntry(TaskItemFormModel item)
         => item.Description.Trim().Length > 0 ? item.Description : "…";
 
