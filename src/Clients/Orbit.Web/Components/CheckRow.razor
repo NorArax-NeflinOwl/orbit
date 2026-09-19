@@ -15,6 +15,10 @@
    NoteSummary, whose whole card opens the editor - and ticking a line there means ticking that line,
    not opening the note to write in. Nothing is lost where there is nothing above to reach: the other
    three sit in plain cards. *@
+@* Whatever follows the title is wrapped in one span rather than left as loose children. It costs
+   nothing where there is room - the span is display:contents, so its children are the row's own flex
+   items exactly as they were - and it is what lets a narrow screen put the whole trailing half on a
+   second line under the words instead of squeezing them into what is left. See .check-row-trailing. *@
 @using Orbit.Core.Abstractions
 @using Microsoft.AspNetCore.Components.Rendering
 
@@ -23,7 +27,7 @@
     <div class="check-row @AdditionalClass" @onclick="() => { }" @onclick:stopPropagation="true">
         @Box
         <button type="button" class="check-row-text check-row-text-opens" @onclick="OnTitlePressed">@Title</button>
-        @Trailing
+        <span class="check-row-trailing">@Trailing</span>
     </div>
 }
 else if (State is not null)
@@ -33,7 +37,7 @@ else if (State is not null)
     <div class="check-row @AdditionalClass" @onclick="() => { }" @onclick:stopPropagation="true">
         @Box
         <span class="check-row-text">@Title</span>
-        @Trailing
+        <span class="check-row-trailing">@Trailing</span>
     </div>
 }
 else
@@ -41,7 +45,7 @@ else
     <label class="check-row @AdditionalClass" @onclick="() => { }" @onclick:stopPropagation="true">
         @Box
         <span class="check-row-text">@Title</span>
-        @Trailing
+        <span class="check-row-trailing">@Trailing</span>
     </label>
 }
 

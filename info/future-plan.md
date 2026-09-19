@@ -293,6 +293,19 @@ version, so they aren't mistaken for oversights:
   calendar narrows the grid **and** the list together, so it is still a way of reading the whole
   calendar rather than a second index of it, and the dashboard draws no calendar tabs, because what it
   says about the calendar is when things are. See `info/functionality.md`, "Folders".
+- **A map link opens Orbit's map in the browser only**, and on a phone that may be the right answer
+  rather than a gap. `MapLinks` is in `Orbit.Core` so the reading of one is shared, and the phone's
+  `LinkedLabel` draws the same addresses - but it follows them out to whatever the device treats as a
+  map, which on a phone is the map app opening at the place: the same handoff Orbit would make itself
+  (`IMapHandoff`), one step shorter. The browser's rewrite exists because a browser has no such handoff
+  and would otherwise leave Orbit for somebody else's page.
+
+  So the phone's version of this is **not** a port. What it would add is the four presses the pin's
+  popup carries - an event here, a list here, directions, the original link - and that means a screen of
+  Orbit's own between the tap and the map app, on a screen (`MapViewModel`) built for live positions and
+  which does not draw a map at all in a build without a maps key. Worth asking the user whether those
+  four presses are wanted on a phone before building any of it; the resolver for a shortened link is
+  already server-side and would answer the phone unchanged. Read on 2026-09-19.
 - **The month and year calendar views stay filtered to what is still to come.** Also confirmed by the
   user on 2026-09-09, alongside making the week account for everything the way a day does (see
   `Calendar.ShowsEverythingInThisView`). They are read to find something rather than to account for a
@@ -454,6 +467,32 @@ since been closed; what is left is recorded below with the same honesty about wh
   bad ones a push service can still deliver. The C# half is `PushNotificationManagerTests`. Two things
   are still out of reach and are named in the script: `notificationclick`, since nothing outside the
   operating system can click a system notification, and subscribing for real, which needs a push service.
+- ~~**A note's writing surface (`checklistTextEditor.js`) has no coverage either.**~~ Closed
+  2026-09-19 by `ci/verify-note-surface.mjs`, and opened by a fault rather than noticed: `extractLines`,
+  the read of the surface every keystroke and every save makes, knew a table and a picture and not a
+  separator, so a rule drawn across a note was stored as an empty line by the next read. Nothing threw
+  and nothing logged, and this repository had no way to see it - the user did, twice, from both ends
+  (issue #294). Fourteen kinds of line go in through `initialize` and come back through
+  `getLinesAsJson`; a kind the read does not know comes back as an empty line, which is the shape of the
+  fault. Same job, same browser as the two above, and the same limit: it gates the push to `main` and
+  not a feature branch, where it is run by hand or not at all.
+- ~~**Where a fixed panel lands (`menuAnchor.js`) is checked by nothing.**~~ Closed 2026-09-19 by
+  `ci/verify-menu-anchor.mjs`. Every menu and browser Orbit draws outside the flow is `position: fixed`,
+  because a dropdown inside a scroller is clipped however high its z-index - and fixed means each of its
+  edges is arithmetic in that module, all of it `getBoundingClientRect` and `window.innerWidth`, which
+  bUnit's DOM measures as zero. It had gone visibly wrong twice: a panel crushed to nothing on the
+  editor rail, and the tag browser at about ninety pixels on a phone (2026-09-18). Seven checks, three of
+  them about the floor added for the second: a narrow button's panel is not squeezed below it, a panel
+  asked for no floor is still exactly its field's width, and a floor wider than the window gives way to
+  the window.
+- ~~**What the map's Refresh does (`updateLocations`) is checked by nothing.**~~ Closed 2026-09-19 by
+  `ci/verify-map-markers.mjs`, against a real Leaflet map built from the vendored copy with the tiles
+  stubbed. The button is deliberately not a redraw - the pan and the zoom are kept, a pin that moved is
+  moved in place so an open popup survives, one that arrived is added, one that is gone is taken off -
+  and every part of that is invisible from outside, which is exactly why issue #293 could not be
+  reproduced from the code. Seven checks. The popup one had to be strengthened: a refresh that
+  *replaced* a marker leaves the old one behind still holding its popup open, which passes a naive check,
+  so it counts the pins as well.
 - ~~**The chat thread still has no coverage.**~~ Done, and the reason it was open turned out to be the
   reason to do it: what a polling component decides is invisible from the screen either way. A poll that
   stops honouring the tab's visibility costs money and battery and looks identical; a poll that reads the
@@ -726,6 +765,21 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **"Cannot invoke JS interop… DotNetObjectReference was disposed" (issue #185): audited 2026-09-19, and
+  no component owns it any more.** Every one of the seven that hands a reference to a module - the
+  checklist editor, the Google button, the group conversation, the location picker, the name
+  suggestions, the chat page, the map page - tells the module to let go **before** disposing the
+  reference, and each says so where it does it: `dispose(container)` then `_dotNetRef`, `unobserve(key)`
+  then `_seenObserverReference`, `unbindSuggestionKeys(panel)` then `_self`. The dump that reported it
+  was triaged on 2026-09-01, and the two modules the issue named as likeliest were hardened in the days
+  after. Nothing is left to reproduce from the code; what would settle it for good is the stored client
+  exception log showing no entry of this shape since, which needs a deployed environment to read.
+
+  **The audit did find a live fault of the same family**, and it is fixed: `menuAnchor.js` holds one
+  suggestions binding at a time, and `unbindSuggestionKeys()` took no argument - so on a page that draws
+  a panel per entry (the task editor), leaving one entry cleared whichever panel was bound, including
+  another entry's. Its arrow keys then did nothing and nothing said why. It takes the panel now and
+  clears only its own; `ci/verify-menu-anchor.mjs` holds it.
 - **Two of Orbit.Web's test classes fail once in a while under the whole suite and pass alone**
   (2026-09-18). `NameSuggestionSourceTests` was the timer rather than the subject - the panel waits out
   a 150ms settle delay and the wait was left at bUnit's own one second, which a machine running the
@@ -741,9 +795,39 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   test's. Whoever picks this up should start there: `NameSuggestions.OnChosen` and what a second
   lookup does to the options while one is being pressed.
 
-  `ChatThreadTests.A_notification_stays_while_their_newest_message_is_not_yet_in_view` and
-  `GroupConversationPagesTests` have each done it once in the same session, and neither has been caught
-  yet. The chat one's own waits are already 15 seconds, so it is not a deadline either.
+  **Chased again on 2026-09-19, reproduced twice, and still not explained.** Caught in ~1 run in 5 with
+  a second suite running alongside, and the capture adds one fact: the failing run took **201 ms**, so
+  the five-second wait was nowhere near its deadline. This is a race at the moment the list first
+  appears, not a slow machine.
+
+  Two real defects in `NameSuggestions` were found by reading while looking for it, and both are fixed -
+  neither is proof of the cause:
+
+  - **`LookUpAsync` could be re-entered and lose track of itself.** It is started and not awaited, so
+    two keystrokes close together can both be inside it; with a plain read-then-assign of `_pending`,
+    both got past the cancelling and the second's token could be overwritten by nobody - leaving the
+    first lookup alive, unreferenced, and free to land after the second with an answer about a word that
+    no longer exists. Which is the one thing the cancelling is there to stop. Claimed with
+    `Interlocked.Exchange` now, and the answer is applied only while it is still the current lookup.
+  - **Choosing an option, and Escape, cleared the list without stopping the lookup in flight.** Its
+    answer arrived a moment later and put the list back up - showing the name just taken, under a field
+    now holding it. `_lastLookedUp` stops the *next* lookup; nothing stopped the one already going.
+
+  Afterwards the suite ran eight more times without it. That is not proof and is not written down as
+  one: the test itself only ever starts a single lookup, so neither fix obviously reaches it. What is
+  written down instead is a diagnostic - the assertion now reports which branch ran, how many renders
+  the press sat between, and how many options are on screen - so the next occurrence names the cause
+  rather than repeating this paragraph.
+
+  ~~`ChatThreadTests.A_notification_stays_while_their_newest_message_is_not_yet_in_view` and
+  `GroupConversationPagesTests` have each done it once in the same session.~~ Still uncaught.
+
+- ~~**`PeriodicSyncTests` fails under load.**~~ Found and fixed 2026-09-19, while running the suite twice
+  over to chase the one above. `SettleAsync` yielded the thread eight times and **hoped** the timer's
+  run had happened - a guess at how many turns the scheduler needs, which a loaded machine disproves.
+  `WaitForRunsAsync` waits for the count the test is about and then settles past it, so a run that
+  should *not* have happened still gets its chance to. The tests that assert nothing ran keep the plain
+  settle: there is no count to wait for there.
 
 - ~~**`TaskItem.KeepAlternativesOf` can leave the completion time disagreeing with the tick.**~~ Fixed
   2026-09-14, the first of the two ways this offered: `KeepAlternativesOf` calls `RecordWhenItWasDone`
@@ -1796,13 +1880,18 @@ One thing the design asks for that belongs to **both clients** rather than to th
   browser's, which are the same shape on purpose - carries the name and a subtitle, and the subtitle is
   the username. So a list ordered by recency has nothing on it that says so.
 
-  Not done on the phone alone, deliberately: the looks follow the design, but *what a row says about a
-  person* is a feature, and a feature the browser has not got would make the two clients answer
-  different questions. The preview is the harder half - a message is sealed, so drawing a list of
-  twenty contacts would mean opening twenty messages - and "when" on its own, over a subtitle that is
-  still a username, is half a row. If it is wanted, it is wanted on `Orbit.Web/Components/PersonRow.razor`
-  and `Orbit.Maui/Controls/PersonRow.xaml` together, with `LocalContact.LastMessageAtUtc` (already
-  synced and already what the list is ordered by) carrying the easy half.
+  **The "when" half is done, 2026-09-19, on both at once** - asked for with the reason that made it
+  worth doing: the row should *read the last message* so its time is right. It is: `Contact.LastMessageAtUtc`
+  is moved forward on a send and never back, so after the reader empties a conversation the row went on
+  claiming a time for a conversation showing nothing. The browser reads it off the messages on the
+  server (`GetContactsQueryHandler.LastMessageIn`, one batched query, the cleared line applied in the
+  handler) and the phone off its own store (`ChatRepository.LastMessageTimesAsync`); both rows draw it at
+  the trailing edge, and nothing where there is nothing to say. Each client's wording comes from its own
+  `RelativeMoment`, pulled out of the dashboards so one moment cannot be read two ways on one client.
+
+  **The preview is still the harder half and is not done**: a message is sealed, so drawing a line of it
+  under twenty names means opening twenty messages. What that would take is a decision about cost, not
+  about the row - and the "when" it was waiting behind is no longer waiting.
 
 One thing the design showed up that is not fixed:
 
@@ -2044,6 +2133,18 @@ It is **not** on the two other places somebody edits in the browser:
   that matters more than the saving, the second reading is still the other one, and this entry is where
   to come back to.
 
+  **A place is the fifth kind, from 2026-09-19** (`OP_P_ISARCHIVED`, `ArchivePlaceCommand`,
+  `PUT /api/places/{id}/archived`). Not as a folder, because the map has no tabs and a place is not
+  filed anywhere: the browser's archive is a page of its own, `/map/archive`, reached from the map's
+  menu, and deleting a place is offered there and nowhere else. **The phone has the same half**, done
+  the same day: `LocalPlace.IsArchived` (`APlaceCanBePutAwayOnThePhone`), `ArchiveAsync` on the
+  repository queueing `OutboxOperation.Archive`, `PlacesClient.ArchiveAsync`, the flag read in
+  `PlaceSynchronizer.CopyInto` and carried after a create the way a note's is, Archive / Put back on the
+  place's own screen above a Delete that is offered only once it is archived, and the places screen
+  showing the archive instead of the list when its menu says so (`PlacesViewModel.ShowsTheArchive`).
+  Archiving is offered from the thing's own screen rather than from a list row, which is where this
+  phone keeps everything of the kind.
+
 - ~~**Choosing several things at once, and doing one thing to all of them**~~ - *built in the browser
   and on the phone, sharing included (2026-09-16).* Asked for as: select several notes, lists, events or
   shelves and then file them into a folder, archive them, or share them.
@@ -2220,6 +2321,18 @@ the session that finishes one strikes it here rather than in a report nobody rea
   taking somebody else's shared thing off this reader's list needs no archive, since a shared thing
   cannot be put away at all. The phone's own menus still offer Delete everywhere and are not part of
   this - the list asked it of Orbit.Web.
+
+  **Read again on 2026-09-19 and four gaps closed**: the rule held wherever `ObjectMenu` drew the menu,
+  and three menus drew their own - a calendar event's form, a task list's form, and a task list's
+  checklist - so each of the three offered Delete whatever state its thing was in. Each now offers
+  Archive / Put back and gates Delete on it. The fourth was the map, which had no archive at all; it
+  has one now (`/map/archive`).
+
+  **Still outside the rule, and deliberately for now**: what is deleted is a *part* of something rather
+  than a thing of its own - a task list's entry (`TaskItemSummary`, and the calendar's "Delete" on a
+  raised deadline), a shelf's product, a chat message, a note's line. Nothing in Orbit can archive a
+  part, and giving each kind of part its own archive is a feature rather than a gap to close; removing
+  a row from a list is editing the list. Worth an answer from the user before anything is built.
 - ~~**A note on the list has no Share in its menu** and should - and the other pages are to be checked
   for the same gap.~~ Done: checked, and three of the four were missing it - only the inventories had
   one. Notes, task lists and the calendar's list now carry "Share" in the card's menu, opening the same
@@ -2298,7 +2411,9 @@ the session that finishes one strikes it here rather than in a report nobody rea
   (2026-09-19): the button keeps the pan and the zoom it was pressed from and only moves the pins, so a
   press with nothing new behind it changes not one pixel - a button that gives no answer reads as a
   button that does nothing. It says "The map is up to date." now, where the page already says "Location
-  recorded." and "Location forgotten.". **Still open** as issue #293 until somebody sees it again: if
+  recorded." and "Location forgotten.". The third possibility - that the read is fine and moving the
+  pins is what fails - is now covered by `ci/verify-map-markers.mjs`, which runs `updateLocations`
+  against a real Leaflet map and passes. **Still open** as issue #293 until somebody sees it again: if
   that line appears and the map is still stale, the fault is in what is read rather than in the press.
 - ~~**Addresses do not wrap in the preview**, and wherever else text that should wrap does not.~~ Done:
   the address on an entry's page and on an appointment's is prose rather than a value
@@ -2441,8 +2556,16 @@ the session that finishes one strikes it here rather than in a report nobody rea
   (`Conversation.LastAnythingFrom`): the card said it was ordered by the most recently active
   conversation and measured that by the last message alone, so somebody online an hour ago sat under a
   conversation nobody had touched for a week. Both the row and the order read the later of the two now.
-  **The phone's own conversation list is not changed** - it draws its rows from its own store and would
-  need the same answer written there.
+  **And the phone's card too**, done 2026-09-19 - it had been left on the old measure, ordering by
+  `LocalContact.LastMessageAtUtc` and writing that on the row, so for a day the two clients answered the
+  same question differently. The rule now lives in `Orbit.Core.Chat.ConversationRecency`, taking the two
+  moments rather than a `ContactDto` because `Orbit.Core` has no project references at all; the browser's
+  `Conversation.LastAnythingFrom` delegates to it and the phone calls it directly, which is what stops
+  them drifting again. `LocalContact.LastSeenAtUtc` is one nullable column and one additive migration -
+  `ContactDto` had been carrying it to the phone all along and `ChatRepository` simply did not copy it.
+  `GetContactsAsync` sorts after the read rather than in the query: SQLite has no way to compare a stored
+  offset against a nullable one that reads the same on both sides, and a contact list is a few dozen rows.
+  **Not seen on a device.**
 
 ## Smaller identified follow-ups
 

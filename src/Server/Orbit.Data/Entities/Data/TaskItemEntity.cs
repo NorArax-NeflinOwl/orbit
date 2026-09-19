@@ -93,6 +93,13 @@ public sealed class TaskItemEntity
     /// <summary>How much of its product this entry needs - see Orbit.Core.Tasks.TaskItem.RequiredQuantity.</summary>
     public decimal? RequiredQuantity { get; set; }
 
+    /// <summary>
+    /// How this entry stands with the shelf behind it, stored by name like every other enum here - see
+    /// Orbit.Core.Tasks.TaskItemStock. The server's own bookkeeping: no client sends it or is told it,
+    /// and every save carries the stored one forward.
+    /// </summary>
+    public string Stock { get; set; } = nameof(Orbit.Core.Tasks.TaskItemStock.None);
+
     /// <summary>What this entry is filed under - see Orbit.Core.Tasks.TaskItem.Categories. Empty for one nobody has filed.</summary>
     public List<TaskItemCategoryEntity> Categories { get; set; } = [];
 

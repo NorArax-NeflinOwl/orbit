@@ -244,7 +244,10 @@ public sealed class InventoryDetailScreenTests
         Assert.Equal("Fridge", offered.Label);
         Assert.False(offered.IsChosen);
         offered.ChooseCommand.Execute(null);
-        await Task.Yield();
+        // Waited for rather than yielded once: the tick is written straight through and the command is
+        // started without being awaited, so how many turns the scheduler needs to get there is its
+        // business. A yield is a guess, and a machine running the whole suite disproves guesses.
+        await WaitUntil(() => context.Server.GatheredBy(kitchen.Id).Count > 0);
 
         Assert.Equal([fridge.Id], context.Server.GatheredBy(kitchen.Id));
     }
@@ -263,7 +266,9 @@ public sealed class InventoryDetailScreenTests
         var offered = Assert.Single(screen.Gathering.Entries);
         Assert.True(offered.IsChosen);
         offered.ChooseCommand.Execute(null);
-        await Task.Yield();
+        // The other direction: this shelf starts out gathering the fridge, so what is waited for is the
+        // server having been told to let it go.
+        await WaitUntil(() => context.Server.GatheredBy(kitchen.Id).Count == 0);
 
         Assert.Empty(context.Server.GatheredBy(kitchen.Id));
     }
@@ -301,7 +306,8 @@ public sealed class InventoryDetailScreenTests
 
         screen.ArrangeTheGroupCommand.Execute(null);
         Assert.Single(screen.Gathering.Entries).ChooseCommand.Execute(null);
-        await Task.Yield();
+        // The refusal is what this is about, so it is what is waited for.
+        await WaitUntil(() => screen.Status.Length > 0);
 
         Assert.Contains("Fridge", screen.Status);
         Assert.Empty(context.Server.GatheredBy(kitchen.Id));
@@ -324,6 +330,46 @@ public sealed class InventoryDetailScreenTests
         var offline = await context.OpenAsync(stored.LocalId);
 
         Assert.False(offline.CanArrangeTheGroup);
+    }
+
+    /// <summary>
+    /// And says why. An entry that cannot be chosen and says nothing about it is, to the reader, a press
+    /// that did not register: they learn the option exists and nothing about what it is waiting for -
+    /// see ScreenMenuEntry.Note, and the rule the user gave on 2026-09-15 that a control which refuses
+    /// is a defect. Nothing is said while the option is open. 2026-09-19.
+    /// </summary>
+    [Fact]
+    public async Task A_group_that_cannot_be_arranged_says_what_it_is_waiting_for()
+    {
+        using var context = new ScreenContext();
+        var kitchen = context.Server.AddInventory("Kitchen");
+        var stored = await context.PullEverythingAsync(kitchen.Id);
+
+        var screen = await context.OpenAsync(stored.LocalId);
+        Assert.Null(screen.WhyTheGroupCannotBeArranged);
+
+        context.Network.Becomes(false);
+        var offline = await context.OpenAsync(stored.LocalId);
+
+        Assert.Equal(
+            "This needs a connection. It will work again once you're back online.",
+            offline.WhyTheGroupCannotBeArranged);
+    }
+
+    /// <summary>
+    /// And a shelf no server has taken says that instead - being back online would not help, so saying
+    /// so would be telling the reader to wait for something that is not what is missing.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_the_server_has_not_seen_says_so_rather_than_blaming_the_connection()
+    {
+        using var context = new ScreenContext();
+        var made = await context.AddInventoryAsync("Kitchen");
+
+        var screen = await context.OpenAsync(made.LocalId);
+
+        Assert.False(screen.CanArrangeTheGroup);
+        Assert.Equal("This inventory hasn't reached the server yet.", screen.WhyTheGroupCannotBeArranged);
     }
 
     /// <summary>An ordinary shelf gathers nothing, so the section is not there at all.</summary>
@@ -468,6 +514,12 @@ public sealed class InventoryDetailScreenTests
     /// <summary>Comfortably past the 150ms the lookup waits for the typing to stop.</summary>
     private static readonly TimeSpan SettleTime = TimeSpan.FromMilliseconds(600);
 
+    /// <summary>
+    /// Waits for something a command started and did not await - which is every command on this screen,
+    /// since there is no screen behind one to await it. Two seconds it never spends: it returns on the
+    /// turn the condition holds, and the deadline is only so a broken screen fails as a wrong answer
+    /// rather than as a hang.
+    /// </summary>
     private static async Task WaitUntil(Func<bool> condition)
     {
         for (var attempt = 0; attempt < 40 && !condition(); attempt++)
@@ -475,7 +527,7 @@ public sealed class InventoryDetailScreenTests
             await Task.Delay(50);
         }
 
-        Assert.True(condition(), "The suggestions never arrived.");
+        Assert.True(condition(), "What the press was to bring about never happened.");
     }
 
     /// <summary>The whole reason to set a minimum, and the same test Orbit.Web's editor makes.</summary>

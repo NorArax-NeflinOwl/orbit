@@ -46,8 +46,8 @@ reference added *from* `Orbit.Core` to anything is the change worth stopping in 
 graph is ordinary.
 
 `Orbit.Core` declares its needs as interfaces — `INoteRepository`, `IEmailSender`,
-`IPushNotificationSender`, `ILiveUpdatePublisher`, `IPasswordHasher` — and something outside supplies
-them. That is the whole of the ports-and-adapters arrangement here, and it is why the same domain can be
+`IPushNotificationSender`, `ILiveUpdatePublisher`, `IPasswordHasher`, `IShortenedLinkFollower` — and
+something outside supplies them. That is the whole of the ports-and-adapters arrangement here, and it is why the same domain can be
 compiled into a server that talks to PostgreSQL and into a phone that does not.
 
 ## What "shared" does and does not mean

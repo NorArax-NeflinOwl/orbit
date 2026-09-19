@@ -43,6 +43,13 @@ public partial class MenuOverlay : ContentView
 		{
 			Place();
 		}
+
+		// A row's menu is most often opened from a screen that was being typed on - see
+		// <see cref="SoftKeyboard"/> for what the keyboard does to a panel that has to fit above it.
+		if (args.PropertyName is nameof(ScreenMenu.IsOpen) && _menu?.IsOpen is true)
+		{
+			SoftKeyboard.Dismiss(this);
+		}
 	}
 
 	/// <summary>

@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Orbit.Contracts;
 using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Places;
 using Orbit.Contracts.Sharing;
 
@@ -139,6 +140,18 @@ public sealed class PlacesApiClient
 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Puts one place away, or brings it back - see ArchivePlaceCommand, and MapArchive, which is the
+    /// page an archived place is read on. False where the server refused, which the caller says out
+    /// loud: the place is where it was, and a map that redrew as though it had moved would be lying.
+    /// </summary>
+    public async Task<bool> SetArchivedAsync(Guid id, bool isArchived, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/places/{id}/archived", new ArchiveRequest(isArchived), cancellationToken);
+        return response.IsSuccessStatusCode;
     }
 
     public async Task<bool> DeletePlaceAsync(Guid id, CancellationToken cancellationToken = default)

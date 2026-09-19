@@ -167,6 +167,39 @@ public sealed class TaskItem
     /// </summary>
     public decimal? RequiredQuantity { get; private set; }
 
+    /// <summary>
+    /// How this entry stands with the shelf behind it - see <see cref="TaskItemStock"/>, which says what
+    /// each of the three means, and Orbit.Core.Inventories.StockedEntryStock, which is what moves it.
+    ///
+    /// The server's own bookkeeping: no client sends it and none is told it, so every save carries the
+    /// stored one forward (<see cref="CarryStockFrom"/>).
+    /// </summary>
+    public TaskItemStock Stock { get; private set; }
+
+    /// <summary>
+    /// Whether this entry's own minimum belongs on the shelf as things stand. Ticked, it does - the tick
+    /// is somebody saying they got it. Given up on, it stays wherever it already was: crossing something
+    /// off after having ticked it does not take back what was put on the shelf, and crossing off
+    /// something never ticked puts nothing there (the user's rule, 2026-09-19). Crossed off by the shelf
+    /// itself, it does not: nobody got anything, the shelf simply already held enough.
+    /// </summary>
+    public bool BelongsOnTheShelf => IsCompleted
+        ? Stock != TaskItemStock.CrossedOffByTheShelf
+        : IsFailed && Stock == TaskItemStock.Stocked;
+
+    /// <summary>
+    /// Says what the shelf now holds for this entry. Called by StockedEntryStock once it has actually
+    /// moved the amount, so the two cannot come apart.
+    /// </summary>
+    public void RecordStock(TaskItemStock stock) => Stock = stock;
+
+    /// <summary>
+    /// Takes the stored entry's state with the shelf, because the client that sent this one has never
+    /// heard of it - see <see cref="Stock"/>. Null for an entry that is new, which starts owing the
+    /// shelf nothing.
+    /// </summary>
+    public void CarryStockFrom(TaskItem? stored) => Stock = stored?.Stock ?? TaskItemStock.None;
+
     /// <summary>What this entry is and what it stands for - see <see cref="TaskItemSubject"/>.</summary>
     public TaskItemSubject Subject { get; private set; }
 
@@ -260,9 +293,11 @@ public sealed class TaskItem
         ItemPriority priority = ItemPriority.Normal, string? colour = null,
         IReadOnlyList<TaskItemAlternative>? alternatives = null,
         DateTimeOffset? createdAtUtc = null, Guid? referencesTaskItemId = null, decimal? requiredQuantity = null,
-        DateTimeOffset? completedAtUtc = null, bool needsEveryLinkedList = false)
+        DateTimeOffset? completedAtUtc = null, bool needsEveryLinkedList = false,
+        TaskItemStock stock = TaskItemStock.None)
     {
         Id = id;
+        Stock = stock;
         // Any one of them unless asked otherwise - see the property.
         NeedsEveryLinkedList = needsEveryLinkedList;
         Description = description;
@@ -683,11 +718,12 @@ public sealed class TaskItem
         ItemPriority priority = ItemPriority.Normal, string? colour = null,
         IReadOnlyList<TaskItemAlternative>? alternatives = null,
         DateTimeOffset? createdAtUtc = null, Guid? referencesTaskItemId = null, decimal? requiredQuantity = null,
-        DateTimeOffset? completedAtUtc = null, bool needsEveryLinkedList = false)
+        DateTimeOffset? completedAtUtc = null, bool needsEveryLinkedList = false,
+        TaskItemStock stock = TaskItemStock.None)
         => new(
             id, description, dueDateUtc, isCompleted, linkedTaskListIds, reminders, subject, categories, product,
             notes, isFailed, waitsForTaskItemIds, priority, colour, alternatives,
-            createdAtUtc, referencesTaskItemId, requiredQuantity, completedAtUtc, needsEveryLinkedList);
+            createdAtUtc, referencesTaskItemId, requiredQuantity, completedAtUtc, needsEveryLinkedList, stock);
 
     /// <summary>
     /// Takes the tick back off an entry that may not carry one yet, because something it waits for is

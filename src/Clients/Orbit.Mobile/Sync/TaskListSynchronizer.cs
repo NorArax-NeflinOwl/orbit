@@ -81,14 +81,37 @@ public sealed class TaskListSynchronizer
             return SendResult.Abandoned;
         }
 
+        var listsStillHere = await ListsStillHereAsync(dbContext, cancellationToken);
+
         return entry.Operation switch
         {
-            OutboxOperation.Create => await SendCreateAsync(dbContext, taskList, cancellationToken),
+            OutboxOperation.Create => await SendCreateAsync(dbContext, taskList, listsStillHere, cancellationToken),
             OutboxOperation.File => await SendFilingAsync(dbContext, taskList, cancellationToken),
             OutboxOperation.Archive => await SendArchivingAsync(taskList, cancellationToken),
-            _ => await SendUpdateAsync(taskList, cancellationToken)
+            _ => await SendUpdateAsync(taskList, listsStillHere, cancellationToken)
         };
     }
+
+    /// <summary>
+    /// The lists this phone still holds, by the id the server knows each of them as - which is what an
+    /// entry standing for another list may point at.
+    ///
+    /// A list deleted elsewhere is taken off this phone by the pull, and an entry that stood for it is
+    /// left pointing at nothing. Sent as stored, that makes the server refuse the whole save with "A
+    /// linked task list must exist and belong to the same user" (issue #186, seen in production on
+    /// 2026-08-27) - so every later save of that list fails too, over an entry the reader cannot see is
+    /// broken. The links are dropped on the way out instead.
+    ///
+    /// Only lists with a ServerId: those are the only ones an entry can point at anyway, since the
+    /// editor offers no other (TaskItemEditor's list choices all require one).
+    /// </summary>
+    private static async Task<IReadOnlySet<Guid>> ListsStillHereAsync(
+        OrbitLocalDbContext dbContext, CancellationToken cancellationToken)
+        => (await dbContext.TaskLists
+            .Where(taskList => taskList.ServerId != null)
+            .Select(taskList => taskList.ServerId!.Value)
+            .ToListAsync(cancellationToken))
+            .ToHashSet();
 
     /// <inheritdoc cref="NoteSynchronizer.ServerFolderIdAsync"/>
     private static async Task<Guid?> ServerFolderIdAsync(
@@ -155,7 +178,8 @@ public sealed class TaskListSynchronizer
     }
 
     private async Task<SendResult> SendCreateAsync(
-        OrbitLocalDbContext dbContext, LocalTaskList taskList, CancellationToken cancellationToken)
+        OrbitLocalDbContext dbContext, LocalTaskList taskList, IReadOnlySet<Guid> listsStillHere,
+        CancellationToken cancellationToken)
     {
         if (taskList.ServerId is not null)
         {
@@ -170,7 +194,7 @@ public sealed class TaskListSynchronizer
             // The folder travels on the create and only on the create: a list the server has never seen
             // has nothing to file, so LocalTaskListRepository queues no filing for one and this is where
             // it would otherwise be lost.
-            new CreateTaskRequest(taskList.Title, ToRequests(taskList.Items), taskList.IsGroup, taskList.IsPrivate,
+            new CreateTaskRequest(taskList.Title, ToRequests(taskList.Items, listsStillHere), taskList.IsGroup, taskList.IsPrivate,
                 taskList.EncryptedContent, taskList.Priority, taskList.Description,
                 await ServerFolderIdAsync(dbContext, taskList.FolderId, cancellationToken),
                 // Null for a list held since before tags - see LocalTaskList.Tags.
@@ -190,7 +214,8 @@ public sealed class TaskListSynchronizer
         return SendResult.Sent;
     }
 
-    private async Task<SendResult> SendUpdateAsync(LocalTaskList taskList, CancellationToken cancellationToken)
+    private async Task<SendResult> SendUpdateAsync(
+        LocalTaskList taskList, IReadOnlySet<Guid> listsStillHere, CancellationToken cancellationToken)
     {
         if (taskList.ServerId is not { } serverId)
         {
@@ -202,7 +227,7 @@ public sealed class TaskListSynchronizer
             serverId,
             // Said rather than left out: null would mean "not provided" and keep whatever is stored, so
             // a description cleared on this phone would come back at the next pull - see CreateTaskRequest.
-            new UpdateTaskRequest(taskList.Title, ToRequests(taskList.Items), taskList.IsGroup, taskList.IsPrivate,
+            new UpdateTaskRequest(taskList.Title, ToRequests(taskList.Items, listsStillHere), taskList.IsGroup, taskList.IsPrivate,
                 taskList.EncryptedContent, taskList.Priority, taskList.Description,
                 // Said for the same reason: null keeps what is stored, which was right while this phone
                 // had no box for it and would now keep an answer the reader has changed here.
@@ -348,7 +373,8 @@ public sealed class TaskListSynchronizer
     /// the categories), but a list this phone holds is pushed whole, and passing it through is what makes
     /// that rule unnecessary rather than relied upon.
     /// </summary>
-    private static IReadOnlyList<TaskItemRequest> ToRequests(IReadOnlyList<TaskItemDto> items)
+    private static IReadOnlyList<TaskItemRequest> ToRequests(
+        IReadOnlyList<TaskItemDto> items, IReadOnlySet<Guid> listsStillHere)
         => items.Select(item => new TaskItemRequest(
             item.Description, item.Id == Guid.Empty ? null : item.Id, item.DueDateUtc, item.IsCompleted,
             // The new field, always: the old single one carries only the first list, so a save from
@@ -356,7 +382,16 @@ public sealed class TaskListSynchronizer
             LinkedTaskListId: null, item.OverdueNotificationChannel, item.RemindDaily,
             item.DailyReminderNotificationChannel, item.DailyReminderTimeOfDay,
             item.Kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId,
-            item.AllLinkedTaskListIds, item.AllCategories, item.Product,
+            // Only the lists still here - see ListsStillHereAsync. A link to one deleted elsewhere would
+            // make the server refuse this whole save, and every later one, over an entry nobody can see
+            // is broken.
+            // Only the lists still here - see ListsStillHereAsync. A link to one deleted elsewhere would
+            // make the server refuse this whole save, and every later one, over an entry nobody can see
+            // is broken.
+            // Only the lists still here - see ListsStillHereAsync. A link to one deleted elsewhere would
+            // make the server refuse this whole save, and every later one, over an entry nobody can see
+            // is broken.
+            [.. item.AllLinkedTaskListIds.Where(listsStillHere.Contains)], item.AllCategories, item.Product,
             // Passed through as it came, null included: null means "nothing to say about it" and leaves
             // the stored one alone, which is what this phone needs while it has no box to write one in.
             // AllNotes would turn that into an empty string, and an empty string clears it.
@@ -376,7 +411,11 @@ public sealed class TaskListSynchronizer
             item.Colour,
             // The ways it is done by, as the local copy holds them - which this phone now writes as well
             // as reads (see TaskItemEditor.Ways). Always a list, for the reason the steps above are one.
-            item.AllAlternatives,
+            // A way pointing at a list that is gone keeps its words and loses the link, the same rule
+            // the browser's editor follows: it becomes a line to tick by hand, which is what it now is.
+            [.. item.AllAlternatives.Select(way => way.LinkedTaskListId is { } wayListId && !listsStillHere.Contains(wayListId)
+                ? way with { LinkedTaskListId = null }
+                : way)],
             // What it is the same thing as, and how much it needs, as the local copy holds them - which
             // this phone now writes when a name is picked for what it names (see TaskItemEditor.TakeOn).
             item.ReferencesTaskItemId,

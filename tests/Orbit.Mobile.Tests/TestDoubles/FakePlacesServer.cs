@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Web;
 using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Places;
 using Orbit.Contracts.Sync;
 
@@ -35,13 +36,14 @@ internal sealed class FakePlacesServer : HttpMessageHandler
     public PlaceDto AddPlace(
         string name, string address = "Piękna 1, Warszawa", double latitude = 52.2297, double longitude = 21.0122,
         bool isShared = false, string? sharedBy = null, string accessLevel = "CanEdit",
-        bool isSharedWithOthers = false)
+        bool isSharedWithOthers = false, bool isArchived = false)
     {
         var now = _timeProvider.GetUtcNow();
         var place = new PlaceDto(
             Guid.NewGuid(), name, string.Empty, new EventLocationDto(address, latitude, longitude),
             Colour: string.Empty, Priority: "Normal", TaskListIds: [], now, now,
-            isShared, sharedBy, accessLevel, isShared ? Guid.NewGuid() : null, isSharedWithOthers);
+            isShared, sharedBy, accessLevel, isShared ? Guid.NewGuid() : null, isSharedWithOthers,
+            IsArchived: isArchived);
 
         _places[place.Id] = place;
         return place;
@@ -99,6 +101,14 @@ internal sealed class FakePlacesServer : HttpMessageHandler
     private async Task<HttpResponseMessage> SaveAsync(
         HttpRequestMessage request, string path, CancellationToken cancellationToken)
     {
+        // Putting one away travels on its own endpoint, exactly as it does on the real server - see
+        // ArchivePlaceCommand. Answered here because a fake that took it for a save would read
+        // "archived" as an id and throw, and one that refused it would make a correct phone look broken.
+        if (path.EndsWith("/archived", StringComparison.Ordinal))
+        {
+            return await ArchiveAsync(request, Guid.Parse(path.Split('/')[^2]), cancellationToken);
+        }
+
         var placeId = Guid.Parse(path.Split('/')[^1]);
         if (!_places.TryGetValue(placeId, out var stored))
         {
@@ -116,6 +126,24 @@ internal sealed class FakePlacesServer : HttpMessageHandler
             TaskListIds = asked.TaskListIds ?? [],
             IsPrivate = asked.IsPrivate,
             EncryptedContent = asked.EncryptedContent,
+            UpdatedAtUtc = _timeProvider.GetUtcNow()
+        };
+
+        return new HttpResponseMessage(HttpStatusCode.NoContent);
+    }
+
+    private async Task<HttpResponseMessage> ArchiveAsync(
+        HttpRequestMessage request, Guid placeId, CancellationToken cancellationToken)
+    {
+        if (!_places.TryGetValue(placeId, out var stored))
+        {
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        var asked = await request.Content!.ReadFromJsonAsync<ArchiveRequest>(cancellationToken);
+        _places[placeId] = stored with
+        {
+            IsArchived = asked!.IsArchived,
             UpdatedAtUtc = _timeProvider.GetUtcNow()
         };
 

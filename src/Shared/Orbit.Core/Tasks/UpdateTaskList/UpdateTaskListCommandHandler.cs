@@ -10,6 +10,7 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
     private readonly TaskListLinkValidator _taskListLinkValidator;
     private readonly RestockCompletion _restockCompletion;
     private readonly StockedEntryCompletion _stockedEntryCompletion;
+    private readonly StockedEntryStock _stockedEntryStock;
     private readonly ProductEntryPlacement _productEntryPlacement;
     private readonly ShelfUsage? _shelfUsage;
 
@@ -20,14 +21,15 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
     public UpdateTaskListCommandHandler(
         TaskListAccessResolver taskListAccessResolver, ITaskRepository taskRepository,
         TaskListLinkValidator taskListLinkValidator, RestockCompletion restockCompletion,
-        StockedEntryCompletion stockedEntryCompletion, ProductEntryPlacement productEntryPlacement,
-        ShelfUsage? shelfUsage = null)
+        StockedEntryCompletion stockedEntryCompletion, StockedEntryStock stockedEntryStock,
+        ProductEntryPlacement productEntryPlacement, ShelfUsage? shelfUsage = null)
     {
         _taskListAccessResolver = taskListAccessResolver;
         _taskRepository = taskRepository;
         _taskListLinkValidator = taskListLinkValidator;
         _restockCompletion = restockCompletion;
         _stockedEntryCompletion = stockedEntryCompletion;
+        _stockedEntryStock = stockedEntryStock;
         _productEntryPlacement = productEntryPlacement;
         _shelfUsage = shelfUsage;
     }
@@ -92,11 +94,21 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
         var placedOnInventoryId = await _productEntryPlacement.PlaceAsync(
             request.UserId, taskList, identity.Items, request.IsPrivate, cancellationToken);
 
+        // What each entry already owes the shelf, which no client knows and none sends - see
+        // TaskItem.Stock. Before the two passes below, both of which read it.
+        CarryWhatEachEntryOwesTheShelf(identity.Items, taskList);
+
+        // A tick that has just appeared puts that entry's own minimum on the shelf, and one that has
+        // just gone takes it back off - see StockedEntryStock, where the rule is. Before the crossing
+        // off below, so a shelf this save has just raised is read at what it now holds.
+        await _stockedEntryStock.SettleAsync(identity.Items, cancellationToken);
+
         // An entry the shelf already answers is crossed off before the list is written, so it takes one
-        // save rather than two - see StockedEntryCompletion, which reads nothing for the ordinary lists
-        // this handler mostly saves. The owner's shelves, not the caller's: somebody editing through a
-        // share is asking about the list's own storages.
-        await _stockedEntryCompletion.CrossOffWhatTheShelfCoversAsync(
+        // save rather than two - and one the shelf has stopped answering comes back. See
+        // StockedEntryCompletion, which reads nothing for the ordinary lists this handler mostly saves.
+        // The owner's shelves, not the caller's: somebody editing through a share is asking about the
+        // list's own storages.
+        await _stockedEntryCompletion.SettleWhatTheShelfSaysAsync(
             taskList.UserId, identity.Items, cancellationToken);
 
         // When each entry was done, once everything that can tick one has had its say - see
@@ -193,6 +205,20 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
             {
                 item.KeepStepsOf(storedItem);
             }
+        }
+    }
+
+    /// <summary>
+    /// Every entry takes the stored one's state with the shelf - see TaskItem.Stock, which is the
+    /// server's own bookkeeping and reaches no client, so an entry arriving from one says nothing about
+    /// it. An entry that is new to this list starts owing the shelf nothing.
+    /// </summary>
+    private static void CarryWhatEachEntryOwesTheShelf(IReadOnlyList<TaskItem> incoming, TaskList stored)
+    {
+        var storedById = stored.Items.ToDictionary(item => item.Id);
+        foreach (var item in incoming)
+        {
+            item.CarryStockFrom(storedById.GetValueOrDefault(item.Id));
         }
     }
 

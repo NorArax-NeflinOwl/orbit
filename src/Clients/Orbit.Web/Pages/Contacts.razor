@@ -11,6 +11,7 @@
 @inject ILogger<Contacts> Logger
 @inject UserPermissionState Permissions
 @inject Translations T
+@inject TimeProvider TimeProvider
 @inject ConversationPins Pins
 
 <PageTitle>@T["Orbit — Contacts"]</PageTitle>
@@ -189,8 +190,13 @@ else
             {
                 @foreach (var contact in RowsForTheChosenTab)
                 {
+                    @* When there was last anything here, only on the Chats tab: the Contacts tab is a
+                       directory in alphabetical order, and a time on a list nothing is ordered by is a
+                       number with no question behind it. See ContactDto.LastMessageAtUtc, which the
+                       server now answers from the messages rather than from the contact row. *@
                     <PersonRow Id="contact.UserId" Name="@contact.DisplayName" Subtitle="@contact.UserName"
                                Status="Conversation.PresenceOf(contact)"
+                               When="@(_tab == ContactsTab.Chats ? RelativeMoment.Ago(Conversation.LastAnythingFrom(contact), TimeProvider, T) : null)"
                                HasUnseenAction="@(contact.UnreadCount > 0)"
                                OnSelected="() => OpenChat(contact.UserId)">
                         <Pin>
@@ -277,8 +283,12 @@ else
                     .OrderBy(contact => contact.DisplayName, StringComparer.CurrentCultureIgnoreCase),
                 contact => contact.UserId)]
             : [.. Pins.PinnedFirst(
+                // The later of their last message and the last time they were here - see
+                // Conversation.LastAnythingFrom. The same measure the dashboard's "Recent chats" card
+                // uses, and it has to be: that card is the top of this very list, and two orders would
+                // have it reshuffle itself the moment somebody clicked through to the whole of it.
                 _establishedChats.Where(contact => !contact.IsArchived)
-                    .OrderByDescending(contact => contact.LastMessageAtUtc),
+                    .OrderByDescending(Conversation.LastAnythingFrom),
                 contact => contact.UserId)];
 
     private IReadOnlyList<ChatGroupDto> ArrangedGroups

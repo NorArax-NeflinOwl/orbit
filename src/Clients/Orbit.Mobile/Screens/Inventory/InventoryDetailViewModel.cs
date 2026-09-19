@@ -212,6 +212,24 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
         => _serverId is not null && !IsPrivate && !IsReadOnly && _networkStatus.IsOnline;
 
     /// <summary>
+    /// Which of those four it is, in the reader's own language, or null when the option is open. Said
+    /// under the greyed entry - see ScreenMenuEntry.Note: an entry that cannot be chosen and says
+    /// nothing about it is, to the reader, a press that did not register.
+    ///
+    /// Asked in the order a reader can act on. Being back online is a matter of waiting, and saying so
+    /// to somebody looking at a shelf shared with them would be telling them to wait for something that
+    /// is never going to happen.
+    /// </summary>
+    public string? WhyTheGroupCannotBeArranged
+        => CanArrangeTheGroup ? null
+            : IsPrivate ? _translations["A private inventory is never gathered with others."]
+            : IsReadOnly ? _translations["Only the person who owns this can arrange it."]
+            : _serverId is null ? _translations["This inventory hasn't reached the server yet."]
+            // ConnectionRequirement's own wording, so being offline reads the same here as it does on
+            // the share panel and in the notification feed's menu.
+            : _translations["This needs a connection. It will work again once you're back online."];
+
+    /// <summary>
     /// Opens that sheet. Every other shelf of this reader's, each a tick, and the sheet stays open so
     /// several can be moved in one visit - which is what StaysOpen is for.
     /// </summary>
@@ -858,6 +876,7 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
                 candidate.LocalId != inventory.LocalId && candidate.ServerId is not null && !candidate.IsShared)
         ];
         OnPropertyChanged(nameof(CanArrangeTheGroup));
+        OnPropertyChanged(nameof(WhyTheGroupCannotBeArranged));
 
         Gathered.Clear();
         foreach (var memberId in inventory.GathersServerIds)

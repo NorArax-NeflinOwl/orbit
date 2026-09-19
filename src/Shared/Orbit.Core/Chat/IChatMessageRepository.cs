@@ -91,6 +91,26 @@ public interface IChatMessageRepository
     /// asks for all of them on every poll tick.
     /// </summary>
     Task<IReadOnlyDictionary<Guid, int>> GetUnreadCountsBySenderAsync(Guid readerUserId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// When the last message in each of these one-to-one conversations was sent, keyed by the other
+    /// party. One query for all of them, for the reason the counts above are.
+    ///
+    /// Asked about named conversations rather than about the whole list on purpose. A Contact row's own
+    /// LastMessageAtUtc is moved forward on every send, so it already <em>is</em> the last message's
+    /// time - except where the reader has emptied the conversation, which hides everything before
+    /// <see cref="Contact.HistoryClearedAtUtc"/> and leaves the row claiming a time for messages they
+    /// can no longer see. So only those conversations need asking, which for most readers is none of
+    /// them, and this is not run at all. Aggregating every message a busy account ever exchanged, on a
+    /// list the chat window re-reads on every poll tick, would be a real cost for an answer that is
+    /// already correct.
+    ///
+    /// Raw even so: it says when a message was last sent and nothing about the line, which the caller
+    /// applies - the same division GetConversationQueryHandler makes, and for the same reason. Nothing
+    /// for a conversation with no messages at all.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, DateTimeOffset>> GetLastMessageTimesAsync(
+        Guid readerUserId, IReadOnlyCollection<Guid> otherUserIds, CancellationToken cancellationToken);
     /// <summary>
     /// How many messages each group has waiting unread for this reader, keyed by group - the group
     /// counterpart of <see cref="GetUnreadCountsBySenderAsync"/>, in one query for the same reason. A

@@ -35,6 +35,9 @@ internal sealed class InventoryTestContext
     /// <summary>Writes an inventory's item list - what both creating one and saving one go through.</summary>
     public InventoryItemsSaver ItemsSaver { get; }
 
+    /// <summary>What a tick on a product entry puts on the shelf, and an untick takes back - see StockedEntryStock.</summary>
+    public StockedEntryStock StockedEntryStock { get; }
+
     /// <summary>Puts a list's product entries on the shelf it is measured against - see ProductEntryPlacement.</summary>
     public ProductEntryPlacement ProductEntryPlacement { get; }
 
@@ -59,6 +62,7 @@ internal sealed class InventoryTestContext
             ManagedTaskListRepository, InventoryItemRepository, InventoryRepository, TaskRepository, TaskListCoordinator);
         StockedEntryCompletion = new StockedEntryCompletion(InventoryRepository, InventoryItemRepository);
         ItemsSaver = new InventoryItemsSaver(InventoryItemRepository, TaskListCoordinator);
+        StockedEntryStock = new StockedEntryStock(InventoryItemRepository);
         ProductEntryPlacement = new ProductEntryPlacement(AccessResolver, InventoryItemRepository, RestockListRefresh);
         ManagedRestockLists = new ManagedRestockLists(ManagedTaskListRepository);
         ShelfDemand = new ShelfDemand(TaskRepository, ManagedRestockLists);

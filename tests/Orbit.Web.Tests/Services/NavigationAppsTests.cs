@@ -76,15 +76,18 @@ public sealed class NavigationAppsTests
     }
 
     /// <summary>
-    /// The device's own app is first on both, because it is the only one of them that reaches nobody
-    /// else - which is the same reason the map withholds its own tiles until it is allowed them.
+    /// The device's own app is not offered, although it used to come first. What answers these two
+    /// addresses is a scheme rather than a page, and a browser with nothing registered for one does
+    /// nothing and says nothing - a button that looks broken rather than one that reaches nobody. So
+    /// everything on the list leaves the device, and the panel says so once instead of per button.
+    /// Taken off on 2026-09-19; RouteTo still answers for it.
     /// </summary>
     [Fact]
-    public void The_device_comes_first_wherever_this_is_read()
+    public void The_device_is_not_among_the_apps_offered()
     {
-        Assert.Equal(NavigationApp.ThisDevice, NavigationApps.Offered(isApple: true)[0]);
-        Assert.Equal(NavigationApp.ThisDevice, NavigationApps.Offered(isApple: false)[0]);
-        Assert.False(NavigationApps.LeavesTheDevice(NavigationApp.ThisDevice));
-        Assert.True(NavigationApps.Offered(isApple: false).Skip(1).All(NavigationApps.LeavesTheDevice));
+        Assert.DoesNotContain(NavigationApp.ThisDevice, NavigationApps.Offered(isApple: true));
+        Assert.DoesNotContain(NavigationApp.ThisDevice, NavigationApps.Offered(isApple: false));
+        Assert.True(NavigationApps.Offered(isApple: true).All(NavigationApps.LeavesTheDevice));
+        Assert.True(NavigationApps.Offered(isApple: false).All(NavigationApps.LeavesTheDevice));
     }
 }

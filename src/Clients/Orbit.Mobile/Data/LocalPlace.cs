@@ -90,6 +90,17 @@ public sealed class LocalPlace : Orbit.Mobile.Sync.ISharedState
             ? new EncryptedContentDto(ciphertext, nonce)
             : null;
 
+    /// <summary>
+    /// Whether its owner has put it away - see Orbit.Core.Places.Place.IsArchived. The same flag the
+    /// four kinds of card carry on this phone (see LocalNote.IsArchived), and here for the same reason:
+    /// a place somebody is finished with leaves the list without being lost, and deleting one is offered
+    /// in the archive and nowhere else.
+    ///
+    /// Readable on a sealed place, like the lists it belongs to: it says whether its owner is still
+    /// using it, not where it is.
+    /// </summary>
+    public bool IsArchived { get; set; }
+
     /// <inheritdoc cref="LocalNote.IsSealed"/>
     [NotMapped]
     public bool IsSealed { get; set; }

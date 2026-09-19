@@ -192,6 +192,9 @@ namespace Orbit.Mobile.Data.Migrations
                     b.Property<long>("LastMessageAtUtc")
                         .HasColumnType("INTEGER");
 
+                    b.Property<long?>("LastSeenAtUtc")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("PresenceStatus")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -528,6 +531,9 @@ namespace Orbit.Mobile.Data.Migrations
 
                     b.Property<string>("EncryptedNonce")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsPrivate")
                         .HasColumnType("INTEGER");

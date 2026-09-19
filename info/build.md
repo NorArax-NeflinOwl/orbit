@@ -157,6 +157,23 @@ else wrong. Either carry the keystore over *before* the first Android build (a c
 `secrets/`, see `secrets/README.md`), or read the new fingerprint with `keytool -list -v -keystore
 <path> -storepass android` and add it to both restrictions in the Google Cloud console.
 
+**The Android OAuth client also has to be told that a custom URI scheme is allowed, and it is not by
+default.** `WebSignInBrowser` sends Google to `com.orbitmaui.android:/oauth2redirect`, which is a custom
+URI scheme rather than an https App Link; Google now ships new Android clients with that method turned
+off, so a correctly configured deployment - right client id, right package name, right signing
+fingerprint - still dies on Google's own page before the account picker appears:
+
+```
+Access blocked: Orbit's request is invalid
+Error 400: invalid_request
+Custom URI scheme is not enabled for your Android client.
+```
+
+Nothing in this repository can cause or cure it: the switch is **Google Cloud console > APIs & Services
+> Credentials > the Android OAuth client > Advanced settings > Enable Custom URI Scheme**. The app sees
+only a browser the reader closed, which is indistinguishable from backing out, so it reports nothing -
+open the authorization address in a desktop browser to read the error when the flow simply never returns.
+
 **A request the server cannot even read answers 500 here and 400 in production, and that is ASP.NET
 rather than Orbit.** Minimal APIs rethrow a body they could not bind when the environment is Development
 - deliberately, so a developer sees the exception rather than a bare status - and return 400 for the

@@ -109,8 +109,16 @@ export function bindSuggestionKeys(panel, fieldSelector, dotNetRef) {
     }
 }
 
-export function unbindSuggestionKeys() {
-    activeSuggestions = null;
+/// Takes the binding back, and only this panel's. The slot holds one panel at a time (see above), and
+/// the caller that is closing is not always the caller that holds it: a page can draw a suggestions
+/// panel per entry, so opening one entry's, then another's, and then leaving the first meant the first's
+/// dispose clearing the second's binding - after which the arrow keys in the open panel did nothing and
+/// nothing said why. Asked for no panel at all, it clears whatever is there, which is what a caller with
+/// nothing to name means.
+export function unbindSuggestionKeys(panel) {
+    if (!panel || !activeSuggestions || activeSuggestions.panel === panel) {
+        activeSuggestions = null;
+    }
 }
 
 function onSuggestionKeyDown(event) {

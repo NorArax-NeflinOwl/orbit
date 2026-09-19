@@ -70,6 +70,15 @@ public sealed class PlaceRepository : IPlaceRepository
         entity.Longitude = place.Where.Longitude;
         entity.Colour = place.Colour;
         entity.Priority = place.Priority.ToString();
+        // Whether it is sealed, and the sealed half itself. These were left out, and leaving them out
+        // lost what the place said: sealing an existing one emptied the readable columns - which is
+        // what sealing does - and then stored neither the flag nor the ciphertext, so the row came back
+        // as an open place with no name at a point of 0,0. Unsealing one went the other way and left
+        // the old ciphertext in place over a name that was now readable. Found on 2026-09-19.
+        entity.IsPrivate = place.IsPrivate;
+        entity.EncryptedCiphertext = place.EncryptedContent?.Ciphertext;
+        entity.EncryptedNonce = place.EncryptedContent?.Nonce;
+        entity.IsArchived = place.IsArchived;
         entity.SourceTaskItemId = place.SourceTaskItemId;
         entity.UpdatedAtUtc = place.UpdatedAtUtc;
 
@@ -105,7 +114,8 @@ public sealed class PlaceRepository : IPlaceRepository
             entity.EncryptedCiphertext is { } ciphertext && entity.EncryptedNonce is { } nonce
                 ? new EncryptedPayload(ciphertext, nonce)
                 : null,
-            entity.SourceTaskItemId);
+            entity.SourceTaskItemId,
+            entity.IsArchived);
 
     private static PlaceEntity ToEntity(Place place)
         => new()
@@ -124,6 +134,7 @@ public sealed class PlaceRepository : IPlaceRepository
             EncryptedNonce = place.EncryptedContent?.Nonce,
             TaskLists = [.. LinksOf(place)],
             SourceTaskItemId = place.SourceTaskItemId,
+            IsArchived = place.IsArchived,
             CreatedAtUtc = place.CreatedAtUtc,
             UpdatedAtUtc = place.UpdatedAtUtc
         };

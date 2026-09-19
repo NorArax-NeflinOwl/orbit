@@ -71,7 +71,10 @@
                             }
                             else
                             {
-                                @(_plainTextByMessageId.GetValueOrDefault(message.Id) ?? T["[couldn't decrypt]"])
+                                @* The same words a one-to-one conversation draws, and the same reading of
+                                   them: an address written in a message is pressable, and one pointing at
+                                   somebody else's map opens the place on Orbit's own. See TextWithLinks. *@
+                                <TextWithLinks Text="@(_plainTextByMessageId.GetValueOrDefault(message.Id) ?? T["[couldn't decrypt]"])" />
                             }
                         </p>
                         <div class="chat-bubble-menu">

@@ -140,6 +140,7 @@ public sealed partial class PlaceDetailViewModel : ObservableObject
         _longitude = place.Longitude;
         SharedBy = place.IsShared ? place.SharedByUserName ?? string.Empty : string.Empty;
         IsSharedWithMe = place.IsShared;
+        IsArchived = place.IsArchived;
 
         // Only a place the server knows about can be offered: a share names it by its server id, and
         // one still waiting in the outbox has none.
@@ -260,6 +261,37 @@ public sealed partial class PlaceDetailViewModel : ObservableObject
     /// </summary>
     [ObservableProperty]
     private bool _isSharedWithMe;
+
+    /// <summary>
+    /// Whether it has been put away - what the screen's menu reads to say Archive or Put back, and what
+    /// decides whether Delete is offered at all: deleting a place is offered in the archive and nowhere
+    /// else (the user's rule, 2026-09-19, which Orbit.Web follows too).
+    /// </summary>
+    [ObservableProperty]
+    private bool _isArchived;
+
+    /// <summary>
+    /// Puts it away, or brings it back - its own kind of change, queued as such, see
+    /// LocalPlaceRepository.ArchiveAsync. Mirrors NoteDetailViewModel.ArchiveAsync, including saying so:
+    /// nothing else on this screen moves, and a press that changes nothing visible reads as one that
+    /// did nothing.
+    /// </summary>
+    [RelayCommand]
+    private async Task ArchiveAsync(bool isArchived, CancellationToken cancellationToken)
+    {
+        var outcome = await _places.ArchiveAsync(_localId, isArchived, cancellationToken);
+        if (outcome.WasRefused())
+        {
+            Message = outcome.Explain(RefusalMessage, _translations);
+            return;
+        }
+
+        IsArchived = isArchived;
+        Message = isArchived
+            ? _translations["Archived - it is in the archive now."]
+            : _translations["Put back where it was."];
+        await SynchroniseAsync(cancellationToken);
+    }
 
     /// <inheritdoc cref="PlacesViewModel.DeleteAsync"/>
     [RelayCommand]

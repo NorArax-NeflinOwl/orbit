@@ -109,6 +109,27 @@ jobs:
       - name: Verify push notifications in a browser
         run: node ci/verify-push-notifications.mjs
 
+      # And the third: checklistTextEditor.js is the writing surface a note is edited on, and every
+      # keystroke and every save reads it back through code bUnit cannot execute. A kind of line the read
+      # does not know is not an error - it is a line quietly turned into an empty one, which is how a rule
+      # drawn across a note was lost for two days in September 2026 (issue #294).
+      - name: Verify a note survives its writing surface
+        run: node ci/verify-note-surface.mjs
+
+      # And the fourth: menuAnchor.js is every edge of every panel drawn outside the flow, and all of it
+      # is getBoundingClientRect and window.innerWidth - which bUnit's DOM measures as zero, so none of
+      # it could be checked here at all. A panel put in the wrong place is not an error either; it is a
+      # menu with half its entries off the screen, or ninety pixels of squeezed tag browser.
+      - name: Verify a panel lands where it belongs
+        run: node ci/verify-menu-anchor.mjs
+
+      # And the fifth: what the map's Refresh actually does is move the pins in place rather than redraw
+      # the map, so the pan and the zoom it was pressed from are kept - and every decision in that is
+      # invisible from outside. A refresh that silently did nothing looks exactly like a refresh with
+      # nothing new behind it, which is how issue #293 came to be unreproducible from the code.
+      - name: Verify the map's pins follow a refresh
+        run: node ci/verify-map-markers.mjs
+
   deploy:
     # The gate the old arrangement only looked like it had: nothing below runs until the suite is green.
     needs: test

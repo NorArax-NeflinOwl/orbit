@@ -332,6 +332,17 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             };
         }
 
+        // And refused for a link to a list that is not here, which TaskListLinkValidator refuses in the
+        // same words. This fake took one, so a phone that went on sending a link to a list deleted
+        // somewhere else looked correct here and failed every save on a device - issue #186.
+        if (pointedAt.Any(listId => !_taskLists.ContainsKey(listId)))
+        {
+            return new HttpResponseMessage(HttpStatusCode.BadRequest)
+            {
+                Content = JsonContent.Create(new { message = "A linked task list must exist and belong to the same user." })
+            };
+        }
+
         _taskLists[id] = existing with
         {
             Title = body.Title,

@@ -243,7 +243,10 @@ public sealed class TaskRepository : ITaskRepository
             entity.ReferencesTaskItemId,
             entity.RequiredQuantity,
             entity.CompletedAtUtc,
-            entity.NeedsEveryLinkedList);
+            entity.NeedsEveryLinkedList,
+            // Anything unreadable falls back to owing the shelf nothing, the way every other
+            // stored-by-name enum here falls back: a row must not throw while being read.
+            Enum.TryParse<TaskItemStock>(entity.Stock, out var stock) ? stock : TaskItemStock.None);
 
     /// <summary>
     /// What the entry asks for, when it asks for anything - see TaskItemEntity.ProductType for why the
@@ -306,6 +309,7 @@ public sealed class TaskRepository : ITaskRepository
             CreatedAtUtc = item.CreatedAtUtc,
             ReferencesTaskItemId = item.ReferencesTaskItemId,
             RequiredQuantity = item.RequiredQuantity,
+            Stock = item.Stock.ToString(),
             LinkedTaskLists = [.. item.LinkedTaskListIds.Select((linkedId, linkPosition) =>
                 new TaskItemTaskListLinkEntity
                 {

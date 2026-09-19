@@ -185,6 +185,29 @@ public sealed class InventoryItem
         return true;
     }
 
+    /// <summary>
+    /// Puts an amount on this shelf, or takes it off - what ticking and unticking a list's entry for it
+    /// does (see Orbit.Core.Inventories.StockedEntryStock). The amount is the entry's own minimum, not
+    /// this item's: two lists asking for two each put two on when one of them is ticked, and the shelf
+    /// reaches four only when both have been.
+    ///
+    /// Never below nothing: a shelf holding minus one of something is a number nobody can act on, and an
+    /// entry unticked after the count was already emptied by hand has nothing left to take back. Answers
+    /// whether anything actually moved.
+    /// </summary>
+    public bool MoveStockBy(decimal amount)
+    {
+        var moved = Math.Max(0, Quantity + amount);
+        if (moved == Quantity)
+        {
+            return false;
+        }
+
+        Quantity = moved;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+        return true;
+    }
+
     /// <summary>Puts this item where the person arranging the shelf dropped it.</summary>
     public void MoveTo(int position)
     {

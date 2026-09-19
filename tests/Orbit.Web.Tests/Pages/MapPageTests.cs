@@ -1030,6 +1030,9 @@ public sealed class MapPageTests : OrbitTestContext
     /// </summary>
     private string _placesJson = "[]";
 
+    /// <summary>What the server says a shortened map link points at - see MapLinkApiClient. Null: nobody could say.</summary>
+    private string? _resolvedMapLinkJson;
+
     /// <summary>
     /// One kept place, as the server sends it. <paramref name="fromEntry"/> makes it one a task list's
     /// Location entry made, on <paramref name="fromList"/> - see TaskEntryPlaces.
@@ -1037,7 +1040,8 @@ public sealed class MapPageTests : OrbitTestContext
     private static string OneKeptPlace(
         string name, string colour = "", string priority = "Normal",
         bool isShared = false, string? sharedBy = null, string accessLevel = "CanEdit",
-        Guid? fromList = null, Guid? fromEntry = null, Guid? id = null)
+        Guid? fromList = null, Guid? fromEntry = null, Guid? id = null,
+        bool isPrivate = false, bool isArchived = false)
         => "[{\"id\":\"" + (id ?? Guid.NewGuid()) + "\",\"name\":\"" + name + "\",\"description\":\"\","
         + "\"where\":{\"address\":\"Piękna 1\",\"latitude\":52.2,\"longitude\":21.0},"
         + "\"colour\":\"" + colour + "\",\"priority\":\"" + priority + "\","
@@ -1046,6 +1050,10 @@ public sealed class MapPageTests : OrbitTestContext
         + "\"isShared\":" + (isShared ? "true" : "false") + ","
         + "\"sharedByUserName\":" + (sharedBy is null ? "null" : "\"" + sharedBy + "\"") + ","
         + "\"accessLevel\":\"" + accessLevel + "\",\"isSharedWithOthers\":false,"
+        // Sealed without a sealed half: this client is built without a PrivateContentSealer, so it hands
+        // the place back as it arrived - which is what lets a test say "sealed" and still read the name.
+        + "\"isPrivate\":" + (isPrivate ? "true" : "false") + ","
+        + "\"isArchived\":" + (isArchived ? "true" : "false") + ","
         + "\"sourceTaskItemId\":" + (fromEntry is null ? "null" : "\"" + fromEntry + "\"") + "}]";
 
     /// <summary>Several of <see cref="OneKeptPlace"/>'s answers as the one list the server sends.</summary>
@@ -1168,6 +1176,254 @@ public sealed class MapPageTests : OrbitTestContext
         Assert.NotEmpty(cut.FindAll(".inventory-share-panel"));
     }
 
+    /// <summary>
+    /// A place its owner keeps is put away rather than deleted - deleting one is offered in the archive
+    /// and nowhere else (see MapArchive). Asked for on 2026-09-19.
+    /// </summary>
+    [Fact]
+    public void A_place_the_reader_keeps_is_put_away_rather_than_deleted()
+    {
+        GrantLocations();
+        _placesJson = OneKeptPlace("The good bakery");
+        var cut = RenderComponent<MapPage>();
+
+        SectionNamed(cut, "Places you keep").QuerySelector(".map-share-row .overflow-menu-trigger")!.Click();
+
+        var entries = cut.FindAll(".overflow-menu-dropdown button").Select(button => button.TextContent.Trim()).ToList();
+        Assert.Contains("Archive", entries);
+        Assert.DoesNotContain("Delete", entries);
+    }
+
+    /// <summary>And a place put away is off the map altogether, which is what putting it away is for.</summary>
+    [Fact]
+    public void A_place_put_away_is_not_on_the_map()
+    {
+        GrantLocations();
+        _placesJson = OneKeptPlace("Last year's flat", isArchived: true);
+
+        var cut = RenderComponent<MapPage>();
+
+        Assert.DoesNotContain(
+            cut.FindAll(".map-panel-heading"),
+            heading => heading.TextContent.Contains("Places you keep", StringComparison.Ordinal));
+    }
+
+    /// <summary>The way to the archive is the page's own menu, beside the other "what am I not seeing".</summary>
+    [Fact]
+    public void The_maps_menu_leads_to_the_archive()
+    {
+        GrantLocations();
+        var cut = RenderComponent<MapPage>();
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+
+        cut.Find(".overflow-menu-trigger").Click();
+        cut.FindAll(".overflow-menu-dropdown button")
+            .First(button => button.TextContent.Trim() == "Archived places").Click();
+
+        Assert.EndsWith("/map/archive", navigationManager.Uri, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A sealed place is offered Share like any other, and the panel says why nothing can be handed over
+    /// yet. It used to be left out of the menu, and since a place is sealed unless its owner says
+    /// otherwise that meant most places had no Share at all - a control that is missing cannot say why.
+    /// </summary>
+    [Fact]
+    public void A_sealed_place_offers_share_and_says_what_it_would_take()
+    {
+        GrantLocations();
+        _placesJson = OneKeptPlace("Where we park", isPrivate: true);
+        var cut = RenderComponent<MapPage>();
+
+        SectionNamed(cut, "Places you keep").QuerySelector(".map-share-row .overflow-menu-trigger")!.Click();
+        cut.FindAll(".overflow-menu-dropdown button").First(button => button.TextContent.Trim() == "Share").Click();
+
+        var panel = cut.Find(".map-overlay-panel");
+        Assert.Contains("sealed", panel.TextContent, StringComparison.Ordinal);
+        Assert.Contains(panel.QuerySelectorAll("button"), button => button.TextContent.Trim() == "Take the seal off");
+        // And nothing to hand over until that is pressed.
+        Assert.Empty(panel.QuerySelectorAll(".inventory-share-panel"));
+    }
+
+    /// <summary>
+    /// The apps that take somebody to a pin are a list, one under the next, and the device's own app is
+    /// not among them: a browser with nothing registered for its scheme opens nothing and says nothing.
+    /// Both asked for on 2026-09-19.
+    /// </summary>
+    [Fact]
+    public void The_way_to_a_pin_is_a_list_of_somebody_elses_apps()
+    {
+        GrantLocations();
+        _placesJson = OneKeptPlace("The good bakery");
+        var cut = RenderComponent<MapPage>();
+
+        SectionNamed(cut, "Places you keep")
+            .QuerySelectorAll(".map-share-row button")
+            .First(button => button.GetAttribute("aria-label") == "Take me there")
+            .Click();
+
+        var apps = cut.FindAll(".map-overlay-apps .map-overlay-app").Select(button => button.TextContent.Trim()).ToList();
+        Assert.Equal(["Google Maps", "Waze", "OpenStreetMap"], apps);
+        Assert.DoesNotContain("The app on this device", apps);
+    }
+
+    /// <summary>
+    /// A link to somebody else's map lands here with the place already pinned, named by the address the
+    /// point turns out to have - asked for on 2026-09-19. The bar along the foot of the map is what says
+    /// so in a test renderer; the pin's own popup is built by Leaflet, which there is none of here.
+    /// </summary>
+    [Fact]
+    public void A_place_a_link_pointed_at_is_pinned_and_named()
+    {
+        GrantLocations();
+        _reverseGeocodedAddress = "Piękna 1, Warszawa";
+        OpenedWith(("at", "52.2297,21.0122"), ("from", "https://www.google.com/maps/search/?api=1&query=52.2297,21.0122"));
+
+        var cut = RenderComponent<MapPage>();
+
+        var bar = cut.Find(".map-create-event");
+        Assert.Contains("Piękna 1, Warszawa", bar.TextContent, StringComparison.Ordinal);
+        // The markers move; the map is not thrown away and built again. This runs inside the draw
+        // itself, so rebuilding there leaves no map at all and no pin on it - which is what it did, and
+        // what a test renderer with no Leaflet behind it cannot show. Reported by looking at the real
+        // page on 2026-09-19; held here by the one thing a renderer can see.
+        Assert.DoesNotContain(JSInterop.Invocations, invocation => invocation.Identifier == "dispose");
+    }
+
+    /// <summary>And the name the link itself gave is kept, rather than replaced by whatever is there.</summary>
+    [Fact]
+    public void A_link_that_named_the_place_keeps_that_name()
+    {
+        GrantLocations();
+        _reverseGeocodedAddress = "Piękna 1, Warszawa";
+        OpenedWith(("at", "52.2297,21.0122"), ("label", "Pałac Kultury"));
+
+        var cut = RenderComponent<MapPage>();
+
+        Assert.Contains("Pałac Kultury", cut.Find(".map-create-event").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A link that named words rather than a point is looked up the way anything typed into the search
+    /// box is - the page has a search of its own, and this is that search asked by the link.
+    /// </summary>
+    [Fact]
+    public void A_link_that_named_words_searches_for_them()
+    {
+        GrantLocations();
+        OpenedWith(("find", "Długa 4"));
+
+        var cut = RenderComponent<MapPage>();
+
+        // The stub answers a search with two Długa 4s, and the page pins the first - see the search tests.
+        Assert.Contains("Długa 4, Warszawa", cut.Find(".map-create-event").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A point the address bar carries that is not a place - past the poles, or not a pair at all -
+    /// leaves the map exactly as it was rather than dropping a pin in the sea.
+    /// </summary>
+    [Theory]
+    [InlineData("100,200")]
+    [InlineData("not a point")]
+    [InlineData("52.2297")]
+    public void A_point_that_is_not_a_place_pins_nothing(string at)
+    {
+        GrantLocations();
+        OpenedWith(("at", at));
+
+        var cut = RenderComponent<MapPage>();
+
+        Assert.Empty(cut.FindAll(".map-create-event"));
+    }
+
+    /// <summary>
+    /// The pin forgets which link it came from as soon as it is somewhere else. Without that, a place
+    /// searched for after following a link went on offering "Open the original link" - pointing at a
+    /// place the reader had left, which is a link that lies about what it opens.
+    /// </summary>
+    [Fact]
+    public void A_pin_searched_for_afterwards_does_not_carry_the_links_source()
+    {
+        GrantLocations();
+        _reverseGeocodedAddress = "Piękna 1, Warszawa";
+        OpenedWith(("at", "52.2297,21.0122"), ("from", "https://www.google.com/maps/search/?api=1&query=52.2297,21.0122"));
+        var cut = RenderComponent<MapPage>();
+        // The link's own pin does carry it, which is what the popup's "Open the original link" opens.
+        var carriedTheSource = HowOftenThePinsCarriedTheirSource();
+        Assert.True(carriedTheSource > 0);
+
+        Search(cut, "Długa 4");
+
+        // And nothing drawn since does: the pin is somewhere else now, and a link that opened where the
+        // reader used to be is a link that lies about what it opens.
+        Assert.Equal(carriedTheSource, HowOftenThePinsCarriedTheirSource());
+        Assert.Contains("Długa 4, Warszawa", cut.Find(".map-create-event").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// How many times the page has handed the map a pin that names the link it came from. The pins are
+    /// anonymous objects built for JavaScript, so they are read back the way JavaScript would read them;
+    /// bUnit files invocations by identifier rather than in order, which is why this counts rather than
+    /// looking at the last one.
+    /// </summary>
+    private int HowOftenThePinsCarriedTheirSource()
+        => JSInterop.Invocations
+            .Where(invocation => invocation.Identifier is "showLocations" or "updateLocations")
+            .SelectMany(invocation => invocation.Arguments)
+            .Select(argument => System.Text.Json.JsonSerializer.Serialize(argument))
+            .Count(drawn => drawn.Contains("\"sourceUrl\":\"https", StringComparison.Ordinal));
+
+    /// <summary>
+    /// A shortened link carries an identifier and nothing else, so the page asks the server to follow
+    /// it - see ResolveMapLinkQuery, and MapLinkApiClient for why a browser cannot. What comes back is
+    /// read exactly as a link written out in full would have been.
+    /// </summary>
+    [Fact]
+    public void A_shortened_link_is_placed_by_asking_the_server()
+    {
+        GrantLocations();
+        _reverseGeocodedAddress = "Piękna 1, Warszawa";
+        _resolvedMapLinkJson =
+            "{\"latitude\":52.2297,\"longitude\":21.0122,\"search\":null,\"label\":\"Pałac Kultury\","
+            + "\"url\":\"https://maps.app.goo.gl/AbCdEf123\"}";
+        OpenedWith(("from", "https://maps.app.goo.gl/AbCdEf123"));
+
+        var cut = RenderComponent<MapPage>();
+
+        Assert.Contains("Pałac Kultury", cut.Find(".map-create-event").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// And where nobody could say - the shortener is down, the link has expired, what is behind it is
+    /// not a map - the page says so rather than showing an empty map to somebody who just pressed a
+    /// link. The link they pressed is still the way to find out where it points.
+    /// </summary>
+    [Fact]
+    public void A_shortened_link_nobody_can_place_is_said_out_loud()
+    {
+        GrantLocations();
+        OpenedWith(("from", "https://maps.app.goo.gl/AbCdEf123"));
+
+        var cut = RenderComponent<MapPage>();
+
+        Assert.Contains("couldn't be placed", cut.Find(".map-panel .error").TextContent, StringComparison.Ordinal);
+        Assert.Empty(cut.FindAll(".map-create-event"));
+    }
+
+    /// <summary>
+    /// The address the page is opened at. A parameter read from the query is set by navigating rather
+    /// than by being handed in - bUnit says so itself, and it is the same round trip a link takes.
+    /// </summary>
+    private void OpenedWith(params (string Name, string Value)[] parameters)
+    {
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        foreach (var (name, value) in parameters)
+        {
+            navigationManager.NavigateTo(navigationManager.GetUriWithQueryParameter(name, value));
+        }
+    }
+
     /// <summary>The pin on the heading of the section named this - see MapPanelPins.</summary>
     private static AngleSharp.Dom.IElement PanelPinFor(IRenderedFragment cut, string heading)
         => cut.FindAll(".map-panel-section")
@@ -1255,6 +1511,15 @@ public sealed class MapPageTests : OrbitTestContext
                 return Text(_placesJson);
             }
 
+            // Where a shortened map link points. Nothing, unless a test says otherwise - which is also
+            // what a shortener that will not answer looks like, and the answer the page says so about.
+            if (path.EndsWith("/map-link", StringComparison.Ordinal))
+            {
+                return _resolvedMapLinkJson is null
+                    ? new HttpResponseMessage(HttpStatusCode.NoContent)
+                    : Text(_resolvedMapLinkJson);
+            }
+
             // The account itself, with whatever location a test has set up for it.
             return Text(
                 "{\"id\":\"" + OwnUserId + "\",\"email\":\"owner@example.com\",\"userName\":\"owner\","
@@ -1274,6 +1539,7 @@ public sealed class MapPageTests : OrbitTestContext
         Services.AddSingleton(usersApiClient);
         Services.AddSingleton(chatApiClient);
         Services.AddSingleton(new PlacesApiClient(httpClient));
+        Services.AddSingleton(new MapLinkApiClient(httpClient));
         // The place's sharing panel offers a public link beside the offer to a contact - see MapPage.
         Services.AddSingleton(new PublicShareApiClient(httpClient));
         Services.AddSingleton(new GeocodingApiClient(httpClient));

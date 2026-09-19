@@ -122,6 +122,49 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     }
 
     /// <summary>
+    /// Everything a row says after the entry's own words is in one span. It costs nothing on a screen
+    /// with room - the span is display:contents there - and it is what lets a phone put the whole of it
+    /// on a second line under the words: a row with three tags and a full date used to leave a few
+    /// characters of the name, which is the one thing the list was opened to read (reported 2026-09-19).
+    /// </summary>
+    [Fact]
+    public void What_a_row_says_after_its_words_is_one_span_a_narrow_screen_can_move()
+    {
+        var taskList = TaskList(
+            "Errands",
+            Item("Buy milk") with
+            {
+                Categories = ["shopping", "weekly"],
+                DueDateUtc = new DateTimeOffset(2026, 9, 30, 10, 0, 0, TimeSpan.Zero)
+            });
+        RegisterTasksApiClient([taskList]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        var trailing = cut.Find(".check-row .check-row-trailing");
+        Assert.Equal(["shopping", "weekly"], trailing.QuerySelectorAll(".row-category").Select(mark => mark.TextContent.Trim()));
+        Assert.Contains("due", trailing.QuerySelector(".row-meta")!.TextContent);
+        // And the words themselves stay outside it: they are what the second line goes under.
+        Assert.Empty(trailing.QuerySelectorAll(".check-row-text"));
+    }
+
+    /// <summary>
+    /// An entry with nothing to say after its words leaves that span truly empty - not holding
+    /// whitespace - because the narrow-screen rule keeps such a row on one line through
+    /// .check-row-trailing:empty, and a stray space would give every plain row a blank second line.
+    /// </summary>
+    [Fact]
+    public void A_row_with_nothing_after_its_words_leaves_that_span_empty()
+    {
+        var taskList = TaskList("Errands", Item("Buy milk"));
+        RegisterTasksApiClient([taskList]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        Assert.Equal(string.Empty, cut.Find(".check-row .check-row-trailing").InnerHtml);
+    }
+
+    /// <summary>
     /// The row is for ticking; reading what an entry actually is, is the press on its own text - to the
     /// entry's own page, which is where pressing a thing lands everywhere else in Orbit. It used to skip
     /// that page and open the list's form on this entry, so the same press meant "read this" on /tasks
@@ -760,6 +803,40 @@ public sealed class TaskListChecklistTests : OrbitTestContext
             Guid.NewGuid(), title, items, IsCompleted: false, IsGroup: false, IsPrivate: false, EncryptedContent: null,
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
+
+    /// <summary>
+    /// A list is put away from its checklist and deleted only once it has been - the rule every card's
+    /// menu has followed since 2026-09-18, which this menu was outside: it offered Delete whatever
+    /// state the list was in.
+    /// </summary>
+    [Fact]
+    public void A_list_is_put_away_from_its_checklist_and_deleted_only_once_it_has_been()
+    {
+        var taskList = TaskList("Errands", Item("Buy milk"));
+        RegisterTasksApiClient([taskList]);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+
+        var entries = cut.FindAll(".avatar-dropdown-item").Select(entry => entry.TextContent.Trim()).ToList();
+        Assert.Contains("Archive", entries);
+        Assert.DoesNotContain("Delete", entries);
+    }
+
+    /// <summary>And a list already put away offers both: bringing it back, and the delete it guards.</summary>
+    [Fact]
+    public void A_list_already_put_away_offers_deleting_it_and_bringing_it_back()
+    {
+        var taskList = TaskList("Errands", Item("Buy milk")) with { IsArchived = true };
+        RegisterTasksApiClient([taskList]);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+
+        var entries = cut.FindAll(".avatar-dropdown-item").Select(entry => entry.TextContent.Trim()).ToList();
+        Assert.Contains("Put back", entries);
+        Assert.Contains("Delete", entries);
+    }
 
     /// <summary>
     /// Shopping → [Weekend → Dairy] and Breakfast: a tree two levels deep, which is what makes the flat

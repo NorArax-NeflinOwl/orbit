@@ -1,0 +1,123 @@
+@using Orbit.Contracts.Notes
+@using Orbit.Core.Folders
+@using Orbit.Web.Services
+@inject NotesApiClient NotesApiClient
+@inject FolderState Folders
+@inject DashboardCardPreferences CardPreferences
+@inject ILogger<NoteWorkspaceList> Logger
+@inject Translations T
+
+@* The column of notes that stands beside the one being read or written - the far left of the three
+   columns both note pages are laid out in. One component rather than one per page: it was written
+   twice, and the two copies had already drifted over what to call a note with no title.
+
+   Every note is in it, under a heading naming the folder it is filed in. It used to hold one folder's
+   worth - the folder of the note in the middle - which made the column answer "the notes" with a
+   subset, and left no way to reach a note filed anywhere else without going back to the page of cards.
+   Asked for on 2026-09-19: a separator per folder.
+
+   The headings are in the order the notes page's own tabs are in (see FolderTabRow), so the column and
+   the tab row read the same way round. A folder holding nothing is not a heading. *@
+@if (_couldNotLoad)
+{
+    @* Nothing is drawn at all: an empty column under a heading would say the account has no notes,
+       which is not what a request that failed means. *@
+}
+else
+{
+    <aside class="note-workspace-list">
+        <h2 class="note-workspace-list-heading">@T["Notes"]</h2>
+        @if (_folders.Count == 0)
+        {
+            <p class="empty-hint empty-list">@T["No notes yet."]</p>
+        }
+        @foreach (var folder in _folders)
+        {
+            <h3 class="note-workspace-list-folder">@folder.Name</h3>
+            @foreach (var note in folder.Notes)
+            {
+                <button type="button" class="note-workspace-row @(note.Id == ChosenNoteId ? "chosen" : null)"
+                        @onclick="() => OnChosen.InvokeAsync(note.Id)">
+                    <span class="note-workspace-row-title">@NameOf(note)</span>
+                    <span class="row-meta">@note.UpdatedAtUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
+                </button>
+            }
+        }
+    </aside>
+}
+
+@code {
+    /// <summary>The note the page beside this column is showing, marked rather than left out.</summary>
+    [Parameter] public Guid? ChosenNoteId { get; set; }
+
+    /// <summary>Pressed another note. The page decides what opening one means - reading it, or writing in it.</summary>
+    [Parameter] public EventCallback<Guid> OnChosen { get; set; }
+
+    /// <summary>One folder's worth of the column: the heading, and the notes under it.</summary>
+    private sealed record NotesInAFolder(string Name, IReadOnlyList<NoteDto> Notes);
+
+    private IReadOnlyList<NotesInAFolder> _folders = [];
+    private bool _couldNotLoad;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // The folders are what the headings are named from, so they are read before the notes are
+        // placed into them - a note filed under a folder this browser has not heard of falls back to a
+        // built-in heading rather than to a heading with no name (see FolderPlacement).
+        await Folders.EnsureLoadedAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _folders = Grouped(await NotesApiClient.GetNotesAsync());
+            _couldNotLoad = false;
+        }
+        catch (HttpRequestException exception)
+        {
+            // Best effort: a list that will not load leaves the column out rather than taking the note
+            // beside it down with it.
+            Logger.LogWarning(exception, "Couldn't list the notes beside the one being shown");
+            _folders = [];
+            _couldNotLoad = true;
+        }
+    }
+
+    /// <summary>
+    /// The notes under one heading each, most recently changed first inside a heading. The order of the
+    /// headings is the notes page's own row of tabs, minus the ones nothing is filed under - so the
+    /// archive is at the foot when anything is in it and absent when nothing is.
+    /// </summary>
+    private IReadOnlyList<NotesInAFolder> Grouped(IReadOnlyList<NoteDto> notes)
+    {
+        var byFolder = notes
+            .GroupBy(note => Folders.PlacementOn(
+                FolderPage.Notes, note.FolderId, note.IsPrivate, isArchived: note.IsArchived))
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<NoteDto>)[.. group.OrderByDescending(note => note.UpdatedAtUtc)]);
+
+        // CardPreferences decides nothing here - it is only asked about the dashboard, and this is the
+        // notes - but FolderTabRow is where the order of the tabs lives, and the column follows it
+        // rather than keeping a second copy of it.
+        return
+        [
+            .. FolderTabRow.On(FolderPage.Notes, Folders, CardPreferences, holdsAnything: byFolder.ContainsKey)
+                .Where(byFolder.ContainsKey)
+                .Select(folder => new NotesInAFolder(
+                    Folders.NameOf(folder, builtIn => BuiltInFolderNames.Of(builtIn, T)), byFolder[folder]))
+        ];
+    }
+
+    /// <summary>
+    /// What to call a note in the column - its own title, and a word for the two cases that have none:
+    /// one nobody has named, and a private one this browser could not open. A name Orbit itself wrote
+    /// is read in the reader's language, the way it is everywhere else notes are listed.
+    /// </summary>
+    private string NameOf(NoteDto note)
+        => OrbitWrittenNames.Translate(
+            key => T[key],
+            note.Title is { Length: > 0 } title ? title : note.IsPrivate ? T["Private note"] : T["Untitled"]);
+}

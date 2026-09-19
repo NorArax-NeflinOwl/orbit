@@ -5,7 +5,7 @@
    ItemCard's, because these lists lead with a face and live or die on density: a card's anatomy has
    nowhere to put an avatar, and giving each conversation a tag row would make a picker into a page.
 
-       [pin][action][avatar with status][name ...................][menu]
+       [pin][action][avatar with status][name ..............][when][menu]
 
    A group has no status on its avatar - a group is not somewhere anybody is or is not. *@
 <div class="person-row @(HasUnseenAction ? "unread" : "")">
@@ -35,6 +35,14 @@
                 <span class="person-row-subtitle">@Subtitle</span>
             }
         </span>
+        @* When there was last anything here, at the trailing edge - see the phone's PersonRow, which
+           puts it in the same place. Inside the button so it is part of the row's own press rather than
+           a thing beside it, and left out entirely where there is nothing to say, so a list of people
+           nobody has written to does not grow a column of blanks. *@
+        @if (!string.IsNullOrWhiteSpace(When))
+        {
+            <span class="person-row-when row-meta">@When</span>
+        }
     </button>
     @if (Menu is not null)
     {
@@ -50,6 +58,13 @@
 
     /// <summary>The quieter second line - a login, or how many people are in a group.</summary>
     [Parameter] public string? Subtitle { get; set; }
+
+    /// <summary>
+    /// When there was last anything to read here, already in words - the caller decides the wording, so
+    /// a row and the card summarising it cannot describe the same moment two ways. Empty leaves the slot
+    /// out. See ContactDto.LastMessageAtUtc, which the server now answers from the messages themselves.
+    /// </summary>
+    [Parameter] public string? When { get; set; }
 
     /// <summary>Opening the conversation, which is what the whole row does.</summary>
     [Parameter] public EventCallback OnSelected { get; set; }

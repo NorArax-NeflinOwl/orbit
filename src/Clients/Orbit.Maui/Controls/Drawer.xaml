@@ -65,56 +65,61 @@
                             SemanticProperties.Description="{controls:Translate 'Dashboard'}" />
                 </Grid>
 
-                <VerticalStackLayout Grid.Row="1" Padding="12,10" Spacing="0">
-                    <controls:DrawerEntry Icon="{StaticResource DashboardIcon}"
-                                          Text="{controls:Translate 'Dashboard'}"
-                                          IsChosen="{Binding IsOnDashboard}"
-                                          Command="{Binding GoToDashboardCommand}" />
-                    <controls:DrawerEntry Icon="{StaticResource NotesIcon}"
-                                          Text="{controls:Translate 'Notes'}"
-                                          IsChosen="{Binding IsOnNotes}"
-                                          Command="{Binding GoToNotesCommand}" />
-                    <controls:DrawerEntry Icon="{StaticResource TasksIcon}"
-                                          Text="{controls:Translate 'Tasks'}"
-                                          IsChosen="{Binding IsOnTasks}"
-                                          Command="{Binding GoToTasksCommand}" />
-                    <controls:DrawerEntry Icon="{StaticResource CalendarIcon}"
-                                          Text="{controls:Translate 'Calendar'}"
-                                          IsChosen="{Binding IsOnCalendar}"
-                                          Command="{Binding GoToCalendarCommand}" />
-                    <controls:DrawerEntry Icon="{StaticResource InventoryIcon}"
-                                          Text="{controls:Translate 'Inventory'}"
-                                          IsChosen="{Binding IsOnInventory}"
-                                          Command="{Binding GoToInventoryCommand}" />
-                    <!-- Hidden rather than shown-and-refused, as the old bar had it: a way in that only
-                         ever leads to "not unlocked" is not a way in. -->
-                    <controls:DrawerEntry Icon="{StaticResource ContactsIcon}"
-                                          Text="{controls:Translate 'Contacts'}"
-                                          IsVisible="{Binding CanUseConversations}"
-                                          IsChosen="{Binding IsOnContacts}"
-                                          Command="{Binding GoToContactsCommand}" />
-                    <controls:DrawerEntry Icon="{StaticResource MapIcon}"
-                                          Text="{controls:Translate 'Map'}"
-                                          IsVisible="{Binding CanUseLocation}"
-                                          IsChosen="{Binding IsOnMap}"
-                                          Command="{Binding GoToMapCommand}" />
-                    <!-- The places kept on the map, as a list. Under the map because that is where one
-                         comes from, and behind the same permission: a place is a point, and an account
-                         that may not be shown a map has nowhere to put one. -->
-                    <controls:DrawerEntry Icon="{StaticResource MapIcon}"
-                                          Text="{controls:Translate 'Places you keep'}"
-                                          IsVisible="{Binding CanUseLocation}"
-                                          IsChosen="{Binding IsOnPlaces}"
-                                          Command="{Binding GoToPlacesCommand}" />
-                    <!-- At the foot of the list with its count beside it, where the design puts it. It
-                         had a button of its own in the old bar; a drawer entry carrying the number says
-                         the same thing and gives back the space. -->
-                    <controls:DrawerEntry Icon="{StaticResource NotificationsIcon}"
-                                          Text="{controls:Translate 'Notifications'}"
-                                          IsChosen="{Binding IsOnNotifications}"
-                                          Badge="{Binding UnreadLabel}"
-                                          Command="{Binding GoToNotificationsCommand}" />
-                </VerticalStackLayout>
+                <!-- Scrolled, because the keyboard is not the only thing that can leave this
+                     panel shorter than its own list: a large font size or a small screen does
+                     the same, and what the rows did then was draw over the footer below them. -->
+                <ScrollView Grid.Row="1">
+                    <VerticalStackLayout Padding="12,10" Spacing="0">
+                        <controls:DrawerEntry Icon="{StaticResource DashboardIcon}"
+                                              Text="{controls:Translate 'Dashboard'}"
+                                              IsChosen="{Binding IsOnDashboard}"
+                                              Command="{Binding GoToDashboardCommand}" />
+                        <controls:DrawerEntry Icon="{StaticResource NotesIcon}"
+                                              Text="{controls:Translate 'Notes'}"
+                                              IsChosen="{Binding IsOnNotes}"
+                                              Command="{Binding GoToNotesCommand}" />
+                        <controls:DrawerEntry Icon="{StaticResource TasksIcon}"
+                                              Text="{controls:Translate 'Tasks'}"
+                                              IsChosen="{Binding IsOnTasks}"
+                                              Command="{Binding GoToTasksCommand}" />
+                        <controls:DrawerEntry Icon="{StaticResource CalendarIcon}"
+                                              Text="{controls:Translate 'Calendar'}"
+                                              IsChosen="{Binding IsOnCalendar}"
+                                              Command="{Binding GoToCalendarCommand}" />
+                        <controls:DrawerEntry Icon="{StaticResource InventoryIcon}"
+                                              Text="{controls:Translate 'Inventory'}"
+                                              IsChosen="{Binding IsOnInventory}"
+                                              Command="{Binding GoToInventoryCommand}" />
+                        <!-- Hidden rather than shown-and-refused, as the old bar had it: a way in that only
+                             ever leads to "not unlocked" is not a way in. -->
+                        <controls:DrawerEntry Icon="{StaticResource ContactsIcon}"
+                                              Text="{controls:Translate 'Contacts'}"
+                                              IsVisible="{Binding CanUseConversations}"
+                                              IsChosen="{Binding IsOnContacts}"
+                                              Command="{Binding GoToContactsCommand}" />
+                        <controls:DrawerEntry Icon="{StaticResource MapIcon}"
+                                              Text="{controls:Translate 'Map'}"
+                                              IsVisible="{Binding CanUseLocation}"
+                                              IsChosen="{Binding IsOnMap}"
+                                              Command="{Binding GoToMapCommand}" />
+                        <!-- The places kept on the map, as a list. Under the map because that is where one
+                             comes from, and behind the same permission: a place is a point, and an account
+                             that may not be shown a map has nowhere to put one. -->
+                        <controls:DrawerEntry Icon="{StaticResource MapIcon}"
+                                              Text="{controls:Translate 'Places you keep'}"
+                                              IsVisible="{Binding CanUseLocation}"
+                                              IsChosen="{Binding IsOnPlaces}"
+                                              Command="{Binding GoToPlacesCommand}" />
+                        <!-- At the foot of the list with its count beside it, where the design puts it. It
+                             had a button of its own in the old bar; a drawer entry carrying the number says
+                             the same thing and gives back the space. -->
+                        <controls:DrawerEntry Icon="{StaticResource NotificationsIcon}"
+                                              Text="{controls:Translate 'Notifications'}"
+                                              IsChosen="{Binding IsOnNotifications}"
+                                              Badge="{Binding UnreadLabel}"
+                                              Command="{Binding GoToNotificationsCommand}" />
+                    </VerticalStackLayout>
+                </ScrollView>
 
                 <!-- What Orbit.Web says in its footer, said in the drawer's footer: the two are the
                      same place on the page. It used to be a row in the avatar's menu, which is where a

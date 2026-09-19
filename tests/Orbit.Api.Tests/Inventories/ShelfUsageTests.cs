@@ -106,6 +106,7 @@ public sealed class ShelfUsageTests
                 new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryItemRepository(),
                 new InMemoryInventoryRepository(), new InMemoryTaskRepository()),
             new StockedEntryCompletion(new InMemoryInventoryRepository(), new InMemoryInventoryItemRepository()),
+            new StockedEntryStock(new InMemoryInventoryItemRepository()),
             new InventoryTestContext().ProductEntryPlacement,
             new ShelfUsage(_tasks, _shelf, _orbitsOwnLists));
 }

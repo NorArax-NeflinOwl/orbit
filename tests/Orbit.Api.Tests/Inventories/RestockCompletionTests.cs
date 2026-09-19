@@ -192,6 +192,7 @@ public sealed class RestockCompletionTests
                 new TaskListLinkValidator(_context.TaskRepository),
                 ACompletion(),
                 _context.StockedEntryCompletion,
+                _context.StockedEntryStock,
                 _context.ProductEntryPlacement)
             .HandleAsync(
                 new UpdateTaskListCommand(

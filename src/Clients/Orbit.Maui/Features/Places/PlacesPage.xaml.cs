@@ -63,7 +63,18 @@ public partial class PlacesPage : ContentPage, ITitleMenu
 				ListMenus.Filters(_translations).Select(filter => new ScreenMenuEntry(
 					filter.Name,
 					() => Arrange(_viewModel.Arrangement with { Filter = filter.Value }),
-					filter.Value == _viewModel.Arrangement.Filter)))
+					filter.Value == _viewModel.Arrangement.Filter))),
+			// Where the places somebody is finished with are, and the only screen that deletes one -
+			// the same division the browser draws as a page of its own (MapArchive). A ✓ while it is
+			// what the list is showing, the way every other answer in this menu is marked.
+			new ScreenMenuGroup(
+				_translations["Archive"],
+				[
+					new ScreenMenuEntry(
+						_translations["Archived places"],
+						() => _viewModel.ShowTheArchiveCommand.Execute(!_viewModel.ShowsTheArchive),
+						_viewModel.ShowsTheArchive)
+				])
 		]);
 
 	private void Arrange(ListArrangement arrangement) => _viewModel.ArrangeCommand.Execute(arrangement);

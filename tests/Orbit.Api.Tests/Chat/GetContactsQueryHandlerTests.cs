@@ -31,6 +31,110 @@ public sealed class GetContactsQueryHandlerTests
         Assert.False(contact.IsPendingApprovalFromOtherParty);
     }
 
+    /// <summary>
+    /// A conversation the reader has emptied says when its newest <em>visible</em> message was sent, not
+    /// when the row was last bumped. LastMessageAtUtc is moved forward on a send and never back, so a
+    /// reader who cleared their history at noon and has one message since saw the row still claiming the
+    /// time of something they can no longer open. Asked for 2026-09-19.
+    /// </summary>
+    [Fact]
+    public async Task HandleAsync_reads_an_emptied_conversation_from_the_messages_it_still_shows()
+    {
+        var userRepository = new InMemoryUserRepository();
+        var otherUser = User.FromPersistence(
+            Guid.NewGuid(), "other@example.com", "other", "Other", "hash", DateTimeOffset.UtcNow, "public-key");
+        await userRepository.AddAsync(otherUser, CancellationToken.None);
+        var contactRepository = new InMemoryContactRepository();
+        var ownerId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        await contactRepository.EnsureContactAsync(ownerId, otherUser.Id, now, CancellationToken.None);
+        var messages = new InMemoryChatMessageRepository();
+        // Emptied a day ago; the newest message this reader can still open went two hours ago. The row
+        // was bumped for it and for everything before it, which is the part they cannot see.
+        await contactRepository.ClearHistoryAsync(ownerId, otherUser.Id, now.AddDays(-1), CancellationToken.None);
+        await messages.AddAsync(
+            ChatMessage.FromPersistence(
+                Guid.NewGuid(), otherUser.Id, ownerId, "cipher", "nonce", now.AddHours(-2),
+                isEdited: false, editedAtUtc: null),
+            CancellationToken.None);
+        var handler = new GetContactsQueryHandler(
+            contactRepository, userRepository, new InMemoryChatConversationAccessRepository(), messages);
+
+        var contacts = await handler.HandleAsync(new GetContactsQuery(ownerId), CancellationToken.None);
+
+        Assert.Equal(now.AddHours(-2), Assert.Single(contacts).LastMessageAtUtc);
+    }
+
+    /// <summary>
+    /// And one emptied with nothing since answers with the row: that is still when the conversation was
+    /// last active, which is what orders the list - a client that draws a time decides for itself
+    /// whether to draw one at all. The line is this reader's alone; the other party's list is untouched.
+    /// </summary>
+    [Fact]
+    public async Task HandleAsync_keeps_the_rows_answer_for_a_conversation_emptied_with_nothing_since()
+    {
+        var userRepository = new InMemoryUserRepository();
+        var otherUser = User.FromPersistence(
+            Guid.NewGuid(), "other@example.com", "other", "Other", "hash", DateTimeOffset.UtcNow, "public-key");
+        await userRepository.AddAsync(otherUser, CancellationToken.None);
+        var contactRepository = new InMemoryContactRepository();
+        var ownerId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        await contactRepository.EnsureContactAsync(ownerId, otherUser.Id, now, CancellationToken.None);
+        var messages = new InMemoryChatMessageRepository();
+        await messages.AddAsync(
+            ChatMessage.FromPersistence(
+                Guid.NewGuid(), otherUser.Id, ownerId, "cipher", "nonce", now.AddDays(-7),
+                isEdited: false, editedAtUtc: null),
+            CancellationToken.None);
+        await contactRepository.ClearHistoryAsync(ownerId, otherUser.Id, now.AddDays(-1), CancellationToken.None);
+        var handler = new GetContactsQueryHandler(
+            contactRepository, userRepository, new InMemoryChatConversationAccessRepository(), messages);
+
+        var contacts = await handler.HandleAsync(new GetContactsQuery(ownerId), CancellationToken.None);
+
+        Assert.Equal(now, Assert.Single(contacts).LastMessageAtUtc);
+    }
+
+    /// <summary>
+    /// A conversation nobody has emptied is not asked about at all: the row is moved forward on every
+    /// send, so it already is the last message's time. Pinned because the saving is the point - this
+    /// list is re-read on every poll tick, and aggregating every message a busy account ever exchanged
+    /// for an answer that is already correct would be a real cost.
+    /// </summary>
+    [Fact]
+    public async Task HandleAsync_does_not_read_the_messages_for_a_conversation_nobody_emptied()
+    {
+        var userRepository = new InMemoryUserRepository();
+        var otherUser = User.FromPersistence(
+            Guid.NewGuid(), "other@example.com", "other", "Other", "hash", DateTimeOffset.UtcNow, "public-key");
+        await userRepository.AddAsync(otherUser, CancellationToken.None);
+        var contactRepository = new InMemoryContactRepository();
+        var ownerId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        await contactRepository.EnsureContactAsync(ownerId, otherUser.Id, now, CancellationToken.None);
+        var messages = new CountingChatMessageRepository();
+        var handler = new GetContactsQueryHandler(
+            contactRepository, userRepository, new InMemoryChatConversationAccessRepository(), messages);
+
+        await handler.HandleAsync(new GetContactsQuery(ownerId), CancellationToken.None);
+
+        Assert.Empty(messages.LastMessageTimesAskedAbout);
+    }
+
+    /// <summary>Records which conversations the handler asked the messages about.</summary>
+    private sealed class CountingChatMessageRepository : InMemoryChatMessageRepository
+    {
+        public List<Guid> LastMessageTimesAskedAbout { get; } = [];
+
+        public override Task<IReadOnlyDictionary<Guid, DateTimeOffset>> GetLastMessageTimesAsync(
+            Guid readerUserId, IReadOnlyCollection<Guid> otherUserIds, CancellationToken cancellationToken)
+        {
+            LastMessageTimesAskedAbout.AddRange(otherUserIds);
+            return base.GetLastMessageTimesAsync(readerUserId, otherUserIds, cancellationToken);
+        }
+    }
+
     [Fact]
     public async Task HandleAsync_returns_an_empty_list_for_a_user_with_no_contacts()
     {

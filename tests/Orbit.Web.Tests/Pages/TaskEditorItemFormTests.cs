@@ -57,6 +57,39 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         RegisterPermissions();
     }
 
+    /// <summary>
+    /// A list is put away from its form and deleted only once it has been - the rule every card's menu
+    /// has followed since 2026-09-18, which this form was outside: it offered "Delete task list"
+    /// whatever state the list was in.
+    /// </summary>
+    [Fact]
+    public void A_list_is_put_away_from_its_form_and_deleted_only_once_it_has_been()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        OpenTheRailMenu(cut);
+
+        var entries = cut.FindAll(".avatar-dropdown-item").Select(entry => entry.TextContent.Trim()).ToList();
+        Assert.Contains("Archive", entries);
+        Assert.DoesNotContain("Delete task list", entries);
+    }
+
+    /// <summary>And a list already put away offers both: bringing it back, and the delete it guards.</summary>
+    [Fact]
+    public void A_list_already_put_away_offers_deleting_it_and_bringing_it_back()
+    {
+        _isArchived = true;
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        OpenTheRailMenu(cut);
+
+        var entries = cut.FindAll(".avatar-dropdown-item").Select(entry => entry.TextContent.Trim()).ToList();
+        Assert.Contains("Put back", entries);
+        Assert.Contains("Delete task list", entries);
+    }
+
     [Fact]
     public void The_row_itself_carries_nothing_to_type_into()
     {
@@ -669,6 +702,46 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
             .GetProperty("items")[0].GetProperty("linkedTaskListIds");
         Assert.Equal(2, linked.GetArrayLength());
         Assert.Contains(OtherTaskListId, linked.EnumerateArray().Select(id => id.GetGuid()));
+    }
+
+    /// <summary>
+    /// A link to a list that is no longer there is dropped as the form is filled, rather than carried
+    /// back out on the next save. Seen in production on 2026-08-27 (issue #186): the server refuses the
+    /// whole save with "A linked task list must exist and belong to the same user", so a list deleted
+    /// elsewhere while this one sat open made every save of it fail over an entry nobody could see was
+    /// broken. And it is said on screen: the entry looks different from how it was left. 2026-09-19.
+    /// </summary>
+    [Fact]
+    public void A_link_to_a_list_that_is_gone_is_dropped_and_said()
+    {
+        // Not OtherTaskListId: an id no list on this account answers to, which is exactly what a
+        // deleted list leaves behind on the entry that stood for it.
+        RegisterApiClients(AnItem() with { LinkedTaskListIds = [Guid.NewGuid()] });
+
+        var cut = Render();
+        ClickButtonSaying(cut, "Save");
+
+        Assert.NotNull(_lastSavedJson);
+        var linked = JsonDocument.Parse(_lastSavedJson!).RootElement
+            .GetProperty("items")[0].GetProperty("linkedTaskListIds");
+        Assert.Equal(0, linked.GetArrayLength());
+        Assert.Contains("no longer there", cut.Find("p.info").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>And a link to a list that is still there is left exactly as it was.</summary>
+    [Fact]
+    public void A_link_to_a_list_that_is_still_there_is_left_alone()
+    {
+        RegisterApiClients(AnItem() with { LinkedTaskListIds = [OtherTaskListId] });
+
+        var cut = Render();
+        ClickButtonSaying(cut, "Save");
+
+        Assert.NotNull(_lastSavedJson);
+        var linked = JsonDocument.Parse(_lastSavedJson!).RootElement
+            .GetProperty("items")[0].GetProperty("linkedTaskListIds");
+        Assert.Equal([OtherTaskListId], linked.EnumerateArray().Select(id => id.GetGuid()));
+        Assert.Empty(cut.FindAll("p.info"));
     }
 
     /// <summary>And the closed field says both, which is the whole point of the control.</summary>
@@ -1602,6 +1675,12 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     /// <summary>Where the page asked for a copy, if it did - see the move above.</summary>
     private string? _copiedToPath;
 
+    /// <summary>
+    /// Whether the list this page is opened on has been put away - what decides whether the rail's menu
+    /// offers Delete at all (see ObjectMenu.IsArchived, the rule the form joined on 2026-09-19).
+    /// </summary>
+    private bool _isArchived;
+
     private void RegisterApiClients(TaskItemDto item)
     {
         var taskList = new TaskDto(
@@ -1609,7 +1688,8 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
             EncryptedContent: null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null,
             Description: "Things to pick up on the way home",
-            LinkedInventoryId: _linkedInventory?.Id);
+            LinkedInventoryId: _linkedInventory?.Id,
+            IsArchived: _isArchived);
 
         var httpClient = new HttpClient(new StubHttpMessageHandler(request =>
         {

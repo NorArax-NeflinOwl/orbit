@@ -2387,6 +2387,51 @@ public sealed class TaskListDetailScreenTests
         Assert.Empty(Assert.Single(thisWeek.Items).AllLinkedTaskListIds);
     }
 
+    /// <summary>
+    /// A list deleted somewhere else leaves the entry that stood for it pointing at nothing, and sending
+    /// that on makes the server refuse the whole save - "A linked task list must exist and belong to the
+    /// same user", seen in production on 2026-08-27 (issue #186). Every later save of that list would
+    /// fail the same way, over an entry the reader cannot see is broken. The dead link is dropped on the
+    /// way out instead. 2026-09-19.
+    /// </summary>
+    [Fact]
+    public async Task A_link_to_a_list_deleted_elsewhere_does_not_hold_up_every_later_save()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Shopping");
+        var screen = context.OpenTaskList("This week");
+        screen.NewItemDescription = "The shopping";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        screen.BeingEdited!.LinkToCommand.Execute(
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+
+        // Deleted from somewhere else, and the pull takes it off this phone - leaving the entry above
+        // standing for a list that is not there any more.
+        var shopping = context.Server.TaskLists.Single(list => list.Title == "Shopping");
+        context.Server.DeleteTaskList(shopping.Id);
+        await context.SynchroniseAsync();
+
+        // A change to the list rather than to the entry, which is the case that matters: the entry is
+        // sent exactly as this phone stores it, dead link and all. Opening the entry's own form would
+        // rebuild its links from what the screen can still see and hide the fault.
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.Title = "This week, still";
+        await screen.SaveListCommand.ExecuteAsync(null);
+        var result = await context.SynchroniseAsync();
+
+        // The save went through rather than being refused, and what reached the server no longer stands
+        // for the list that is gone.
+        Assert.Equal(0, result.GivenUp);
+        var thisWeek = context.Server.TaskLists.Single(list => list.Title == "This week, still");
+        Assert.Empty(Assert.Single(thisWeek.Items).AllLinkedTaskListIds);
+    }
+
     /// <summary>One list is nothing to point at, so the picker is not offered at all.</summary>
     [Fact]
     public async Task With_no_other_list_there_is_nothing_to_point_at()

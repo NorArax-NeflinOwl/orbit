@@ -1197,35 +1197,12 @@ else
     private static int CompletionPercent(TaskDto taskList)
         => taskList.Items.Count == 0 ? 0 : (int)Math.Round(100.0 * taskList.Items.Count(item => item.IsCompleted) / taskList.Items.Count);
 
-    /// <summary>A short, human "when" label for a card row - "2h ago" / "Yesterday" / "Wed" / "Aug 12".</summary>
+    /// <summary>
+    /// A short, human "when" label for a card row - "2h ago" / "Yesterday" / "Wed" / "Aug 12". One
+    /// wording for the whole browser, which the rows that show a person read too - see RelativeMoment.
+    /// </summary>
     private string FormatRelative(DateTimeOffset valueUtc)
-    {
-        var value = valueUtc.ToLocalTime();
-        var now = TimeProvider.GetLocalNow();
-        var diff = now - value;
-
-        if (diff < TimeSpan.FromMinutes(1))
-        {
-            return T["just now"];
-        }
-        if (diff < TimeSpan.FromHours(1))
-        {
-            return T.Format("{0}m ago", (int)diff.TotalMinutes);
-        }
-        if (value.Date == now.Date)
-        {
-            return T.Format("{0}h ago", (int)diff.TotalHours);
-        }
-        if (value.Date == now.Date.AddDays(-1))
-        {
-            return T["Yesterday"];
-        }
-        if (diff < TimeSpan.FromDays(7))
-        {
-            return value.ToString("ddd", T.DisplayCulture);
-        }
-        return value.ToString("MMM d", T.DisplayCulture);
-    }
+        => RelativeMoment.Ago(valueUtc, TimeProvider, T);
 
     /// <summary>A compact "when" label for an upcoming event row - "Today 10:00" / "Tomorrow 15:30" / "Fri 19:00".</summary>
     private string FormatEventMeta(CalendarEventDetailsDto details)
