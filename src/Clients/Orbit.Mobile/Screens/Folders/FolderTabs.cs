@@ -13,7 +13,17 @@ namespace Orbit.Mobile.Screens.Folders;
 /// stored anywhere - see <see cref="FolderPlacement"/>, which is what decides that, and which is why a
 /// folder cannot disagree with what is in it.
 /// </param>
-public sealed record FolderChoice(FolderKey Key, string Name, int Count, bool IsChosen);
+/// <param name="HasNews">
+/// Whether anything under it is something the reader has not seen - see <see cref="FolderTabs.Describe"/>,
+/// and the dot the browser puts on the tab this entry stands for.
+/// </param>
+public sealed record FolderChoice(FolderKey Key, string Name, int Count, bool IsChosen, bool HasNews = false);
+
+/// <summary>
+/// Where one of a screen's rows is, and whether anything unread is about it - what
+/// <see cref="FolderTabs.Describe"/> counts and marks the folders from.
+/// </summary>
+public readonly record struct RowInAFolder(FolderKey Where, bool HasNews = false);
 
 /// <summary>
 /// The folders one list screen offers, and which of them is being read. The browser draws these as a
@@ -144,8 +154,17 @@ public sealed class FolderTabs
     /// reader finds out where the thing they filed did *not* go.
     /// </summary>
     public IReadOnlyList<FolderChoice> Describe(IEnumerable<FolderKey> whereEachRowIs)
+        => Describe([.. whereEachRowIs.Select(where => new RowInAFolder(where))]);
+
+    /// <inheritdoc cref="Describe(IEnumerable{FolderKey})"/>
+    /// <remarks>
+    /// The overload that also marks: a folder holding something the reader has not seen says so, the way
+    /// the browser's tab does. A screen that does not read the feed uses the one above and marks nothing.
+    /// </remarks>
+    public IReadOnlyList<FolderChoice> Describe(IReadOnlyList<RowInAFolder> rows)
     {
-        var counts = whereEachRowIs.GroupBy(where => where).ToDictionary(rows => rows.Key, rows => rows.Count());
+        var counts = rows.GroupBy(row => row.Where).ToDictionary(group => group.Key, group => group.Count());
+        _news = rows.Where(row => row.HasNews).Select(row => row.Where).ToHashSet();
 
         List<FolderChoice> choices = [Choice(FolderKey.Of(BuiltInFolder.Public), _translations["Public"], counts)];
 
@@ -174,8 +193,15 @@ public sealed class FolderTabs
         return choices;
     }
 
+    /// <summary>
+    /// Which folders hold something unread, as the last <see cref="Describe(IReadOnlyList{RowInAFolder})"/>
+    /// worked it out. Held rather than passed down, because Choice is called once per folder and the
+    /// answer is about all of them at once.
+    /// </summary>
+    private IReadOnlySet<FolderKey> _news = new HashSet<FolderKey>();
+
     private FolderChoice Choice(FolderKey key, string name, IReadOnlyDictionary<FolderKey, int> counts)
-        => new(key, name, counts.TryGetValue(key, out var count) ? count : 0, key == Chosen);
+        => new(key, name, counts.TryGetValue(key, out var count) ? count : 0, key == Chosen, _news.Contains(key));
 }
 
 /// <summary>

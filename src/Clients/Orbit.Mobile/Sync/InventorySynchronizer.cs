@@ -206,7 +206,13 @@ public sealed class InventorySynchronizer
             // stored, so a description cleared here would come back at the next pull.
             new SaveInventoryRequest(
                 inventory.Name, inventory.Items, inventory.IsPrivate, inventory.EncryptedContent,
-                inventory.Description),
+                inventory.Description,
+                // Filing travels on its own endpoint and is read only as one is created, so null here -
+                // see SaveInventoryRequest.FolderId.
+                FolderId: null,
+                // The reader's answer about a row several lists ask for, given before this change was
+                // queued - see LocalInventory.SplitEvenlyAcross.
+                SplitEvenlyAcross: inventory.SplitEvenlyAcross),
             cancellationToken);
 
         if (outcome is not WriteOutcome.Applied)
@@ -216,6 +222,9 @@ public sealed class InventorySynchronizer
         }
 
         inventory.LastSyncedAtUtc = _timeProvider.GetUtcNow();
+        // Answered and sent. Left standing it would divide whatever was edited next, which is not what
+        // anybody said - see LocalInventory.SplitEvenlyAcross.
+        inventory.SplitEvenlyAcross = [];
         return SendResult.Sent;
     }
 
@@ -310,6 +319,10 @@ public sealed class InventorySynchronizer
                 : null;
         inventory.Name = incoming.Name;
         inventory.Description = incoming.Description;
+        // The shelves it gathers, as the server arranged them - read and never pushed back, see
+        // LocalInventory.GathersServerIds. A server that has not learned about gathering answers null,
+        // which reads as gathering nothing.
+        inventory.GathersServerIds = incoming.AllGathered;
         inventory.IsPrivate = incoming.IsPrivate;
         inventory.EncryptedCiphertext = incoming.EncryptedContent?.Ciphertext;
         inventory.EncryptedNonce = incoming.EncryptedContent?.Nonce;

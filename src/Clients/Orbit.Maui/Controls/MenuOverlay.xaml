@@ -69,11 +69,18 @@
                                                 </Label.Triggers>
                                             </Label>
 
-                                            <!-- How many things the entry stands for, at the end of its
-                                                 line and quieter than the label - see ScreenMenuEntry.Count. -->
-                                            <Label Grid.Column="2" Text="{Binding Count}" FontSize="11"
-                                                   IsVisible="{Binding HasCount}" VerticalOptions="Center"
-                                                   Style="{StaticResource SubtleLabel}" />
+                                            <!-- How many things the entry stands for, and whether any of
+                                                 them is something the reader has not seen - see
+                                                 ScreenMenuEntry.Count and HasNews. The dot is the one
+                                                 the browser puts on the folder tab it stands for. -->
+                                            <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
+                                                <Label Text="{Binding Count}" FontSize="11"
+                                                       IsVisible="{Binding HasCount}" VerticalOptions="Center"
+                                                       Style="{StaticResource SubtleLabel}" />
+                                                <BoxView WidthRequest="7" HeightRequest="7" CornerRadius="4"
+                                                         VerticalOptions="Center" IsVisible="{Binding HasNews}"
+                                                         Color="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
+                                            </HorizontalStackLayout>
 
                                             <Button Grid.Column="0" Grid.ColumnSpan="3" Padding="0"
                                                     BackgroundColor="Transparent" BorderWidth="0"

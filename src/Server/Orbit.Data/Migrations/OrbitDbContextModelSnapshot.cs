@@ -700,6 +700,27 @@ namespace Orbit.Data.Migrations
                     b.ToTable("OS_INVENTORIES_EXPIRY");
                 });
 
+            modelBuilder.Entity("Orbit.Data.Entities.InventoryGatheredEntity", b =>
+                {
+                    b.Property<Guid>("InventoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_IG_INVENTORYID");
+
+                    b.Property<Guid>("GatheredInventoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_IG_GATHEREDINVENTORYID");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("OL_IG_POSITION");
+
+                    b.HasKey("InventoryId", "GatheredInventoryId");
+
+                    b.HasIndex("GatheredInventoryId");
+
+                    b.ToTable("OL_INVENTORIES_GATHERED");
+                });
+
             modelBuilder.Entity("Orbit.Data.Entities.InventoryItemCategoryEntity", b =>
                 {
                     b.Property<Guid>("InventoryItemId")

@@ -30,6 +30,54 @@ public sealed class InventoriesTests : OrbitTestContext
         RegisterAuthentication();
     }
 
+    /// <summary>
+    /// A group shelf is one entry on this page with the smaller shelves inside it - the user's rule,
+    /// 2026-09-18. See Orbit.Core.Inventories.Inventory.GathersInventoryIds.
+    /// </summary>
+    [Fact]
+    public void A_group_is_one_card_with_the_shelves_it_gathers_inside_it()
+    {
+        var fridge = Guid.NewGuid();
+        RegisterApiClients([
+            Inventory("Kitchen", gathers: [fridge]),
+            Inventory("Fridge", id: fridge)]);
+
+        var cut = RenderComponent<Web.Pages.Inventories>();
+
+        var kitchen = cut.FindAll(".item-card")
+            .Single(card => card.QuerySelector(".item-card-name")!.TextContent.Contains("Kitchen"));
+        Assert.Contains("Group", kitchen.TextContent);
+        Assert.Contains(
+            kitchen.QuerySelectorAll(".list-row-button"), row => row.TextContent.Contains("Fridge"));
+    }
+
+    /// <summary>
+    /// And the smaller shelf is still a shelf of its own on this page: gathering reads several together
+    /// rather than pouring them into one, so nothing was moved anywhere.
+    /// </summary>
+    [Fact]
+    public void And_what_a_group_gathers_still_has_its_own_card()
+    {
+        var fridge = Guid.NewGuid();
+        RegisterApiClients([
+            Inventory("Kitchen", gathers: [fridge]),
+            Inventory("Fridge", id: fridge)]);
+
+        var cut = RenderComponent<Web.Pages.Inventories>();
+
+        Assert.Equal(2, cut.FindAll(".item-card").Count);
+    }
+
+    [Fact]
+    public void An_ordinary_shelf_is_not_called_a_group()
+    {
+        RegisterApiClients([Inventory("Pantry")]);
+
+        var cut = RenderComponent<Web.Pages.Inventories>();
+
+        Assert.DoesNotContain("Group", cut.Markup);
+    }
+
     [Fact]
     public void Each_inventory_gets_a_card()
     {
@@ -284,11 +332,13 @@ public sealed class InventoriesTests : OrbitTestContext
 
     private static InventoryDto Inventory(
         string name, bool isPrivate = false, bool isShared = false, string? sharedByUserName = null,
-        string accessLevel = "CanEdit", string? lockedByUserName = null, Guid? folderId = null)
+        string accessLevel = "CanEdit", string? lockedByUserName = null, Guid? folderId = null,
+        Guid? id = null, IReadOnlyList<Guid>? gathers = null)
         => new(
-            Guid.NewGuid(), name, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            id ?? Guid.NewGuid(), name, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             isShared, sharedByUserName, accessLevel, lockedByUserName,
-            OriginalOwnerUserId: isShared ? Guid.NewGuid() : null, isPrivate, FolderId: folderId);
+            OriginalOwnerUserId: isShared ? Guid.NewGuid() : null, isPrivate, FolderId: folderId,
+            GathersInventoryIds: gathers);
 
     /// <param name="inventories">Null stands for a request that never came back.</param>
     private void RegisterApiClients(IReadOnlyList<InventoryDto>? inventories)

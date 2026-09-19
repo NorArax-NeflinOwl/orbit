@@ -66,6 +66,31 @@ public sealed class Inventory
     /// </summary>
     public bool IsArchived { get; private set; }
 
+    /// <summary>
+    /// The shelves this one gathers, in the order somebody arranged them. Asked for on 2026-09-18: one
+    /// entry on the list of inventories, holding smaller inventories inside it, each of which can answer
+    /// to a different task list.
+    ///
+    /// Gathering rather than containing. A member is a shelf in its own right - it keeps its own rows,
+    /// its own restock list and its own tie to a task list, and it is still on the list of inventories
+    /// where it always was. The group is a way of reading several at once, not a box they are moved
+    /// into, which is why nothing here is a foreign key and taking a member away leaves it untouched.
+    ///
+    /// The same shape a task list gathers other lists in (Orbit.Core.Tasks.TaskItem.LinkedTaskListIds),
+    /// with one difference: a list gathers through its entries, and a shelf gathers directly. There is
+    /// no row on a shelf that could stand for another shelf, and inventing one would mean a rule about
+    /// what such a row's amount meant.
+    /// </summary>
+    public IReadOnlyList<Guid> GathersInventoryIds { get; private set; } = [];
+
+    /// <summary>
+    /// Whether this shelf is one of the gathering kind. Derived rather than stored, unlike a task
+    /// list's own answer (Orbit.Core.Tasks.TaskList.IsGroup): a list may hold an entry pointing at
+    /// another list without meaning to become a group, so the reader is given a say - here, gathering
+    /// is the only way a shelf becomes one, and a group with no members is a group in name alone.
+    /// </summary>
+    public bool IsGroup => GathersInventoryIds.Count > 0;
+
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
@@ -131,14 +156,47 @@ public sealed class Inventory
         Guid id, Guid userId, string name, bool isPrivate, EncryptedPayload? encryptedContent,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc,
-        string description = "", Guid? folderId = null, bool isArchived = false)
+        string description = "", Guid? folderId = null, bool isArchived = false,
+        IReadOnlyList<Guid>? gathersInventoryIds = null)
         => Described(
             new(id, userId, name, isPrivate, encryptedContent, createdAtUtc, updatedAtUtc,
                 lockedByUserId, lockedByUserName, lockExpiresAtUtc, folderId)
             {
-                IsArchived = isArchived
+                IsArchived = isArchived,
+                GathersInventoryIds = Gathered(gathersInventoryIds, id)
             },
             description);
+
+    /// <summary>
+    /// Sets which shelves this one gathers - see <see cref="GathersInventoryIds"/>. Its own answer
+    /// rather than part of <see cref="Update"/>, for the reason filing and pinning are their own: it
+    /// changes what the shelf is read alongside, not what is on it, and a client that has never heard
+    /// of gathering would otherwise scatter a group every time it saved.
+    ///
+    /// Answers whether anything moved, so a shelf nobody regrouped is not written again.
+    /// </summary>
+    public bool Gather(IReadOnlyList<Guid>? inventoryIds)
+    {
+        var gathered = Gathered(inventoryIds, Id);
+        if (gathered.SequenceEqual(GathersInventoryIds))
+        {
+            return false;
+        }
+
+        GathersInventoryIds = gathered;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+        return true;
+    }
+
+    /// <summary>
+    /// What is worth storing of what was asked for: in the order given, each shelf once, and never
+    /// itself. A shelf gathering itself is a shelf read forever, and it is not something anybody means -
+    /// dropped rather than refused, so one arriving does not fail a save that was otherwise fine. A
+    /// longer ring - two shelves gathering each other - is refused where it is made, since only a save
+    /// can see both sides (see InventoryGroups).
+    /// </summary>
+    private static IReadOnlyList<Guid> Gathered(IReadOnlyList<Guid>? inventoryIds, Guid ownId)
+        => inventoryIds is null ? [] : [.. inventoryIds.Where(gathered => gathered != ownId).Distinct()];
 
     /// <summary>
     /// Puts a stored description back on a rebuilt inventory. A separate step because the constructor

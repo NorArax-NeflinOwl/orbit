@@ -1795,10 +1795,21 @@ else
         Logger.LogInformation("User refreshed the map");
         _isRefreshing = true;
         _message = null;
+        _hasFailed = false;
         try
         {
             await LoadAsync();
             await RefreshMapMarkersAsync();
+            // And says so, even when nothing moved. This button deliberately keeps the pan and the zoom
+            // it was pressed from and only moves the pins, so a press with nothing new behind it changes
+            // not one pixel on the screen - which is exactly what "Refresh does nothing" (2026-09-18)
+            // describes, whether or not anything was wrong. The page already says "Location recorded."
+            // and "Location forgotten." for the same reason; this is the third of the three. Not said
+            // over something LoadAsync wanted to say instead.
+            if (!_hasFailed && _message is null)
+            {
+                _message = T["The map is up to date."];
+            }
         }
         catch (Exception exception)
         {

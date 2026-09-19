@@ -82,4 +82,57 @@ public sealed class NotificationFeedStateTests
         // The other way round is not true: being on the list is not being in its editor.
         Assert.Empty(state.UnreadUrlsSettledBy("/tasks/abc"));
     }
+
+    /// <summary>
+    /// An entry about one row of a page points at the page and names the row after a "?" - see
+    /// InventoryExpiryPushContent, which is what asked for this on 2026-09-18. The page still has news,
+    /// and now it can say which row of it.
+    /// </summary>
+    [Fact]
+    public void An_entry_about_a_row_is_still_news_about_the_page_it_is_on()
+    {
+        var row = Guid.NewGuid();
+        var state = WithUnread($"/inventory/abc?highlight={row}");
+
+        Assert.True(state.HasNewsAbout("/inventory/abc"));
+        Assert.True(state.HasNewsAbout("/inventory/abc", row));
+        Assert.Equal([row], state.ThingsNamedFor("/inventory/abc"));
+    }
+
+    [Fact]
+    public void And_says_nothing_about_the_other_rows()
+    {
+        var state = WithUnread($"/inventory/abc?highlight={Guid.NewGuid()}");
+
+        Assert.False(state.HasNewsAbout("/inventory/abc", Guid.NewGuid()));
+    }
+
+    /// <summary>
+    /// And opening that page settles it. Nothing ever navigates to the "?highlight=" spelling except the
+    /// notification itself, so comparing the addresses whole would leave such an entry lit for good.
+    /// </summary>
+    [Fact]
+    public void Opening_the_page_settles_an_entry_about_one_of_its_rows()
+    {
+        var url = $"/inventory/abc?highlight={Guid.NewGuid()}";
+        var state = WithUnread(url);
+
+        // Returned as it is stored, since that is what the server is told to mark - only the comparison
+        // ignores the query.
+        Assert.Equal([url], state.UnreadUrlsSettledBy("/inventory/abc"));
+    }
+
+    [Fact]
+    public void A_row_on_another_page_is_left_alone()
+    {
+        var state = WithUnread($"/inventory/abc?highlight={Guid.NewGuid()}");
+
+        Assert.Empty(state.UnreadUrlsSettledBy("/inventory/def"));
+        Assert.False(state.HasNewsAbout("/inventory/def"));
+    }
+
+    /// <summary>An entry naming no row names none - most of them do not.</summary>
+    [Fact]
+    public void An_entry_naming_no_row_names_none()
+        => Assert.Empty(WithUnread("/inventory/abc").ThingsNamedFor("/inventory/abc"));
 }

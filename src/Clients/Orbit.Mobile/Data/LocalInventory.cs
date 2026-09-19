@@ -48,6 +48,35 @@ public sealed class LocalInventory : ISharedState, ICopyableForEditing
     /// </summary>
     public IReadOnlyDictionary<Guid, decimal> ItemUsage { get; set; } = new Dictionary<Guid, decimal>();
 
+    /// <summary>
+    /// The shelves this one gathers, by the ids the <b>server</b> knows them by - see
+    /// Orbit.Core.Inventories.Inventory.GathersInventoryIds, and <see cref="ServerId"/> for why that is
+    /// not the id a screen opens one with.
+    ///
+    /// Read, never written, for the reason <see cref="ItemUsage"/> is: how a group is arranged is the
+    /// owner's decision, made where the whole list of shelves is in front of them, and this phone
+    /// answering it itself would be answering with a guess. The phone draws the arrangement; the browser
+    /// makes it.
+    ///
+    /// Empty for an ordinary shelf, which is nearly every one - and for a shelf that has never synced,
+    /// which has no server id to be gathered by anyway.
+    /// </summary>
+    public IReadOnlyList<Guid> GathersServerIds { get; set; } = [];
+
+    /// <summary>
+    /// The shelf rows whose changed minimum the reader said to divide equally between the entries asking
+    /// for them - see Orbit.Core.Inventories.ShelfDemand, and the question the screen puts before a save
+    /// that would touch a row several lists want.
+    ///
+    /// An answer to the change that is queued, not a fact about the shelf, which is why the synchroniser
+    /// clears it once that change has gone: leaving it would divide whatever was edited next, which is
+    /// not what anybody said. Empty for every save that asked nothing, which is nearly all of them.
+    ///
+    /// By the ids the server knows the rows by, like everything else here that names something the
+    /// server owns.
+    /// </summary>
+    public IReadOnlyList<Guid> SplitEvenlyAcross { get; set; } = [];
+
 
     public bool IsPrivate { get; set; }
 

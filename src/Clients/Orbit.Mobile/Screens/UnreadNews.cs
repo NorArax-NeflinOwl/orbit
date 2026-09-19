@@ -26,6 +26,14 @@ public static class UnreadNews
         => addresses.Any(unread => Settles(address, unread));
 
     private static bool Settles(string address, string unread)
-        => string.Equals(address, unread, StringComparison.OrdinalIgnoreCase)
-            || unread.StartsWith(address + "/", StringComparison.OrdinalIgnoreCase);
+    {
+        // Without what the reader is asked to do on arrival. An address may name a row inside the page
+        // it points at - "?highlight={itemId}", which is how a warning about something going off names
+        // the shelf row - and compared whole, such an entry marked nothing at all: not the shelf, whose
+        // address is the part before the "?", and not the section above it. Orbit.Core's NotificationUrl
+        // is where these addresses are written and now where both clients take them apart.
+        var pointsAt = Orbit.Core.Notifications.NotificationUrl.PathOf(unread);
+        return string.Equals(address, pointsAt, StringComparison.OrdinalIgnoreCase)
+            || pointsAt.StartsWith(address + "/", StringComparison.OrdinalIgnoreCase);
+    }
 }

@@ -70,7 +70,9 @@ internal sealed class InventoryTestContext
     /// six collaborators now and every test that saves an inventory needs the same six.
     /// </summary>
     public UpdateInventoryCommandHandler InventorySave()
-        => new(AccessResolver, InventoryRepository, InventoryItemRepository, ItemsSaver, ShelfDemand, ShelfUsage);
+        => new(
+            AccessResolver, InventoryRepository, InventoryItemRepository, TaskRepository, ItemsSaver,
+            ShelfDemand, ShelfUsage, StockedEntryCompletion);
 
     /// <summary>Creates and stores an inventory owned by ownerUserId, returning its id - the starting point for almost every inventory test.</summary>
     public Guid AddInventory(Guid ownerUserId, string name = "Kitchen")

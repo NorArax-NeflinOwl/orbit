@@ -151,6 +151,10 @@
                                     DeleteLabel="@(!inventory.IsShared ? T["Delete"] : null)" OnDelete="() => DeleteInventoryAsync(inventory)" />
                     </Menu>
                     <Tags>
+                        @if (inventory.IsGroup)
+                        {
+                            <span class="card-badge">@T["Group"]</span>
+                        }
                         @if (inventory.IsPrivate)
                         {
                             <span class="card-badge" title="@(T["Private - encrypted, and only you can read it"])">@T["Private"]</span>
@@ -165,6 +169,21 @@
                         }
                     </Tags>
                     <Body>
+                @* What a group is made of, inside the one entry it is - see
+                   Orbit.Core.Inventories.Inventory.GathersInventoryIds. Each row opens the smaller shelf
+                   itself, which is still on this page in its own right: gathering reads several shelves
+                   together rather than moving them into a box. *@
+                @foreach (var member in Gathered(inventory))
+                {
+                    <Row Title="@member.Name" OnPressed="() => OpenInventory(member.Id)">
+                        <Trailing>
+                            @if (member.IsGroup)
+                            {
+                                <span class="card-badge">@T["Group"]</span>
+                            }
+                        </Trailing>
+                    </Row>
+                }
                 @if (_sharePanelInventoryId == inventory.Id)
                 {
                     <ShareInventoryPanel Inventory="inventory" Contacts="_contacts" OwnUserId="_ownUserId" />
@@ -259,6 +278,19 @@
         => T[SharedItemAccess.For(isShared: true, accessLevel).Description];
 
     private void GoToAddInventory() => NavigationManager.NavigateTo("/inventory/new");
+
+    /// <summary>
+    /// The shelves a group gathers, in the order they were arranged - only its own members, not what
+    /// those gather in turn. A card is a division of one shelf into smaller ones, and a tree drawn on a
+    /// list of cards is a list that is no longer a list; opening a member's own card shows its own.
+    ///
+    /// One the reader no longer has is passed over rather than drawn as a missing row: a member that was
+    /// deleted reads as "nothing there", the same way a link to a deleted task list does.
+    /// </summary>
+    private IReadOnlyList<InventoryDto> Gathered(InventoryDto inventory)
+        => [.. inventory.AllGathered
+            .Select(memberId => (_inventories ?? []).FirstOrDefault(candidate => candidate.Id == memberId))
+            .OfType<InventoryDto>()];
 
     private void OpenInventory(Guid inventoryId) => NavigationManager.NavigateTo($"/inventory/{inventoryId}");
 

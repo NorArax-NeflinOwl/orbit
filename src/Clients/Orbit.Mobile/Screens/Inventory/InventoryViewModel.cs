@@ -25,6 +25,9 @@ public sealed partial class InventoryViewModel : ObservableObject
     private readonly Translations _translations;
     private readonly PrivateItemGate _privateItems;
 
+    /// <inheritdoc cref="Notes.NotesViewModel._notifications"/>
+    private readonly LocalNotificationRepository? _notifications;
+
     [ObservableProperty]
     private string _newInventoryName = string.Empty;
 
@@ -63,8 +66,9 @@ public sealed partial class InventoryViewModel : ObservableObject
         PrivateItemGate privateItems, SyncState syncState, IScreenNavigator navigator, Translations translations,
         SharePanel share,
         LocalFolderRepository folders, IChosenFolderStore chosenFolder, FolderSynchronizer folderSynchronizer,
-        SharingSeveral? sharingSeveral = null)
+        SharingSeveral? sharingSeveral = null, LocalNotificationRepository? notifications = null)
     {
+        _notifications = notifications;
         Picking = new PickingSeveral(
             translations,
             new PickingActions(
@@ -476,8 +480,18 @@ public sealed partial class InventoryViewModel : ObservableObject
             inventory => Folders.Where(
                 inventory.FolderId, inventory.IsPrivate, isFinished: false, inventory.IsArchived));
 
+        // And which folders hold something the reader has not seen - a warning about something going
+        // off, say - so the menu can say which one to open. See UnreadNews, and the dot the browser puts
+        // on the tab this entry stands for.
+        var unread = _notifications is null
+            ? []
+            : UnreadNews.AddressesIn(await _notifications.GetUnreadAsync(cancellationToken));
+
         FolderChoices.Clear();
-        foreach (var choice in Folders.Describe(placements.Values))
+        foreach (var choice in Folders.Describe(
+            [.. held.Select(inventory => new RowInAFolder(
+                placements[inventory.LocalId],
+                inventory.ServerId is { } serverId && UnreadNews.About(unread, $"/inventory/{serverId}")))]))
         {
             FolderChoices.Add(choice);
         }
@@ -507,7 +521,11 @@ public sealed partial class InventoryViewModel : ObservableObject
         {
             Inventories.Add(InventoryRow.From(
                 inventory, _pending.Contains(inventory.LocalId), _networkStatus, _translations,
-                _privateItems.IsUnlocked, _translations["Private"]));
+                _privateItems.IsUnlocked, _translations["Private"],
+                // Every shelf, not the ones under this tab: a group may gather one filed somewhere
+                // else, and a row that named only the members that happen to share its folder would be
+                // telling half the truth. See InventoryRow.Gathering.
+                _everyShelf));
         }
 
         // Also what marks the rows just drawn, through Changed.

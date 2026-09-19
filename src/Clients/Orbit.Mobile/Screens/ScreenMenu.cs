@@ -135,7 +135,8 @@ public sealed partial class ScreenMenuEntry : ObservableObject
         bool isChosen = false,
         bool canBeChosen = true,
         bool staysOpen = false,
-        string? count = null)
+        string? count = null,
+        bool hasNews = false)
     {
         Label = label;
         _chosen = chosen;
@@ -143,7 +144,16 @@ public sealed partial class ScreenMenuEntry : ObservableObject
         CanBeChosen = canBeChosen;
         StaysOpen = staysOpen;
         Count = count;
+        HasNews = hasNews;
     }
+
+    /// <summary>
+    /// Whether something the reader has not seen is behind this entry - a folder holding a list somebody
+    /// shared, say. The browser puts the same dot on the tab (FolderTabs.HasNewsIn); on a phone the tabs
+    /// are these entries, so somebody following a notification would otherwise have to open every folder
+    /// to find which one holds what they were sent to. Asked for on 2026-09-18 for both clients.
+    /// </summary>
+    public bool HasNews { get; }
 
     public string Label { get; }
 

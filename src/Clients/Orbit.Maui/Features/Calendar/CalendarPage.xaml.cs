@@ -116,7 +116,10 @@ public partial class CalendarPage : ContentPage, ITitleMenu
 					choice.Name,
 					() => _viewModel.ChooseFolderCommand.Execute(choice.Key),
 					choice.IsChosen,
-					count: ScreenMenuEntry.CountOf(choice.Count)))),
+					count: ScreenMenuEntry.CountOf(choice.Count),
+					// The dot saying a folder holds something the reader has not seen - see FolderChoice.HasNews,
+					// and the same dot on the browser's own tab.
+					hasNews: choice.HasNews))),
 			new ScreenMenuGroup(_translations["Folder"], FolderActions()),
 			// Choosing several events to file, put away or share together - see NotesPage.
 			new ScreenMenuGroup(

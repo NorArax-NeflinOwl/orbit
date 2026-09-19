@@ -91,8 +91,14 @@ public sealed record InvitationOffer(SharedItemKind Kind, Guid ShareId, Guid Sha
 /// the one <paramref name="Id"/> holds, so it is its own thing rather than a second id smuggled through
 /// <paramref name="Token"/>.
 /// </param>
+/// <param name="Row">
+/// Which row inside the destination it is about, where the address names one - a shelf row, so far. The
+/// screen lands on it and marks it (see InventoryItemRow.IsPointedAt); null for every address that
+/// names only a page, which is most of them. See Orbit.Core.Notifications.NotificationUrl.
+/// </param>
 public sealed record NotificationDestination(
-    NotificationTarget Target, Guid? Id = null, string Token = "", InvitationOffer? Offer = null)
+    NotificationTarget Target, Guid? Id = null, string Token = "", InvitationOffer? Offer = null,
+    Guid? Row = null)
 {
     /// <summary>
     /// Reads one of the server's notification paths. Returns null for anything unrecognised - an
@@ -101,8 +107,14 @@ public sealed record NotificationDestination(
     /// </summary>
     public static NotificationDestination? Parse(string? url)
     {
-        var segments = (url ?? string.Empty)
-            .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        // The path, without what the reader is asked to do on arrival. An address may carry a row to
+        // land on - "?highlight={itemId}", which is how the warning about something going off names the
+        // shelf row it is about - and reading that as part of the last segment made the id unparseable,
+        // so the whole notification became one that leads nowhere. The row itself is kept below, on the
+        // destination, for the screen that can use it.
+        var path = WithoutTheQuery(url ?? string.Empty);
+        var row = Orbit.Core.Notifications.NotificationUrl.RowNamedIn(url);
+        var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         return segments switch
         {
@@ -125,8 +137,9 @@ public sealed record NotificationDestination(
             ["inventory"] => new NotificationDestination(NotificationTarget.Inventory),
             // The path names the storage now (InventoryExpiryPushContent), and the phone opens one by
             // its *local* id rather than the server's - so the id is carried and the opener decides
-            // whether it can be used, the same shape the task list already has.
-            ["inventory", var inventoryId] => ForId(NotificationTarget.Inventory, inventoryId),
+            // whether it can be used, the same shape the task list already has. The row on it comes
+            // with it, so the shelf can land on what the warning was actually about.
+            ["inventory", var inventoryId] => ForId(NotificationTarget.Inventory, inventoryId, row),
             ["copies"] => new NotificationDestination(NotificationTarget.CopyReview),
             // The id names which copy the notice is about, so answering that one can take its notice
             // away again. The window itself shows them all, so the opener has no use for it.
@@ -139,8 +152,12 @@ public sealed record NotificationDestination(
         };
     }
 
-    private static NotificationDestination? ForId(NotificationTarget target, string id)
-        => Guid.TryParse(id, out var parsed) ? new NotificationDestination(target, parsed) : null;
+    /// <inheritdoc cref="Orbit.Core.Notifications.NotificationUrl.PathOf"/>
+    private static string WithoutTheQuery(string url)
+        => Orbit.Core.Notifications.NotificationUrl.PathOf(url);
+
+    private static NotificationDestination? ForId(NotificationTarget target, string id, Guid? row = null)
+        => Guid.TryParse(id, out var parsed) ? new NotificationDestination(target, parsed, Row: row) : null;
 
     /// <summary>
     /// The offer this path names, or null when it names one this app cannot show a screen for - the

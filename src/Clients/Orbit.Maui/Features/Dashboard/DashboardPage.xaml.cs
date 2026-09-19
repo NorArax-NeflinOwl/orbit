@@ -82,7 +82,10 @@ public partial class DashboardPage : ContentPage, ITitleMenu
 					choice.Name,
 					() => _viewModel.ChooseFolderCommand.Execute(choice.Key),
 					choice.IsChosen,
-					count: ScreenMenuEntry.CountOf(choice.Count)))),
+					count: ScreenMenuEntry.CountOf(choice.Count),
+					// The dot saying a folder holds something the reader has not seen - see FolderChoice.HasNews,
+					// and the same dot on the browser's own tab.
+					hasNews: choice.HasNews))),
 
 			// Which parts of the dashboard are wanted at all. Settings rather than actions, so they stay
 			// open while several are changed - the exception Orbit.Web's OverflowMenu.StaysOpen makes

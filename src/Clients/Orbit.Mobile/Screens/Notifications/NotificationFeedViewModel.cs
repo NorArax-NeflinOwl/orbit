@@ -140,6 +140,12 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
     /// Opens what a notification was about. Marking it read happens on the way rather than on arrival:
     /// the reader has plainly seen it by the time they tap it, and the screens they land on cannot all
     /// be relied on to report back.
+    ///
+    /// **Read even where it could not be opened.** A tap is somebody reading the entry, whatever
+    /// happens next - and that is exactly the case where it matters, since an entry that leads nowhere
+    /// this build knows, or to something this phone has not caught up with, would otherwise stay unread
+    /// for good with nothing short of "Mark all read" to shift it. The message beside the feed says why
+    /// nothing opened; the dot going out says the reader has seen it.
     /// </summary>
     [RelayCommand]
     private async Task OpenAsync(NotificationRow? row)
@@ -161,14 +167,17 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
                 _ => string.Empty
             };
 
-            if (outcome == NotificationOpenOutcome.Opened)
+            // Here rather than after the server: the phone's own copy is what the feed reads, and it
+            // must go out even when there is no connection to tell the server with.
+            await _notifications.MarkReadAsync(row.Id);
+            if (outcome == NotificationOpenOutcome.Opened && row.Url is { Length: > 0 } url)
             {
-                await _notifications.MarkReadAsync(row.Id);
-                if (row.Url is { Length: > 0 } url)
-                {
-                    await _notificationsClient.MarkReadAtAsync(url);
-                }
+                await _notificationsClient.MarkReadAtAsync(url);
             }
+
+            // Drawn again, since nothing else says the dot has gone: a tap that opened something leaves
+            // this screen anyway, and a tap that did not has to show what it did.
+            await ShowTheRowsAsync(CancellationToken.None);
         }
         catch (HttpRequestException)
         {
@@ -187,17 +196,7 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
             // Asked for first and read afterwards, so a phone with a connection shows what the server
             // has and one without shows what it heard last - rather than nothing at all.
             await _synchronizer.SynchroniseAsync(cancellationToken);
-
-            var entries = IsShowingEverything
-                ? await _notifications.GetHistoryAsync(cancellationToken)
-                : await _notifications.GetRecentAsync(cancellationToken);
-
-            Rows.Clear();
-            foreach (var entry in entries)
-            {
-                Rows.Add(new NotificationRow(entry, _translations));
-            }
-
+            await ShowTheRowsAsync(cancellationToken);
             Message = string.Empty;
         }
         // Being out of reach never lands here - the synchroniser answers "never got through" and the
@@ -215,6 +214,26 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
             IsBusy = false;
             OnPropertyChanged(nameof(HasNothing));
         }
+    }
+
+    /// <summary>
+    /// Draws what this phone holds, without asking the server first. Its own method because a tap on a
+    /// row changes what is held and has to show that - and asking the server again to find out what the
+    /// phone just wrote down would be a round trip to learn nothing.
+    /// </summary>
+    private async Task ShowTheRowsAsync(CancellationToken cancellationToken)
+    {
+        var entries = IsShowingEverything
+            ? await _notifications.GetHistoryAsync(cancellationToken)
+            : await _notifications.GetRecentAsync(cancellationToken);
+
+        Rows.Clear();
+        foreach (var entry in entries)
+        {
+            Rows.Add(new NotificationRow(entry, _translations));
+        }
+
+        OnPropertyChanged(nameof(HasNothing));
     }
 
     /// <summary>

@@ -16,6 +16,7 @@ using Orbit.Core.Inventories.AcquireInventoryLock;
 using Orbit.Core.Inventories.CreateInventory;
 using Orbit.Core.Inventories.DeleteInventory;
 using Orbit.Core.Inventories.GetInventoryItems;
+using Orbit.Core.Inventories.GatherInventories;
 using Orbit.Core.Inventories.GetShelfDemand;
 using Orbit.Core.Inventories.GetInventoryById;
 using Orbit.Core.Inventories.GetInventories;
@@ -213,6 +214,21 @@ public static class InventoryEndpoints
             return result is null ? Results.NotFound() : Results.Ok(result.Select(ToDto));
         });
 
+        // Which shelves this one gathers - see GatherInventoriesCommand, and the folder route above,
+        // which is the same shape of decision: it changes what the shelf is read alongside rather than
+        // what is on it, so it travels on its own and not in the save.
+        inventories.MapPut("/{inventoryId:guid}/gathers", async (
+            Guid inventoryId, GatherInventoriesRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var gathered = await dispatcher.SendAsync(
+                new GatherInventoriesCommand(GetUserId(user), inventoryId, request.InventoryIds), cancellationToken);
+            // NotFound covers a shelf that is not theirs and a membership that would close a ring - see
+            // InventoryGroups.MayGatherAsync. The page only ever offers shelves it just listed, so a
+            // refusal here means the reader raced somebody rather than that they need telling which rule.
+            return gathered ? Results.NoContent() : Results.NotFound();
+        });
+
         // Which of the caller's task entries ask for each row on this shelf - see ShelfDemand. Read by an
         // editor before it saves, so changing an amount several lists are asking for can warn rather than
         // pick one of them at random.
@@ -272,7 +288,11 @@ public static class InventoryEndpoints
             // Never the owner's filing - see NoteEndpoints, which says the same about a shared note.
             inventory.IsShared ? null : inventory.FolderId,
             // The owner's too - see NoteEndpoints.ToDto, which says why a recipient is told nothing.
-            !inventory.IsShared && inventory.IsArchived);
+            !inventory.IsShared && inventory.IsArchived,
+            // And the group's membership, which is the owner's arrangement of shelves of their own.
+            // A recipient holds none of those, so a list of ids they could not open would only be a
+            // group drawn empty - see GatherInventoriesCommandHandler on who may arrange one.
+            inventory.IsShared ? [] : inventory.GathersInventoryIds);
 
 
     /// <summary>Both halves travel together or not at all, so a request carrying only one is treated as carrying neither.</summary>

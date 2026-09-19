@@ -104,6 +104,45 @@ public sealed class InventoryClient : ILockableItems
     /// How this inventory's restock list is built, and when it comes round. Null when the inventory is
     /// not this reader's to look at - a share can be read without carrying the settings behind it.
     /// </summary>
+    /// <summary>
+    /// Says which shelves this one gathers - the whole membership, in the order it was arranged. Answers
+    /// whether the server took it: it refuses a shelf that is not this reader's and a membership that
+    /// would close a ring (see Orbit.Core.Inventories.InventoryGroups).
+    ///
+    /// Straight to the server rather than through the outbox, the way the restock list's settings go:
+    /// how a group is arranged is not part of what the shelf holds, and there is nothing local for it to
+    /// be true of in the meantime. The screen offers it only while there is a connection.
+    /// </summary>
+    public async Task<bool> GatherAsync(
+        Guid inventoryId, IReadOnlyList<Guid> inventoryIds, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PutAsJsonAsync(
+            $"api/inventories/{inventoryId}/gathers", new GatherInventoriesRequest(inventoryIds), cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    /// <summary>
+    /// Which of this reader's task entries ask for each row on the shelf - see
+    /// Orbit.Core.Inventories.ShelfDemand. Empty rather than null when nothing asks, or when the read
+    /// failed: this only decides whether a save stops to ask about a shared row, and a shelf that could
+    /// not be asked is one nothing is known about.
+    ///
+    /// Not kept in the local store, unlike the counts beside the items: it is read to decide one save,
+    /// and an answer from a week ago about which lists ask for the flour is worse than no answer.
+    /// </summary>
+    public async Task<IReadOnlyList<ShelfClaimDto>> GetShelfDemandAsync(
+        Guid inventoryId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync($"api/inventories/{inventoryId}/demand", cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            return [];
+        }
+
+        return await response.Content.ReadFromJsonAsync<IReadOnlyList<ShelfClaimDto>>(cancellationToken)
+            ?? [];
+    }
+
     public async Task<RestockListSettingsDto?> GetRestockListSettingsAsync(
         Guid inventoryId, CancellationToken cancellationToken = default)
     {

@@ -61,6 +61,302 @@ public sealed class InventoryDetailScreenTests
     }
 
     /// <summary>
+    /// A group shelf draws the smaller shelves it gathers, each as the row the list of inventories draws
+    /// it as - so the reader can tell which part of the kitchen is short without opening all three. See
+    /// Orbit.Core.Inventories.Inventory.GathersInventoryIds. 2026-09-18.
+    /// </summary>
+    [Fact]
+    public async Task A_group_draws_the_smaller_shelves_it_gathers()
+    {
+        using var context = new ScreenContext();
+        var fridge = context.Server.AddInventory("Fridge");
+        context.Server.AddItem(fridge.Id, "Milk", quantity: 0, minimum: 2);
+        var kitchen = context.Server.AddInventory("Kitchen", gathers: [fridge.Id]);
+        var stored = await context.PullEverythingAsync(kitchen.Id);
+
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        Assert.True(screen.IsGroup);
+        var member = Assert.Single(screen.Gathered);
+        Assert.Equal("Fridge", member.Name);
+        // And says how much of it is short, which is the reason for looking at a group at all.
+        Assert.True(member.HasRunningLow);
+    }
+
+    /// <summary>
+    /// A row says which lists ask for it, not only how much they ask for. The number was here already,
+    /// in the row's minimum; what it did not say is whom a change to that number reaches, which is the
+    /// whole reason the save stops to ask about a shared row. Orbit.Web's shelf says the same thing
+    /// beside the same field - see InventoryEditor.ListsAskingFor. 2026-09-19.
+    /// </summary>
+    [Fact]
+    public async Task A_row_names_the_lists_asking_for_it()
+    {
+        using var context = new ScreenContext();
+        var (stored, _) = await context.PullSharedShelfAsync();
+
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        var row = Assert.Single(screen.Items);
+        Assert.True(row.IsAskedFor);
+        Assert.Equal("asked for by Bread, Pizza", row.AskedFor);
+    }
+
+    /// <summary>A row nothing asks for says nothing - there is no list to name, and no warning to give.</summary>
+    [Fact]
+    public async Task A_row_no_list_asks_for_names_nobody()
+    {
+        using var context = new ScreenContext();
+        var stored = await context.PullInventoryAsync("Pantry", "Flour");
+
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        Assert.False(Assert.Single(screen.Items).IsAskedFor);
+    }
+
+    /// <summary>
+    /// A minimum several of the reader's lists ask for cannot be divided without being told how, so the
+    /// save stops and asks - the same question Orbit.Web puts, in the same words. Until now the phone
+    /// saved and the server left both lists alone, which is the safe answer rather than the right one.
+    /// The user's rule, 2026-09-18: "warn, and the user changes the list themselves or chooses Split
+    /// evenly".
+    /// </summary>
+    [Fact]
+    public async Task Changing_an_amount_two_lists_ask_for_stops_to_ask_which()
+    {
+        using var context = new ScreenContext();
+        var (stored, flour) = await context.PullSharedShelfAsync();
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.MinimumQuantity = "9";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.True(screen.Question.IsOpen);
+        Assert.Equal(
+            ["Split evenly", "I'll change the lists myself"],
+            screen.Question.Entries.Select(entry => entry.Label));
+        // And nothing has been written: the question is what the save is waiting on.
+        Assert.NotEqual(9, context.Stored().Items.Single().MinimumQuantity);
+    }
+
+    /// <summary>Split evenly tells the server to divide it - the rule itself is ShelfDemand's.</summary>
+    [Fact]
+    public async Task Split_evenly_sends_the_row_to_be_divided()
+    {
+        using var context = new ScreenContext();
+        var (stored, _) = await context.PullSharedShelfAsync();
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.MinimumQuantity = "9";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        await ChooseInTheQuestionAsync(screen, "Split evenly");
+
+        Assert.Equal(
+            [context.Stored().Items.Single().Id!.Value],
+            context.Server.LastSplitEvenlyAcross);
+    }
+
+    /// <summary>
+    /// And the other answer saves the shelf and leaves the lists alone - the amount typed is what was
+    /// meant for the shelf either way.
+    /// </summary>
+    [Fact]
+    public async Task Changing_the_lists_yourself_saves_the_shelf_and_sends_nothing_to_divide()
+    {
+        using var context = new ScreenContext();
+        var (stored, _) = await context.PullSharedShelfAsync();
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.MinimumQuantity = "9";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        await ChooseInTheQuestionAsync(screen, "I'll change the lists myself");
+
+        Assert.Equal(9, context.Stored().Items.Single().MinimumQuantity);
+        Assert.Empty(context.Server.LastSplitEvenlyAcross);
+    }
+
+    /// <summary>
+    /// A row exactly one list asks for is no question at all: that entry is the whole of the demand, so
+    /// the server writes the new amount straight into it and the save goes through on the press.
+    /// </summary>
+    [Fact]
+    public async Task A_row_only_one_list_asks_for_saves_without_a_word()
+    {
+        using var context = new ScreenContext();
+        var (stored, _) = await context.PullSharedShelfAsync(askedBy: ["Bread"]);
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.MinimumQuantity = "9";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.False(screen.Question.IsOpen);
+        Assert.Equal(9, context.Stored().Items.Single().MinimumQuantity);
+    }
+
+    /// <summary>
+    /// And neither is a save that moved no minimum: correcting a count, renaming the shelf or reordering
+    /// its rows must not put a question about amounts in front of anybody.
+    /// </summary>
+    [Fact]
+    public async Task A_save_that_moves_no_minimum_asks_nothing()
+    {
+        using var context = new ScreenContext();
+        var (stored, _) = await context.PullSharedShelfAsync();
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Quantity = "4";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.False(screen.Question.IsOpen);
+        Assert.Equal(4, context.Stored().Items.Single().Quantity);
+    }
+
+    /// <summary>Presses one of the two answers the question offers.</summary>
+    private static Task ChooseInTheQuestionAsync(InventoryDetailViewModel screen, string answer)
+        // Through the command the entry stands for rather than the entry itself: a menu entry is an
+        // Action, which nothing can await, and the two answers are commands exactly so that whoever
+        // presses one can wait for the save it sets off. The entries are checked where they are drawn.
+        => answer == "Split evenly"
+            ? screen.SplitEvenlyCommand.ExecuteAsync(null)
+            : screen.LeaveTheListsAloneCommand.ExecuteAsync(null);
+
+    /// <summary>
+    /// A group can be arranged from the phone as well as from the browser: the sheet offers every other
+    /// shelf this reader has, ticked where it is already gathered here, and a tick is written straight
+    /// through. 2026-09-19 - the browser had it since gathering existed.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_can_be_put_in_the_group_from_the_phone()
+    {
+        using var context = new ScreenContext();
+        var kitchen = context.Server.AddInventory("Kitchen");
+        var fridge = context.Server.AddInventory("Fridge");
+        var stored = await context.PullEverythingAsync(kitchen.Id);
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.ArrangeTheGroupCommand.Execute(null);
+        var offered = Assert.Single(screen.Gathering.Entries);
+        Assert.Equal("Fridge", offered.Label);
+        Assert.False(offered.IsChosen);
+        offered.ChooseCommand.Execute(null);
+        await Task.Yield();
+
+        Assert.Equal([fridge.Id], context.Server.GatheredBy(kitchen.Id));
+    }
+
+    /// <summary>And taking one out again, which is the same tick the other way.</summary>
+    [Fact]
+    public async Task And_taken_out_again()
+    {
+        using var context = new ScreenContext();
+        var fridge = context.Server.AddInventory("Fridge");
+        var kitchen = context.Server.AddInventory("Kitchen", gathers: [fridge.Id]);
+        var stored = await context.PullEverythingAsync(kitchen.Id);
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.ArrangeTheGroupCommand.Execute(null);
+        var offered = Assert.Single(screen.Gathering.Entries);
+        Assert.True(offered.IsChosen);
+        offered.ChooseCommand.Execute(null);
+        await Task.Yield();
+
+        Assert.Empty(context.Server.GatheredBy(kitchen.Id));
+    }
+
+    /// <summary>
+    /// The shelf being read is never among the ones it could gather: a shelf gathering itself is one
+    /// read forever, and it is not something anybody means.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_is_never_offered_to_gather_itself()
+    {
+        using var context = new ScreenContext();
+        var kitchen = context.Server.AddInventory("Kitchen");
+        var stored = await context.PullEverythingAsync(kitchen.Id);
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.ArrangeTheGroupCommand.Execute(null);
+
+        Assert.Empty(screen.Gathering.Entries);
+    }
+
+    /// <summary>
+    /// A refusal is said rather than swallowed. The one a reader can trip over from here is a shelf that
+    /// already gathers this one, directly or further down - see InventoryGroups.
+    /// </summary>
+    [Fact]
+    public async Task A_refused_arrangement_says_why()
+    {
+        using var context = new ScreenContext();
+        var kitchen = context.Server.AddInventory("Kitchen");
+        context.Server.AddInventory("Fridge");
+        var stored = await context.PullEverythingAsync(kitchen.Id);
+        var screen = await context.OpenAsync(stored.LocalId);
+        context.Server.RefuseGathering = true;
+
+        screen.ArrangeTheGroupCommand.Execute(null);
+        Assert.Single(screen.Gathering.Entries).ChooseCommand.Execute(null);
+        await Task.Yield();
+
+        Assert.Contains("Fridge", screen.Status);
+        Assert.Empty(context.Server.GatheredBy(kitchen.Id));
+    }
+
+    /// <summary>
+    /// And it is not offered at all without a connection: gathering is written straight through, so
+    /// there is nothing local for it to be true of in the meantime.
+    /// </summary>
+    [Fact]
+    public async Task Arranging_a_group_is_not_offered_offline()
+    {
+        using var context = new ScreenContext();
+        var kitchen = context.Server.AddInventory("Kitchen");
+        var stored = await context.PullEverythingAsync(kitchen.Id);
+        var screen = await context.OpenAsync(stored.LocalId);
+        Assert.True(screen.CanArrangeTheGroup);
+
+        context.Network.Becomes(false);
+        var offline = await context.OpenAsync(stored.LocalId);
+
+        Assert.False(offline.CanArrangeTheGroup);
+    }
+
+    /// <summary>An ordinary shelf gathers nothing, so the section is not there at all.</summary>
+    [Fact]
+    public async Task An_ordinary_shelf_draws_no_such_section()
+    {
+        using var context = new ScreenContext();
+        var inventory = await context.PullInventoryAsync("Pantry", "Flour");
+
+        var screen = await context.OpenAsync(inventory.LocalId);
+
+        Assert.False(screen.IsGroup);
+        Assert.Empty(screen.Gathered);
+    }
+
+    /// <summary>
+    /// A member this phone has not got - not synced yet, or deleted - is passed over rather than drawn
+    /// as a shelf that cannot be opened.
+    /// </summary>
+    [Fact]
+    public async Task A_member_this_phone_has_not_got_is_passed_over()
+    {
+        using var context = new ScreenContext();
+        var kitchen = context.Server.AddInventory("Kitchen", gathers: [Guid.NewGuid()]);
+        var stored = await context.PullEverythingAsync(kitchen.Id);
+
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        Assert.False(screen.IsGroup);
+        Assert.Empty(screen.Gathered);
+    }
+
+    /// <summary>
     /// A shelf opened from somewhere that meant one product - an errand naming it, or a search that
     /// found it - marks that row. Sixty rows and no sign of which one was meant is half an answer, and
     /// Orbit.Web's own shelf marks the row its ?highlight= names.
@@ -886,6 +1182,36 @@ public sealed class InventoryDetailScreenTests
 
             await _synchronizer.SynchroniseAsync(CancellationToken.None);
             return (await _inventories.GetAllAsync()).Single(inventory => inventory.ServerId == remote.Id);
+        }
+
+        /// <summary>
+        /// A shelf with one row that the named lists ask for - two of them by default, which is the
+        /// case a save has to stop and ask about (see ShelfDemand). Hands back the shelf as this phone
+        /// stores it, and the row as the server holds it.
+        /// </summary>
+        public async Task<(LocalInventory Stored, InventoryItemDto Row)> PullSharedShelfAsync(
+            params string[] askedBy)
+        {
+            var remote = Server.AddInventory("Pantry");
+            Server.AddItem(remote.Id, "Flour", quantity: 1, minimum: 2);
+            var row = Server.ItemsIn(remote.Id).Single();
+            foreach (var listName in askedBy.Length > 0 ? askedBy : ["Bread", "Pizza"])
+            {
+                Server.AddDemand(row.Id, listName);
+            }
+
+            await _synchronizer.SynchroniseAsync(CancellationToken.None);
+            return ((await _inventories.GetAllAsync()).Single(shelf => shelf.ServerId == remote.Id), row);
+        }
+
+        /// <summary>
+        /// Pulls everything the server holds and hands back the one shelf named. For a group, whose
+        /// members have to be here too before it can draw them.
+        /// </summary>
+        public async Task<LocalInventory> PullEverythingAsync(Guid serverId)
+        {
+            await _synchronizer.SynchroniseAsync(CancellationToken.None);
+            return (await _inventories.GetAllAsync()).Single(inventory => inventory.ServerId == serverId);
         }
 
         /// <summary>

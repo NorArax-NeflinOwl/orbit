@@ -286,6 +286,10 @@ namespace Orbit.Mobile.Data.Migrations
                     b.Property<Guid?>("FolderId")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("GathersServerIds")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("IsArchived")
                         .HasColumnType("INTEGER");
 
@@ -327,6 +331,10 @@ namespace Orbit.Mobile.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("SharedByUserName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SplitEvenlyAcross")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<long>("UpdatedAtUtc")

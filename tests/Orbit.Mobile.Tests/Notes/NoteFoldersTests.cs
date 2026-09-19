@@ -79,6 +79,37 @@ public sealed class NoteFoldersTests
     }
 
     /// <summary>
+    /// A folder holding something the reader has not seen says so, so somebody following a notification
+    /// can tell which one holds what they were sent to - the screen opens on whatever folder it was last
+    /// left on, and the tabs are entries in a menu here. The browser puts the same dot on its tab; asked
+    /// for on 2026-09-18 for both clients and only built in the browser then.
+    /// </summary>
+    [Fact]
+    public async Task A_folder_holding_something_unseen_says_so()
+    {
+        using var context = new ScreenContext();
+        var shared = await context.AddNoteAsync("Shopping");
+        // A note the server has never seen has no address to be pointed at, so it is pushed first.
+        await context.RaiseNewsAboutAsync(await context.PushAndReadTheServerIdAsync(shared.LocalId));
+
+        var screen = await context.OpenAsync();
+
+        Assert.Equal(
+            ["Public"],
+            screen.FolderChoices.Where(choice => choice.HasNews).Select(choice => choice.Name));
+    }
+
+    [Fact]
+    public async Task And_a_folder_holding_nothing_unseen_says_nothing()
+    {
+        using var context = new ScreenContext();
+        await context.AddNoteAsync("Shopping");
+        var screen = await context.OpenAsync();
+
+        Assert.DoesNotContain(screen.FolderChoices, choice => choice.HasNews);
+    }
+
+    /// <summary>
     /// Making one moves the screen to it: making a folder is how somebody says where the next thing
     /// goes, and leaving them looking at the one they just left would be answering a question nobody
     /// asked.
@@ -206,6 +237,7 @@ public sealed class NoteFoldersTests
             Notes = new LocalNoteRepository(
                 _localStore, _clock, FixedNetworkStatus.Online, PrivateContent.HoldingAKeyFor(Guid.NewGuid()));
             Folders = new LocalFolderRepository(_localStore, _clock);
+            Notifications = new LocalNotificationRepository(_localStore);
             _synchronizer = new NoteSynchronizer(
                 _localStore, new NotesClient(_server.ToHttpClient()), _clock, new SyncGate(),
                 NullLogger<NoteSynchronizer>.Instance);
@@ -227,6 +259,30 @@ public sealed class NoteFoldersTests
             return note;
         }
 
+        /// <summary>
+        /// The feed this phone holds, for the folder that says it holds something unseen - see
+        /// FolderChoice.HasNews. Nothing in it unless a test raises something.
+        /// </summary>
+        public LocalNotificationRepository Notifications { get; }
+
+        /// <summary>
+        /// Says that something unread points at one note, as the server would have said it - the phone
+        /// keeps the feed by the addresses the entries carry, which is what UnreadNews matches.
+        /// </summary>
+        public Task RaiseNewsAboutAsync(Guid noteServerId)
+            => Notifications.RaiseAsync(
+                "NoteShared", "Shared with you", "A note", $"/notes/{noteServerId}", _clock.GetUtcNow());
+
+        /// <summary>
+        /// Pushes what is queued and hands back the id the server gave this note. A note it has never
+        /// seen has no address anything could point at, so nothing can be unread about it.
+        /// </summary>
+        public async Task<Guid> PushAndReadTheServerIdAsync(Guid localId)
+        {
+            await _synchronizer.SynchroniseAsync(CancellationToken.None);
+            return (await Notes.FindAsync(localId))!.ServerId!.Value;
+        }
+
         public async Task<NotesViewModel> OpenAsync()
         {
             var screen = new NotesViewModel(
@@ -235,7 +291,8 @@ public sealed class NoteFoldersTests
                 new PrivateItemGate(new FixedDeviceAuthentication()),
                 new SyncState(Reachability.Online, _clock), new RecordingScreenNavigator(), _clock,
                 new InMemoryListArrangementStore(), Folders, new InMemoryChosenFolderStore(),
-                TestDoubles.Folders.SynchronizerAgainstNobody(_localStore, _clock));
+                TestDoubles.Folders.SynchronizerAgainstNobody(_localStore, _clock),
+                notifications: Notifications);
 
             await screen.LoadCommand.ExecuteAsync(null);
             return screen;

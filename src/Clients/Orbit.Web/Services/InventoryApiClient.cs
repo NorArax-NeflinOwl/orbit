@@ -264,6 +264,19 @@ public sealed class InventoryApiClient
     }
 
     /// <summary>
+    /// Says which shelves this one gathers - the whole membership, in the order it was arranged. Answers
+    /// whether the server took it: it refuses a shelf that is not this reader's and a membership that
+    /// would close a ring (see Orbit.Core.Inventories.InventoryGroups).
+    /// </summary>
+    public async Task<bool> GatherAsync(
+        Guid inventoryId, IReadOnlyList<Guid> inventoryIds, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/inventories/{inventoryId}/gathers", new GatherInventoriesRequest(inventoryIds), cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    /// <summary>
     /// Which of this reader's task entries ask for each row on the shelf - see Orbit.Core.Inventories.ShelfDemand.
     /// Empty rather than null when nothing is asking, or when the read failed: this only decides whether
     /// an editor warns before saving, and a shelf that could not be asked is one nothing is known about.

@@ -255,6 +255,9 @@ public static class PolishTranslations
             "„Podziel równo” rozdziela każdą ilość po równo między pozycje, które jej potrzebują. Pozostawienie list bez zmian zapisuje magazyn i nie zmienia na nich niczego.",
         ["Split evenly"] = "Podziel równo",
         ["I'll change the lists myself"] = "Sam zmienię listy",
+        // The same question on the phone, where it is a menu and its heading has to carry the whole of
+        // it - see InventoryDetailViewModel.AskAboutTheSharedRows.
+        ["{0}: {1} ask for these. Which is it?"] = "{0}: potrzebują tego {1}. Co zrobić?",
         ["Open {0}"] = "Otwórz: {0}",
         ["done: {0}"] = "zrobione: {0}",
         ["any one of: {0}"] = "dowolne z: {0}",
@@ -265,6 +268,8 @@ public static class PolishTranslations
         ["Could not leave that group. Check your connection and try again."] = "Nie udało się opuścić grupy. Sprawdź połączenie i spróbuj ponownie.",
         ["Private note"] = "Notatka prywatna",
         ["Something happened here"] = "Coś się tu wydarzyło",
+        // The same thing said of one row rather than of a whole card - see InventorySummary.
+        ["This is what the bell is talking about"] = "O tym mówi powiadomienie",
         ["This place goes to the event in the calendar, pin and all."] = "To miejsce trafia do wydarzenia w kalendarzu, razem z pinezką.",
         ["Point at this place on the map so the calendar knows where it is - a name on its own stays on the entry."] = "Wskaż to miejsce na mapie, aby kalendarz wiedział, gdzie ono jest - sama nazwa zostaje przy pozycji.",
         ["\"{0}\" already has an event in the calendar, so its type can't be changed. Detach it from the event first, then decide what to do with the event itself."] = "„{0}” ma już wydarzenie w kalendarzu, więc nie można zmienić jego typu. Najpierw odłącz je od wydarzenia, potem zdecyduj, co zrobić z samym wydarzeniem.",
@@ -1520,6 +1525,7 @@ public static class PolishTranslations
             "Nie udało się zaktualizować subskrypcji powiadomień push. Spróbuj ponownie.",
         ["Location recorded."] = "Położenie zapisane.",
         ["Location forgotten."] = "Położenie usunięte.",
+        ["The map is up to date."] = "Mapa jest aktualna.",
         ["Couldn't save your location. Try again."] = "Nie udało się zapisać położenia. Spróbuj ponownie.",
         ["Couldn't load your location. Try again."] = "Nie udało się wczytać położenia. Spróbuj ponownie.",
         ["Couldn't refresh the map. Try again."] = "Nie udało się odświeżyć mapy. Spróbuj ponownie.",
@@ -1686,6 +1692,7 @@ public static class PolishTranslations
         ["That inventory no longer exists."] = "Tego magazynu już nie ma.",
         ["Nothing on this shelf yet."] = "Na tej półce nic jeszcze nie ma.",
         ["added {0}"] = "dodano {0}",
+        ["asked for by {0}"] = "prosi o to: {0}",
         ["best before {0}"] = "najlepiej spożyć przed {0}",
         ["keeps"] = "nie psuje się",
         ["That note no longer exists."] = "Tej notatki już nie ma.",
@@ -1699,10 +1706,12 @@ public static class PolishTranslations
         ["{0} min before"] = "{0} min wcześniej",
         ["Delete \"{0}\"?"] = "Usunąć „{0}”?",
         ["Delete event \"{0}\"?"] = "Usunąć wydarzenie „{0}”?",
-        ["One more"] = "O jeden więcej",
-        ["One fewer"] = "O jeden mniej",
-        ["One more: {0}"] = "O jeden więcej: {0}",
-        ["One fewer: {0}"] = "O jeden mniej: {0}",
+        // The two buttons on a shelf row. They used to move it by one - see InventorySummary.Step for
+        // why half. The number is written the way each language writes it.
+        ["0.5 more"] = "O 0,5 więcej",
+        ["0.5 less"] = "O 0,5 mniej",
+        ["0.5 more: {0}"] = "O 0,5 więcej: {0}",
+        ["0.5 less: {0}"] = "O 0,5 mniej: {0}",
         ["No"] = "Nie",
         ["another user"] = "inny użytkownik",
         ["This login is already taken."] = "Ten login jest już zajęty.",
@@ -2441,6 +2450,23 @@ public static class PolishTranslations
 
         // The last of the web left in English: the restock-list settings, the two suggestion panels,
         // and a handful of lines nobody had swept up. See the coverage test that now keeps this closed.
+        // A group shelf - one entry on the list of inventories holding smaller ones inside it.
+        // What the browser says where there is nothing to choose between - see ValueBrowser.EmptyMessage.
+        ["Nothing else on this list yet."] = "Nie ma jeszcze nic innego na tej liście.",
+        ["No other lists yet."] = "Nie ma jeszcze innych list.",
+        ["Inventories gathered here"] = "Magazyny zebrane tutaj",
+        // What a group's row on the phone's list of inventories says it holds - see InventoryRow.Gathering.
+        ["Holds: {0}"] = "Zawiera: {0}",
+        ["A group shelf holds smaller shelves. Each keeps its own items and its own tie to a list; this only decides what is read together."] =
+            "Magazyn grupowy zawiera mniejsze magazyny. Każdy zachowuje własne elementy i własne powiązanie z listą — to ustala tylko, co czytane jest razem.",
+        ["There are no other inventories to gather."] = "Nie ma innych magazynów do zebrania.",
+        ["Gather {0} into this inventory"] = "Zbierz „{0}” do tego magazynu",
+        ["Couldn't put \"{0}\" in this group. It may already gather this one."] =
+            "Nie udało się dodać „{0}” do tej grupy. Możliwe, że ten magazyn już zbiera bieżący.",
+        ["Couldn't put \"{0}\" in this group. Try again."] = "Nie udało się dodać „{0}” do tej grupy. Spróbuj ponownie.",
+        ["answers to {0}"] = "odpowiada liście: {0}",
+        ["One of the inventories this one gathers. Open it to change what is on it."] =
+            "Jeden z magazynów zbieranych przez ten. Otwórz go, żeby zmienić jego zawartość.",
         ["Keep a restock list for this inventory"] = "Prowadź listę uzupełnień dla tego magazynu",
         ["Remind me to update stock levels"] = "Przypominaj mi o aktualizacji stanów",
         ["Priority of the restock list"] = "Priorytet listy uzupełnień",

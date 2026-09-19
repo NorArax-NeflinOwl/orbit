@@ -13,8 +13,13 @@ namespace Orbit.Mobile.Data;
 /// </summary>
 /// <param name="IsPrivate"><inheritdoc cref="NoteContent.IsPrivate" path="/summary"/></param>
 /// <param name="Description"><inheritdoc cref="TaskListContent.Description" path="/summary"/></param>
+/// <param name="SplitEvenlyAcross">
+/// The reader's answer about any row several lists ask for - see LocalInventory.SplitEvenlyAcross.
+/// Empty for every save that asked nothing, which is nearly all of them.
+/// </param>
 public sealed record InventoryContent(
-    string Name, IReadOnlyList<InventoryItemRequest> Items, bool IsPrivate = false, string Description = "");
+    string Name, IReadOnlyList<InventoryItemRequest> Items, bool IsPrivate = false, string Description = "",
+    IReadOnlyList<Guid>? SplitEvenlyAcross = null);
 
 /// <summary>
 /// Every read and write a screen performs on inventories - the same shape as the other three, including
@@ -201,6 +206,10 @@ public sealed class LocalInventoryRepository : ICopyReviewStore
     {
         inventory.IsPrivate = content.IsPrivate;
         inventory.IsSealed = false;
+        // Carried with the change rather than kept: the synchroniser sends it with this save and clears
+        // it - see LocalInventory.SplitEvenlyAcross. Written even for a private shelf, where it can only
+        // ever be empty: nothing on the server asks for a row it cannot read.
+        inventory.SplitEvenlyAcross = content.SplitEvenlyAcross ?? [];
 
         if (!content.IsPrivate)
         {

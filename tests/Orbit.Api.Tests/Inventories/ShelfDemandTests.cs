@@ -191,6 +191,47 @@ public sealed class ShelfDemandTests
     }
 
     /// <summary>
+    /// Saving the shelf crosses off what it now answers. Asked for on 2026-09-18: somebody stocking a
+    /// shelf put four of something on it and the list standing in front of them went on asking for it
+    /// until they next opened that list. The rule is StockedEntryCompletion's, which a save of a *list*
+    /// has always gone through - this is the same question asked from the other end.
+    /// </summary>
+    [Fact]
+    public async Task Saving_the_shelf_crosses_off_the_errands_it_now_answers()
+    {
+        var inventoryId = _context.AddInventory(UserId);
+        var flour = AShelfItem(inventoryId, minimum: 2);
+        var entry = AnEntryFor(flour, 2);
+        var bread = await AListAsync("Bread", entry);
+
+        // Two of it on the shelf, which is the minimum: the errand is answered.
+        await SaveTheShelfAsync(
+            inventoryId,
+            [new InventoryItemInput(
+                flour.Id, flour.Name, flour.ProductType, flour.Categories, Quantity: 2, MinimumQuantity: 2,
+                flour.Unit, flour.ExpiryDate, flour.ExpiryNotificationChannel)]);
+
+        Assert.True(bread.Items.Single(item => item.Id == entry.Id).IsCompleted);
+    }
+
+    /// <summary>And leaves it alone while the shelf still cannot answer it.</summary>
+    [Fact]
+    public async Task A_shelf_that_still_has_too_little_crosses_nothing_off()
+    {
+        var inventoryId = _context.AddInventory(UserId);
+        var flour = AShelfItem(inventoryId, minimum: 2);
+        var bread = await AListAsync("Bread", AnEntryFor(flour, 2));
+
+        await SaveTheShelfAsync(
+            inventoryId,
+            [new InventoryItemInput(
+                flour.Id, flour.Name, flour.ProductType, flour.Categories, Quantity: 1, MinimumQuantity: 2,
+                flour.Unit, flour.ExpiryDate, flour.ExpiryNotificationChannel)]);
+
+        Assert.False(bread.Items.Single().IsCompleted);
+    }
+
+    /// <summary>
     /// Clearing a minimum is not an amount to ask a list for - the shelf simply goes back to being kept
     /// at whatever the lists want. See UpdateInventoryCommandHandler.
     /// </summary>

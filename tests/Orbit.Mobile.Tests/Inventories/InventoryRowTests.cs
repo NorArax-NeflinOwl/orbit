@@ -94,9 +94,63 @@ public sealed class InventoryRowTests
         Assert.Contains("5", asTheListsAskForIt.Detail);
     }
 
-    private static InventoryRow Describe(LocalInventory inventory, bool privateItemsAreUnlocked = true)
+    /// <summary>
+    /// A group shelf names what it gathers, so the list says which shelves are read together without
+    /// anything being opened - see Orbit.Core.Inventories.Inventory.GathersInventoryIds. 2026-09-18.
+    /// </summary>
+    [Fact]
+    public void A_group_names_the_shelves_it_gathers()
+    {
+        var fridge = AShelf("Fridge");
+        var pantry = AShelf("Pantry");
+        var kitchen = new LocalInventory
+        {
+            Name = "Kitchen",
+            GathersServerIds = [fridge.ServerId!.Value, pantry.ServerId!.Value]
+        };
+
+        var row = Describe(kitchen, everyShelf: [kitchen, fridge, pantry]);
+
+        Assert.True(row.IsGroup);
+        Assert.True(row.HasGathers);
+        Assert.Equal("Holds: Fridge, Pantry", row.Gathers);
+    }
+
+    /// <summary>
+    /// A member this phone has not got - not synced yet, or deleted - is passed over rather than named
+    /// as a shelf that cannot be opened, the same way a link to a list nobody has reads as nothing there.
+    /// </summary>
+    [Fact]
+    public void A_member_this_phone_has_not_got_is_passed_over()
+    {
+        var fridge = AShelf("Fridge");
+        var kitchen = new LocalInventory
+        {
+            Name = "Kitchen",
+            GathersServerIds = [fridge.ServerId!.Value, Guid.NewGuid()]
+        };
+
+        Assert.Equal("Holds: Fridge", Describe(kitchen, everyShelf: [kitchen, fridge]).Gathers);
+    }
+
+    [Fact]
+    public void An_ordinary_shelf_gathers_nothing_and_says_nothing()
+    {
+        var row = Describe(Inventory(Item("Rice")));
+
+        Assert.False(row.IsGroup);
+        Assert.Equal(string.Empty, row.Gathers);
+    }
+
+    private static LocalInventory AShelf(string name)
+        => new() { LocalId = Guid.NewGuid(), ServerId = Guid.NewGuid(), Name = name };
+
+    private static InventoryRow Describe(
+        LocalInventory inventory, bool privateItemsAreUnlocked = true,
+        IReadOnlyList<LocalInventory>? everyShelf = null)
 
         => InventoryRow.From(
             inventory, hasUnsentChanges: false, FixedNetworkStatus.Online,
-            new Translations(new InMemoryLanguageStore()), privateItemsAreUnlocked);
+            new Translations(new InMemoryLanguageStore()), privateItemsAreUnlocked,
+            everyShelf: everyShelf);
 }

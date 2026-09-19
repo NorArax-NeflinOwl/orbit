@@ -378,6 +378,47 @@ public sealed class TaskList
     }
 
     /// <summary>
+    /// Stops gathering one list. What a list being put away does to every group holding it - see
+    /// ArchiveTaskListCommandHandler, and ArchiveInventoryCommandHandler, which is the same rule about
+    /// the same kind of tie.
+    ///
+    /// An entry that stood only for that list goes with it. A pointer at other lists is not work of its
+    /// own (<see cref="TaskItem.IsALinkToOtherLists"/>) - it is not counted, not ticked by hand and not
+    /// reopened - so one left pointing at nothing would quietly become an errand nobody wrote, sitting
+    /// outstanding on the group for good. An entry that also stands for another list keeps that one and
+    /// stays.
+    ///
+    /// Answers whether anything moved, so a list that never gathered it is not written again.
+    /// </summary>
+    internal bool StopGathering(Guid taskListId)
+    {
+        if (!Items.Any(item => item.LinkedTaskListIds.Contains(taskListId)))
+        {
+            return false;
+        }
+
+        var kept = new List<TaskItem>();
+        foreach (var item in Items)
+        {
+            if (!item.LinkedTaskListIds.Contains(taskListId))
+            {
+                kept.Add(item);
+                continue;
+            }
+
+            item.StopStandingFor(taskListId);
+            if (item.IsALinkToOtherLists)
+            {
+                kept.Add(item);
+            }
+        }
+
+        Items = kept;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+        return true;
+    }
+
+    /// <summary>
     /// Points this list at an inventory, or at none. Its own command rather than part of an update, for
     /// the same reason pinning is: it changes what the list is measured against, not what is on it.
     ///

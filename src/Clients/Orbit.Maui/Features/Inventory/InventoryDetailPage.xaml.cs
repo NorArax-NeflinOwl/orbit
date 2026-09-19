@@ -54,6 +54,14 @@ public partial class InventoryDetailPage : ContentPage, ITitleMenu
 			Sharing.IsVisible,
 			canBeChosen: !_viewModel.IsPrivate));
 
+		// Which smaller shelves this one gathers - see Orbit.Core.Inventories.Inventory.GathersInventoryIds.
+		// Greyed rather than hidden where it cannot be done, as everything needing a connection is: the
+		// reader learns the option exists and what it is waiting for.
+		entries.Add(new ScreenMenuEntry(
+			_translations["Inventories gathered here"],
+			() => _viewModel.ArrangeTheGroupCommand.Execute(null),
+			canBeChosen: _viewModel.CanArrangeTheGroup));
+
 		// The other way out of a list, and immediately above Delete on purpose: somebody reaching for
 		// Delete because they want this out of the way should meet it first - one of the two is
 		// reversible. Only for this reader's own, the way filing is - see BuiltInFolder.Archived.

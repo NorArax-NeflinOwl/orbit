@@ -44,4 +44,17 @@ public sealed record InventoryDto(
     /// everything stored before the column existed is, and what a server that has not learned about
     /// archiving answers. Defaulted and last, so an older client reads past it.
     /// </summary>
-    bool IsArchived = false);
+    bool IsArchived = false,
+    /// <summary>
+    /// The shelves this one gathers, in order - see Orbit.Core.Inventories.Inventory.GathersInventoryIds.
+    /// Empty for an ordinary shelf, which is every one stored before gathering existed. Defaulted and
+    /// last, so an older client reads past it.
+    /// </summary>
+    IReadOnlyList<Guid>? GathersInventoryIds = null)
+{
+    /// <summary>Whichever way the sender said it, read as a list - null means "gathers nothing".</summary>
+    public IReadOnlyList<Guid> AllGathered => GathersInventoryIds ?? [];
+
+    /// <summary>Whether this shelf gathers others - see Orbit.Core.Inventories.Inventory.IsGroup.</summary>
+    public bool IsGroup => AllGathered.Count > 0;
+}
