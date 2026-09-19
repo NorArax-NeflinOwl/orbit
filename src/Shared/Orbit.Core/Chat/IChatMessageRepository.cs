@@ -91,6 +91,18 @@ public interface IChatMessageRepository
     /// asks for all of them on every poll tick.
     /// </summary>
     Task<IReadOnlyDictionary<Guid, int>> GetUnreadCountsBySenderAsync(Guid readerUserId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// When the last message in each one-to-one conversation was sent, keyed by the other party.
+    /// Answered in a single query for the whole list, for the reason the counts above are.
+    ///
+    /// Raw: this says when a message was last sent, and says nothing about whether this reader can still
+    /// see it. Where their own conversation starts is <see cref="Contact.HistoryClearedAtUtc"/>, and
+    /// that line is applied by the caller - the same division GetConversationQueryHandler makes, and for
+    /// the same reason: the line is a fact about one reader and this answers for both of them.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, DateTimeOffset>> GetLastMessageTimesAsync(
+        Guid readerUserId, CancellationToken cancellationToken);
     /// <summary>
     /// How many messages each group has waiting unread for this reader, keyed by group - the group
     /// counterpart of <see cref="GetUnreadCountsBySenderAsync"/>, in one query for the same reason. A

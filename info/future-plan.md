@@ -1837,13 +1837,18 @@ One thing the design asks for that belongs to **both clients** rather than to th
   browser's, which are the same shape on purpose - carries the name and a subtitle, and the subtitle is
   the username. So a list ordered by recency has nothing on it that says so.
 
-  Not done on the phone alone, deliberately: the looks follow the design, but *what a row says about a
-  person* is a feature, and a feature the browser has not got would make the two clients answer
-  different questions. The preview is the harder half - a message is sealed, so drawing a list of
-  twenty contacts would mean opening twenty messages - and "when" on its own, over a subtitle that is
-  still a username, is half a row. If it is wanted, it is wanted on `Orbit.Web/Components/PersonRow.razor`
-  and `Orbit.Maui/Controls/PersonRow.xaml` together, with `LocalContact.LastMessageAtUtc` (already
-  synced and already what the list is ordered by) carrying the easy half.
+  **The "when" half is done, 2026-09-19, on both at once** - asked for with the reason that made it
+  worth doing: the row should *read the last message* so its time is right. It is: `Contact.LastMessageAtUtc`
+  is moved forward on a send and never back, so after the reader empties a conversation the row went on
+  claiming a time for a conversation showing nothing. The browser reads it off the messages on the
+  server (`GetContactsQueryHandler.LastMessageIn`, one batched query, the cleared line applied in the
+  handler) and the phone off its own store (`ChatRepository.LastMessageTimesAsync`); both rows draw it at
+  the trailing edge, and nothing where there is nothing to say. Each client's wording comes from its own
+  `RelativeMoment`, pulled out of the dashboards so one moment cannot be read two ways on one client.
+
+  **The preview is still the harder half and is not done**: a message is sealed, so drawing a line of it
+  under twenty names means opening twenty messages. What that would take is a decision about cost, not
+  about the row - and the "when" it was waiting behind is no longer waiting.
 
 One thing the design showed up that is not fixed:
 

@@ -11,6 +11,7 @@
 @inject ILogger<Contacts> Logger
 @inject UserPermissionState Permissions
 @inject Translations T
+@inject TimeProvider TimeProvider
 @inject ConversationPins Pins
 
 <PageTitle>@T["Orbit — Contacts"]</PageTitle>
@@ -189,8 +190,13 @@ else
             {
                 @foreach (var contact in RowsForTheChosenTab)
                 {
+                    @* When there was last anything here, only on the Chats tab: the Contacts tab is a
+                       directory in alphabetical order, and a time on a list nothing is ordered by is a
+                       number with no question behind it. See ContactDto.LastMessageAtUtc, which the
+                       server now answers from the messages rather than from the contact row. *@
                     <PersonRow Id="contact.UserId" Name="@contact.DisplayName" Subtitle="@contact.UserName"
                                Status="Conversation.PresenceOf(contact)"
+                               When="@(_tab == ContactsTab.Chats ? RelativeMoment.Ago(Conversation.LastAnythingFrom(contact), TimeProvider, T) : null)"
                                HasUnseenAction="@(contact.UnreadCount > 0)"
                                OnSelected="() => OpenChat(contact.UserId)">
                         <Pin>

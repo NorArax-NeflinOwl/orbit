@@ -31,6 +31,69 @@ public sealed class GetContactsQueryHandlerTests
         Assert.False(contact.IsPendingApprovalFromOtherParty);
     }
 
+    /// <summary>
+    /// The row says when the last message was actually sent, not when the Contact row was last bumped.
+    /// The two agree until somebody empties the conversation: LastMessageAtUtc is moved forward on a
+    /// send and never back, so a reader who cleared their history saw "3 days ago" beside a conversation
+    /// showing nothing at all. Asked for 2026-09-19.
+    /// </summary>
+    [Fact]
+    public async Task HandleAsync_reads_the_last_message_rather_than_the_contact_row()
+    {
+        var userRepository = new InMemoryUserRepository();
+        var otherUser = User.FromPersistence(
+            Guid.NewGuid(), "other@example.com", "other", "Other", "hash", DateTimeOffset.UtcNow, "public-key");
+        await userRepository.AddAsync(otherUser, CancellationToken.None);
+        var contactRepository = new InMemoryContactRepository();
+        var ownerId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        // The row was bumped this minute; the message it was bumped for went a week ago.
+        await contactRepository.EnsureContactAsync(ownerId, otherUser.Id, now, CancellationToken.None);
+        var messages = new InMemoryChatMessageRepository();
+        await messages.AddAsync(
+            ChatMessage.FromPersistence(
+                Guid.NewGuid(), otherUser.Id, ownerId, "cipher", "nonce", now.AddDays(-7),
+                isEdited: false, editedAtUtc: null),
+            CancellationToken.None);
+        var handler = new GetContactsQueryHandler(
+            contactRepository, userRepository, new InMemoryChatConversationAccessRepository(), messages);
+
+        var contacts = await handler.HandleAsync(new GetContactsQuery(ownerId), CancellationToken.None);
+
+        Assert.Equal(now.AddDays(-7), Assert.Single(contacts).LastMessageAtUtc);
+    }
+
+    /// <summary>
+    /// And a conversation this reader has emptied answers with the row again: everything before their
+    /// own cleared line is gone from their side, so the message behind it is not an answer about what
+    /// they can see. The line is this reader's alone - the other party's list is unaffected.
+    /// </summary>
+    [Fact]
+    public async Task HandleAsync_ignores_a_message_from_before_the_reader_emptied_the_conversation()
+    {
+        var userRepository = new InMemoryUserRepository();
+        var otherUser = User.FromPersistence(
+            Guid.NewGuid(), "other@example.com", "other", "Other", "hash", DateTimeOffset.UtcNow, "public-key");
+        await userRepository.AddAsync(otherUser, CancellationToken.None);
+        var contactRepository = new InMemoryContactRepository();
+        var ownerId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        await contactRepository.EnsureContactAsync(ownerId, otherUser.Id, now, CancellationToken.None);
+        var messages = new InMemoryChatMessageRepository();
+        await messages.AddAsync(
+            ChatMessage.FromPersistence(
+                Guid.NewGuid(), otherUser.Id, ownerId, "cipher", "nonce", now.AddDays(-7),
+                isEdited: false, editedAtUtc: null),
+            CancellationToken.None);
+        await contactRepository.ClearHistoryAsync(ownerId, otherUser.Id, now.AddDays(-1), CancellationToken.None);
+        var handler = new GetContactsQueryHandler(
+            contactRepository, userRepository, new InMemoryChatConversationAccessRepository(), messages);
+
+        var contacts = await handler.HandleAsync(new GetContactsQuery(ownerId), CancellationToken.None);
+
+        Assert.Equal(now, Assert.Single(contacts).LastMessageAtUtc);
+    }
+
     [Fact]
     public async Task HandleAsync_returns_an_empty_list_for_a_user_with_no_contacts()
     {

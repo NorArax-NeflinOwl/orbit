@@ -5407,6 +5407,23 @@ contact, because `Orbit.Core` has no project references and neither client's row
 the phone keeps the moment on `LocalContact.LastSeenAtUtc`, which `ContactDto` had been carrying to it
 all along.
 
+**And the last message is read off the messages, not off the contact row** (2026-09-19). `Contact.LastMessageAtUtc`
+is moved forward when a message is sent and **never moved back**, so it goes on claiming a time after the
+reader empties the conversation: everything before `HistoryClearedAtUtc` is gone from their side, and the
+row still said "3 days ago" beside a conversation showing nothing at all. The server answers it from the
+messages now (`GetContactsQueryHandler.LastMessageIn`, one batched query beside the unread counts), with
+the cleared line applied in the handler rather than in the query — it is a fact about one reader, and the
+query answers for both ends. Where nothing is visible the row's own time stands: that is still when the
+conversation was last active, which is what orders the list. The phone does the same from its own store
+(`ChatRepository.LastMessageTimesAsync`), and holding none of somebody's messages is not the same as
+there being none, so a conversation it has never opened keeps the row's answer.
+
+**Both clients' `PersonRow` shows it** at the trailing edge, and nothing at all where there is nothing to
+say. On the browser it is only on the **Chats** tab: Contacts is a directory in alphabetical order, and a
+time on a list nothing is ordered by is a number with no question behind it. The words come from each
+client's own `RelativeMoment` — one wording per client, so a row and the card summarising it cannot
+describe the same moment two ways.
+
 **Every list that ranks people as conversations reads it** — the dashboard card, the Contacts page's
 **Chats** tab, the chat page's own list and its forwarding drawer, and on the phone everything
 `ChatRepository.GetContactsAsync` hands out. The card is the top of the Chats tab, so two orders would

@@ -58,6 +58,23 @@ public sealed class ContactsArchiveTests : OrbitTestContext
             "somebody who was here this morning should be above a conversation nobody has touched since");
     }
 
+    /// <summary>
+    /// And each row says when there was last anything here - the half of this the reader actually sees.
+    /// The server answers it from the messages rather than from the contact row, which is bumped on a
+    /// send and never moved back; see GetContactsQueryHandler.LastMessageIn. 2026-09-19.
+    /// </summary>
+    [Fact]
+    public void A_chat_row_says_when_there_was_last_anything()
+    {
+        Register(contacts: [
+            Contact("Here this morning", isArchived: false,
+                lastMessageAtUtc: DateTimeOffset.UtcNow.AddHours(-2).ToString("O"))]);
+
+        var cut = RenderComponent<Web.Pages.Contacts>();
+
+        Assert.Contains("2h ago", cut.Find(".person-row-when").TextContent, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void And_is_on_the_archive_tab_instead()
     {
