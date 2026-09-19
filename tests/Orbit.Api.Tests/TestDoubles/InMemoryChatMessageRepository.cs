@@ -6,7 +6,7 @@ namespace Orbit.Api.Tests.TestDoubles;
 /// In-memory <see cref="IChatMessageRepository"/> stub for unit tests that need real add/lookup
 /// behavior, including both-directions conversation scoping, without spinning up SQLite.
 /// </summary>
-internal sealed class InMemoryChatMessageRepository : IChatMessageRepository
+internal class InMemoryChatMessageRepository : IChatMessageRepository
 {
     private readonly List<ChatMessage> _messages = [];
 
@@ -175,12 +175,13 @@ internal sealed class InMemoryChatMessageRepository : IChatMessageRepository
     /// The same rule as the real repository: both directions, keyed by the other party, one-to-one only.
     /// Raw - where this reader's own conversation starts is the caller's to apply.
     /// </summary>
-    public Task<IReadOnlyDictionary<Guid, DateTimeOffset>> GetLastMessageTimesAsync(
-        Guid readerUserId, CancellationToken cancellationToken)
+    public virtual Task<IReadOnlyDictionary<Guid, DateTimeOffset>> GetLastMessageTimesAsync(
+        Guid readerUserId, IReadOnlyCollection<Guid> otherUserIds, CancellationToken cancellationToken)
     {
         IReadOnlyDictionary<Guid, DateTimeOffset> times = _messages
             .Where(message => message.GroupId is null
-                && (message.SenderUserId == readerUserId || message.RecipientUserId == readerUserId))
+                && ((message.SenderUserId == readerUserId && otherUserIds.Contains(message.RecipientUserId))
+                    || (message.RecipientUserId == readerUserId && otherUserIds.Contains(message.SenderUserId))))
             .GroupBy(message => message.SenderUserId == readerUserId
                 ? message.RecipientUserId
                 : message.SenderUserId)

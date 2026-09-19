@@ -33,9 +33,15 @@ public sealed class GetContactsQueryHandler : IRequestHandler<GetContactsQuery, 
         // notifications is tidying, not reading, and a conversation the reader has not opened stays
         // unread however often they clear the panel.
         var unreadCounts = await _chatMessageRepository.GetUnreadCountsBySenderAsync(request.UserId, cancellationToken);
-        // When each conversation's last message was actually sent - see LastMessageIn, which says why the
-        // Contact row's own answer is not asked.
-        var lastMessages = await _chatMessageRepository.GetLastMessageTimesAsync(request.UserId, cancellationToken);
+        // When the last message was actually sent, and only for the conversations where that can differ
+        // from what the row says - see LastMessageIn. For most readers that is none of them, and the
+        // query is not run at all.
+        var emptiedConversations = contacts
+            .Where(contact => contact.HistoryClearedAtUtc is not null)
+            .Select(contact => contact.ContactUserId)
+            .ToList();
+        var lastMessages = await _chatMessageRepository.GetLastMessageTimesAsync(
+            request.UserId, emptiedConversations, cancellationToken);
 
         // Three queries for the whole list rather than two per contact. This loop used to ask for each
         // other party's profile and each conversation's access state one at a time, so a reader with
@@ -67,18 +73,20 @@ public sealed class GetContactsQueryHandler : IRequestHandler<GetContactsQuery, 
     /// <summary>
     /// When this conversation last had a message this reader can still see.
     ///
-    /// The Contact row's own LastMessageAtUtc is bumped when a message is sent and never moved back, so
-    /// it goes on claiming a time after the reader empties the conversation: everything before
-    /// HistoryClearedAtUtc is gone from their side, and the row still said "3 days ago" beside a
-    /// conversation showing nothing at all. What a row is for is when there was last anything to read.
+    /// The Contact row's own LastMessageAtUtc is moved forward on every send and never back, so it
+    /// already is the last message's time - with one exception, which is the whole of this: a reader who
+    /// empties the conversation hides everything before HistoryClearedAtUtc, and the row went on saying
+    /// "3 days ago" beside a conversation showing nothing at all. What a row is for is when there was
+    /// last anything to read. So only an emptied conversation is asked about, and for most readers that
+    /// is none of them.
     ///
     /// The cleared line is applied here rather than in the query, the division
     /// GetConversationQueryHandler makes and for the same reason: it is a fact about one reader, and the
     /// repository answers for both ends of the conversation.
     ///
-    /// Falls back to the row where nothing is visible - a conversation just approved and never written
-    /// in, or one emptied entirely. That is still when it was last active, which is what orders the
-    /// list; a client that draws a time decides for itself whether to draw one at all.
+    /// Falls back to the row where nothing is visible - a conversation never written in, or one emptied
+    /// entirely. That is still when it was last active, which is what orders the list; a client that
+    /// draws a time decides for itself whether to draw one at all.
     /// </summary>
     private static DateTimeOffset LastMessageIn(Contact contact, IReadOnlyDictionary<Guid, DateTimeOffset> lastMessages)
         => lastMessages.TryGetValue(contact.ContactUserId, out var lastSentAtUtc)
