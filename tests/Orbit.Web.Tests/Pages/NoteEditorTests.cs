@@ -9,9 +9,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Chat;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Sharing;
 using Orbit.Contracts.Users;
+using Orbit.Core.Folders;
 using Orbit.Web.Components;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
@@ -659,18 +661,17 @@ public sealed class NoteEditorTests : OrbitTestContext
     }
 
     /// <summary>
-    /// The notes in the same folder stand beside the one being written, most recently changed first -
-    /// what is being written is one of a set, and moving between them should not mean going back to a
-    /// page of cards each time. A note filed somewhere else is not in that set.
+    /// Every note stands beside the one being written, most recently changed first - what is being
+    /// written is one of a set, and moving between them should not mean going back to a page of cards
+    /// each time. A note filed somewhere else is in that set too: it is under its own heading rather
+    /// than left out - see NoteWorkspaceList, and the folder headings below.
     /// </summary>
     [Fact]
-    public void The_notes_in_the_same_folder_stand_beside_the_one_being_written()
+    public void The_notes_stand_beside_the_one_being_written()
     {
-        var folderId = Guid.NewGuid();
-        var note = Note("Shopping") with { FolderId = folderId, UpdatedAtUtc = DateTimeOffset.UtcNow.AddDays(-1) };
-        var newer = Note("Packing") with { FolderId = folderId, UpdatedAtUtc = DateTimeOffset.UtcNow };
-        var elsewhere = Note("Work") with { FolderId = Guid.NewGuid() };
-        RegisterApiClients(note, alsoInTheList: [newer, elsewhere]);
+        var note = Note("Shopping") with { UpdatedAtUtc = DateTimeOffset.UtcNow.AddDays(-1) };
+        var newer = Note("Packing") with { UpdatedAtUtc = DateTimeOffset.UtcNow };
+        RegisterApiClients(note, alsoInTheList: [newer]);
 
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
 
@@ -679,6 +680,47 @@ public sealed class NoteEditorTests : OrbitTestContext
         // The one being written in is marked rather than left out: a column that hides the note you are
         // reading answers "where am I" with nothing.
         Assert.Contains("chosen", rows.First(row => row.TextContent.Contains("Shopping")).ClassList);
+    }
+
+    /// <summary>
+    /// The column is broken up by the folder the notes under each heading are filed in - asked for on
+    /// 2026-09-19. The headings are in the order the notes page's own tabs are in, and a folder nothing
+    /// is filed under is not a heading: an empty "Private" above a rule would be a separator separating
+    /// nothing.
+    /// </summary>
+    [Fact]
+    public void A_heading_says_which_folder_the_notes_under_it_are_in()
+    {
+        var workFolderId = Guid.NewGuid();
+        var note = Note("Shopping");
+        var filed = Note("Invoices") with { FolderId = workFolderId };
+        var sealedNote = Note("Passwords") with { IsPrivate = true };
+        RegisterApiClients(note, alsoInTheList: [filed, sealedNote]);
+        RegisterFolders([new FolderDto(workFolderId, "Work", FolderScope.Notes.ToString(), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow)]);
+
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        Assert.Equal(
+            ["Public", "Private", "Work"],
+            cut.FindAll(".note-workspace-list-folder").Select(heading => heading.TextContent.Trim()));
+    }
+
+    /// <summary>
+    /// A note put away is under the archive's own heading rather than among what the reader is working
+    /// on - the same place the notes page files it (see FolderPlacement).
+    /// </summary>
+    [Fact]
+    public void A_note_put_away_is_under_the_archives_heading()
+    {
+        var note = Note("Shopping");
+        var archived = Note("Last year") with { IsArchived = true };
+        RegisterApiClients(note, alsoInTheList: [archived]);
+
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        Assert.Equal(
+            ["Public", "Archived"],
+            cut.FindAll(".note-workspace-list-folder").Select(heading => heading.TextContent.Trim()));
     }
 
     [Fact]
@@ -952,6 +994,18 @@ public sealed class NoteEditorTests : OrbitTestContext
             usersApiClient,
             new ChatApiClient(httpClient)));
     }
+
+    /// <summary>
+    /// The folders this account has made, over the empty set the test context registers - what the
+    /// column's headings are named from. Notes-scoped, since that is the page the column is on.
+    /// </summary>
+    private void RegisterFolders(IReadOnlyList<FolderDto> folders)
+        => Services.AddSingleton(new FolderState(new FoldersApiClient(
+            new HttpClient(new StubHttpMessageHandler(
+                _ => new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(folders) }))
+            {
+                BaseAddress = new Uri("https://example.test/")
+            })));
 
     /// <summary>What the share wrote into the conversation, and whether the share itself was recorded.</summary>
     private string? _lastChatMessageJson;
