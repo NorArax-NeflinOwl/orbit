@@ -113,5 +113,49 @@ public sealed class PlaceRepositoryTests : IDisposable
         Assert.Empty(_dbContext.Set<Orbit.Data.Entities.PlaceTaskListLinkEntity>());
     }
 
+    /// <summary>
+    /// Sealing a place that was already stored keeps it sealed. The save used to write the readable
+    /// columns and nothing else, so a place being sealed stored the emptying that sealing does - the
+    /// name, the address and the point all go - and neither the flag nor the ciphertext that is meant
+    /// to hold them: the row came back as an open place with no name at 0,0, and what it said was gone
+    /// for good. Found on 2026-09-19.
+    /// </summary>
+    [Fact]
+    public async Task Sealing_a_place_that_is_already_stored_keeps_what_it_says()
+    {
+        var repository = new PlaceRepository(_dbContext);
+        var place = Place.Create(OwnerUserId, "The good bakery", "Sourdough", Somewhere(), isPrivate: false);
+        await repository.AddAsync(place, CancellationToken.None);
+
+        place.Update(
+            "", "", new EventLocation(null, 0, 0), "", ItemPriority.Normal, null,
+            isPrivate: true, encryptedContent: new EncryptedPayload("sealed-bakery", "a-nonce"));
+        await repository.UpdateAsync(place, CancellationToken.None);
+
+        var stored = await repository.GetByIdAsync(OwnerUserId, place.Id, CancellationToken.None);
+        Assert.True(stored!.IsPrivate);
+        Assert.Equal("sealed-bakery", stored.EncryptedContent!.Ciphertext);
+        Assert.Equal("a-nonce", stored.EncryptedContent.Nonce);
+    }
+
+    /// <summary>And taking the seal off again leaves nothing of it behind - the other half of the same fault.</summary>
+    [Fact]
+    public async Task Unsealing_a_place_leaves_no_sealed_half_behind()
+    {
+        var repository = new PlaceRepository(_dbContext);
+        var place = Place.Create(
+            OwnerUserId, "", "", new EventLocation(null, 0, 0),
+            isPrivate: true, encryptedContent: new EncryptedPayload("sealed-bakery", "a-nonce"));
+        await repository.AddAsync(place, CancellationToken.None);
+
+        place.Update("The good bakery", "Sourdough", Somewhere(), "", ItemPriority.Normal, null, isPrivate: false);
+        await repository.UpdateAsync(place, CancellationToken.None);
+
+        var stored = await repository.GetByIdAsync(OwnerUserId, place.Id, CancellationToken.None);
+        Assert.False(stored!.IsPrivate);
+        Assert.Null(stored.EncryptedContent);
+        Assert.Equal("The good bakery", stored.Name);
+    }
+
     private static EventLocation Somewhere() => new("Piękna 1, Warszawa", 52.2297, 21.0122);
 }

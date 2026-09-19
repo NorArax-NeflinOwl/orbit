@@ -70,6 +70,14 @@ public sealed class PlaceRepository : IPlaceRepository
         entity.Longitude = place.Where.Longitude;
         entity.Colour = place.Colour;
         entity.Priority = place.Priority.ToString();
+        // Whether it is sealed, and the sealed half itself. These were left out, and leaving them out
+        // lost what the place said: sealing an existing one emptied the readable columns - which is
+        // what sealing does - and then stored neither the flag nor the ciphertext, so the row came back
+        // as an open place with no name at a point of 0,0. Unsealing one went the other way and left
+        // the old ciphertext in place over a name that was now readable. Found on 2026-09-19.
+        entity.IsPrivate = place.IsPrivate;
+        entity.EncryptedCiphertext = place.EncryptedContent?.Ciphertext;
+        entity.EncryptedNonce = place.EncryptedContent?.Nonce;
         entity.SourceTaskItemId = place.SourceTaskItemId;
         entity.UpdatedAtUtc = place.UpdatedAtUtc;
 
