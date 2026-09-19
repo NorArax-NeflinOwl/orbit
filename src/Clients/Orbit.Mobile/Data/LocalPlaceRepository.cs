@@ -212,6 +212,63 @@ public sealed class LocalPlaceRepository
     }
 
     /// <summary>
+    /// Puts this place away, or brings it back - see Orbit.Core.Places.Place.IsArchived, and
+    /// LocalNoteRepository.ArchiveAsync, which this mirrors. Queued as its own kind of change because it
+    /// travels on its own endpoint: a save carries the whole place, so an update would bring back
+    /// everything its owner had put away.
+    ///
+    /// UpdatedAtUtc is left alone, as it is for a note: putting something away changes where it is kept
+    /// rather than what it says, and a place that jumped to the top of the list for having been tidied
+    /// away would read as having been edited.
+    ///
+    /// Only this reader's own. A place handed over is somebody else's row - putting it away would take
+    /// it off the map of the person who keeps it - and the way to be rid of one is to drop the grant,
+    /// which is what <see cref="DeleteAsync"/> does with it.
+    /// </summary>
+    public async Task<LocalWriteOutcome> ArchiveAsync(
+        Guid localId, bool isArchived, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await dbContext.Places.FirstOrDefaultAsync(
+                candidate => candidate.LocalId == localId, cancellationToken) is not { } place)
+        {
+            return LocalWriteOutcome.NotFound;
+        }
+
+        if (!SharedItemAccess.AllowsEditing(place))
+        {
+            return LocalWriteOutcome.RefusedAsReadOnly;
+        }
+
+        if (!OfflineEditPolicy.IsAllowed(place, _networkStatus))
+        {
+            return LocalWriteOutcome.RefusedWhileOffline;
+        }
+
+        if (place.IsArchived == isArchived)
+        {
+            return LocalWriteOutcome.Applied;
+        }
+
+        place.IsArchived = isArchived;
+
+        // One the server has never seen has nothing to send this against yet; its create is queued
+        // again and the archiving follows it in the same pass - see PlaceSynchronizer.SendCreateAsync.
+        if (place.ServerId is not null)
+        {
+            Enqueue(dbContext, localId, OutboxOperation.Archive, _timeProvider.GetUtcNow(), place.ServerId);
+        }
+        else
+        {
+            await LostCreates.QueueAgainAsync(
+                dbContext, SyncEntityType.Place, localId, serverId: null, _timeProvider.GetUtcNow(), cancellationToken);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return LocalWriteOutcome.Applied;
+    }
+
+    /// <summary>
     /// Forgets it. For a place handed over this is the server's own answer to a recipient's delete: the
     /// grant goes and the owner's place stays - see DeletePlaceCommandHandler, which decides that. The
     /// phone sends the same request either way and does not have to know which of the two it was.

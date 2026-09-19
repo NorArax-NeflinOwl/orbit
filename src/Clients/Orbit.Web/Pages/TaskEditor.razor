@@ -336,7 +336,7 @@ else
                                    asks for together is the floor the shelf's minimum never drops below. *@
                                 @if (product.Product.Id is not null)
                                 {
-                                    <label>@T["This entry needs"]<FieldHint>@T["How much of it this entry asks for. The shelf's minimum never drops below what all your lists ask for together."]</FieldHint>
+                                    <label>@T["This entry needs"]<FieldHint>@T["How much of it this entry asks for. Ticking the entry puts that much on the shelf and unticking takes it back off; the shelf's minimum never drops below what all your lists ask for together."]</FieldHint>
                                         <InputNumber TValue="decimal?" @bind-Value="item.RequiredQuantity" step="0.01" />
                                     </label>
                                 }
@@ -736,8 +736,18 @@ else
                     </button>
                     @* Where a calendar event's editor has had "Delete event" all along. A task list was
                        the one thing in Orbit that could only be deleted from the page of cards - so
-                       getting rid of one meant leaving the form that opens everything else about it. *@
+                       getting rid of one meant leaving the form that opens everything else about it.
+
+                       Put away first, and Delete only once it has been: the rule every card's menu
+                       follows (see ObjectMenu.IsArchived), which this form was outside. *@
                     @if (!_isShared)
+                    {
+                        <button type="button" class="avatar-dropdown-item" disabled="@_isArchiving"
+                                @onclick="() => SetArchivedFromTheMenuAsync(!_isArchived)">
+                            @(_isArchived ? T["Put back"] : T["Archive"])
+                        </button>
+                    }
+                    @if (!_isShared && _isArchived)
                     {
                         <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting"
                                 @onclick="DeleteTheListAsync">
@@ -968,6 +978,49 @@ else
     {
         _menu?.Close();
         return DeleteAsync();
+    }
+
+    /// <summary>Whether this list has been put away - what decides whether Delete is offered at all.</summary>
+    private bool _isArchived;
+
+    private bool _isArchiving;
+
+    /// <summary>
+    /// Puts the list away, or brings it back. Stays on the form, unlike deleting: this one is
+    /// reversible and the list is still here to be read - the menu simply now says the opposite.
+    /// </summary>
+    private async Task SetArchivedFromTheMenuAsync(bool isArchived)
+    {
+        _menu?.Close();
+        if (Id is not { } taskListId)
+        {
+            return;
+        }
+
+        _isArchiving = true;
+        Logger.LogInformation(
+            "User {Action} task list {TaskListId} from its form", isArchived ? "archived" : "put back", taskListId);
+        try
+        {
+            if (await TasksApiClient.SetArchivedAsync(taskListId, isArchived))
+            {
+                _isArchived = isArchived;
+            }
+            else
+            {
+                // Said rather than redrawn as though it had worked - the list is where it was.
+                _saveErrorMessage = T["Failed to save the task list. Try again."];
+            }
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to archive task list {TaskListId}", taskListId);
+            _saveErrorMessage = T["Failed to save the task list. Try again."];
+        }
+        finally
+        {
+            _isArchiving = false;
+        }
     }
 
     /// <summary>
@@ -1560,6 +1613,7 @@ else
                     SayIfALinkWasDropped(taskList);
                     _savedFolderId = taskList.FolderId;
                     _isShared = taskList.IsShared;
+                    _isArchived = taskList.IsArchived;
                     _access = SharedItemAccess.For(taskList.IsShared, taskList.AccessLevel);
                     _isSharedReadOnly = taskList.IsShared && !_access.CanEdit;
                     _canShare = _access.CanShare;

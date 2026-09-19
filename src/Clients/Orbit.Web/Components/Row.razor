@@ -1,5 +1,8 @@
 @* One line in a list: an optional leading mark, a title, and whatever follows it - a badge, a meta
-   span, several of each. A dozen places wrote this out by hand as a plain div, and eight of them wrote
+   span, several of each. What follows is wrapped in one span, which costs nothing - it is
+   display:contents, so its children are the row's own flex items exactly as they were - and lets a
+   narrow screen move the whole of it under the title on the rows where it will not fit beside one.
+   See .list-row-trailing. A dozen places wrote this out by hand as a plain div, and eight of them wrote
    it a second way besides - a <button> instead, because the whole line is what you press to get to the
    thing it names. Both are "list-row"; only the second is also "list-row-button". A native <button>
    gets Enter/Space for free, so unlike SummaryCard's div-based press target this needs no keydown
@@ -16,7 +19,7 @@
         {
             <span class="row-title">@Title</span>
         }
-        @Trailing
+        <span class="list-row-trailing">@Trailing</span>
     </button>
 }
 else
@@ -27,7 +30,7 @@ else
         {
             <span class="row-title">@Title</span>
         }
-        @Trailing
+        <span class="list-row-trailing">@Trailing</span>
     </div>
 }
 

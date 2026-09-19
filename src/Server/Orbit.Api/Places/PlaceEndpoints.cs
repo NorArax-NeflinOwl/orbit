@@ -3,11 +3,13 @@ using System.Security.Claims;
 using Orbit.Api.Sync;
 using Orbit.Contracts;
 using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Places;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
 using Orbit.Core.Places;
 using Orbit.Core.Places.AcceptPlaceShare;
+using Orbit.Core.Places.ArchivePlace;
 using Orbit.Core.Places.CreatePlace;
 using Orbit.Core.Places.DeletePlace;
 using Orbit.Core.Places.DuplicatePlace;
@@ -137,6 +139,18 @@ public static class PlaceEndpoints
             return isAccepted is null ? Results.NotFound() : Results.Ok(isAccepted.Value);
         });
 
+        // Putting one away and bringing it back - see ArchivePlaceCommand. Its own endpoint rather than
+        // a field on the update above, and for the same reason the notes' is: an update carries the
+        // whole place.
+        places.MapPut("/{id:guid}/archived", async (
+            Guid id, ArchiveRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var archived = await dispatcher.SendAsync(
+                new ArchivePlaceCommand(GetUserId(user), id, request.IsArchived), cancellationToken);
+            return archived ? Results.NoContent() : Results.NotFound();
+        });
+
         places.MapDelete("/{id:guid}", async (
             Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
@@ -145,7 +159,12 @@ public static class PlaceEndpoints
         });
     }
 
-    private static PlaceDto ToDto(Place place)
+    /// <summary>
+    /// What a place looks like on the wire. Internal rather than private so a test can check that every
+    /// field a client reads is actually filled in - one of them was not, and nothing failed (see the
+    /// note on SourceTaskItemId below, and Orbit.Api.csproj's InternalsVisibleTo).
+    /// </summary>
+    internal static PlaceDto ToDto(Place place)
         => new(
             place.Id, place.Name, place.Description,
             new EventLocationDto(place.Where.Address, place.Where.Latitude, place.Where.Longitude),
@@ -159,7 +178,13 @@ public static class PlaceEndpoints
             place.IsPrivate,
             place.EncryptedContent is { } sealedContent
                 ? new EncryptedContentDto(sealedContent.Ciphertext, sealedContent.Nonce)
-                : null);
+                : null,
+            // Which entry made it, which the browser needs to recognise its own work: TaskEntryPlaces
+            // matches a list's Location entries against the places already kept for them, and a client
+            // told null for every place makes a second one on every save and never tidies an old one
+            // away. It was stored and never sent. Found on 2026-09-19.
+            place.SourceTaskItemId,
+            place.IsArchived);
 
     private static EventLocation ToDomain(EventLocationDto where)
         => new(where.Address, where.Latitude, where.Longitude);

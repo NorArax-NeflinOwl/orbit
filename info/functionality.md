@@ -1020,14 +1020,16 @@ waiting, and saying that to somebody holding a shelf shared with them would be t
 something that is never going to happen. A refusal is said in words too: the one rule a reader can trip
 over from here is a shelf that already gathers this one.
 
-**And a save of the shelf crosses off what it now answers** (2026-09-18). The rule is
-`StockedEntryCompletion`'s and a save of a *list* has always gone through it; this is the same question
-asked from the other end, which is where it was missing - somebody stocking a shelf put four of something
-on it and the list standing in front of them went on asking until they next opened that list. Only the
-reader's own lists, only those holding an outstanding entry for a row on this shelf, and last of the
-three steps, because what the shelf covers depends on the count the write-back may just have moved. A
-list that moved is stamped as changed (`TaskList.RecountWhatIsDone`), so the tick reaches every other
-copy of it.
+**And a save of the shelf crosses off what it now answers** (2026-09-18), **and puts back what it has
+stopped answering** (2026-09-19). The rule is `StockedEntryCompletion`'s and a save of a *list* has
+always gone through it; this is the same question asked from the other end, which is where it was
+missing - somebody stocking a shelf put four of something on it and the list standing in front of them
+went on asking until they next opened that list. Only the reader's own lists, every list standing on
+this shelf rather than only those still asking for something - an entry the shelf crossed off is on a
+list with nothing outstanding, and that is exactly the one a count dropping back has to reopen - and
+last of the three steps, because what the shelf covers depends on the count the write-back may just
+have moved. A list that moved either way is stamped as changed (`TaskList.RecountWhatIsDone`), so the
+tick reaches every other copy of it.
 
 **The phone** offers the same picks under the entry's name as chips. After a pick it shows the '!' note
 and **Make it separate**. It sets only the words and the pointer; the group's details arrive with the
@@ -2257,9 +2259,30 @@ offline costs somebody an afternoon's writing, and a place costs them four lines
 
 **Places you keep** is the map panel's own list of them, pinnable and hideable like every other list on
 that page. A row shows the place's colour, its name, its priority when that is not Normal, and a button
-that hands the point to a map app. Behind the three dots: **Edit**, **Duplicate** — a second one of the
-same, for two entrances to one building — and **Delete**, which asks first, because forgetting a place is
-the one thing on that panel that cannot be undone.
+that hands the point to a map app. Behind the three dots: **Edit**, **Share**, **Duplicate** — a second
+one of the same, for two entrances to one building — and **Archive**.
+
+**A place is put away rather than deleted** (2026-09-19, `Place.IsArchived`, `OP_P_ISARCHIVED`,
+`ArchivePlaceCommand`, `PUT /api/places/{id}/archived`). The fifth kind of thing with an archive, and
+the one that had no way off the map but deletion. Archiving takes it off the map and out of the panel's
+list at once; what it belongs to is left alone, so a place brought back is on the lists it was on.
+**Deleting one is offered in the archive and nowhere else**, which is the rule every card's menu has
+followed since 2026-09-18 — see *Delete goes out of the app*.
+
+The archive is **a page of its own**, `/map/archive`, reached from the map's own menu beside "Show
+places already past": the map has no folder tabs, because a place is not filed the way the four kinds
+of card are, and an archive drawn among the pins would be the opposite of putting something away. Each
+row offers **Put back** and **Delete**, and Delete asks first and says it cannot be undone. Taking
+somebody else's shared place off this map stays where it was, on the place's own row: it destroys
+nothing — the owner keeps it — so it needs no archive first.
+
+**The phone has the same half** (`LocalPlace.IsArchived`, `LocalPlaceRepository.ArchiveAsync`,
+`OutboxOperation.Archive`). Archive / Put back sits on the place's own screen, above a Delete that
+appears only once it is archived — this phone keeps what can be done to a thing on that thing's screen
+rather than on a list row. The places screen shows the archive instead of the list when its menu says
+so (**Archive → Archived places**, ✓ while on), and the title says which of the two it is showing. A
+place put away in a browser leaves the phone's list the first time it hears about it, and one put away
+offline is created and archived in the same pass once the phone is back.
 
 **A task list's Location entry keeps a place of its own** (2026-09-11, web, `TaskEntryPlaces`,
 `Place.SourceTaskItemId`). Saving a list in the web editor makes a place for every Location entry that
@@ -3586,6 +3609,34 @@ a link inside one would fight it; and a **task list's own description** has no r
 can be written in the editor and is displayed on no page, which is a gap of its own rather than
 something for this to solve.
 
+**A link to somebody else's map opens the place on Orbit's own** (`MapLinks`, `MapPageLink`,
+2026-09-19). Wherever such an address is drawn - a chat message, a note's lines, a task entry's
+description, an event's - it points at `/map` with the place already pinned instead of at Google or
+Apple, and it opens in this tab, because it is a page of Orbit's; everything else there still leaves for
+a new one. A pin before the words says which is which before anything is pressed. The pin's own popup
+carries what the request asked for: the address, **An event here** and **A task list here**, **Take me
+there**, a route, and **Open the original link**, which is the map it was shared from.
+
+What is read is written out: Google's `@52.23,21.01` in a path, its documented
+`?api=1&query=`/`&destination=`, a `/place/<name>` for what the place is called, Apple's `?ll=`/
+`?address=`, OpenStreetMap's `?mlat=&mlon=` and `#map=z/lat/lon`, Bing's `?cp=lat~lon`. A link that
+names *words* rather than a point is searched for on arrival, the way anything typed into the map's own
+box is. **A list of hosts that are known, rather than a guess at what looks like a map**: rewriting
+somebody's link to point somewhere else is a thing to do only where Orbit is certain what it meant, so
+everything else is left exactly as written. Coordinates are read invariantly - a link is written with a
+full stop wherever it was made, and a Polish thread reading "52.2297" by its own rules would land on
+522297.
+
+**A shortened link is followed once, by the server** (`ShortenedLinkFollower`,
+`GET /api/location/map-link`). `maps.app.goo.gl` carries an identifier and nothing else, and a browser
+cannot ask what is behind it: the answer is a redirect without the headers that would let a page read
+it. So the link goes to the map carrying only itself, and the page asks the server, which asks the
+shortener - one hop, no credentials, five seconds, headers only, and **only those two hosts are ever
+fetched**. What comes back is read exactly as a full link would have been, and still carries the link
+somebody wrote, because that is what "open the original" has to open. Where nobody can say - the
+shortener is down, the link has expired, what is behind it is not a map - the page says so and leaves
+the reader the link they pressed.
+
 **The phone shares the rule and draws it in fewer places.** `LinksInText` lives in `Orbit.Core.Text` so
 there is one answer about what counts as an address, and `LinkedLabel` is the phone's half of
 `TextWithLinks` - a `Label` writing `FormattedText`, because a `Span` is the only thing in MAUI that can
@@ -3634,11 +3685,32 @@ so the phone and older tabs can go on saving lists without emptying it.
 shelf, that row is what knows whether the entry has been met, so an entry whose row holds at least what it
 asked to keep is completed without anybody ticking it (`StockedEntryCompletion`). It happens where the
 storage is generated - the rows are known there already, so nothing is read back - and on every later save
-of the list, which costs nothing for a list with no outstanding inventory entry. Only ever crossed off,
-never back: a tick somebody put there is theirs, and a crossed-off restock errand is what tells the shelf
-it was filled (`RestockCompletion`). Two rows answer nothing whatever their count says - one with no
-minimum, which was left to the counting rule, and one marked to be looked at every round, where crossing
-off answers "have you looked" (`InventoryItem.BelongsOnTheRestockList`).
+of the list, which costs nothing for a list with no entry standing for a shelf row. Two rows answer
+nothing whatever their count says - one with no minimum, which was left to the counting rule, and one
+marked to be looked at every round, where crossing off answers "have you looked"
+(`InventoryItem.BelongsOnTheRestockList`).
+
+**What the shelf crossed off, the shelf reopens** (2026-09-19). Counting a product back down past what
+the lists need puts that work in front of the reader again, the same way counting it up took it away -
+from either end: a save of the list, and a save of the shelf. **Only its own**: an entry crossed off
+this way is marked as the shelf's doing (`TaskItemStock.CrossedOffByTheShelf`, `OP_TI_STOCK`), and a
+tick somebody put there by hand stays whatever the count does - taking it away because a number moved
+would be arguing with them, and a crossed-off restock errand is what tells the shelf it was filled
+(`RestockCompletion`). Entries crossed off before the column existed read as ticked by hand and are
+left alone, which is the safe direction.
+
+**Ticking a product entry puts its own minimum on the shelf** (`StockedEntryStock`, 2026-09-19, the
+user's rule). A product entry's minimum is how much of that product this piece of work needs
+(`TaskItem.RequiredQuantity`); ticking the entry is somebody saying they went and got it, so that much
+goes onto the shelf, and unticking takes the same amount back off. **Crossing the entry off does
+neither** - giving up on something after having got it does not unbuy it, and giving up on something
+never got puts nothing anywhere - so the press after a cross, back to nothing, is what takes it off.
+The amount is the entry's own, never the shelf's minimum: two lists asking for two each put on two
+apiece, and the shelf reaches four only once both have been ticked. Whether an entry's amount is on the
+shelf right now is stored on the entry rather than read off its tick (`TaskItemStock`), so the same
+save can run again without counting anything twice, and an entry the shelf crossed off adds nothing -
+nobody got anything, the shelf simply already held enough. Never below nothing: an entry unticked after
+the count was emptied by hand has nothing left to take back.
 
 **A position somebody shared opens in the phone's own map app.** Each "Shared with you" row carries an
 Open in Maps button, and tapping a pin's own callout does the same (`MapViewModel.WhereToOpen` answers

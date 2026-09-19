@@ -88,6 +88,20 @@ public sealed class Place
     /// </summary>
     public Guid? SourceTaskItemId { get; private set; }
 
+    /// <summary>
+    /// Whether its owner has put this place away - see <see cref="Archive"/>. The same flag the four
+    /// kinds of card carry (see Orbit.Core.Folders.BuiltInFolder.Archived), and here for the same
+    /// reason: a place somebody is finished with should leave the map without being lost, and deleting
+    /// one is how it was lost before.
+    ///
+    /// Readable even on a sealed place, like <see cref="TaskListIds"/>: it says whether its owner is
+    /// still using it, not where it is.
+    ///
+    /// The owner's, and only theirs. One row is one place, so a recipient archiving one shared with them
+    /// would be taking it off its owner's own map.
+    /// </summary>
+    public bool IsArchived { get; private set; }
+
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
@@ -174,10 +188,14 @@ public sealed class Place
         Guid id, Guid userId, string name, string description, EventLocation where, string colour,
         ItemPriority priority, IReadOnlyList<Guid>? taskListIds,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        bool isPrivate = false, EncryptedPayload? encryptedContent = null, Guid? sourceTaskItemId = null)
+        bool isPrivate = false, EncryptedPayload? encryptedContent = null, Guid? sourceTaskItemId = null,
+        bool isArchived = false)
         => new(
             id, userId, name, description, where, colour, priority, taskListIds, createdAtUtc, updatedAtUtc,
-            isPrivate, encryptedContent, sourceTaskItemId);
+            isPrivate, encryptedContent, sourceTaskItemId)
+        {
+            IsArchived = isArchived
+        };
 
     /// <summary>
     /// Everything a reader can change about a place. One method rather than one per field, because the
@@ -204,6 +222,29 @@ public sealed class Place
         Priority = priority;
         TaskListIds = taskListIds is null ? [] : [.. taskListIds.Distinct()];
         SourceTaskItemId = sourceTaskItemId ?? SourceTaskItemId;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Put away rather than thrown away, and brought back the same way - the one way off the map that
+    /// is not deletion. Mirrors Note.Archive: the same decision, answered about a place.
+    ///
+    /// Its own command rather than a field on the update, for the reason the note's is: an update
+    /// replaces the whole place, so a client that had never heard of archiving would bring back
+    /// everything its owner had put away, every time it saved one.
+    ///
+    /// What a place belongs to is left exactly as it was, the way a note keeps its folder: putting
+    /// something away is a decision about whether it is in front of the reader, not about what it is
+    /// for, and a place brought back is on the lists it was on.
+    /// </summary>
+    public void Archive(bool isArchived)
+    {
+        if (IsArchived == isArchived)
+        {
+            return;
+        }
+
+        IsArchived = isArchived;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 

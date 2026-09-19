@@ -1302,6 +1302,10 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("OP_P_ENCRYPTEDNONCE");
 
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_P_ISARCHIVED");
+
                     b.Property<bool>("IsPrivate")
                         .HasColumnType("boolean")
                         .HasColumnName("OP_P_ISPRIVATE");
@@ -2015,6 +2019,11 @@ namespace Orbit.Data.Migrations
                     b.Property<decimal?>("RequiredQuantity")
                         .HasColumnType("numeric")
                         .HasColumnName("OP_TI_REQUIREDQUANTITY");
+
+                    b.Property<string>("Stock")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("OP_TI_STOCK");
 
                     b.Property<Guid>("TaskId")
                         .HasColumnType("uuid")

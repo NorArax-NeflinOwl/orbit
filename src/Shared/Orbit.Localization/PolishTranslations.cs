@@ -204,6 +204,9 @@ public static class PolishTranslations
         ["Archive"] = "Archiwizuj",
         ["Put back"] = "Przywróć",
         ["Archived - it is under the Archived tab now."] = "Zarchiwizowano - jest teraz w zakładce Zarchiwizowane.",
+        // The same said about a place, which is not filed in folders and has an archive of its own
+        // instead - see the map's archive, added 2026-09-19.
+        ["Archived - it is in the archive now."] = "Zarchiwizowano - jest teraz w archiwum.",
         ["Put back where it was."] = "Przywrócono tam, gdzie było.",
         ["Nothing put away."] = "Nic nie odłożono.",
         ["Could not put that away. Check your connection and try again."] = "Nie udało się odłożyć. Sprawdź połączenie i spróbuj ponownie.",
@@ -247,8 +250,10 @@ public static class PolishTranslations
         ["Make it separate"] = "Rozdziel",
         ["Use this one"] = "Użyj tego",
         ["This entry needs"] = "Ta pozycja potrzebuje",
-        ["How much of it this entry asks for. The shelf's minimum never drops below what all your lists ask for together."] =
-            "Ile tego potrzebuje ta pozycja. Minimum w magazynie nigdy nie spada poniżej tego, czego potrzebują razem wszystkie Twoje listy.",
+        // What the amount does as well as what it means, since 2026-09-19: ticking the entry is what
+        // puts it on the shelf - see Orbit.Core.Inventories.StockedEntryStock.
+        ["How much of it this entry asks for. Ticking the entry puts that much on the shelf and unticking takes it back off; the shelf's minimum never drops below what all your lists ask for together."] =
+            "Ile tego potrzebuje ta pozycja. Zaznaczenie pozycji dodaje tę ilość do stanu magazynowego, a odznaczenie ją odejmuje; minimum w magazynie nigdy nie spada poniżej tego, czego potrzebują razem wszystkie Twoje listy.",
         ["Your lists ask for {0} of this, so it is never kept below that."] =
             "Twoje listy potrzebują tego {0}, więc stan nigdy nie jest utrzymywany poniżej tej wartości.",
         // The same sentence with the lists named - see InventoryEditor and ShelfDemand.
@@ -903,6 +908,32 @@ public static class PolishTranslations
         // What "Delete" says on a place somebody else keeps: the row goes from this map and from
         // nowhere else - see DeletePlaceCommandHandler.
         ["Take it off my map"] = "Usuń z mojej mapy",
+        // A link to somebody else's map, which opens the place on Orbit's own instead - see MapLinks,
+        // added 2026-09-19. The second is the way back out, on the pin's own popup.
+        ["Open it on Orbit's map"] = "Otwórz na mapie Orbita",
+        ["Open the original link"] = "Otwórz oryginalny link",
+        // A shortened link only its own service can place, and it would not say - see
+        // ShortenedLinkFollower, which asks it once.
+        ["That link couldn't be placed on the map. Open it where it came from to see where it points."] =
+            "Nie udało się umieścić tego linku na mapie. Otwórz go w miejscu, z którego pochodzi, aby zobaczyć, dokąd prowadzi.",
+        // The archive the map's menu reaches, and the only page a place is deleted from - see
+        // MapArchive, added 2026-09-19. "Archive" and "Put back" are already above, from the folders.
+        ["Orbit — Archived places"] = "Orbit — Zarchiwizowane miejsca",
+        ["Archived places"] = "Zarchiwizowane miejsca",
+        ["Put away rather than deleted. Bring one back to the map, or delete it here - this is the only page that deletes a place."] =
+            "Odłożone, a nie usunięte. Przywróć je na mapę albo usuń tutaj - to jedyna strona, która usuwa miejsce.",
+        ["Back to the map"] = "Powrót do mapy",
+        ["Nothing has been put away yet."] = "Nic jeszcze nie zostało odłożone.",
+        ["Delete this place?"] = "Usunąć to miejsce?",
+        ["This cannot be undone."] = "Tego nie da się cofnąć.",
+        ["That could not be loaded. Try again in a moment."] = "Nie udało się wczytać. Spróbuj za chwilę.",
+        ["{0} is in the archive."] = "{0} trafiło do archiwum.",
+        ["{0} is back on the map."] = "{0} wróciło na mapę.",
+        // A place is sealed unless its owner says otherwise, so this is what most places say when their
+        // owner goes to hand one over - see the share overlay on the map.
+        ["This place is sealed, so nobody else can read it. Take the seal off to share it."] =
+            "To miejsce jest zaszyfrowane, więc nikt inny go nie odczyta. Zdejmij szyfrowanie, aby je udostępnić.",
+        ["Take the seal off"] = "Zdejmij szyfrowanie",
         // Who handed it over, on the row and above the form.
         ["From {0}"] = "Od {0}",
         ["That could not be saved. Try again in a moment."] = "Nie udało się zapisać. Spróbuj za chwilę.",
@@ -2454,8 +2485,9 @@ public static class PolishTranslations
         ["Open in Maps"] = "Otwórz w Mapach",
         ["Take me there"] = "Zaprowadź mnie tam",
         ["The app on this device"] = "Aplikacja na tym urządzeniu",
-        ["Only the first stays on this device. The rest open somebody else's service."] =
-            "Tylko pierwsza pozostaje na tym urządzeniu. Pozostałe otwierają cudzy serwis.",
+        // Every app on that list is somebody else's now: the device's own was taken off on 2026-09-19,
+        // since a browser with nothing registered for its scheme opens nothing and says nothing.
+        ["Each of these opens somebody else's service."] = "Każda z nich otwiera cudzy serwis.",
         ["The map can't be shown in this build. A shared position still opens in your phone's map app."] =
             "Ta wersja aplikacji nie potrafi pokazać mapy. Udostępnione położenie i tak otworzysz w aplikacji map na telefonie.",
         // And the same on the screen where a place is pointed at, which can still be searched for.

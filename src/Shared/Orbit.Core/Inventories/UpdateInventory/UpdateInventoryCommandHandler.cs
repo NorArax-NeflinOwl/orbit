@@ -79,24 +79,26 @@ public sealed class UpdateInventoryCommandHandler : IRequestHandler<UpdateInvent
         await WriteTheAmountsBackToTheListsAsync(request, minimumsBefore, cancellationToken);
         // After the amounts, and last: what the shelf covers depends on the count the step above may
         // just have moved - see InventoryItem.EffectiveMinimum.
-        await CrossOffWhatTheShelfNowAnswersAsync(request, cancellationToken);
+        await SettleTheListsAgainstTheShelfAsync(request, cancellationToken);
         return EditOutcome.Success;
     }
 
     /// <summary>
-    /// Ticks off the errands this shelf has now answered. Asked for on 2026-09-18: saving an inventory
-    /// should update and cross off the entries on the lists that point at it.
+    /// Ticks off the errands this shelf has now answered, and puts back the ones it has stopped
+    /// answering. Asked for on 2026-09-18: saving an inventory should update and cross off the entries
+    /// on the lists that point at it - and on 2026-09-19: counting a product down again should put the
+    /// work back, which is the half that was missing.
     ///
     /// The rule itself is not written here - <see cref="StockedEntryCompletion"/> holds it, and a save
     /// of a *list* has always gone through it. This is the same question asked from the other end, which
     /// is where it was missing: somebody stocking the shelf put four of something on it and the list
     /// standing in front of them went on asking for it until they next opened that list.
     ///
-    /// Only the lists holding an outstanding entry for a row on this shelf, and only this reader's: a
-    /// shelf reached through a share is measured against the lists of whoever is looking at it, which is
-    /// the same reader ShelfUsage and ShelfDemand count for.
+    /// Only the lists standing on this shelf, and only this reader's: a shelf reached through a share is
+    /// measured against the lists of whoever is looking at it, which is the same reader ShelfUsage and
+    /// ShelfDemand count for.
     /// </summary>
-    private async Task CrossOffWhatTheShelfNowAnswersAsync(
+    private async Task SettleTheListsAgainstTheShelfAsync(
         UpdateInventoryCommand request, CancellationToken cancellationToken)
     {
         var onThisShelf = (await _inventoryItemRepository.GetAllAsync(request.InventoryId, cancellationToken))
@@ -107,30 +109,34 @@ public sealed class UpdateInventoryCommandHandler : IRequestHandler<UpdateInvent
             return;
         }
 
+        // Every list standing on this shelf, not only the ones still asking for something: an entry the
+        // shelf crossed off is on a list where nothing is outstanding, and that is exactly the entry a
+        // count dropping back under the minimum has to put in front of the reader again.
         var asking = (await _taskRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken))
             .Where(taskList => !taskList.IsPrivate && taskList.Items.Any(item =>
-                !item.IsResolved && item.LinkedInventoryItemId is { } linked && onThisShelf.Contains(linked)))
+                item.LinkedInventoryItemId is { } linked && onThisShelf.Contains(linked)))
             .ToList();
         if (asking.Count == 0)
         {
             return;
         }
 
-        // Which entries were still outstanding, so the lists that actually moved can be told from the
-        // ones that were only looked at. Taken before, because the crossing off happens where the
-        // entries stand.
-        var outstandingBefore = asking.ToDictionary(
+        // How each entry stood before, so the lists that actually moved can be told from the ones that
+        // were only looked at - in both directions now: an entry the shelf crosses off, and one it
+        // reopens because the count has dropped back under what the lists need. Taken before, because
+        // the settling happens where the entries stand.
+        var ticksBefore = asking.ToDictionary(
             taskList => taskList.Id,
-            taskList => taskList.Items.Where(item => !item.IsResolved).Select(item => item.Id).ToHashSet());
+            taskList => taskList.Items.ToDictionary(item => item.Id, item => item.IsCompleted));
 
         // Asked once over every entry rather than once per list: it reads every shelf this reader has,
         // and paying for that per list would make a save cost more the more lists point at the shelf.
-        await _stockedEntryCompletion.CrossOffWhatTheShelfCoversAsync(
+        await _stockedEntryCompletion.SettleWhatTheShelfSaysAsync(
             request.UserId, [.. asking.SelectMany(taskList => taskList.Items)], cancellationToken);
 
         var moved = asking
             .Where(taskList => taskList.Items.Any(item =>
-                item.IsCompleted && outstandingBefore[taskList.Id].Contains(item.Id)))
+                ticksBefore[taskList.Id].TryGetValue(item.Id, out var wasCompleted) && wasCompleted != item.IsCompleted))
             .ToList();
         if (moved.Count == 0)
         {

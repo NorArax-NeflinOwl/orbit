@@ -120,6 +120,38 @@ public sealed partial class PlacesViewModel : ObservableObject
 
     partial void OnNewPlaceNameChanged(string value) => AddPlaceCommand.NotifyCanExecuteChanged();
 
+    /// <summary>
+    /// Whether this screen is showing the archive rather than the places in use - see
+    /// ShowLocalPlacesAsync, which draws one or the other. The screen's own menu turns it on, the way
+    /// the map's menu reaches the archive page in a browser.
+    /// </summary>
+    [ObservableProperty]
+    private bool _showsTheArchive;
+
+    /// <summary>What the screen is called while the archive is what it is showing.</summary>
+    public string Heading => ShowsTheArchive
+        ? _translations["Archived places"]
+        : _translations["Places you keep"];
+
+    partial void OnShowsTheArchiveChanged(bool value) => OnPropertyChanged(nameof(Heading));
+
+    /// <summary>
+    /// Shows the archive, or the places in use. Its own command so the page's menu can toggle it and
+    /// have the list redrawn in the same press.
+    /// </summary>
+    [RelayCommand]
+    private async Task ShowTheArchiveAsync(bool showsTheArchive, CancellationToken cancellationToken)
+    {
+        if (ShowsTheArchive == showsTheArchive)
+        {
+            return;
+        }
+
+        ShowsTheArchive = showsTheArchive;
+        Message = string.Empty;
+        await ShowLocalPlacesAsync(cancellationToken);
+    }
+
     /// <inheritdoc cref="Notes.NotesViewModel.DeleteAsync"/>
     [RelayCommand]
     private async Task DeleteAsync(PlaceListItem? row, CancellationToken cancellationToken)
@@ -174,8 +206,14 @@ public sealed partial class PlacesViewModel : ObservableObject
         var stored = await _places.GetAllAsync(cancellationToken);
         var pending = await _places.GetPendingLocalIdsAsync(cancellationToken);
 
-        var rows = stored.Select(place => PlaceListItem.From(
-            place, pending.Contains(place.LocalId), _networkStatus, _translations, _clock.GetUtcNow()));
+        // One list or the other, never both: the archive is where the places somebody is finished with
+        // are, and a screen showing them among the rest would be the opposite of putting one away. The
+        // browser draws the same division as a page of its own (see MapArchive); this phone has one
+        // screen for places, so the menu chooses which of the two it is showing.
+        var rows = stored
+            .Where(place => place.IsArchived == ShowsTheArchive)
+            .Select(place => PlaceListItem.From(
+                place, pending.Contains(place.LocalId), _networkStatus, _translations, _clock.GetUtcNow()));
 
         Places.Clear();
         foreach (var row in ListArrangements.Apply(rows, Arrangement, Describe))

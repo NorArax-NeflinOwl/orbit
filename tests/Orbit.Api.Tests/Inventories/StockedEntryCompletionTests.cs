@@ -1,6 +1,7 @@
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Inventories;
+using Orbit.Core.Inventories.UpdateInventory;
 using Orbit.Core.Notifications;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.UpdateTaskList;
@@ -37,7 +38,7 @@ public sealed class StockedEntryCompletionTests
             subject: new TaskItemSubject(TaskItemKind.Inventory, linkedInventoryItemId: shelfItem.Id));
 
     private Task<bool> CrossOffAsync(params TaskItem[] items)
-        => _context.StockedEntryCompletion.CrossOffWhatTheShelfCoversAsync(_userId, items, CancellationToken.None);
+        => _context.StockedEntryCompletion.SettleWhatTheShelfSaysAsync(_userId, items, CancellationToken.None);
 
     [Fact]
     public async Task An_entry_whose_shelf_holds_what_it_asked_for_is_crossed_off()
@@ -153,6 +154,7 @@ public sealed class StockedEntryCompletionTests
                 new TaskListLinkValidator(_context.TaskRepository),
                 _context.RestockCompletion,
                 _context.StockedEntryCompletion,
+                _context.StockedEntryStock,
                 _context.ProductEntryPlacement)
             .HandleAsync(
                 new UpdateTaskListCommand(
@@ -164,6 +166,79 @@ public sealed class StockedEntryCompletionTests
         var stored = await _context.TaskRepository.GetByIdAsync(_userId, taskList.Id, CancellationToken.None);
         Assert.True(Assert.Single(stored!.Items).IsCompleted);
         Assert.True(stored.IsCompleted);
+    }
+
+    /// <summary>
+    /// And back again, asked for on 2026-09-19: counting a product down past what the lists need puts
+    /// the work back in front of the reader, the same way counting it up took it away. Only what the
+    /// shelf crossed off itself - see the note at the top of StockedEntryCompletion about whose tick is
+    /// whose.
+    /// </summary>
+    [Fact]
+    public async Task What_the_shelf_crossed_off_it_reopens_once_it_no_longer_covers()
+    {
+        var shelfItem = await AShelfItemAsync(quantity: 4, minimumQuantity: 2);
+        var entry = StandingFor(shelfItem);
+        Assert.True(await CrossOffAsync(entry));
+
+        // Counted back down on the shelf itself, which is what the + and - on an inventory do.
+        shelfItem.MoveStockBy(-3);
+        await _context.InventoryItemRepository.UpdateAsync(shelfItem, CancellationToken.None);
+
+        Assert.True(await CrossOffAsync(entry));
+
+        Assert.False(entry.IsCompleted);
+    }
+
+    /// <summary>
+    /// A tick somebody put there by hand is theirs. It stays whatever the count does - taking it away
+    /// because a number moved would be arguing with them, and on a restock list a crossed-off errand
+    /// means "I have been", which is what fills the shelf in the first place.
+    /// </summary>
+    [Fact]
+    public async Task A_tick_somebody_gave_by_hand_survives_the_count_dropping()
+    {
+        var shelfItem = await AShelfItemAsync(quantity: 0, minimumQuantity: 2);
+        var entry = StandingFor(shelfItem, isCompleted: true);
+        entry.RecordStock(TaskItemStock.Stocked);
+
+        Assert.False(await CrossOffAsync(entry));
+
+        Assert.True(entry.IsCompleted);
+    }
+
+    /// <summary>
+    /// The same from the shelf's own end: saving an inventory with the count down again reopens what it
+    /// had crossed off, and writes the list it is on - see UpdateInventoryCommandHandler.
+    /// </summary>
+    [Fact]
+    public async Task Counting_a_product_down_on_the_shelf_puts_the_work_back_on_the_list()
+    {
+        var inventoryId = _context.AddInventory(_userId);
+        var shelfItem = InventoryItem.Create(
+            inventoryId, "Zupka Buldog", "Food", null, quantity: 4, minimumQuantity: 2,
+            InventoryUnit.Piece, expiryDate: null, NotificationChannel.None);
+        await _context.InventoryItemRepository.AddAsync(shelfItem, CancellationToken.None);
+        var entry = StandingFor(shelfItem);
+        var taskList = TaskList.Create(_userId, "Zakupy", [entry]);
+        await _context.TaskRepository.AddAsync(taskList, CancellationToken.None);
+        Assert.True(await CrossOffAsync(entry));
+        await _context.TaskRepository.UpdateAsync(taskList, CancellationToken.None);
+
+        await _context.InventorySave().HandleAsync(
+            new UpdateInventoryCommand(
+                _userId, inventoryId, "Kitchen",
+                [
+                    new InventoryItemInput(
+                        shelfItem.Id, shelfItem.Name, shelfItem.ProductType, shelfItem.Categories,
+                        Quantity: 1, MinimumQuantity: 2, shelfItem.Unit, shelfItem.ExpiryDate,
+                        shelfItem.ExpiryNotificationChannel)
+                ],
+                IsPrivate: false, EncryptedContent: null),
+            CancellationToken.None);
+
+        var stored = await _context.TaskRepository.GetByIdAsync(_userId, taskList.Id, CancellationToken.None);
+        Assert.False(Assert.Single(stored!.Items).IsCompleted);
     }
 
     /// <summary>Somebody else's shelf answers nothing here - the storages read are the list owner's own.</summary>

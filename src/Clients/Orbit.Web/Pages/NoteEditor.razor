@@ -42,23 +42,9 @@
 <div class="note-workspace">
 @if (!_isLoading)
 {
-    <aside class="note-workspace-list">
-        @* Most recently changed first, which is the order the notes page itself opens in - the one being
-           written in is nearly always the one at the top. *@
-        <h2 class="note-workspace-list-heading">@T["Notes"]</h2>
-        @if (_notesBeside.Count == 0)
-        {
-            <p class="empty-hint empty-list">@T["No notes yet."]</p>
-        }
-        @foreach (var note in _notesBeside)
-        {
-            <button type="button" class="note-workspace-row @(note.Id == Id ? "chosen" : null)"
-                    @onclick="() => GoToNote(note.Id)">
-                <span class="note-workspace-row-title">@NameOf(note)</span>
-                <span class="row-meta">@note.UpdatedAtUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
-            </button>
-        }
-    </aside>
+    @* Most recently changed first under a heading per folder - see NoteWorkspaceList, which the note's
+       own page draws too. *@
+    <NoteWorkspaceList ChosenNoteId="Id" OnChosen="GoToNote" />
 }
 
 @* Two panels: the form on the left, which scrolls, and the panel on the right, which does not - see
@@ -983,7 +969,6 @@ else
         }
 
         _isLoading = false;
-        await ListTheNotesBesideItAsync();
     }
 
     /// <summary>The note as the server holds it, for telling whether this form has been written in.</summary>
@@ -1086,50 +1071,6 @@ else
 
         Drafts.Keep(noteId, WhatTheFormHolds(), stored);
     }
-
-    /// <summary>
-    /// The other notes in the same folder as this one, most recently changed first - the column beside
-    /// the writing. Read from the same list the notes page reads: the folder is the only thing that
-    /// narrows it, so a note filed nowhere is listed beside the other notes filed nowhere.
-    ///
-    /// Best effort: a list that will not load leaves the column empty rather than taking the note being
-    /// written down with it.
-    /// </summary>
-    private async Task ListTheNotesBesideItAsync()
-    {
-        try
-        {
-            _notesBeside =
-            [
-                .. (await NotesApiClient.GetNotesAsync())
-                    .Where(note => note.FolderId == _formModel.FolderId)
-                    .OrderByDescending(note => note.UpdatedAtUtc)
-            ];
-        }
-        catch (HttpRequestException exception)
-        {
-            Logger.LogWarning(exception, "Couldn't list the notes beside the one being edited");
-            _notesBeside = [];
-        }
-    }
-
-    /// <summary>The notes in this note's folder - see ListTheNotesBesideItAsync.</summary>
-    private IReadOnlyList<NoteDto> _notesBeside = [];
-
-    /// <summary>
-    /// What to call a note in the column. A private one is named by its own title like any other: it
-    /// travels sealed, and this browser opens it on the way in (see NotesApiClient.OpenIfPrivateAsync),
-    /// so the title is here to show. It used to read "Private note" for every one of them, on the belief
-    /// that the page held no key - which left a column of identical rows nobody could tell apart, and
-    /// the phone has never done it (see NoteListItem, which hides a title only while private items are
-    /// locked).
-    ///
-    /// The fallback is still there for the two cases that have no title to show: a note nobody has named
-    /// yet, and one sealed under a key pair that has since been replaced - that one arrives already
-    /// saying so, and says it here.
-    /// </summary>
-    private string NameOf(NoteDto note)
-        => string.IsNullOrWhiteSpace(note.Title) ? T["Private note"] : note.Title;
 
     /// <summary>
     /// Opens another note from the column, in place of this one: whatever has not been saved here is not
@@ -1256,7 +1197,11 @@ else
         }
 
         // Saved is saved: there is nothing unsaved left in this note to warn about or to put back the
-        // next time it is opened - see NoteDrafts.
+        // next time it is opened - see NoteDrafts. What the server holds is now what the form holds, and
+        // saying so is what stops the way out from asking about the note that was just saved: leaving
+        // compares the form against this, and a copy taken when the note was opened would read every
+        // saved change as unsaved writing.
+        _asStored = WhatTheFormHolds();
         if (Id is { } savedNoteId)
         {
             Drafts.Forget(savedNoteId);

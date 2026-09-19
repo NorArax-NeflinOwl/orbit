@@ -1,5 +1,6 @@
 using Orbit.Api.LiveUpdates;
 using Orbit.Core.LiveUpdates;
+using Orbit.Core.Location;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -22,6 +23,7 @@ using Orbit.Api.Sharing;
 using Orbit.Api.Inventories;
 using Orbit.Api.Folders;
 using Orbit.Api.Notes;
+using Orbit.Api.Location;
 using Orbit.Api.Places;
 using Orbit.Api.Notifications;
 using Orbit.Api.PushNotifications;
@@ -184,6 +186,10 @@ try
     // Firebase reaches the Orbit.Maui apps; PushNotificationDispatcher picks between the two by
     // transport. Unconfigured, it logs and skips exactly as the VAPID sender does.
     builder.Services.Configure<FirebaseSettings>(builder.Configuration.GetSection(FirebaseSettings.SectionName));
+    // Follows a shortened map link one hop so a pasted maps.app.goo.gl can be shown on Orbit's own map -
+    // see ShortenedLinkFollower, which says why redirects are read rather than followed.
+    builder.Services.AddHttpClient<IShortenedLinkFollower, ShortenedLinkFollower>()
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
     builder.Services.AddHttpClient<FirebaseAccessTokenProvider>();
     builder.Services.AddHttpClient<FirebasePushNotificationSender>();
     builder.Services.AddSingleton<IPushNotificationSender>(services =>
@@ -415,6 +421,7 @@ try
     app.MapNotePictureEndpoints();
     app.MapFolderEndpoints();
     app.MapPlaceEndpoints();
+    app.MapMapLinkEndpoints();
     app.MapTaskEndpoints();
     app.MapCalendarEndpoints();
     app.MapInventoryEndpoints();

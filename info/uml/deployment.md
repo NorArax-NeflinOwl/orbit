@@ -29,6 +29,8 @@ flowchart TB
         fcm["Firebase Cloud Messaging"]
         vapid["Web Push (VAPID)"]
         smtp["SMTP"]
+        shorteners["maps.app.goo.gl, goo.gl<br/><i>one hop, headers only</i>"]
+        nominatim["Nominatim<br/><i>addresses, from the browser</i>"]
     end
 
     gh["GitHub Actions<br/><i>on push to main only</i>"]
@@ -45,7 +47,9 @@ flowchart TB
     api --> fcm
     api --> vapid
     api --> smtp
+    api -.->|"follows a shortened map link"| shorteners
     web --> insights
+    browser -.->|"reverse-geocodes a pin, no Orbit token"| nominatim
 
     gh -->|docker push| acr
     gh -->|az containerapp update| web
@@ -64,6 +68,19 @@ flowchart TB
 ```
 
 ## What the picture is trying to settle
+
+**The API fetches an address a caller handed it in exactly one place** (`ShortenedLinkFollower`,
+2026-09-19), and the host is checked against a list of two before anything is sent. A pasted
+`maps.app.goo.gl` link carries an identifier and nothing else, so Orbit cannot show the place on its own
+map without asking the shortener where it points - and a browser cannot ask, because the answer is a
+redirect without the headers that would let a page read it. One hop, no credentials, a five-second
+ceiling, and the body is never read: what is wanted is the `Location` header. Everything about that
+paragraph is a rule against the same thing - an endpoint that fetched whatever it was given would be a
+way of asking Orbit's own machine to reach what nobody outside it can.
+
+**The browser talks to Nominatim itself**, without Orbit's token, for the address under a pin - see
+`GeocodingApiClient`. Drawn here because it is traffic leaving the reader's machine rather than the
+API's, which is the opposite direction from everything else on this picture.
 
 **Two public surfaces, and they are protected differently.** The browser reaches nginx, which serves the
 web client and proxies `/api/` to the API — same-origin, so no CORS. The phone calls `orbit-api`

@@ -141,7 +141,19 @@ else
                     <button type="button" class="avatar-dropdown-item" @onclick="() => _isShareLinkOpen = true">
                         @T["Share link"]
                     </button>
-                    @if (_canEditContent)
+                    @* Put away rather than deleted, and Delete only once it has been - the rule every
+                       card's menu follows (see ObjectMenu.IsArchived, asked for on 2026-09-18) and one
+                       this form was quietly outside: it offered Delete whatever state the event was in.
+                       Not for an event somebody handed over: putting that away would take it off its
+                       owner's own calendar. *@
+                    @if (_canEditContent && !_isShared)
+                    {
+                        <button type="button" class="avatar-dropdown-item" disabled="@_isArchiving"
+                                @onclick="() => SetArchivedAsync(!_isArchived)">
+                            @(_isArchived ? T["Put back"] : T["Archive"])
+                        </button>
+                    }
+                    @if (_canEditContent && _isArchived)
                     {
                         <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting" @onclick="DeleteAsync">
                             @T["Delete event"]
@@ -387,6 +399,7 @@ else
                     _folderId = calendarEvent.FolderId;
                     _savedFolderId = calendarEvent.FolderId;
                     _isShared = calendarEvent.IsShared;
+                    _isArchived = calendarEvent.IsArchived;
                     _access = SharedItemAccess.For(calendarEvent.IsShared, calendarEvent.AccessLevel);
                     _isSharedReadOnly = calendarEvent.IsShared && !_access.CanEdit;
                     _canEditContent = _access.CanEdit;
@@ -722,6 +735,48 @@ else
         return recipientsNotNotified.Count == 0
             ? null
             : $"The event was saved, but the invite couldn't be sent to: {string.Join(", ", recipientsNotNotified)}.";
+    }
+
+    /// <summary>Whether this event has been put away - what decides whether Delete is offered at all.</summary>
+    private bool _isArchived;
+
+    private bool _isArchiving;
+
+    /// <summary>
+    /// Puts the event away, or brings it back. Stays on the form: unlike deleting, this is reversible
+    /// and the thing it was done to is still here to be read - the menu simply now says the opposite.
+    /// </summary>
+    private async Task SetArchivedAsync(bool isArchived)
+    {
+        if (Id is not { } eventId)
+        {
+            return;
+        }
+
+        _isArchiving = true;
+        Logger.LogInformation(
+            "User {Action} calendar event {EventId} from its form", isArchived ? "archived" : "put back", eventId);
+        try
+        {
+            if (await CalendarApiClient.SetArchivedAsync(eventId, isArchived))
+            {
+                _isArchived = isArchived;
+            }
+            else
+            {
+                // Said rather than redrawn as though it had worked - the event is where it was.
+                _errorMessage = T["Failed to save the event. Try again."];
+            }
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to archive calendar event {EventId}", eventId);
+            _errorMessage = T["Failed to save the event. Try again."];
+        }
+        finally
+        {
+            _isArchiving = false;
+        }
     }
 
     /// <summary>

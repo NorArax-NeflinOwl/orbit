@@ -87,6 +87,7 @@ using Orbit.Core.Notes.GetNotes;
 using Orbit.Core.Notes.ArchiveNote;
 using Orbit.Core.Notes.MoveNoteToFolder;
 using Orbit.Core.Places;
+using Orbit.Core.Places.ArchivePlace;
 using Orbit.Core.Places.CreatePlace;
 using Orbit.Core.Places.DeletePlace;
 using Orbit.Core.Places.AcceptPlaceShare;
@@ -158,11 +159,12 @@ using Orbit.Core.Users;
 using Orbit.Core.Users.SetPresence;
 using Orbit.Core.Users.SetPrivacyChoice;
 using Orbit.Core.Users.SaveOwnLocation;
+using Orbit.Core.Location;
 using Orbit.Core.Location.GetSharedLocations;
+using Orbit.Core.Location.ResolveMapLink;
 using Orbit.Core.Location.StopReceivingLocation;
 using Orbit.Core.Location.StopSharingLocation;
 using Orbit.Core.Location.ShareLocation;
-using Orbit.Core.Location;
 using Orbit.Core.Users.GetUserById;
 using Orbit.Core.Users.GetUsersByIds;
 using Orbit.Core.Users.GetWrappedPrivateKey;
@@ -235,6 +237,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<CreatePlaceCommand, Guid>, CreatePlaceCommandHandler>();
         services.AddScoped<IRequestHandler<UpdatePlaceCommand, bool>, UpdatePlaceCommandHandler>();
         services.AddScoped<IRequestHandler<DeletePlaceCommand, bool>, DeletePlaceCommandHandler>();
+        services.AddScoped<IRequestHandler<ArchivePlaceCommand, bool>, ArchivePlaceCommandHandler>();
         services.AddScoped<IRequestHandler<DuplicatePlaceCommand, Guid?>, DuplicatePlaceCommandHandler>();
         services.AddScoped<IRequestHandler<GetPlacesQuery, IReadOnlyList<Place>>, GetPlacesQueryHandler>();
         services.AddScoped<IRequestHandler<GetPlaceByIdQuery, Place?>, GetPlaceByIdQueryHandler>();
@@ -353,6 +356,9 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<StopReceivingLocationCommand, bool>, StopReceivingLocationCommandHandler>();
         services.AddScoped<IRequestHandler<GetSharedLocationsQuery, IReadOnlyList<SharedLocation>>, GetSharedLocationsQueryHandler>();
         services.AddScoped<IRequestHandler<GetOwnLocationSharesQuery, IReadOnlyList<SharedLocation>>, GetOwnLocationSharesQueryHandler>();
+        // Where a shortened link to somebody else's map points - see ResolveMapLinkQuery. The following
+        // itself is the API's, since it is a request to somebody else's service: see IShortenedLinkFollower.
+        services.AddScoped<IRequestHandler<ResolveMapLinkQuery, MapLink?>, ResolveMapLinkQueryHandler>();
 
         // Group chat: the group itself, its membership, and the fan-out that keeps group messages
         // encrypted under the same pairwise keys one-to-one chat uses.
@@ -425,6 +431,9 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<InventoryItemsSaver>();
         services.AddScoped<RestockCompletion>();
         services.AddScoped<StockedEntryCompletion>();
+        // What a tick on a product entry puts on the shelf, and what an untick takes back - see
+        // StockedEntryStock, and TaskItemStock for how it keeps count.
+        services.AddScoped<StockedEntryStock>();
         services.AddScoped<RestockListRefresh>();
         services.AddScoped<ProductEntryPlacement>();
         // Which lists are Orbit's own rather than the reader's, so neither count below counts one twice.

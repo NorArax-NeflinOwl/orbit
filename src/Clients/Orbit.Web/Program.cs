@@ -100,6 +100,10 @@ builder.Services.AddHttpClient<SharesApiClient>(httpClient => httpClient.BaseAdd
 // The places this account keeps on the map - see Orbit.Core.Places.Place.
 builder.Services.AddHttpClient<PlacesApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
+// Where a shortened link to somebody else's map points, which only the server can follow - see
+// MapLinkApiClient, and MapLinks for every other kind, which this browser reads itself.
+builder.Services.AddHttpClient<MapLinkApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
+    .AddHttpMessageHandler<AuthorizationMessageHandler>();
 // The place each Location entry of a task list keeps, made and kept in step when the list is saved.
 builder.Services.AddScoped<TaskEntryPlaces>();
 builder.Services.AddHttpClient<CalendarApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))

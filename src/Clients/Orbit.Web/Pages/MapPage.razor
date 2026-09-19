@@ -28,6 +28,7 @@
 @inject MapPinVisibility MapPins
 @inject MapPanelPins PanelPins
 @inject PlacesApiClient PlacesApiClient
+@inject MapLinkApiClient MapLinkApiClient
 @inject NavigationManager NavigationManager
 @inject ILogger<MapPage> Logger
 @inject UserPermissionState Permissions
@@ -74,6 +75,12 @@ else
                             @onclick="ShowOrHidePastPlacesAsync">
                         <span class="card-filter-mark">@(_showsPastPlaces ? "✓" : "")</span>
                         @T["Show places already past"]
+                    </button>
+                    @* Where the places somebody is finished with are, and the only page that deletes
+                       one - see MapArchive. Here rather than as a tab, because the map has none; this
+                       menu is where the page's other "what am I not looking at" answers already live. *@
+                    <button type="button" class="avatar-dropdown-item" @onclick="GoToTheArchive">
+                        @T["Archived places"]
                     </button>
                 </OverflowMenu>
             </div>
@@ -318,11 +325,16 @@ else
                             </button>
                             @* Only where this reader may pass it on: a place handed over to read is not
                                theirs to hand on further - see SharedItemAccess, which the panel below
-                               reads again for what level it may offer. *@
-                            @* Nothing to offer for a sealed place: the server holds no readable copy to
-                               hand anybody, which is what makes it sealed - and nothing to copy either,
-                               because sealing is this browser's work and the server cannot do it. *@
-                            @if (!place.IsPrivate && SharedItemAccess.For(place.IsShared, place.AccessLevel).CanShare)
+                               reads again for what level it may offer.
+
+                               A sealed place is offered it too, although nothing can be handed over
+                               while it is sealed: the server holds ciphertext and no key, so there is
+                               nothing for a recipient to read. It used to be left out of the menu
+                               entirely, and since a place is sealed unless its owner says otherwise
+                               that meant most places simply had no Share at all - a control that is
+                               missing cannot say why. The panel it opens says so and offers to take the
+                               seal off, which is the one thing that makes sharing possible. *@
+                            @if (SharedItemAccess.For(place.IsShared, place.AccessLevel).CanShare)
                             {
                                 <button type="button" class="avatar-dropdown-item" @onclick="() => ShareThePlace(place)">
                                     @T["Share"]
@@ -334,9 +346,22 @@ else
                                     @T["Duplicate"]
                                 </button>
                             }
-                            <button type="button" class="avatar-dropdown-item danger" @onclick="() => AskToForgetThePlace(place)">
-                                @(place.IsShared ? T["Take it off my map"] : T["Delete"])
-                            </button>
+                            @* Put away rather than deleted, for a place this reader keeps: deleting one
+                               is offered in the archive and nowhere else (see MapArchive). Somebody
+                               else's, handed over, has no archive to go to - taking it off this map is
+                               dropping the grant rather than destroying anything, so it stays here. *@
+                            @if (place.IsShared)
+                            {
+                                <button type="button" class="avatar-dropdown-item danger" @onclick="() => AskToForgetThePlace(place)">
+                                    @T["Take it off my map"]
+                                </button>
+                            }
+                            else
+                            {
+                                <button type="button" class="avatar-dropdown-item" @onclick="() => ArchiveThePlaceAsync(place)">
+                                    @T["Archive"]
+                                </button>
+                            }
                         </OverflowMenu>
                     </span>
                 </div>
@@ -575,13 +600,17 @@ else
                buttons, like every other section's own sentence; each button already names whose
                service it opens. *@
             <div class="map-overlay-header">
-                <h2>@T["Take me there"]<FieldHint>@T["Only the first stays on this device. The rest open somebody else's service."]</FieldHint></h2>
+                <h2>@T["Take me there"]<FieldHint>@T["Each of these opens somebody else's service."]</FieldHint></h2>
             </div>
             <p class="map-overlay-hint">@destination.Label</p>
-            <div class="map-overlay-confirm map-overlay-apps">
+            @* A list rather than a row of buttons, asked for on 2026-09-19: these are four answers to
+               one question, read down and picked from, and a row of product names side by side reads as
+               four unrelated controls. Each one is as wide as the panel, which is also what a thumb
+               wants. The device's own app is no longer among them - see NavigationApps.Offered. *@
+            <div class="map-overlay-apps">
                 @foreach (var app in NavigationApps.Offered(_isApplePlatform))
                 {
-                    <button type="button" class="@(app == NavigationApp.ThisDevice ? "btn-primary" : "btn-secondary")"
+                    <button type="button" class="btn-secondary map-overlay-app"
                             @onclick="() => TakeMeThereWithAsync(app)">@T[NavigationApps.NameOf(app)]</button>
                 }
             </div>
@@ -657,14 +686,31 @@ else
                         @onclick="() => _placeBeingShared = null">✕</button>
             </div>
             <p class="map-overlay-hint">@beingShared.Name</p>
-            <SharePlacePanel Place="beingShared" Contacts="_contacts" OwnUserId="_ownUserId"
-                             OnShared="TheseSharesChangedAsync" />
-            @* The other kind of sharing: a link anybody can read without an account. Only for a place
-               this reader keeps - a link made from somebody else's would outlive the share it came from
-               and would not be theirs to revoke (see PublicSharedItemReader.CanPublishAsync). *@
-            @if (!beingShared.IsShared)
+            @* A sealed place cannot be handed to anybody, and this is where that is said rather than by
+               leaving the menu entry out. What the server holds is ciphertext sealed to this reader's
+               own key, so a recipient would be granted access to something they cannot read. Taking the
+               seal off is the one thing that changes it, so it is offered here as a press - and it is a
+               press rather than something this page does quietly, because it is a decision about who
+               may read where somebody goes. *@
+            @if (beingShared.IsPrivate)
             {
-                <ShareLinkButton ItemType="Place" ItemId="beingShared.Id" />
+                <p class="info">@T["This place is sealed, so nobody else can read it. Take the seal off to share it."]</p>
+                <div class="map-overlay-confirm">
+                    <button type="button" class="btn-primary" disabled="@_isBusy"
+                            @onclick="() => TakeTheSealOffAsync(beingShared)">@T["Take the seal off"]</button>
+                </div>
+            }
+            else
+            {
+                <SharePlacePanel Place="beingShared" Contacts="_contacts" OwnUserId="_ownUserId"
+                                 OnShared="TheseSharesChangedAsync" />
+                @* The other kind of sharing: a link anybody can read without an account. Only for a place
+                   this reader keeps - a link made from somebody else's would outlive the share it came from
+                   and would not be theirs to revoke (see PublicSharedItemReader.CanPublishAsync). *@
+                @if (!beingShared.IsShared)
+                {
+                    <ShareLinkButton ItemType="Place" ItemId="beingShared.Id" />
+                }
             }
         </div>
     </div>
@@ -725,6 +771,7 @@ else
         _isSearching = true;
         _hasSearched = true;
         _foundPlace = null;
+        ForgetWhereThePinCameFrom();
         try
         {
             _matches = await GeocodingApiClient.SearchPlacesAsync(query);
@@ -794,6 +841,7 @@ else
         _hasSearched = false;
         _placeToPlanFor = null;
         _foundPlace = pressed;
+        ForgetWhereThePinCameFrom();
         _pressedPlace = null;
         // The markers move; the map does not. Rebuilding it here threw away the pan and the zoom the
         // reader had pressed *through* - the map came back fitted to every pin it holds, which is a
@@ -817,12 +865,14 @@ else
     private async Task PinTheMatchAsync(FoundPlace match)
     {
         _foundPlace = match;
+        ForgetWhereThePinCameFrom();
         await RedrawAsync();
     }
 
     private async Task ForgetTheFoundPlace()
     {
         _foundPlace = null;
+        ForgetWhereThePinCameFrom();
         _placeToPlanFor = null;
         _matches = [];
         _hasSearched = false;
@@ -932,7 +982,7 @@ else
         _pressedPlace = null;
         _matches = [];
         _hasSearched = false;
-        _places = await PlacesApiClient.GetPlacesAsync();
+        await LoadThePlacesAsync();
         await RefreshMapMarkersAsync();
     }
 
@@ -952,7 +1002,7 @@ else
     /// </summary>
     private async Task TheseSharesChangedAsync()
     {
-        _places = await PlacesApiClient.GetPlacesAsync();
+        await LoadThePlacesAsync();
         _placeBeingShared = _places.FirstOrDefault(place => place.Id == _placeBeingShared?.Id);
     }
 
@@ -972,7 +1022,7 @@ else
                 _message = T["That place is not here any more."];
             }
 
-            _places = await PlacesApiClient.GetPlacesAsync();
+            await LoadThePlacesAsync();
             await RefreshMapMarkersAsync();
         }
         catch (HttpRequestException exception)
@@ -987,6 +1037,92 @@ else
         }
     }
 
+    /// <summary>
+    /// Takes the seal off a place, so it can be handed to somebody - see the share overlay, which is
+    /// the only thing that asks for this. Everything else about the place is saved back exactly as it
+    /// is: this is one field changing, through the form's own request because that is the only way a
+    /// place is written.
+    /// </summary>
+    private async Task TakeTheSealOffAsync(PlaceDto place)
+    {
+        _isBusy = true;
+        try
+        {
+            Logger.LogInformation("User took the seal off place {PlaceId} in order to share it", place.Id);
+            var saved = await PlacesApiClient.UpdatePlaceAsync(place.Id, new SavePlaceRequest(
+                place.Name, place.Where, place.Description, place.Colour, place.Priority, place.TaskListIds,
+                IsPrivate: false, SourceTaskItemId: place.SourceTaskItemId));
+            if (!saved)
+            {
+                _hasFailed = true;
+                _message = T["That place is not here any more."];
+                _placeBeingShared = null;
+                return;
+            }
+
+            await LoadThePlacesAsync();
+            // Opened again from what came back, so the panel now draws the sharing half rather than the
+            // question it was answering.
+            _placeBeingShared = _places.FirstOrDefault(kept => kept.Id == place.Id);
+            await RefreshMapMarkersAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Could not take the seal off a place");
+            _hasFailed = true;
+            _message = T["That could not be saved. Try again in a moment."];
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// The places this map is about: everything the account keeps except what has been put away. One
+    /// method rather than the same call in seven places, so a page that reads them again after a change
+    /// cannot forget the archive and redraw a pin somebody has just put away - see MapArchive, which is
+    /// where the rest of them are read.
+    /// </summary>
+    private async Task LoadThePlacesAsync()
+        => _places = [.. (await PlacesApiClient.GetPlacesAsync()).Where(place => !place.IsArchived)];
+
+    /// <summary>
+    /// Puts a place away - off the map and into the archive, where it can be brought back or deleted
+    /// (see MapArchive). Not asked about first, unlike deleting: putting away is the undoable one, and
+    /// a question before every reversible press is a question nobody reads.
+    /// </summary>
+    private async Task ArchiveThePlaceAsync(PlaceDto place)
+    {
+        _isBusy = true;
+        try
+        {
+            Logger.LogInformation("User put place {PlaceId} away", place.Id);
+            if (!await PlacesApiClient.SetArchivedAsync(place.Id, true))
+            {
+                _hasFailed = true;
+                _message = T["That place is not here any more."];
+                return;
+            }
+
+            _message = T.Format("{0} is in the archive.", place.Name);
+            await LoadThePlacesAsync();
+            await RefreshMapMarkersAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Could not put a place away");
+            _hasFailed = true;
+            _message = T["That could not be saved. Try again in a moment."];
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private void GoToTheArchive() => NavigationManager.NavigateTo("/map/archive");
+
     /// <summary>The place the question about forgetting is about - see the overlay.</summary>
     private PlaceDto? _placeBeingForgotten;
 
@@ -999,7 +1135,7 @@ else
         {
             await PlacesApiClient.DeletePlaceAsync(place.Id);
             _placeBeingForgotten = null;
-            _places = await PlacesApiClient.GetPlacesAsync();
+            await LoadThePlacesAsync();
             await RefreshMapMarkersAsync();
         }
         catch (HttpRequestException exception)
@@ -1200,6 +1336,9 @@ else
             // A map drawn again from scratch takes everything on it with it, a route included.
             await DrawTheRouteAsync();
             await GoToThePlaceAskedForAsync();
+            // And where a link to somebody else's map pointed, which is the other way a reader arrives
+            // here already meaning a particular spot - see ShowWhereTheLinkPointsAsync.
+            await ShowWhereTheLinkPointsAsync();
         }
         catch (JSException exception)
         {
@@ -1339,7 +1478,12 @@ else
                 canPlan = true,
                 planEventLabel = T["An event here"],
                 planTaskListLabel = T["A task list here"],
-                routeLabel = RouteLabel
+                routeLabel = RouteLabel,
+                // Where the pin came from, for one a link put here: Orbit shows the place on its own
+                // map, and the map it was shared from is still one press away. Only ever an http(s)
+                // address - see AsAWebAddress.
+                openSourceLabel = _linkedFrom is null ? null : T["Open the original link"],
+                sourceUrl = _linkedFrom
             });
         }
 
@@ -1467,6 +1611,178 @@ else
     [Parameter]
     [SupplyParameterFromQuery(Name = "place")]
     public Guid? Place { get; set; }
+
+    /// <summary>
+    /// Where a link to somebody else's map pointed, written "latitude,longitude" - see MapPageLink,
+    /// which is what rewrites such a link to land here, and MapLinks, which reads it.
+    ///
+    /// Coordinates in an address, which the place above is deliberately not. The difference is whose
+    /// they are: this pair came out of a link somebody wrote in a chat or a note and is already
+    /// travelling in the open, while a place Orbit keeps is sealed unless its owner said otherwise -
+    /// see ChosenPlace for the hand-over that exists so those never reach a URL.
+    /// </summary>
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "at")]
+    public string? At { get; set; }
+
+    /// <summary>What such a link asked to be found, where it named words rather than a point.</summary>
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "find")]
+    public string? Find { get; set; }
+
+    /// <summary>What the link said the place is called, where it said.</summary>
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "label")]
+    public string? Label { get; set; }
+
+    /// <summary>
+    /// The link it all came from, so the pin can still offer to open it where it was written to open.
+    /// Read back as an address only if it is one: this arrives from whatever somebody typed.
+    /// </summary>
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "from")]
+    public string? From { get; set; }
+
+    /// <summary>
+    /// The pin a link asked for, put where the link pointed and named by what it said - or, where the
+    /// link named words instead, looked up the way anything typed into the search box is.
+    ///
+    /// Once, however many renders follow, for the same reason the place above is: a redraw that dragged
+    /// the map back would leave the reader unable to look anywhere else.
+    /// </summary>
+    private async Task ShowWhereTheLinkPointsAsync()
+    {
+        if (_hasFollowedTheLink)
+        {
+            return;
+        }
+
+        if (PointAskedFor() is { } point)
+        {
+            _hasFollowedTheLink = true;
+            _linkedFrom = AsAWebAddress(From);
+            Logger.LogInformation("Following a map link that named a point");
+            // Named by what the link called it while the address is looked up - a pin that says
+            // "Looking up where that is…" for a second is better than one that says nothing at all.
+            _foundPlace = new FoundPlace(
+                Label is { Length: > 0 } named ? named : T["Looking up where that is…"],
+                point.Latitude, point.Longitude);
+            // The markers move; the map is not rebuilt. This runs inside the draw itself (see
+            // OnAfterRenderAsync), and RedrawAsync would throw the map away halfway through drawing it -
+            // the same light refresh a press on the map uses, and for the same reason.
+            StateHasChanged();
+            await RefreshMapMarkersAsync();
+            await FocusTheMapOnAsync("found", "a place a link pointed at");
+
+            var address = await GeocodingApiClient.ReverseGeocodeAsync(point.Latitude, point.Longitude);
+            if (_foundPlace is null)
+            {
+                // Answered while the lookup ran: the reader has moved the pin or dropped it.
+                return;
+            }
+
+            _foundPlace = _foundPlace with
+            {
+                Name = Label is { Length: > 0 } stillNamed
+                    ? stillNamed
+                    : address is { Length: > 0 } ? address : DescribeCoordinates(point.Latitude, point.Longitude)
+            };
+            StateHasChanged();
+            await RefreshMapMarkersAsync();
+            return;
+        }
+
+        if (Find is { Length: > 0 } search)
+        {
+            _hasFollowedTheLink = true;
+            Logger.LogInformation("Following a map link that named words rather than a point");
+            _searchText = search;
+            await SearchAsync();
+            // After the search, which forgets the link the pin before it came from - see
+            // ForgetWhereThePinCameFrom. This pin is that link's, so it is said afterwards.
+            _linkedFrom = AsAWebAddress(From);
+            await FocusTheMapOnAsync("found", "a place a link searched for");
+            return;
+        }
+
+        // A link that says nothing but itself: a shortened one, which only the service that made it can
+        // place. The server follows it once - see ResolveMapLinkQuery, and MapLinkApiClient for why a
+        // browser cannot. What comes back is read exactly as a link written out in full would have been.
+        if (AsAWebAddress(From) is { } shortened)
+        {
+            _hasFollowedTheLink = true;
+            _linkedFrom = shortened;
+            Logger.LogInformation("Asking the server where a shortened map link points");
+            if (await MapLinkApiClient.ResolveAsync(shortened) is not { } resolved)
+            {
+                // Said rather than left blank: the reader pressed a link and arrived at a map with
+                // nothing on it, and the link they pressed is still the way to find out.
+                _hasFailed = true;
+                _message = T["That link couldn't be placed on the map. Open it where it came from to see where it points."];
+                return;
+            }
+
+            At = resolved.Latitude is { } latitude && resolved.Longitude is { } longitude
+                ? string.Create(CoordinateCulture, $"{latitude},{longitude}")
+                : null;
+            Find = resolved.Search;
+            Label = resolved.Label;
+
+            // An answer with neither a point nor words to look for places nothing, and going round
+            // again on it would ask the server the same question for as long as it kept answering that
+            // way. The server does not answer so (see ResolveMapLinkQueryHandler); this is about what
+            // happens if it ever does.
+            if (At is null && Find is not { Length: > 0 })
+            {
+                _hasFailed = true;
+                _message = T["That link couldn't be placed on the map. Open it where it came from to see where it points."];
+                return;
+            }
+
+            _hasFollowedTheLink = false;
+            await ShowWhereTheLinkPointsAsync();
+        }
+    }
+
+    /// <inheritdoc cref="ShowWhereTheLinkPointsAsync"/>
+    private bool _hasFollowedTheLink;
+
+    /// <summary>
+    /// The link the pin came from, while it is the pin on the map - what the popup's "Open the original
+    /// link" opens. Null for a pin nobody arrived at by link.
+    /// </summary>
+    private string? _linkedFrom;
+
+    /// <summary>
+    /// Forgets which link the pin came from, which every other way of moving that pin has to do:
+    /// searching for somewhere else, pressing the map, choosing another match, dropping the pin
+    /// altogether. Without it a pin somebody searched for afterwards went on offering "Open the
+    /// original link" - pointing at a place they had left ten minutes ago.
+    /// </summary>
+    private void ForgetWhereThePinCameFrom() => _linkedFrom = null;
+
+    /// <summary>Where the address bar says the link pointed, or null where it says nothing readable.</summary>
+    private (double Latitude, double Longitude)? PointAskedFor()
+    {
+        var written = (At ?? string.Empty).Split(',');
+        return written.Length == 2
+            && double.TryParse(written[0], NumberStyles.Float, CoordinateCulture, out var latitude)
+            && double.TryParse(written[1], NumberStyles.Float, CoordinateCulture, out var longitude)
+            && latitude is >= -90 and <= 90 && longitude is >= -180 and <= 180
+            ? (latitude, longitude)
+            : null;
+    }
+
+    /// <summary>
+    /// The link as something safe to put in an href, or null. Only http and https, which is the rule
+    /// LinksInText follows and for the same reason: this arrives from whatever somebody typed, and a
+    /// scheme nobody vouched for is not one to hand a browser.
+    /// </summary>
+    private static string? AsAWebAddress(string? url)
+        => Uri.TryCreate(url, UriKind.Absolute, out var parsed)
+            && (parsed.Scheme == Uri.UriSchemeHttp || parsed.Scheme == Uri.UriSchemeHttps)
+            ? url
+            : null;
 
     /// <summary>
     /// Centres on it once the map is actually drawn. Silent for an id this account has no place under -
@@ -1630,7 +1946,7 @@ else
             _receivedPositions = await OpenReceivedPositionsAsync();
             await NameTheSharersAsync();
             await ReadWhatHasAPlaceAsync();
-            _places = await PlacesApiClient.GetPlacesAsync();
+            await LoadThePlacesAsync();
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {

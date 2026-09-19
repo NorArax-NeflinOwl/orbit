@@ -1,5 +1,6 @@
 using Bunit;
 using Orbit.Web.Components;
+using Orbit.Web.Tests;
 using Xunit;
 
 namespace Orbit.Web.Tests.Components;
@@ -8,7 +9,7 @@ namespace Orbit.Web.Tests.Components;
 /// Drawing a description with the addresses in it pressable. What the splitter decides is covered by
 /// LinksInTextTests; what matters here is that none of it ever reaches the page as markup.
 /// </summary>
-public sealed class TextWithLinksTests : TestContext
+public sealed class TextWithLinksTests : OrbitTestContext
 {
     private IRenderedComponent<TextWithLinks> Render(string? text)
         => RenderComponent<TextWithLinks>(parameters => parameters.Add(component => component.Text, text));
@@ -64,6 +65,48 @@ public sealed class TextWithLinksTests : TestContext
 
         Assert.Empty(cut.FindAll("a"));
         Assert.Contains("javascript:alert(1)", cut.Markup);
+    }
+
+    /// <summary>
+    /// A link to somebody else's map opens the place on Orbit's own instead - asked for on 2026-09-19.
+    /// In this tab, because it is a page of Orbit's: everything else here leaves for a new one.
+    /// </summary>
+    [Fact]
+    public void A_link_to_somebody_elses_map_opens_orbits_own()
+    {
+        var cut = Render("Meet me at https://www.google.com/maps/search/?api=1&query=52.2297,21.0122 at six.");
+
+        var link = cut.Find("a");
+        Assert.StartsWith("/map?at=52.2297%2C21.0122", link.GetAttribute("href"), StringComparison.Ordinal);
+        Assert.Null(link.GetAttribute("target"));
+        // The original is still carried, which is what the pin's "Open the original link" opens.
+        Assert.Contains("from=https%3A%2F%2Fwww.google.com", link.GetAttribute("href"), StringComparison.Ordinal);
+        // And the words are still the words somebody wrote, not Orbit's address for them.
+        Assert.Equal("https://www.google.com/maps/search/?api=1&query=52.2297,21.0122", link.TextContent);
+    }
+
+    /// <summary>A link that is not a map at all is left exactly as it was written.</summary>
+    [Fact]
+    public void A_link_that_is_not_a_map_still_goes_where_it_says()
+    {
+        var link = Render("https://example.com/where-we-are").Find("a");
+
+        Assert.Equal("https://example.com/where-we-are", link.GetAttribute("href"));
+        Assert.Equal("_blank", link.GetAttribute("target"));
+    }
+
+    /// <summary>
+    /// A shortened map link goes to Orbit's map carrying nothing but itself: only the service that made
+    /// it knows where it points, and the map page asks the server to follow it rather than this
+    /// guessing here - see MapPageLink.
+    /// </summary>
+    [Fact]
+    public void A_shortened_map_link_goes_to_the_map_to_be_followed_there()
+    {
+        var link = Render("https://maps.app.goo.gl/AbCdEf123").Find("a");
+
+        Assert.Equal("/map?from=https%3A%2F%2Fmaps.app.goo.gl%2FAbCdEf123", link.GetAttribute("href"));
+        Assert.Null(link.GetAttribute("target"));
     }
 
     [Fact]

@@ -269,6 +269,131 @@ public sealed class PlacesScreenTests
         Assert.Empty(screen.Places);
     }
 
+    /// <summary>
+    /// Putting a place away takes it off the list and puts it in the archive, which is the same screen
+    /// showing the other half of what it holds - the browser draws that division as a page of its own
+    /// (MapArchive). Asked for on 2026-09-19.
+    /// </summary>
+    [Fact]
+    public async Task A_place_put_away_leaves_the_list_and_is_in_the_archive()
+    {
+        using var context = new PlacesContext();
+        context.Server.AddPlace("The good bakery");
+        var screen = context.OpenList();
+        await screen.LoadCommand.ExecuteAsync(null);
+        // From the place's own screen, which is where this phone keeps what can be done to a thing -
+        // its list rows carry no such press, on purpose (see NotesPage, which archives the same way).
+        var place = context.OpenDetail(screen.Places[0].LocalId);
+        await place.LoadCommand.ExecuteAsync(null);
+
+        await place.ArchiveCommand.ExecuteAsync(true);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Empty(screen.Places);
+        await screen.ShowTheArchiveCommand.ExecuteAsync(true);
+        Assert.Equal("The good bakery", Assert.Single(screen.Places).Name);
+        Assert.Equal("Archived places", screen.Heading);
+    }
+
+    /// <summary>And the server is told, on its own endpoint - see ArchivePlaceCommand.</summary>
+    [Fact]
+    public async Task Putting_a_place_away_reaches_the_server()
+    {
+        using var context = new PlacesContext();
+        var onTheServer = context.Server.AddPlace("The good bakery");
+        var list = context.OpenList();
+        await list.LoadCommand.ExecuteAsync(null);
+        var screen = context.OpenDetail(list.Places[0].LocalId);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        await screen.ArchiveCommand.ExecuteAsync(true);
+
+        Assert.Contains($"PUT /api/places/{onTheServer.Id}/archived", context.Server.ReceivedRequests);
+        Assert.True(context.Server.Places.Single().IsArchived);
+    }
+
+    /// <summary>And back again, from the same menu, which then says "Put back".</summary>
+    [Fact]
+    public async Task A_place_is_brought_back_from_the_archive()
+    {
+        using var context = new PlacesContext();
+        context.Server.AddPlace("Last year's flat", isArchived: true);
+        var list = context.OpenList();
+        await list.LoadCommand.ExecuteAsync(null);
+        await list.ShowTheArchiveCommand.ExecuteAsync(true);
+        var screen = context.OpenDetail(list.Places[0].LocalId);
+        await screen.LoadCommand.ExecuteAsync(null);
+        Assert.True(screen.IsArchived);
+
+        await screen.ArchiveCommand.ExecuteAsync(false);
+        await list.LoadCommand.ExecuteAsync(null);
+
+        Assert.Empty(list.Places);
+        await list.ShowTheArchiveCommand.ExecuteAsync(false);
+        Assert.Equal("Last year's flat", Assert.Single(list.Places).Name);
+    }
+
+    /// <summary>
+    /// A place put away in a browser is put away here too, the first time this phone hears about it -
+    /// which is what the flag on the way down is for (see PlaceSynchronizer.CopyInto).
+    /// </summary>
+    [Fact]
+    public async Task A_place_put_away_elsewhere_leaves_this_phones_list()
+    {
+        using var context = new PlacesContext();
+        context.Server.AddPlace("The good bakery", isArchived: true);
+        var screen = context.OpenList();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Empty(screen.Places);
+    }
+
+    /// <summary>
+    /// The place's own screen says which it is, so its menu can offer Archive or Put back - and, since
+    /// deleting a place is offered in the archive and nowhere else, whether to offer Delete at all.
+    /// </summary>
+    [Fact]
+    public async Task The_places_own_screen_says_whether_it_has_been_put_away()
+    {
+        using var context = new PlacesContext();
+        context.Server.AddPlace("The good bakery");
+        var list = context.OpenList();
+        await list.LoadCommand.ExecuteAsync(null);
+        var screen = context.OpenDetail(list.Places[0].LocalId);
+        await screen.LoadCommand.ExecuteAsync(null);
+        Assert.False(screen.IsArchived);
+
+        await screen.ArchiveCommand.ExecuteAsync(true);
+
+        Assert.True(screen.IsArchived);
+        Assert.Contains("archive", screen.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// A place kept while this phone was offline is created and put away in the same pass once it is
+    /// back - a create has no room for the flag, so the archiving follows it. See
+    /// PlaceSynchronizer.SendCreateAsync.
+    /// </summary>
+    [Fact]
+    public async Task A_place_put_away_before_the_server_ever_saw_it_arrives_put_away()
+    {
+        using var context = new PlacesContext();
+        context.Server.IsUnreachable = true;
+        var screen = context.OpenList();
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.NewPlaceName = "The good bakery";
+        await screen.AddPlaceCommand.ExecuteAsync(null);
+        var place = context.OpenDetail(screen.Places[0].LocalId);
+        await place.LoadCommand.ExecuteAsync(null);
+        await place.ArchiveCommand.ExecuteAsync(true);
+
+        context.Server.IsUnreachable = false;
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.True(context.Server.Places.Single().IsArchived);
+    }
+
     /// <summary>Everything a places test needs: a local store, a fake server, and the two screens.</summary>
     private sealed class PlacesContext : IDisposable
     {

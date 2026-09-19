@@ -28,15 +28,21 @@ public enum NavigationApp
 public static class NavigationApps
 {
     /// <summary>
-    /// The apps worth offering here, in the order they are drawn. The device's own is first because it
-    /// is the one that reaches nobody else; Apple Maps is only offered on an Apple device, where it is
-    /// the map that is certainly installed - elsewhere its address is a page that asks the reader to
-    /// come back on an iPhone.
+    /// The apps worth offering here, in the order they are drawn. Apple Maps is only offered on an Apple
+    /// device, where it is the map that is certainly installed - elsewhere its address is a page that
+    /// asks the reader to come back on an iPhone.
+    ///
+    /// <b><see cref="NavigationApp.ThisDevice"/> is not among them</b>, although it used to be first.
+    /// The only thing that reads this list is a browser, and the two addresses that one answers with
+    /// are a scheme rather than a page: a desktop browser with nothing registered for
+    /// <c>google.navigation:</c> or <c>maps://</c> does nothing at all and says nothing either, which is
+    /// a button that looks broken rather than one that reaches nobody (taken off on 2026-09-19). It is
+    /// still an answer <see cref="RouteTo"/> gives, for a caller that knows the device has a map.
     /// </summary>
     public static IReadOnlyList<NavigationApp> Offered(bool isApple)
         => isApple
-            ? [NavigationApp.ThisDevice, NavigationApp.AppleMaps, NavigationApp.GoogleMaps, NavigationApp.Waze, NavigationApp.OpenStreetMap]
-            : [NavigationApp.ThisDevice, NavigationApp.GoogleMaps, NavigationApp.Waze, NavigationApp.OpenStreetMap];
+            ? [NavigationApp.AppleMaps, NavigationApp.GoogleMaps, NavigationApp.Waze, NavigationApp.OpenStreetMap]
+            : [NavigationApp.GoogleMaps, NavigationApp.Waze, NavigationApp.OpenStreetMap];
 
     /// <summary>
     /// What the app is called on the button, as the English key both clients' dictionaries are keyed by.

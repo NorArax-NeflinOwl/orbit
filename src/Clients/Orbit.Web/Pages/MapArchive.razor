@@ -1,0 +1,185 @@
+@page "/map/archive"
+@attribute [Authorize]
+@using Orbit.Contracts.Places
+@using Orbit.Core.Permissions
+@using Orbit.Web.Services
+@inject PlacesApiClient PlacesApiClient
+@inject NavigationManager NavigationManager
+@inject UserPermissionState Permissions
+@inject ILogger<MapArchive> Logger
+@inject Translations T
+
+<PageTitle>@T["Orbit — Archived places"]</PageTitle>
+
+@* Where a place goes when somebody is finished with it, and the one place a place can be deleted from.
+   A page of its own rather than a tab on the map: the map has no tabs - a place is not filed in folders
+   the way the four kinds of card are - and an archive drawn among the pins would be the opposite of
+   what putting something away is for. Reached from the map's own menu, beside "Show places already
+   past", which is the other thing there that answers "what am I not looking at". Asked for 2026-09-19. *@
+@if (!Permissions.Has(ApplicationPermission.Location))
+{
+    <FeatureLocked Explanation="@(T["Recording where you are. Sharing it, or seeing somebody else's, also needs contacts."])" />
+}
+else
+{
+<PageHeader>
+    <Title>@T["Archived places"]</Title>
+    <Description>@T["Put away rather than deleted. Bring one back to the map, or delete it here - this is the only page that deletes a place."]</Description>
+    <Actions>
+        <button class="btn-secondary" @onclick="GoToTheMap">@T["Back to the map"]</button>
+    </Actions>
+</PageHeader>
+
+@if (_message is not null)
+{
+    <p class="@(_hasFailed ? "error" : "info")">@_message</p>
+}
+
+@if (_isLoading)
+{
+    <Loading />
+}
+else if (_places.Count == 0)
+{
+    <p class="empty-hint empty-list">@T["Nothing has been put away yet."]</p>
+}
+else
+{
+    <div class="card">
+        @foreach (var place in _places)
+        {
+            <Row Title="@place.Name" AdditionalClass="map-archive-row">
+                <Trailing>
+                    @* Where it is, quietly: a name on its own is not always enough to tell two places
+                       apart a year later, which is exactly how long something is in here. *@
+                    @if (place.Where.Address is { Length: > 0 } address)
+                    {
+                        <span class="row-meta row-meta-prose">@address</span>
+                    }
+                    <button type="button" class="btn-secondary" disabled="@_isBusy"
+                            @onclick="() => PutBackAsync(place)">@T["Put back"]</button>
+                    @* The only Delete for a place in Orbit. Asked first, because it is the one thing
+                       here that cannot be undone - putting away can. *@
+                    <button type="button" class="btn-danger" disabled="@_isBusy"
+                            @onclick="() => _placeBeingDeleted = place">@T["Delete"]</button>
+                </Trailing>
+            </Row>
+        }
+    </div>
+}
+
+@if (_placeBeingDeleted is { } beingDeleted)
+{
+    <Dialog Title="@(T["Delete this place?"])" OnClosed="() => _placeBeingDeleted = null">
+        <ChildContent>
+            <p>@beingDeleted.Name</p>
+            <p>@T["This cannot be undone."]</p>
+        </ChildContent>
+        <Footer>
+            <button type="button" class="btn-secondary" @onclick="() => _placeBeingDeleted = null">@T["Cancel"]</button>
+            <button type="button" class="btn-danger" disabled="@_isBusy"
+                    @onclick="() => DeleteAsync(beingDeleted)">@T["Delete"]</button>
+        </Footer>
+    </Dialog>
+}
+}
+
+@code {
+    /// <summary>The places put away, newest change first - the order the map lists its own in.</summary>
+    private IReadOnlyList<PlaceDto> _places = [];
+
+    private bool _isLoading = true;
+    private bool _isBusy;
+    private bool _hasFailed;
+    private string? _message;
+
+    /// <summary>The place the question about deleting is about - see the dialog.</summary>
+    private PlaceDto? _placeBeingDeleted;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Permissions.EnsureLoadedAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            _places = [.. (await PlacesApiClient.GetPlacesAsync()).Where(place => place.IsArchived)];
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Could not read the archived places");
+            _hasFailed = true;
+            _message = T["That could not be loaded. Try again in a moment."];
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    /// <summary>
+    /// Back onto the map, under whatever it was filed under before - archiving leaves that alone, so
+    /// nothing has to be chosen for it here.
+    /// </summary>
+    private async Task PutBackAsync(PlaceDto place)
+    {
+        _isBusy = true;
+        _message = null;
+        _hasFailed = false;
+        try
+        {
+            Logger.LogInformation("User brought place {PlaceId} back from the archive", place.Id);
+            if (await PlacesApiClient.SetArchivedAsync(place.Id, false))
+            {
+                _message = T.Format("{0} is back on the map.", place.Name);
+                await LoadAsync();
+            }
+            else
+            {
+                // Said out loud rather than redrawn as though it had worked: the place is where it was.
+                _hasFailed = true;
+                _message = T["That place is not here any more."];
+            }
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Could not bring a place back from the archive");
+            _hasFailed = true;
+            _message = T["That could not be saved. Try again in a moment."];
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task DeleteAsync(PlaceDto place)
+    {
+        _isBusy = true;
+        _message = null;
+        _hasFailed = false;
+        try
+        {
+            Logger.LogInformation("User deleted archived place {PlaceId}", place.Id);
+            await PlacesApiClient.DeletePlaceAsync(place.Id);
+            _placeBeingDeleted = null;
+            await LoadAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Could not delete an archived place");
+            _hasFailed = true;
+            _message = T["That could not be saved. Try again in a moment."];
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private void GoToTheMap() => NavigationManager.NavigateTo("/map");
+}

@@ -293,6 +293,19 @@ version, so they aren't mistaken for oversights:
   calendar narrows the grid **and** the list together, so it is still a way of reading the whole
   calendar rather than a second index of it, and the dashboard draws no calendar tabs, because what it
   says about the calendar is when things are. See `info/functionality.md`, "Folders".
+- **A map link opens Orbit's map in the browser only**, and on a phone that may be the right answer
+  rather than a gap. `MapLinks` is in `Orbit.Core` so the reading of one is shared, and the phone's
+  `LinkedLabel` draws the same addresses - but it follows them out to whatever the device treats as a
+  map, which on a phone is the map app opening at the place: the same handoff Orbit would make itself
+  (`IMapHandoff`), one step shorter. The browser's rewrite exists because a browser has no such handoff
+  and would otherwise leave Orbit for somebody else's page.
+
+  So the phone's version of this is **not** a port. What it would add is the four presses the pin's
+  popup carries - an event here, a list here, directions, the original link - and that means a screen of
+  Orbit's own between the tap and the map app, on a screen (`MapViewModel`) built for live positions and
+  which does not draw a map at all in a build without a maps key. Worth asking the user whether those
+  four presses are wanted on a phone before building any of it; the resolver for a shortened link is
+  already server-side and would answer the phone unchanged. Read on 2026-09-19.
 - **The month and year calendar views stay filtered to what is still to come.** Also confirmed by the
   user on 2026-09-09, alongside making the week account for everything the way a day does (see
   `Calendar.ShowsEverythingInThisView`). They are read to find something rather than to account for a
@@ -2120,6 +2133,18 @@ It is **not** on the two other places somebody edits in the browser:
   that matters more than the saving, the second reading is still the other one, and this entry is where
   to come back to.
 
+  **A place is the fifth kind, from 2026-09-19** (`OP_P_ISARCHIVED`, `ArchivePlaceCommand`,
+  `PUT /api/places/{id}/archived`). Not as a folder, because the map has no tabs and a place is not
+  filed anywhere: the browser's archive is a page of its own, `/map/archive`, reached from the map's
+  menu, and deleting a place is offered there and nowhere else. **The phone has the same half**, done
+  the same day: `LocalPlace.IsArchived` (`APlaceCanBePutAwayOnThePhone`), `ArchiveAsync` on the
+  repository queueing `OutboxOperation.Archive`, `PlacesClient.ArchiveAsync`, the flag read in
+  `PlaceSynchronizer.CopyInto` and carried after a create the way a note's is, Archive / Put back on the
+  place's own screen above a Delete that is offered only once it is archived, and the places screen
+  showing the archive instead of the list when its menu says so (`PlacesViewModel.ShowsTheArchive`).
+  Archiving is offered from the thing's own screen rather than from a list row, which is where this
+  phone keeps everything of the kind.
+
 - ~~**Choosing several things at once, and doing one thing to all of them**~~ - *built in the browser
   and on the phone, sharing included (2026-09-16).* Asked for as: select several notes, lists, events or
   shelves and then file them into a folder, archive them, or share them.
@@ -2296,6 +2321,18 @@ the session that finishes one strikes it here rather than in a report nobody rea
   taking somebody else's shared thing off this reader's list needs no archive, since a shared thing
   cannot be put away at all. The phone's own menus still offer Delete everywhere and are not part of
   this - the list asked it of Orbit.Web.
+
+  **Read again on 2026-09-19 and four gaps closed**: the rule held wherever `ObjectMenu` drew the menu,
+  and three menus drew their own - a calendar event's form, a task list's form, and a task list's
+  checklist - so each of the three offered Delete whatever state its thing was in. Each now offers
+  Archive / Put back and gates Delete on it. The fourth was the map, which had no archive at all; it
+  has one now (`/map/archive`).
+
+  **Still outside the rule, and deliberately for now**: what is deleted is a *part* of something rather
+  than a thing of its own - a task list's entry (`TaskItemSummary`, and the calendar's "Delete" on a
+  raised deadline), a shelf's product, a chat message, a note's line. Nothing in Orbit can archive a
+  part, and giving each kind of part its own archive is a feature rather than a gap to close; removing
+  a row from a list is editing the list. Worth an answer from the user before anything is built.
 - ~~**A note on the list has no Share in its menu** and should - and the other pages are to be checked
   for the same gap.~~ Done: checked, and three of the four were missing it - only the inventories had
   one. Notes, task lists and the calendar's list now carry "Share" in the card's menu, opening the same

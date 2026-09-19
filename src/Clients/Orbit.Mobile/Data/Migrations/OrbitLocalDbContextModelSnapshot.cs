@@ -532,6 +532,9 @@ namespace Orbit.Mobile.Data.Migrations
                     b.Property<string>("EncryptedNonce")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("IsPrivate")
                         .HasColumnType("INTEGER");
 
