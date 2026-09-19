@@ -997,6 +997,11 @@ public static class PolishTranslations
         ["Duplicate"] = "Duplikuj",
         ["{0} (copy)"] = "{0} (kopia)",
         ["Couldn't make a copy. Try again."] = "Nie udało się zrobić kopii. Spróbuj ponownie.",
+        // What a press on a row says when it failed and the row simply stayed as it was.
+        ["Couldn't change that note. Try again."] = "Nie udało się zmienić tej notatki. Spróbuj ponownie.",
+        ["Couldn't change that event. Try again."] = "Nie udało się zmienić tego wydarzenia. Spróbuj ponownie.",
+        ["Couldn't delete that event. Try again."] = "Nie udało się usunąć tego wydarzenia. Spróbuj ponownie.",
+        ["Couldn't delete that. Try again."] = "Nie udało się tego usunąć. Spróbuj ponownie.",
         // Everything ticked off and the list still open, because its owner said so - see
         // Orbit.Core.Tasks.TaskListStatus.Incomplete. "Niezakończona" rather than "nieukończona": the
         // work is finished and the list is not, and the two words carry that difference in Polish.

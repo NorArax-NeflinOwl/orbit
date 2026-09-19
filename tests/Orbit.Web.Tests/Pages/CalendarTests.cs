@@ -388,8 +388,64 @@ public sealed class CalendarTests : OrbitTestContext
         Services.AddSingleton(new TasksApiClient(httpClient));
     }
 
+    /// <summary>
+    /// The same calendar, on a server that answers every read and refuses every write. What a page has
+    /// to be able to say something about: a press that changed nothing leaves the card exactly as it
+    /// was, which is also what a press that never registered looks like.
+    /// </summary>
+    private void RegisterCalendarApiClientRefusingWrites(IReadOnlyList<CalendarEventDto> events)
+    {
+        var handler = new StubHttpMessageHandler(request => request.Method == HttpMethod.Get
+            ? JsonResponse(events)
+            : new HttpResponseMessage(HttpStatusCode.InternalServerError));
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
+        Services.AddSingleton(new CalendarApiClient(httpClient));
+    }
+
     private static HttpResponseMessage JsonResponse<TItem>(IReadOnlyList<TItem> items)
         => new(HttpStatusCode.OK) { Content = JsonContent.Create(items) };
+
+    /// <summary>
+    /// A press on a card that the server refuses is said out loud. This page had nowhere at all to say
+    /// it - four actions logged the failure and returned, leaving the card exactly as it was - which is
+    /// the rule Tasks.razor and Notes.razor already follow. 2026-09-19.
+    /// </summary>
+    [Fact]
+    public void A_refused_press_on_a_card_is_said_out_loud()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        RegisterCalendarApiClientRefusingWrites([CreateTimedEvent(midMonth, midMonth.AddHours(1), "Dentist")]);
+        RegisterTasksApiClient([]);
+        var cut = RenderComponent<Calendar>();
+        Assert.Empty(cut.FindAll("p.error"));
+
+        ChooseOnTheCard(cut, "Archive");
+
+        Assert.Contains("Couldn't change that event", cut.Find("p.error").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>And a copy nobody could make says so in its own words rather than the archive's.</summary>
+    [Fact]
+    public void A_copy_the_server_refuses_says_so()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        RegisterCalendarApiClientRefusingWrites([CreateTimedEvent(midMonth, midMonth.AddHours(1), "Dentist")]);
+        RegisterTasksApiClient([]);
+        var cut = RenderComponent<Calendar>();
+
+        ChooseOnTheCard(cut, "Duplicate");
+
+        Assert.Contains("Couldn't make a copy", cut.Find("p.error").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>Opens the menu on the one card on the list and presses the entry named.</summary>
+    private static void ChooseOnTheCard(IRenderedFragment cut, string label)
+    {
+        cut.Find(".item-card-list .overflow-menu-trigger").Click();
+        cut.FindAll(".item-card-list .avatar-dropdown-item")
+            .First(item => item.TextContent.Trim() == label)
+            .Click();
+    }
     [Fact]
     public void The_event_list_covers_the_month_on_screen_and_not_the_whole_calendar()
     {

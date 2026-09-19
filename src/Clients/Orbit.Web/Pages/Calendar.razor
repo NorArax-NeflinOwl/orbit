@@ -81,6 +81,14 @@
     <FolderTabs Page="FolderPage.Calendar" CountIn="CountIn" />
 </PhoneToolbar>
 
+@* This page had nowhere to say that something went wrong, so a delete, an archive or a copy that was
+   refused looked exactly like a press that never registered - the row simply stayed as it was. The same
+   line Tasks.razor and Notes.razor already carry, for the same reason. *@
+@if (_errorMessage is not null)
+{
+    <p class="error">@_errorMessage</p>
+}
+
 <div class="calendar-layout">
     <div class="calendar-event-list-panel">
         @* One list, whatever kind of thing is on it. Events and deadlines answer the same
@@ -741,6 +749,7 @@
     private async Task DeleteDueTaskAsync(DueTaskDto dueTask)
     {
         Logger.LogInformation("User clicked 'Delete' for task item {TaskItemId} from the calendar", dueTask.TaskItemId);
+        _errorMessage = null;
         if (_taskLists.FirstOrDefault(list => list.Id == dueTask.TaskListId) is not { } taskList)
         {
             return;
@@ -774,6 +783,7 @@
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to delete task item {TaskItemId}", dueTask.TaskItemId);
+            _errorMessage = T["Couldn't delete that. Try again."];
             return;
         }
 
@@ -809,10 +819,13 @@
     {
         Logger.LogInformation(
             "User clicked '{Action}' for calendar event {Id}", isArchived ? "Archive" : "Put back", calendarEvent.Id);
+        _errorMessage = null;
         try
         {
             if (!await CalendarApiClient.SetArchivedAsync(calendarEvent.Id, isArchived))
             {
+                // Refused rather than thrown, and just as invisible - the card stays where it was.
+                _errorMessage = T["Couldn't change that event. Try again."];
                 return;
             }
         }
@@ -824,6 +837,7 @@
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to archive calendar event {Id}", calendarEvent.Id);
+            _errorMessage = T["Couldn't change that event. Try again."];
             return;
         }
 
@@ -835,6 +849,7 @@
     private async Task DuplicateEventAsync(CalendarEventDto calendarEvent)
     {
         Logger.LogInformation("User clicked 'Duplicate' for calendar event {EventId}", calendarEvent.Id);
+        _errorMessage = null;
         try
         {
             await CalendarApiClient.DuplicateCalendarEventAsync(
@@ -844,12 +859,14 @@
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to duplicate calendar event {EventId}", calendarEvent.Id);
+            _errorMessage = T["Couldn't make a copy. Try again."];
         }
     }
 
     private async Task DeleteEventAsync(CalendarEventDto calendarEvent)
     {
         Logger.LogInformation("User clicked 'Delete' for calendar event {EventId}", calendarEvent.Id);
+        _errorMessage = null;
         var confirmed = await JSRuntime.InvokeAsync<bool>(
             "confirm", T.Format("Delete event \"{0}\"?", calendarEvent.Details.Title));
         if (!confirmed)
@@ -869,6 +886,7 @@
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to delete calendar event {EventId}", calendarEvent.Id);
+            _errorMessage = T["Couldn't delete that event. Try again."];
             return;
         }
 
@@ -943,6 +961,14 @@
 
     /// <summary>While a round of presses is still going out, so a second press cannot start another.</summary>
     private bool _isWorkingOnPicked;
+
+    /// <summary>
+    /// What to say about the last press on a row - empty while nothing needs saying. Every action here
+    /// fails the same invisible way: the row stays exactly as it was, which is also what a press that
+    /// never registered looks like. Tasks.razor and Notes.razor carry the same line for the same reason.
+    /// Not set by the background re-read behind a notification, which nobody asked for.
+    /// </summary>
+    private string? _errorMessage;
 
     private void StartPicking() => _picked.Start();
 

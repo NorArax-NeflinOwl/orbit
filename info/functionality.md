@@ -287,6 +287,16 @@ is an answer nobody finds. So is a list that is empty right now ("No contacts ye
 that exists only while the screen is waiting for it (the map's "Click the map to drop a pin." until one
 is dropped).
 
+**And every page of cards can say it** (2026-09-19). A press on a card that the server refuses leaves the
+card exactly as it was — which is also what a press that never registered looks like, so the failure has
+to be words rather than the absence of a change. Tasks and the notes had a line for it; the calendar had
+nowhere to say anything at all, and four of its actions logged the refusal and returned (delete a
+deadline, put an event away or bring it back, copy one, delete one). The notes' own pin and archive were
+silent the same way, including the branch where the client answers *no* rather than throwing — a refusal
+that is a `false` is as invisible as one that is an exception. All six say so now, in the page's own
+`error` line. A read nobody asked for stays silent: the background re-read behind a notification is still
+correct about everything it knew a moment ago.
+
 **The phone does the same thing its own way** (`Orbit.Maui/Controls/FieldHint.xaml`). There is no hover
 on a phone, so the mark is tapped; and what it opens is the sentence itself, in place under the name,
 rather than a bubble over the page — a phone has no room for a layer, and text that appears where it
