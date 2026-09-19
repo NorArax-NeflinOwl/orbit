@@ -1256,7 +1256,11 @@ else
         }
 
         // Saved is saved: there is nothing unsaved left in this note to warn about or to put back the
-        // next time it is opened - see NoteDrafts.
+        // next time it is opened - see NoteDrafts. What the server holds is now what the form holds, and
+        // saying so is what stops the way out from asking about the note that was just saved: leaving
+        // compares the form against this, and a copy taken when the note was opened would read every
+        // saved change as unsaved writing.
+        _asStored = WhatTheFormHolds();
         if (Id is { } savedNoteId)
         {
             Drafts.Forget(savedNoteId);

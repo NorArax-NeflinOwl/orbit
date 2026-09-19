@@ -803,6 +803,33 @@ public sealed class NoteEditorTests : OrbitTestContext
         Assert.True(Services.GetRequiredService<Bunit.TestDoubles.FakeNavigationManager>().History.First().Options.ReplaceHistoryEntry);
     }
 
+    /// <summary>
+    /// A note that was just saved is not unsaved writing. Reported on 2026-09-19: saving one and being
+    /// taken off the form asked "Not saved yet: ... Leave and lose what you wrote?" about the note that
+    /// had in fact just been saved, and answering no held the reader on the form. The way out compares
+    /// the form against what the server holds, and the save was not telling it that what the server
+    /// holds had changed - see SaveAsync.
+    /// </summary>
+    [Fact]
+    public void Saving_a_note_and_leaving_does_not_ask_about_what_was_saved()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        // No, so a question asked at all would hold the page - which is what the report describes.
+        JSInterop.Setup<bool>("confirm", _ => true).SetResult(false);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var summary = $"/notes/{note.Id}?returnTo=%2F";
+        navigationManager.NavigateTo(ReturnTo.Link($"/notes/{note.Id}/edit", summary));
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        WriteInTheNote(cut, "Shopping", "milk and bread");
+        cut.Find(".page-action-primary").Click();
+
+        Assert.DoesNotContain(JSInterop.Invocations, invocation => invocation.Identifier == "confirm");
+        Assert.False(Services.GetRequiredService<NoteDrafts>().HasAny);
+        Assert.Equal($"http://localhost{summary}", navigationManager.Uri);
+    }
+
     /// <summary>Back out of the form ends where Save does, the same way - see the test above it.</summary>
     [Fact]
     public void Leaving_the_form_without_saving_steps_back_onto_the_note()
