@@ -752,6 +752,21 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **"Cannot invoke JS interop… DotNetObjectReference was disposed" (issue #185): audited 2026-09-19, and
+  no component owns it any more.** Every one of the seven that hands a reference to a module - the
+  checklist editor, the Google button, the group conversation, the location picker, the name
+  suggestions, the chat page, the map page - tells the module to let go **before** disposing the
+  reference, and each says so where it does it: `dispose(container)` then `_dotNetRef`, `unobserve(key)`
+  then `_seenObserverReference`, `unbindSuggestionKeys(panel)` then `_self`. The dump that reported it
+  was triaged on 2026-09-01, and the two modules the issue named as likeliest were hardened in the days
+  after. Nothing is left to reproduce from the code; what would settle it for good is the stored client
+  exception log showing no entry of this shape since, which needs a deployed environment to read.
+
+  **The audit did find a live fault of the same family**, and it is fixed: `menuAnchor.js` holds one
+  suggestions binding at a time, and `unbindSuggestionKeys()` took no argument - so on a page that draws
+  a panel per entry (the task editor), leaving one entry cleared whichever panel was bound, including
+  another entry's. Its arrow keys then did nothing and nothing said why. It takes the panel now and
+  clears only its own; `ci/verify-menu-anchor.mjs` holds it.
 - **Two of Orbit.Web's test classes fail once in a while under the whole suite and pass alone**
   (2026-09-18). `NameSuggestionSourceTests` was the timer rather than the subject - the panel waits out
   a 150ms settle delay and the wait was left at bUnit's own one second, which a machine running the

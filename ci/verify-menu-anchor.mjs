@@ -163,6 +163,33 @@ const results = await page.evaluate(async () => {
             || `the panel's bottom is at ${box.bottom} and the field's top at ${fieldTop}`;
     });
 
+    check("one panel closing does not take another panel's keys with it", () => {
+        // The module holds one binding at a time, and a page can draw a suggestions panel per entry.
+        // Leaving one entry used to clear whichever panel was bound - including another entry's, after
+        // which its arrow keys did nothing and nothing said why. Found auditing issue #185.
+        const first = lay({ fieldWidth: 200, top: 50 });
+        const second = lay({ fieldWidth: 200, top: 300 });
+        const blazor = { invokeMethodAsync: () => Promise.resolve(null) };
+
+        anchor.bindSuggestionKeys(first.panel, ".the-field", blazor);
+        anchor.bindSuggestionKeys(second.panel, ".the-field", blazor);
+        // The first one goes away and says so, naming itself.
+        anchor.unbindSuggestionKeys(first.panel);
+
+        // The second's binding has to have survived. Asked by giving its field a keystroke and
+        // watching whether the module still claims it: a bound panel stops the event, an unbound one
+        // does not.
+        second.panel.innerHTML = '<div class="name-suggestion-option" id="one">One</div>';
+        const pressed = new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true });
+        second.field.dispatchEvent(pressed);
+        const stillBound = pressed.defaultPrevented;
+
+        anchor.unbindSuggestionKeys();
+        first.done();
+        second.done();
+        return stillBound || "the second panel's keys were unbound by the first panel closing";
+    });
+
     check("a menu is pulled back on screen rather than off the right edge", () => {
         // anchorToTrigger's own rule, and the one that is easy to lose: the menu is aligned to the
         // trigger's right edge, which puts it off the page for a trigger near it.

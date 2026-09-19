@@ -296,7 +296,11 @@
             {
                 // Told to forget this panel before the reference it would call back through goes: a
                 // keystroke arriving after that would reach a disposed object.
-                await _anchoring.InvokeVoidAsync("unbindSuggestionKeys");
+                //
+                // This panel, by name. A page can draw one of these per entry, and the module holds one
+                // binding at a time - so leaving one entry used to clear whichever panel was bound,
+                // including another entry's, after which its arrow keys did nothing and nothing said why.
+                await _anchoring.InvokeVoidAsync("unbindSuggestionKeys", _panel);
                 await _anchoring.DisposeAsync();
             }
             catch (JSDisconnectedException)
