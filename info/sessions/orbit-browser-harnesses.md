@@ -63,8 +63,9 @@ harnesses 55/55; `ci/verify-diagrams.mjs` 18/18.
   now reports which branch ran, the render count either side of the press, and how many options are on
   screen, so the next occurrence names the cause.
 - **`ChatThreadTests.A_notification_stays_while_their_newest_message_is_not_yet_in_view`** fired once in
-  the last full run of this session and has never been caught with its message. A capture loop was
-  running when the session ended; nothing had been caught.
+  the last full run of this session and has never been caught with its message. Six further runs of the
+  web suite afterwards did not catch it, so it is rarer than the suggestions one - budget more runs, and
+  put a second suite alongside, which is what made the other reproducible at all.
 - **`GroupConversationPagesTests`** has done it once historically, uncaught.
 - Issues **#293**, **#294**, **#296** need somebody to see them on a real device or browser. So does the
   map's Start/Share on a phone, which is now one press: Options → Location on, press Start, read the
