@@ -75,6 +75,12 @@ else
                         <span class="card-filter-mark">@(_showsPastPlaces ? "✓" : "")</span>
                         @T["Show places already past"]
                     </button>
+                    @* Where the places somebody is finished with are, and the only page that deletes
+                       one - see MapArchive. Here rather than as a tab, because the map has none; this
+                       menu is where the page's other "what am I not looking at" answers already live. *@
+                    <button type="button" class="avatar-dropdown-item" @onclick="GoToTheArchive">
+                        @T["Archived places"]
+                    </button>
                 </OverflowMenu>
             </div>
         </div>
@@ -318,11 +324,16 @@ else
                             </button>
                             @* Only where this reader may pass it on: a place handed over to read is not
                                theirs to hand on further - see SharedItemAccess, which the panel below
-                               reads again for what level it may offer. *@
-                            @* Nothing to offer for a sealed place: the server holds no readable copy to
-                               hand anybody, which is what makes it sealed - and nothing to copy either,
-                               because sealing is this browser's work and the server cannot do it. *@
-                            @if (!place.IsPrivate && SharedItemAccess.For(place.IsShared, place.AccessLevel).CanShare)
+                               reads again for what level it may offer.
+
+                               A sealed place is offered it too, although nothing can be handed over
+                               while it is sealed: the server holds ciphertext and no key, so there is
+                               nothing for a recipient to read. It used to be left out of the menu
+                               entirely, and since a place is sealed unless its owner says otherwise
+                               that meant most places simply had no Share at all - a control that is
+                               missing cannot say why. The panel it opens says so and offers to take the
+                               seal off, which is the one thing that makes sharing possible. *@
+                            @if (SharedItemAccess.For(place.IsShared, place.AccessLevel).CanShare)
                             {
                                 <button type="button" class="avatar-dropdown-item" @onclick="() => ShareThePlace(place)">
                                     @T["Share"]
@@ -334,9 +345,22 @@ else
                                     @T["Duplicate"]
                                 </button>
                             }
-                            <button type="button" class="avatar-dropdown-item danger" @onclick="() => AskToForgetThePlace(place)">
-                                @(place.IsShared ? T["Take it off my map"] : T["Delete"])
-                            </button>
+                            @* Put away rather than deleted, for a place this reader keeps: deleting one
+                               is offered in the archive and nowhere else (see MapArchive). Somebody
+                               else's, handed over, has no archive to go to - taking it off this map is
+                               dropping the grant rather than destroying anything, so it stays here. *@
+                            @if (place.IsShared)
+                            {
+                                <button type="button" class="avatar-dropdown-item danger" @onclick="() => AskToForgetThePlace(place)">
+                                    @T["Take it off my map"]
+                                </button>
+                            }
+                            else
+                            {
+                                <button type="button" class="avatar-dropdown-item" @onclick="() => ArchiveThePlaceAsync(place)">
+                                    @T["Archive"]
+                                </button>
+                            }
                         </OverflowMenu>
                     </span>
                 </div>
@@ -575,13 +599,17 @@ else
                buttons, like every other section's own sentence; each button already names whose
                service it opens. *@
             <div class="map-overlay-header">
-                <h2>@T["Take me there"]<FieldHint>@T["Only the first stays on this device. The rest open somebody else's service."]</FieldHint></h2>
+                <h2>@T["Take me there"]<FieldHint>@T["Each of these opens somebody else's service."]</FieldHint></h2>
             </div>
             <p class="map-overlay-hint">@destination.Label</p>
-            <div class="map-overlay-confirm map-overlay-apps">
+            @* A list rather than a row of buttons, asked for on 2026-09-19: these are four answers to
+               one question, read down and picked from, and a row of product names side by side reads as
+               four unrelated controls. Each one is as wide as the panel, which is also what a thumb
+               wants. The device's own app is no longer among them - see NavigationApps.Offered. *@
+            <div class="map-overlay-apps">
                 @foreach (var app in NavigationApps.Offered(_isApplePlatform))
                 {
-                    <button type="button" class="@(app == NavigationApp.ThisDevice ? "btn-primary" : "btn-secondary")"
+                    <button type="button" class="btn-secondary map-overlay-app"
                             @onclick="() => TakeMeThereWithAsync(app)">@T[NavigationApps.NameOf(app)]</button>
                 }
             </div>
@@ -657,14 +685,31 @@ else
                         @onclick="() => _placeBeingShared = null">✕</button>
             </div>
             <p class="map-overlay-hint">@beingShared.Name</p>
-            <SharePlacePanel Place="beingShared" Contacts="_contacts" OwnUserId="_ownUserId"
-                             OnShared="TheseSharesChangedAsync" />
-            @* The other kind of sharing: a link anybody can read without an account. Only for a place
-               this reader keeps - a link made from somebody else's would outlive the share it came from
-               and would not be theirs to revoke (see PublicSharedItemReader.CanPublishAsync). *@
-            @if (!beingShared.IsShared)
+            @* A sealed place cannot be handed to anybody, and this is where that is said rather than by
+               leaving the menu entry out. What the server holds is ciphertext sealed to this reader's
+               own key, so a recipient would be granted access to something they cannot read. Taking the
+               seal off is the one thing that changes it, so it is offered here as a press - and it is a
+               press rather than something this page does quietly, because it is a decision about who
+               may read where somebody goes. *@
+            @if (beingShared.IsPrivate)
             {
-                <ShareLinkButton ItemType="Place" ItemId="beingShared.Id" />
+                <p class="info">@T["This place is sealed, so nobody else can read it. Take the seal off to share it."]</p>
+                <div class="map-overlay-confirm">
+                    <button type="button" class="btn-primary" disabled="@_isBusy"
+                            @onclick="() => TakeTheSealOffAsync(beingShared)">@T["Take the seal off"]</button>
+                </div>
+            }
+            else
+            {
+                <SharePlacePanel Place="beingShared" Contacts="_contacts" OwnUserId="_ownUserId"
+                                 OnShared="TheseSharesChangedAsync" />
+                @* The other kind of sharing: a link anybody can read without an account. Only for a place
+                   this reader keeps - a link made from somebody else's would outlive the share it came from
+                   and would not be theirs to revoke (see PublicSharedItemReader.CanPublishAsync). *@
+                @if (!beingShared.IsShared)
+                {
+                    <ShareLinkButton ItemType="Place" ItemId="beingShared.Id" />
+                }
             }
         </div>
     </div>
@@ -932,7 +977,7 @@ else
         _pressedPlace = null;
         _matches = [];
         _hasSearched = false;
-        _places = await PlacesApiClient.GetPlacesAsync();
+        await LoadThePlacesAsync();
         await RefreshMapMarkersAsync();
     }
 
@@ -952,7 +997,7 @@ else
     /// </summary>
     private async Task TheseSharesChangedAsync()
     {
-        _places = await PlacesApiClient.GetPlacesAsync();
+        await LoadThePlacesAsync();
         _placeBeingShared = _places.FirstOrDefault(place => place.Id == _placeBeingShared?.Id);
     }
 
@@ -972,7 +1017,7 @@ else
                 _message = T["That place is not here any more."];
             }
 
-            _places = await PlacesApiClient.GetPlacesAsync();
+            await LoadThePlacesAsync();
             await RefreshMapMarkersAsync();
         }
         catch (HttpRequestException exception)
@@ -987,6 +1032,92 @@ else
         }
     }
 
+    /// <summary>
+    /// Takes the seal off a place, so it can be handed to somebody - see the share overlay, which is
+    /// the only thing that asks for this. Everything else about the place is saved back exactly as it
+    /// is: this is one field changing, through the form's own request because that is the only way a
+    /// place is written.
+    /// </summary>
+    private async Task TakeTheSealOffAsync(PlaceDto place)
+    {
+        _isBusy = true;
+        try
+        {
+            Logger.LogInformation("User took the seal off place {PlaceId} in order to share it", place.Id);
+            var saved = await PlacesApiClient.UpdatePlaceAsync(place.Id, new SavePlaceRequest(
+                place.Name, place.Where, place.Description, place.Colour, place.Priority, place.TaskListIds,
+                IsPrivate: false, SourceTaskItemId: place.SourceTaskItemId));
+            if (!saved)
+            {
+                _hasFailed = true;
+                _message = T["That place is not here any more."];
+                _placeBeingShared = null;
+                return;
+            }
+
+            await LoadThePlacesAsync();
+            // Opened again from what came back, so the panel now draws the sharing half rather than the
+            // question it was answering.
+            _placeBeingShared = _places.FirstOrDefault(kept => kept.Id == place.Id);
+            await RefreshMapMarkersAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Could not take the seal off a place");
+            _hasFailed = true;
+            _message = T["That could not be saved. Try again in a moment."];
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// The places this map is about: everything the account keeps except what has been put away. One
+    /// method rather than the same call in seven places, so a page that reads them again after a change
+    /// cannot forget the archive and redraw a pin somebody has just put away - see MapArchive, which is
+    /// where the rest of them are read.
+    /// </summary>
+    private async Task LoadThePlacesAsync()
+        => _places = [.. (await PlacesApiClient.GetPlacesAsync()).Where(place => !place.IsArchived)];
+
+    /// <summary>
+    /// Puts a place away - off the map and into the archive, where it can be brought back or deleted
+    /// (see MapArchive). Not asked about first, unlike deleting: putting away is the undoable one, and
+    /// a question before every reversible press is a question nobody reads.
+    /// </summary>
+    private async Task ArchiveThePlaceAsync(PlaceDto place)
+    {
+        _isBusy = true;
+        try
+        {
+            Logger.LogInformation("User put place {PlaceId} away", place.Id);
+            if (!await PlacesApiClient.SetArchivedAsync(place.Id, true))
+            {
+                _hasFailed = true;
+                _message = T["That place is not here any more."];
+                return;
+            }
+
+            _message = T.Format("{0} is in the archive.", place.Name);
+            await LoadThePlacesAsync();
+            await RefreshMapMarkersAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Could not put a place away");
+            _hasFailed = true;
+            _message = T["That could not be saved. Try again in a moment."];
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private void GoToTheArchive() => NavigationManager.NavigateTo("/maps/archive");
+
     /// <summary>The place the question about forgetting is about - see the overlay.</summary>
     private PlaceDto? _placeBeingForgotten;
 
@@ -999,7 +1130,7 @@ else
         {
             await PlacesApiClient.DeletePlaceAsync(place.Id);
             _placeBeingForgotten = null;
-            _places = await PlacesApiClient.GetPlacesAsync();
+            await LoadThePlacesAsync();
             await RefreshMapMarkersAsync();
         }
         catch (HttpRequestException exception)
@@ -1630,7 +1761,7 @@ else
             _receivedPositions = await OpenReceivedPositionsAsync();
             await NameTheSharersAsync();
             await ReadWhatHasAPlaceAsync();
-            _places = await PlacesApiClient.GetPlacesAsync();
+            await LoadThePlacesAsync();
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {

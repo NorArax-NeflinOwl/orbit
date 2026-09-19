@@ -430,11 +430,21 @@ else
             <button type="button" class="avatar-dropdown-item"
                     @onclick="() => CopyTheTextAsync(what)">@(_copied == what ? T["Copied"] : T[what.Label()])</button>
         }
-        @* Deleting the list from the list itself. A note, an inventory and a calendar event have all
-           been deletable from the screen that reads them; a task list was the one that could only be
-           deleted from the page of cards, which meant leaving the thing to get rid of it. Offered only
-           on the reader's own list: something shared with them is not theirs to destroy. *@
+        @* Putting the list away from the list itself, and deleting it only once it has been - the rule
+           every card's menu follows (see ObjectMenu.IsArchived), which this menu was outside: it
+           offered Delete whatever state the list was in. A note, an inventory and a calendar event have
+           all been deletable from the screen that reads them; a task list was the one that could only
+           be deleted from the page of cards, which meant leaving the thing to get rid of it. Offered
+           only on the reader's own list: something shared with them is not theirs to destroy, and
+           putting it away would take it off its owner's own page. *@
         @if (!_sections[0].TaskList.IsShared)
+        {
+            <button type="button" class="avatar-dropdown-item" disabled="@_isArchiving"
+                    @onclick="() => SetArchivedAsync(!_sections[0].TaskList.IsArchived)">
+                @(_sections[0].TaskList.IsArchived ? T["Put back"] : T["Archive"])
+            </button>
+        }
+        @if (!_sections[0].TaskList.IsShared && _sections[0].TaskList.IsArchived)
         {
             <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting"
                     @onclick="DeleteAsync">@T["Delete"]</button>
@@ -1311,6 +1321,42 @@ else
     /// questions are TaskListDeletion's, the same ones the page of cards and the editor ask, which is
     /// what keeps a group list's second question from existing in three slightly different wordings.
     /// </summary>
+    private bool _isArchiving;
+
+    /// <summary>
+    /// Puts the list away, or brings it back - the other way off the page of cards, and the one that
+    /// can be undone. Stays here and reads the list again, so the menu now says the opposite; deleting
+    /// is what leaves, because there is then nothing to stay for.
+    /// </summary>
+    private async Task SetArchivedAsync(bool isArchived)
+    {
+        _menu?.Close();
+        _isArchiving = true;
+        _errorMessage = null;
+        Logger.LogInformation(
+            "User {Action} task list {TaskListId} from its checklist", isArchived ? "archived" : "put back", Id);
+        try
+        {
+            if (!await TasksApiClient.SetArchivedAsync(Id, isArchived))
+            {
+                // Said rather than redrawn as though it had worked - the list is where it was.
+                _errorMessage = T["Failed to save the task list. Try again."];
+                return;
+            }
+
+            await LoadAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to archive task list {TaskListId}", Id);
+            _errorMessage = T["Failed to save the task list. Try again."];
+        }
+        finally
+        {
+            _isArchiving = false;
+        }
+    }
+
     private async Task DeleteAsync()
     {
         _menu?.Close();

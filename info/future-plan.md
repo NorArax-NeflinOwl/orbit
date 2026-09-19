@@ -2229,6 +2229,18 @@ the session that finishes one strikes it here rather than in a report nobody rea
   taking somebody else's shared thing off this reader's list needs no archive, since a shared thing
   cannot be put away at all. The phone's own menus still offer Delete everywhere and are not part of
   this - the list asked it of Orbit.Web.
+
+  **Read again on 2026-09-19 and four gaps closed**: the rule held wherever `ObjectMenu` drew the menu,
+  and three menus drew their own - a calendar event's form, a task list's form, and a task list's
+  checklist - so each of the three offered Delete whatever state its thing was in. Each now offers
+  Archive / Put back and gates Delete on it. The fourth was the map, which had no archive at all; it
+  has one now (`/maps/archive`).
+
+  **Still outside the rule, and deliberately for now**: what is deleted is a *part* of something rather
+  than a thing of its own - a task list's entry (`TaskItemSummary`, and the calendar's "Delete" on a
+  raised deadline), a shelf's product, a chat message, a note's line. Nothing in Orbit can archive a
+  part, and giving each kind of part its own archive is a feature rather than a gap to close; removing
+  a row from a list is editing the list. Worth an answer from the user before anything is built.
 - ~~**A note on the list has no Share in its menu** and should - and the other pages are to be checked
   for the same gap.~~ Done: checked, and three of the four were missing it - only the inventories had
   one. Notes, task lists and the calendar's list now carry "Share" in the card's menu, opening the same

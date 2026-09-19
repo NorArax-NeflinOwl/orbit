@@ -422,7 +422,8 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
     public void Deleting_an_event_opened_from_its_own_page_leaves_both_for_the_calendar()
     {
         var eventId = Guid.NewGuid();
-        _existingEvent = AnEventCalled(eventId, "Dentist");
+        // Already put away: Delete is offered in the archive and nowhere else - see ObjectMenu.IsArchived.
+        _existingEvent = AnEventCalled(eventId, "Dentist", isArchived: true);
         RegisterChatApiClient([]);
         JSInterop.Setup<bool>("confirm", _ => true).SetResult(true);
         Services.GetRequiredService<NavigationTrail>();
@@ -500,7 +501,47 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
             .First(button => string.Equals(button.GetAttribute("aria-label"), "Save", StringComparison.Ordinal))
             .Click();
 
-    private static CalendarEventDto AnEventCalled(Guid id, string title)
+    /// <summary>
+    /// An event is put away from its form and deleted only once it has been - the rule every card's
+    /// menu has followed since 2026-09-18, which this form was quietly outside: it offered Delete
+    /// whatever state the event was in.
+    /// </summary>
+    [Fact]
+    public void An_event_is_put_away_from_its_form_and_deleted_only_once_it_has_been()
+    {
+        var eventId = Guid.NewGuid();
+        _existingEvent = AnEventCalled(eventId, "Dentist");
+        RegisterChatApiClient([]);
+        var cut = RenderComponent<CalendarEventEditor>(parameters => parameters.Add(editor => editor.Id, eventId));
+
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+
+        var entries = cut.FindAll(".avatar-dropdown-item").Select(entry => entry.TextContent.Trim()).ToList();
+        Assert.Contains("Archive", entries);
+        Assert.DoesNotContain("Delete event", entries);
+    }
+
+    /// <summary>And once it is in the archive, that is where Delete is offered - and "Put back" with it.</summary>
+    [Fact]
+    public void An_event_already_put_away_offers_deleting_it_and_bringing_it_back()
+    {
+        var eventId = Guid.NewGuid();
+        _existingEvent = AnEventCalled(eventId, "Dentist", isArchived: true);
+        RegisterChatApiClient([]);
+        var cut = RenderComponent<CalendarEventEditor>(parameters => parameters.Add(editor => editor.Id, eventId));
+
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+
+        var entries = cut.FindAll(".avatar-dropdown-item").Select(entry => entry.TextContent.Trim()).ToList();
+        Assert.Contains("Put back", entries);
+        Assert.Contains("Delete event", entries);
+    }
+
+    /// <param name="isArchived">
+    /// Whether it has been put away, which is what decides whether the form offers Delete at all - see
+    /// ObjectMenu.IsArchived, the rule this form joined on 2026-09-19.
+    /// </param>
+    private static CalendarEventDto AnEventCalled(Guid id, string title, bool isArchived = false)
         => new(
             id,
             new CalendarEventDetailsDto(
@@ -508,7 +549,7 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
                 new DateTimeOffset(2026, 9, 1, 11, 0, 0, TimeSpan.Zero), IsAllDay: false, Recurrence: null,
                 Guests: [], ReminderMinutesBeforeStart: [], ReminderNotificationChannel: "None"),
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null,
-            AccessLevel: "CanEdit", OriginalOwnerUserId: null);
+            AccessLevel: "CanEdit", OriginalOwnerUserId: null, IsArchived: isArchived);
 
     /// <summary>An account with no lists is offered no picker, rather than an empty one.</summary>
     [Fact]

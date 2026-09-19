@@ -1037,7 +1037,8 @@ public sealed class MapPageTests : OrbitTestContext
     private static string OneKeptPlace(
         string name, string colour = "", string priority = "Normal",
         bool isShared = false, string? sharedBy = null, string accessLevel = "CanEdit",
-        Guid? fromList = null, Guid? fromEntry = null, Guid? id = null)
+        Guid? fromList = null, Guid? fromEntry = null, Guid? id = null,
+        bool isPrivate = false, bool isArchived = false)
         => "[{\"id\":\"" + (id ?? Guid.NewGuid()) + "\",\"name\":\"" + name + "\",\"description\":\"\","
         + "\"where\":{\"address\":\"Piękna 1\",\"latitude\":52.2,\"longitude\":21.0},"
         + "\"colour\":\"" + colour + "\",\"priority\":\"" + priority + "\","
@@ -1046,6 +1047,10 @@ public sealed class MapPageTests : OrbitTestContext
         + "\"isShared\":" + (isShared ? "true" : "false") + ","
         + "\"sharedByUserName\":" + (sharedBy is null ? "null" : "\"" + sharedBy + "\"") + ","
         + "\"accessLevel\":\"" + accessLevel + "\",\"isSharedWithOthers\":false,"
+        // Sealed without a sealed half: this client is built without a PrivateContentSealer, so it hands
+        // the place back as it arrived - which is what lets a test say "sealed" and still read the name.
+        + "\"isPrivate\":" + (isPrivate ? "true" : "false") + ","
+        + "\"isArchived\":" + (isArchived ? "true" : "false") + ","
         + "\"sourceTaskItemId\":" + (fromEntry is null ? "null" : "\"" + fromEntry + "\"") + "}]";
 
     /// <summary>Several of <see cref="OneKeptPlace"/>'s answers as the one list the server sends.</summary>
@@ -1166,6 +1171,97 @@ public sealed class MapPageTests : OrbitTestContext
         // this account has none stubbed, and the panel says so rather than drawing an empty picker.
         Assert.Contains("The good bakery", cut.Find(".map-overlay-panel").TextContent, StringComparison.Ordinal);
         Assert.NotEmpty(cut.FindAll(".inventory-share-panel"));
+    }
+
+    /// <summary>
+    /// A place its owner keeps is put away rather than deleted - deleting one is offered in the archive
+    /// and nowhere else (see MapArchive). Asked for on 2026-09-19.
+    /// </summary>
+    [Fact]
+    public void A_place_the_reader_keeps_is_put_away_rather_than_deleted()
+    {
+        GrantLocations();
+        _placesJson = OneKeptPlace("The good bakery");
+        var cut = RenderComponent<MapPage>();
+
+        SectionNamed(cut, "Places you keep").QuerySelector(".map-share-row .overflow-menu-trigger")!.Click();
+
+        var entries = cut.FindAll(".overflow-menu-dropdown button").Select(button => button.TextContent.Trim()).ToList();
+        Assert.Contains("Archive", entries);
+        Assert.DoesNotContain("Delete", entries);
+    }
+
+    /// <summary>And a place put away is off the map altogether, which is what putting it away is for.</summary>
+    [Fact]
+    public void A_place_put_away_is_not_on_the_map()
+    {
+        GrantLocations();
+        _placesJson = OneKeptPlace("Last year's flat", isArchived: true);
+
+        var cut = RenderComponent<MapPage>();
+
+        Assert.DoesNotContain(
+            cut.FindAll(".map-panel-heading"),
+            heading => heading.TextContent.Contains("Places you keep", StringComparison.Ordinal));
+    }
+
+    /// <summary>The way to the archive is the page's own menu, beside the other "what am I not seeing".</summary>
+    [Fact]
+    public void The_maps_menu_leads_to_the_archive()
+    {
+        GrantLocations();
+        var cut = RenderComponent<MapPage>();
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+
+        cut.Find(".overflow-menu-trigger").Click();
+        cut.FindAll(".overflow-menu-dropdown button")
+            .First(button => button.TextContent.Trim() == "Archived places").Click();
+
+        Assert.EndsWith("/maps/archive", navigationManager.Uri, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A sealed place is offered Share like any other, and the panel says why nothing can be handed over
+    /// yet. It used to be left out of the menu, and since a place is sealed unless its owner says
+    /// otherwise that meant most places had no Share at all - a control that is missing cannot say why.
+    /// </summary>
+    [Fact]
+    public void A_sealed_place_offers_share_and_says_what_it_would_take()
+    {
+        GrantLocations();
+        _placesJson = OneKeptPlace("Where we park", isPrivate: true);
+        var cut = RenderComponent<MapPage>();
+
+        SectionNamed(cut, "Places you keep").QuerySelector(".map-share-row .overflow-menu-trigger")!.Click();
+        cut.FindAll(".overflow-menu-dropdown button").First(button => button.TextContent.Trim() == "Share").Click();
+
+        var panel = cut.Find(".map-overlay-panel");
+        Assert.Contains("sealed", panel.TextContent, StringComparison.Ordinal);
+        Assert.Contains(panel.QuerySelectorAll("button"), button => button.TextContent.Trim() == "Take the seal off");
+        // And nothing to hand over until that is pressed.
+        Assert.Empty(panel.QuerySelectorAll(".inventory-share-panel"));
+    }
+
+    /// <summary>
+    /// The apps that take somebody to a pin are a list, one under the next, and the device's own app is
+    /// not among them: a browser with nothing registered for its scheme opens nothing and says nothing.
+    /// Both asked for on 2026-09-19.
+    /// </summary>
+    [Fact]
+    public void The_way_to_a_pin_is_a_list_of_somebody_elses_apps()
+    {
+        GrantLocations();
+        _placesJson = OneKeptPlace("The good bakery");
+        var cut = RenderComponent<MapPage>();
+
+        SectionNamed(cut, "Places you keep")
+            .QuerySelectorAll(".map-share-row button")
+            .First(button => button.GetAttribute("aria-label") == "Take me there")
+            .Click();
+
+        var apps = cut.FindAll(".map-overlay-apps .map-overlay-app").Select(button => button.TextContent.Trim()).ToList();
+        Assert.Equal(["Google Maps", "Waze", "OpenStreetMap"], apps);
+        Assert.DoesNotContain("The app on this device", apps);
     }
 
     /// <summary>The pin on the heading of the section named this - see MapPanelPins.</summary>

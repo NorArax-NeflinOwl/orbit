@@ -805,6 +805,40 @@ public sealed class TaskListChecklistTests : OrbitTestContext
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
 
     /// <summary>
+    /// A list is put away from its checklist and deleted only once it has been - the rule every card's
+    /// menu has followed since 2026-09-18, which this menu was outside: it offered Delete whatever
+    /// state the list was in.
+    /// </summary>
+    [Fact]
+    public void A_list_is_put_away_from_its_checklist_and_deleted_only_once_it_has_been()
+    {
+        var taskList = TaskList("Errands", Item("Buy milk"));
+        RegisterTasksApiClient([taskList]);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+
+        var entries = cut.FindAll(".avatar-dropdown-item").Select(entry => entry.TextContent.Trim()).ToList();
+        Assert.Contains("Archive", entries);
+        Assert.DoesNotContain("Delete", entries);
+    }
+
+    /// <summary>And a list already put away offers both: bringing it back, and the delete it guards.</summary>
+    [Fact]
+    public void A_list_already_put_away_offers_deleting_it_and_bringing_it_back()
+    {
+        var taskList = TaskList("Errands", Item("Buy milk")) with { IsArchived = true };
+        RegisterTasksApiClient([taskList]);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+
+        var entries = cut.FindAll(".avatar-dropdown-item").Select(entry => entry.TextContent.Trim()).ToList();
+        Assert.Contains("Put back", entries);
+        Assert.Contains("Delete", entries);
+    }
+
+    /// <summary>
     /// Shopping → [Weekend → Dairy] and Breakfast: a tree two levels deep, which is what makes the flat
     /// view worth offering at all (see HasNestedLists). The first entry goes on Dairy and the rest on
     /// Breakfast, so a test can put the same errand on two lists that are nowhere near each other.

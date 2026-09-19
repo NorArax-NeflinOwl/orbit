@@ -6889,11 +6889,21 @@ p.field-hint {
     gap: 10px;
 }
 
-/* The row of map apps, on a panel narrower than the picker's. One button per app, each as wide as its
-   own name, wrapping onto a second line rather than being squeezed - four product names abbreviated to
-   fit is four buttons nobody can tell apart. */
+/* The map apps, one under the next. A list rather than a row of buttons (asked for on 2026-09-19):
+   these are answers to one question, read down and picked from, where a row of product names side by
+   side reads as several unrelated controls - and on a panel this narrow the names were being wrapped
+   onto lines of their own anyway. */
 .map-overlay-apps {
-    gap: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.map-overlay-app {
+    width: 100%;
+    /* Left, like the entries of a menu: a list is read down its left edge, and centred names make the
+       eye travel for each one. */
+    text-align: left;
 }
 
 /* Inside a pin's own popup: what the pin is, and the way to be taken there - see locationMap.js, which
