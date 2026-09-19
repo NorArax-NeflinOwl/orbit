@@ -1283,6 +1283,11 @@ public sealed class MapPageTests : OrbitTestContext
 
         var bar = cut.Find(".map-create-event");
         Assert.Contains("Piękna 1, Warszawa", bar.TextContent, StringComparison.Ordinal);
+        // The markers move; the map is not thrown away and built again. This runs inside the draw
+        // itself, so rebuilding there leaves no map at all and no pin on it - which is what it did, and
+        // what a test renderer with no Leaflet behind it cannot show. Reported by looking at the real
+        // page on 2026-09-19; held here by the one thing a renderer can see.
+        Assert.DoesNotContain(JSInterop.Invocations, invocation => invocation.Identifier == "dispose");
     }
 
     /// <summary>And the name the link itself gave is kept, rather than replaced by whatever is there.</summary>

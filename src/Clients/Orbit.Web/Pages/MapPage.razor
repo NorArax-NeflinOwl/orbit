@@ -1657,12 +1657,17 @@ else
         {
             _hasFollowedTheLink = true;
             _linkedFrom = AsAWebAddress(From);
+            Logger.LogInformation("Following a map link that named a point");
             // Named by what the link called it while the address is looked up - a pin that says
             // "Looking up where that is…" for a second is better than one that says nothing at all.
             _foundPlace = new FoundPlace(
                 Label is { Length: > 0 } named ? named : T["Looking up where that is…"],
                 point.Latitude, point.Longitude);
-            await RedrawAsync();
+            // The markers move; the map is not rebuilt. This runs inside the draw itself (see
+            // OnAfterRenderAsync), and RedrawAsync would throw the map away halfway through drawing it -
+            // the same light refresh a press on the map uses, and for the same reason.
+            StateHasChanged();
+            await RefreshMapMarkersAsync();
             await FocusTheMapOnAsync("found", "a place a link pointed at");
 
             var address = await GeocodingApiClient.ReverseGeocodeAsync(point.Latitude, point.Longitude);
@@ -1678,7 +1683,8 @@ else
                     ? stillNamed
                     : address is { Length: > 0 } ? address : DescribeCoordinates(point.Latitude, point.Longitude)
             };
-            await RedrawAsync();
+            StateHasChanged();
+            await RefreshMapMarkersAsync();
             return;
         }
 
