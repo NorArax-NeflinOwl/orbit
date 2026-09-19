@@ -2469,18 +2469,16 @@ the session that finishes one strikes it here rather than in a report nobody rea
   (`Conversation.LastAnythingFrom`): the card said it was ordered by the most recently active
   conversation and measured that by the last message alone, so somebody online an hour ago sat under a
   conversation nobody had touched for a week. Both the row and the order read the later of the two now.
-  **The phone's own "Recent chats" card is not changed**, and read again on 2026-09-19 it is the exact
-  behaviour this entry calls wrong: `DashboardViewModel.DescribeRecentChats` orders by
-  `LocalContact.LastMessageAtUtc` and writes `Ago(contact.LastMessageAtUtc)` on the row, so the two
-  clients now answer the same question differently. What it needs, in order and none of it large:
-
-  - `LocalContact.LastSeenAtUtc`, nullable, with one additive migration. `ContactDto.LastSeenAtUtc`
-    already arrives on the phone - `ChatRepository` simply does not copy it, which is a one-line mapping
-    beside `LastMessageAtUtc`, and `GetAllAsync`'s `OrderByDescending` is the other line.
-  - The rule itself into `Orbit.Core` taking the two timestamps rather than a `ContactDto`: `Orbit.Core`
-    has no project references at all, so it cannot see Contracts. `Conversation.LastAnythingFrom` then
-    delegates to it and the phone calls it directly, which is what stops the two drifting again.
-  - The card's own order and label.
+  **And the phone's card too**, done 2026-09-19 - it had been left on the old measure, ordering by
+  `LocalContact.LastMessageAtUtc` and writing that on the row, so for a day the two clients answered the
+  same question differently. The rule now lives in `Orbit.Core.Chat.ConversationRecency`, taking the two
+  moments rather than a `ContactDto` because `Orbit.Core` has no project references at all; the browser's
+  `Conversation.LastAnythingFrom` delegates to it and the phone calls it directly, which is what stops
+  them drifting again. `LocalContact.LastSeenAtUtc` is one nullable column and one additive migration -
+  `ContactDto` had been carrying it to the phone all along and `ChatRepository` simply did not copy it.
+  `GetContactsAsync` sorts after the read rather than in the query: SQLite has no way to compare a stored
+  offset against a nullable one that reads the same on both sides, and a contact list is a few dozen rows.
+  **Not seen on a device.**
 
 ## Smaller identified follow-ups
 

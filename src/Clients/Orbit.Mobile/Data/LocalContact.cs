@@ -55,6 +55,17 @@ public sealed class LocalContact
     public DateTimeOffset LastMessageAtUtc { get; set; }
 
     /// <summary>
+    /// When this person was last here - see ContactDto.LastSeenAtUtc, which has been arriving on the
+    /// phone all along and was simply not kept. Stored because the card that reads it has to answer
+    /// offline like everything else on the dashboard, and because "when was there last anything here"
+    /// is the later of this and the message above (Orbit.Core.Chat.ConversationRecency).
+    ///
+    /// Null for an account nobody has ever seen, and for every row stored before this was kept - in
+    /// which case the message is the whole answer, which is exactly what the card said before.
+    /// </summary>
+    public DateTimeOffset? LastSeenAtUtc { get; set; }
+
+    /// <summary>
     /// Put away by this reader, and by nobody else - see ContactDto.IsArchived. One-sided on purpose:
     /// the other party's list has its own row and its own answer.
     /// </summary>

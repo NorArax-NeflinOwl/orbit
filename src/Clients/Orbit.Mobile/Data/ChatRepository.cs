@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Orbit.Contracts.Chat;
+using Orbit.Core.Chat;
 using Orbit.Mobile.Crypto;
 
 namespace Orbit.Mobile.Data;
@@ -20,14 +21,19 @@ public sealed class ChatRepository
         _timeProvider = timeProvider;
     }
 
-    /// <summary>The people this phone knows about, most recently spoken to first.</summary>
+    /// <summary>
+    /// The people this phone knows about, the one there was last anything with first - the later of
+    /// their last message and the last time they were here, which is the rule both clients read from
+    /// Orbit.Core.Chat.ConversationRecency. Sorted after the read rather than in the query: SQLite has
+    /// no way to compare a stored offset against a nullable one that reads the same on both sides, and a
+    /// contact list is a few dozen rows.
+    /// </summary>
     public async Task<IReadOnlyList<LocalContact>> GetContactsAsync(CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        return await dbContext.Contacts
-            .AsNoTracking()
-            .OrderByDescending(contact => contact.LastMessageAtUtc)
-            .ToListAsync(cancellationToken);
+        var contacts = await dbContext.Contacts.AsNoTracking().ToListAsync(cancellationToken);
+        return [.. contacts.OrderByDescending(contact =>
+            ConversationRecency.LastAnythingIn(contact.LastMessageAtUtc, contact.LastSeenAtUtc))];
     }
 
     /// <summary>
@@ -49,6 +55,7 @@ public sealed class ChatRepository
             HasGoogleVerifiedEmail = contact.HasGoogleVerifiedEmail,
             PublicKeyBase64 = contact.PublicKeyBase64,
             LastMessageAtUtc = contact.LastMessageAtUtc,
+            LastSeenAtUtc = contact.LastSeenAtUtc,
             RequiresApprovalFromCurrentUser = contact.RequiresApprovalFromCurrentUser,
             IsPendingApprovalFromOtherParty = contact.IsPendingApprovalFromOtherParty,
             PresenceStatus = contact.PresenceStatus,

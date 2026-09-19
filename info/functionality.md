@@ -5383,6 +5383,17 @@ say "nobody waiting" while one of them said otherwise — and the dashboard, the
 at, was among the silent ones. Nothing at all is drawn when nothing is waiting: an empty badge is a
 mark, and a mark means something.
 
+**"When was there last anything here" is the later of the last message and the last time they were
+here** (`Orbit.Core.Chat.ConversationRecency`, asked for 2026-09-18, on both clients since 2026-09-19).
+It was the message alone, so somebody who had been online an hour ago sat under a conversation nobody had
+touched for a week, saying "3 days ago" beside a name that had been about all morning. The two are
+different questions — one about the conversation, the other about the person — and the card asks the
+second. Both the order and the row read it, so they cannot disagree. An account nobody has ever seen has
+no last-seen, and then the message is the whole answer. The rule takes the two moments rather than a
+contact, because `Orbit.Core` has no project references and neither client's row type is visible to it;
+the phone keeps the moment on `LocalContact.LastSeenAtUtc`, which `ContactDto` had been carrying to it
+all along.
+
 **The phone draws the same count** since 2026-09-11, on its contact list: `AvatarCircle` puts it at the
 avatar's bottom-left edge by the web's rules (nothing at nought, "9+" above nine), and the row's mark
 lights for it as well as for a request to answer. It is the same `ContactDto.UnreadCount`, kept on
