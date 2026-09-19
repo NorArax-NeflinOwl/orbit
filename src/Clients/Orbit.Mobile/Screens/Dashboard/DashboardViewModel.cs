@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Orbit.Core.Chat;
 using Orbit.Core.Folders;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
@@ -1243,12 +1244,17 @@ public sealed partial class DashboardViewModel : ObservableObject
     private IReadOnlyList<DashboardRow> DescribeRecentChats(IReadOnlyList<LocalContact> contacts)
         => contacts
             .OrderByDescending(contact => contact.RequiresApprovalFromCurrentUser)
-            .ThenByDescending(contact => contact.LastMessageAtUtc)
+            // The later of the last message and the last time they were here - see
+            // Orbit.Core.Chat.ConversationRecency, and the browser's card, which reads the same rule.
+            // Ordered by it and saying it, so the row and the order cannot disagree: this card used to
+            // order by the message alone and write that on the row, which put somebody who had been
+            // about all morning under a conversation nobody had touched for a week.
+            .ThenByDescending(LastAnythingWith)
             .Take(RowsPerCard)
             .Select(contact => new DashboardRow(
                 contact.UserId,
                 contact.DisplayName,
-                contact.RequiresApprovalFromCurrentUser ? _translations["Wants to chat"] : Ago(contact.LastMessageAtUtc))
+                contact.RequiresApprovalFromCurrentUser ? _translations["Wants to chat"] : Ago(LastAnythingWith(contact)))
             {
                 // Messages waiting from this person (LocalContact.UnreadCount, as Orbit.Web marks the
                 // row), or a notification that points at them (ChatMessagePushContent) - either is news.
@@ -1257,6 +1263,10 @@ public sealed partial class DashboardViewModel : ObservableObject
                 Presence = contact.PresenceStatus
             })
             .ToList();
+
+    /// <summary>When there was last anything with this person - see Orbit.Core.Chat.ConversationRecency.</summary>
+    private static DateTimeOffset LastAnythingWith(LocalContact contact)
+        => ConversationRecency.LastAnythingIn(contact.LastMessageAtUtc, contact.LastSeenAtUtc);
 
     /// <summary>
     /// A plain directory, alphabetical. Leaves out conversations nobody has answered yet, so an
@@ -1327,19 +1337,11 @@ public sealed partial class DashboardViewModel : ObservableObject
     /// Coarse on purpose. A dashboard row is glanced at, and "3 days ago" answers what somebody wants to
     /// know there better than a date they then have to work out.
     /// </summary>
-    private string Ago(DateTimeOffset moment)
-    {
-        var elapsed = _timeProvider.GetUtcNow() - moment;
-
-        return elapsed switch
-        {
-            { TotalMinutes: < 1 } => _translations["Just now"],
-            { TotalHours: < 1 } => _translations.Format("{0}m ago", (int)elapsed.TotalMinutes),
-            { TotalDays: < 1 } => _translations.Format("{0}h ago", (int)elapsed.TotalHours),
-            { TotalDays: < 30 } => _translations.Format("{0}d ago", (int)elapsed.TotalDays),
-            _ => moment.ToLocalTime().ToString("d MMM yyyy", _translations.DisplayCulture)
-        };
-    }
+    /// <summary>
+    /// How long ago, in the one wording the app uses - see RelativeMoment, which the contact rows read
+    /// too so the same conversation cannot be described two ways on two screens.
+    /// </summary>
+    private string Ago(DateTimeOffset moment) => RelativeMoment.Ago(moment, _timeProvider, _translations);
 
     private string TitleOrPlaceholder(string title, string placeholder)
         => title.Trim() is { Length: > 0 } trimmed ? trimmed : placeholder;

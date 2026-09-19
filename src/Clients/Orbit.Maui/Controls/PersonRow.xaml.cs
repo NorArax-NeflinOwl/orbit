@@ -44,6 +44,28 @@ public partial class PersonRow : ContentView
 		nameof(UnreadCount), typeof(int), typeof(PersonRow), 0,
 		propertyChanged: (row, _, value) => ((PersonRow)row).Face.UnreadCount = value is int count ? count : 0);
 
+	/// <summary>
+	/// When there was last anything to read here, written at the trailing edge. Already in words, and
+	/// in the reader's language: this control has no dictionary, and the screens that fill it share one
+	/// wording through Orbit.Mobile's RelativeMoment. Empty leaves the slot out entirely, so a list of
+	/// people nobody has written to does not grow a column of blanks.
+	/// </summary>
+	public static readonly BindableProperty WhenProperty = BindableProperty.Create(
+		nameof(When), typeof(string), typeof(PersonRow), string.Empty, propertyChanged: OnWhenChanged);
+
+	public string When
+	{
+		get => (string)GetValue(WhenProperty);
+		set => SetValue(WhenProperty, value);
+	}
+
+	private static void OnWhenChanged(BindableObject bindable, object oldValue, object newValue)
+	{
+		var row = (PersonRow)bindable;
+		row.WhenLabel.Text = newValue as string ?? string.Empty;
+		row.WhenLabel.IsVisible = !string.IsNullOrWhiteSpace(row.WhenLabel.Text);
+	}
+
 	/// <summary>Keeping this row at the top of its list, where that is the reader's to decide.</summary>
 	public static readonly BindableProperty PinProperty = BindableProperty.Create(
 		nameof(Pin), typeof(View), typeof(PersonRow),

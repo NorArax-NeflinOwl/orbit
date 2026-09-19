@@ -52,15 +52,18 @@ public partial class InventoryDetailPage : ContentPage, ITitleMenu
 			_translations["Share"],
 			() => Sharing.IsVisible = !Sharing.IsVisible,
 			Sharing.IsVisible,
-			canBeChosen: !_viewModel.IsPrivate));
+			canBeChosen: !_viewModel.IsPrivate,
+			note: _viewModel.IsPrivate ? _translations["A private item is only ever yours."] : null));
 
 		// Which smaller shelves this one gathers - see Orbit.Core.Inventories.Inventory.GathersInventoryIds.
 		// Greyed rather than hidden where it cannot be done, as everything needing a connection is: the
-		// reader learns the option exists and what it is waiting for.
+		// reader learns the option exists and what it is waiting for - which it now says, since greying
+		// on its own says only the first half of that.
 		entries.Add(new ScreenMenuEntry(
 			_translations["Inventories gathered here"],
 			() => _viewModel.ArrangeTheGroupCommand.Execute(null),
-			canBeChosen: _viewModel.CanArrangeTheGroup));
+			canBeChosen: _viewModel.CanArrangeTheGroup,
+			note: _viewModel.WhyTheGroupCannotBeArranged));
 
 		// The other way out of a list, and immediately above Delete on purpose: somebody reaching for
 		// Delete because they want this out of the way should meet it first - one of the two is

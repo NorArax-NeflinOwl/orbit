@@ -73,12 +73,17 @@ public partial class MapPage : ContentPage, Orbit.Maui.Controls.ITitleMenu
 			// stopping is per person, on the list screen - which is where the design puts it too.
 			new(_translations["Sharing"],
 			[
+				// Greyed until a position has been read, and saying so: "Send once" with nothing to
+				// send is an entry that does nothing when pressed, and the reader has no way to guess
+				// that recording where they are is the missing step - see ScreenMenuEntry.Note.
 				new(_translations["Send once"],
 					() => _viewModel.ShareOnceCommand.Execute(null),
-					canBeChosen: _viewModel.HasOwnPosition),
+					canBeChosen: _viewModel.HasOwnPosition,
+					note: _viewModel.HasOwnPosition ? null : _translations["Record where you are first."]),
 				new(_translations["Keep sharing"],
 					() => _viewModel.KeepSharingCommand.Execute(null),
-					canBeChosen: _viewModel.HasOwnPosition)
+					canBeChosen: _viewModel.HasOwnPosition,
+					note: _viewModel.HasOwnPosition ? null : _translations["Record where you are first."])
 			]),
 
 			// How many, where there are any: a standing "0" beside a list nobody is on is not news, the

@@ -287,6 +287,16 @@ is an answer nobody finds. So is a list that is empty right now ("No contacts ye
 that exists only while the screen is waiting for it (the map's "Click the map to drop a pin." until one
 is dropped).
 
+**And every page of cards can say it** (2026-09-19). A press on a card that the server refuses leaves the
+card exactly as it was — which is also what a press that never registered looks like, so the failure has
+to be words rather than the absence of a change. Tasks and the notes had a line for it; the calendar had
+nowhere to say anything at all, and four of its actions logged the refusal and returned (delete a
+deadline, put an event away or bring it back, copy one, delete one). The notes' own pin and archive were
+silent the same way, including the branch where the client answers *no* rather than throwing — a refusal
+that is a `false` is as invisible as one that is an exception. All six say so now, in the page's own
+`error` line. A read nobody asked for stays silent: the background re-read behind a notification is still
+correct about everything it knew a moment ago.
+
 **The phone does the same thing its own way** (`Orbit.Maui/Controls/FieldHint.xaml`). There is no hover
 on a phone, so the mark is tapped; and what it opens is the sentence itself, in place under the name,
 rather than a bubble over the page — a phone has no room for a layer, and text that appears where it
@@ -1004,8 +1014,11 @@ gathered, staying open so several can be moved in one visit. A tick is written s
 the restock list's settings are and unlike everything else the phone edits: how a group is arranged is not
 part of what the shelf holds, and there is nothing local for it to be true of in the meantime. So it needs
 a connection, and is greyed rather than hidden without one - along with a shelf the server has never seen,
-a sealed one, and one reached through a share, which is its owner's to arrange. A refusal is said in
-words: the one rule a reader can trip over from here is a shelf that already gathers this one.
+a sealed one, and one reached through a share, which is its owner's to arrange. **Which of the four it is
+is said under the entry** (`WhyTheGroupCannotBeArranged`, 2026-09-19): being back online is a matter of
+waiting, and saying that to somebody holding a shelf shared with them would be telling them to wait for
+something that is never going to happen. A refusal is said in words too: the one rule a reader can trip
+over from here is a shelf that already gathers this one.
 
 **And a save of the shelf crosses off what it now answers** (2026-09-18). The rule is
 `StockedEntryCompletion`'s and a save of a *list* has always gone through it; this is the same question
@@ -2837,6 +2850,19 @@ links) — either of the last two would make completion resolution loop forever 
 validation failure throws `InvalidRequestException` and comes back as a **400 carrying the reason** —
 see [Refusing a request](#refusing-a-request).
 
+**A link to a list that is gone is dropped rather than sent** (2026-09-19, issue #186). A list deleted
+somewhere else leaves the entry that stood for it pointing at nothing, and both clients used to send that
+on: the browser read every stored link into its form and sent them back untouched, and the phone's
+synchroniser sent the entry exactly as stored. The server then refused the **whole save** with the
+sentence above — so every later save of that list failed too, over an entry nobody could see was broken.
+Seen in production on 2026-08-27. The browser drops such links as it fills the form
+(`TaskEditor.IsStillAList`, against every list this reader can read, which is a superset of what the
+server checks) and says so in a line on the page; the phone drops them on the way out
+(`TaskListSynchronizer.ListsStillHereAsync`). A **way** pointing at a gone list keeps its words and loses
+the link, becoming a line to tick by hand — which is what it now is. An **archived** list is still a
+list, so a link to one is left alone. A refusal nobody can act on is worse than a dead link quietly
+falling away.
+
 **The editor asks the same question before it offers the link.** Its "link to list" dropdown leaves out
 every list that links back to the one being edited, however long the chain - so a link that would be
 refused is never offered in
@@ -3078,7 +3104,9 @@ wrong for a field that is a button: "Add tag" is two words wide, and on a phone 
 tick, name, count and two colour buttons squeezed into about ninety pixels, the names ellipsised away to
 nothing behind a sideways scrollbar. It is now at least wide enough for a row and never wider than the
 window, and **on a narrow screen a long word wraps** rather than ending in an ellipsis that hides which
-word it is.
+word it is. Those three rules are checked in a real browser by `ci/verify-menu-anchor.mjs` — the floor,
+the window winning over the floor, and a panel asked for no floor still being exactly its field's width,
+which is what the name suggestions depend on.
 
 Every entry can be filed under as many categories as apply — free text, read back along the field with
 commas between the words, the way a shelf item's category is written, and chosen from every category
@@ -4948,6 +4976,21 @@ the calendar's entries take the mark and nothing sets it, for the reason its tab
 browser. Unlike the browser the open folder is marked too: a menu is read as a list of places to go to,
 and leaving one out of the marking would read as that place holding nothing.
 
+**A greyed entry in that menu says why it is greyed** (`ScreenMenuEntry.Note`, 2026-09-19) — the phone's
+half of the rule above, which the browser has kept on a control's own `title` since 2026-09-11. Greying
+alone tells the reader that the option exists and nothing about what it is waiting for, which reads as a
+press that did not register. Said as a second line under the label, and spoken as part of the entry
+(`ScreenMenuEntry.Spoken`), since greying is a colour and a colour says nothing to somebody who cannot
+see it. Every greyed entry on the phone now carries one: **Share** on a note, a task list and a shelf
+(*a private item is only ever yours*), **Inventories gathered here**
+(`InventoryDetailViewModel.WhyTheGroupCannotBeArranged`, which tells apart a private shelf, somebody
+else's, one the server has never seen, and no connection), the map's **Send once** / **Keep sharing**
+(*record where you are first*), the notification feed's **Delete history** and **Mark all read** (which
+say it as the menu's heading, since it is the same reason for both), and **Show what is put away** in
+contacts (*nothing is put away*). Where the reason fits in the label
+itself it stays there instead — `TaskItemSummaryPage`'s "No other list yet" is a greyed entry that is
+entirely its own explanation.
+
 **Which cards can say which row, and which can only say "here".** It depends on what the notification's
 address names, not on the card:
 
@@ -5352,6 +5395,46 @@ does not clear it: tidying is not reading. It was on the chat page alone, which 
 say "nobody waiting" while one of them said otherwise — and the dashboard, the first thing a visit looks
 at, was among the silent ones. Nothing at all is drawn when nothing is waiting: an empty badge is a
 mark, and a mark means something.
+
+**"When was there last anything here" is the later of the last message and the last time they were
+here** (`Orbit.Core.Chat.ConversationRecency`, asked for 2026-09-18, on both clients since 2026-09-19).
+It was the message alone, so somebody who had been online an hour ago sat under a conversation nobody had
+touched for a week, saying "3 days ago" beside a name that had been about all morning. The two are
+different questions — one about the conversation, the other about the person — and the card asks the
+second. Both the order and the row read it, so they cannot disagree. An account nobody has ever seen has
+no last-seen, and then the message is the whole answer. The rule takes the two moments rather than a
+contact, because `Orbit.Core` has no project references and neither client's row type is visible to it;
+the phone keeps the moment on `LocalContact.LastSeenAtUtc`, which `ContactDto` had been carrying to it
+all along.
+
+**And an emptied conversation is read off the messages, not off the contact row** (2026-09-19).
+`Contact.LastMessageAtUtc` is moved forward when a message is sent and **never moved back**, so it
+already *is* the last message's time — with one exception, which is the whole of this: a reader who
+empties the conversation hides everything before `HistoryClearedAtUtc`, and the row went on saying "3
+days ago" beside a conversation showing nothing at all. `GetContactsQueryHandler.LastMessageIn` asks the
+messages, and **only about the emptied conversations** — for most readers that is none of them and the
+query is not run at all, which matters because this list is re-read on every poll tick. The cleared line
+is applied in the handler rather than in the query: it is a fact about one reader, and the query answers
+for both ends. Where nothing is visible the row's own time stands — that is still when the conversation
+was last active, which is what orders the list. The phone does the same from its own store
+(`ChatRepository.LastMessageTimesAsync`), and holding none of somebody's messages is not the same as
+there being none, so a conversation it has never opened keeps the row's answer.
+
+**Both clients' `PersonRow` shows it** at the trailing edge, and nothing at all where there is nothing to
+say. On the browser it is only on the **Chats** tab: Contacts is a directory in alphabetical order, and a
+time on a list nothing is ordered by is a number with no question behind it. The words come from each
+client's own `RelativeMoment` — one wording per client, so a row and the card summarising it cannot
+describe the same moment two ways.
+
+**Every list that ranks people as conversations reads it** — the dashboard card, the Contacts page's
+**Chats** tab, the chat page's own list and its forwarding drawer, and on the phone everything
+`ChatRepository.GetContactsAsync` hands out. The card is the top of the Chats tab, so two orders would
+have that list reshuffle itself the moment somebody clicked through from one to the other. A **group**
+answers with its last message and nothing else, because a group is not somebody who can have been here;
+each conversation answers the one question with everything it has, which is what keeps a mixed list
+comparable rather than two measures on one list. Two lists are deliberately left on the message alone:
+the **archive**, where the question is "what did I put away last" rather than "where is there life", and
+a contact card's own **Last message** row, which sits beside **Last active** and names what it shows.
 
 **The phone draws the same count** since 2026-09-11, on its contact list: `AvatarCircle` puts it at the
 avatar's bottom-left edge by the web's rules (nothing at nought, "9+" above nine), and the row's mark

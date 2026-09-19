@@ -653,7 +653,8 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 				_translations["Share"],
 				() => Sharing.IsVisible = !Sharing.IsVisible,
 				Sharing.IsVisible,
-				canBeChosen: !_viewModel.IsPrivate));
+				canBeChosen: !_viewModel.IsPrivate,
+				note: _viewModel.IsPrivate ? _translations["A private item is only ever yours."] : null));
 
 			// Several boxes changed with one press - the browser selects them with Shift+click, which a
 			// phone has no way to do. Offered only where there are two boxes to choose from.

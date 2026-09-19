@@ -245,6 +245,41 @@ public sealed class ChatMessageRepository : IChatMessageRepository
 
         return counts.ToDictionary(entry => entry.SenderUserId, entry => entry.Count);
     }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<Guid, DateTimeOffset>> GetLastMessageTimesAsync(
+        Guid readerUserId, IReadOnlyCollection<Guid> otherUserIds, CancellationToken cancellationToken)
+    {
+        if (otherUserIds.Count == 0)
+        {
+            return new Dictionary<Guid, DateTimeOffset>();
+        }
+
+        // Both directions, keyed by whoever the other party is - a conversation's last message is its
+        // last message whichever end it came from. Both halves lead on an indexed column
+        // (SenderUserId, RecipientUserId) and (RecipientUserId, SenderUserId), so the OR is two index
+        // reads rather than a scan. GroupId == null for the reason the counts above give: in a
+        // two-person group a copy carries the same pair as a one-to-one message, and would make the
+        // conversation beside it look busier than it is.
+        var wanted = otherUserIds as IReadOnlyList<Guid> ?? [.. otherUserIds];
+        var times = await _dbContext.ChatMessages
+            .AsNoTracking()
+            .Where(message => message.GroupId == null
+                && ((message.SenderUserId == readerUserId && wanted.Contains(message.RecipientUserId))
+                    || (message.RecipientUserId == readerUserId && wanted.Contains(message.SenderUserId))))
+            .GroupBy(message => message.SenderUserId == readerUserId
+                ? message.RecipientUserId
+                : message.SenderUserId)
+            .Select(byOtherParty => new
+            {
+                OtherUserId = byOtherParty.Key,
+                LastSentAtUtc = byOtherParty.Max(message => message.SentAtUtc)
+            })
+            .ToListAsync(cancellationToken);
+
+        return times.ToDictionary(entry => entry.OtherUserId, entry => entry.LastSentAtUtc);
+    }
+
     public async Task<IReadOnlyDictionary<Guid, int>> GetGroupUnreadCountsAsync(
         Guid readerUserId, CancellationToken cancellationToken)
     {

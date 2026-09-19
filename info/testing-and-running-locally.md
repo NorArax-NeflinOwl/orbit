@@ -355,6 +355,69 @@ What happens on the C# side of that — no VAPID key meaning the browser is neve
 registering nothing, and what reaches `/api/push` when somebody does say yes — is
 `PushNotificationManagerTests`, against a stub standing in for the module above.
 
+### A note surviving its writing surface, in a real browser
+
+`ci/verify-note-surface.mjs` is the third of these, and it exists because of a fault rather than a
+feature. `wwwroot/js/checklistTextEditor.js` is the surface a note is written on, and `extractLines` —
+the read of it that every keystroke and every save makes — knew a table and a picture and not a
+separator, so a rule drawn across a note was stored as an empty line by the very next read. Nothing
+threw, nothing logged, and no test in this repository could have seen it: the whole of it is in a
+browser module. The user saw it twice, from both ends, and it took two days and issue #294 to name.
+
+So the check is the round trip and nothing else. Fourteen kinds of line — ordinary writing, each style,
+a ticked errand, a crossed one, words with a mark on them, a table, a rule with a stamp and a rule
+without — go in through `initialize`, and `getLinesAsJson` reads the surface back. A line that comes
+back saying something different is the failure, and a kind of line the read does not know comes back as
+an empty one, which is exactly the shape of the fault.
+
+It runs in the `test` job of `main_orbit.yml` beside the other two, on the browser they already
+installed. By hand:
+
+```bash
+npm install --no-save playwright@1 && npx playwright install chromium && node ci/verify-note-surface.mjs
+```
+
+### A panel landing where it belongs, in a real browser
+
+`ci/verify-menu-anchor.mjs` covers `wwwroot/js/menuAnchor.js`, which is every edge of every panel drawn
+outside the flow — the menus and the browsers are `position: fixed` because a dropdown inside a scroller
+is clipped however high its z-index, and fixed means each of their edges is arithmetic done in that
+module. All of it is `getBoundingClientRect` and `window.innerWidth`, and bUnit's DOM measures every box
+as zero, so none of it was checkable in the suite.
+
+Seven checks, and the two that matter most are about the floor added on 2026-09-18: a panel hanging off a
+narrow button (the tag browser off "Add tag") is not squeezed below it, a panel asked for no floor is
+still exactly its field's width (what the name suggestions rely on), and a floor wider than the window
+gives way to the window rather than hanging off the edge it was meant to fit inside. The rest: a panel
+takes a wide field's width, never hangs off the right, opens above its field when there is no room below,
+and a menu anchored to a trigger near the right edge is pulled back on screen.
+
+```bash
+npm install --no-save playwright@1 && npx playwright install chromium && node ci/verify-menu-anchor.mjs
+```
+
+### The map's pins following a refresh, in a real browser
+
+`ci/verify-map-markers.mjs` covers `updateLocations` in `wwwroot/js/locationMap.js`, which is what the
+map's Refresh button actually calls. It is deliberately not a redraw: the pan and the zoom it was pressed
+from are kept, a pin that moved is moved in place so an open popup somebody pressed to read survives, a
+pin that arrived is added, and one that is gone is taken off. Every one of those is invisible from
+outside — a refresh that silently did nothing looks exactly like a refresh with nothing new behind it,
+which is how "Refresh on the map does nothing" (issue #293) came to be unreproducible from the code.
+
+Seven checks, against a real Leaflet map built from `wwwroot/vendor/leaflet`. The tiles are stubbed
+rather than fetched: they are the one third-party request Orbit makes, they say nothing about which pins
+are on the map, and `mapTiles.js` is already the seam that lets a reader refuse them, so a map without
+them is a state the page supports rather than one invented here.
+
+The one to be careful with is the popup. A refresh that *replaced* a marker leaves the old one behind
+still holding its popup open, which looks like the popup surviving — so that check also counts the pins,
+and was written by putting the fault in and watching it go red.
+
+```bash
+npm install --no-save playwright@1 && npx playwright install chromium && node ci/verify-map-markers.mjs
+```
+
 ## Running locally
 
 The simplest way to run the whole stack is Docker Compose, which builds the API and the web client and

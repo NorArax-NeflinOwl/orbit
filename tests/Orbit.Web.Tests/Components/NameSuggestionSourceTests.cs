@@ -87,8 +87,14 @@ public sealed class NameSuggestionSourceTests : OrbitTestContext
             () => Assert.Single(cut.FindAll(".name-suggestion-option")), TimeSpan.FromSeconds(5));
 
         Assert.DoesNotContain("in Burger", cut.Find(".name-suggestion-option").TextContent, StringComparison.Ordinal);
+        var rendersBefore = cut.RenderCount;
         cut.Find(".name-suggestion-option").Click();
 
+        Assert.True(
+            chosen is not null,
+            $"nothing was chosen. picked={(picked is null ? "null" : picked.Name)}, "
+                + $"renders before the press={rendersBefore}, after={cut.RenderCount}, "
+                + $"options now={cut.FindAll(".name-suggestion-option").Count}");
         Assert.Equal("Sauce", chosen);
         Assert.Null(picked);
     }

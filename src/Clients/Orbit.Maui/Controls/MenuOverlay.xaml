@@ -54,20 +54,29 @@
                                             <!-- A Label with the press over it rather than a Button: a
                                                  Button centres its text and offers no way to say
                                                  otherwise, and a menu of centred entries is not a menu. -->
-                                            <Label Grid.Column="1" Text="{Binding Label}" FontSize="13.5"
-                                                   VerticalOptions="Center" LineBreakMode="WordWrap"
-                                                   TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}">
-                                                <Label.Triggers>
-                                                    <DataTrigger TargetType="Label" Binding="{Binding IsChosen}" Value="True">
-                                                        <Setter Property="FontAttributes" Value="Bold" />
-                                                        <Setter Property="TextColor"
-                                                                Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
-                                                    </DataTrigger>
-                                                    <DataTrigger TargetType="Label" Binding="{Binding CanBeChosen}" Value="False">
-                                                        <Setter Property="Opacity" Value="0.45" />
-                                                    </DataTrigger>
-                                                </Label.Triggers>
-                                            </Label>
+                                            <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                                                <Label Text="{Binding Label}" FontSize="13.5"
+                                                       LineBreakMode="WordWrap"
+                                                       TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}">
+                                                    <Label.Triggers>
+                                                        <DataTrigger TargetType="Label" Binding="{Binding IsChosen}" Value="True">
+                                                            <Setter Property="FontAttributes" Value="Bold" />
+                                                            <Setter Property="TextColor"
+                                                                    Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger TargetType="Label" Binding="{Binding CanBeChosen}" Value="False">
+                                                            <Setter Property="Opacity" Value="0.45" />
+                                                        </DataTrigger>
+                                                    </Label.Triggers>
+                                                </Label>
+                                                <!-- Why this entry is greyed, where it is - see
+                                                     ScreenMenuEntry.Note. Drawn at full opacity on
+                                                     purpose: it is the one part of a greyed entry that
+                                                     is meant to be read. -->
+                                                <Label Text="{Binding Note}" IsVisible="{Binding HasNote}"
+                                                       FontSize="11" LineBreakMode="WordWrap"
+                                                       Style="{StaticResource SubtleLabel}" />
+                                            </VerticalStackLayout>
 
                                             <!-- How many things the entry stands for, and whether any of
                                                  them is something the reader has not seen - see
@@ -87,7 +96,7 @@
                                                     MinimumHeightRequest="0" MinimumWidthRequest="0"
                                                     Command="{Binding ChooseCommand}"
                                                     IsEnabled="{Binding CanBeChosen}"
-                                                    SemanticProperties.Description="{Binding Label}" />
+                                                    SemanticProperties.Description="{Binding Spoken}" />
                                         </Grid>
                                     </DataTemplate>
                                 </BindableLayout.ItemTemplate>

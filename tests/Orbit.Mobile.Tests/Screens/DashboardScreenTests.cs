@@ -482,6 +482,58 @@ public sealed class DashboardScreenTests
         Assert.Equal("Zoe", Assert.Single(directory.Rows).Title);
     }
 
+    /// <summary>
+    /// "Recent chats" is measured by the later of the last message and the last time they were here -
+    /// the rule the browser's card was given on 2026-09-18, which this one had not been. Somebody about
+    /// all morning sat under a conversation nobody had touched for a week, and the row said so too.
+    /// See Orbit.Core.Chat.ConversationRecency. 2026-09-19.
+    /// </summary>
+    [Fact]
+    public async Task Recent_chats_counts_being_here_as_well_as_writing()
+    {
+        using var context = new DashboardContext();
+        var now = Now;
+        await context.AddContactAsync(
+            "Wrote last week", requiresMyApproval: false,
+            lastMessageAtUtc: now.AddDays(-7), lastSeenAtUtc: now.AddDays(-7));
+        await context.AddContactAsync(
+            "Here this morning", requiresMyApproval: false,
+            lastMessageAtUtc: now.AddDays(-30), lastSeenAtUtc: now.AddHours(-2));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var recent = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.RecentChats);
+        Assert.Equal(["Here this morning", "Wrote last week"], recent.Rows.Select(row => row.Title));
+        // And the row says the same thing the order does. It used to say the message's age, so a name
+        // that had been about for two hours read "30d ago" - which is the half of this the user saw.
+        Assert.Equal("2h ago", recent.Rows[0].Detail);
+        Assert.Equal("7d ago", recent.Rows[1].Detail);
+    }
+
+    /// <summary>
+    /// And an account nobody has ever seen is answered for by its message alone, which is what every row
+    /// stored before this was kept reads as.
+    /// </summary>
+    [Fact]
+    public async Task A_person_nobody_has_seen_is_placed_by_their_last_message()
+    {
+        using var context = new DashboardContext();
+        var now = Now;
+        await context.AddContactAsync(
+            "Never seen, wrote today", requiresMyApproval: false,
+            lastMessageAtUtc: now.AddHours(-1), lastSeenAtUtc: null);
+        await context.AddContactAsync(
+            "Seen yesterday", requiresMyApproval: false,
+            lastMessageAtUtc: now.AddDays(-9), lastSeenAtUtc: now.AddDays(-1));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var recent = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.RecentChats);
+        Assert.Equal(["Never seen, wrote today", "Seen yesterday"], recent.Rows.Select(row => row.Title));
+    }
+
     [Fact]
     public async Task The_cards_come_in_the_order_the_web_lays_them_out()
     {
@@ -1905,11 +1957,21 @@ public sealed class DashboardScreenTests
         /// replaced away by the first sync, as it would be on a real device.
         /// </summary>
         public async Task<Guid> AddContactAsync(string displayName, bool requiresMyApproval)
+            => await AddContactAsync(displayName, requiresMyApproval, _clock.GetUtcNow(), lastSeenAtUtc: null);
+
+        /// <summary>
+        /// The same, with both moments said out loud - which is what "when was there last anything
+        /// here" is worked out from. See Orbit.Core.Chat.ConversationRecency.
+        /// </summary>
+        public async Task<Guid> AddContactAsync(
+            string displayName, bool requiresMyApproval,
+            DateTimeOffset lastMessageAtUtc, DateTimeOffset? lastSeenAtUtc)
         {
             var userId = Guid.NewGuid();
             _chatServer.Contacts.Add(new Contracts.Chat.ContactDto(
                 userId, $"user{userId:N}", displayName, $"{userId:N}@orbit.example", null,
-                _clock.GetUtcNow(), requiresMyApproval, IsPendingApprovalFromOtherParty: false));
+                lastMessageAtUtc, requiresMyApproval, IsPendingApprovalFromOtherParty: false,
+                LastSeenAtUtc: lastSeenAtUtc));
             await _chat.StoreContactsAsync(_chatServer.Contacts);
             return userId;
         }
