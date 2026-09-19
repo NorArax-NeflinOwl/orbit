@@ -30,6 +30,7 @@ public sealed class TaskItemReferencesTests
                 new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryItemRepository(),
                 new InMemoryInventoryRepository(), new InMemoryTaskRepository()),
             new StockedEntryCompletion(new InMemoryInventoryRepository(), new InMemoryInventoryItemRepository()),
+            new StockedEntryStock(new InMemoryInventoryItemRepository()),
             new InventoryTestContext().ProductEntryPlacement);
 
     private async Task<TaskList> AListAsync(string title, params TaskItem[] items)

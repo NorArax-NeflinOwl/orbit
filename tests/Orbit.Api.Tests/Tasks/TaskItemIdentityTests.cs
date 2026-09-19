@@ -127,7 +127,8 @@ public sealed class TaskItemIdentityTests
                         new InMemoryInventoryRepository(), new InMemoryTaskRepository()),
                     new StockedEntryCompletion(
                         new InMemoryInventoryRepository(), new InMemoryInventoryItemRepository()),
-                    new InventoryTestContext().ProductEntryPlacement)
+                    new StockedEntryStock(new InMemoryInventoryItemRepository()),
+            new InventoryTestContext().ProductEntryPlacement)
                 .HandleAsync(
                     new UpdateTaskListCommand(
                         _userId, listId, "Saturday", items, IsGroup: false, IsPrivate: false, null),

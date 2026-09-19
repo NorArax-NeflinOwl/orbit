@@ -328,7 +328,7 @@ else
                                    asks for together is the floor the shelf's minimum never drops below. *@
                                 @if (product.Product.Id is not null)
                                 {
-                                    <label>@T["This entry needs"]<FieldHint>@T["How much of it this entry asks for. The shelf's minimum never drops below what all your lists ask for together."]</FieldHint>
+                                    <label>@T["This entry needs"]<FieldHint>@T["How much of it this entry asks for. Ticking the entry puts that much on the shelf and unticking takes it back off; the shelf's minimum never drops below what all your lists ask for together."]</FieldHint>
                                         <InputNumber TValue="decimal?" @bind-Value="item.RequiredQuantity" step="0.01" />
                                     </label>
                                 }

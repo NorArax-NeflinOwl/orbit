@@ -427,6 +427,9 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<InventoryItemsSaver>();
         services.AddScoped<RestockCompletion>();
         services.AddScoped<StockedEntryCompletion>();
+        // What a tick on a product entry puts on the shelf, and what an untick takes back - see
+        // StockedEntryStock, and TaskItemStock for how it keeps count.
+        services.AddScoped<StockedEntryStock>();
         services.AddScoped<RestockListRefresh>();
         services.AddScoped<ProductEntryPlacement>();
         // Which lists are Orbit's own rather than the reader's, so neither count below counts one twice.

@@ -240,8 +240,10 @@ public static class PolishTranslations
         ["Make it separate"] = "Rozdziel",
         ["Use this one"] = "Użyj tego",
         ["This entry needs"] = "Ta pozycja potrzebuje",
-        ["How much of it this entry asks for. The shelf's minimum never drops below what all your lists ask for together."] =
-            "Ile tego potrzebuje ta pozycja. Minimum w magazynie nigdy nie spada poniżej tego, czego potrzebują razem wszystkie Twoje listy.",
+        // What the amount does as well as what it means, since 2026-09-19: ticking the entry is what
+        // puts it on the shelf - see Orbit.Core.Inventories.StockedEntryStock.
+        ["How much of it this entry asks for. Ticking the entry puts that much on the shelf and unticking takes it back off; the shelf's minimum never drops below what all your lists ask for together."] =
+            "Ile tego potrzebuje ta pozycja. Zaznaczenie pozycji dodaje tę ilość do stanu magazynowego, a odznaczenie ją odejmuje; minimum w magazynie nigdy nie spada poniżej tego, czego potrzebują razem wszystkie Twoje listy.",
         ["Your lists ask for {0} of this, so it is never kept below that."] =
             "Twoje listy potrzebują tego {0}, więc stan nigdy nie jest utrzymywany poniżej tej wartości.",
         // The same sentence with the lists named - see InventoryEditor and ShelfDemand.

@@ -42,6 +42,7 @@ public sealed class ProductEntryPlacementTests
                 new TaskListLinkValidator(_context.TaskRepository),
                 _context.RestockCompletion,
                 _context.StockedEntryCompletion,
+                _context.StockedEntryStock,
                 _context.ProductEntryPlacement)
             .HandleAsync(
                 new UpdateTaskListCommand(

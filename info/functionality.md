@@ -1007,14 +1007,16 @@ a connection, and is greyed rather than hidden without one - along with a shelf 
 a sealed one, and one reached through a share, which is its owner's to arrange. A refusal is said in
 words: the one rule a reader can trip over from here is a shelf that already gathers this one.
 
-**And a save of the shelf crosses off what it now answers** (2026-09-18). The rule is
-`StockedEntryCompletion`'s and a save of a *list* has always gone through it; this is the same question
-asked from the other end, which is where it was missing - somebody stocking a shelf put four of something
-on it and the list standing in front of them went on asking until they next opened that list. Only the
-reader's own lists, only those holding an outstanding entry for a row on this shelf, and last of the
-three steps, because what the shelf covers depends on the count the write-back may just have moved. A
-list that moved is stamped as changed (`TaskList.RecountWhatIsDone`), so the tick reaches every other
-copy of it.
+**And a save of the shelf crosses off what it now answers** (2026-09-18), **and puts back what it has
+stopped answering** (2026-09-19). The rule is `StockedEntryCompletion`'s and a save of a *list* has
+always gone through it; this is the same question asked from the other end, which is where it was
+missing - somebody stocking a shelf put four of something on it and the list standing in front of them
+went on asking until they next opened that list. Only the reader's own lists, every list standing on
+this shelf rather than only those still asking for something - an entry the shelf crossed off is on a
+list with nothing outstanding, and that is exactly the one a count dropping back has to reopen - and
+last of the three steps, because what the shelf covers depends on the count the write-back may just
+have moved. A list that moved either way is stamped as changed (`TaskList.RecountWhatIsDone`), so the
+tick reaches every other copy of it.
 
 **The phone** offers the same picks under the entry's name as chips. After a pick it shows the '!' note
 and **Make it separate**. It sets only the words and the pointer; the group's details arrive with the
@@ -3606,11 +3608,32 @@ so the phone and older tabs can go on saving lists without emptying it.
 shelf, that row is what knows whether the entry has been met, so an entry whose row holds at least what it
 asked to keep is completed without anybody ticking it (`StockedEntryCompletion`). It happens where the
 storage is generated - the rows are known there already, so nothing is read back - and on every later save
-of the list, which costs nothing for a list with no outstanding inventory entry. Only ever crossed off,
-never back: a tick somebody put there is theirs, and a crossed-off restock errand is what tells the shelf
-it was filled (`RestockCompletion`). Two rows answer nothing whatever their count says - one with no
-minimum, which was left to the counting rule, and one marked to be looked at every round, where crossing
-off answers "have you looked" (`InventoryItem.BelongsOnTheRestockList`).
+of the list, which costs nothing for a list with no entry standing for a shelf row. Two rows answer
+nothing whatever their count says - one with no minimum, which was left to the counting rule, and one
+marked to be looked at every round, where crossing off answers "have you looked"
+(`InventoryItem.BelongsOnTheRestockList`).
+
+**What the shelf crossed off, the shelf reopens** (2026-09-19). Counting a product back down past what
+the lists need puts that work in front of the reader again, the same way counting it up took it away -
+from either end: a save of the list, and a save of the shelf. **Only its own**: an entry crossed off
+this way is marked as the shelf's doing (`TaskItemStock.CrossedOffByTheShelf`, `OP_TI_STOCK`), and a
+tick somebody put there by hand stays whatever the count does - taking it away because a number moved
+would be arguing with them, and a crossed-off restock errand is what tells the shelf it was filled
+(`RestockCompletion`). Entries crossed off before the column existed read as ticked by hand and are
+left alone, which is the safe direction.
+
+**Ticking a product entry puts its own minimum on the shelf** (`StockedEntryStock`, 2026-09-19, the
+user's rule). A product entry's minimum is how much of that product this piece of work needs
+(`TaskItem.RequiredQuantity`); ticking the entry is somebody saying they went and got it, so that much
+goes onto the shelf, and unticking takes the same amount back off. **Crossing the entry off does
+neither** - giving up on something after having got it does not unbuy it, and giving up on something
+never got puts nothing anywhere - so the press after a cross, back to nothing, is what takes it off.
+The amount is the entry's own, never the shelf's minimum: two lists asking for two each put on two
+apiece, and the shelf reaches four only once both have been ticked. Whether an entry's amount is on the
+shelf right now is stored on the entry rather than read off its tick (`TaskItemStock`), so the same
+save can run again without counting anything twice, and an entry the shelf crossed off adds nothing -
+nobody got anything, the shelf simply already held enough. Never below nothing: an entry unticked after
+the count was emptied by hand has nothing left to take back.
 
 **A position somebody shared opens in the phone's own map app.** Each "Shared with you" row carries an
 Open in Maps button, and tapping a pin's own callout does the same (`MapViewModel.WhereToOpen` answers
