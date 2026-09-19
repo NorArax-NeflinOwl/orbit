@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Orbit.Mobile.Screens.Navigation;
 
 namespace Orbit.Maui.Controls;
@@ -15,9 +16,30 @@ namespace Orbit.Maui.Controls;
 /// </summary>
 public partial class Drawer : ContentView
 {
+	private readonly NavigationBarViewModel _bar;
+
 	public Drawer()
 	{
 		InitializeComponent();
-		BindingContext = IPlatformApplication.Current!.Services.GetRequiredService<NavigationBarViewModel>();
+		_bar = IPlatformApplication.Current!.Services.GetRequiredService<NavigationBarViewModel>();
+		BindingContext = _bar;
+
+		// Watched only while this copy of the drawer is on screen. The view model outlives every page
+		// that draws one - it is the single shared instance - so a subscription taken in the constructor
+		// and never given back would keep all thirty pages' drawers alive behind it.
+		Loaded += (_, _) => _bar.PropertyChanged += OnBarChanged;
+		Unloaded += (_, _) => _bar.PropertyChanged -= OnBarChanged;
+	}
+
+	/// <summary>
+	/// Opening the drawer puts the keyboard away - see <see cref="SoftKeyboard"/> for why that is the
+	/// drawer's business. Only on the way open: closing it hands the screen back as it was.
+	/// </summary>
+	private void OnBarChanged(object? sender, PropertyChangedEventArgs args)
+	{
+		if (args.PropertyName is nameof(NavigationBarViewModel.IsDrawerOpen) && _bar.IsDrawerOpen)
+		{
+			SoftKeyboard.Dismiss(this);
+		}
 	}
 }

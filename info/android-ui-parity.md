@@ -337,6 +337,26 @@ is a command somebody chose, and sealing needs a server round-trip and a read-ba
 edit. Nothing warns a reader that leaving will lose what they typed; a "discard changes?" question is
 the usual guard and is not built.
 
+## A panel that opens over the page puts the keyboard away (2026-09-19)
+
+Found by using it: the drawer opened from a screen that was being typed on left the keyboard
+standing, and the drawer then had to draw eight rows and a footer in the half of the screen the
+keyboard had not taken - so Map, Places you keep and About came out on top of one another. The
+keyboard is the cause; the overlap is what it looks like.
+
+Two halves, both in the view rather than in a view model, because both are about what is drawn:
+
+- `SoftKeyboard.Dismiss` unfocuses whatever holds focus on the page, and asks the platform to
+  lower the keyboard when that is a text field. The drawer, the avatar's menu and a screen's own
+  menu each call it as they open - never as they close, which would take focus away from a field
+  the reader is being handed back to.
+- The drawer's list of sections is in a `ScrollView`. The keyboard is not the only thing that can
+  leave the panel shorter than its contents - a large system font or a small screen does the same -
+  and a `VerticalStackLayout` in a `*` row draws over the row below it rather than clipping.
+
+Device-verified on `Orbit_Pixel_8_API_36`: typing in the note name, then the three lines, then the
+avatar - the keyboard goes on both, and the drawer draws its full height with the version at the foot.
+
 ## How to check it
 
 There is no test that can see a screen. The check is the emulator and the design side by side:
