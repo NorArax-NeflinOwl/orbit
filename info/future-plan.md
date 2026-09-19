@@ -782,9 +782,39 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   test's. Whoever picks this up should start there: `NameSuggestions.OnChosen` and what a second
   lookup does to the options while one is being pressed.
 
-  `ChatThreadTests.A_notification_stays_while_their_newest_message_is_not_yet_in_view` and
-  `GroupConversationPagesTests` have each done it once in the same session, and neither has been caught
-  yet. The chat one's own waits are already 15 seconds, so it is not a deadline either.
+  **Chased again on 2026-09-19, reproduced twice, and still not explained.** Caught in ~1 run in 5 with
+  a second suite running alongside, and the capture adds one fact: the failing run took **201 ms**, so
+  the five-second wait was nowhere near its deadline. This is a race at the moment the list first
+  appears, not a slow machine.
+
+  Two real defects in `NameSuggestions` were found by reading while looking for it, and both are fixed -
+  neither is proof of the cause:
+
+  - **`LookUpAsync` could be re-entered and lose track of itself.** It is started and not awaited, so
+    two keystrokes close together can both be inside it; with a plain read-then-assign of `_pending`,
+    both got past the cancelling and the second's token could be overwritten by nobody - leaving the
+    first lookup alive, unreferenced, and free to land after the second with an answer about a word that
+    no longer exists. Which is the one thing the cancelling is there to stop. Claimed with
+    `Interlocked.Exchange` now, and the answer is applied only while it is still the current lookup.
+  - **Choosing an option, and Escape, cleared the list without stopping the lookup in flight.** Its
+    answer arrived a moment later and put the list back up - showing the name just taken, under a field
+    now holding it. `_lastLookedUp` stops the *next* lookup; nothing stopped the one already going.
+
+  Afterwards the suite ran eight more times without it. That is not proof and is not written down as
+  one: the test itself only ever starts a single lookup, so neither fix obviously reaches it. What is
+  written down instead is a diagnostic - the assertion now reports which branch ran, how many renders
+  the press sat between, and how many options are on screen - so the next occurrence names the cause
+  rather than repeating this paragraph.
+
+  ~~`ChatThreadTests.A_notification_stays_while_their_newest_message_is_not_yet_in_view` and
+  `GroupConversationPagesTests` have each done it once in the same session.~~ Still uncaught.
+
+- ~~**`PeriodicSyncTests` fails under load.**~~ Found and fixed 2026-09-19, while running the suite twice
+  over to chase the one above. `SettleAsync` yielded the thread eight times and **hoped** the timer's
+  run had happened - a guess at how many turns the scheduler needs, which a loaded machine disproves.
+  `WaitForRunsAsync` waits for the count the test is about and then settles past it, so a run that
+  should *not* have happened still gets its chance to. The tests that assert nothing ran keep the plain
+  settle: there is no count to wait for there.
 
 - ~~**`TaskItem.KeepAlternativesOf` can leave the completion time disagreeing with the tick.**~~ Fixed
   2026-09-14, the first of the two ways this offered: `KeepAlternativesOf` calls `RecordWhenItWasDone`

@@ -182,20 +182,28 @@
     /// </summary>
     private async Task LookUpAsync(string typed)
     {
-        if (_pending is { } inFlight)
+        // Claimed before the old one is cancelled, and in one step. This method is started and not
+        // awaited (see OnParametersSet), so two keystrokes close together can be inside it at once: with
+        // a plain read-then-assign, both could get past the cancelling and the second's own token could
+        // then be overwritten by nobody - leaving the first lookup alive, unreferenced, and free to land
+        // after the second with an answer about a word that no longer exists. Which is the one thing the
+        // cancelling is here to stop.
+        var mine = new CancellationTokenSource();
+        if (Interlocked.Exchange(ref _pending, mine) is { } inFlight)
         {
             await inFlight.CancelAsync();
             inFlight.Dispose();
         }
 
-        _pending = new CancellationTokenSource();
-        var cancellationToken = _pending.Token;
+        var cancellationToken = mine.Token;
 
         try
         {
             await Task.Delay(SettleDelay, cancellationToken);
             var found = await NameSuggestionsApiClient.FindAsync(Kind, typed, cancellationToken);
-            if (cancellationToken.IsCancellationRequested || _isGone)
+            // Still the current lookup, as well as not cancelled: the two are the same question asked
+            // twice over, and the second is what survives this method being re-entered.
+            if (cancellationToken.IsCancellationRequested || !ReferenceEquals(_pending, mine) || _isGone)
             {
                 return;
             }
@@ -254,6 +262,11 @@
     [JSInvokable]
     public async Task DismissSuggestions()
     {
+        // Stopped even when there is nothing on screen: Escape during the settle pause is somebody
+        // saying "not this", and an answer still coming would put a list up over a field they have
+        // already turned away from.
+        StopLookingUp();
+
         if (_suggestions.Count == 0)
         {
             return;
@@ -266,10 +279,32 @@
         });
     }
 
+    /// <summary>
+    /// Drops the lookup in flight, if there is one, so its answer cannot land on a list that has since
+    /// been shut. Not awaited - the caller is closing the list either way, and the answer is discarded
+    /// by the cancelled token rather than by anybody waiting for it.
+    /// </summary>
+    private void StopLookingUp()
+    {
+        if (_pending is { } inFlight)
+        {
+            inFlight.Cancel();
+            inFlight.Dispose();
+            _pending = null;
+        }
+    }
+
     private async Task ChooseAsync(Offer offered)
     {
         // Cleared before the callback: the field is about to hold exactly what was offered, and offering
         // it again under itself reads as the suggestion not having been taken.
+        //
+        // The lookup in flight is stopped as well as the list cleared. Clearing alone is not enough: a
+        // press can land while an answer for the half-typed word is still coming, and that answer would
+        // arrive a moment later and put the list back up - showing the very name that was just taken,
+        // under a field now holding it. _lastLookedUp stops the *next* lookup; this stops the one
+        // already going.
+        StopLookingUp();
         _suggestions = [];
         _lastLookedUp = offered.Suggestion.Name.Trim();
         if (offered.Source is { } source)

@@ -27,7 +27,7 @@ public sealed class PeriodicSyncTests
         context.Sync.Start();
         // Coming back to the app is the moment the screen on display is furthest out of date, so waiting
         // five minutes to do anything about it is the whole problem over again.
-        await context.SettleAsync();
+        await context.WaitForRunsAsync(1);
 
         Assert.Equal(1, context.Runs);
     }
@@ -37,12 +37,12 @@ public sealed class PeriodicSyncTests
     {
         var context = new SyncingContext();
         context.Sync.Start();
-        await context.SettleAsync();
+        await context.WaitForRunsAsync(1);
 
         context.Clock.Advance(PeriodicSync.Interval);
-        await context.SettleAsync();
+        await context.WaitForRunsAsync(2);
         context.Clock.Advance(PeriodicSync.Interval);
-        await context.SettleAsync();
+        await context.WaitForRunsAsync(3);
 
         Assert.Equal(3, context.Runs);
     }
@@ -52,7 +52,7 @@ public sealed class PeriodicSyncTests
     {
         var context = new SyncingContext();
         context.Sync.Start();
-        await context.SettleAsync();
+        await context.WaitForRunsAsync(1);
 
         context.Sync.Stop();
         context.Clock.Advance(PeriodicSync.Interval);
@@ -70,7 +70,9 @@ public sealed class PeriodicSyncTests
 
         context.Sync.Start();
         context.Sync.Start();
-        await context.SettleAsync();
+        // Waited for, then settled past: one run has to have happened, and the second timer this is
+        // about would show up as a second one arriving after it.
+        await context.WaitForRunsAsync(1);
 
         Assert.Equal(1, context.Runs);
     }
@@ -214,6 +216,11 @@ public sealed class PeriodicSyncTests
         /// Lets the loop get as far as it is going to. The run is started without being awaited - there is
         /// no screen behind a timer to await it - so a test has to give the scheduler its turns back
         /// before it counts anything. A handful of them, because one run is several awaits deep.
+        ///
+        /// For "nothing should have happened", where there is no count to wait for and the turns are all
+        /// that can be given. Where a run <em>is</em> expected, <see cref="WaitForRunsAsync"/> waits for
+        /// it instead: eight yields is a guess at how long the scheduler needs, and a machine running the
+        /// whole suite in parallel disproves that guess a few times a day.
         /// </summary>
         public async Task SettleAsync()
         {
@@ -221,6 +228,28 @@ public sealed class PeriodicSyncTests
             {
                 await Task.Yield();
             }
+        }
+
+        /// <summary>
+        /// Waits until the timer has asked for this many runs, or gives up and lets the count speak for
+        /// itself. A real wait rather than a fixed number of turns: the run is several awaits deep and
+        /// how many turns that takes is the scheduler's business, not the test's.
+        ///
+        /// Five seconds because it never waits that long - it returns on the turn the count arrives, and
+        /// the deadline exists only so a broken loop fails as a wrong count rather than as a hang.
+        /// </summary>
+        public async Task WaitForRunsAsync(int howMany)
+        {
+            var giveUpAt = DateTime.UtcNow.AddSeconds(5);
+            while (Runs < howMany && DateTime.UtcNow < giveUpAt)
+            {
+                await Task.Yield();
+                await Task.Delay(1);
+            }
+
+            // And a few turns past it, so a run that should *not* have happened has had its chance to,
+            // and a test asserting an exact count is not merely first past the post.
+            await SettleAsync();
         }
     }
 }
