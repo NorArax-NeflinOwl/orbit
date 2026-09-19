@@ -8,7 +8,7 @@
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Places;assembly=Orbit.Mobile"
     x:DataType="screens:PlacesViewModel"
     x:Name="Page"
-    Title="{controls:Translate 'Places you keep'}">
+    Title="{Binding Heading}">
 
     <Grid RowDefinitions="Auto,*,Auto">
 

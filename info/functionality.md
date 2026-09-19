@@ -2246,9 +2246,30 @@ offline costs somebody an afternoon's writing, and a place costs them four lines
 
 **Places you keep** is the map panel's own list of them, pinnable and hideable like every other list on
 that page. A row shows the place's colour, its name, its priority when that is not Normal, and a button
-that hands the point to a map app. Behind the three dots: **Edit**, **Duplicate** — a second one of the
-same, for two entrances to one building — and **Delete**, which asks first, because forgetting a place is
-the one thing on that panel that cannot be undone.
+that hands the point to a map app. Behind the three dots: **Edit**, **Share**, **Duplicate** — a second
+one of the same, for two entrances to one building — and **Archive**.
+
+**A place is put away rather than deleted** (2026-09-19, `Place.IsArchived`, `OP_P_ISARCHIVED`,
+`ArchivePlaceCommand`, `PUT /api/places/{id}/archived`). The fifth kind of thing with an archive, and
+the one that had no way off the map but deletion. Archiving takes it off the map and out of the panel's
+list at once; what it belongs to is left alone, so a place brought back is on the lists it was on.
+**Deleting one is offered in the archive and nowhere else**, which is the rule every card's menu has
+followed since 2026-09-18 — see *Delete goes out of the app*.
+
+The archive is **a page of its own**, `/map/archive`, reached from the map's own menu beside "Show
+places already past": the map has no folder tabs, because a place is not filed the way the four kinds
+of card are, and an archive drawn among the pins would be the opposite of putting something away. Each
+row offers **Put back** and **Delete**, and Delete asks first and says it cannot be undone. Taking
+somebody else's shared place off this map stays where it was, on the place's own row: it destroys
+nothing — the owner keeps it — so it needs no archive first.
+
+**The phone has the same half** (`LocalPlace.IsArchived`, `LocalPlaceRepository.ArchiveAsync`,
+`OutboxOperation.Archive`). Archive / Put back sits on the place's own screen, above a Delete that
+appears only once it is archived — this phone keeps what can be done to a thing on that thing's screen
+rather than on a list row. The places screen shows the archive instead of the list when its menu says
+so (**Archive → Archived places**, ✓ while on), and the title says which of the two it is showing. A
+place put away in a browser leaves the phone's list the first time it hears about it, and one put away
+offline is created and archived in the same pass once the phone is back.
 
 **A task list's Location entry keeps a place of its own** (2026-09-11, web, `TaskEntryPlaces`,
 `Place.SourceTaskItemId`). Saving a list in the web editor makes a place for every Location entry that

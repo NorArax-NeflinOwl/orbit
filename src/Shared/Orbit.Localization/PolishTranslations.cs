@@ -197,6 +197,9 @@ public static class PolishTranslations
         ["Archive"] = "Archiwizuj",
         ["Put back"] = "Przywróć",
         ["Archived - it is under the Archived tab now."] = "Zarchiwizowano - jest teraz w zakładce Zarchiwizowane.",
+        // The same said about a place, which is not filed in folders and has an archive of its own
+        // instead - see the map's archive, added 2026-09-19.
+        ["Archived - it is in the archive now."] = "Zarchiwizowano - jest teraz w archiwum.",
         ["Put back where it was."] = "Przywrócono tam, gdzie było.",
         ["Nothing put away."] = "Nic nie odłożono.",
         ["Could not put that away. Check your connection and try again."] = "Nie udało się odłożyć. Sprawdź połączenie i spróbuj ponownie.",

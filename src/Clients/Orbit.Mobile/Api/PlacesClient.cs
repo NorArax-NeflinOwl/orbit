@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Places;
 using Orbit.Contracts.Sharing;
 using Orbit.Contracts.Sync;
@@ -41,6 +42,15 @@ public sealed class PlacesClient
         Guid placeId, SavePlaceRequest request, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PutAsJsonAsync($"api/places/{placeId}", request, cancellationToken);
+        return ReadOutcome(response);
+    }
+
+    /// <inheritdoc cref="NotesClient.ArchiveAsync"/>
+    public async Task<WriteOutcome> ArchiveAsync(
+        Guid placeId, bool isArchived, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/places/{placeId}/archived", new ArchiveRequest(isArchived), cancellationToken);
         return ReadOutcome(response);
     }
 

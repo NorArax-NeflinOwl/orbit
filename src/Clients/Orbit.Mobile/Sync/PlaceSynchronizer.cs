@@ -86,9 +86,12 @@ public sealed class PlaceSynchronizer
             return SendResult.Abandoned;
         }
 
-        return entry.Operation is OutboxOperation.Create
-            ? await SendCreateAsync(place, cancellationToken)
-            : await SendUpdateAsync(place, cancellationToken);
+        return entry.Operation switch
+        {
+            OutboxOperation.Create => await SendCreateAsync(place, cancellationToken),
+            OutboxOperation.Archive => await SendArchivingAsync(place, cancellationToken),
+            _ => await SendUpdateAsync(place, cancellationToken)
+        };
     }
 
     private async Task<SendResult> SendCreateAsync(LocalPlace place, CancellationToken cancellationToken)
@@ -101,6 +104,40 @@ public sealed class PlaceSynchronizer
 
         place.ServerId = await _placesClient.CreateAsync(Saving(place), cancellationToken);
         place.LastSyncedAtUtc = _timeProvider.GetUtcNow();
+
+        if (place.IsArchived)
+        {
+            // Archiving has no room on a create and deliberately - see ArchiveRequest - so one put away
+            // before the server ever heard of it arrives on the map and is put away a moment later, in
+            // this same pass. A refusal here is not the create's to carry: the place exists now, and
+            // handing back anything but Sent would replay the create and make a second one. The same
+            // shape NoteSynchronizer.SendCreateAsync uses.
+            await SendArchivingAsync(place, cancellationToken);
+        }
+
+        return SendResult.Sent;
+    }
+
+    /// <summary>
+    /// Putting a place away, or bringing it back - its own endpoint, because a save carries the whole
+    /// place and would bring back everything its owner had put away. See ArchivePlaceCommand.
+    /// </summary>
+    private async Task<SendResult> SendArchivingAsync(LocalPlace place, CancellationToken cancellationToken)
+    {
+        if (place.ServerId is not { } serverId)
+        {
+            // Its create is still queued ahead of this, and that create carries the flag itself.
+            return SendResult.Abandoned;
+        }
+
+        var outcome = await _placesClient.ArchiveAsync(serverId, place.IsArchived, cancellationToken);
+        if (outcome is not WriteOutcome.Applied)
+        {
+            _logger.LogInformation(
+                "The server refused an archiving of place {ServerId}: {Outcome}", serverId, outcome);
+            return SendResult.Refused;
+        }
+
         return SendResult.Sent;
     }
 
@@ -216,6 +253,10 @@ public sealed class PlaceSynchronizer
         place.IsSharedWithOthers = incoming.IsSharedWithOthers;
         place.AccessLevel = incoming.AccessLevel;
         place.OwnerUserId = incoming.OriginalOwnerUserId;
+        // Whether its owner has put it away, which is as much a fact about the place as its colour -
+        // see LocalPlace.IsArchived. Without it a place archived in a browser came back onto the
+        // phone's list on the next sync.
+        place.IsArchived = incoming.IsArchived;
         place.LastSyncedAtUtc = _timeProvider.GetUtcNow();
     }
 }

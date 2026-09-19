@@ -2053,12 +2053,15 @@ It is **not** on the two other places somebody edits in the browser:
 
   **A place is the fifth kind, from 2026-09-19** (`OP_P_ISARCHIVED`, `ArchivePlaceCommand`,
   `PUT /api/places/{id}/archived`). Not as a folder, because the map has no tabs and a place is not
-  filed anywhere: the browser's archive is a page of its own, `/maps/archive`, reached from the map's
-  menu, and deleting a place is offered there and nowhere else. **The phone has none of this half**: its
-  places screen still lists an archived place among the rest and still offers Delete, because
-  `LocalPlace` has no column for the flag and nothing in its outbox to carry it. What it takes is the
-  shape the other four already have on the phone - a local column, an `OutboxOperation.Archive` path,
-  and the flag read in `CopyInto`.
+  filed anywhere: the browser's archive is a page of its own, `/map/archive`, reached from the map's
+  menu, and deleting a place is offered there and nowhere else. **The phone has the same half**, done
+  the same day: `LocalPlace.IsArchived` (`APlaceCanBePutAwayOnThePhone`), `ArchiveAsync` on the
+  repository queueing `OutboxOperation.Archive`, `PlacesClient.ArchiveAsync`, the flag read in
+  `PlaceSynchronizer.CopyInto` and carried after a create the way a note's is, Archive / Put back on the
+  place's own screen above a Delete that is offered only once it is archived, and the places screen
+  showing the archive instead of the list when its menu says so (`PlacesViewModel.ShowsTheArchive`).
+  Archiving is offered from the thing's own screen rather than from a list row, which is where this
+  phone keeps everything of the kind.
 
 - ~~**Choosing several things at once, and doing one thing to all of them**~~ - *built in the browser
   and on the phone, sharing included (2026-09-16).* Asked for as: select several notes, lists, events or
@@ -2241,7 +2244,7 @@ the session that finishes one strikes it here rather than in a report nobody rea
   and three menus drew their own - a calendar event's form, a task list's form, and a task list's
   checklist - so each of the three offered Delete whatever state its thing was in. Each now offers
   Archive / Put back and gates Delete on it. The fourth was the map, which had no archive at all; it
-  has one now (`/maps/archive`).
+  has one now (`/map/archive`).
 
   **Still outside the rule, and deliberately for now**: what is deleted is a *part* of something rather
   than a thing of its own - a task list's entry (`TaskItemSummary`, and the calendar's "Delete" on a
