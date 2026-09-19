@@ -44,12 +44,15 @@ public sealed class NotificationOpener
     private readonly UsersClient _usersClient;
     private readonly LocalTaskListRepository _taskLists;
     private readonly TaskListSynchronizer _taskListSynchronizer;
+    private readonly LocalInventoryRepository _inventories;
+    private readonly InventorySynchronizer _inventorySynchronizer;
     private readonly PendingNotificationTap _pendingTap;
     private readonly IScreenNavigator _navigator;
 
     public NotificationOpener(
         ChatRepository chatRepository, ChatSynchronizer synchronizer, UsersClient usersClient,
         LocalTaskListRepository taskLists, TaskListSynchronizer taskListSynchronizer,
+        LocalInventoryRepository inventories, InventorySynchronizer inventorySynchronizer,
         PendingNotificationTap pendingTap, IScreenNavigator navigator)
     {
         _chatRepository = chatRepository;
@@ -57,6 +60,8 @@ public sealed class NotificationOpener
         _usersClient = usersClient;
         _taskLists = taskLists;
         _taskListSynchronizer = taskListSynchronizer;
+        _inventories = inventories;
+        _inventorySynchronizer = inventorySynchronizer;
         _pendingTap = pendingTap;
         _navigator = navigator;
     }
@@ -100,8 +105,7 @@ public sealed class NotificationOpener
                 return NotificationOpenOutcome.Opened;
 
             case NotificationTarget.Inventory:
-                _navigator.ShowInventory();
-                return NotificationOpenOutcome.Opened;
+                return await OpenInventoryAsync(destination, cancellationToken);
 
             case NotificationTarget.Map:
                 _navigator.ShowMap();
@@ -174,6 +178,50 @@ public sealed class NotificationOpener
         _navigator.ShowTaskList(taskList.LocalId);
         return NotificationOpenOutcome.Opened;
     }
+
+    /// <summary>
+    /// The shelf a warning is about, opened at the row it is about. Two ids again, for the reason the
+    /// task list has two: the address names the shelf by the server's id and every screen on this phone
+    /// is opened by the local one - and the row is the server's id too, which is what the shelf's own
+    /// rows carry, so it is passed straight through.
+    ///
+    /// It used to open the list of inventories and name nothing. That was honest when the address named
+    /// only the section; since it names the shelf and the row (InventoryExpiryPushContent), landing on
+    /// the list leaves the reader to find which of six shelves, and then which of sixty rows, when the
+    /// notification knew both.
+    ///
+    /// No id at all still means the list, which is what a "/inventory" address says and what an older
+    /// server sends. The retry is the same case as a shared list's: a shelf shared with somebody
+    /// notifies them immediately, which is before any sync has pulled it down.
+    /// </summary>
+    private async Task<NotificationOpenOutcome> OpenInventoryAsync(
+        NotificationDestination destination, CancellationToken cancellationToken)
+    {
+        if (destination.Id is not { } serverId)
+        {
+            _navigator.ShowInventory();
+            return NotificationOpenOutcome.Opened;
+        }
+
+        var inventory = await FindInventoryAsync(serverId, cancellationToken)
+            ?? await RefreshThenFindInventoryAsync(serverId, cancellationToken);
+        if (inventory is null)
+        {
+            return NotificationOpenOutcome.NotOnThisPhoneYet;
+        }
+
+        _navigator.ShowInventory(inventory.LocalId, destination.Row);
+        return NotificationOpenOutcome.Opened;
+    }
+
+    private async Task<LocalInventory?> FindInventoryAsync(Guid serverId, CancellationToken cancellationToken)
+        => (await _inventories.GetAllAsync(cancellationToken))
+            .FirstOrDefault(inventory => inventory.ServerId == serverId);
+
+    private async Task<LocalInventory?> RefreshThenFindInventoryAsync(Guid serverId, CancellationToken cancellationToken)
+        => (await _inventorySynchronizer.SynchroniseAsync(cancellationToken)).ReachedTheServer
+            ? await FindInventoryAsync(serverId, cancellationToken)
+            : null;
 
     private async Task<LocalTaskList?> FindTaskListAsync(Guid serverId, CancellationToken cancellationToken)
         => (await _taskLists.GetAllAsync(cancellationToken))

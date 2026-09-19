@@ -50,6 +50,7 @@ internal static class OrbitStorageNames
         [typeof(TaskItemTaskListLinkEntity)] = new("OL_TASKS_ITEMS", "OL_TI_"),
         [typeof(TaskItemStepEntity)] = new("OL_TASKS_STEPS", "OL_TS_"),
         [typeof(InventoryManagedTaskListEntity)] = new("OL_INVENTORIES_TASKS", "OL_IT_"),
+        [typeof(InventoryGatheredEntity)] = new("OL_INVENTORIES_GATHERED", "OL_IG_"),
         [typeof(ChatGroupMemberEntity)] = new("OL_CHATS_MEMBERS", "OL_CM_"),
         [typeof(ChatConversationAccessEntity)] = new("OL_CHATS_ACCESS", "OL_CA_"),
         [typeof(ContactEntity)] = new("OL_CONTACTS", "OL_C_"),

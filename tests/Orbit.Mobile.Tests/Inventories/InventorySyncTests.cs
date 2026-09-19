@@ -106,6 +106,27 @@ public sealed class InventorySyncTests
         Assert.Equal(5, stored.ItemUsage[stored.Items.Single().Id!.Value]);
     }
 
+    /// <summary>
+    /// And which shelves it gathers, if it is a group - see
+    /// Orbit.Core.Inventories.Inventory.GathersInventoryIds. Read and never pushed back: how a group is
+    /// arranged is decided in the browser, where the whole list of shelves is in front of the reader.
+    /// </summary>
+    [Fact]
+    public async Task A_group_shelf_remembers_what_it_gathers()
+    {
+        using var context = new InventoryContext();
+        var fridge = context.Server.AddInventory("Fridge");
+        context.Server.AddInventory("Kitchen", gathers: [fridge.Id]);
+
+        await context.SynchroniseAsync();
+
+        var held = await context.Inventories.GetAllAsync();
+        Assert.Equal(
+            [fridge.Id], held.Single(inventory => inventory.Name == "Kitchen").GathersServerIds);
+        // And an ordinary shelf gathers nothing, which is what every one stored before this means.
+        Assert.Empty(held.Single(inventory => inventory.Name == "Fridge").GathersServerIds);
+    }
+
     [Fact]
     public async Task A_shelf_remembers_when_each_batch_arrived()
 

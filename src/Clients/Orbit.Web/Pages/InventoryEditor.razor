@@ -255,6 +255,51 @@ else
        one of it: opening the new inventory's own edit page again offers both. *@
     @if (!IsNewInventory)
     {
+    @* What this shelf gathers. A group is one entry on the list of inventories holding smaller ones
+       inside it, each of which can go on answering to a different task list - which is the point of it:
+       a kitchen made of a fridge, a freezer and a pantry is read as one thing and stocked as three.
+
+       A member is not moved into the group. It keeps its own rows, its own restock list and its own tie
+       to a list, and it stays on the list of inventories where it was - the group is a way of reading
+       several at once. Taking one out again leaves it exactly as it was. *@
+    <h2>@T["Inventories gathered here"]<FieldHint>@T["A group shelf holds smaller shelves. Each keeps its own items and its own tie to a list; this only decides what is read together."]</FieldHint></h2>
+    @* Named, because this page now has two lists of ticks about two different ties and a test - or a
+       stylesheet - reaching for "a check row on the inventory editor" would get whichever came first. *@
+    <div class="card inventory-gathers-card">
+        @if (_couldBeGathered.Count == 0)
+        {
+            <p class="empty-hint empty-list">@T["There are no other inventories to gather."]</p>
+        }
+        else
+        {
+            @foreach (var candidate in _couldBeGathered)
+            {
+                <CheckRow Title="@candidate.Name"
+                          IsTicked="@_gathered.Contains(candidate.Id)"
+                          IsDisabled="@(_isReadOnly || _isGathering)"
+                          AriaLabel="@T.Format("Gather {0} into this inventory", candidate.Name)"
+                          OnTicked="ticked => GatherAsync(candidate, ticked)">
+                    <Trailing>
+                        @* Which list it answers to, since that is the whole reason for keeping the
+                           smaller shelves apart - see the heading above. *@
+                        @if (ListMeasuredAgainst(candidate.Id) is { } answersTo)
+                        {
+                            <span class="row-meta row-meta-prose">@T.Format("answers to {0}", answersTo)</span>
+                        }
+                        @if (candidate.IsGroup)
+                        {
+                            <span class="card-badge">@T["Group"]</span>
+                        }
+                    </Trailing>
+                </CheckRow>
+            }
+        }
+        @if (_gatheringMessage is not null)
+        {
+            <p class="error">@_gatheringMessage</p>
+        }
+    </div>
+
     @* Which lists are measured against this shelf. The same tie a task list's own editor offers from
        its end - said from here as well because a store is opened as often as a list is, and somebody
        standing in the pantry is thinking about which jobs it serves rather than the other way round.
@@ -263,7 +308,7 @@ else
        later: the shelf is split between everything asking for it, so a second list asking for the same
        flour leaves both of them short. *@
     <h2>@T["Lists measured against this inventory"]<FieldHint>@T["A shelf several lists ask for is split between them, so each is told its own share."]</FieldHint></h2>
-    <div class="card">
+    <div class="card inventory-measured-lists-card">
         @if (_taskLists.Count == 0)
         {
             <p class="empty-hint empty-list">@T["No task lists yet."]</p>
@@ -693,8 +738,14 @@ else
         try
         {
             _taskLists = await TasksApiClient.GetTaskListsAsync();
-            _inventoryNames = (await InventoryApiClient.GetInventoriesAsync() ?? [])
-                .ToDictionary(inventory => inventory.Id, inventory => inventory.Name);
+            var everyInventory = await InventoryApiClient.GetInventoriesAsync() ?? [];
+            _inventoryNames = everyInventory.ToDictionary(inventory => inventory.Id, inventory => inventory.Name);
+            // What this one could gather: the reader's own shelves, not itself, and not one somebody
+            // shared with them - a group is an arrangement of shelves its owner has - see
+            // GatherInventoriesCommandHandler.
+            _couldBeGathered = [.. everyInventory.Where(candidate =>
+                candidate.Id != InventoryId && !candidate.IsShared)];
+            _gathered = [.. everyInventory.FirstOrDefault(candidate => candidate.Id == InventoryId)?.AllGathered ?? []];
             WorkOutWhatIsMeasuredThroughAGroup();
         }
         catch (HttpRequestException exception)
@@ -762,12 +813,73 @@ else
             ? Written(gatheredBy.Title)
             : null;
 
+    /// <summary>
+    /// The list measured against one of the shelves this group could gather, in the reader's words, or
+    /// null where nothing is. Said once each, since a shelf answering to two lists is a row about two
+    /// things and the first is the one that fits.
+    /// </summary>
+    private string? ListMeasuredAgainst(Guid inventoryId)
+        => _taskLists.FirstOrDefault(taskList => taskList.LinkedInventoryId == inventoryId) is { } measured
+            ? Written(measured.Title)
+            : null;
+
     /// <summary>What another store is called, or its id where this browser has not got it.</summary>
     private string NameOfInventory(Guid inventoryId)
         => _inventoryNames.TryGetValue(inventoryId, out var name) ? name : inventoryId.ToString();
 
     /// <summary>Every list of this account's, with the inventory each is measured against.</summary>
     private IReadOnlyList<TaskDto> _taskLists = [];
+
+    /// <summary>The shelves this one could gather - the reader's own, other than itself. See Gather.</summary>
+    private IReadOnlyList<InventoryDto> _couldBeGathered = [];
+
+    /// <summary>The ones it does gather, as the server last answered - see Orbit.Core.Inventories.Inventory.GathersInventoryIds.</summary>
+    private List<Guid> _gathered = [];
+
+    private bool _isGathering;
+
+    /// <summary>What went wrong with a tick in the group's list, said beside the boxes it was made in.</summary>
+    private string? _gatheringMessage;
+
+    /// <summary>
+    /// Puts a shelf in this group, or takes it out. One at a time and written straight away, for the
+    /// reason MeasureAsync is: a tick here is the whole decision, and holding it until Save would put it
+    /// behind a button that is about what is on the shelf rather than about this.
+    ///
+    /// The whole membership goes up each time, because that is what the server takes - see
+    /// GatherInventoriesRequest, which says why it is not an add and a remove.
+    /// </summary>
+    private async Task GatherAsync(InventoryDto candidate, bool isGathered)
+    {
+        _isGathering = true;
+        _gatheringMessage = null;
+        var wanted = isGathered
+            ? [.. _gathered, candidate.Id]
+            : _gathered.Where(gathered => gathered != candidate.Id).ToList();
+        try
+        {
+            if (!await InventoryApiClient.GatherAsync(InventoryId!.Value, wanted))
+            {
+                // The one rule a reader can trip over from here: a shelf that already gathers this one,
+                // directly or further down, cannot also be gathered by it - see InventoryGroups.
+                _gatheringMessage = T.Format(
+                    "Couldn't put \"{0}\" in this group. It may already gather this one.", candidate.Name);
+                return;
+            }
+
+            _gathered = wanted;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(
+                exception, "Couldn't gather inventory {GatheredId} into {InventoryId}", candidate.Id, InventoryId);
+            _gatheringMessage = T.Format("Couldn't put \"{0}\" in this group. Try again.", candidate.Name);
+        }
+        finally
+        {
+            _isGathering = false;
+        }
+    }
 
     /// <summary>What each inventory is called, so a list measured elsewhere can name where.</summary>
     private IReadOnlyDictionary<Guid, string> _inventoryNames = new Dictionary<Guid, string>();

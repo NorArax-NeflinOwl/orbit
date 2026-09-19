@@ -649,9 +649,9 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
 
 
     /// <summary>
-    /// An entry can be pointed at several lists, and every one of them has to reach the save. The
-    /// picker adds one at a time and the chosen ones are listed underneath, so the reader can see what
-    /// the entry stands for without opening a dropdown.
+    /// An entry can be pointed at several lists, and every one of them has to reach the save. A tick
+    /// each, and what the entry stands for is written along the closed field - so the reader can see it
+    /// without opening anything.
     /// </summary>
     [Fact]
     public void An_entry_can_be_made_to_stand_for_two_lists_and_both_are_saved()
@@ -660,21 +660,30 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        var picker = cut.FindAll("select").Single(box => box.GetAttribute("aria-label") == "Stands for these lists");
-        var choices = picker.QuerySelectorAll("option")
-            .Select(option => option.GetAttribute("value"))
-            .Where(value => !string.IsNullOrEmpty(value))
-            .Take(2)
-            .ToList();
-        Assert.Equal(2, choices.Count);
-
-        picker.Change(choices[0]);
-        cut.FindAll("select").Single(box => box.GetAttribute("aria-label") == "Stands for these lists").Change(choices[1]);
+        TickInTheBrowser(cut, 0, "Stands for these lists", "Kitchen");
+        TickInTheBrowser(cut, 0, "Stands for these lists", "Bathroom");
         ClickButtonSaying(cut, "Save");
 
         Assert.NotNull(_lastSavedJson);
-        Assert.Contains(choices[0]!, _lastSavedJson);
-        Assert.Contains(choices[1]!, _lastSavedJson);
+        var linked = JsonDocument.Parse(_lastSavedJson!).RootElement
+            .GetProperty("items")[0].GetProperty("linkedTaskListIds");
+        Assert.Equal(2, linked.GetArrayLength());
+        Assert.Contains(OtherTaskListId, linked.EnumerateArray().Select(id => id.GetGuid()));
+    }
+
+    /// <summary>And the closed field says both, which is the whole point of the control.</summary>
+    [Fact]
+    public void And_the_closed_field_says_which_lists_they_are()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        TickInTheBrowser(cut, 0, "Stands for these lists", "Kitchen");
+
+        Assert.Contains(
+            "Kitchen",
+            BrowserFieldIn(cut, 0, "Stands for these lists").TextContent);
     }
 
     /// <summary>
@@ -688,10 +697,7 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        var picker = cut.FindAll("select").Single(box => box.GetAttribute("aria-label") == "Stands for these lists");
-        picker.Change(picker.QuerySelectorAll("option")
-            .Select(option => option.GetAttribute("value"))
-            .First(value => !string.IsNullOrEmpty(value)));
+        TickInTheBrowser(cut, 0, "Stands for these lists", "Kitchen");
         OpenTheRailMenu(cut);
 
         var groupView = GroupViewBox(cut);
@@ -772,28 +778,28 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
 
         ClickButtonSaying(cut, "Add a way");
 
-        Assert.DoesNotContain(cut.FindAll("select"), box => box.GetAttribute("aria-label") == "Stands for these lists");
+        Assert.DoesNotContain(
+            cut.FindAll(".value-browser-field"),
+            field => field.GetAttribute("aria-label") == "Stands for these lists");
     }
 
-    /// <summary>A list already named is not offered again - that would be offering to say it twice.</summary>
+    /// <summary>
+    /// A list already named stays on the list, ticked. A picker had to leave it out - offering it again
+    /// would be offering to say the same thing twice - but a browser shows the whole vocabulary with
+    /// what is taken marked, which is what makes untickng it the way to let it go.
+    /// </summary>
     [Fact]
-    public void A_list_it_already_stands_for_is_not_offered_again()
+    public void A_list_it_already_stands_for_is_shown_ticked_rather_than_taken_away()
     {
         RegisterApiClients(AnItem());
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        var picker = cut.FindAll("select").Single(box => box.GetAttribute("aria-label") == "Stands for these lists");
-        var chosen = picker.QuerySelectorAll("option")
-            .Select(option => option.GetAttribute("value"))
-            .First(value => !string.IsNullOrEmpty(value));
-        picker.Change(chosen);
+        TickInTheBrowser(cut, 0, "Stands for these lists", "Kitchen");
 
-        var offeredAfterwards = cut.FindAll("select")
-            .Single(box => box.GetAttribute("aria-label") == "Stands for these lists")
-            .QuerySelectorAll("option")
-            .Select(option => option.GetAttribute("value"));
-        Assert.DoesNotContain(chosen, offeredAfterwards);
+        OpenTheBrowser(cut, 0, "Stands for these lists");
+        var kitchen = RowsOffered(cut, 0).Single(row => NameOf(row) == "Kitchen");
+        Assert.True(kitchen.QuerySelector("input[type=checkbox]")!.HasAttribute("checked"));
     }
 
     /// <summary>
@@ -1187,8 +1193,7 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         // A second entry, which the form unfolds as it adds - see AddItem.
         ClickButtonSaying(cut, "Add item");
 
-        cut.FindAll("select").Last(select => select.GetAttribute("aria-label") == "Waits for")
-            .Change(ItemId.ToString());
+        TickInTheBrowser(cut, 1, "Waits for", "Buy milk");
         ClickButtonSaying(cut, "Save");
 
         var items = JsonDocument.Parse(_lastSavedJson!).RootElement.GetProperty("items");
@@ -1216,12 +1221,11 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         // Only one entry is open at a time, and Add item opens the one it adds - so the middle one is
         // opened by hand. See TaskEditor.IsExpanded.
         cut.FindAll(".editor-item").Skip(1).First().QuerySelector(".editor-item-toggle")!.Click();
-        var theSecondEntry = cut.FindAll(".editor-item").Skip(1).First();
-        var waitsFor = theSecondEntry.QuerySelectorAll("select")
-            .Single(select => select.GetAttribute("aria-label") == "Waits for");
+        OpenTheBrowser(cut, 1, "Waits for");
 
-        // The stored entry, the unsaved one, and the "None" that is not an entry at all.
-        Assert.Equal(3, waitsFor.QuerySelectorAll("option").Count());
+        // The stored entry and the unsaved one, and nothing standing for "none" - a browser says that by
+        // having nothing ticked.
+        Assert.Equal(2, RowsOffered(cut, 1).Count);
     }
 
     /// <summary>
@@ -1241,14 +1245,14 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         // Only one entry is open at a time, and Add item opens the one it adds - so the middle one is
         // opened by hand. See TaskEditor.IsExpanded.
         cut.FindAll(".editor-item").Skip(1).First().QuerySelector(".editor-item-toggle")!.Click();
-        var theSecondEntry = cut.FindAll(".editor-item").Skip(1).First();
-        var waitsFor = theSecondEntry.QuerySelectorAll("select")
-            .Single(select => select.GetAttribute("aria-label") == "Waits for");
-        var theUnsavedOne = waitsFor.QuerySelectorAll("option")
-            .Select(option => option.GetAttribute("value"))
-            .Single(value => value is { Length: > 0 } && value != ItemId.ToString());
+        OpenTheBrowser(cut, 1, "Waits for");
 
-        waitsFor.Change(theUnsavedOne);
+        // The one that is not the stored entry: an entry nobody has written anything in yet is drawn
+        // as "…" - see TaskEditor.DescriptionOfEntry.
+        RowsOffered(cut, 1)
+            .Single(row => NameOf(row) != "Buy milk")
+            .QuerySelector("input[type=checkbox]")!
+            .Change(true);
         ClickButtonSaying(cut, "Save");
 
         var items = JsonDocument.Parse(_lastSavedJson!).RootElement.GetProperty("items");
@@ -1281,16 +1285,12 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         // Asked of the second entry's own form rather than of the page. Looking for the last "Waits
         // for" on the page would find the first entry's - which is a checklist one and has always had
         // it - so the test would pass with the field still missing from the entry it is about.
-        var theNewEntry = cut.FindAll(".editor-item").Skip(1).First();
-        theNewEntry.QuerySelectorAll("select")
-            .Single(select => select.GetAttribute("aria-label") == "Waits for")
-            .Change(ItemId.ToString());
+        TickInTheBrowser(cut, 1, "Waits for", "Buy milk");
 
         // Read off the form rather than off a save: an appointment with no event details written is
-        // refused before it is sent, and what this is about is the field being offered at all.
-        Assert.Contains(
-            cut.FindAll(".editor-item").Skip(1).First().QuerySelectorAll(".linked-list-chips li span"),
-            chip => chip.TextContent.Contains("Buy milk", StringComparison.Ordinal));
+        // refused before it is sent, and what this is about is the field being offered at all. The
+        // closed field is where what it waits for is now written - see ValueBrowser.
+        Assert.Contains("Buy milk", BrowserFieldIn(cut, 1, "Waits for").TextContent);
     }
 
     /// <summary>
@@ -1768,6 +1768,51 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Services.AddSingleton(new PublicShareApiClient(httpClient));
         Services.AddSingleton(new InventoryApiClient(httpClient));
     }
+
+    /// <summary>
+    /// Ticks one row of one of an entry's browsers. Two presses where these fields used to take one:
+    /// the list is closed until it is asked for, and what is taken is written along the closed field -
+    /// see ValueBrowser, which replaced the picker-plus-chips these were, 2026-09-18.
+    /// </summary>
+    private static void TickInTheBrowser(
+        IRenderedComponent<TaskEditor> cut, int entryIndex, string ariaLabel, string rowName)
+    {
+        OpenTheBrowser(cut, entryIndex, ariaLabel);
+        RowsOffered(cut, entryIndex)
+            .Single(row => NameOf(row) == rowName)
+            .QuerySelector("input[type=checkbox]")!
+            .Change(true);
+    }
+
+    /// <summary>
+    /// Opens one, and leaves an open one open: the field is a toggle, so pressing it twice - which is
+    /// what ticking two rows in a row would do - would shut the panel rather than choose again.
+    /// </summary>
+    private static void OpenTheBrowser(IRenderedComponent<TaskEditor> cut, int entryIndex, string ariaLabel)
+    {
+        var field = BrowserFieldIn(cut, entryIndex, ariaLabel);
+        if (field.GetAttribute("aria-expanded") != "true")
+        {
+            field.Click();
+        }
+    }
+
+    /// <summary>The closed field of one of an entry's browsers, which is what says what it holds.</summary>
+    private static IElement BrowserFieldIn(IRenderedComponent<TaskEditor> cut, int entryIndex, string ariaLabel)
+        => EntryAt(cut, entryIndex)
+            .QuerySelectorAll(".value-browser-field")
+            .Single(field => field.GetAttribute("aria-label") == ariaLabel);
+
+    /// <summary>What an open browser is offering, whichever of the entry's it is - only one opens at a time.</summary>
+    private static IReadOnlyList<IElement> RowsOffered(IRenderedComponent<TaskEditor> cut, int entryIndex)
+        => [.. EntryAt(cut, entryIndex).QuerySelectorAll(".value-browser-panel .value-browser-row")];
+
+    private static string NameOf(IElement row)
+        => row.QuerySelector(".value-browser-name")!.TextContent.Trim();
+
+    /// <summary>Re-found rather than kept: every press redraws the form, and a held element goes stale.</summary>
+    private static IElement EntryAt(IRenderedComponent<TaskEditor> cut, int entryIndex)
+        => cut.FindAll(".editor-item").ToList()[entryIndex];
 
     private static TaskDto AnotherTaskList(string title, Guid? id = null, IReadOnlyList<TaskItemDto>? items = null)
         => new(

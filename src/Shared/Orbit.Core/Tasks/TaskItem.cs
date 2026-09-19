@@ -484,6 +484,15 @@ public sealed class TaskItem
         return true;
     }
 
+    /// <summary>
+    /// Takes one list out of what this entry stands for - what a list being put away does to the groups
+    /// gathering it, see Orbit.Core.Tasks.ArchiveTaskList.ArchiveTaskListCommandHandler. An entry left
+    /// standing for nothing stops being a pointer at all (<see cref="IsALinkToOtherLists"/>), which is
+    /// why its list drops it rather than keeping a line that now means nothing.
+    /// </summary>
+    internal void StopStandingFor(Guid taskListId)
+        => LinkedTaskListIds = [.. LinkedTaskListIds.Where(linked => linked != taskListId)];
+
     /// <summary>When this entry was first stored - see <see cref="CreatedAtUtc"/> and TaskItemReferences.StampCreationTimes.</summary>
     internal void StampCreation(DateTimeOffset? createdAtUtc) => CreatedAtUtc = createdAtUtc;
 

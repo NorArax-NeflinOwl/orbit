@@ -42,7 +42,18 @@ export function anchorToTrigger(dropdown, triggerSelector) {
 /// inside it - the panel is drawn after the box, not around it, which is why this cannot simply be CSS:
 /// on the item rows the box and the panel sit side by side in a flex row, so "underneath" is a position
 /// only measurement can find.
-export function anchorToField(panel, fieldSelector) {
+/// <param minimumWidth>
+/// How narrow the panel may get. Zero - the default, and what the suggestions pass - keeps the rule
+/// above exactly: the panel is the width of the field, whatever that is.
+///
+/// A panel whose field is a *button* rather than a box needs a floor. The tag browser hangs off "Add
+/// tag", which is as wide as those two words, and on a phone that left a list of rows each holding a
+/// tick, a name, a count and two colour buttons squeezed into about ninety pixels - the names were
+/// ellipsised away to nothing and the panel grew a sideways scrollbar. Reported 2026-09-18 with a
+/// picture of it. Never wider than the window either, since a floor that does not fit is a panel with
+/// its right-hand half off the screen.
+/// </param>
+export function anchorToField(panel, fieldSelector, minimumWidth = 0) {
     const field = panel.parentElement?.querySelector(fieldSelector);
     if (!field) {
         return;
@@ -54,7 +65,8 @@ export function anchorToField(panel, fieldSelector) {
     // Width first, then measure: the height depends on how many suggestions fit across that width, and
     // reading it before the width is set measures a panel of the wrong shape.
     const fieldBox = field.getBoundingClientRect();
-    panel.style.width = `${fieldBox.width}px`;
+    const room = window.innerWidth - (GAP_PIXELS * 2);
+    panel.style.width = `${Math.min(room, Math.max(fieldBox.width, minimumWidth))}px`;
     const panelBox = panel.getBoundingClientRect();
 
     const fitsBelow = fieldBox.bottom + GAP_PIXELS + panelBox.height <= window.innerHeight;

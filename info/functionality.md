@@ -629,6 +629,21 @@ is, and the first that applies wins:
    server ever saw it is archived in the pass straight after its create goes up, since a create has no
    room for the flag.
 
+   **Putting something away takes it off what it was attached to** (2026-09-18). A shelf comes off every
+   list measured against it (`ArchiveInventoryCommandHandler`), and a task list comes out of every group
+   gathering it (`ArchiveTaskListCommandHandler`, `TaskList.StopGathering`). Both were the same fault:
+   the tie went on meaning something while the thing at the other end of it was filed out of sight, so a
+   list kept showing a stock check against a shelf nobody could see and a group kept counting the work of
+   a list nobody could see. A group's row that stood only for the archived list goes with it - a pointer
+   at other lists is not work of its own, so one left pointing at nothing would become an errand nobody
+   wrote, outstanding for good; a row standing for two lists keeps the other. **Only on the way in**:
+   bringing something back does not put the ties back, because nothing records what they were and
+   guessing would be inventing a choice nobody made. Choosing it again is one press either way. A row
+   that also stood for a shelf item takes its share of that item's count with it, so the count is taken
+   again (`ShelfUsage`). Private lists are passed over, since the server holds no readable entries for
+   one. **A "way" of doing something that points at the archived list** (`TaskItemAlternative`) is left
+   alone: that is a choice between ways rather than group membership.
+
    **The export carries it** (`ArchivedNote.IsArchived` and its three siblings, defaulted and last, as
    every late field is), so a round trip through a file leaves the Archived tab holding what it held
    rather than emptying it back onto the pages.
@@ -943,9 +958,63 @@ readable before Save is pressed. Clearing a minimum writes nothing back: "no min
 amount to ask a list for, and the shelf goes back to being kept at whatever the lists want. **Orbit's own
 restock list is not one of the lists** (`ManagedRestockLists`): its errands point at the shelf item
 exactly as a real entry does, so before this they counted as a second list asking - and added one to
-Usage for as long as an item's own restock errand was open. The phone saves through the same endpoint and
-gets the one-entry write-through; it cannot yet raise the question, so a shared row saved from a phone
-leaves the lists alone.
+Usage for as long as an item's own restock errand was open.
+
+**The phone asks the same question** (`InventoryDetailViewModel`, `LocalInventory.SplitEvenlyAcross`,
+2026-09-18). It reads the demand when the shelf opens and compares each row's minimum against what it
+read, so a save that moved one several lists ask for stops and puts the question in the screen's own menu,
+naming the rows and the lists: **Split evenly** or **I'll change the lists myself**. The answer travels
+with the queued change rather than being a fact about the shelf, and the synchroniser clears it once that
+change has gone - left standing it would divide whatever was edited next. A shelf the server has never
+seen, or one out of reach, is asked nothing and every save goes through as before: an answer nobody can
+check is not one to hold a save on. Its rows name the lists asking for them as well
+(`InventoryItemRow.AskedFor`, 2026-09-19), read off the demand the screen already holds, said once per
+list and nothing at all for a row nobody asks for - the browser's row hint said whom a change reaches
+and the phone's said only how much.
+
+**A shelf can gather other shelves** (`Inventory.GathersInventoryIds`, `InventoryGroups`,
+`OL_INVENTORIES_GATHERED`, `PUT /api/inventories/{id}/gathers`, 2026-09-18). One entry on the list of
+inventories, holding smaller inventories inside it, each of which can go on answering to a different task
+list - a kitchen read as one thing and stocked as three.
+
+**Gathering, not containing.** A member keeps its own rows, its own restock list and its own tie to a
+list, and it stays on the list of inventories where it was: the group is a way of reading several at
+once, not a box they are moved into. Taking one out again leaves it exactly as it was, and deleting a
+member leaves the group reading one row shorter rather than failing. `IsGroup` is derived - a shelf that
+gathers nothing is not one - unlike a task list's own answer, which the reader is given a say in because
+a list can hold an entry pointing at another list without meaning to become a group.
+
+Membership travels on its own endpoint rather than in the save, for the reason filing and pinning do: a
+save is the whole inventory, so a client that had never heard of gathering would scatter every group it
+touched. The whole membership is sent each time, in order. **A ring is refused** - two shelves gathering
+each other would be walked forever - and so is a shelf that is not the caller's own. Three places show
+it: the card on `/inventory` carries a **Group** badge and lists what it gathers, each row opening that
+shelf; the group's own page draws every member's shelf under its name; and the editor has **Inventories
+gathered here**, a box per shelf that says which list each answers to.
+
+**The phone shows it too** (`LocalInventory.GathersServerIds`, 2026-09-18). Its list of inventories
+carries the **Group** badge and names what a group holds on one line ("Holds: Fridge, Pantry"); the
+group's own screen draws each smaller shelf above its own rows, with how much is on it and how much of it
+is short, each opening by being pressed. A member this phone has not got yet is passed over rather than
+drawn as a shelf that cannot be opened.
+
+**And arranges one** (`InventoryDetailViewModel.Gathering`, 2026-09-19): **Inventories gathered here** in
+the shelf's own menu opens a sheet of every other shelf this reader has, ticked where it is already
+gathered, staying open so several can be moved in one visit. A tick is written straight through, the way
+the restock list's settings are and unlike everything else the phone edits: how a group is arranged is not
+part of what the shelf holds, and there is nothing local for it to be true of in the meantime. So it needs
+a connection, and is greyed rather than hidden without one - along with a shelf the server has never seen,
+a sealed one, and one reached through a share, which is its owner's to arrange. A refusal is said in
+words: the one rule a reader can trip over from here is a shelf that already gathers this one.
+
+**And a save of the shelf crosses off what it now answers** (2026-09-18). The rule is
+`StockedEntryCompletion`'s and a save of a *list* has always gone through it; this is the same question
+asked from the other end, which is where it was missing - somebody stocking a shelf put four of something
+on it and the list standing in front of them went on asking until they next opened that list. Only the
+reader's own lists, only those holding an outstanding entry for a row on this shelf, and last of the
+three steps, because what the shelf covers depends on the count the write-back may just have moved. A
+list that moved is stamped as changed (`TaskList.RecountWhatIsDone`), so the tick reaches every other
+copy of it.
 
 **The phone** offers the same picks under the entry's name as chips. After a pick it shows the '!' note
 and **Make it separate**. It sets only the words and the pointer; the group's details arrive with the
@@ -2453,7 +2522,9 @@ dashboard: four headings each saying "Nobody yet" were most of the panel spent o
 "Where your plans are" stays while the past is being shown, because it then holds the field that can
 change the answer. **A refresh button sits beside full screen** on the map: it reads everything again
 and moves the pins in place (`RefreshMapMarkersAsync`), so the pan and zoom it was pressed from are kept;
-a failure inside it is said on screen rather than leaving a button that looks dead. **Saying yes to a
+a failure inside it is said on screen rather than leaving a button that looks dead, and a success says
+**"The map is up to date."** (2026-09-19) for the same reason - keeping the view means a press with
+nothing new behind it changes nothing at all on the screen. **Saying yes to a
 pressed place keeps the view too** (2026-09-18): it used to rebuild the map, which came back fitted to
 every pin the account holds rather than showing the spot just chosen. Searching still redraws - being
 taken to what was found is the point of searching.
@@ -2991,6 +3062,23 @@ themselves: a search box, and the categories - a field of their own beside the v
 browsers (`ValueBrowser`). They were two rows of chips, which grew with the account until the rows were
 the page and what was chosen had to be found among what was not; a field says what it is narrowed to
 and keeps the whole list one press away, each word still carrying its count.
+
+**The browser is what every "more than one of these" is** (2026-09-18, asked for after the tags and the
+categories had it): **Waits for** and **Stands for these lists** on an entry, and **Belongs to** on a
+place, were each a picker that added one at a time with a row of chips underneath to remove them. They
+are browsers now - what is taken is written along the closed field, the whole list is one press away, and
+a tick each adds or removes. An offer can be a *thing* rather than a word (`ValueBrowser.Offer.Key`):
+`Chosen` then holds ids and the field writes the names beside them, so two lists honestly called the same
+stay apart - which a control folding two spellings of one word together could not do. A chosen id with no
+offer behind it is drawn as nothing rather than as an id.
+
+**The panel has a floor to its width** (`ValueBrowser.NarrowestPanel`, `menuAnchor.js`). It used to be
+exactly as wide as the field it hangs off, which is right for a list of completions under a text box and
+wrong for a field that is a button: "Add tag" is two words wide, and on a phone that left every row's
+tick, name, count and two colour buttons squeezed into about ninety pixels, the names ellipsised away to
+nothing behind a sideways scrollbar. It is now at least wide enough for a row and never wider than the
+window, and **on a narrow screen a long word wraps** rather than ending in an ellipsis that hides which
+word it is.
 
 Every entry can be filed under as many categories as apply — free text, read back along the field with
 commas between the words, the way a shelf item's category is written, and chosen from every category
@@ -3886,6 +3974,26 @@ notification; instead the Blazor inventory list page (`Inventory.razor`) sorts e
 the top and shows a passive "Expires soon"/"Expired" badge, computed client-side from `expiryDate` vs.
 today — keeping that half of the feature entirely client-side rather than adding another notification
 path.
+
+**Nothing goes off when there is none of it** (`InventoryExpiryReminderScheduler`, 2026-09-18). A row at
+zero is a product the shelf remembers rather than one it holds — its name, unit and keeping time are what
+let the next delivery be counted in — so no warning is sent about it. Reported with a shelf whose rows
+had been counted down to zero and were still being warned about. The rule is in the scheduler rather than
+in the query, so it can be read and tested; the repository goes on answering "what is near its date" and
+carries `Quantity` with each row. Restocking makes the row eligible again on the very next sweep, with no
+reset: the delivery row is keyed by the date, so a date that has not moved is still warned about only
+once.
+
+**The warning names the row, not only the shelf** (`InventoryExpiryPushContent`, 2026-09-18). Its address
+is `/inventory/{inventoryId}?highlight={itemId}` — the `?highlight=` the whole app already uses to land
+on a row. Following it opens the shelf with that row picked out, and **the shelf marks the row the bell
+is talking about** (`InventorySummary`, the `.row-unseen` outline plus the red dot a card carries): a
+card saying "something happened here" over thirty rows still left the reader to find which. The page is
+still the page — `NotificationFeedState` compares addresses without their query, so opening
+`/inventory/{id}` settles an entry about one of its rows, and the card and folder marks are unchanged.
+The shelf takes the set of marked rows as it opens and keeps it for the visit: arriving is what marks
+those entries read, so a mark that followed the shared set would flash and go. The phone has no such mark
+yet.
 
 ### The restock list
 
@@ -4830,7 +4938,15 @@ left, which may be another folder entirely - so a dot sits on every tab holding 
 (`PhoneToolbar.HasNews`). A dot rather than a count: how many is on the card itself, and this only has
 to say "in here". The open tab is never marked, since whatever it holds is already in front of the
 reader. The notes, the task lists and the inventories answer it; the calendar's tabs narrow a grid
-rather than a list of cards, and the phone's own folder menu does not carry it yet.
+rather than a list of cards.
+
+**The phone carries the same dot in its folder menu** (`RowInAFolder`, `FolderChoice.HasNews`,
+`ScreenMenuEntry.HasNews`, 2026-09-18). It has no room for a row of tabs, so the folders are entries in
+the menu under the screen's name - and a screen tells `FolderTabs.Describe` what the feed says about each
+row as well as where the row is. The notes, the task lists, the inventories and the dashboard answer it;
+the calendar's entries take the mark and nothing sets it, for the reason its tabs carry none in the
+browser. Unlike the browser the open folder is marked too: a menu is read as a list of places to go to,
+and leaving one out of the marking would read as that place holding nothing.
 
 **Which cards can say which row, and which can only say "here".** It depends on what the notification's
 address names, not on the card:
@@ -5198,7 +5314,10 @@ about**, and there are three ways to do that, all of them the same rule (`NewsSe
 **Reading them all at once is a press of its own** - "Mark all read" on the notifications page, beside
 Delete history, which is the arrangement the phone already had
 (`NotificationFeedViewModel.MarkEverythingRead`). Read and cleared stay different things, as the server
-keeps them: read means "I have seen these", cleared means "take them out of my way".
+keeps them: read means "I have seen these", cleared means "take them out of my way". Both need a
+connection, so on the phone both are greyed without one - and the menu says why, carrying
+`ConnectionRequirement.Explanation` as its heading while the phone is offline (2026-09-19): a greyed
+entry with nothing beside it is, to the reader, a press that did not register.
 
 **Desktop opens a popup; a phone opens a page.** A 320px panel anchored to the mobile top bar leaves
 almost nothing readable, so on that breakpoint the entry navigates to `/notifications`

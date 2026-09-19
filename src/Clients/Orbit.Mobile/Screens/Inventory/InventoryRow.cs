@@ -17,15 +17,25 @@ namespace Orbit.Mobile.Screens.Inventory;
 /// seen yet has no id to share; and a share that arrived read-only grants nothing further. Orbit.Web
 /// asks the same three and leaves the entry out rather than drawing it spent.
 /// </param>
+/// <param name="Gathers">
+/// The smaller shelves this one gathers, named and already in the reader's language - empty for an
+/// ordinary shelf, which is nearly every one. See Orbit.Core.Inventories.Inventory.GathersInventoryIds.
+/// </param>
 public sealed record InventoryRow(
     Guid LocalId, string Name, int ItemCount, bool HasUnsentChanges, OfflineEditRefusal Refusal,
     string Contents, string Status, bool IsHidden = false, string HiddenName = "Private",
     bool IsCopy = false, bool IsSharedWithMe = false, bool CanBeShared = false,
-    string RunningLow = "")
+    string RunningLow = "", string Gathers = "")
 {
+    /// <param name="everyShelf">
+    /// Every shelf this phone holds, so a group can name what it gathers - the membership is kept by the
+    /// ids the server knows, and a name is what a row can say. Empty leaves the naming out rather than
+    /// drawing ids, which is what a caller that has not got the whole list should get.
+    /// </param>
     public static InventoryRow From(
         LocalInventory inventory, bool hasUnsentChanges, INetworkStatus networkStatus, Translations translations,
-        bool privateItemsAreUnlocked = true, string hiddenName = "Private")
+        bool privateItemsAreUnlocked = true, string hiddenName = "Private",
+        IReadOnlyList<LocalInventory>? everyShelf = null)
     {
         var refusal = OfflineEditPolicy.Evaluate(inventory, networkStatus);
 
@@ -38,7 +48,34 @@ public sealed record InventoryRow(
             IsCopy: inventory.CopyOfLocalId is not null, IsSharedWithMe: inventory.IsShared,
             CanBeShared: inventory is { ServerId: not null, IsPrivate: false }
                 && SharedItemAccess.AllowsSharing(inventory),
-            RunningLow: RunningLowOn(inventory, translations));
+            RunningLow: RunningLowOn(inventory, translations),
+            Gathers: Gathering(inventory, everyShelf ?? [], translations));
+    }
+
+    /// <summary>
+    /// What a group gathers, named: "Holds: Fridge, Pantry". One line rather than rows of their own,
+    /// because this is a list of shelves and a tree drawn inside one of them stops it being a list -
+    /// opening the group is where the division is read (see InventoryDetailViewModel).
+    ///
+    /// A member this phone has not got - not synced yet, or deleted - is passed over rather than named
+    /// as a missing shelf, the same way a link to a list nobody has reads as nothing there.
+    /// </summary>
+    private static string Gathering(
+        LocalInventory inventory, IReadOnlyList<LocalInventory> everyShelf, Translations translations)
+    {
+        if (inventory.GathersServerIds.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var names = inventory.GathersServerIds
+            .Select(memberId => everyShelf.FirstOrDefault(candidate => candidate.ServerId == memberId))
+            .OfType<LocalInventory>()
+            .Where(member => !member.IsSealed)
+            .Select(member => member.Name)
+            .ToList();
+
+        return names.Count == 0 ? string.Empty : translations.Format("Holds: {0}", string.Join(", ", names));
     }
 
     /// <summary>
@@ -83,4 +120,14 @@ public sealed record InventoryRow(
     /// a private inventory holds is exactly what being private keeps back, and a count is part of it.
     /// </summary>
     public bool HasRunningLow => RunningLow.Length > 0 && !IsHidden;
+
+    /// <summary>
+    /// Whether this row says what it gathers. Nothing on a locked one, for the reason
+    /// <see cref="HasRunningLow"/> says nothing there: what a private shelf holds is what being private
+    /// keeps back, and the shelves it is read alongside are part of that.
+    /// </summary>
+    public bool HasGathers => Gathers.Length > 0 && !IsHidden;
+
+    /// <summary>Whether this shelf gathers others at all - see Orbit.Core.Inventories.Inventory.IsGroup.</summary>
+    public bool IsGroup => Gathers.Length > 0;
 }

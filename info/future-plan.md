@@ -2169,9 +2169,12 @@ the session that finishes one strikes it here rather than in a report nobody rea
   scrolled and took as much height as it wanted. Both are inside the one scroller now, still as two
   stacks because they read different binding contexts (the entry's own fields, and what is about the
   entry from the list's side). **Not seen on a device.**
-- **Separators made in the browser are not read correctly on Android.** Every step of the path was
-  read and the sync was covered with a test, and none of it loses one - see issue #294, which says what
-  was checked and what would settle it.
+- **Separators made in the browser are not read correctly on Android.** Explained on 2026-09-19: this
+  is the fault `af12718d` fixed on 2026-09-16. `extractLines`, the browser's read of its own writing
+  surface - which runs on every keystroke and on every save - read a table and a picture back and not a
+  rule, so a separator drawn in the browser was stored as an empty line and Android read an empty line.
+  The fix reached `main` the same evening (`ef227ee4`) and the deployed browser carries it. Left open
+  for a confirmation on the current build - see issue #294.
 - ~~**The press target for an item is too small** - the name itself has to be hit for the press to
   count.~~ Done for a task list's entries, which is where it was reported: the tap that opens an entry
   is on the row and the row has a transparent fill, so the empty half of a short line counts. It used
@@ -2246,16 +2249,37 @@ the session that finishes one strikes it here rather than in a report nobody rea
   localStorage. The reasoning the override was built on is kept where the property is - it is still
   true of what the reader now chooses, and which of the two readings they want is theirs. The phone
   never had the override, so the two clients agree again.
-- **Group inventories.** One entry on the list of inventories, holding smaller inventories inside it,
-  which can answer to different task lists.
+- ~~**Group inventories.** One entry on the list of inventories, holding smaller inventories inside it,
+  which can answer to different task lists.~~ Done in the browser (`Inventory.GathersInventoryIds`,
+  `InventoryGroups`, `OL_INVENTORIES_GATHERED`). Gathering rather than containing: a member keeps its own
+  rows, its own restock list and its own tie to a list, and it stays on the list of inventories where it
+  was - the group is a way of reading several at once, so taking one out leaves it exactly as it was.
+  Membership is its own endpoint, not part of the save, for the reason filing is; a ring is refused, and
+  so is a shelf that is not the caller's. The card on `/inventory` lists what a group gathers, the
+  group's own page draws each member's shelf under its name, and the editor has the boxes that arrange
+  it. **The phone shows it too**, read-only (`LocalInventory.GathersServerIds`): the membership travels
+  on the change feed and sits beside the items, the way the arrival dates and the usage counts do, so the
+  list of inventories carries the badge and names what a group holds and the group's own screen draws
+  each smaller shelf with what is on it and how much of it is short. Arranging a group stays in the
+  browser - that is a decision made with the whole list of shelves in front of the reader, and a phone
+  answering it would be answering with a guess. ~~**Offering it on the phone** is the next step if it is
+  wanted: the screen has the shelves and the ids already, so it is a sheet of boxes and one PUT.~~ Done
+  2026-09-19, and it was exactly that: **Inventories gathered here** in the shelf's own menu opens a sheet
+  of every other shelf, ticked where it is gathered, staying open so several can be moved at once. Written
+  straight through rather than queued, the way the restock list's settings are - so it needs a connection
+  and is greyed without one.
 - ~~**A mark on the folder button where a notification's thing is**, so somebody following a
   notification can see which folder holds it - in the web's mobile view as well.~~ Done in the browser:
   `FolderTabs.HasNewsIn` puts a dot on the tab, and `PhoneToolbar.HasNews` the same dot on the button
   the tabs fold into on a narrow screen - only for folders that are not open, since a card in front of
   the reader already carries its own mark. The notes, the task lists and the inventories answer it; the
-  calendar does not, because its tabs narrow a grid rather than a list of cards. **The phone's own
-  folder menu has no mark yet** - `FolderTabs.Describe` there counts rows and knows nothing about the
-  feed, which is where this lands next.
+  calendar does not, because its tabs narrow a grid rather than a list of cards. **And on the phone**
+  since 2026-09-18: `FolderTabs.Describe` takes what the feed says about each row as well as where it is
+  (`RowInAFolder`), and a folder holding something unseen carries the same dot on its menu entry
+  (`ScreenMenuEntry.HasNews`) - the notes, the task lists, the inventories and the dashboard. The
+  calendar's menu takes the mark but nothing sets it, for the reason the browser's tabs do not carry one.
+  Found on the way: `UnreadNews` compared addresses whole, so an entry naming a row after a "?" marked
+  nothing at all - it reads the path through `NotificationUrl` now, as the browser does.
 - ~~**Delete goes out of a pinned list's entry editor** in a group list's heavy editing; it belongs
   under the expanded form.~~ Done: the member's rows now follow the rule this form's own entries have
   always followed - Remove is last inside the expanded details rather than beside the box somebody is
@@ -2270,9 +2294,12 @@ the session that finishes one strikes it here rather than in a report nobody rea
   open and moves the pins (`MapPage.RefreshTheMapAsync`, covered by a test that the places list is read
   again). What *would* look exactly like this is an exception thrown inside it - an event handler that
   throws leaves the page as it was - so the handler now catches, logs and says so on screen rather than
-  failing silently. **Still open** as issue #293, which says what was checked and what would settle it:
-  what the reader expects it to change, and whether the browser's console says anything when it is
-  pressed.
+  failing silently. And the likeliest reading of the report needs nothing to have gone wrong at all
+  (2026-09-19): the button keeps the pan and the zoom it was pressed from and only moves the pins, so a
+  press with nothing new behind it changes not one pixel - a button that gives no answer reads as a
+  button that does nothing. It says "The map is up to date." now, where the page already says "Location
+  recorded." and "Location forgotten.". **Still open** as issue #293 until somebody sees it again: if
+  that line appears and the map is still stale, the fault is in what is read rather than in the press.
 - ~~**Addresses do not wrap in the preview**, and wherever else text that should wrap does not.~~ Done:
   the address on an entry's page and on an appointment's is prose rather than a value
   (`.row-meta-prose`, which already existed for descriptions), and so are the guests and the
@@ -2319,15 +2346,21 @@ the session that finishes one strikes it here rather than in a report nobody rea
   out of both counts now. And **the phone can only take the easy half**: it saves through the same
   endpoint, so a row one entry asks for is written through there too, but it cannot raise the question,
   so a shared row saved from a phone leaves the lists alone. The phone's side of the warning is below.
-- **The phone cannot ask about a shelf row several lists want.** It saves inventories through the same
-  endpoint as the browser and gets the same write-through for a row exactly one entry asks for, but it
-  never reads `/demand`, so it can neither name the lists on the row nor offer "Split evenly" - a shared
-  row edited there simply leaves the lists as they are, which is the safe answer rather than the right
-  one. What it needs is the read, the row hint, and the two-answer sheet. 2026-09-18.
+- ~~**The phone cannot ask about a shelf row several lists want.**~~ Done
+  (`InventoryDetailViewModel.Question`, `LocalInventory.SplitEvenlyAcross`). It reads `/demand` when the
+  shelf opens and compares each row's minimum against what it read, so a save that moved one several
+  lists ask for stops and asks, naming the rows and the lists. The answer travels with the queued change
+  and the synchroniser clears it once that change has gone - left standing it would divide whatever was
+  edited next. A shelf out of reach is asked nothing and saves as before: an answer nobody can check is
+  not one to hold a save on. The row hint is on both now (2026-09-19): a phone's shelf row names the
+  lists asking for it (`InventoryItemRow.AskedFor`), read off the demand the screen already holds for
+  the save's question, and said once per list. It said only the number before
+  (`InventoryItemRow.KeptAt`), which is whom a change reaches left out. **Not seen on a device.**
 - **A separator made on one client is not drawn by the other**, either way round. The Android entry
-  above is the same fault seen from one side only, and both are issue #294: the wire, both clients'
-  mappings, the phone's local store, its template and the sync were all read, and a test now holds the
-  sync. Whatever this is, it is not on the path the code describes.
+  above is the same fault seen from the other side, and both are issue #294 - and both are explained by
+  `af12718d` (2026-09-16): the browser's read of its own writing surface dropped the rule on the next
+  keystroke or save, so one made on the phone survived only until the browser touched the note. Deployed
+  since that evening; left open for a confirmation on the current build.
 - ~~**A group list's light view shows the same entry once per sublist.** They should be summed into one
   entry carrying the minimum wanted on the list and its tags, with the note of which sublist it came
   from taken away.~~ Done in the browser (`FlatRowsToShow`): one row per thing said, how much is wanted
@@ -2335,6 +2368,81 @@ the session that finishes one strikes it here rather than in a report nobody rea
   from. The box answers for every entry behind it, each list written on its own. **The phone has no flat
   view at all** ("The phone cannot flatten a tree of lists", above), so there is nothing there to gather
   yet - that entry is where this lands when it is built.
+
+### Added 2026-09-18, after the round above
+
+- ~~**The browser is too narrow on the web's mobile version** - give it a minimum, and wrap lines where
+  needed.~~ Done (`ValueBrowser.NarrowestPanel`, `menuAnchor.js`, and a rule under 480px). The panel took
+  the width of the field it hangs off, which is right under a text box and wrong under a button: "Add
+  tag" is two words wide, and every row's tick, name, count and two colour buttons were squeezed into
+  about ninety pixels with the names ellipsised away behind a sideways scrollbar. It has a floor now,
+  never goes past the window, and a long word wraps on a narrow screen.
+- ~~**The browser should be used everywhere more than one thing can be chosen** - "Stands for these
+  lists", "Waits for", and the rest.~~ Done for those two and for a place's **Belongs to**: each was a
+  picker that added one at a time with a row of chips to remove them. An offer can now be a *thing*
+  rather than a word (`ValueBrowser.Offer.Key`), so two lists honestly called the same stay apart.
+  **Nothing else on the web takes more than one answer through a picker** - the folder fields, the
+  priorities and the kinds are all one answer, and `linked-list-chips` has no users left. If a place is
+  missed, it is one of those.
+
+### Added 2026-09-18, with a picture of the shelf
+
+- ~~**A mark on the shelf row a notification is about.**~~ Done in the browser. The warning's address is
+  `/inventory/{id}?highlight={itemId}` now (`InventoryExpiryPushContent`), and `InventorySummary` draws
+  the `.row-unseen` outline and the red dot on that row. `NotificationFeedState` compares addresses
+  without their query, so the page is still settled by being opened and the card and folder marks are
+  untouched; the page takes its set of marked rows as it opens and keeps it for the visit, since arriving
+  is exactly what marks those entries read. **The phone has no such mark**, and its shelf screen would
+  need the same: the feed it already reads, the row's own id, and the dot.
+- ~~**A shelf holding none of something still warned that it was nearing its date.**~~ Done
+  (`InventoryExpiryReminderScheduler`): a row at zero is a product the shelf remembers rather than one it
+  holds, so nothing is sent about it. The rule is in the scheduler, not the query, so it can be read and
+  tested; restocking makes the row eligible again on the next sweep with no reset.
+- ~~**The two buttons on a shelf row should move it by half, not by one.**~~ Done
+  (`InventorySummary.Step`): most of what a shelf holds is counted in something a half of makes sense
+  of, a whole one is two presses, and half a bottle could not be recorded at all before without opening
+  the form. The buttons say the number they move by rather than "one more".
+- ~~**Something put away should come off what it was attached to** - archiving an inventory should take
+  it off every list it was on.~~ Done for the inventory (`ArchiveInventoryCommandHandler`): a list still
+  measured against a shelf its owner had filed out of sight went on showing a stock check against it and
+  raising restock errands from it. Only on the way in - bringing it back does not put the links back,
+  because nothing records which lists they were and guessing would be inventing a choice nobody made.
+  **And the same rule for a task list** (`ArchiveTaskListCommandHandler`, `TaskList.StopGathering`),
+  confirmed by the user the same day: putting a list away takes it out of every group gathering it. A
+  group's row that stood only for that list goes with it - a pointer at other lists is not work of its
+  own, so one left pointing at nothing would become an errand nobody wrote, outstanding for good - and a
+  row standing for two lists keeps the other. A row that also stood for a shelf item takes its share of
+  that item's count with it, so the count is taken again. **A "way" of doing something that points at
+  the archived list** (`TaskItemAlternative`) is deliberately left alone: that is a choice between ways
+  rather than group membership, and if it should follow the same rule it is its own small change.
+- ~~**Private and made-up folders should only be tabs on the dashboard where they hold something, and
+  with only Public left the whole bar should go.**~~ Done (`FolderTabRow`, `FolderTabs.HoldsAnything`):
+  what the reader has put away on the dashboard is counted too, since a folder is not empty because its
+  card is hidden. Public and whatever is open always stay. Only the dashboard prunes: elsewhere a folder
+  is a place things are filed into, so an empty one has to be reachable.
+- ~~**Reading a notification on the phone did not work.**~~ Half found. A notification's address may now
+  carry a row to land on after a "?", and `NotificationDestination.Parse` read that as part of the id -
+  so every warning about something going off became one that led nowhere and could not be marked read by
+  tapping it. Parse ignores the query now. And a tap marks the entry read **whatever** happened next:
+  one leading somewhere this build does not know, or to something the phone has not caught up with,
+  stayed unread for good with nothing short of "Mark all read" to shift it. **Clearing the feed is not
+  reproduced** - the path is covered by tests that pass - and is issue #296. The one thing in it no test
+  can exercise is the connection check that greys "Delete history" and "Mark all read", and a greyed
+  entry with nothing beside it is a press that did not register as far as the reader is concerned. The
+  feed's menu now carries `ConnectionRequirement.Explanation` as its heading while the phone is offline
+  (2026-09-19), which says the same thing the share panel and a task list say - and tells the two
+  candidates apart the next time it is seen.
+- ~~**The restock list could not be switched off from the phone.**~~ Done
+  (`RestockListSettingsPanel.IsEnabled`): the phone drew two of the settings and not the switch the rest
+  of them hang off, so a list somebody did not want was reachable only from a browser. What turning it
+  off costs is said beside it, and the rest of the section greys out while it is off - the same shape
+  Orbit.Web's own section has.
+- ~~**"Recent chats" should say the last activity or the last message, whichever is later.**~~ Done
+  (`Conversation.LastAnythingFrom`): the card said it was ordered by the most recently active
+  conversation and measured that by the last message alone, so somebody online an hour ago sat under a
+  conversation nobody had touched for a week. Both the row and the order read the later of the two now.
+  **The phone's own conversation list is not changed** - it draws its rows from its own store and would
+  need the same answer written there.
 
 ## Smaller identified follow-ups
 

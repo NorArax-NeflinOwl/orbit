@@ -116,31 +116,20 @@
         @* What the place is for. A bakery on its own is a pin; a bakery on the shopping list is where the
            bread comes from - see Place.TaskListIds. As many as apply, because one place often serves
            several. *@
-        @if (LinkableLists.Count > 0)
+        @* One browser rather than a picker that adds and a row of chips that removes - the same change
+           the entry form's two made on 2026-09-18, and for the reason ValueBrowser exists: what a place
+           belongs to is written along the closed field, and each list is one tick. *@
+        @if (TaskLists.Count > 0)
         {
             <div class="field">
-                <label for="placeFormList">@T["Belongs to"]</label>
-                <select id="placeFormList" value="" @onchange="LinkToTheList">
-                    <option value="">@T["Choose a list…"]</option>
-                    @foreach (var list in LinkableLists)
-                    {
-                        <option value="@list.Id">@list.Title</option>
-                    }
-                </select>
+                <label>@T["Belongs to"]
+                    <ValueBrowser Offers="ValueBrowser.Things(TaskLists, list => list.Id, list => list.Title)"
+                                  Chosen="@_taskListIds.Select(id => id.ToString()).ToList()"
+                                  ChosenChanged="BelongToTheLists"
+                                  IsReadOnly="@(!CanWrite)"
+                                  Placeholder="@(T["No list"])" AriaLabel="@(T["Belongs to"])" />
+                </label>
             </div>
-        }
-        @if (_taskListIds.Count > 0)
-        {
-            <ul class="linked-list-chips">
-                @foreach (var listId in _taskListIds)
-                {
-                    <li>
-                        <span>@TitleOf(listId)</span>
-                        <button type="button" class="icon-btn" title="@(T["Remove"])" aria-label="@(T["Remove"])"
-                                @onclick="() => _taskListIds.Remove(listId)">✕</button>
-                    </li>
-                }
-            </ul>
         }
 
         @if (_error is { } error)
@@ -224,11 +213,6 @@
     /// </summary>
     private bool CanWrite => Place is not { } place || place.AccessLevel == "CanEdit";
 
-    private IReadOnlyList<TaskDto> LinkableLists
-        => [.. TaskLists.Where(list => !_taskListIds.Contains(list.Id))];
-
-    private string TitleOf(Guid taskListId)
-        => TaskLists.FirstOrDefault(list => list.Id == taskListId)?.Title ?? T["A list that is no longer here"];
 
     protected override void OnParametersSet()
     {
@@ -258,12 +242,11 @@
         }
     }
 
-    private void LinkToTheList(ChangeEventArgs args)
+    /// <summary>What this place is for, as the browser handed it back - see ValueBrowser.Things.</summary>
+    private void BelongToTheLists(IReadOnlyList<string> chosen)
     {
-        if (Guid.TryParse(args.Value?.ToString(), out var taskListId) && !_taskListIds.Contains(taskListId))
-        {
-            _taskListIds.Add(taskListId);
-        }
+        _taskListIds.Clear();
+        _taskListIds.AddRange(ValueBrowser.IdsIn(chosen));
     }
 
     /// <inheritdoc cref="LocationPickerOverlay" />

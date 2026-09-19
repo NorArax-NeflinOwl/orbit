@@ -268,6 +268,32 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.DoesNotContain("Bartek Nowak", contactsColumnText);
     }
 
+    /// <summary>
+    /// "Recent chats" says it is ordered by the most recently active conversation, and measured that by
+    /// the last message alone: somebody who had been online an hour ago sat under a conversation nobody
+    /// had touched for a week, with "3 days ago" beside a name that had been about all morning. Asked
+    /// for on 2026-09-18 - the later of the two answers, in the row and in the order.
+    /// </summary>
+    [Fact]
+    public void A_chat_row_says_the_later_of_the_last_message_and_the_last_time_they_were_here()
+    {
+        var now = DateTimeOffset.UtcNow;
+        RegisterChatApiClient([
+            Contact("Anna Kowalska", lastMessageAtUtc: now.AddDays(-3), lastSeenAtUtc: now.AddMinutes(-5)),
+            Contact("Bartek Nowak", lastMessageAtUtc: now.AddDays(-1), lastSeenAtUtc: null)]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        var rows = FindColumn(cut, "Recent chats").QuerySelectorAll(".list-row-button")
+            .Select(row => row.TextContent)
+            .ToList();
+        // Anna first, because she was here five minutes ago even though the conversation is older.
+        Assert.Contains("Anna Kowalska", rows[0]);
+        Assert.DoesNotContain("3 d", rows[0]);
+        // And Bartek, who has never been seen, is still measured by the one answer there is.
+        Assert.Contains("Bartek Nowak", rows[1]);
+    }
+
     [Fact]
     public void Nobody_is_told_about_chat_requests_that_are_not_there()
     {
@@ -698,23 +724,77 @@ public sealed class DashboardTests : OrbitTestContext
     }
 
     /// <summary>
-    /// Every card is now drawn only where it has something under the open tab, so a Private tab on an
-    /// account that has sealed nothing would otherwise be a row of tabs above a blank page.
+    /// A tab that would narrow this page to nothing is not offered. Every card is drawn only where it
+    /// has something under the open tab, so Private on an account that has sealed nothing was a tab
+    /// whose only answer was a blank page. Asked for on 2026-09-18.
+    ///
+    /// Only here: on the notes and the task lists a folder is a place things are filed into, so an empty
+    /// one has to be reachable or nothing could ever be put there - see FolderTabs.HoldsAnything.
     /// </summary>
     [Fact]
-    public void Private_with_nothing_sealed_says_so()
+    public void Private_with_nothing_sealed_is_not_a_tab_at_all()
     {
         RegisterChatApiClient([Contact("Anna Kowalska")]);
         RegisterNotesApiClient([Note("Shopping", "Normal")]);
+
         var cut = RenderComponent<Dashboard>();
 
-        OpenTheTab(cut, "Private");
-
-        Assert.Empty(CardNames(cut));
-        Assert.Contains(
-            "Nothing here is private yet.",
-            cut.FindAll(".empty-hint").Select(hint => hint.TextContent.Trim()));
+        Assert.DoesNotContain("Private", TabNames(cut));
     }
+
+    /// <summary>And is offered the moment there is something sealed to put under it.</summary>
+    [Fact]
+    public void Private_with_something_sealed_is()
+    {
+        RegisterChatApiClient([]);
+        RegisterNotesApiClient([Note("Passport", "Normal") with { IsPrivate = true }]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Contains("Private", TabNames(cut));
+    }
+
+    /// <summary>
+    /// And with only Public left there is nowhere to go, so the row goes too - a lone tab is a control
+    /// that can only be pressed to stay where you already are.
+    /// </summary>
+    [Fact]
+    public void With_only_Public_left_there_is_no_row_of_tabs()
+    {
+        RegisterChatApiClient([]);
+        RegisterNotesApiClient([Note("Shopping", "Normal")]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Empty(cut.FindAll(".folder-tab"));
+        // And the button the row folds into on a phone goes with it, rather than opening an empty panel.
+        Assert.Empty(cut.FindAll(".phone-toolbar-trigger"));
+    }
+
+    /// <summary>
+    /// A folder is not empty because its card has been put away. The reader hides the notes card, and
+    /// the folder holding their notes is still a folder holding notes - a tab that vanished with the
+    /// card would be saying something about the page rather than about the folder.
+    /// </summary>
+    [Fact]
+    public void A_folder_counts_what_is_in_it_even_where_the_card_is_hidden()
+    {
+        var receipts = Guid.NewGuid();
+        RegisterChatApiClient([]);
+        RegisterNotesApiClient([Note("Receipt", "Normal") with { FolderId = receipts }]);
+        RegisterFolders(new FolderDto(
+            receipts, "Receipts", nameof(FolderScope.Notes), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
+        RegisterDashboardCardPreferences(filters: null, hidden: "notes");
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.DoesNotContain("Notes", CardNames(cut));
+        Assert.Contains("Receipts", TabNames(cut));
+    }
+
+    /// <summary>The names on the row of folder tabs, in the order they are drawn.</summary>
+    private static IReadOnlyList<string> TabNames(IRenderedFragment cut)
+        => [.. cut.FindAll(".folder-tab").Select(tab => tab.TextContent.Trim())];
 
     private static void OpenTheTab(IRenderedComponent<Dashboard> cut, string name)
         => cut.FindAll(".folder-tab")
@@ -796,11 +876,13 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.DoesNotContain("item-card-unseen", FindColumn(cut, "Recent chats").ClassName);
     }
 
-    private static ContactDto Contact(string displayName, int unread = 0)
+    private static ContactDto Contact(
+        string displayName, int unread = 0, DateTimeOffset? lastMessageAtUtc = null,
+        DateTimeOffset? lastSeenAtUtc = null)
         => new(
             Guid.NewGuid(), displayName.ToLowerInvariant(), displayName, $"{displayName}@example.com", "public-key",
-            DateTimeOffset.UtcNow, RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false,
-            unread);
+            lastMessageAtUtc ?? DateTimeOffset.UtcNow, RequiresApprovalFromCurrentUser: false,
+            IsPendingApprovalFromOtherParty: false, unread, LastSeenAtUtc: lastSeenAtUtc);
 
     private static IElement FindColumn(IRenderedComponent<Dashboard> cut, string heading)
         => cut.FindAll(".item-card").Single(column => column.QuerySelector(".item-card-name")!.TextContent == heading);
@@ -1026,6 +1108,9 @@ public sealed class DashboardTests : OrbitTestContext
     {
         RegisterChatApiClient([]);
         RegisterPlacesApiClient([Place("The good bakery")]);
+        // Something sealed, or there would be no Private tab to press at all - see
+        // Private_with_nothing_sealed_is_not_a_tab_at_all.
+        RegisterNotesApiClient([Note("Passport", "Normal") with { IsPrivate = true }]);
         var cut = RenderComponent<Web.Pages.Dashboard>();
         Assert.Contains("Places you keep", CardNames(cut));
 

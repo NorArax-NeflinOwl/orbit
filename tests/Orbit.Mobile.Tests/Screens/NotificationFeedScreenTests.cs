@@ -69,6 +69,26 @@ public sealed class NotificationFeedScreenTests
         Assert.Empty(context.Server.MarkedReadAt);
     }
 
+    /// <summary>
+    /// But it is read: a tap is somebody reading the entry, whatever happens next. Without this an entry
+    /// leading somewhere this build does not know - or to something this phone has not caught up with -
+    /// stayed unread for good, with nothing short of "Mark all read" to shift it. Reported on
+    /// 2026-09-18 as reading notifications on the phone not working.
+    /// </summary>
+    [Fact]
+    public async Task A_tap_that_could_not_open_anything_still_marks_it_read()
+    {
+        using var context = new FeedContext();
+        context.Server.Add("Something new", "/a-screen-added-later");
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+        Assert.True(screen.Rows[0].IsUnread);
+
+        await screen.OpenCommand.ExecuteAsync(screen.Rows[0]);
+
+        Assert.False(Assert.Single(screen.Rows).IsUnread);
+    }
+
     [Fact]
     public async Task A_notification_that_leads_nowhere_still_lists_and_still_reads()
     {
@@ -228,6 +248,7 @@ public sealed class NotificationFeedScreenTests
                 repository, chatClient, usersClient, sender, NullLogger<ChatSynchronizer>.Instance);
             _opener = new NotificationOpener(
                 repository, _synchronizer, usersClient, Openers.TaskListsIn(_localStore), Openers.NoTaskListServer(_localStore),
+                Openers.InventoriesIn(_localStore), Openers.NoInventoryServer(_localStore),
                 new PendingNotificationTap(), Navigator);
         }
 

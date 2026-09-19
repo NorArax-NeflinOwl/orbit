@@ -43,7 +43,7 @@ public sealed class InventoryMeasuredListsTests : OrbitTestContext
 
         var cut = RenderComponent<InventoryEditor>(parameters => parameters.Add(page => page.InventoryId, InventoryId));
 
-        var rows = cut.FindAll(".check-row").ToList();
+        var rows = cut.FindAll(".inventory-measured-lists-card .check-row").ToList();
         Assert.Equal(2, rows.Count);
         Assert.Contains("Baking", rows[0].TextContent);
         Assert.True(rows[0].QuerySelector("input")!.HasAttribute("checked"));
@@ -58,7 +58,7 @@ public sealed class InventoryMeasuredListsTests : OrbitTestContext
         RegisterApiClients();
         var cut = RenderComponent<InventoryEditor>(parameters => parameters.Add(page => page.InventoryId, InventoryId));
 
-        cut.Find(".check-row input").Change(true);
+        cut.Find(".inventory-measured-lists-card .check-row input").Change(true);
 
         Assert.Equal((BreadId, InventoryId), Assert.Single(_linked));
     }
@@ -70,7 +70,7 @@ public sealed class InventoryMeasuredListsTests : OrbitTestContext
         RegisterApiClients();
         var cut = RenderComponent<InventoryEditor>(parameters => parameters.Add(page => page.InventoryId, InventoryId));
 
-        cut.Find(".check-row input").Change(false);
+        cut.Find(".inventory-measured-lists-card .check-row input").Change(false);
 
         Assert.Equal((BakingId, (Guid?)null), Assert.Single(_linked));
     }
@@ -87,7 +87,7 @@ public sealed class InventoryMeasuredListsTests : OrbitTestContext
 
         var cut = RenderComponent<InventoryEditor>(parameters => parameters.Add(page => page.InventoryId, InventoryId));
 
-        Assert.Contains("Shed", cut.Find(".check-row .row-meta").TextContent);
+        Assert.Contains("Shed", cut.Find(".inventory-measured-lists-card .check-row .row-meta").TextContent);
     }
 
     private static TaskDto AList(Guid id, string title, Guid? inventoryId)

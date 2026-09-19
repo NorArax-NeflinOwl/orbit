@@ -32,6 +32,55 @@ public sealed class RestockListSettingsTests
         Assert.Equal(new TimeSpan(7, 30, 0), panel.RefreshTime);
     }
 
+    /// <summary>
+    /// The switch everything else here hangs off, which the phone had no way to reach at all: a restock
+    /// list somebody did not want could only be switched off from a browser. Reported on 2026-09-18.
+    /// </summary>
+    [Fact]
+    public async Task The_list_can_be_switched_off_from_the_phone()
+    {
+        using var context = new PanelContext();
+        context.Server.RestockSettings = new RestockListSettingsDto(
+            OnlyLinkedWithDueDate: false, new TimeOnly(9, 0), IsEnabled: true);
+        var panel = await context.OpenAsync(context.InventoryId);
+        Assert.True(panel.IsEnabled);
+
+        panel.IsEnabled = false;
+        await panel.SaveCommand.ExecuteAsync(null);
+
+        Assert.False(Assert.IsType<RestockListSettingsDto>(context.Server.RestockSettings).IsEnabled);
+    }
+
+    /// <summary>And back on again, which builds a fresh list - see RestockListSettingsDto.IsEnabled.</summary>
+    [Fact]
+    public async Task And_switched_back_on()
+    {
+        using var context = new PanelContext();
+        context.Server.RestockSettings = new RestockListSettingsDto(
+            OnlyLinkedWithDueDate: false, new TimeOnly(9, 0), IsEnabled: false);
+        var panel = await context.OpenAsync(context.InventoryId);
+        Assert.False(panel.IsEnabled);
+
+        panel.IsEnabled = true;
+        await panel.SaveCommand.ExecuteAsync(null);
+
+        Assert.True(Assert.IsType<RestockListSettingsDto>(context.Server.RestockSettings).IsEnabled);
+    }
+
+    /// <summary>What turning it off costs is said beside it rather than discovered afterwards.</summary>
+    [Fact]
+    public async Task What_switching_it_off_costs_is_said_before_it_is_pressed()
+    {
+        using var context = new PanelContext();
+        var panel = await context.OpenAsync(context.InventoryId);
+
+        var whileItIsKept = panel.KeepingTheListDescription;
+        panel.IsEnabled = false;
+
+        Assert.NotEqual(whileItIsKept, panel.KeepingTheListDescription);
+        Assert.Contains("deletes", panel.KeepingTheListDescription, StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>Saying which rule is on is not the same as saying what it does.</summary>
     [Fact]
     public async Task The_rule_is_described_in_words_and_follows_the_switch()

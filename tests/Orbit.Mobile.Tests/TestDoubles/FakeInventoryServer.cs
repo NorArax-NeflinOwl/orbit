@@ -30,11 +30,17 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
     public IReadOnlyList<InventoryItemDto> ItemsIn(Guid inventoryId)
         => _items.TryGetValue(inventoryId, out var items) ? items : [];
 
-    public InventoryDto AddInventory(string name, bool isSharedWithOthers = false, bool isPrivate = false)
+    /// <param name="gathers">
+    /// The shelves this one gathers, for a group - see Orbit.Core.Inventories.Inventory.GathersInventoryIds.
+    /// </param>
+    public InventoryDto AddInventory(
+        string name, bool isSharedWithOthers = false, bool isPrivate = false,
+        IReadOnlyList<Guid>? gathers = null)
     {
         var now = _timeProvider.GetUtcNow();
         var inventory = new InventoryDto(
-            Guid.NewGuid(), name, now, now, false, null, "CanEdit", null, null, isPrivate, null, isSharedWithOthers);
+            Guid.NewGuid(), name, now, now, false, null, "CanEdit", null, null, isPrivate, null, isSharedWithOthers,
+            GathersInventoryIds: gathers);
 
         _inventories[inventory.Id] = inventory;
         _items[inventory.Id] = [];
@@ -65,13 +71,16 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
     }
 
     /// <param name="usage">What the task lists ask of it, which the server counts - see InventoryItem.Usage.</param>
+    /// <param name="minimum">The level it is kept at, or null for a row nobody set one for.</param>
     public void AddItem(
-        Guid inventoryId, string name, decimal quantity, bool isCheckedRegularly = false, decimal usage = 0)
+        Guid inventoryId, string name, decimal quantity, bool isCheckedRegularly = false, decimal usage = 0,
+        decimal? minimum = null)
     {
         var now = _timeProvider.GetUtcNow();
         _items[inventoryId].Add(new InventoryItemDto(
-            Guid.NewGuid(), name, "Piece", "General", quantity, null, nameof(InventoryUnit.Piece), null, "None",
-            false, false, now, now, isCheckedRegularly, Categories: null, Usage: usage));
+            Guid.NewGuid(), name, "Piece", "General", quantity, minimum, nameof(InventoryUnit.Piece), null, "None",
+            minimum is { } kept && quantity < kept, false, now, now, isCheckedRegularly,
+            Categories: null, Usage: usage));
     }
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -130,6 +139,34 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
             return Json(ItemsIn(inventoryId).ToList());
         }
 
+        // Which shelves this one gathers - see Orbit.Core.Inventories.GatherInventories. The real server
+        // refuses a ring and a shelf that is not the caller's; this keeps whatever it is given, and a
+        // test that is about a refusal says so with RefuseGathering.
+        if (path.EndsWith("/gathers", StringComparison.Ordinal))
+        {
+            if (RefuseGathering)
+            {
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }
+
+            var inventoryId = Guid.Parse(path.Split('/')[^2]);
+            var asked = await ReadAsync<GatherInventoriesRequest>(request, cancellationToken);
+            _inventories[inventoryId] = _inventories[inventoryId] with
+            {
+                GathersInventoryIds = asked!.InventoryIds,
+                UpdatedAtUtc = _timeProvider.GetUtcNow()
+            };
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        }
+
+        // Which of this reader's task entries ask for each row here - see Orbit.Core.Inventories.ShelfDemand.
+        if (path.EndsWith("/demand", StringComparison.Ordinal))
+        {
+            var inventoryId = Guid.Parse(path.Split('/')[^2]);
+            return Json(Demand.Where(claim => ItemsIn(inventoryId).Any(item => item.Id == claim.InventoryItemId))
+                .ToList());
+        }
+
         // Filing has its own endpoint, and this fake has to have it too - the real one keeps it off the
         // save so that a client which had never heard of folders cannot empty it. See MoveToFolderRequest.
         if (path.EndsWith("/folder", StringComparison.Ordinal))
@@ -151,6 +188,30 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
             _ => Json(_inventories.Values.ToList())
         };
     }
+
+    /// <summary>
+    /// Which task entries ask for which rows - see Orbit.Core.Inventories.ShelfDemand. Nothing asks for
+    /// anything unless a test says so, which is what a shelf nobody has built a list against looks like.
+    /// </summary>
+    public List<ShelfClaimDto> Demand { get; } = [];
+
+    /// <summary>What the last save asked to be divided equally - see SaveInventoryRequest.SplitEvenlyAcross.</summary>
+    public IReadOnlyList<Guid> LastSplitEvenlyAcross { get; private set; } = [];
+
+    /// <summary>
+    /// Whether arranging a group is refused - which the real server does for a ring and for a shelf that
+    /// is not the caller's. The one refusal a reader can trip over from the screen.
+    /// </summary>
+    public bool RefuseGathering { get; set; }
+
+    /// <summary>What one shelf gathers here, so a test can read back what the screen sent.</summary>
+    public IReadOnlyList<Guid> GatheredBy(Guid inventoryId)
+        => _inventories.TryGetValue(inventoryId, out var inventory) ? inventory.AllGathered : [];
+
+    /// <summary>Says that one list asks for one row, which is how a test builds a shared row out of two calls.</summary>
+    public void AddDemand(Guid inventoryItemId, string taskListName, decimal quantity = 1)
+        => Demand.Add(new ShelfClaimDto(
+            inventoryItemId, Guid.NewGuid(), taskListName, Guid.NewGuid(), taskListName, quantity));
 
     /// <summary>What a refresh of an inventory's restock list answers with, and how often one was asked for.</summary>
     public RestockRefreshResultDto RestockRefresh { get; set; } = new(0, 0);
@@ -223,6 +284,9 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
         }
 
         var body = await ReadAsync<SaveInventoryRequest>(request, cancellationToken);
+        // Kept rather than acted on: dividing an amount between the entries asking for it is the
+        // server's own job (ShelfDemand), and what a test of this client needs to know is what it sent.
+        LastSplitEvenlyAcross = body!.SplitEvenlyAcross ?? [];
         var now = _timeProvider.GetUtcNow();
         _inventories[id] = existing with
         {

@@ -500,8 +500,12 @@ public sealed partial class TasksViewModel : ObservableObject
         // Where each list is, by the rule both clients share. A finished list nobody filed gathers under
         // Finished; one its owner put in a folder of their own stays there, finished or not - see
         // FolderPlacement, which says why filing beats finishing.
+        // And which of them hold something the reader has not seen, so the menu can say which folder to
+        // open - the dot the browser puts on the tab. Following a notification is how somebody arrives
+        // here, and the screen opens on whatever folder it was last left on.
         FolderChoices.Clear();
-        foreach (var choice in Folders.Describe(_stored.Select(Where)))
+        foreach (var choice in Folders.Describe(
+            [.. _stored.Select(taskList => new RowInAFolder(Where(taskList), HasNewsAbout(taskList)))]))
         {
             FolderChoices.Add(choice);
         }

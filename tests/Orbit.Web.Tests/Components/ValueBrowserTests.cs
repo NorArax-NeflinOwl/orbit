@@ -205,6 +205,27 @@ public sealed class ValueBrowserTests : OrbitTestContext
         Assert.Equal("No tags yet.", cut.Find(".value-browser-empty").TextContent.Trim());
     }
 
+    /// <summary>
+    /// The open list is given a floor to its width, not only the width of the field it hangs off. The
+    /// field is often a button as wide as two words - "Add tag" - and on a phone that left every row's
+    /// tick, name, count and two colour buttons squeezed into about ninety pixels: the names were
+    /// ellipsised away to nothing and the panel grew a sideways scrollbar. Reported 2026-09-18 with a
+    /// picture of it; the measuring itself is menuAnchor.js's, which also caps it at the window.
+    /// </summary>
+    [Fact]
+    public void The_open_list_asks_not_to_be_narrower_than_a_row_needs()
+    {
+        var cut = RenderComponent<ValueBrowser>(parameters => parameters.Add(browser => browser.Offers, ThreeWords));
+
+        cut.Find(".value-browser-field").Click();
+
+        var anchored = JSInterop.Invocations["anchorToField"].Single();
+        Assert.Equal(".value-browser-field", anchored.Arguments[1]);
+        // A number rather than the exact one: what matters is that a floor is asked for at all, and
+        // nailing the pixel here would make the test about the choice rather than about the rule.
+        Assert.True(Convert.ToInt32(anchored.Arguments[2]) >= 200);
+    }
+
     /// <summary>A reader who cannot change what they are looking at is not offered the list at all.</summary>
     [Fact]
     public void A_read_only_field_does_not_open()

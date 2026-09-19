@@ -128,9 +128,12 @@ public sealed class InventorySummaryTests : OrbitTestContext
     /// The two things somebody standing in front of a shelf does. Counted here rather than typed in an
     /// editor, and saved with one press - until then nothing has been written, which is what makes the
     /// pair safe to lean on.
+    ///
+    /// Half at a time since 2026-09-18 - see InventorySummary.Step. Most of what a shelf holds is
+    /// counted in something a half of makes sense of, and a whole one is two presses.
     /// </summary>
     [Fact]
-    public void One_off_the_shelf_and_one_back_on_it_are_a_press_each()
+    public void Some_off_the_shelf_and_some_back_on_it_are_a_press_each()
     {
         _shelf = [Batch(FirstBatchId, "Flour", 1, DateTime.Today, expires: null)];
         var cut = RenderComponent<InventorySummary>(parameters => parameters.Add(page => page.InventoryId, InventoryId));
@@ -140,9 +143,35 @@ public sealed class InventorySummaryTests : OrbitTestContext
 
         cut.FindAll(".shelf-batch-count button").First(button => button.TextContent.Contains('+')).Click();
 
-        Assert.Contains("2", cut.Find(".shelf-batch-amount").TextContent);
+        Assert.Contains("1.5", cut.Find(".shelf-batch-amount").TextContent);
         Assert.False(
             cut.FindAll("button").First(button => button.GetAttribute("aria-label") == "Save").HasAttribute("disabled"));
+    }
+
+    /// <summary>And down by the same half, which is what records the bottle somebody half emptied.</summary>
+    [Fact]
+    public void And_down_by_the_same_half()
+    {
+        _shelf = [Batch(FirstBatchId, "Milk", 1, DateTime.Today, expires: null)];
+        var cut = RenderComponent<InventorySummary>(parameters => parameters.Add(page => page.InventoryId, InventoryId));
+
+        cut.FindAll(".shelf-batch-count button").First(button => button.TextContent.Contains('−')).Click();
+
+        Assert.Contains("0.5", cut.Find(".shelf-batch-amount").TextContent);
+    }
+
+    /// <summary>Half of a half is nothing, and the button that would go below it is greyed from there.</summary>
+    [Fact]
+    public void Counting_the_last_half_down_lands_on_nothing_rather_than_below_it()
+    {
+        _shelf = [Batch(FirstBatchId, "Milk", 0.5m, DateTime.Today, expires: null)];
+        var cut = RenderComponent<InventorySummary>(parameters => parameters.Add(page => page.InventoryId, InventoryId));
+
+        cut.FindAll(".shelf-batch-count button").First(button => button.TextContent.Contains('−')).Click();
+
+        Assert.Contains("0", cut.Find(".shelf-batch-amount").TextContent);
+        Assert.True(
+            cut.FindAll(".shelf-batch-count button").First(button => button.TextContent.Contains('−')).HasAttribute("disabled"));
     }
 
     /// <summary>
@@ -193,6 +222,67 @@ public sealed class InventorySummaryTests : OrbitTestContext
 
         var fewer = cut.FindAll(".shelf-batch-count button").First(button => button.TextContent.Contains('−'));
         Assert.True(fewer.HasAttribute("disabled"));
+    }
+
+    /// <summary>
+    /// A shelf of thirty rows with a warning about one of them left the reader to work out which. The
+    /// warning names the row (InventoryExpiryPushContent), and the shelf marks it. Asked for 2026-09-18.
+    /// </summary>
+    [Fact]
+    public void The_row_the_bell_is_talking_about_is_marked()
+    {
+        var other = Guid.NewGuid();
+        _shelf = [
+            Batch(FirstBatchId, "Flour", 2, new DateTime(2026, 8, 20), new DateTime(2026, 9, 20)),
+            Batch(other, "Sugar", 1, new DateTime(2026, 8, 20), expires: null)];
+        TheBellSays($"/inventory/{InventoryId}?highlight={FirstBatchId}");
+
+        var cut = RenderComponent<InventorySummary>(
+            parameters => parameters.Add(page => page.InventoryId, InventoryId));
+
+        // Indexed off a list rather than the collection: bUnit's own indexer binds to an AngleSharp
+        // overload this build does not have.
+        var marked = cut.FindAll(".shelf-batch.row-unseen").ToList();
+        Assert.Contains("Flour", Assert.Single(marked).TextContent);
+    }
+
+    /// <summary>
+    /// Kept for the visit rather than asked afresh as each row draws: arriving here is what marks those
+    /// notifications read, so a mark that followed the shared set would flash and go - see
+    /// InventorySummary's own comment on it.
+    /// </summary>
+    [Fact]
+    public async Task And_stays_marked_once_the_bell_has_been_emptied()
+    {
+        _shelf = [Batch(FirstBatchId, "Flour", 2, new DateTime(2026, 8, 20), new DateTime(2026, 9, 20))];
+        var bell = TheBellSays($"/inventory/{InventoryId}?highlight={FirstBatchId}");
+
+        var cut = RenderComponent<InventorySummary>(
+            parameters => parameters.Add(page => page.InventoryId, InventoryId));
+        await cut.InvokeAsync(() => bell.Clear());
+
+        Assert.Single(cut.FindAll(".shelf-batch.row-unseen"));
+    }
+
+    [Fact]
+    public void A_shelf_the_bell_has_said_nothing_about_marks_nothing()
+    {
+        _shelf = [Batch(FirstBatchId, "Flour", 2, new DateTime(2026, 8, 20), new DateTime(2026, 9, 20))];
+
+        var cut = RenderComponent<InventorySummary>(
+            parameters => parameters.Add(page => page.InventoryId, InventoryId));
+
+        Assert.Empty(cut.FindAll(".shelf-batch.row-unseen"));
+    }
+
+    /// <summary>Puts one unread entry in the shared feed, and hands it back so a test can empty it.</summary>
+    private NotificationFeedState TheBellSays(string url)
+    {
+        var bell = Services.GetRequiredService<NotificationFeedState>();
+        bell.Set([new Contracts.Notifications.NotificationEntryDto(
+            Guid.NewGuid(), "InventoryItemExpiring", "Expiring soon", "Body", url, DateTimeOffset.UtcNow,
+            IsRead: false)]);
+        return bell;
     }
 
     private static InventoryItemDto Batch(Guid id, string name, decimal quantity, DateTime added, DateTime? expires)

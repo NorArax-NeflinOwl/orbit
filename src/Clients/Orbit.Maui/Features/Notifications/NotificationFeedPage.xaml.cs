@@ -52,7 +52,13 @@ public partial class NotificationFeedPage : ContentPage, ITitleMenu
 		new ScreenMenuEntry(
 			_viewModel.ShowEverythingLabel,
 			() => _viewModel.ShowEverythingCommand.Execute(null))
-	]);
+	],
+	// And says why, when two of the three are greyed. A greyed entry with nothing beside it is a press
+	// that did not register as far as the reader is concerned - which is how "clearing the feed does
+	// nothing" (2026-09-18, issue #296) reads from the outside whether or not anything is wrong. The
+	// wording is ConnectionRequirement's own, so it says here what it says on the share panel and on a
+	// task list.
+	heading: _viewModel.Connection.IsNotMet ? _viewModel.Connection.Explanation : null);
 
 	/// <summary>
 	/// Reloaded every time rather than once: the feed's whole subject is what happened while the reader

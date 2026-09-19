@@ -146,6 +146,13 @@ public sealed class OrbitLocalDbContext : DbContext
             inventory.Property(entity => entity.ItemUsage)
                 .HasConversion(UsageConverter)
                 .Metadata.SetValueComparer(UsageComparer);
+            // The same shape a place's lists take - see LocalInventory.GathersServerIds.
+            inventory.Property(entity => entity.GathersServerIds)
+                .HasConversion(TaskListIdsConverter)
+                .Metadata.SetValueComparer(TaskListIdsComparer);
+            inventory.Property(entity => entity.SplitEvenlyAcross)
+                .HasConversion(TaskListIdsConverter)
+                .Metadata.SetValueComparer(TaskListIdsComparer);
 
             inventory.Property(entity => entity.CopyBaseLines)
                 .HasConversion(LinesConverter)

@@ -152,11 +152,9 @@ public sealed class NotificationOpeningTests
 
     [Theory]
     [InlineData("/calendar/00000000-0000-0000-0000-000000000001", "ShowCalendar")]
+    // Names no particular shelf, so the list of them is the honest landing place - and what an older
+    // server sends.
     [InlineData("/inventory", "ShowInventory")]
-    // An expiry warning names the storage it is on now. The phone opens a storage by its *local* id,
-    // which this is not, so it lands on the list of them - which is where it landed before the path
-    // said which one, and better than a tap that goes nowhere.
-    [InlineData("/inventory/00000000-0000-0000-0000-000000000002", "ShowInventory")]
     [InlineData("/map", "ShowMap")]
     public async Task The_destinations_that_need_nothing_looked_up_open_straight_away(string url, string expected)
     {
@@ -166,6 +164,70 @@ public sealed class NotificationOpeningTests
 
         Assert.Equal(NotificationOpenOutcome.Opened, outcome);
         Assert.Equal(expected, context.Navigator.LastDestination);
+    }
+
+    /// <summary>
+    /// A warning about something going off names the shelf and the row on it
+    /// (InventoryExpiryPushContent), and the phone lands on both - the shelf opened by its *local* id,
+    /// and the row marked the way opening a shelf from an errand marks one. It used to open the list of
+    /// inventories and name nothing, leaving the reader to find which of six shelves and then which of
+    /// sixty rows, when the notification knew both. 2026-09-18.
+    /// </summary>
+    [Fact]
+    public async Task A_warning_about_a_product_opens_that_shelf_at_that_row()
+    {
+        using var context = new OpeningContext();
+        var (serverId, rowId, localId) = await context.AddKnownShelfAsync("Pantry", "Flour");
+
+        var outcome = await context.Opener.OpenAsync($"/inventory/{serverId}?highlight={rowId}");
+
+        Assert.Equal(NotificationOpenOutcome.Opened, outcome);
+        Assert.Equal("ShowInventory", context.Navigator.LastDestination);
+        Assert.Equal(localId, context.Navigator.LastInventoryId);
+        Assert.Equal(rowId, context.Navigator.LastPointedAtProductId);
+    }
+
+    /// <summary>The shelf without a row named still opens the shelf - there is simply nothing to land on.</summary>
+    [Fact]
+    public async Task And_a_warning_naming_no_row_still_opens_the_shelf()
+    {
+        using var context = new OpeningContext();
+        var (serverId, _, localId) = await context.AddKnownShelfAsync("Pantry", "Flour");
+
+        await context.Opener.OpenAsync($"/inventory/{serverId}");
+
+        Assert.Equal(localId, context.Navigator.LastInventoryId);
+        Assert.Null(context.Navigator.LastPointedAtProductId);
+    }
+
+    /// <summary>
+    /// A shelf this phone has not pulled down yet is fetched and then opened - the same retry a shared
+    /// task list gets, and the same case: a shelf shared with somebody notifies them immediately.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_this_phone_has_not_got_is_fetched_first()
+    {
+        using var context = new OpeningContext();
+        var serverId = context.AddShelfOnTheServerOnly("Cellar");
+
+        var outcome = await context.Opener.OpenAsync($"/inventory/{serverId}");
+
+        Assert.Equal(NotificationOpenOutcome.Opened, outcome);
+        Assert.Equal("ShowInventory", context.Navigator.LastDestination);
+    }
+
+    /// <summary>And out of reach it says so rather than opening a shelf this phone has not got.</summary>
+    [Fact]
+    public async Task A_shelf_out_of_reach_says_it_is_not_on_this_phone_yet()
+    {
+        using var context = new OpeningContext();
+        var serverId = context.AddShelfOnTheServerOnly("Cellar");
+        context.GoOffline();
+
+        var outcome = await context.Opener.OpenAsync($"/inventory/{serverId}");
+
+        Assert.Equal(NotificationOpenOutcome.NotOnThisPhoneYet, outcome);
+        Assert.Empty(context.Navigator.Destinations);
     }
 
     /// <summary>
@@ -228,6 +290,9 @@ public sealed class NotificationOpeningTests
         private readonly FakeTasksServer _tasksServer;
         private readonly LocalTaskListRepository _taskLists;
         private readonly TaskListSynchronizer _taskListSynchronizer;
+        private readonly FakeInventoryServer _inventoryServer;
+        private readonly LocalInventoryRepository _inventories;
+        private readonly InventorySynchronizer _inventorySynchronizer;
         private readonly Guid _ownUserId = Guid.NewGuid();
 
         public OpeningContext()
@@ -263,9 +328,16 @@ public sealed class NotificationOpeningTests
                 _localStore, new TasksClient(_tasksServer.ToHttpClient()), _clock, new SyncGate(),
                 NullLogger<TaskListSynchronizer>.Instance);
 
+            _inventoryServer = new FakeInventoryServer(_clock);
+            _inventories = new LocalInventoryRepository(
+                _localStore, _clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
+            _inventorySynchronizer = new InventorySynchronizer(
+                _localStore, new InventoryClient(_inventoryServer.ToHttpClient()), _clock, new SyncGate(),
+                NullLogger<InventorySynchronizer>.Instance);
+
             Opener = new NotificationOpener(
                 _repository, _synchronizer, usersClient, _taskLists, _taskListSynchronizer,
-                new PendingNotificationTap(), Navigator);
+                _inventories, _inventorySynchronizer, new PendingNotificationTap(), Navigator);
         }
 
         public NotificationOpener Opener { get; }
@@ -277,6 +349,7 @@ public sealed class NotificationOpeningTests
             _chatServer.IsUnreachable = true;
             _users.IsUnreachable = true;
             _tasksServer.IsUnreachable = true;
+            _inventoryServer.IsUnreachable = true;
         }
 
         /// <summary>A list this phone has already pulled down, as it is stored here.</summary>
@@ -289,6 +362,19 @@ public sealed class NotificationOpeningTests
 
         /// <summary>A list the server knows about and this phone does not - the notification arrives first.</summary>
         public Guid AddTaskListOnTheServerOnly(string title) => _tasksServer.AddTaskList(title, isShared: true).Id;
+
+        /// <summary>A shelf this phone has already pulled down, with one row on it, as it is stored here.</summary>
+        public async Task<(Guid ServerId, Guid RowId, Guid LocalId)> AddKnownShelfAsync(string name, string product)
+        {
+            var remote = _inventoryServer.AddInventory(name);
+            _inventoryServer.AddItem(remote.Id, product, quantity: 1);
+            await _inventorySynchronizer.SynchroniseAsync();
+            var stored = (await _inventories.GetAllAsync()).Single(shelf => shelf.ServerId == remote.Id);
+            return (remote.Id, stored.Items.Single().Id!.Value, stored.LocalId);
+        }
+
+        /// <summary>A shelf the server knows about and this phone does not - the warning arrives first.</summary>
+        public Guid AddShelfOnTheServerOnly(string name) => _inventoryServer.AddInventory(name).Id;
 
         /// <summary>Somebody this phone has already pulled into its contact list.</summary>
         public async Task<Guid> AddKnownContactAsync(string displayName)

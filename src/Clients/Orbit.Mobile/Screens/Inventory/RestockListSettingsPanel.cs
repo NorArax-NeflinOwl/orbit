@@ -52,6 +52,17 @@ public sealed partial class RestockListSettingsPanel : ObservableObject
     public ConnectionRequirement Connection { get; }
 
     /// <summary>
+    /// Whether the shelf keeps a restock list at all - the switch everything else here hangs off.
+    ///
+    /// Not offered on the phone at first (2026-09-18: "the restock list cannot be turned off from
+    /// Orbit.Maui"), which left a list somebody did not want reachable only from a browser. Its own
+    /// answer rather than one taken for granted: turning it off deletes the managed list and everything
+    /// on it, and turning it back on builds a fresh one - see RestockListSettingsDto.IsEnabled.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isEnabled = true;
+
+    /// <summary>
     /// Only what some dated task is waiting on, rather than everything below its own minimum. The
     /// narrower rule is what somebody wants when a shelf holds things nobody is asking for yet.
     /// </summary>
@@ -73,6 +84,15 @@ public sealed partial class RestockListSettingsPanel : ObservableObject
     private bool _isOffered;
 
     public bool HasMessage => Message.Length > 0;
+
+    /// <summary>
+    /// What turning the switch above off costs, said before it is pressed rather than discovered
+    /// afterwards - the same "!" Orbit.Web's own switch carries while it is off.
+    /// </summary>
+    public string KeepingTheListDescription
+        => _translations[IsEnabled
+            ? "Orbit keeps a \"Restock supplies\" list for this shelf and puts what is running low on it."
+            : "Turning this off deletes the restock list and everything on it. Turning it back on builds a new one."];
 
     /// <summary>What the checkbox above means right now, said in words rather than left to be guessed.</summary>
     public string RuleDescription
@@ -101,6 +121,7 @@ public sealed partial class RestockListSettingsPanel : ObservableObject
             }
 
             _asRead = settings;
+            IsEnabled = settings.IsEnabled;
             OnlyLinkedWithDueDate = settings.OnlyLinkedWithDueDate;
             RefreshTime = settings.RefreshTimeOfDay.ToTimeSpan();
             IsOffered = true;
@@ -124,6 +145,7 @@ public sealed partial class RestockListSettingsPanel : ObservableObject
                 // a panel that is not offered at all.
                 (_asRead ?? new RestockListSettingsDto(OnlyLinkedWithDueDate, TimeOnly.FromTimeSpan(RefreshTime))) with
                 {
+                    IsEnabled = IsEnabled,
                     OnlyLinkedWithDueDate = OnlyLinkedWithDueDate,
                     RefreshTimeOfDay = TimeOnly.FromTimeSpan(RefreshTime)
                 },
@@ -158,4 +180,6 @@ public sealed partial class RestockListSettingsPanel : ObservableObject
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
 
     partial void OnOnlyLinkedWithDueDateChanged(bool value) => OnPropertyChanged(nameof(RuleDescription));
+
+    partial void OnIsEnabledChanged(bool value) => OnPropertyChanged(nameof(KeepingTheListDescription));
 }
