@@ -293,13 +293,19 @@ version, so they aren't mistaken for oversights:
   calendar narrows the grid **and** the list together, so it is still a way of reading the whole
   calendar rather than a second index of it, and the dashboard draws no calendar tabs, because what it
   says about the calendar is when things are. See `info/functionality.md`, "Folders".
-- **A map link opens Orbit's map in the browser only.** `MapLinks` is in `Orbit.Core` so the reading of
-  one is shared, and the phone's `LinkedLabel` draws the same addresses - but it still follows them out
-  to whatever the device treats as a map, because the browser's half is a route (`/map?at=…`) and the
-  phone's would be a screen pushed onto its own navigation stack. What it takes is `LinkedLabel` asking
-  `MapLinks` before it opens a link, a parameter on the map screen, and the popup's four presses drawn
-  there; the resolver for a shortened link is already server-side and would answer the phone unchanged.
-  Written down on 2026-09-19 rather than built, because the request was about the browser.
+- **A map link opens Orbit's map in the browser only**, and on a phone that may be the right answer
+  rather than a gap. `MapLinks` is in `Orbit.Core` so the reading of one is shared, and the phone's
+  `LinkedLabel` draws the same addresses - but it follows them out to whatever the device treats as a
+  map, which on a phone is the map app opening at the place: the same handoff Orbit would make itself
+  (`IMapHandoff`), one step shorter. The browser's rewrite exists because a browser has no such handoff
+  and would otherwise leave Orbit for somebody else's page.
+
+  So the phone's version of this is **not** a port. What it would add is the four presses the pin's
+  popup carries - an event here, a list here, directions, the original link - and that means a screen of
+  Orbit's own between the tap and the map app, on a screen (`MapViewModel`) built for live positions and
+  which does not draw a map at all in a build without a maps key. Worth asking the user whether those
+  four presses are wanted on a phone before building any of it; the resolver for a shortened link is
+  already server-side and would answer the phone unchanged. Read on 2026-09-19.
 - **The month and year calendar views stay filtered to what is still to come.** Also confirmed by the
   user on 2026-09-09, alongside making the week account for everything the way a day does (see
   `Calendar.ShowsEverythingInThisView`). They are read to find something rather than to account for a
