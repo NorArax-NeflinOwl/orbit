@@ -2,6 +2,7 @@ using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
 using Orbit.Core.Places;
+using Orbit.Core.Places.ArchivePlace;
 using Orbit.Core.Places.CreatePlace;
 using Orbit.Core.Places.DeletePlace;
 using Orbit.Core.Places.DuplicatePlace;
@@ -250,6 +251,43 @@ public sealed class PlaceCommandHandlerTests
         Assert.Equal("Mine", Assert.Single(mine).Name);
         Assert.Null(await new GetPlaceByIdQueryHandler(Access).HandleAsync(
             new GetPlaceByIdQuery(userId, Guid.NewGuid()), CancellationToken.None));
+    }
+
+    /// <summary>
+    /// Putting a place away and bringing it back - the one way off the map that is not deletion, and
+    /// what the map's archive is read from. See ArchivePlaceCommand.
+    /// </summary>
+    [Fact]
+    public async Task A_place_is_put_away_and_brought_back_by_its_owner()
+    {
+        var userId = Guid.NewGuid();
+        var place = Place.Create(userId, "Bakery", "", Somewhere(), isPrivate: false);
+        await _places.AddAsync(place, CancellationToken.None);
+        var handler = new ArchivePlaceCommandHandler(_places);
+
+        Assert.True(await handler.HandleAsync(new ArchivePlaceCommand(userId, place.Id, true), CancellationToken.None));
+        Assert.True((await _places.GetByIdAsync(userId, place.Id, CancellationToken.None))!.IsArchived);
+
+        Assert.True(await handler.HandleAsync(new ArchivePlaceCommand(userId, place.Id, false), CancellationToken.None));
+        Assert.False((await _places.GetByIdAsync(userId, place.Id, CancellationToken.None))!.IsArchived);
+    }
+
+    /// <summary>
+    /// And only by its owner. One row is one place, so somebody archiving one handed to them would be
+    /// taking it off the map of the person who keeps it - they take it off their own by dropping the
+    /// grant instead, which is what deleting a shared place does.
+    /// </summary>
+    [Fact]
+    public async Task Somebody_elses_place_cannot_be_put_away()
+    {
+        var place = Place.Create(Guid.NewGuid(), "Bakery", "", Somewhere(), isPrivate: false);
+        await _places.AddAsync(place, CancellationToken.None);
+
+        var archived = await new ArchivePlaceCommandHandler(_places).HandleAsync(
+            new ArchivePlaceCommand(Guid.NewGuid(), place.Id, true), CancellationToken.None);
+
+        Assert.False(archived);
+        Assert.False(place.IsArchived);
     }
 
     private static EventLocation Somewhere() => new("Piękna 1, Warszawa", 52.2297, 21.0122);

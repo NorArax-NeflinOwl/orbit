@@ -186,7 +186,9 @@ list is in Finished, an unfiled sealed one in Private, everything else unfiled i
 
 **Only Archived is stored**, one boolean on each of the four kinds
 (`OP_N_ISARCHIVED`/`OP_T_ISARCHIVED`/`OP_E_ISARCHIVED`/`OP_I_ISARCHIVED`, added 2026-09-15, false for
-everything already there), because nothing else about a row could say it. Nothing about the other three
+everything already there), because nothing else about a row could say it. A place carries the same
+column (`OP_P_ISARCHIVED`, added 2026-09-19) without being filed in folders at all: the map has no
+tabs, and its archive is a page of its own. Nothing about the other three
 is, which is why folders arrived without a backfill and why
 `OP_N_FOLDERID`/`OP_T_FOLDERID`/`OP_E_FOLDERID`/`OP_I_FOLDERID` are nullable rather than defaulted - and
 why the two scopes added on 2026-09-15 needed no migration of their own, the scope being stored by name.
@@ -323,6 +325,7 @@ erDiagram
         text OP_P_COLOUR "empty = whatever a place is drawn in"
         text OP_P_PRIORITY "ItemPriority by name"
         uuid OP_P_SOURCETASKITEMID "the Location entry that made it, or null - readable, no FK"
+        boolean OP_P_ISARCHIVED "put away by its owner - readable even when sealed"
     }
     OL_PLACES_TASKS {
         uuid OL_PT_PLACEID PK

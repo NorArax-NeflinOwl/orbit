@@ -26,6 +26,15 @@ public sealed class PlaceOnTheWireTests
         Assert.Equal(entryId, PlaceEndpoints.ToDto(place).SourceTaskItemId);
     }
 
+    [Fact]
+    public void A_place_carries_whether_it_has_been_put_away()
+    {
+        var place = Place.Create(Guid.NewGuid(), "Bakery", "", Somewhere(), isPrivate: false);
+        place.Archive(true);
+
+        Assert.True(PlaceEndpoints.ToDto(place).IsArchived);
+    }
+
     /// <summary>The sealed half travels as it is stored: the server has no key and never had one.</summary>
     [Fact]
     public void A_sealed_place_carries_its_sealed_half_and_nothing_readable()

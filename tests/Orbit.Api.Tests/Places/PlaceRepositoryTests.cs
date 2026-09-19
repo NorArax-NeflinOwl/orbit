@@ -157,5 +157,19 @@ public sealed class PlaceRepositoryTests : IDisposable
         Assert.Equal("The good bakery", stored.Name);
     }
 
+    /// <summary>Putting a place away is stored like anything else it says - see Place.Archive.</summary>
+    [Fact]
+    public async Task A_place_put_away_comes_back_put_away()
+    {
+        var repository = new PlaceRepository(_dbContext);
+        var place = Place.Create(OwnerUserId, "Bakery", "", Somewhere(), isPrivate: false);
+        await repository.AddAsync(place, CancellationToken.None);
+
+        place.Archive(true);
+        await repository.UpdateAsync(place, CancellationToken.None);
+
+        Assert.True((await repository.GetByIdAsync(OwnerUserId, place.Id, CancellationToken.None))!.IsArchived);
+    }
+
     private static EventLocation Somewhere() => new("Piękna 1, Warszawa", 52.2297, 21.0122);
 }

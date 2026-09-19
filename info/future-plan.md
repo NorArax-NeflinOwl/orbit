@@ -2044,6 +2044,15 @@ It is **not** on the two other places somebody edits in the browser:
   that matters more than the saving, the second reading is still the other one, and this entry is where
   to come back to.
 
+  **A place is the fifth kind, from 2026-09-19** (`OP_P_ISARCHIVED`, `ArchivePlaceCommand`,
+  `PUT /api/places/{id}/archived`). Not as a folder, because the map has no tabs and a place is not
+  filed anywhere: the browser's archive is a page of its own, `/maps/archive`, reached from the map's
+  menu, and deleting a place is offered there and nowhere else. **The phone has none of this half**: its
+  places screen still lists an archived place among the rest and still offers Delete, because
+  `LocalPlace` has no column for the flag and nothing in its outbox to carry it. What it takes is the
+  shape the other four already have on the phone - a local column, an `OutboxOperation.Archive` path,
+  and the flag read in `CopyInto`.
+
 - ~~**Choosing several things at once, and doing one thing to all of them**~~ - *built in the browser
   and on the phone, sharing included (2026-09-16).* Asked for as: select several notes, lists, events or
   shelves and then file them into a folder, archive them, or share them.

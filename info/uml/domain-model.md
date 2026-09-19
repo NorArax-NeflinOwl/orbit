@@ -72,6 +72,7 @@ classDiagram
         +ItemPriority Priority
         +IReadOnlyList~Guid~ TaskListIds
         +Guid? SourceTaskItemId
+        +bool IsArchived
         +bool IsShared
         +ShareAccessLevel AccessLevel
     }

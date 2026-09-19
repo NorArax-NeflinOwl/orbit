@@ -54,6 +54,13 @@ public sealed class PlaceEntity
     /// </summary>
     public Guid? SourceTaskItemId { get; set; }
 
+    /// <summary>
+    /// Whether its owner has put this place away - see Orbit.Core.Places.Place.IsArchived. Readable on
+    /// a sealed place like the list links are: it says whether its owner is still using it, not where
+    /// it is.
+    /// </summary>
+    public bool IsArchived { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }

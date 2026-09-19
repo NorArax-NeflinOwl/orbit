@@ -87,6 +87,7 @@ using Orbit.Core.Notes.GetNotes;
 using Orbit.Core.Notes.ArchiveNote;
 using Orbit.Core.Notes.MoveNoteToFolder;
 using Orbit.Core.Places;
+using Orbit.Core.Places.ArchivePlace;
 using Orbit.Core.Places.CreatePlace;
 using Orbit.Core.Places.DeletePlace;
 using Orbit.Core.Places.AcceptPlaceShare;
@@ -235,6 +236,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<CreatePlaceCommand, Guid>, CreatePlaceCommandHandler>();
         services.AddScoped<IRequestHandler<UpdatePlaceCommand, bool>, UpdatePlaceCommandHandler>();
         services.AddScoped<IRequestHandler<DeletePlaceCommand, bool>, DeletePlaceCommandHandler>();
+        services.AddScoped<IRequestHandler<ArchivePlaceCommand, bool>, ArchivePlaceCommandHandler>();
         services.AddScoped<IRequestHandler<DuplicatePlaceCommand, Guid?>, DuplicatePlaceCommandHandler>();
         services.AddScoped<IRequestHandler<GetPlacesQuery, IReadOnlyList<Place>>, GetPlacesQueryHandler>();
         services.AddScoped<IRequestHandler<GetPlaceByIdQuery, Place?>, GetPlaceByIdQueryHandler>();

@@ -78,6 +78,7 @@ public sealed class PlaceRepository : IPlaceRepository
         entity.IsPrivate = place.IsPrivate;
         entity.EncryptedCiphertext = place.EncryptedContent?.Ciphertext;
         entity.EncryptedNonce = place.EncryptedContent?.Nonce;
+        entity.IsArchived = place.IsArchived;
         entity.SourceTaskItemId = place.SourceTaskItemId;
         entity.UpdatedAtUtc = place.UpdatedAtUtc;
 
@@ -113,7 +114,8 @@ public sealed class PlaceRepository : IPlaceRepository
             entity.EncryptedCiphertext is { } ciphertext && entity.EncryptedNonce is { } nonce
                 ? new EncryptedPayload(ciphertext, nonce)
                 : null,
-            entity.SourceTaskItemId);
+            entity.SourceTaskItemId,
+            entity.IsArchived);
 
     private static PlaceEntity ToEntity(Place place)
         => new()
@@ -132,6 +134,7 @@ public sealed class PlaceRepository : IPlaceRepository
             EncryptedNonce = place.EncryptedContent?.Nonce,
             TaskLists = [.. LinksOf(place)],
             SourceTaskItemId = place.SourceTaskItemId,
+            IsArchived = place.IsArchived,
             CreatedAtUtc = place.CreatedAtUtc,
             UpdatedAtUtc = place.UpdatedAtUtc
         };

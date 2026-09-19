@@ -43,6 +43,10 @@ namespace Orbit.Contracts.Places;
 /// The task entry this place was made from, or null for one kept by hand - see
 /// Orbit.Core.Places.Place.SourceTaskItemId. Readable even when the place is sealed.
 /// </param>
+/// <param name="IsArchived">
+/// Whether its owner has put it away - see Orbit.Core.Places.Place.IsArchived. Readable on a sealed
+/// place, like the two above: it says whether its owner is still using it, not where it is.
+/// </param>
 public sealed record PlaceDto(
     Guid Id,
     string Name,
@@ -60,4 +64,5 @@ public sealed record PlaceDto(
     bool IsSharedWithOthers = false,
     bool IsPrivate = false,
     EncryptedContentDto? EncryptedContent = null,
-    Guid? SourceTaskItemId = null);
+    Guid? SourceTaskItemId = null,
+    bool IsArchived = false);
