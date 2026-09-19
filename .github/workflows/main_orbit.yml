@@ -116,6 +116,13 @@ jobs:
       - name: Verify a note survives its writing surface
         run: node ci/verify-note-surface.mjs
 
+      # And the fourth: menuAnchor.js is every edge of every panel drawn outside the flow, and all of it
+      # is getBoundingClientRect and window.innerWidth - which bUnit's DOM measures as zero, so none of
+      # it could be checked here at all. A panel put in the wrong place is not an error either; it is a
+      # menu with half its entries off the screen, or ninety pixels of squeezed tag browser.
+      - name: Verify a panel lands where it belongs
+        run: node ci/verify-menu-anchor.mjs
+
   deploy:
     # The gate the old arrangement only looked like it had: nothing below runs until the suite is green.
     needs: test
