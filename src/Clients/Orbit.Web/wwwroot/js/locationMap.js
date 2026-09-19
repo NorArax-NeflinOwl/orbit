@@ -137,7 +137,7 @@ function drawMarkers(map, points, dotNetHelper) {
 /// somebody typed. textContent is what makes those text rather than markup, and it is also what lets the
 /// button carry a real click handler instead of an inline one.
 function popupFor(point, dotNetHelper) {
-    if (!point.label && !point.canNavigate && !point.canPlan && !point.openTaskLabel) {
+    if (!point.label && !point.canNavigate && !point.canPlan && !point.openTaskLabel && !point.sourceUrl) {
         return null;
     }
 
@@ -194,6 +194,20 @@ function popupFor(point, dotNetHelper) {
             dotNetHelper.invokeMethodAsync('OnPinRoute', point.key ?? '');
         });
         panel.appendChild(route);
+    }
+
+    // Where the pin came from, for one a link to somebody else's map put here - see MapPageLink. A link
+    // rather than a button: it leaves Orbit, and a new tab is what leaving looks like everywhere else.
+    // The scheme is checked here as well as in C# (MapPage.AsAWebAddress), because this is the one place
+    // that turns somebody else's text into an href - "javascript:" in one would be a way of running it.
+    if (point.sourceUrl && /^https?:\/\//i.test(point.sourceUrl)) {
+        const source = document.createElement('a');
+        source.className = 'map-popup-navigate';
+        source.href = point.sourceUrl;
+        source.target = '_blank';
+        source.rel = 'noopener noreferrer';
+        source.textContent = point.openSourceLabel ?? 'Open the original link';
+        panel.appendChild(source);
     }
 
     // The list a place came from, for a place a task list's entry made - see MapPage.OnPinOpenTask.

@@ -1,4 +1,4 @@
-@page "/maps/archive"
+@page "/map/archive"
 @attribute [Authorize]
 @using Orbit.Contracts.Places
 @using Orbit.Core.Permissions
@@ -181,5 +181,5 @@ else
         }
     }
 
-    private void GoToTheMap() => NavigationManager.NavigateTo("/maps");
+    private void GoToTheMap() => NavigationManager.NavigateTo("/map");
 }

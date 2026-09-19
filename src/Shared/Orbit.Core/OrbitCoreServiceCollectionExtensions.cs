@@ -159,11 +159,12 @@ using Orbit.Core.Users;
 using Orbit.Core.Users.SetPresence;
 using Orbit.Core.Users.SetPrivacyChoice;
 using Orbit.Core.Users.SaveOwnLocation;
+using Orbit.Core.Location;
 using Orbit.Core.Location.GetSharedLocations;
+using Orbit.Core.Location.ResolveMapLink;
 using Orbit.Core.Location.StopReceivingLocation;
 using Orbit.Core.Location.StopSharingLocation;
 using Orbit.Core.Location.ShareLocation;
-using Orbit.Core.Location;
 using Orbit.Core.Users.GetUserById;
 using Orbit.Core.Users.GetUsersByIds;
 using Orbit.Core.Users.GetWrappedPrivateKey;
@@ -355,6 +356,9 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<StopReceivingLocationCommand, bool>, StopReceivingLocationCommandHandler>();
         services.AddScoped<IRequestHandler<GetSharedLocationsQuery, IReadOnlyList<SharedLocation>>, GetSharedLocationsQueryHandler>();
         services.AddScoped<IRequestHandler<GetOwnLocationSharesQuery, IReadOnlyList<SharedLocation>>, GetOwnLocationSharesQueryHandler>();
+        // Where a shortened link to somebody else's map points - see ResolveMapLinkQuery. The following
+        // itself is the API's, since it is a request to somebody else's service: see IShortenedLinkFollower.
+        services.AddScoped<IRequestHandler<ResolveMapLinkQuery, MapLink?>, ResolveMapLinkQueryHandler>();
 
         // Group chat: the group itself, its membership, and the fan-out that keeps group messages
         // encrypted under the same pairwise keys one-to-one chat uses.

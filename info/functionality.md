@@ -3560,6 +3560,34 @@ a link inside one would fight it; and a **task list's own description** has no r
 can be written in the editor and is displayed on no page, which is a gap of its own rather than
 something for this to solve.
 
+**A link to somebody else's map opens the place on Orbit's own** (`MapLinks`, `MapPageLink`,
+2026-09-19). Wherever such an address is drawn - a chat message, a note's lines, a task entry's
+description, an event's - it points at `/map` with the place already pinned instead of at Google or
+Apple, and it opens in this tab, because it is a page of Orbit's; everything else there still leaves for
+a new one. A pin before the words says which is which before anything is pressed. The pin's own popup
+carries what the request asked for: the address, **An event here** and **A task list here**, **Take me
+there**, a route, and **Open the original link**, which is the map it was shared from.
+
+What is read is written out: Google's `@52.23,21.01` in a path, its documented
+`?api=1&query=`/`&destination=`, a `/place/<name>` for what the place is called, Apple's `?ll=`/
+`?address=`, OpenStreetMap's `?mlat=&mlon=` and `#map=z/lat/lon`, Bing's `?cp=lat~lon`. A link that
+names *words* rather than a point is searched for on arrival, the way anything typed into the map's own
+box is. **A list of hosts that are known, rather than a guess at what looks like a map**: rewriting
+somebody's link to point somewhere else is a thing to do only where Orbit is certain what it meant, so
+everything else is left exactly as written. Coordinates are read invariantly - a link is written with a
+full stop wherever it was made, and a Polish thread reading "52.2297" by its own rules would land on
+522297.
+
+**A shortened link is followed once, by the server** (`ShortenedLinkFollower`,
+`GET /api/location/map-link`). `maps.app.goo.gl` carries an identifier and nothing else, and a browser
+cannot ask what is behind it: the answer is a redirect without the headers that would let a page read
+it. So the link goes to the map carrying only itself, and the page asks the server, which asks the
+shortener - one hop, no credentials, five seconds, headers only, and **only those two hosts are ever
+fetched**. What comes back is read exactly as a full link would have been, and still carries the link
+somebody wrote, because that is what "open the original" has to open. Where nobody can say - the
+shortener is down, the link has expired, what is behind it is not a map - the page says so and leaves
+the reader the link they pressed.
+
 **The phone shares the rule and draws it in fewer places.** `LinksInText` lives in `Orbit.Core.Text` so
 there is one answer about what counts as an address, and `LinkedLabel` is the phone's half of
 `TextWithLinks` - a `Label` writing `FormattedText`, because a `Span` is the only thing in MAUI that can

@@ -898,6 +898,14 @@ public static class PolishTranslations
         // What "Delete" says on a place somebody else keeps: the row goes from this map and from
         // nowhere else - see DeletePlaceCommandHandler.
         ["Take it off my map"] = "Usuń z mojej mapy",
+        // A link to somebody else's map, which opens the place on Orbit's own instead - see MapLinks,
+        // added 2026-09-19. The second is the way back out, on the pin's own popup.
+        ["Open it on Orbit's map"] = "Otwórz na mapie Orbita",
+        ["Open the original link"] = "Otwórz oryginalny link",
+        // A shortened link only its own service can place, and it would not say - see
+        // ShortenedLinkFollower, which asks it once.
+        ["That link couldn't be placed on the map. Open it where it came from to see where it points."] =
+            "Nie udało się umieścić tego linku na mapie. Otwórz go w miejscu, z którego pochodzi, aby zobaczyć, dokąd prowadzi.",
         // The archive the map's menu reaches, and the only page a place is deleted from - see
         // MapArchive, added 2026-09-19. "Archive" and "Put back" are already above, from the folders.
         ["Orbit — Archived places"] = "Orbit — Zarchiwizowane miejsca",

@@ -2218,6 +2218,16 @@ input.note-editor-title {
     outline-offset: -2px;
 }
 
+/* A link to somebody else's map, which opens the place on Orbit's own instead - see MapPageLink. A pin
+   before it, so a reader can see before pressing that this one stays inside Orbit: every other link in
+   a message or a note leaves for a new tab, and this is the one that does not. */
+.map-link::before {
+    content: "📍";
+    margin-right: 3px;
+    /* Smaller than the words, because it is a mark on the link rather than part of what it says. */
+    font-size: 0.85em;
+}
+
 /* Whatever a row says after its title. display:contents, so these are the row's own flex items and
    every row is laid out exactly as it was before the span was put round them - see Row.razor. It is
    there so a narrow screen can move the whole trailing half onto a second line, which the rows that

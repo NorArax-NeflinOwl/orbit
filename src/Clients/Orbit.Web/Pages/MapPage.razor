@@ -28,6 +28,7 @@
 @inject MapPinVisibility MapPins
 @inject MapPanelPins PanelPins
 @inject PlacesApiClient PlacesApiClient
+@inject MapLinkApiClient MapLinkApiClient
 @inject NavigationManager NavigationManager
 @inject ILogger<MapPage> Logger
 @inject UserPermissionState Permissions
@@ -1116,7 +1117,7 @@ else
         }
     }
 
-    private void GoToTheArchive() => NavigationManager.NavigateTo("/maps/archive");
+    private void GoToTheArchive() => NavigationManager.NavigateTo("/map/archive");
 
     /// <summary>The place the question about forgetting is about - see the overlay.</summary>
     private PlaceDto? _placeBeingForgotten;
@@ -1331,6 +1332,9 @@ else
             // A map drawn again from scratch takes everything on it with it, a route included.
             await DrawTheRouteAsync();
             await GoToThePlaceAskedForAsync();
+            // And where a link to somebody else's map pointed, which is the other way a reader arrives
+            // here already meaning a particular spot - see ShowWhereTheLinkPointsAsync.
+            await ShowWhereTheLinkPointsAsync();
         }
         catch (JSException exception)
         {
@@ -1470,7 +1474,12 @@ else
                 canPlan = true,
                 planEventLabel = T["An event here"],
                 planTaskListLabel = T["A task list here"],
-                routeLabel = RouteLabel
+                routeLabel = RouteLabel,
+                // Where the pin came from, for one a link put here: Orbit shows the place on its own
+                // map, and the map it was shared from is still one press away. Only ever an http(s)
+                // address - see AsAWebAddress.
+                openSourceLabel = _linkedFrom is null ? null : T["Open the original link"],
+                sourceUrl = _linkedFrom
             });
         }
 
@@ -1598,6 +1607,150 @@ else
     [Parameter]
     [SupplyParameterFromQuery(Name = "place")]
     public Guid? Place { get; set; }
+
+    /// <summary>
+    /// Where a link to somebody else's map pointed, written "latitude,longitude" - see MapPageLink,
+    /// which is what rewrites such a link to land here, and MapLinks, which reads it.
+    ///
+    /// Coordinates in an address, which the place above is deliberately not. The difference is whose
+    /// they are: this pair came out of a link somebody wrote in a chat or a note and is already
+    /// travelling in the open, while a place Orbit keeps is sealed unless its owner said otherwise -
+    /// see ChosenPlace for the hand-over that exists so those never reach a URL.
+    /// </summary>
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "at")]
+    public string? At { get; set; }
+
+    /// <summary>What such a link asked to be found, where it named words rather than a point.</summary>
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "find")]
+    public string? Find { get; set; }
+
+    /// <summary>What the link said the place is called, where it said.</summary>
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "label")]
+    public string? Label { get; set; }
+
+    /// <summary>
+    /// The link it all came from, so the pin can still offer to open it where it was written to open.
+    /// Read back as an address only if it is one: this arrives from whatever somebody typed.
+    /// </summary>
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "from")]
+    public string? From { get; set; }
+
+    /// <summary>
+    /// The pin a link asked for, put where the link pointed and named by what it said - or, where the
+    /// link named words instead, looked up the way anything typed into the search box is.
+    ///
+    /// Once, however many renders follow, for the same reason the place above is: a redraw that dragged
+    /// the map back would leave the reader unable to look anywhere else.
+    /// </summary>
+    private async Task ShowWhereTheLinkPointsAsync()
+    {
+        if (_hasFollowedTheLink)
+        {
+            return;
+        }
+
+        if (PointAskedFor() is { } point)
+        {
+            _hasFollowedTheLink = true;
+            _linkedFrom = AsAWebAddress(From);
+            // Named by what the link called it while the address is looked up - a pin that says
+            // "Looking up where that is…" for a second is better than one that says nothing at all.
+            _foundPlace = new FoundPlace(
+                Label is { Length: > 0 } named ? named : T["Looking up where that is…"],
+                point.Latitude, point.Longitude);
+            await RedrawAsync();
+            await FocusTheMapOnAsync("found", "a place a link pointed at");
+
+            var address = await GeocodingApiClient.ReverseGeocodeAsync(point.Latitude, point.Longitude);
+            if (_foundPlace is null)
+            {
+                // Answered while the lookup ran: the reader has moved the pin or dropped it.
+                return;
+            }
+
+            _foundPlace = _foundPlace with
+            {
+                Name = Label is { Length: > 0 } stillNamed
+                    ? stillNamed
+                    : address is { Length: > 0 } ? address : DescribeCoordinates(point.Latitude, point.Longitude)
+            };
+            await RedrawAsync();
+            return;
+        }
+
+        if (Find is { Length: > 0 } search)
+        {
+            _hasFollowedTheLink = true;
+            _linkedFrom = AsAWebAddress(From);
+            Logger.LogInformation("Following a map link that named words rather than a point");
+            _searchText = search;
+            await SearchAsync();
+            await FocusTheMapOnAsync("found", "a place a link searched for");
+            return;
+        }
+
+        // A link that says nothing but itself: a shortened one, which only the service that made it can
+        // place. The server follows it once - see ResolveMapLinkQuery, and MapLinkApiClient for why a
+        // browser cannot. What comes back is read exactly as a link written out in full would have been.
+        if (AsAWebAddress(From) is { } shortened)
+        {
+            _hasFollowedTheLink = true;
+            _linkedFrom = shortened;
+            Logger.LogInformation("Asking the server where a shortened map link points");
+            if (await MapLinkApiClient.ResolveAsync(shortened) is not { } resolved)
+            {
+                // Said rather than left blank: the reader pressed a link and arrived at a map with
+                // nothing on it, and the link they pressed is still the way to find out.
+                _hasFailed = true;
+                _message = T["That link couldn't be placed on the map. Open it where it came from to see where it points."];
+                return;
+            }
+
+            At = resolved.Latitude is { } latitude && resolved.Longitude is { } longitude
+                ? string.Create(CoordinateCulture, $"{latitude},{longitude}")
+                : null;
+            Find = resolved.Search;
+            Label = resolved.Label;
+            _hasFollowedTheLink = false;
+            await ShowWhereTheLinkPointsAsync();
+        }
+    }
+
+    /// <inheritdoc cref="ShowWhereTheLinkPointsAsync"/>
+    private bool _hasFollowedTheLink;
+
+    /// <summary>
+    /// The link the pin came from, while it is the pin on the map - what the popup's "Open the original
+    /// link" opens. Null for a pin nobody arrived at by link.
+    /// </summary>
+    private string? _linkedFrom;
+
+    /// <summary>Where the address bar says the link pointed, or null where it says nothing readable.</summary>
+    private (double Latitude, double Longitude)? PointAskedFor()
+    {
+        var written = (At ?? string.Empty).Split(',');
+        return written.Length == 2
+            && double.TryParse(written[0], NumberStyles.Float, CoordinateCulture, out var latitude)
+            && double.TryParse(written[1], NumberStyles.Float, CoordinateCulture, out var longitude)
+            && latitude is >= -90 and <= 90 && longitude is >= -180 and <= 180
+            ? (latitude, longitude)
+            : null;
+    }
+
+    /// <summary>
+    /// The link as something safe to put in an href, or null. Only http and https, which is the rule
+    /// LinksInText follows and for the same reason: this arrives from whatever somebody typed, and a
+    /// scheme nobody vouched for is not one to hand a browser.
+    /// </summary>
+    private static string? AsAWebAddress(string? url)
+        => Uri.TryCreate(url, UriKind.Absolute, out var parsed)
+            && (parsed.Scheme == Uri.UriSchemeHttp || parsed.Scheme == Uri.UriSchemeHttps)
+            ? url
+            : null;
 
     /// <summary>
     /// Centres on it once the map is actually drawn. Silent for an id this account has no place under -
