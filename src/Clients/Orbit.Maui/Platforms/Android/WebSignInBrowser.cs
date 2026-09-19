@@ -18,6 +18,9 @@ public sealed class WebSignInBrowser : IWebSignInBrowser
 	/// Google will only redirect to the address registered against this app's package and signing
 	/// certificate, and the intent filter that catches it is declared on the same name. The client id
 	/// plays no part on Android, unlike iOS, so it is ignored here.
+	///
+	/// A custom scheme rather than an https App Link, which Google now refuses unless the Android OAuth
+	/// client has "Enable Custom URI Scheme" switched on under its advanced settings - see info/build.md.
 	/// </summary>
 	private static readonly Uri Callback = new($"{AppInfo.PackageName}:/oauth2redirect");
 
