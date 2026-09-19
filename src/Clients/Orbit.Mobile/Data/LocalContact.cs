@@ -80,6 +80,32 @@ public sealed class LocalContact
     public bool IsPinned { get; set; }
 
     /// <summary>
+    /// When the last message this phone holds from this conversation was sent, read off the messages
+    /// rather than off the row - see ChatRepository.LastMessageTimesAsync, which says why the row's own
+    /// answer goes stale. Null where this phone holds none of their messages, and then the row's answer
+    /// is the only one there is.
+    ///
+    /// Not stored: it is a fact about the messages beside it, and writing it down would give it a second
+    /// chance to disagree with them.
+    /// </summary>
+    [NotMapped]
+    public DateTimeOffset? LastMessageHeldAtUtc { get; set; }
+
+    /// <summary>
+    /// When there was last anything to read here - the message this phone actually holds where there is
+    /// one, and what the row says otherwise.
+    /// </summary>
+    public DateTimeOffset LastMessageShown => LastMessageHeldAtUtc ?? LastMessageAtUtc;
+
+    /// <summary>
+    /// That moment in the reader's own words, for the row that draws it - see RelativeMoment. Put here
+    /// by the screen rather than worked out here: this is a stored row and has no dictionary, and the
+    /// row it is drawn on has none either.
+    /// </summary>
+    [NotMapped]
+    public string WhenShown { get; set; } = string.Empty;
+
+    /// <summary>
     /// How many of their messages this reader has not read - ContactDto.UnreadCount, which the server
     /// works out from the read mark it keeps per conversation. Kept with the row, like everything else on
     /// it, so the count survives a restart and the list says it offline; the next refresh brings it up to

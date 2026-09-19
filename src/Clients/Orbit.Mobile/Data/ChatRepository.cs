@@ -32,8 +32,52 @@ public sealed class ChatRepository
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var contacts = await dbContext.Contacts.AsNoTracking().ToListAsync(cancellationToken);
+
+        // Each row told when its last held message was sent, before anything is ordered or drawn - see
+        // LastMessageTimesAsync. Here rather than in a screen, so the order and the row read the same
+        // answer: two of them would have the list say one thing and sort by another.
+        var lastMessages = await LastMessageTimesAsync(cancellationToken);
+        foreach (var contact in contacts)
+        {
+            contact.LastMessageHeldAtUtc = lastMessages.TryGetValue(contact.UserId, out var sentAtUtc)
+                ? sentAtUtc
+                : null;
+        }
+
         return [.. contacts.OrderByDescending(contact =>
-            ConversationRecency.LastAnythingIn(contact.LastMessageAtUtc, contact.LastSeenAtUtc))];
+            ConversationRecency.LastAnythingIn(contact.LastMessageShown, contact.LastSeenAtUtc))];
+    }
+
+    /// <summary>
+    /// When the last message this phone holds was sent, for each person - read off the messages
+    /// themselves rather than taken from the contact row.
+    ///
+    /// The row's own LastMessageAtUtc is bumped when a message is sent and never moved back, so it goes
+    /// on claiming a time after the last message is deleted or the history is emptied: the conversation
+    /// shows nothing and the list still says "3 days ago". What a row is for is when there was last
+    /// anything to read, and the messages are the only honest answer to that.
+    ///
+    /// Nothing for somebody whose conversation this phone has never opened - it holds no messages of
+    /// theirs, which is not the same as there being none - so the caller keeps the row's own answer
+    /// there. Group traffic is left out: a group message is sealed one copy per member, so in a
+    /// two-person group a copy carries the same pair as a one-to-one message (see GetConversationAsync).
+    ///
+    /// Maxed here rather than in the query, and for the reason MarkReadAsync gives: SQLite cannot
+    /// compare a DateTimeOffset column, and this is one small projection.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<Guid, DateTimeOffset>> LastMessageTimesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var sent = await dbContext.ChatMessages
+            .AsNoTracking()
+            .Where(message => message.GroupId == null)
+            .Select(message => new { message.OtherUserId, message.SentAtUtc })
+            .ToListAsync(cancellationToken);
+
+        return sent
+            .GroupBy(message => message.OtherUserId)
+            .ToDictionary(byPerson => byPerson.Key, byPerson => byPerson.Max(message => message.SentAtUtc));
     }
 
     /// <summary>

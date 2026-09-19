@@ -24,6 +24,7 @@ public sealed partial class ContactsViewModel : ObservableObject
     private readonly ChatSynchronizer _synchronizer;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
     private readonly Translations _translations;
+    private readonly TimeProvider _timeProvider;
     private readonly UserPermissions _permissions;
     private readonly ConversationPins _pins;
     private readonly IScreenNavigator _navigator;
@@ -45,8 +46,9 @@ public sealed partial class ContactsViewModel : ObservableObject
         ChatRepository chatRepository, ChatClient chatClient, UsersClient usersClient,
         ChatSynchronizer synchronizer, OwnEncryptionKeyProvider encryptionKeyProvider,
         Translations translations, UserPermissions permissions, IScreenNavigator navigator,
-        ConnectionRequirement connection, ConversationPins pins)
+        ConnectionRequirement connection, ConversationPins pins, TimeProvider timeProvider)
     {
+        _timeProvider = timeProvider;
         _pins = pins;
         _chatRepository = chatRepository;
         _chatClient = chatClient;
@@ -208,6 +210,13 @@ public sealed partial class ContactsViewModel : ObservableObject
         foreach (var contact in InReadingOrder(contacts.Where(contact => contact.IsArchived == IsShowingArchive)))
         {
             contact.IsPinned = _pins.IsPinned(contact.UserId);
+            // When there was last anything to read here, in words - see RelativeMoment, and
+            // ChatRepository.LastMessageTimesAsync for why the moment is read off the messages rather
+            // than off the row. Nothing for a conversation nobody has written in: a row that says a time
+            // for a conversation with no messages is the lie this was for.
+            contact.WhenShown = contact.LastMessageHeldAtUtc is null
+                ? string.Empty
+                : RelativeMoment.Ago(contact.LastMessageShown, _timeProvider, _translations);
             Contacts.Add(contact);
         }
 

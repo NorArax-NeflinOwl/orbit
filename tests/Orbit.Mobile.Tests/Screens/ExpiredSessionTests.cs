@@ -108,7 +108,7 @@ public sealed class ExpiredSessionTests
         public ContactsViewModel Contacts()
             => new(_repository, _chatClient, _usersClient, _synchronizer, _encryptionKeyProvider,
                 new Translations(new InMemoryLanguageStore()), UnlockedPermissions.For(_localStore), Navigator,
-                Connections.Online, new ConversationPins(new InMemoryConversationPinStore()));
+                Connections.Online, new ConversationPins(new InMemoryConversationPinStore()), _clock);
 
         public GroupsViewModel Groups()
             => new(

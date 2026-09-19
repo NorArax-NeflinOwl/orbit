@@ -70,6 +70,7 @@
                             <controls:PersonRow SubjectId="{Binding UserId}" Name="{Binding DisplayName}"
                                                 Subtitle="{Binding UserName, StringFormat='@{0}'}"
                                                 Status="{Binding PresenceStatus}"
+                                                When="{Binding WhenShown}"
                                                 UnreadCount="{Binding UnreadCount}"
                                                 HasUnseenAction="{Binding HasSomethingWaiting}">
                                 <!-- Kept at the top of the list, and said on the row so it is clear why
