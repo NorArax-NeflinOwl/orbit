@@ -123,6 +123,13 @@ jobs:
       - name: Verify a panel lands where it belongs
         run: node ci/verify-menu-anchor.mjs
 
+      # And the fifth: what the map's Refresh actually does is move the pins in place rather than redraw
+      # the map, so the pan and the zoom it was pressed from are kept - and every decision in that is
+      # invisible from outside. A refresh that silently did nothing looks exactly like a refresh with
+      # nothing new behind it, which is how issue #293 came to be unreproducible from the code.
+      - name: Verify the map's pins follow a refresh
+        run: node ci/verify-map-markers.mjs
+
   deploy:
     # The gate the old arrangement only looked like it had: nothing below runs until the suite is green.
     needs: test
