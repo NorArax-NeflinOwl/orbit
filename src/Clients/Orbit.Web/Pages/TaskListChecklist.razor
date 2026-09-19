@@ -282,6 +282,9 @@ else
                            line by tapping it completed it. *@
                         <button type="button" class="check-row-text check-row-text-opens"
                                 @onclick="() => GoToEntry(checklistSection.TaskList.Id, item.Id)">@Written(item.Description)</button>
+                        @* Everything after the words in one span, the way CheckRow wraps its own
+                           trailing half - see .check-row-trailing, and why a narrow screen needs it. *@
+                        <span class="check-row-trailing">
                         @* What it is about, the same marks the cards on /tasks carry - see TaskItem.Categories. *@
                         @foreach (var category in item.AllCategories)
                         {
@@ -325,6 +328,7 @@ else
                         {
                             <span class="row-meta">@T.Format("due {0}", dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm"))</span>
                         }
+                        </span>
                     </div>
                     @* What an entry that waits on other entries answers a press with. Said rather than
                        refused silently: the box looks exactly like every other one, and a press that

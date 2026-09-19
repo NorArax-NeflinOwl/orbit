@@ -2218,6 +2218,14 @@ input.note-editor-title {
     outline-offset: -2px;
 }
 
+/* Whatever a row says after its title. display:contents, so these are the row's own flex items and
+   every row is laid out exactly as it was before the span was put round them - see Row.razor. It is
+   there so a narrow screen can move the whole trailing half onto a second line, which the rows that
+   preview a task list's entries do (see .task-preview-row below). */
+.list-row-trailing {
+    display: contents;
+}
+
 .row-title {
     flex: 1;
     min-width: 0;
@@ -4525,6 +4533,14 @@ input.note-editor-title {
     text-decoration: underline;
 }
 
+/* Everything a row says after the words: the tags, the shelf links, how much is wanted, the day it is
+   due. display:contents, so on a screen with room these are the row's own flex items and sit on the
+   one line exactly as they did before the span was put round them. What it is for is the narrow
+   screen, below. */
+.check-row-trailing {
+    display: contents;
+}
+
 .check-row.completed .check-row-text {
     color: var(--text-tertiary);
     text-decoration: line-through;
@@ -4747,6 +4763,56 @@ input.note-editor-title {
 }
 
 @media (max-width: 680px) {
+    /* A tick row on a phone. Everything on it used to compete for one line, and the tags and the day
+       a thing is due are the two that will not shrink - a row with three tags and a full date left a
+       few characters of the entry's own name, which is the one thing somebody opened the list to read
+       (reported on 2026-09-19).
+
+       So the row wraps, and what follows the words takes the whole of a second line under them: the
+       name gets the full width, and the tags and the date sit below it where they have room to wrap
+       among themselves. Indented past the box, so the second line reads as belonging to the row above
+       it rather than as a row of its own. */
+    .check-row {
+        flex-wrap: wrap;
+        row-gap: 4px;
+    }
+
+    .check-row-trailing {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        /* The box is 17px and the row's gap is 10px - the words above start here. */
+        flex: 1 1 100%;
+        padding-left: 27px;
+    }
+
+    /* A row that says nothing after its words - no tags, no date - keeps the one line it always had.
+       Without this the span still claims a line of its own and every such row grows by the row gap. */
+    .check-row-trailing:empty {
+        display: none;
+    }
+
+    /* The name may now take as many lines as it needs: there is nothing beside it to squeeze it, and
+       an entry called something long was being cut off mid-word with nothing to say it had been. */
+    .check-row-text {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    /* It is on its own line now, so it has the width to say the whole of what it says. */
+    .check-row-trailing .row-meta {
+        overflow: visible;
+        text-overflow: clip;
+        white-space: normal;
+    }
+
+    /* The gap between the chips is the trailing line's own now, so the margin that held them off the
+       words beside them would only be a step in the middle of the row. */
+    .check-row-trailing .check-row-references {
+        margin-left: 0;
+    }
+
     .editor-item-summary {
         flex-wrap: wrap;
     }
@@ -4822,6 +4888,36 @@ input.note-editor-title {
     width: 14px;
     color: var(--success);
     font-size: 12px;
+}
+
+/* The same squeeze the checklist's own rows have on a phone, on the rows that preview a list from its
+   card: the tags and the day a thing is due will not shrink, and what they leave is a few characters
+   of the entry's name. The trailing half takes a second line under the title here too - see
+   .check-row-trailing, which says the whole of it. */
+@media (max-width: 680px) {
+    .task-preview-row {
+        flex-wrap: wrap;
+        row-gap: 4px;
+    }
+
+    .task-preview-row .list-row-trailing {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        /* Under the title: the mark before it is 14px and the row's gap is 10px. */
+        flex: 1 1 100%;
+        padding-left: 24px;
+    }
+
+    .task-preview-row .list-row-trailing:empty {
+        display: none;
+    }
+
+    .task-preview-row .row-title {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
 }
 
 /* What a row that only points at another list actually stands for. Indented and quieter than the rows
