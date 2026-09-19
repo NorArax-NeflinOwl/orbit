@@ -1004,8 +1004,11 @@ gathered, staying open so several can be moved in one visit. A tick is written s
 the restock list's settings are and unlike everything else the phone edits: how a group is arranged is not
 part of what the shelf holds, and there is nothing local for it to be true of in the meantime. So it needs
 a connection, and is greyed rather than hidden without one - along with a shelf the server has never seen,
-a sealed one, and one reached through a share, which is its owner's to arrange. A refusal is said in
-words: the one rule a reader can trip over from here is a shelf that already gathers this one.
+a sealed one, and one reached through a share, which is its owner's to arrange. **Which of the four it is
+is said under the entry** (`WhyTheGroupCannotBeArranged`, 2026-09-19): being back online is a matter of
+waiting, and saying that to somebody holding a shelf shared with them would be telling them to wait for
+something that is never going to happen. A refusal is said in words too: the one rule a reader can trip
+over from here is a shelf that already gathers this one.
 
 **And a save of the shelf crosses off what it now answers** (2026-09-18). The rule is
 `StockedEntryCompletion`'s and a save of a *list* has always gone through it; this is the same question
@@ -4949,6 +4952,21 @@ row as well as where the row is. The notes, the task lists, the inventories and 
 the calendar's entries take the mark and nothing sets it, for the reason its tabs carry none in the
 browser. Unlike the browser the open folder is marked too: a menu is read as a list of places to go to,
 and leaving one out of the marking would read as that place holding nothing.
+
+**A greyed entry in that menu says why it is greyed** (`ScreenMenuEntry.Note`, 2026-09-19) — the phone's
+half of the rule above, which the browser has kept on a control's own `title` since 2026-09-11. Greying
+alone tells the reader that the option exists and nothing about what it is waiting for, which reads as a
+press that did not register. Said as a second line under the label, and spoken as part of the entry
+(`ScreenMenuEntry.Spoken`), since greying is a colour and a colour says nothing to somebody who cannot
+see it. Every greyed entry on the phone now carries one: **Share** on a note, a task list and a shelf
+(*a private item is only ever yours*), **Inventories gathered here**
+(`InventoryDetailViewModel.WhyTheGroupCannotBeArranged`, which tells apart a private shelf, somebody
+else's, one the server has never seen, and no connection), the map's **Send once** / **Keep sharing**
+(*record where you are first*), the notification feed's **Delete history** and **Mark all read** (which
+say it as the menu's heading, since it is the same reason for both), and **Show what is put away** in
+contacts (*nothing is put away*). Where the reason fits in the label
+itself it stays there instead — `TaskItemSummaryPage`'s "No other list yet" is a greyed entry that is
+entirely its own explanation.
 
 **Which cards can say which row, and which can only say "here".** It depends on what the notification's
 address names, not on the card:

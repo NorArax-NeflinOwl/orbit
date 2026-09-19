@@ -326,6 +326,46 @@ public sealed class InventoryDetailScreenTests
         Assert.False(offline.CanArrangeTheGroup);
     }
 
+    /// <summary>
+    /// And says why. An entry that cannot be chosen and says nothing about it is, to the reader, a press
+    /// that did not register: they learn the option exists and nothing about what it is waiting for -
+    /// see ScreenMenuEntry.Note, and the rule the user gave on 2026-09-15 that a control which refuses
+    /// is a defect. Nothing is said while the option is open. 2026-09-19.
+    /// </summary>
+    [Fact]
+    public async Task A_group_that_cannot_be_arranged_says_what_it_is_waiting_for()
+    {
+        using var context = new ScreenContext();
+        var kitchen = context.Server.AddInventory("Kitchen");
+        var stored = await context.PullEverythingAsync(kitchen.Id);
+
+        var screen = await context.OpenAsync(stored.LocalId);
+        Assert.Null(screen.WhyTheGroupCannotBeArranged);
+
+        context.Network.Becomes(false);
+        var offline = await context.OpenAsync(stored.LocalId);
+
+        Assert.Equal(
+            "This needs a connection. It will work again once you're back online.",
+            offline.WhyTheGroupCannotBeArranged);
+    }
+
+    /// <summary>
+    /// And a shelf no server has taken says that instead - being back online would not help, so saying
+    /// so would be telling the reader to wait for something that is not what is missing.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_the_server_has_not_seen_says_so_rather_than_blaming_the_connection()
+    {
+        using var context = new ScreenContext();
+        var made = await context.AddInventoryAsync("Kitchen");
+
+        var screen = await context.OpenAsync(made.LocalId);
+
+        Assert.False(screen.CanArrangeTheGroup);
+        Assert.Equal("This inventory hasn't reached the server yet.", screen.WhyTheGroupCannotBeArranged);
+    }
+
     /// <summary>An ordinary shelf gathers nothing, so the section is not there at all.</summary>
     [Fact]
     public async Task An_ordinary_shelf_draws_no_such_section()

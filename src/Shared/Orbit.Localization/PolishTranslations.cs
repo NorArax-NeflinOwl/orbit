@@ -167,6 +167,13 @@ public static class PolishTranslations
         ["What this is about"] = "Czego to dotyczy",
         ["This errand's product needs a name and an amount."] = "Produkt tego sprawunku potrzebuje nazwy i ilości.",
         ["This needs a connection. It will work again once you're back online."] = "To wymaga połączenia. Zadziała ponownie, gdy wrócisz online.",
+        // Why a greyed menu entry is greyed - see ScreenMenuEntry.Note.
+        ["A private item is only ever yours."] = "Prywatny element zostaje tylko u Ciebie.",
+        ["A private inventory is never gathered with others."] = "Prywatny magazyn nigdy nie jest zbierany z innymi.",
+        ["Only the person who owns this can arrange it."] = "Tylko właściciel może to ułożyć.",
+        ["This inventory hasn't reached the server yet."] = "Ten magazyn nie dotarł jeszcze na serwer.",
+        ["Record where you are first."] = "Najpierw zapisz swoje położenie.",
+        ["Nothing is put away."] = "Nic nie jest odłożone.",
         ["Reconnect"] = "Połącz ponownie",
         ["offline"] = "offline",
         ["online"] = "online",

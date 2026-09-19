@@ -158,7 +158,8 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 			_translations["Share"],
 			() => Sharing.IsVisible = !Sharing.IsVisible,
 			Sharing.IsVisible,
-			canBeChosen: !_viewModel.IsPrivate));
+			canBeChosen: !_viewModel.IsPrivate,
+			note: _viewModel.IsPrivate ? _translations["A private item is only ever yours."] : null));
 
 		// Both ways out of the list, offered only where this reader may change it at all. Delete is what
 		// used to be a row of words under the last entry, which on a long list is nowhere near the
