@@ -377,6 +377,25 @@ installed. By hand:
 npm install --no-save playwright@1 && npx playwright install chromium && node ci/verify-note-surface.mjs
 ```
 
+### A panel landing where it belongs, in a real browser
+
+`ci/verify-menu-anchor.mjs` covers `wwwroot/js/menuAnchor.js`, which is every edge of every panel drawn
+outside the flow — the menus and the browsers are `position: fixed` because a dropdown inside a scroller
+is clipped however high its z-index, and fixed means each of their edges is arithmetic done in that
+module. All of it is `getBoundingClientRect` and `window.innerWidth`, and bUnit's DOM measures every box
+as zero, so none of it was checkable in the suite.
+
+Seven checks, and the two that matter most are about the floor added on 2026-09-18: a panel hanging off a
+narrow button (the tag browser off "Add tag") is not squeezed below it, a panel asked for no floor is
+still exactly its field's width (what the name suggestions rely on), and a floor wider than the window
+gives way to the window rather than hanging off the edge it was meant to fit inside. The rest: a panel
+takes a wide field's width, never hangs off the right, opens above its field when there is no room below,
+and a menu anchored to a trigger near the right edge is pulled back on screen.
+
+```bash
+npm install --no-save playwright@1 && npx playwright install chromium && node ci/verify-menu-anchor.mjs
+```
+
 ## Running locally
 
 The simplest way to run the whole stack is Docker Compose, which builds the API and the web client and

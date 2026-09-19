@@ -463,6 +463,15 @@ since been closed; what is left is recorded below with the same honesty about wh
   `getLinesAsJson`; a kind the read does not know comes back as an empty line, which is the shape of the
   fault. Same job, same browser as the two above, and the same limit: it gates the push to `main` and
   not a feature branch, where it is run by hand or not at all.
+- ~~**Where a fixed panel lands (`menuAnchor.js`) is checked by nothing.**~~ Closed 2026-09-19 by
+  `ci/verify-menu-anchor.mjs`. Every menu and browser Orbit draws outside the flow is `position: fixed`,
+  because a dropdown inside a scroller is clipped however high its z-index - and fixed means each of its
+  edges is arithmetic in that module, all of it `getBoundingClientRect` and `window.innerWidth`, which
+  bUnit's DOM measures as zero. It had gone visibly wrong twice: a panel crushed to nothing on the
+  editor rail, and the tag browser at about ninety pixels on a phone (2026-09-18). Seven checks, three of
+  them about the floor added for the second: a narrow button's panel is not squeezed below it, a panel
+  asked for no floor is still exactly its field's width, and a floor wider than the window gives way to
+  the window.
 - ~~**The chat thread still has no coverage.**~~ Done, and the reason it was open turned out to be the
   reason to do it: what a polling component decides is invisible from the screen either way. A poll that
   stops honouring the tab's visibility costs money and battery and looks identical; a poll that reads the

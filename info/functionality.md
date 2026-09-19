@@ -3078,7 +3078,9 @@ wrong for a field that is a button: "Add tag" is two words wide, and on a phone 
 tick, name, count and two colour buttons squeezed into about ninety pixels, the names ellipsised away to
 nothing behind a sideways scrollbar. It is now at least wide enough for a row and never wider than the
 window, and **on a narrow screen a long word wraps** rather than ending in an ellipsis that hides which
-word it is.
+word it is. Those three rules are checked in a real browser by `ci/verify-menu-anchor.mjs` — the floor,
+the window winning over the floor, and a panel asked for no floor still being exactly its field's width,
+which is what the name suggestions depend on.
 
 Every entry can be filed under as many categories as apply — free text, read back along the field with
 commas between the words, the way a shelf item's category is written, and chosen from every category
