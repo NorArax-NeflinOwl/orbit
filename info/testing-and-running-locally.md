@@ -396,6 +396,28 @@ and a menu anchored to a trigger near the right edge is pulled back on screen.
 npm install --no-save playwright@1 && npx playwright install chromium && node ci/verify-menu-anchor.mjs
 ```
 
+### The map's pins following a refresh, in a real browser
+
+`ci/verify-map-markers.mjs` covers `updateLocations` in `wwwroot/js/locationMap.js`, which is what the
+map's Refresh button actually calls. It is deliberately not a redraw: the pan and the zoom it was pressed
+from are kept, a pin that moved is moved in place so an open popup somebody pressed to read survives, a
+pin that arrived is added, and one that is gone is taken off. Every one of those is invisible from
+outside — a refresh that silently did nothing looks exactly like a refresh with nothing new behind it,
+which is how "Refresh on the map does nothing" (issue #293) came to be unreproducible from the code.
+
+Seven checks, against a real Leaflet map built from `wwwroot/vendor/leaflet`. The tiles are stubbed
+rather than fetched: they are the one third-party request Orbit makes, they say nothing about which pins
+are on the map, and `mapTiles.js` is already the seam that lets a reader refuse them, so a map without
+them is a state the page supports rather than one invented here.
+
+The one to be careful with is the popup. A refresh that *replaced* a marker leaves the old one behind
+still holding its popup open, which looks like the popup surviving — so that check also counts the pins,
+and was written by putting the fault in and watching it go red.
+
+```bash
+npm install --no-save playwright@1 && npx playwright install chromium && node ci/verify-map-markers.mjs
+```
+
 ## Running locally
 
 The simplest way to run the whole stack is Docker Compose, which builds the API and the web client and

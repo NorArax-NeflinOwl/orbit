@@ -472,6 +472,14 @@ since been closed; what is left is recorded below with the same honesty about wh
   them about the floor added for the second: a narrow button's panel is not squeezed below it, a panel
   asked for no floor is still exactly its field's width, and a floor wider than the window gives way to
   the window.
+- ~~**What the map's Refresh does (`updateLocations`) is checked by nothing.**~~ Closed 2026-09-19 by
+  `ci/verify-map-markers.mjs`, against a real Leaflet map built from the vendored copy with the tiles
+  stubbed. The button is deliberately not a redraw - the pan and the zoom are kept, a pin that moved is
+  moved in place so an open popup survives, one that arrived is added, one that is gone is taken off -
+  and every part of that is invisible from outside, which is exactly why issue #293 could not be
+  reproduced from the code. Seven checks. The popup one had to be strengthened: a refresh that
+  *replaced* a marker leaves the old one behind still holding its popup open, which passes a naive check,
+  so it counts the pins as well.
 - ~~**The chat thread still has no coverage.**~~ Done, and the reason it was open turned out to be the
   reason to do it: what a polling component decides is invisible from the screen either way. A poll that
   stops honouring the tab's visibility costs money and battery and looks identical; a poll that reads the
@@ -2316,7 +2324,9 @@ the session that finishes one strikes it here rather than in a report nobody rea
   (2026-09-19): the button keeps the pan and the zoom it was pressed from and only moves the pins, so a
   press with nothing new behind it changes not one pixel - a button that gives no answer reads as a
   button that does nothing. It says "The map is up to date." now, where the page already says "Location
-  recorded." and "Location forgotten.". **Still open** as issue #293 until somebody sees it again: if
+  recorded." and "Location forgotten.". The third possibility - that the read is fine and moving the
+  pins is what fails - is now covered by `ci/verify-map-markers.mjs`, which runs `updateLocations`
+  against a real Leaflet map and passes. **Still open** as issue #293 until somebody sees it again: if
   that line appears and the map is still stale, the fault is in what is read rather than in the press.
 - ~~**Addresses do not wrap in the preview**, and wherever else text that should wrap does not.~~ Done:
   the address on an entry's page and on an appointment's is prose rather than a value
