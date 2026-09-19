@@ -5394,6 +5394,16 @@ contact, because `Orbit.Core` has no project references and neither client's row
 the phone keeps the moment on `LocalContact.LastSeenAtUtc`, which `ContactDto` had been carrying to it
 all along.
 
+**Every list that ranks people as conversations reads it** — the dashboard card, the Contacts page's
+**Chats** tab, the chat page's own list and its forwarding drawer, and on the phone everything
+`ChatRepository.GetContactsAsync` hands out. The card is the top of the Chats tab, so two orders would
+have that list reshuffle itself the moment somebody clicked through from one to the other. A **group**
+answers with its last message and nothing else, because a group is not somebody who can have been here;
+each conversation answers the one question with everything it has, which is what keeps a mixed list
+comparable rather than two measures on one list. Two lists are deliberately left on the message alone:
+the **archive**, where the question is "what did I put away last" rather than "where is there life", and
+a contact card's own **Last message** row, which sits beside **Last active** and names what it shows.
+
 **The phone draws the same count** since 2026-09-11, on its contact list: `AvatarCircle` puts it at the
 avatar's bottom-left edge by the web's rules (nothing at nought, "9+" above nine), and the row's mark
 lights for it as well as for a request to answer. It is the same `ContactDto.UnreadCount`, kept on

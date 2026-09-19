@@ -277,8 +277,12 @@ else
                     .OrderBy(contact => contact.DisplayName, StringComparer.CurrentCultureIgnoreCase),
                 contact => contact.UserId)]
             : [.. Pins.PinnedFirst(
+                // The later of their last message and the last time they were here - see
+                // Conversation.LastAnythingFrom. The same measure the dashboard's "Recent chats" card
+                // uses, and it has to be: that card is the top of this very list, and two orders would
+                // have it reshuffle itself the moment somebody clicked through to the whole of it.
                 _establishedChats.Where(contact => !contact.IsArchived)
-                    .OrderByDescending(contact => contact.LastMessageAtUtc),
+                    .OrderByDescending(Conversation.LastAnythingFrom),
                 contact => contact.UserId)];
 
     private IReadOnlyList<ChatGroupDto> ArrangedGroups
