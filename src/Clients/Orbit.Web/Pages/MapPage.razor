@@ -771,6 +771,7 @@ else
         _isSearching = true;
         _hasSearched = true;
         _foundPlace = null;
+        ForgetWhereThePinCameFrom();
         try
         {
             _matches = await GeocodingApiClient.SearchPlacesAsync(query);
@@ -840,6 +841,7 @@ else
         _hasSearched = false;
         _placeToPlanFor = null;
         _foundPlace = pressed;
+        ForgetWhereThePinCameFrom();
         _pressedPlace = null;
         // The markers move; the map does not. Rebuilding it here threw away the pan and the zoom the
         // reader had pressed *through* - the map came back fitted to every pin it holds, which is a
@@ -863,12 +865,14 @@ else
     private async Task PinTheMatchAsync(FoundPlace match)
     {
         _foundPlace = match;
+        ForgetWhereThePinCameFrom();
         await RedrawAsync();
     }
 
     private async Task ForgetTheFoundPlace()
     {
         _foundPlace = null;
+        ForgetWhereThePinCameFrom();
         _placeToPlanFor = null;
         _matches = [];
         _hasSearched = false;
@@ -1691,10 +1695,12 @@ else
         if (Find is { Length: > 0 } search)
         {
             _hasFollowedTheLink = true;
-            _linkedFrom = AsAWebAddress(From);
             Logger.LogInformation("Following a map link that named words rather than a point");
             _searchText = search;
             await SearchAsync();
+            // After the search, which forgets the link the pin before it came from - see
+            // ForgetWhereThePinCameFrom. This pin is that link's, so it is said afterwards.
+            _linkedFrom = AsAWebAddress(From);
             await FocusTheMapOnAsync("found", "a place a link searched for");
             return;
         }
@@ -1721,6 +1727,18 @@ else
                 : null;
             Find = resolved.Search;
             Label = resolved.Label;
+
+            // An answer with neither a point nor words to look for places nothing, and going round
+            // again on it would ask the server the same question for as long as it kept answering that
+            // way. The server does not answer so (see ResolveMapLinkQueryHandler); this is about what
+            // happens if it ever does.
+            if (At is null && Find is not { Length: > 0 })
+            {
+                _hasFailed = true;
+                _message = T["That link couldn't be placed on the map. Open it where it came from to see where it points."];
+                return;
+            }
+
             _hasFollowedTheLink = false;
             await ShowWhereTheLinkPointsAsync();
         }
@@ -1734,6 +1752,14 @@ else
     /// link" opens. Null for a pin nobody arrived at by link.
     /// </summary>
     private string? _linkedFrom;
+
+    /// <summary>
+    /// Forgets which link the pin came from, which every other way of moving that pin has to do:
+    /// searching for somewhere else, pressing the map, choosing another match, dropping the pin
+    /// altogether. Without it a pin somebody searched for afterwards went on offering "Open the
+    /// original link" - pointing at a place they had left ten minutes ago.
+    /// </summary>
+    private void ForgetWhereThePinCameFrom() => _linkedFrom = null;
 
     /// <summary>Where the address bar says the link pointed, or null where it says nothing readable.</summary>
     private (double Latitude, double Longitude)? PointAskedFor()

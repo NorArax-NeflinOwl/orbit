@@ -1338,6 +1338,43 @@ public sealed class MapPageTests : OrbitTestContext
     }
 
     /// <summary>
+    /// The pin forgets which link it came from as soon as it is somewhere else. Without that, a place
+    /// searched for after following a link went on offering "Open the original link" - pointing at a
+    /// place the reader had left, which is a link that lies about what it opens.
+    /// </summary>
+    [Fact]
+    public void A_pin_searched_for_afterwards_does_not_carry_the_links_source()
+    {
+        GrantLocations();
+        _reverseGeocodedAddress = "Piękna 1, Warszawa";
+        OpenedWith(("at", "52.2297,21.0122"), ("from", "https://www.google.com/maps/search/?api=1&query=52.2297,21.0122"));
+        var cut = RenderComponent<MapPage>();
+        // The link's own pin does carry it, which is what the popup's "Open the original link" opens.
+        var carriedTheSource = HowOftenThePinsCarriedTheirSource();
+        Assert.True(carriedTheSource > 0);
+
+        Search(cut, "Długa 4");
+
+        // And nothing drawn since does: the pin is somewhere else now, and a link that opened where the
+        // reader used to be is a link that lies about what it opens.
+        Assert.Equal(carriedTheSource, HowOftenThePinsCarriedTheirSource());
+        Assert.Contains("Długa 4, Warszawa", cut.Find(".map-create-event").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// How many times the page has handed the map a pin that names the link it came from. The pins are
+    /// anonymous objects built for JavaScript, so they are read back the way JavaScript would read them;
+    /// bUnit files invocations by identifier rather than in order, which is why this counts rather than
+    /// looking at the last one.
+    /// </summary>
+    private int HowOftenThePinsCarriedTheirSource()
+        => JSInterop.Invocations
+            .Where(invocation => invocation.Identifier is "showLocations" or "updateLocations")
+            .SelectMany(invocation => invocation.Arguments)
+            .Select(argument => System.Text.Json.JsonSerializer.Serialize(argument))
+            .Count(drawn => drawn.Contains("\"sourceUrl\":\"https", StringComparison.Ordinal));
+
+    /// <summary>
     /// A shortened link carries an identifier and nothing else, so the page asks the server to follow
     /// it - see ResolveMapLinkQuery, and MapLinkApiClient for why a browser cannot. What comes back is
     /// read exactly as a link written out in full would have been.
