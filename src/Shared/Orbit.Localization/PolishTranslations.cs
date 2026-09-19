@@ -1002,6 +1002,8 @@ public static class PolishTranslations
         ["Couldn't change that event. Try again."] = "Nie udało się zmienić tego wydarzenia. Spróbuj ponownie.",
         ["Couldn't delete that event. Try again."] = "Nie udało się usunąć tego wydarzenia. Spróbuj ponownie.",
         ["Couldn't delete that. Try again."] = "Nie udało się tego usunąć. Spróbuj ponownie.",
+        ["An entry here stood for a list that is no longer there. That link has been dropped."] =
+            "Jeden z wpisów odpowiadał za listę, której już nie ma. To powiązanie zostało usunięte.",
         // Everything ticked off and the list still open, because its owner said so - see
         // Orbit.Core.Tasks.TaskListStatus.Incomplete. "Niezakończona" rather than "nieukończona": the
         // work is finished and the list is not, and the two words carry that difference in Polish.

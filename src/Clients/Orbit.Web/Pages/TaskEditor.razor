@@ -57,6 +57,14 @@
     <p class="info">@_inventoryMessage</p>
 }
 
+@* A link this list carried to a list that is no longer there, dropped as the form was filled - see
+   IsStillAList. Said rather than done silently: the entry looks different from how it was left, and an
+   entry that quietly stopped standing for something is worth one sentence. *@
+@if (_droppedLinkMessage is not null)
+{
+    <p class="info">@_droppedLinkMessage</p>
+}
+
 @if (_isLoading)
 {
     <Loading />
@@ -1549,6 +1557,7 @@ else
                             .Select(other => other.LinkedInventoryId!.Value)
                     ];
                     _formModel = ToFormModel(taskList);
+                    SayIfALinkWasDropped(taskList);
                     _savedFolderId = taskList.FolderId;
                     _isShared = taskList.IsShared;
                     _access = SharedItemAccess.For(taskList.IsShared, taskList.AccessLevel);
@@ -2778,6 +2787,44 @@ else
     /// so they are read into the same shape - two copies of sixty lines of mapping would drift the
     /// moment a field was added to one.
     /// </summary>
+    /// <summary>
+    /// Whether a list an entry points at is still there to point at. Asked as the form is filled, and
+    /// the ones that answer no are dropped rather than carried back out on the next save.
+    ///
+    /// Seen in production on 2026-08-27 (issue #186): a save was refused with "A linked task list must
+    /// exist and belong to the same user", because the editor read every stored link into the form and
+    /// sent them all back untouched - so a list deleted somewhere else, while this one sat open in a
+    /// tab, made every save of it fail with a message the reader could do nothing about. A link to
+    /// nothing is standing for nothing either way, and a refusal nobody can act on is worse than a dead
+    /// link quietly falling away.
+    ///
+    /// <see cref="_allTaskLists"/> is everything this reader can read, which is read before this runs
+    /// and is a superset of what the server checks against (TaskListLinkValidator asks the owner's own
+    /// lists; this also holds the ones shared with them). So nothing the server would have accepted is
+    /// dropped here - and an *archived* list is still a list, so a link to one is left alone.
+    /// </summary>
+    private bool IsStillAList(Guid taskListId) => _allTaskLists.Any(taskList => taskList.Id == taskListId);
+
+    /// <summary>What to say when a link was dropped on the way in - see <see cref="IsStillAList"/>.</summary>
+    private string? _droppedLinkMessage;
+
+    /// <summary>
+    /// Says it, once, if the list as stored pointed anywhere that is no longer there. Asked of the DTO
+    /// rather than of the form, because the form is where the links have already gone.
+    /// </summary>
+    private void SayIfALinkWasDropped(TaskDto taskList)
+    {
+        var pointedAt = taskList.Items.SelectMany(item => item.AllLinkedTaskListIds
+            .Concat(item.AllAlternatives
+                .Where(way => way.LinkedTaskListId is not null)
+                .Select(way => way.LinkedTaskListId!.Value)));
+
+        if (pointedAt.Any(linkedId => !IsStillAList(linkedId)))
+        {
+            _droppedLinkMessage = T["An entry here stood for a list that is no longer there. That link has been dropped."];
+        }
+    }
+
     private TaskListFormModel ToFormModel(TaskDto taskList)
         => new()
             {
@@ -2812,11 +2859,16 @@ else
                         Location = item.Location,
                         LinkedInventoryItemId = item.LinkedInventoryItemId,
                         LinkedCalendarEventId = item.LinkedCalendarEventId?.ToString() ?? string.Empty,
-                        LinkedTaskListIds = [.. item.AllLinkedTaskListIds],
+                        LinkedTaskListIds = [.. item.AllLinkedTaskListIds.Where(IsStillAList)],
                         Alternatives = [.. item.AllAlternatives.Select(way => new TaskItemAlternativeFormModel
                         {
                             Description = way.Description,
-                            LinkedTaskListId = way.LinkedTaskListId,
+                            // A way pointing at a list that is gone keeps its words and loses the link:
+                            // it becomes a line to tick by hand, which is what it now is. See
+                            // IsStillAList, and TaskListLinkValidator, which refuses the save otherwise.
+                            LinkedTaskListId = way.LinkedTaskListId is { } wayListId && IsStillAList(wayListId)
+                                ? way.LinkedTaskListId
+                                : null,
                             IsDone = way.IsDone
                         })],
                         ReferencesTaskItemId = item.ReferencesTaskItemId,

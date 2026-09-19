@@ -2850,6 +2850,19 @@ links) — either of the last two would make completion resolution loop forever 
 validation failure throws `InvalidRequestException` and comes back as a **400 carrying the reason** —
 see [Refusing a request](#refusing-a-request).
 
+**A link to a list that is gone is dropped rather than sent** (2026-09-19, issue #186). A list deleted
+somewhere else leaves the entry that stood for it pointing at nothing, and both clients used to send that
+on: the browser read every stored link into its form and sent them back untouched, and the phone's
+synchroniser sent the entry exactly as stored. The server then refused the **whole save** with the
+sentence above — so every later save of that list failed too, over an entry nobody could see was broken.
+Seen in production on 2026-08-27. The browser drops such links as it fills the form
+(`TaskEditor.IsStillAList`, against every list this reader can read, which is a superset of what the
+server checks) and says so in a line on the page; the phone drops them on the way out
+(`TaskListSynchronizer.ListsStillHereAsync`). A **way** pointing at a gone list keeps its words and loses
+the link, becoming a line to tick by hand — which is what it now is. An **archived** list is still a
+list, so a link to one is left alone. A refusal nobody can act on is worse than a dead link quietly
+falling away.
+
 **The editor asks the same question before it offers the link.** Its "link to list" dropdown leaves out
 every list that links back to the one being edited, however long the chain - so a link that would be
 refused is never offered in

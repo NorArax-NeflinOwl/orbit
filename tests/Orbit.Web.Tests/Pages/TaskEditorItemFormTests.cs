@@ -671,6 +671,46 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Assert.Contains(OtherTaskListId, linked.EnumerateArray().Select(id => id.GetGuid()));
     }
 
+    /// <summary>
+    /// A link to a list that is no longer there is dropped as the form is filled, rather than carried
+    /// back out on the next save. Seen in production on 2026-08-27 (issue #186): the server refuses the
+    /// whole save with "A linked task list must exist and belong to the same user", so a list deleted
+    /// elsewhere while this one sat open made every save of it fail over an entry nobody could see was
+    /// broken. And it is said on screen: the entry looks different from how it was left. 2026-09-19.
+    /// </summary>
+    [Fact]
+    public void A_link_to_a_list_that_is_gone_is_dropped_and_said()
+    {
+        // Not OtherTaskListId: an id no list on this account answers to, which is exactly what a
+        // deleted list leaves behind on the entry that stood for it.
+        RegisterApiClients(AnItem() with { LinkedTaskListIds = [Guid.NewGuid()] });
+
+        var cut = Render();
+        ClickButtonSaying(cut, "Save");
+
+        Assert.NotNull(_lastSavedJson);
+        var linked = JsonDocument.Parse(_lastSavedJson!).RootElement
+            .GetProperty("items")[0].GetProperty("linkedTaskListIds");
+        Assert.Equal(0, linked.GetArrayLength());
+        Assert.Contains("no longer there", cut.Find("p.info").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>And a link to a list that is still there is left exactly as it was.</summary>
+    [Fact]
+    public void A_link_to_a_list_that_is_still_there_is_left_alone()
+    {
+        RegisterApiClients(AnItem() with { LinkedTaskListIds = [OtherTaskListId] });
+
+        var cut = Render();
+        ClickButtonSaying(cut, "Save");
+
+        Assert.NotNull(_lastSavedJson);
+        var linked = JsonDocument.Parse(_lastSavedJson!).RootElement
+            .GetProperty("items")[0].GetProperty("linkedTaskListIds");
+        Assert.Equal([OtherTaskListId], linked.EnumerateArray().Select(id => id.GetGuid()));
+        Assert.Empty(cut.FindAll("p.info"));
+    }
+
     /// <summary>And the closed field says both, which is the whole point of the control.</summary>
     [Fact]
     public void And_the_closed_field_says_which_lists_they_are()
