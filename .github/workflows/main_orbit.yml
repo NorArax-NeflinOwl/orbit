@@ -109,6 +109,13 @@ jobs:
       - name: Verify push notifications in a browser
         run: node ci/verify-push-notifications.mjs
 
+      # And the third: checklistTextEditor.js is the writing surface a note is edited on, and every
+      # keystroke and every save reads it back through code bUnit cannot execute. A kind of line the read
+      # does not know is not an error - it is a line quietly turned into an empty one, which is how a rule
+      # drawn across a note was lost for two days in September 2026 (issue #294).
+      - name: Verify a note survives its writing surface
+        run: node ci/verify-note-surface.mjs
+
   deploy:
     # The gate the old arrangement only looked like it had: nothing below runs until the suite is green.
     needs: test

@@ -216,11 +216,13 @@ Azure is paid. It ignores `info/**` and `**/*.md`. Everything on the way to `mai
 developer's machine (`dotnet test Orbit.CI.slnf` before opening a pull request); a broken merge into
 `Coding` surfaces at the next push to `main`, before anything deploys. Its
 `test` job restores, builds (`Release` configuration), and runs the full test suite
-(`dotnet test Orbit.CI.slnf`) on `ubuntu-latest` with .NET SDK 10, then runs the two harnesses covering the
-parts of the client no .NET test can reach, since bUnit executes none of the browser APIs they are made
-of: `ci/verify-browser-crypto.mjs` for `wwwroot/js/e2eeChat.js` (Web Crypto and IndexedDB) and
+(`dotnet test Orbit.CI.slnf`) on `ubuntu-latest` with .NET SDK 10, then runs the three harnesses covering
+the parts of the client no .NET test can reach, since bUnit executes none of the browser APIs they are
+made of: `ci/verify-browser-crypto.mjs` for `wwwroot/js/e2eeChat.js` (Web Crypto and IndexedDB),
 `ci/verify-push-notifications.mjs` for `wwwroot/service-worker.js` and `wwwroot/js/pushNotifications.js`
-(a registered service worker receiving real push events, and the Notification and Push APIs). Every
+(a registered service worker receiving real push events, and the Notification and Push APIs), and
+`ci/verify-note-surface.mjs` for `wwwroot/js/checklistTextEditor.js` (a note drawn on the writing surface
+and read back off it, which is what a rule across a note was silently lost by - see issue #294). Every
 later job depends on this one, so a failure here stops the deploy before an image is built.
 
 **The pull request trigger was tried twice and removed twice**, both times because every minute is
