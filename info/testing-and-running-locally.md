@@ -355,6 +355,28 @@ What happens on the C# side of that — no VAPID key meaning the browser is neve
 registering nothing, and what reaches `/api/push` when somebody does say yes — is
 `PushNotificationManagerTests`, against a stub standing in for the module above.
 
+### A note surviving its writing surface, in a real browser
+
+`ci/verify-note-surface.mjs` is the third of these, and it exists because of a fault rather than a
+feature. `wwwroot/js/checklistTextEditor.js` is the surface a note is written on, and `extractLines` —
+the read of it that every keystroke and every save makes — knew a table and a picture and not a
+separator, so a rule drawn across a note was stored as an empty line by the very next read. Nothing
+threw, nothing logged, and no test in this repository could have seen it: the whole of it is in a
+browser module. The user saw it twice, from both ends, and it took two days and issue #294 to name.
+
+So the check is the round trip and nothing else. Fourteen kinds of line — ordinary writing, each style,
+a ticked errand, a crossed one, words with a mark on them, a table, a rule with a stamp and a rule
+without — go in through `initialize`, and `getLinesAsJson` reads the surface back. A line that comes
+back saying something different is the failure, and a kind of line the read does not know comes back as
+an empty one, which is exactly the shape of the fault.
+
+It runs in the `test` job of `main_orbit.yml` beside the other two, on the browser they already
+installed. By hand:
+
+```bash
+npm install --no-save playwright@1 && npx playwright install chromium && node ci/verify-note-surface.mjs
+```
+
 ## Running locally
 
 The simplest way to run the whole stack is Docker Compose, which builds the API and the web client and

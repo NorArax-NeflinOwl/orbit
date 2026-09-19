@@ -454,6 +454,15 @@ since been closed; what is left is recorded below with the same honesty about wh
   bad ones a push service can still deliver. The C# half is `PushNotificationManagerTests`. Two things
   are still out of reach and are named in the script: `notificationclick`, since nothing outside the
   operating system can click a system notification, and subscribing for real, which needs a push service.
+- ~~**A note's writing surface (`checklistTextEditor.js`) has no coverage either.**~~ Closed
+  2026-09-19 by `ci/verify-note-surface.mjs`, and opened by a fault rather than noticed: `extractLines`,
+  the read of the surface every keystroke and every save makes, knew a table and a picture and not a
+  separator, so a rule drawn across a note was stored as an empty line by the next read. Nothing threw
+  and nothing logged, and this repository had no way to see it - the user did, twice, from both ends
+  (issue #294). Fourteen kinds of line go in through `initialize` and come back through
+  `getLinesAsJson`; a kind the read does not know comes back as an empty line, which is the shape of the
+  fault. Same job, same browser as the two above, and the same limit: it gates the push to `main` and
+  not a feature branch, where it is run by hand or not at all.
 - ~~**The chat thread still has no coverage.**~~ Done, and the reason it was open turned out to be the
   reason to do it: what a polling component decides is invisible from the screen either way. A poll that
   stops honouring the tab's visibility costs money and battery and looks identical; a poll that reads the
