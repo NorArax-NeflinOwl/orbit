@@ -96,7 +96,7 @@
    On a phone the lot folds into one Menu button - see PhoneToolbar, which is nothing at all on a wider
    screen. *@
 <PhoneToolbar Page="FolderPage.Tasks" HasNews="@NewsIsInAFolderThatIsNotOpen">
-    <FolderTabs Page="FolderPage.Tasks" CountIn="CountIn" HasNewsIn="HasNewsIn" StillHolds="StillHolds" />
+    <FolderTabs Page="FolderPage.Tasks" CountIn="CountIn" HasNewsIn="HasNewsIn" StillHolds="StillHolds" HoldsAnything="HoldsAnything" />
 
     @* Only once there is something to narrow, and only about the folder that is open: a search box
        over an empty tab offers to find something on a list that is not there, and the chips would be
@@ -660,6 +660,16 @@
             Folders.PlacementOn(FolderPage.Tasks, taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted, taskList.IsArchived) == folder);
 
     /// <summary>Whether anything is still filed here - see FolderTabs.StillHolds, and Notes.StillHolds.</summary>
+/// <summary>
+    /// Whether a tab is worth being on the row at all - see FolderTabs.HoldsAnything. A built-in tab
+    /// goes when nothing is under it: an empty Private or Archived tab is a press that leads to "there
+    /// is nothing here", and the reader already knows that by it not being offered (asked for
+    /// 2026-09-20). A folder somebody made is judged by what is filed in it rather than by what is
+    /// under its tab - one holding nothing but archived things counts zero here and still holds them.
+    /// </summary>
+    private bool HoldsAnything(FolderKey tab)
+        => tab.FolderId is { } folderId ? StillHolds(folderId) : CountIn(tab) > 0;
+
     private bool StillHolds(Guid folderId) => (_taskLists ?? []).Any(taskList => taskList.FolderId == folderId);
 
     /// <summary>Where the tab is placed - one answer, so the two questions below cannot drift apart.</summary>

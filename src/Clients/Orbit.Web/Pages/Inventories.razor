@@ -95,7 +95,7 @@
 @* Which folder is being read - the inventories' own, since a folder belongs to one page (see
    FolderScope). On a phone it folds into one Menu button. *@
 <PhoneToolbar Page="FolderPage.Inventories" HasNews="@NewsIsInAFolderThatIsNotOpen">
-    <FolderTabs Page="FolderPage.Inventories" CountIn="CountIn" HasNewsIn="HasNewsIn" StillHolds="StillHolds" />
+    <FolderTabs Page="FolderPage.Inventories" CountIn="CountIn" HasNewsIn="HasNewsIn" StillHolds="StillHolds" HoldsAnything="HoldsAnything" />
 </PhoneToolbar>
 
 @* What to do with several at once, while several are chosen - see PickedThings, and Notes.razor on why it
@@ -486,6 +486,16 @@
             Folders.PlacementOn(FolderPage.Inventories, inventory.FolderId, inventory.IsPrivate, isFinished: false, inventory.IsArchived) == folder);
 
     /// <summary>Whether anything is still filed here - see FolderTabs.StillHolds, and Notes.StillHolds.</summary>
+/// <summary>
+    /// Whether a tab is worth being on the row at all - see FolderTabs.HoldsAnything. A built-in tab
+    /// goes when nothing is under it: an empty Private or Archived tab is a press that leads to "there
+    /// is nothing here", and the reader already knows that by it not being offered (asked for
+    /// 2026-09-20). A folder somebody made is judged by what is filed in it rather than by what is
+    /// under its tab - one holding nothing but archived things counts zero here and still holds them.
+    /// </summary>
+    private bool HoldsAnything(FolderKey tab)
+        => tab.FolderId is { } folderId ? StillHolds(folderId) : CountIn(tab) > 0;
+
     private bool StillHolds(Guid folderId) => (_inventories ?? []).Any(inventory => inventory.FolderId == folderId);
 
     /// <summary>Where a shelf's tab is - one answer for the count above and the two questions below.</summary>

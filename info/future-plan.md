@@ -845,6 +845,9 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
   ~~`ChatThreadTests.A_notification_stays_while_their_newest_message_is_not_yet_in_view` and
   `GroupConversationPagesTests` have each done it once in the same session.~~ Still uncaught.
+  `ChatThreadTests.A_message_not_yet_in_view_is_not_marked_read` joined them on 2026-09-20 - same class,
+  same shape, and it passed alone straight afterwards. All three turn on "not yet in view", which is the
+  intersection observer's answer and is settled by a render the test does not wait for.
 
 - ~~**`PeriodicSyncTests` fails under load.**~~ Found and fixed 2026-09-19, while running the suite twice
   over to chase the one above. `SettleAsync` yielded the thread eight times and **hoped** the timer's
@@ -2639,8 +2642,11 @@ down whole rather than started, so nothing in it depends on being remembered.
 - **A whole folder can be shared**, through chat and through a public link - the two ways a single
   thing is shared today.
 
-- **An empty Private or Archived folder is not drawn at all**, and where Public is the only folder
-  left the whole bar goes with it.
+- ~~**An empty Private or Archived folder is not drawn at all**~~ - done 2026-09-20 on all four pages
+  that file things (`FolderTabs.HoldsAnything`). Where that leaves Public on its own the tabs go, but
+  **the plus stays**: the row is also where a folder is made, and hiding it outright would leave a
+  reader with one folder no way to ever make a second. Said here rather than done that way because it
+  is a deliberate departure from what was asked.
 
 - **A custom folder made in the inventory appears on the dashboard without saying the Inventory card
   is hidden there.** The same line is missing for the other kinds.

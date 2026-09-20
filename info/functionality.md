@@ -533,6 +533,20 @@ different question from the count on the tab - something put away is under Archi
 filed, so a folder holding nothing but archived things counts zero on its tab and still holds them. The
 phone still empties a full folder; `info/future-plan.md`.
 
+**A tab with nothing under it is not drawn** (2026-09-20, `FolderTabs.HoldsAnything`, applied by
+`FolderTabRow`). An empty Private or Archived tab is a press that leads to "there is nothing here", and
+the reader knows that already from its not being offered. The dashboard has pruned its tabs this way
+since 2026-09-18; the four pages that file things kept every tab whatever was in it, and now answer the
+same question - a built-in tab by what is under it, a folder somebody made by what is *filed* in it, so
+one holding nothing but archived things keeps its tab. Public always stays, and so does whatever is
+open: taking the tab out from under the reader would leave them looking at a folder they could not see
+they were in.
+
+**Where that leaves Public on its own, the tabs go and the plus stays.** A row with one tab is a
+control that can only be pressed to stay where you already are - but the row is also where a folder is
+made, and a reader with a single folder would otherwise have no way to ever make a second. So the tabs
+are what is left off, not the row.
+
 **The calendar's folders are not tabs on the dashboard**, although the notes', the lists' and the
 shelves' are. What the dashboard says about the calendar is what is on today and what is coming, and
 those two cards answer *when*; an event's folder answers *which*, so a tab narrowing "today" to one

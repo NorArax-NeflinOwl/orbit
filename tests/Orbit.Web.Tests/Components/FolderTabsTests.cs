@@ -347,6 +347,43 @@ public sealed class FolderTabsTests : OrbitTestContext
             .HasAttribute("disabled"));
     }
 
+    /// <summary>
+    /// A built-in tab with nothing under it is not drawn. An empty Private or Archived tab is a press
+    /// that leads to "there is nothing here", and the reader knows that already from its absence -
+    /// asked for on 2026-09-20 for the pages that file things, which had kept every tab whatever was
+    /// in it. The dashboard has pruned its own since 2026-09-18.
+    /// </summary>
+    [Fact]
+    public void A_built_in_tab_with_nothing_under_it_is_left_off()
+    {
+        RegisterFolders([]);
+
+        var cut = RenderComponent<FolderTabs>(parameters => parameters
+            .Add(tabs => tabs.Page, FolderPage.Notes)
+            // Something under Archived and nothing under Private, so one of the two goes.
+            .Add(tabs => tabs.HoldsAnything, tab => tab == FolderKey.Of(BuiltInFolder.Archived)));
+
+        Assert.Equal(["Public", "Archived"], TabNames(cut));
+    }
+
+    /// <summary>
+    /// And where that leaves Public on its own there is nothing to choose between, so the tabs go. The
+    /// way to make a folder stays: a reader with one folder would otherwise have no way to ever make a
+    /// second, which is a door that locks behind them.
+    /// </summary>
+    [Fact]
+    public void Public_on_its_own_draws_no_tabs_and_still_offers_a_new_folder()
+    {
+        RegisterFolders([]);
+
+        var cut = RenderComponent<FolderTabs>(parameters => parameters
+            .Add(tabs => tabs.Page, FolderPage.Notes)
+            .Add(tabs => tabs.HoldsAnything, _ => false));
+
+        Assert.Empty(TabNames(cut));
+        Assert.Single(cut.FindAll(".folder-tab-add"));
+    }
+
     private IRenderedComponent<FolderTabs> RenderTabs(FolderPage page)
         => RenderComponent<FolderTabs>(parameters => parameters.Add(tabs => tabs.Page, page));
 

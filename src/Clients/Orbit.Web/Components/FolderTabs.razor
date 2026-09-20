@@ -10,11 +10,14 @@
    lists. Two or three of them are always there and have nothing stored behind them (see BuiltInFolder);
    the rest are whatever the reader made on this page. What the row offers is the page's own answer
    rather than one answer given three times - see FolderPages. *@
-@* A row with nothing to choose between is not a row - see IsWorthDrawing. *@
-@if (IsWorthDrawing)
+@* A row with nothing to choose between is not a row - see IsWorthDrawing. The one thing that stays is
+   the way to make a folder, on the pages that have one: a reader with a single folder would otherwise
+   have no way to ever make a second, which is a door that locks behind them. So the tabs go and the
+   plus remains, rather than the whole row going. *@
+@if (IsWorthDrawing || Page.MakesFoldersIn() is not null)
 {
 <div class="folder-tabs" role="tablist" aria-label="@(T["Folders"])">
-    @foreach (var tab in Tabs)
+    @foreach (var tab in IsWorthDrawing ? Tabs : [])
     {
         var isChosen = tab == Folders.ChosenOn(Page);
         @if (_folderBeingRenamed == tab.FolderId && tab.FolderId is not null)
