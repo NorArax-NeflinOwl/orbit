@@ -1,4 +1,9 @@
 @page "/notes"
+@* And the page of cards under its own address. "/notes" opens the newest note for writing in since
+   2026-09-20 - see OnInitializedAsync - which is where a note app is read from, and the cards are what
+   is left for the questions this page answers and the workspace does not: choosing several at once, and
+   narrowing by tag. Reached from the heading above the column of notes. *@
+@page "/notes/all"
 @implements IDisposable
 @attribute [Authorize]
 @using Orbit.Contracts.Chat
@@ -49,7 +54,8 @@
    the tab called "Work" here is not the tab called "Work" on the task lists - see FolderScope. On a
    phone it folds into one Menu button - see PhoneToolbar, which is nothing at all on a wider screen. *@
 <PhoneToolbar Page="FolderPage.Notes" HasNews="@NewsIsInAFolderThatIsNotOpen">
-    <FolderTabs Page="FolderPage.Notes" CountIn="CountIn" HasNewsIn="HasNewsIn" />
+    <FolderTabs Page="FolderPage.Notes" CountIn="CountIn" HasNewsIn="HasNewsIn" StillHolds="StillHolds" HoldsAnything="HoldsAnything"
+                OnShareFolder="ShareTheFolder" />
 
     @* Narrowing by the reader's own words for their notes - the same browser the tasks page narrows by
        its categories in (ValueBrowser), because it is the same question asked of a different page. Only
@@ -76,11 +82,11 @@
 {
     @* Only a note this reader owns and Orbit can read: the server refuses to share a sealed one, and one
        shared with this reader is not theirs to hand on from here. *@
-    <SharePickedDialog Things="@([.. ChosenNotes.Where(note => !note.IsShared && !note.IsPrivate).Select(note => new SharePickedDialog.ShareableThing(note.Id, note.Title))])"
-                       LeftOut="@ChosenNotes.Count(note => note.IsShared || note.IsPrivate)"
+    <SharePickedDialog Things="@([.. NotesBeingShared.Where(CanBeHandedOn).Select(note => new SharePickedDialog.ShareableThing(note.Id, note.Title))])"
+                       LeftOut="@NotesBeingShared.Count(note => !CanBeHandedOn(note))"
                        ShareOne="(noteId, recipientUserId, accessLevel) => NotesApiClient.ShareNoteAsync(noteId, recipientUserId, accessLevel)"
                        Invitation="(shareId, title) => new NoteShareMessagePayload(shareId, title)"
-                       OnClosed="() => _isSharingPicked = false" />
+                       OnClosed="StopSharingSeveral" />
 }
 @* Handing on one note, from its own card. The same dialog the bar above opens for several, given a list
    of one: sharing is sharing whether it is one thing or four, and a second way of doing it would be a
@@ -93,6 +99,10 @@
                        Invitation="(shareId, title) => new NoteShareMessagePayload(shareId, title)"
                        OnClosed="() => _sharingOne = null" />
 }
+@* The Private tab is behind the account's PIN, where one is set - asked once a session, see
+   PrivatePinGate. Around the list rather than around the page: the tabs stay, so the way out of the
+   question is simply another tab. *@
+<BehindThePin Applies="IsReadingWhatIsPrivate" OnGaveUp="LeaveThePrivateTab">
 <ObjectList IsLoading="_notes is null" IsEmpty="_notes is { Count: 0 }" EmptyMessage="@T["No notes."]">
     @if (_notes is { Count: > 0 } && VisibleNotes.Count == 0)
     {
@@ -119,12 +129,13 @@
                     <PinButton IsPinned="note.IsPinned" OnPinnedChanged="pinned => SetPinnedAsync(note, pinned)" />
                 </Pin>
                 <Menu>
-                    @* The card opens the note to be read; changing what it says is a named press, the
-                       same as a task list's - see NoteSummary.razor. Named for what it will actually
-                       do: a note shared read-only opens in the form to be looked at, and calling that
-                       "Edit" here and "View" one press further in said two different things about one
-                       note. Somebody else's note is not this reader's to delete: pressing that takes it
-                       off their list and leaves the owner's alone, so it says that rather than "Delete". *@
+                    @* The card opens the note to be written in - there is no reading rung any more (see
+                       NoteEditor.razor, which is what /notes/{id} lands on since 2026-09-20), so this
+                       entry and the card lead to the same place and it is named for what the reader
+                       will find there: "View" for a note shared read-only, which opens in the form to
+                       be looked at. Somebody else's note is not this reader's to delete: pressing that
+                       takes it off their list and leaves the owner's alone, so it says that rather
+                       than "Delete". *@
                     <ObjectMenu EditLabel="@(CanBeChanged(note) ? T["Edit"] : T["View"])" OnEdit="() => GoToEditNote(note.Id)"
                                 DuplicateLabel="@(note.IsShared ? null : T["Duplicate"])"
                                 OnDuplicate="() => DuplicateNoteAsync(note)"
@@ -187,9 +198,20 @@
         }
     </div>
 </ObjectList>
+</BehindThePin>
 
 @code {
     private IReadOnlyList<NoteDto>? _notes;
+
+    /// <summary>Whether the reader is standing in the Private tab - what the PIN is asked for.</summary>
+    private bool IsReadingWhatIsPrivate
+        => Folders.ChosenOn(FolderPage.Notes) == FolderKey.Of(BuiltInFolder.Private);
+
+    /// <summary>
+    /// Where the question leads when it cannot be answered: back to where everything else is. Closing it
+    /// has to lead somewhere - the list behind it is drawing nothing.
+    /// </summary>
+    private void LeaveThePrivateTab() => Folders.Choose(FolderPage.Notes, FolderKey.Default);
 
     /// <summary>
     /// The notes in the folder that is open. A note nobody filed is still in one - Public, or Private
@@ -271,6 +293,36 @@
     private IReadOnlyList<NoteDto> ChosenNotes
         => [.. (_notes ?? []).Where(note => _picked.Holds(note.Id))];
 
+    /// <summary>The folder whose contents are being handed on, while one is - see ShareTheFolder.</summary>
+    private Guid? _folderBeingShared;
+
+    /// <summary>
+    /// What a share is about: the chosen notes, or - when the folder's own menu started it - everything
+    /// filed under that folder (2026-09-20, asked for). One dialog either way, so sharing several
+    /// things means the same thing however the several were picked out: one contact, one level, and a
+    /// grant and an invitation for each. What is put away is left out, being no longer what the folder
+    /// is about; what is sealed or already somebody else's is left out by the dialog, which says how
+    /// many.
+    /// </summary>
+    private IReadOnlyList<NoteDto> NotesBeingShared
+        => _folderBeingShared is { } folderId
+            ? [.. (_notes ?? []).Where(note => note.FolderId == folderId && !note.IsArchived)]
+            : ChosenNotes;
+
+    /// <inheritdoc cref="NotesBeingShared"/>
+    private void ShareTheFolder(Guid folderId)
+    {
+        Logger.LogInformation("User shared the contents of folder {FolderId}", folderId);
+        _folderBeingShared = folderId;
+        _isSharingPicked = true;
+    }
+
+    private void StopSharingSeveral()
+    {
+        _isSharingPicked = false;
+        _folderBeingShared = null;
+    }
+
     /// <summary>
     /// Files every chosen note, one call each - which is what the server already takes, so no bulk
     /// endpoint had to be grown for this (see info/future-plan.md, where that was the plan). A note
@@ -331,6 +383,23 @@
     private int CountIn(FolderKey folder)
         => (_notes ?? []).Count(note =>
             Folders.PlacementOn(FolderPage.Notes, note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived) == folder);
+
+    /// <summary>
+    /// Whether anything is still filed here, which is what decides whether the folder can be deleted -
+    /// see FolderTabs.StillHolds. Not the count above: a note put away is under Archived wherever it is
+    /// filed, so a folder holding nothing but archived notes counts zero and still holds them.
+    /// </summary>
+/// <summary>
+    /// Whether a tab is worth being on the row at all - see FolderTabs.HoldsAnything. A built-in tab
+    /// goes when nothing is under it: an empty Private or Archived tab is a press that leads to "there
+    /// is nothing here", and the reader already knows that by it not being offered (asked for
+    /// 2026-09-20). A folder somebody made is judged by what is filed in it rather than by what is
+    /// under its tab - one holding nothing but archived things counts zero here and still holds them.
+    /// </summary>
+    private bool HoldsAnything(FolderKey tab)
+        => tab.FolderId is { } folderId ? StillHolds(folderId) : CountIn(tab) > 0;
+
+    private bool StillHolds(Guid folderId) => (_notes ?? []).Any(note => note.FolderId == folderId);
 
     /// <summary>
     /// Whether a note under this tab is something the reader has not seen yet - what puts the mark on
@@ -428,6 +497,39 @@
             return;
         }
         Logger.LogInformation("Loaded {NoteCount} notes", _notes.Count);
+        OpenTheNewestNote();
+    }
+
+    /// <summary>
+    /// What "/notes" now does: goes straight into writing in the note changed most recently, with the
+    /// column of every note beside it (asked for on 2026-09-20). A note app is read by writing in one -
+    /// every press on this page was a press towards that, and a page of cards in between was a press
+    /// spent choosing which note to want.
+    ///
+    /// **Not a sealed one**, and not one put away. A private note needs its key before it says anything,
+    /// so landing on one would open a page that cannot be read without a second answer; and the archive
+    /// is where things go to stop being what somebody is doing now.
+    ///
+    /// Replaces the address rather than adding to it, so Back from the note does not come here and
+    /// bounce straight back in. An account with nothing to open stays on the cards, which is where the
+    /// plus that makes the first note is.
+    /// </summary>
+    private void OpenTheNewestNote()
+    {
+        if (NavigationManager.Uri.Contains("/notes/all", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var newest = (_notes ?? [])
+            .Where(note => !note.IsPrivate && !note.IsArchived)
+            .MaxBy(note => note.UpdatedAtUtc);
+        if (newest is null)
+        {
+            return;
+        }
+
+        NavigationManager.NavigateTo($"/notes/{newest.Id}", forceLoad: false, replace: true);
     }
 
     private void GoToAddNote()
@@ -437,8 +539,8 @@
     }
 
     /// <summary>
-    /// Whether this reader may change the note, which is what the menu is named for - see NoteSummary,
-    /// which asks the same question of the note it has open.
+    /// Whether this reader may change the note, which is what the menu is named for - see NoteEditor,
+    /// which asks the same question of the note it has open and greys its Save on the answer.
     /// </summary>
     private static bool CanBeChanged(NoteDto note)
         => !note.IsShared || SharedItemAccess.For(note.IsShared, note.AccessLevel).CanEdit;

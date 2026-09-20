@@ -28,14 +28,6 @@
             <!-- While several shelves are being chosen - see PickingSeveral. -->
             <controls:PickingBar BindingContext="{Binding Picking}" />
 
-            <Grid x:Name="AddRow" IsVisible="False" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <Entry x:Name="AddField" Grid.Column="0" Placeholder="{controls:Translate 'New inventory'}"
-                       Text="{Binding NewInventoryName}"
-                       ReturnType="Done" ReturnCommand="{Binding AddInventoryCommand}" />
-                <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Style="{StaticResource PrimaryButton}"
-                        Command="{Binding AddInventoryCommand}" />
-            </Grid>
-
             <!-- Naming a new folder, unfolded from the menu rather than standing on the screen - see
                  NotesPage, which this is the same row as. -->
             <Grid x:Name="FolderRow" IsVisible="False" ColumnDefinitions="*,Auto" ColumnSpacing="8">
@@ -189,7 +181,7 @@
         <!-- Across the foot, under everything the page itself draws - see AdBanner, and .ad-banner
              in Orbit.Web's app.css, which is the same bar on a narrow window. -->
         <controls:AdBanner Grid.Row="2" />
-        <controls:Fab x:Name="AddButton" Grid.Row="1" IsAboveAdBar="True"
+        <controls:Fab Grid.Row="1" IsAboveAdBar="True" Command="{Binding AddInventoryCommand}"
                       Description="{controls:Translate 'Add inventory'}" />
         <controls:NavigationBar Grid.Row="0" />
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"

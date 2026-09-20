@@ -627,6 +627,19 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         {
             Status = _translations[PlaceNotFoundMessage];
         }
+
+        // Anything worth saying keeps the reader here to read it - the place that could not be found,
+        // or a save that only reached this phone. With nothing to say, the save ends where the reader
+        // came from, the way the places screen's own save does.
+        //
+        // It used to stand still and silent either way, which is how the tick came to be reported as a
+        // button that does nothing (2026-09-20): it saved every time, and nothing on the screen moved
+        // or said so. See "failures must reach the user" - a silent success reads exactly like a press
+        // that never registered.
+        if (Status.Length == 0)
+        {
+            _navigator.ShowCalendar();
+        }
     }
 
     /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>

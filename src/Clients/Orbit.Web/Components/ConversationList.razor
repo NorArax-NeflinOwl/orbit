@@ -67,10 +67,10 @@
         }
     }
 
-    @if (OnNewGroup.HasDelegate)
-    {
-        <button type="button" class="btn-secondary chat-list-new-group" @onclick="OnNewGroup">@T["New group"]</button>
-    }
+@* "New group" used to sit at the foot of this list. It is on the contacts page now, under the Groups
+   tab (asked for 2026-09-20): this list is what is being *read* - a column of conversations to pick
+   from - and making a new one belongs where the groups themselves are listed, beside the rest of the
+   making and unmaking. *@
 </div>
 
 @code {
@@ -92,9 +92,6 @@
     [Parameter] public EventCallback<string> SearchChanged { get; set; }
 
     [Parameter, EditorRequired] public EventCallback<Conversation> OnSelected { get; set; }
-
-    /// <summary>Offered only where the screen can act on it - see the two chat pages.</summary>
-    [Parameter] public EventCallback OnNewGroup { get; set; }
 
     private Task OnSearchInput(ChangeEventArgs args) => SearchChanged.InvokeAsync(args.Value?.ToString() ?? string.Empty);
 

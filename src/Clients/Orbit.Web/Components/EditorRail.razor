@@ -66,17 +66,33 @@
                 </svg>
             </button>
         }
-        @* An arrow rather than a cross. A cross says "discard", and this button says no such thing on
-           four of the six screens that carry it: they are read rather than filled in, and it simply
-           leaves. Naming it Back rather than Cancel is the same correction - what it does is go back,
-           and on a form that happens to mean the writing is not kept. *@
-        <button type="button" class="icon-btn page-action" title="@T["Back"]" aria-label="@T["Back"]"
-                @onclick="OnCancel">
-            <svg viewBox="0 0 20 20" width="30" height="30" aria-hidden="true" fill="none"
-                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M16 10H4" /><path d="m9 5-5 5 5 5" />
-            </svg>
-        </button>
+        @* Making another of whatever this screen holds, where the screen is the place they are read
+           from rather than one press in from a list. The notes are the one such screen (2026-09-20):
+           "/notes" opens the newest note, so there is no list behind this panel for Back to return to
+           and a way to start the next note is what the press is worth. It takes Back's place rather
+           than standing beside it - see OnAdd. *@
+        @if (OnAdd.HasDelegate)
+        {
+            <button type="button" class="icon-btn page-action" title="@AddLabel" aria-label="@AddLabel"
+                    @onclick="OnAdd">
+                <svg viewBox="0 0 20 20" width="30" height="30" aria-hidden="true" fill="none"
+                     stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
+            </button>
+        }
+        else
+        {
+            @* An arrow rather than a cross. A cross says "discard", and this button says no such thing
+               on four of the six screens that carry it: they are read rather than filled in, and it
+               simply leaves. Naming it Back rather than Cancel is the same correction - what it does is
+               go back, and on a form that happens to mean the writing is not kept. *@
+            <button type="button" class="icon-btn page-action" title="@T["Back"]" aria-label="@T["Back"]"
+                    @onclick="OnCancel">
+                <svg viewBox="0 0 20 20" width="30" height="30" aria-hidden="true" fill="none"
+                     stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M16 10H4" /><path d="m9 5-5 5 5 5" />
+                </svg>
+            </button>
+        }
         @ChildContent
     </div>
 </div>
@@ -90,6 +106,15 @@
 
     /// <summary>Leaving the screen: back to the list on a page that is read, out of the form on one that is filled in.</summary>
     [Parameter] public EventCallback OnCancel { get; set; }
+
+    /// <summary>
+    /// Starting another one of whatever this screen holds. Set, it takes the place of Back - see the
+    /// button. Only the note editor sets it, and only because there is no list behind it to go back to.
+    /// </summary>
+    [Parameter] public EventCallback OnAdd { get; set; }
+
+    /// <inheritdoc cref="OnAdd"/>
+    [Parameter] public string AddLabel { get; set; } = "Add";
 
     /// <summary>
     /// Opening the form for whatever this screen is reading. Set by the five screens that read an

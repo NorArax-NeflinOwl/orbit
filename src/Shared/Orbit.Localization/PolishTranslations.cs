@@ -187,10 +187,30 @@ public static class PolishTranslations
         ["Starts"] = "Zaczyna się",
         ["Ends"] = "Kończy się",
         ["This ends before it starts."] = "To kończy się przed rozpoczęciem.",
-        ["This entry has an event in the calendar. Saving keeps the two in step."] = "Ta pozycja ma wydarzenie w kalendarzu. Zapis utrzymuje je w zgodzie.",
+        ["This entry has an event in the calendar. Saving keeps the two in step. Detaching makes it an ordinary entry, due when the event started, and leaves the event where it is."] = "Ta pozycja ma wydarzenie w kalendarzu. Zapis utrzymuje je w zgodzie. Odłączenie zamienia ją w zwykłą pozycję z terminem na początek wydarzenia, a samo wydarzenie zostaje w kalendarzu.",
         ["Detach from the event"] = "Odłącz od wydarzenia",
         ["About this note"] = "O tej notatce",
         ["Write something in it."] = "Napisz w niej coś.",
+        // The other half of the same answer: a new note has to be named before it can be saved.
+        ["Give it a name."] = "Nadaj jej nazwę.",
+        // The PIN in front of what is private - the dialog, and the pair of fields in the options under
+        // the password it is proved with. See PrivatePinGate.
+        ["Your PIN"] = "Twój PIN",
+        ["PIN"] = "PIN",
+        ["This is private. Type your PIN to see it."] = "To jest prywatne. Wpisz PIN, żeby to zobaczyć.",
+        ["That is not the PIN."] = "To nie jest ten PIN.",
+        ["PIN for what is private"] = "PIN do rzeczy prywatnych",
+        ["Asked once a session before anything sealed is shown. It does not encrypt anything - your password already does that."] =
+            "Pytamy o niego raz na sesję, zanim pokażemy cokolwiek zaszyfrowanego. Sam nie szyfruje niczego - robi to już Twoje hasło.",
+        ["New PIN"] = "Nowy PIN",
+        ["Four to eight digits. Leave it empty to be asked no more."] =
+            "Od czterech do ośmiu cyfr. Zostaw puste, żeby nie być o niego pytanym.",
+        ["Save PIN"] = "Zapisz PIN",
+        ["Remove PIN"] = "Usuń PIN",
+        ["A PIN is four to eight digits."] = "PIN to od czterech do ośmiu cyfr.",
+        ["PIN saved."] = "PIN zapisany.",
+        ["You won't be asked for a PIN any more."] = "Nie będziemy już pytać o PIN.",
+        ["Couldn't save your PIN. Try again."] = "Nie udało się zapisać PIN-u. Spróbuj ponownie.",
         ["Related inventory"] = "Powiązany magazyn",
         ["Done: {0}"] = "Zrobione: {0}",
         ["About this inventory"] = "O tym magazynie",
@@ -355,6 +375,8 @@ public static class PolishTranslations
             "Nie udało się przeliczyć względem magazynu. Spróbuj ponownie.",
         ["Hide"] = "Ukryj",
         ["Show on the dashboard"] = "Pokaż na pulpicie",
+        // The same menu, now answering for one tab at a time - the heading says which.
+        ["Show under {0}"] = "Pokaż w „{0}”",
         ["Orbit's order"] = "Kolejność Orbita",
         ["Show"] = "Pokaż",
         ["Search conversations"] = "Szukaj rozmów",
@@ -369,6 +391,12 @@ public static class PolishTranslations
             "Wszystko jest ukryte. Menu w prawym górnym rogu przywraca elementy.",
         ["Nothing here is private yet."] = "Nic tutaj nie jest jeszcze prywatne.",
         ["This folder is empty."] = "Ten folder jest pusty.",
+        // Why a folder's tab on the dashboard draws nothing: its one card is put away.
+        ["The {0} card is hidden here. The menu at the top right brings it back."] =
+            "Karta „{0}” jest tu ukryta. Menu w prawym górnym rogu ją przywraca.",
+        // The same, where the tab is about more than one card and there is no single one to name.
+        ["Every card this folder is about is hidden here. The menu at the top right brings it back."] =
+            "Wszystkie karty tego folderu są tu ukryte. Menu w prawym górnym rogu je przywraca.",
         ["Drag to reorder"] = "Przeciągnij, aby zmienić kolejność",
         ["Minimise"] = "Zminimalizuj",
         ["Open the calendar"] = "Otwórz kalendarz",
@@ -666,6 +694,8 @@ public static class PolishTranslations
         ["Open checklist"] = "Otwórz listę",
         ["Sort"] = "Sortuj",
         ["Everything, including what is over"] = "Wszystko, łącznie z tym, co minęło",
+        // And the grid's own, beside the view switch: what is done, asked for separately from the list.
+        ["What is already done"] = "To, co już zrobione",
         // The calendar's list beside the grid - see CalendarListSortOrder.
         ["By when"] = "Po dacie",
         ["By type"] = "Po typie",
@@ -894,6 +924,15 @@ public static class PolishTranslations
         ["A place worth keeping"] = "Miejsce warte zapisania",
         ["This place"] = "To miejsce",
         ["What this place is"] = "Czym jest to miejsce",
+        // What the phone's place screen asks instead, since 2026-09-20: a question rather than a
+        // description of the field, because what the box wants is a name. "Where this happens" stays
+        // where it belongs - on an event, which does happen somewhere.
+        ["What do you call this place?"] = "Jak nazwiesz to miejsce?",
+        ["Where is it"] = "Gdzie to jest",
+        ["Type an address or pick it on the map - a place with no point cannot be drawn on one."] =
+            "Wpisz adres lub wskaż je na mapie - miejsca bez punktu nie da się na niej narysować.",
+        ["Couldn't find that address. Pick it on the map instead."] =
+            "Nie znaleziono takiego adresu. Wskaż je na mapie.",
         // Under the name while there is none - Create waits for one, see PlaceForm.CanSave.
         ["Give the place a name to keep it."] = "Nadaj miejscu nazwę, aby je zapisać.",
         ["Anything worth remembering about it"] = "Co warto o nim pamiętać",
@@ -1005,6 +1044,12 @@ public static class PolishTranslations
             = "Usunąć folder \"{0}\"? Nic z niego nie ginie - wraca do Publicznych, a jeśli jest zapieczętowane, do Prywatnych.",
         // Also the heading over what can be done to the folders themselves, beside the list of them.
         ["Folder"] = "Folder",
+        // Handing a whole tab on, the two ways a single thing is handed on - see FolderTabs.
+        ["Share folder"] = "Udostępnij folder",
+        ["Anyone with this link can read what is in this folder. Nothing sealed, and nothing you have put away, is in it."] =
+            "Każdy, kto ma ten link, przeczyta to, co jest w tym folderze. Nie ma w nim rzeczy zaszyfrowanych ani tego, co schowano do archiwum.",
+        ["To keep what is in here, ask them to share the folder with you in Orbit."] =
+            "Żeby zachować to, co tu jest, poproś o udostępnienie folderu w Orbicie.",
         ["Folder name"] = "Nazwa folderu",
         ["Public"] = "Publiczne",
         ["Finished"] = "Ukończone",
@@ -1020,8 +1065,17 @@ public static class PolishTranslations
         ["Hide on the dashboard"] = "Ukryj na pulpicie",
         ["Delete folder"] = "Usuń folder",
         ["Delete this folder?"] = "Usunąć ten folder?",
+        // The archive's own two entries in the notes column - it is at the top there and can be put
+        // away, unlike the other built-in headings. See NoteWorkspaceList.
+        ["Hide folder"] = "Ukryj folder",
+        ["Show the archive"] = "Pokaż archiwum",
         ["Nothing in it is deleted - everything goes back to Public, or to Private if it is sealed."] =
             "Nic z niego nie zostanie usunięte - wszystko wróci do Publicznych, a rzeczy zaszyfrowane do Prywatnych.",
+        // Since 2026-09-20 only an empty folder can go, so the question says what little is at stake and
+        // a folder that still holds something says what to do about it.
+        ["There is nothing in it. The tab goes and nothing else changes."] =
+            "Nic w nim nie ma. Zniknie sama zakładka i nic poza tym.",
+        ["Move what is in it somewhere else first."] = "Najpierw przenieś to, co w nim jest.",
         ["Nothing in this folder."] = "Nic w tym folderze.",
         ["No notes carry those tags."] = "Żadna notatka nie ma tych tagów.",
         // Making a second one of something, and what the copy is called - see Orbit.Contracts.DuplicateRequest.
@@ -1319,6 +1373,8 @@ public static class PolishTranslations
         // bubble over the tools while they are selected, the second each box's own tooltip.
         ["{0} selected items - ticking one ticks them all."] = "Zaznaczone pozycje: {0} - odhaczenie jednej odhacza wszystkie.",
         ["Shift+click to select several lines - ticking one selected box then ticks them all."] = "Shift+klik zaznacza kilka linii - odhaczenie jednego zaznaczonego pola odhacza wtedy wszystkie.",
+        // The press in a picture's own corner, in a note being written.
+        ["Remove this picture"] = "Usuń ten obrazek",
         // The phone's note screen has no Ctrl+Z, so undo and redo are two buttons beside its tick box.
         ["Undo"] = "Cofnij",
         ["Redo"] = "Ponów",
@@ -1742,6 +1798,8 @@ public static class PolishTranslations
         ["keeps"] = "nie psuje się",
         ["That note no longer exists."] = "Tej notatki już nie ma.",
         ["Failed to delete the note. Try again."] = "Nie udało się usunąć notatki. Spróbuj ponownie.",
+        // Said beside Save when putting a note away, or taking it back out, did not go through.
+        ["Couldn't change that. Try again."] = "Nie udało się tego zmienić. Spróbuj ponownie.",
         ["All notes"] = "Wszystkie notatki",
         ["That event no longer exists."] = "Tego wydarzenia już nie ma.",
         ["Failed to delete the event. Try again."] = "Nie udało się usunąć wydarzenia. Spróbuj ponownie.",
@@ -1820,6 +1878,13 @@ public static class PolishTranslations
         ["Shared by {0}"] = "Udostępnił {0}",
         ["Pick on map"] = "Wskaż na mapie",
         ["Coordinates: {0}, {1}"] = "Współrzędne: {0}, {1}",
+        // Whether Orbit may read where a place is. Sealed unless its owner says otherwise, which is the
+        // opposite default from everything else - see Orbit.Core.Places.Place.IsPrivate.
+        ["Sealed"] = "Zaszyfrowane",
+        ["Encrypted on this phone, so Orbit cannot read where it is. A sealed place cannot be shared."] =
+            "Zaszyfrowane na tym telefonie, więc Orbit nie zna tego miejsca. Zaszyfrowanego miejsca nie da się udostępnić.",
+        ["Sealed places can't be shared. Take the seal off to offer this to somebody."] =
+            "Zaszyfrowanych miejsc nie da się udostępnić. Zdejmij szyfrowanie, aby zaproponować je komuś.",
 
         // The dashboard's short "when" labels.
         ["just now"] = "przed chwilą",
@@ -1872,6 +1937,18 @@ public static class PolishTranslations
             "Osoba wskazana na następcę nie należy już do tej grupy.",
         ["Remove from my list"] = "Usuń z mojej listy",
         ["Remove \"{0}\" from your list? The owner keeps it."] = "Usunąć „{0}” z Twojej listy? Właściciel ją zachowa.",
+        // The same way out, said for the other three things somebody can be handed - a task list, an
+        // event on the calendar, and the event's own form.
+        ["Remove \"{0}\" from your lists? The owner keeps it."] = "Usunąć „{0}” z Twoich list? Właściciel ją zachowa.",
+        ["Remove \"{0}\" from your calendar? The owner keeps it."] = "Usunąć „{0}” z Twojego kalendarza? Właściciel je zachowa.",
+        ["Remove this from your calendar? The owner keeps it."] = "Usunąć to z Twojego kalendarza? Właściciel je zachowa.",
+        ["Couldn't take that off your lists. Check your connection and try again."] =
+            "Nie udało się usunąć tego z Twoich list. Sprawdź połączenie i spróbuj ponownie.",
+        // And the fourth, the shelf - the last shared thing that had no way off your own pages.
+        ["Remove \"{0}\" from your inventories? The owner keeps it."] =
+            "Usunąć „{0}” z Twoich magazynów? Właściciel go zachowa.",
+        ["Couldn't take that off your inventories. Check your connection and try again."] =
+            "Nie udało się usunąć tego z Twoich magazynów. Sprawdź połączenie i spróbuj ponownie.",
         ["Delete note \"{0}\"?"] = "Usunąć notatkę „{0}”?",
 
         // ---- Orbit.Maui's own wording. "Orbit" and the bare glyphs are deliberately absent:
@@ -2157,6 +2234,9 @@ public static class PolishTranslations
 
         // Asking whoever owns something to let you change it, and seeing that ask arrive.
         ["Asked to edit"] = "Prosi o prawo edycji",
+        // What the owner reads when the ask arrives - the kind of thing in the accusative ("a note" and
+        // the three beside it), then its name.
+        ["Asked to edit {0}: {1}"] = "Prosi o prawo edycji: {0} „{1}”",
         ["Asked them. They will see it in your conversation."] = "Poproszono. Zobaczy to w Waszej rozmowie.",
         ["Couldn't send that request."] = "Nie udało się wysłać tej prośby.",
         ["Stop the link"] = "Wyłącz link",
@@ -2562,5 +2642,47 @@ public static class PolishTranslations
             "Zaproszenie można otworzyć tylko online. Spróbuj ponownie, gdy wrócisz do sieci.",
         ["An invitation can only be accepted online. Try again when you are back."] =
             "Zaproszenie można zaakceptować tylko online. Spróbuj ponownie, gdy wrócisz do sieci.",
+
+        // ---- What a message says about itself on the phone, now that the thread shows the time under
+        // its newest line alone - see ReadableChatMessage.IsTheNewest and ConversationViewModel's own
+        // DescribeMessage, which writes the rest of this out in the menu's Info. ----
+        ["edited"] = "edytowana",
+        ["Sent {0}"] = "Wysłano: {0}",
+        ["Rewritten after it was sent."] = "Zmieniona po wysłaniu.",
+        ["Still waiting to go out from this phone."] = "Wciąż czeka na wysłanie z tego telefonu.",
+        ["Written by {0}."] = "Napisał(a): {0}.",
+        ["{0} had read it by {1}."] = "{0} przeczytał(a) ją najpóźniej o {1}.",
+        ["{0} has read it."] = "{0} ją przeczytał(a).",
+        ["{0} hasn't read it yet."] = "{0} jeszcze jej nie przeczytał(a).",
+        ["Pass on to somebody else"] = "Przekaż komuś dalej",
+        // What a spot pressed on the phone's map offers - see MapPage.OfferTheMapApp. "Your map app"
+        // rather than "Google Maps": the handoff is the platform's, and what answers it is whatever the
+        // phone has. On Android that is Google Maps.
+        ["Open in your map app"] = "Otwórz w aplikacji map",
+        // The star beside a note that holds writing the server has not got - see NoteWorkspaceList -
+        // and the panel the way out of the editor asks in, which used to be the browser's confirm box.
+        ["Not saved yet"] = "Jeszcze niezapisane",
+        ["Not saved yet: {0}."] = "Jeszcze niezapisane: {0}.",
+        ["Leaving now loses what you wrote in them."] = "Wyjście teraz oznacza utratę tego, co w nich napisano.",
+        ["Stay here"] = "Zostań tutaj",
+        ["Leave and lose it"] = "Wyjdź i utrać zmiany",
+        // The calendar widget's own line for a phone nobody is signed in on - see MonthAtAGlance.
+        // "Open Orbit to see your day" is the other widget's and is already above.
+        ["Open Orbit to see your month"] = "Otwórz Orbita, aby zobaczyć swój miesiąc",
+        // And the card widget's, which shows whichever of the dashboard's cards the reader picked when
+        // they placed it - see CardAtAGlance. The card names themselves are the dashboard's own and are
+        // already above.
+        ["Open Orbit to see this"] = "Otwórz Orbita, aby to zobaczyć",
+        ["Nothing on this yet"] = "Nic tu jeszcze nie ma",
+        ["What should this show?"] = "Co ma tu być pokazane?",
+        ["Tap to choose what this shows"] = "Dotknij, aby wybrać, co tu pokazać",
+        // Answering a request to edit from the phone's own conversation - see
+        // ConversationViewModel.AllowEditingAsync. "Allow editing" itself is already above, shared
+        // with the browser's own answer to the same request.
+        ["{0} can edit {1} now."] = "{0} może teraz edytować: {1}.",
+        ["Allowing this needs a connection."] = "Zgoda wymaga połączenia.",
+        ["Couldn't allow that. It may not be yours any more."] =
+            "Nie udało się na to pozwolić. To może już nie należeć do Ciebie.",
+        ["Nobody else to pass this on to yet."] = "Nie masz jeszcze nikogo, komu można to przekazać.",
     };
 }

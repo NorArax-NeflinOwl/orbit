@@ -130,10 +130,17 @@ else
            holding are both answers to "why has Save done nothing", and a long shelf is read by
            scrolling - an answer at the top of it is an answer nobody scrolls back to. *@
         <ChildContent>
-            @* No Edit in here: it is a button of its own on the panel now - see EditorRail.OnEdit. *@
+            @* No Edit in here: it is a button of its own on the panel now - see EditorRail.OnEdit.
+
+               A shelf somebody shared says "Remove from my list" rather than nothing: pressing it drops
+               this reader's own grant and leaves the owner's shelf alone. No archive is asked for first,
+               because a share cannot be put away - see ObjectMenu.DeleteNeedsTheArchive, and the same
+               pair of lines on a task list and an event. *@
             <ObjectMenu AllLabel="@T["All inventories"]" OnAll="GoToInventories"
                         IsArchived="_inventory!.IsArchived"
-                        DeleteLabel="@(!_inventory!.IsShared ? T["Delete"] : null)" OnDelete="DeleteAsync" />
+                        DeleteNeedsTheArchive="@(!_inventory!.IsShared)"
+                        DeleteLabel="@(_inventory!.IsShared ? T["Remove from my list"] : T["Delete"])"
+                        OnDelete="DeleteAsync" />
         </ChildContent>
     </EditorRail>
 }
@@ -145,7 +152,7 @@ else
     /// <summary>
     /// The page that sent the reader here, which is where this page's Back returns. The form is not
     /// handed it: the form ends back on this page, and this page still knows the way on from here because
-    /// its own address carries this. See ReturnTo, and NoteSummary, which does the same.
+    /// its own address carries this. See ReturnTo, and CalendarEventSummary, which does the same.
     /// </summary>
     [Parameter, SupplyParameterFromQuery(Name = ReturnTo.QueryName)]
     public string? ComeBackTo { get; set; }
@@ -365,7 +372,13 @@ else
         }
     }
 
-    /// <summary>Asked first, and asked with the name: everything on the shelf goes with it.</summary>
+    /// <summary>
+    /// Asked first, and asked with the name: everything on the shelf goes with it.
+    ///
+    /// Unless the shelf is somebody else's, where nothing is destroyed at all - the server drops this
+    /// reader's grant and leaves the owner's shelf where it is (DeleteInventoryCommandHandler) - so the
+    /// question says that instead.
+    /// </summary>
     private async Task DeleteAsync()
     {
         if (_inventory is null)
@@ -373,7 +386,11 @@ else
             return;
         }
 
-        if (!await JSRuntime.InvokeAsync<bool>("confirm", T.Format("Delete \"{0}\" and everything in it?", _inventory.Name)))
+        if (!await JSRuntime.InvokeAsync<bool>(
+            "confirm",
+            _inventory.IsShared
+                ? T.Format("Remove \"{0}\" from your inventories? The owner keeps it.", _inventory.Name)
+                : T.Format("Delete \"{0}\" and everything in it?", _inventory.Name)))
         {
             return;
         }
@@ -387,7 +404,9 @@ else
         catch (HttpRequestException exception)
         {
             Logger.LogWarning(exception, "Couldn't delete inventory {InventoryId}", InventoryId);
-            _message = T["Failed to delete the inventory. Try again."];
+            _message = _inventory.IsShared
+                ? T["Couldn't take that off your inventories. Check your connection and try again."]
+                : T["Failed to delete the inventory. Try again."];
         }
     }
 
@@ -396,7 +415,7 @@ else
     /// <summary>Back: where this page was opened from, without leaving it behind - see NavigationTrail.</summary>
     private Task LeaveAsync() => NavigationTrail.FinishAsync(ReturnTo.Or(ComeBackTo, "/inventory"));
 
-    /// <summary>The form, told to come back to this page so the saved shelf is what it ends on - see NoteSummary.GoToEditor.</summary>
+    /// <summary>The form, told to come back to this page so the saved shelf is what it ends on - see CalendarEventSummary.GoToEditor.</summary>
     private void GoToEditor()
     {
         Logger.LogInformation("User opened the editor for inventory {InventoryId}", InventoryId);

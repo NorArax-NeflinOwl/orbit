@@ -1,4 +1,5 @@
 using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.Folders;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Notes;
 using Orbit.Core.Sharing;
@@ -73,6 +74,94 @@ public sealed class PublicShareLinkTests
             placeId, context.ReaderId, CancellationToken.None);
         Assert.NotNull(grant);
         Assert.Equal(ShareAccessLevel.ReadOnly, grant!.AccessLevel);
+    }
+
+    /// <summary>
+    /// A link can point at a whole folder since 2026-09-20, which the user asked for: one address
+    /// showing everything filed under a tab, each thing drawn the way its own link would draw it.
+    /// </summary>
+    [Fact]
+    public async Task A_link_to_a_folder_shows_everything_filed_under_it()
+    {
+        var context = new PublicShareTestContext();
+        var folderId = await context.AddNotesFolderAsync("Recipes");
+        await context.FileNoteAsync(await context.AddNoteAsync("Pierogi", "Flour", "Potato"), folderId);
+        await context.FileNoteAsync(await context.AddNoteAsync("Bigos", "Cabbage"), folderId);
+        await context.AddNoteAsync("Shopping list");
+
+        var link = await context.CreateLinkAsync(SharedItemType.Folder, folderId);
+
+        var item = await context.ReadAsync(link!.Token);
+        Assert.NotNull(item);
+        Assert.Equal("Recipes", item!.Title);
+        Assert.Equal("2 items", item.Subtitle);
+        Assert.Equal(["Pierogi", "Bigos"], item.AllItems.Select(inside => inside.Title));
+        // Each one whole, rather than a list of names: what a folder's link is for is reading them.
+        Assert.Equal(["Flour", "Potato"], item.AllItems[0].Lines.Select(line => line.Text));
+        // And nothing that is not in the folder.
+        Assert.DoesNotContain(item.AllItems, inside => inside.Title == "Shopping list");
+    }
+
+    /// <summary>
+    /// What is sealed stays sealed, and what has been put away stays away. A link is read by anybody
+    /// who has it, and the archive is not what the owner meant to hand over.
+    /// </summary>
+    [Fact]
+    public async Task A_folders_link_leaves_out_what_is_sealed_and_what_is_put_away()
+    {
+        var context = new PublicShareTestContext();
+        var folderId = await context.AddNotesFolderAsync("Recipes");
+        await context.FileNoteAsync(await context.AddNoteAsync("Pierogi"), folderId);
+        await context.FileNoteAsync(await context.AddPrivateNoteAsync(), folderId);
+        var lastYear = await context.AddNoteAsync("Last year");
+        await context.FileNoteAsync(lastYear, folderId);
+        await context.ArchiveNoteAsync(lastYear);
+
+        var link = await context.CreateLinkAsync(SharedItemType.Folder, folderId);
+
+        var item = await context.ReadAsync(link!.Token);
+        Assert.Equal(["Pierogi"], item!.AllItems.Select(inside => inside.Title));
+    }
+
+    /// <summary>An emptied folder still opens and says so, rather than reading as a link somebody revoked.</summary>
+    [Fact]
+    public async Task A_folder_with_nothing_in_it_still_opens()
+    {
+        var context = new PublicShareTestContext();
+        var folderId = await context.AddNotesFolderAsync("Recipes");
+
+        var link = await context.CreateLinkAsync(SharedItemType.Folder, folderId);
+
+        var item = await context.ReadAsync(link!.Token);
+        Assert.NotNull(item);
+        Assert.Empty(item!.AllItems);
+    }
+
+    [Fact]
+    public async Task Somebody_elses_folder_cannot_be_published()
+    {
+        var context = new PublicShareTestContext();
+        var folderId = await context.AddNotesFolderAsync("Recipes");
+
+        Assert.Null(await context.CreateLinkAsync(SharedItemType.Folder, folderId, asUserId: context.ReaderId));
+    }
+
+    /// <summary>
+    /// And a folder's link is for reading. There is no such thing as a share of a folder - it is the
+    /// owner's own tab - and the button's promise is one read-only copy, where a folder would hand over
+    /// a page of them, unfiled. Being given the folder in Orbit is the other half of sharing one.
+    /// </summary>
+    [Fact]
+    public async Task A_folders_link_cannot_be_claimed()
+    {
+        var context = new PublicShareTestContext();
+        var folderId = await context.AddNotesFolderAsync("Recipes");
+        await context.FileNoteAsync(await context.AddNoteAsync("Pierogi"), folderId);
+        var link = await context.CreateLinkAsync(SharedItemType.Folder, folderId);
+
+        var result = await context.ClaimAsync(link!.Token, context.ReaderId);
+
+        Assert.False(result.Claimed);
     }
 
     [Fact]
@@ -278,6 +367,7 @@ public sealed class PublicShareLinkTests
         public InMemoryInventoryShareRepository InventoryShareRepository { get; } = new();
         public InMemoryPlaceShareRepository PlaceShareRepository { get; } = new();
         public InMemoryPlaceRepository PlaceRepository { get; } = new();
+        public InMemoryFolderRepository Folders { get; } = new();
         public RecordingSharedItemNotifier SharedItemNotifier { get; } = new();
         public Guid OwnerId { get; }
         public Guid ReaderId { get; } = Guid.NewGuid();
@@ -292,7 +382,7 @@ public sealed class PublicShareLinkTests
             _reader = new PublicSharedItemReader(
                 _noteRepository, TaskRepository, new InMemoryCalendarEventRepository(),
                 InventoryRepository, new InMemoryInventoryItemRepository(), PlaceRepository,
-                userRepository);
+                userRepository, Folders);
         }
 
         public async Task<Guid> AddNoteAsync(string title, params string[] lines)
@@ -309,6 +399,30 @@ public sealed class PublicShareLinkTests
                 OwnerId, name, description, new Orbit.Core.Calendar.EventLocation(address, 51.2465, 22.5684), isPrivate: false);
             await PlaceRepository.AddAsync(place, CancellationToken.None);
             return place.Id;
+        }
+
+        /// <summary>A folder of the owner's, on the notes - what a link to a whole tab points at.</summary>
+        public async Task<Guid> AddNotesFolderAsync(string name)
+        {
+            var folder = Folder.Create(OwnerId, name, FolderScope.Notes);
+            await Folders.AddAsync(folder, CancellationToken.None);
+            return folder.Id;
+        }
+
+        /// <summary>Files an existing note under one - see Note.MoveToFolder.</summary>
+        public async Task FileNoteAsync(Guid noteId, Guid folderId)
+        {
+            var note = await _noteRepository.GetByIdAsync(OwnerId, noteId, CancellationToken.None);
+            note!.MoveToFolder(folderId);
+            await _noteRepository.UpdateAsync(note, CancellationToken.None);
+        }
+
+        /// <summary>And puts one away, which takes it out of what a folder's link shows.</summary>
+        public async Task ArchiveNoteAsync(Guid noteId)
+        {
+            var note = await _noteRepository.GetByIdAsync(OwnerId, noteId, CancellationToken.None);
+            note!.Archive(true);
+            await _noteRepository.UpdateAsync(note, CancellationToken.None);
         }
 
         public async Task<Guid> AddPrivateNoteAsync()

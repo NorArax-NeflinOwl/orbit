@@ -783,8 +783,16 @@ public sealed partial class CalendarViewModel : ObservableObject
         // What is over is left out unless it was asked for - see ShowsEverything. The grids beside the
         // list still draw everything: a day with something in it should say so whether or not it has
         // been, and a month drawn with holes in it would be a month that had not happened.
+        //
+        // Except on one chosen day, where everything on it is listed. Tapping a day is asking what was
+        // on that day, and answering half of it makes the grid a liar: the day is marked as holding
+        // something and the list under it is empty. That is how an appointment added at nine this
+        // morning became one nobody could reach - and so one nobody could delete, since a row is the
+        // only thing there is to press (reported 2026-09-20).
         var nowUtc = _timeProvider.GetUtcNow();
-        var worthShowing = ShowsEverything ? _listed : _listed.Where(entry => !entry.IsOver(nowUtc));
+        var worthShowing = ShowsEverything || SelectedDay is not null
+            ? _listed
+            : _listed.Where(entry => !entry.IsOver(nowUtc));
 
         Listed.Clear();
         foreach (var entry in CalendarListEntry.InOrder(worthShowing, SortOrder))
@@ -949,4 +957,23 @@ public sealed partial class CalendarViewModel : ObservableObject
         _syncState.RecordFailed();
     }
     partial void OnNewEventTitleChanged(string value) => AddEventCommand.NotifyCanExecuteChanged();
+
+    /// <summary>
+    /// Choosing a day is also saying which day a new event would be on. It used to be today whatever
+    /// was open, so tapping the 24th and then the plus offered a box that added the event to *today* -
+    /// and the reader had to notice the date picker and change it back to the day they had just tapped
+    /// (reported 2026-09-20). The picker is still there and still theirs to change; this only decides
+    /// what it starts on.
+    ///
+    /// Only when a day is chosen. Letting go of one widens the list back to the month, which says
+    /// nothing about when a new event should be - so the last day chosen stays the answer, rather than
+    /// jumping back to today under a reader who is still looking at that month.
+    /// </summary>
+    partial void OnSelectedDayChanged(DateTime? value)
+    {
+        if (value is { } day)
+        {
+            NewEventDate = day;
+        }
+    }
 }

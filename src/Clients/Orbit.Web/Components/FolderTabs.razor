@@ -10,11 +10,14 @@
    lists. Two or three of them are always there and have nothing stored behind them (see BuiltInFolder);
    the rest are whatever the reader made on this page. What the row offers is the page's own answer
    rather than one answer given three times - see FolderPages. *@
-@* A row with nothing to choose between is not a row - see IsWorthDrawing. *@
-@if (IsWorthDrawing)
+@* A row with nothing to choose between is not a row - see IsWorthDrawing. The one thing that stays is
+   the way to make a folder, on the pages that have one: a reader with a single folder would otherwise
+   have no way to ever make a second, which is a door that locks behind them. So the tabs go and the
+   plus remains, rather than the whole row going. *@
+@if (IsWorthDrawing || Page.MakesFoldersIn() is not null)
 {
 <div class="folder-tabs" role="tablist" aria-label="@(T["Folders"])">
-    @foreach (var tab in Tabs)
+    @foreach (var tab in IsWorthDrawing ? Tabs : [])
     {
         var isChosen = tab == Folders.ChosenOn(Page);
         @if (_folderBeingRenamed == tab.FolderId && tab.FolderId is not null)
@@ -52,9 +55,22 @@
     {
         @if (_isNaming && _folderBeingRenamed is null)
         {
+            @* The names already in use in the other sections, offered as the box is typed in. A folder
+               holds one kind of thing, so "Home" on the task lists is not the "Home" on the inventories
+               and has to be made again there - and typing it a second time by hand is how two folders
+               meant to be the same end up spelled differently. The dashboard reads folders of one name
+               as one tab (see FolderTabRow.On), which is what makes matching the spelling worth doing.
+               Asked for on 2026-09-20. *@
             <input class="folder-tab-name" placeholder="@(T["Folder name"])" @bind="_name" @bind:event="oninput"
+                   list="@NameSuggestionsId"
                    @onkeydown="args => OnNamingKeyDownAsync(args)" @onblur="StopNaming"
                    aria-label="@(T["Folder name"])" @ref="_nameBox" />
+            <datalist id="@NameSuggestionsId">
+                @foreach (var name in NamesUsedElsewhere)
+                {
+                    <option value="@name"></option>
+                }
+            </datalist>
         }
         else
         {
@@ -85,8 +101,30 @@
                     <span class="card-filter-mark">@(CardPreferences.IsFolderShown(chosenFolderId) ? "" : "✓")</span>
                     @T["Hide on the dashboard"]
                 </button>
-                <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteAsync(chosenFolderId)">
+                @* Only an empty one, since 2026-09-20. Everything in Orbit is put away rather than
+                   deleted, and a folder is one of the few things exempt from that - but only while
+                   there is nothing in it to lose. It used to delete a full folder and put everything
+                   back under Public, which is a press that quietly rearranges a page's worth of things
+                   under a word that promised to remove one. Drawn and disabled rather than left out:
+                   an entry that disappears teaches nobody why. *@
+                <button type="button" class="avatar-dropdown-item" disabled="@(!IsEmpty(chosenFolderId))"
+                        title="@(IsEmpty(chosenFolderId) ? null : T["Move what is in it somewhere else first."])"
+                        @onclick="() => DeleteAsync(chosenFolderId)">
                     @T["Delete folder"]
+                </button>
+                @* Handing the whole tab on, the two ways a single thing is handed on (2026-09-20). The
+                   folder itself is never shared - it stays this reader's own tab - so what travels is
+                   everything under it: by chat, each with its own grant and its own invitation, which
+                   is the page's own doing (see OnShareFolder); by link, one address showing every one
+                   of them to anybody who has it. *@
+                @if (OnShareFolder.HasDelegate)
+                {
+                    <button type="button" class="avatar-dropdown-item" @onclick="() => OnShareFolder.InvokeAsync(chosenFolderId)">
+                        @T["Share folder"]
+                    </button>
+                }
+                <button type="button" class="avatar-dropdown-item" @onclick="() => _folderToLinkTo = chosenFolderId">
+                    @T["Share link"]
                 </button>
             </OverflowMenu>
         }
@@ -94,14 +132,26 @@
 </div>
 }
 
+@if (_folderToLinkTo is { } linkedFolderId)
+{
+    @* The same button every editor publishes its own item with, given a folder - so a link means the
+       same thing and looks the same whatever it points at. In a panel rather than in the menu: it has a
+       field to read the address out of and a way to stop sharing, neither of which fits on a menu row. *@
+    <Dialog Title="@(T["Share link"])" OnClosed="() => _folderToLinkTo = null">
+        <ChildContent>
+            <p>@T["Anyone with this link can read what is in this folder. Nothing sealed, and nothing you have put away, is in it."]</p>
+            <ShareLinkButton ItemType="Folder" ItemId="linkedFolderId" />
+        </ChildContent>
+    </Dialog>
+}
+
 @if (_isDeleting)
 {
-    @* Asked, because a tab full of things looks exactly like a tab about to lose them. What actually
-       happens is said in the question, since it is not what the word "delete" suggests: nothing in it
-       is deleted. *@
+    @* Asked anyway, though only an empty folder reaches here: a tab is a thing somebody made and named,
+       and losing one to a misread press is worth one question. *@
     <Dialog Title="@(T["Delete this folder?"])" OnClosed="() => _isDeleting = false">
         <ChildContent>
-            <p>@T["Nothing in it is deleted - everything goes back to Public, or to Private if it is sealed."]</p>
+            <p>@T["There is nothing in it. The tab goes and nothing else changes."]</p>
         </ChildContent>
         <Footer>
             <button type="button" class="btn-secondary" @onclick="() => _isDeleting = false">@T["Cancel"]</button>
@@ -149,8 +199,30 @@
     /// </summary>
     [Parameter] public Func<FolderKey, bool>? HoldsAnything { get; set; }
 
+    /// <summary>
+    /// Whether anything at all is still filed under this folder - asked before it can be deleted, since
+    /// 2026-09-20. A different question from <see cref="CountIn"/>, which counts what is under the
+    /// *tab*: something put away is under Archived wherever it is filed, so a folder holding nothing
+    /// but archived things counts zero and still holds them. A page that does not answer this is taken
+    /// at its word that a folder can go, which is what every page did before the rule existed.
+    /// </summary>
+    [Parameter] public Func<Guid, bool>? StillHolds { get; set; }
+
+    /// <summary>Whether this folder can be deleted at all - see the menu entry, and <see cref="StillHolds"/>.</summary>
+    private bool IsEmpty(Guid folderId) => StillHolds is null || !StillHolds(folderId);
+
     /// <inheritdoc cref="FolderTabRow.IsWorthDrawing"/>
     private bool IsWorthDrawing => FolderTabRow.IsWorthDrawing(Page, Folders, CardPreferences, HoldsAnything);
+
+    /// <summary>
+    /// Hands this folder's contents to a contact, each with its own grant - the page's own doing, since
+    /// what "share one of these" means differs by kind. Left unset by a page that cannot share what it
+    /// holds, and the entry is then not drawn at all.
+    /// </summary>
+    [Parameter] public EventCallback<Guid> OnShareFolder { get; set; }
+
+    /// <summary>The folder whose public link is being shown, while one is - see the panel.</summary>
+    private Guid? _folderToLinkTo;
 
     private bool _isNaming;
     private bool _isDeleting;
@@ -164,6 +236,32 @@
     private IEnumerable<FolderKey> Tabs => FolderTabRow.On(Page, Folders, CardPreferences, HoldsAnything);
 
     private string NameOf(FolderKey tab) => Folders.NameOf(tab, builtIn => BuiltInFolderNames.Of(builtIn, T));
+
+    /// <summary>Where this row's suggestions hang - one row per page, so the page's own name will do.</summary>
+    private string NameSuggestionsId => $"folder-names-{Page}";
+
+    /// <summary>
+    /// Folder names this account has used on other pages and not on this one. Offered while a new
+    /// folder is being named - see the box. Names already used here are left out: making a second
+    /// "Home" on the same page is not what anybody means by picking the name off a list.
+    /// </summary>
+    private IReadOnlyList<string> NamesUsedElsewhere
+    {
+        get
+        {
+            var alreadyHere = Folders.FoldersOn(Page)
+                .Select(folder => folder.Name.Trim())
+                .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
+            return
+            [
+                .. Folders.Folders
+                    .Select(folder => folder.Name.Trim())
+                    .Where(name => name.Length > 0 && !alreadyHere.Contains(name))
+                    .Distinct(StringComparer.CurrentCultureIgnoreCase)
+                    .OrderBy(name => name, StringComparer.CurrentCulture)
+            ];
+        }
+    }
 
     private void Choose(FolderKey tab)
     {

@@ -27,7 +27,6 @@ public partial class TasksPage : ContentPage, ITitleMenu
 		BindingContext = _viewModel = viewModel;
 		_keptInStep = new ScreenKeptInStep(syncState, () => _viewModel.ShowStoredListsAsync(CancellationToken.None));
 		_translations = translations;
-		AddButton.Command = NewItemForm.Toggling(AddRow, AddField);
 		_nameAFolder = NewItemForm.Toggling(FolderRow, FolderField);
 	}
 

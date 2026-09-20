@@ -10,6 +10,7 @@
 @using Orbit.Web.Services
 @inject AuthApiClient AuthApiClient
 @inject UsersApiClient UsersApiClient
+@inject PrivatePinGate PrivatePin
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject TokenStore TokenStore
 @inject TokenRefreshService TokenRefreshService
@@ -87,7 +88,7 @@
                     <NavLink class="nav-item" href="/contacts" title="@(T["Contacts"])">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="6.5" r="3" /><path d="M1.5 17c0-3 2.5-5 5.5-5s5.5 2 5.5 5" /><circle cx="15" cy="7.5" r="2.3" /><path d="M13.7 12.2c2.4.3 4.1 2 4.1 4.6" /></svg>
                         <span class="label">@T["Contacts"]</span>
-                        @RenderSectionBadge("/chat")
+                        @RenderSectionBadge("/chat", "/invitation")
                     </NavLink>
                     }
                     @if (Permissions.Has(ApplicationPermission.Location))
@@ -349,6 +350,11 @@
         {
             var account = await UsersApiClient.GetAccountAsync();
             await JSRuntime.InvokeVoidAsync("OrbitMapTiles.remember", account?.KeepsThirdPartiesOut ?? false);
+            // And whether there is a PIN in front of what is private, off the same read (2026-09-20).
+            // Here rather than in the pages that draw something sealed: the answer is needed before one
+            // of them draws, and a page that had to fetch it first would put a network call between the
+            // reader and a form - see PrivatePinGate and BehindThePin, which now does no I/O at all.
+            PrivatePin.LearnWhetherThereIsOne(account?.HasPrivatePin == true);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -1033,10 +1039,16 @@
     /// The unread badge for one nav section, keyed off the Url its notifications carry ("/tasks/{id}",
     /// "/chat/{userId}", ...) - so a reminder shows up on the section it came from, not only on the
     /// avatar. Renders nothing when that section has no unread notifications.
+    ///
+    /// Several prefixes where one section is reached by more than one kind of entry: Contacts is where
+    /// people are, and an offer of something shared arrives from a person, as a message in their
+    /// conversation. It points at the invitation page (see SharedItemLink.ToAccept), which is under no
+    /// nav section of its own, so the section it came *from* is the one that badges it - without this,
+    /// being handed something lit nothing in the navigation at all.
     /// </summary>
-    private RenderFragment? RenderSectionBadge(string urlPrefix)
+    private RenderFragment? RenderSectionBadge(params string[] urlPrefixes)
     {
-        var count = NotificationFeedState.CountForSection(urlPrefix);
+        var count = urlPrefixes.Sum(NotificationFeedState.CountForSection);
         if (count == 0)
         {
             return null;

@@ -111,22 +111,14 @@ public sealed class ConversationListTests : OrbitTestContext
         Assert.Contains("Nothing matches that.", cut.Find(".chat-list-empty").TextContent);
     }
 
+    /// <summary>
+    /// "New group" is not on this list at all any more - it is on the contacts page, under the Groups
+    /// tab (asked for 2026-09-20). This list is a column of conversations to pick from; making one
+    /// belongs where the groups themselves are listed.
+    /// </summary>
     [Fact]
-    public void Starting_a_group_is_offered_whether_it_is_folded_or_not()
+    public void Starting_a_group_is_not_offered_from_the_conversation_list()
     {
-        var cut = RenderComponent<ConversationList>(parameters => parameters
-            .Add(list => list.Conversations, [Person("Anna")])
-            .Add(list => list.IsCollapsed, true)
-            .Add(list => list.OnSelected, _ => { })
-            .Add(list => list.OnNewGroup, () => { }));
-
-        Assert.Single(cut.FindAll(".chat-list-new-group"));
-    }
-
-    [Fact]
-    public void A_screen_that_cannot_start_a_group_is_not_offered_it()
-    {
-        // Unlike folding, this one really is absent: there is nothing behind the button to invoke.
         var cut = Render([Person("Anna")]);
 
         Assert.Empty(cut.FindAll(".chat-list-new-group"));
@@ -180,16 +172,4 @@ public sealed class ConversationListTests : OrbitTestContext
         Assert.Contains("Nothing matches that.", cut.Markup);
     }
 
-    [Fact]
-    public void Starting_a_group_is_only_offered_where_the_screen_can_do_it()
-    {
-        var withoutIt = Render([Person("Anna")]);
-        Assert.Empty(withoutIt.FindAll(".chat-list-new-group"));
-
-        var withIt = RenderComponent<ConversationList>(parameters => parameters
-            .Add(list => list.Conversations, [Person("Anna")])
-            .Add(list => list.OnSelected, _ => { })
-            .Add(list => list.OnNewGroup, () => { }));
-        Assert.Single(withIt.FindAll(".chat-list-new-group"));
-    }
 }

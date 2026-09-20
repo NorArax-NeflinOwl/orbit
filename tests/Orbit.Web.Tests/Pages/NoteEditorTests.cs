@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
@@ -33,6 +34,9 @@ public sealed class NoteEditorTests : OrbitTestContext
     private static readonly Guid OwnUserId = Guid.NewGuid();
     private static readonly Guid ContactUserId = Guid.NewGuid();
 
+    /// <summary>The writing surface's JS module, kept so a test can read what it was handed.</summary>
+    private readonly BunitJSModuleInterop _surfaceModule;
+
     /// <summary>Who is signed in, kept so a client built later can be given it without resolving anything.</summary>
     private readonly OrbitAuthenticationStateProvider _authenticationStateProvider;
 
@@ -50,6 +54,7 @@ public sealed class NoteEditorTests : OrbitTestContext
         // the calls it makes have to be declared - none of these tests exercise what that editor does,
         // they just can't render without it.
         var checklistEditorModule = JSInterop.SetupModule("./js/checklistTextEditor.js");
+        _surfaceModule = checklistEditorModule;
         checklistEditorModule.SetupVoid("initialize", _ => true).SetVoidResult();
         checklistEditorModule.SetupVoid("dispose", _ => true).SetVoidResult();
 
@@ -204,6 +209,44 @@ public sealed class NoteEditorTests : OrbitTestContext
     }
 
     /// <summary>
+    /// The owner is asked about the note by name. The name was handed over as a plain attribute value -
+    /// ItemTitle="_formModel.Title" rather than "@_formModel.Title" - which is a string, not a field, so
+    /// every owner was asked to allow editing of a note called "_formModel.Title". Read off what is
+    /// sealed rather than off the page, because the name only ever appears inside the message.
+    /// </summary>
+    [Fact]
+    public void Asking_the_owner_to_edit_a_note_asks_about_it_by_name()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var crypto = JSInterop.SetupModule("./js/e2eeChat.js");
+        crypto.Setup<bool>("hasOwnPrivateKey", _ => true).SetResult(true);
+        crypto.Setup<string>("ensureOwnPublicKey", _ => true).SetResult("a-public-key");
+        string? sealedText = null;
+        crypto.Setup<EncryptedChatMessageSender.EncryptedPayload>("encryptMessage", invocation =>
+            {
+                sealedText = invocation.Arguments.Count > 2 ? invocation.Arguments[2] as string : null;
+                return true;
+            })
+            .SetResult(new EncryptedChatMessageSender.EncryptedPayload("sealed", "nonce"));
+
+        var note = Note("Shopping") with
+        {
+            IsShared = true,
+            SharedByUserName = "anna",
+            AccessLevel = "ReadOnly",
+            OriginalOwnerUserId = ContactUserId
+        };
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        cut.Find(".request-edit-access button").Click();
+
+        cut.WaitForAssertion(() => Assert.NotNull(sealedText));
+        Assert.Contains("Shopping", sealedText);
+        Assert.DoesNotContain("_formModel", sealedText);
+    }
+
+    /// <summary>
     /// Both halves of handing a note over: the share the server records, and the sealed message that
     /// carries its id - the only thing a recipient can press "Accept" on (see Chat.razor's
     /// TryParseShare). The server cannot send the second, holding no key to seal it with, so a screen
@@ -274,6 +317,164 @@ public sealed class NoteEditorTests : OrbitTestContext
         // so as soon as the choice is made rather than once the server has been told.
         Assert.DoesNotContain("Share", MenuEntries(cut));
         Assert.DoesNotContain("Share link", MenuEntries(cut));
+    }
+
+    /// <summary>
+    /// A note is opened straight into its form. It used to land on a page that read it - its lines with
+    /// the checklist ones tickable - and "Edit" was a named press from there; that rung is gone
+    /// (2026-09-20), and the note's own address, which every notification and dashboard row carries,
+    /// leads here.
+    /// </summary>
+    [Fact]
+    public void The_note_s_own_address_opens_the_form()
+    {
+        var routes = typeof(NoteEditor)
+            .GetCustomAttributes(typeof(RouteAttribute), inherit: false)
+            .Cast<RouteAttribute>()
+            .Select(route => route.Template)
+            .ToList();
+
+        Assert.Contains("/notes/{Id:guid}", routes);
+        // And the old one still answers, because links written before this change carry it.
+        Assert.Contains("/notes/{Id:guid}/edit", routes);
+    }
+
+    /// <summary>
+    /// What the note's own page used to carry, now that this form is that page: the way back to all of
+    /// them, and the two ways out. Put away first and deleted only from there - the rule every card
+    /// follows, see ObjectMenu.IsArchived.
+    /// </summary>
+    [Fact]
+    public void The_menu_puts_a_note_away_and_offers_Delete_only_once_it_is()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        var offered = OpenTheMenu(cut);
+        Assert.Contains("All notes", offered);
+        Assert.Contains("Archive", offered);
+        Assert.DoesNotContain("Delete", offered);
+    }
+
+    [Fact]
+    public void A_note_already_put_away_offers_Put_back_and_Delete()
+    {
+        var note = Note("Shopping") with { IsArchived = true };
+        RegisterApiClients(note);
+
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        var offered = OpenTheMenu(cut);
+        Assert.Contains("Put back", offered);
+        Assert.Contains("Delete", offered);
+    }
+
+    /// <summary>
+    /// Somebody else's note can be neither put away nor deleted - both would reach into the owner's own
+    /// pages - so the one way out of it says what it really does: the server drops this reader's grant.
+    /// </summary>
+    [Fact]
+    public void A_shared_note_is_taken_off_your_own_list_rather_than_archived()
+    {
+        var note = Note("Their note") with
+        {
+            IsShared = true,
+            SharedByUserName = "anna",
+            AccessLevel = "ReadOnly"
+        };
+        RegisterApiClients(note);
+
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        var offered = OpenTheMenu(cut);
+        Assert.Contains("Remove from my list", offered);
+        Assert.DoesNotContain("Archive", offered);
+        Assert.DoesNotContain("Delete", offered);
+    }
+
+    /// <summary>
+    /// A note opened a long time after it was last written in gets a dated rule at its end, with an
+    /// empty line under it and the caret there - so what is written next is written under a line saying
+    /// when. Sixteen hours, asked for on 2026-09-20.
+    /// </summary>
+    [Fact]
+    public void A_note_left_alone_for_long_enough_opens_with_a_dated_rule_at_its_end()
+    {
+        var note = Note("Shopping") with { UpdatedAtUtc = DateTimeOffset.UtcNow.AddHours(-20) };
+        RegisterApiClients(note);
+
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        var lines = WhatTheSurfaceWasGiven(cut);
+        Assert.Contains("\"separator\":{", lines);
+        Assert.Contains(DateTime.Now.ToString("f", CultureInfo.CurrentCulture), lines);
+    }
+
+    /// <summary>Coming back to a note written in an hour ago is carrying on, not a new sitting.</summary>
+    [Fact]
+    public void A_note_written_in_recently_opens_as_it_was()
+    {
+        var note = Note("Shopping") with { UpdatedAtUtc = DateTimeOffset.UtcNow.AddHours(-1) };
+        RegisterApiClients(note);
+
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        Assert.DoesNotContain("\"separator\":{", WhatTheSurfaceWasGiven(cut));
+    }
+
+    /// <summary>
+    /// The "if new text was added" half of it: opening an old note, writing nothing under the rule and
+    /// saving must not leave a rule in the note. It is taken back out on the way to the server.
+    /// </summary>
+    [Fact]
+    public void A_rule_nobody_wrote_under_is_not_saved()
+    {
+        var note = Note("Shopping") with { UpdatedAtUtc = DateTimeOffset.UtcNow.AddHours(-20) };
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        cut.Find(".page-action-primary").Click();
+
+        Assert.NotNull(_lastSavedNoteJson);
+        Assert.DoesNotContain("\"separator\":{", _lastSavedNoteJson);
+    }
+
+    /// <summary>And the other half: a rule with writing under it is the note, and is stored.</summary>
+    [Fact]
+    public async Task A_rule_written_under_is_saved_with_what_follows_it()
+    {
+        var note = Note("Shopping") with { UpdatedAtUtc = DateTimeOffset.UtcNow.AddHours(-20) };
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        var surface = cut.FindComponent<Web.Components.ChecklistTextEditor>();
+        await cut.InvokeAsync(() => surface.Instance.LinesChanged.InvokeAsync(
+            new List<NoteContentLineDto>
+            {
+                new("Shopping", false, false),
+                new("A line", false, false),
+                new(string.Empty, false, false,
+                    Separator: new NoteSeparatorLineDto(DateTime.Now.ToString("f", CultureInfo.CurrentCulture))),
+                new("and bread", false, false)
+            }));
+        cut.Find(".page-action-primary").Click();
+
+        Assert.NotNull(_lastSavedNoteJson);
+        Assert.Contains("\"separator\":{", _lastSavedNoteJson);
+        Assert.Contains("and bread", _lastSavedNoteJson);
+    }
+
+    /// <summary>The lines the writing surface was handed when it was set up - see ChecklistTextEditor.</summary>
+    private string WhatTheSurfaceWasGiven(IRenderedComponent<NoteEditor> cut)
+    {
+        _ = cut;
+        return _surfaceModule.Invocations
+            .Where(invocation => invocation.Identifier is "initialize" or "setLines")
+            .SelectMany(invocation => invocation.Arguments)
+            .OfType<string>()
+            .LastOrDefault(argument => argument.StartsWith('[')) ?? string.Empty;
     }
 
     /// <summary>Opens the panel's menu and reads what it offers besides the note's settings.</summary>
@@ -384,9 +585,28 @@ public sealed class NoteEditorTests : OrbitTestContext
 
         var cut = RenderComponent<NoteEditor>();
 
-        // Caught while the mistake is still being made, rather than left to fail on the server.
+        // Caught while the mistake is still being made, rather than left to fail on the server. The
+        // first line is the note's name (NoteFormModel.Title), and a new note has to have one since
+        // 2026-09-20 - so this is the answer that is missing, and the one the hint names.
         Assert.True(cut.Find(".page-action-primary").HasAttribute("disabled"));
-        Assert.Contains("Write something in it", cut.Markup);
+        Assert.Contains("Give it a name", cut.Markup);
+    }
+
+    /// <summary>
+    /// And writing below the first line is not a name. A note is found by its name - it is what the
+    /// column beside the writing lists, what a share says and what a notification carries - so one that
+    /// starts with an empty line is a note nobody could tell from the next one (asked for 2026-09-20).
+    /// </summary>
+    [Fact]
+    public void A_new_note_written_under_an_empty_first_line_still_has_no_name()
+    {
+        RegisterApiClients(note: null);
+        var cut = RenderComponent<NoteEditor>();
+
+        WriteLines(cut, "", "Milk, bread, eggs");
+
+        Assert.True(cut.Find(".page-action-primary").HasAttribute("disabled"));
+        Assert.Contains("Give it a name", cut.Markup);
     }
 
     [Fact]
@@ -441,10 +661,15 @@ public sealed class NoteEditorTests : OrbitTestContext
     /// into, so this raises the same callback that JS raises after an edit.
     /// </summary>
     private static void WriteFirstLine(IRenderedComponent<NoteEditor> cut, string text)
+        => WriteLines(cut, text);
+
+    /// <summary>The same, for a note whose first line is not the only one that matters.</summary>
+    private static void WriteLines(IRenderedComponent<NoteEditor> cut, params string[] lines)
     {
         var editor = cut.FindComponent<Web.Components.ChecklistTextEditor>();
         cut.InvokeAsync(() => editor.Instance.LinesChanged.InvokeAsync(
-            [new Orbit.Contracts.Notes.NoteContentLineDto(text, false, false)])).GetAwaiter().GetResult();
+            [.. lines.Select(line => new Orbit.Contracts.Notes.NoteContentLineDto(line, false, false))]))
+            .GetAwaiter().GetResult();
     }
 
     /// <summary>
@@ -683,6 +908,61 @@ public sealed class NoteEditorTests : OrbitTestContext
     }
 
     /// <summary>
+    /// Leaving with writing nobody saved asks in Orbit's own panel, naming the notes - the browser's
+    /// confirm box is a grey strip at the top of the window with the site's address on it, which is the
+    /// shape a page uses for something it cannot be trusted about (asked for 2026-09-20). Answering
+    /// "stay" holds the page; the writing is still there.
+    /// </summary>
+    [Fact]
+    public void Leaving_with_unsaved_writing_asks_in_orbits_own_panel()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+        WriteInTheNote(cut, "Shopping", "milk and bread");
+
+        cut.InvokeAsync(() => navigationManager.NavigateTo("/"));
+
+        // The browser was not asked anything, and the panel says which note it is about.
+        Assert.DoesNotContain(JSInterop.Invocations, invocation => invocation.Identifier == "confirm");
+        var dialog = cut.Find(".dialog-panel");
+        Assert.Contains("Shopping", dialog.TextContent);
+
+        cut.FindAll(".dialog-footer button").First(button => button.TextContent.Contains("Stay here")).Click();
+
+        // The panel goes and the writing stays: "stay" is the answer that keeps it, and going anyway is
+        // the only thing that throws it away.
+        Assert.Empty(cut.FindAll(".dialog-panel"));
+        Assert.True(Services.GetRequiredService<NoteDrafts>().HasAny);
+    }
+
+    /// <summary>
+    /// A note holding writing the server has not got says so in the column, beside its name, and stops
+    /// saying it once the writing has been saved. The warning on the way out is easy to read past, and
+    /// somebody who has written in three notes and saved one had no way to see which two were still
+    /// waiting (asked for 2026-09-20).
+    /// </summary>
+    [Fact]
+    public void A_note_with_something_unsaved_is_marked_in_the_column()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        WriteInTheNote(cut, "Shopping", "milk and bread");
+
+        var row = cut.FindAll(".note-workspace-row").First(candidate => candidate.TextContent.Contains("Shopping"));
+        Assert.Contains("unsaved", row.ClassList);
+        Assert.NotNull(row.QuerySelector(".note-workspace-row-unsaved"));
+
+        cut.Find(".page-action-primary").Click();
+
+        var saved = cut.FindAll(".note-workspace-row").First(candidate => candidate.TextContent.Contains("Shopping"));
+        Assert.DoesNotContain("unsaved", saved.ClassList);
+    }
+
+    /// <summary>
     /// The column is broken up by the folder the notes under each heading are filed in - asked for on
     /// 2026-09-19. The headings are in the order the notes page's own tabs are in, and a folder nothing
     /// is filed under is not a heading: an empty "Private" above a rule would be a separator separating
@@ -702,15 +982,19 @@ public sealed class NoteEditorTests : OrbitTestContext
 
         Assert.Equal(
             ["Public", "Private", "Work"],
-            cut.FindAll(".note-workspace-list-folder").Select(heading => heading.TextContent.Trim()));
+            cut.FindAll(".note-workspace-list-folder-name").Select(heading => heading.TextContent.Trim()));
     }
 
     /// <summary>
     /// A note put away is under the archive's own heading rather than among what the reader is working
     /// on - the same place the notes page files it (see FolderPlacement).
+    ///
+    /// **At the top of the column** since 2026-09-20, out of the order the tabs are in: it is the one
+    /// heading about *when* rather than about what, and somebody looking for something they archived is
+    /// looking for that word rather than scrolling past every note they still have.
     /// </summary>
     [Fact]
-    public void A_note_put_away_is_under_the_archives_heading()
+    public void A_note_put_away_is_under_the_archives_heading_at_the_top()
     {
         var note = Note("Shopping");
         var archived = Note("Last year") with { IsArchived = true };
@@ -719,8 +1003,86 @@ public sealed class NoteEditorTests : OrbitTestContext
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
 
         Assert.Equal(
-            ["Public", "Archived"],
-            cut.FindAll(".note-workspace-list-folder").Select(heading => heading.TextContent.Trim()));
+            ["Archived", "Public"],
+            cut.FindAll(".note-workspace-list-folder-name").Select(heading => heading.TextContent.Trim()));
+    }
+
+    /// <summary>
+    /// And the archive can be taken off the column, from its own menu (2026-09-20, asked for): it is at
+    /// the top, and a reader who archives a great deal is never reading from it. The plus that makes a
+    /// folder then becomes a menu of two, because putting the archive back has to be reachable from
+    /// somewhere and this column has no other control of its own.
+    /// </summary>
+    [Fact]
+    public void The_archive_can_be_taken_off_the_column_and_put_back()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note, alsoInTheList: [Note("Last year") with { IsArchived = true }]);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        var archive = cut.FindAll(".note-workspace-list-folder")
+            .First(heading => heading.TextContent.Contains("Archived", StringComparison.Ordinal));
+        archive.QuerySelector(".overflow-menu-trigger")!.Click();
+        cut.FindAll(".note-workspace-list-folder .avatar-dropdown-item")
+            .First(entry => entry.TextContent.Contains("Hide folder", StringComparison.Ordinal))
+            .Click();
+
+        Assert.DoesNotContain(
+            "Archived",
+            cut.FindAll(".note-workspace-list-folder-name").Select(heading => heading.TextContent.Trim()));
+
+        cut.Find(".note-workspace-list-heading .overflow-menu-trigger").Click();
+        cut.FindAll(".note-workspace-list-heading .avatar-dropdown-item")
+            .First(entry => entry.TextContent.Contains("Show the archive", StringComparison.Ordinal))
+            .Click();
+
+        Assert.Contains(
+            "Archived",
+            cut.FindAll(".note-workspace-list-folder-name").Select(heading => heading.TextContent.Trim()));
+    }
+
+    /// <summary>
+    /// A folder somebody made carries its own menu here - rename, hide on the dashboard, delete - which
+    /// is where the row of tabs used to hold it. The notes are read from this column now, so a row
+    /// above a page of cards is not where somebody standing in a note would look.
+    /// </summary>
+    [Fact]
+    public void A_folder_in_the_column_carries_its_own_menu()
+    {
+        var workFolderId = Guid.NewGuid();
+        var note = Note("Shopping");
+        RegisterApiClients(note, alsoInTheList: [Note("Invoices") with { FolderId = workFolderId }]);
+        RegisterFolders([new FolderDto(workFolderId, "Work", FolderScope.Notes.ToString(), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow)]);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        var work = cut.FindAll(".note-workspace-list-folder")
+            .First(heading => heading.TextContent.Contains("Work", StringComparison.Ordinal));
+        work.QuerySelector(".overflow-menu-trigger")!.Click();
+
+        var entries = cut.FindAll(".note-workspace-list-folder .avatar-dropdown-item")
+            .Select(entry => entry.TextContent.Trim())
+            .ToList();
+        Assert.Contains(entries, entry => entry.Contains("Rename folder", StringComparison.Ordinal));
+        Assert.Contains(entries, entry => entry.Contains("Hide on the dashboard", StringComparison.Ordinal));
+        // And it holds a note, so deleting it is refused rather than left out - an entry that
+        // disappears teaches nobody why.
+        var delete = cut.FindAll(".note-workspace-list-folder .avatar-dropdown-item")
+            .First(entry => entry.TextContent.Contains("Delete folder", StringComparison.Ordinal));
+        Assert.True(delete.HasAttribute("disabled"));
+    }
+
+    /// <summary>The built-in headings are derived rather than made, so there is nothing to rename or delete.</summary>
+    [Fact]
+    public void A_built_in_heading_has_no_menu()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        var publicHeading = cut.FindAll(".note-workspace-list-folder")
+            .First(heading => heading.TextContent.Contains("Public", StringComparison.Ordinal));
+
+        Assert.Null(publicHeading.QuerySelector(".overflow-menu-trigger"));
     }
 
     [Fact]
@@ -787,29 +1149,33 @@ public sealed class NoteEditorTests : OrbitTestContext
     /// dashboard, since its address carries it.
     /// </summary>
     [Fact]
-    public void Saving_a_note_opened_from_its_own_page_steps_back_onto_it()
+    public void Saving_a_note_leaves_the_reader_in_it()
     {
         var note = Note("Shopping");
         RegisterApiClients(note);
         Services.GetRequiredService<NavigationTrail>();
         var navigationManager = Services.GetRequiredService<NavigationManager>();
-        var summary = $"/notes/{note.Id}?returnTo=%2F";
-        navigationManager.NavigateTo(summary);
-        navigationManager.NavigateTo(ReturnTo.Link($"/notes/{note.Id}/edit", summary));
-        // Its returnTo is read off the address navigated to above, the way the router hands it over.
+        var form = ReturnTo.Link($"/notes/{note.Id}/edit", "/notes");
+        navigationManager.NavigateTo("/notes");
+        navigationManager.NavigateTo(form);
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
 
         cut.Find(".page-action-primary").Click();
 
-        Assert.Equal(-1, JSInterop.VerifyInvoke("history.go").Arguments[0]);
+        // Nowhere at all: writing is saved as you go along rather than finished, and a save that walks
+        // away turns every one of those into a trip back (asked for 2026-09-20).
+        Assert.DoesNotContain(JSInterop.Invocations, invocation => invocation.Identifier == "history.go");
+        Assert.EndsWith(form, navigationManager.Uri);
+        Assert.Contains("Saved.", cut.Markup);
     }
 
     /// <summary>
-    /// A new note, made from the notes page: saving returns to the list by stepping back, so Back from
-    /// the list does not open the form again - one press from saving the same note twice.
+    /// A note that has just been *made* is the one exception, and only as far as its address: it has
+    /// one of its own now, and "/notes/new" must not be left behind for Back to reopen - one press
+    /// from saving the same note twice. The reader stays looking at what they wrote.
     /// </summary>
     [Fact]
-    public void Saving_a_new_note_steps_back_onto_the_list_it_was_made_from()
+    public void Saving_a_new_note_lands_on_the_note_it_made()
     {
         RegisterApiClients(note: null);
         Services.GetRequiredService<NavigationTrail>();
@@ -821,28 +1187,13 @@ public sealed class NoteEditorTests : OrbitTestContext
         WriteFirstLine(cut, "Dentist on Tuesday");
         cut.Find(".page-action-primary").Click();
 
-        Assert.Equal(-1, JSInterop.VerifyInvoke("history.go").Arguments[0]);
-    }
-
-    /// <summary>
-    /// A form reached by its address has nothing of Orbit's behind it, so there is nothing to step back
-    /// onto: it is replaced with where it names, rather than left underneath it.
-    /// </summary>
-    [Fact]
-    public void Saving_a_form_opened_directly_replaces_it_with_where_it_names()
-    {
-        var note = Note("Shopping");
-        RegisterApiClients(note);
-        var navigationManager = Services.GetRequiredService<NavigationManager>();
-        var summary = $"/notes/{note.Id}?returnTo=%2F";
-        navigationManager.NavigateTo(ReturnTo.Link($"/notes/{note.Id}/edit", summary));
-        // Its returnTo is read off the address navigated to above, the way the router hands it over.
-        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
-
-        cut.Find(".page-action-primary").Click();
-
-        Assert.Equal($"http://localhost{summary}", navigationManager.Uri);
-        Assert.True(Services.GetRequiredService<Bunit.TestDoubles.FakeNavigationManager>().History.First().Options.ReplaceHistoryEntry);
+        // Replaced rather than stepped back: the form's address is gone and the note's is on screen.
+        Assert.DoesNotContain(JSInterop.Invocations, invocation => invocation.Identifier == "history.go");
+        Assert.Contains("/notes/", navigationManager.Uri);
+        Assert.DoesNotContain("/notes/new", navigationManager.Uri);
+        Assert.True(
+            Services.GetRequiredService<Bunit.TestDoubles.FakeNavigationManager>()
+                .History.First().Options.ReplaceHistoryEntry);
     }
 
     /// <summary>
@@ -869,26 +1220,31 @@ public sealed class NoteEditorTests : OrbitTestContext
 
         Assert.DoesNotContain(JSInterop.Invocations, invocation => invocation.Identifier == "confirm");
         Assert.False(Services.GetRequiredService<NoteDrafts>().HasAny);
-        Assert.Equal($"http://localhost{summary}", navigationManager.Uri);
+        // And the form is still where it was: saving keeps the reader in the note (2026-09-20), so
+        // there is no leaving for a question to be asked about in the first place.
+        Assert.Contains($"/notes/{note.Id}/edit", navigationManager.Uri);
     }
 
-    /// <summary>Back out of the form ends where Save does, the same way - see the test above it.</summary>
+    /// <summary>
+    /// The panel beside a note offers the next note rather than the way back (2026-09-20, asked for).
+    /// "/notes" opens the newest note, so Back had nothing to return to but the note it would send the
+    /// reader straight into again; the column on the left is how the other notes are reached, and the
+    /// press is worth a way to start another one.
+    /// </summary>
     [Fact]
-    public void Leaving_the_form_without_saving_steps_back_onto_the_note()
+    public void The_panel_beside_a_note_offers_the_next_note_rather_than_the_way_back()
     {
         var note = Note("Shopping");
         RegisterApiClients(note);
-        Services.GetRequiredService<NavigationTrail>();
         var navigationManager = Services.GetRequiredService<NavigationManager>();
-        var summary = $"/notes/{note.Id}";
-        navigationManager.NavigateTo(summary);
-        navigationManager.NavigateTo(ReturnTo.Link($"/notes/{note.Id}/edit", summary));
-        // Its returnTo is read off the address navigated to above, the way the router hands it over.
+        navigationManager.NavigateTo($"/notes/{note.Id}");
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
 
-        cut.FindAll(".editor-rail button").First(button => button.GetAttribute("aria-label") == "Back").Click();
+        var rail = cut.FindAll(".editor-rail button");
+        Assert.DoesNotContain(rail, button => button.GetAttribute("aria-label") == "Back");
+        rail.First(button => button.GetAttribute("aria-label") == "Add note").Click();
 
-        Assert.Equal(-1, JSInterop.VerifyInvoke("history.go").Arguments[0]);
+        Assert.EndsWith("/notes/new", navigationManager.Uri, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -970,6 +1326,14 @@ public sealed class NoteEditorTests : OrbitTestContext
                 };
             }
 
+            // What a save actually sends, for the tests that are about that rather than about where the
+            // form ends up.
+            if (request.Method == HttpMethod.Put && path.StartsWith("/api/notes/", StringComparison.Ordinal))
+            {
+                _lastSavedNoteJson = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
             if (path.StartsWith("/api/notes", StringComparison.Ordinal))
             {
                 return note is null
@@ -1009,6 +1373,9 @@ public sealed class NoteEditorTests : OrbitTestContext
 
     /// <summary>What the share wrote into the conversation, and whether the share itself was recorded.</summary>
     private string? _lastChatMessageJson;
+
+    /// <summary>The body of the last PUT the form sent - what a save actually stored.</summary>
+    private string? _lastSavedNoteJson;
     private bool _wasShared;
 
     /// <summary>

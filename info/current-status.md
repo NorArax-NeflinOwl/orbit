@@ -35,7 +35,7 @@ stated scope.
 | Two-way Google Calendar sync | Not started | [Future Plan](future-plan.md#what-real-google-calendar-sync-would-take) |
 | Mobile client (`Orbit.Maui`, iOS + Android) | Implemented — Android verified on a device, iOS unverified | [Orbit.Maui — Plan](orbit-maui-plan.md) |
 | Push delivery to a phone | Implemented on Android, in the tray and in front of you; not on iOS — see below | [Orbit.Maui — Plan](orbit-maui-plan.md#42-push-notifications-web-push-apns-and-fcm-are-three-different-things) |
-| Home screen widget | Implemented on Android and driven on a device; nothing on iOS | [Functionality](functionality.md#the-home-screen-widget-android) |
+| Home screen widgets | Three on Android (today, the month, and any dashboard card), each driven on a device; nothing on iOS | [Functionality](functionality.md#the-home-screen-widgets-android) |
 | Google Contacts sync | Not started | [Future Plan](future-plan.md#planned-features) |
 | Name suggestions and duplicate warnings while typing | Implemented | [Functionality](functionality.md#names-you-have-already-used) |
 | Choosing what an inventory's restock list asks for, and when | Implemented | [Functionality](functionality.md#the-restock-list) |
@@ -224,7 +224,7 @@ that pace it.
 Phase 8 is done on Android and untouched on iOS. Every switch, picker, date or time picker and checkbox
 names itself to a screen reader, with a test that fails on one that does not, and the home screen widget
 is built and driven on a device (see
-[Functionality](functionality.md#the-home-screen-widget-android)). What is left of the phase is the iOS
+[Functionality](functionality.md#the-home-screen-widgets-android)). What is left of the phase is the iOS
 half — Live Activities, the Dynamic Island, the Action Button — which waits on the same Apple account
 the rest of iOS does.
 

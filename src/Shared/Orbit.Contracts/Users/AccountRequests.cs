@@ -20,7 +20,12 @@ public sealed record AccountDto(
     /// Whether this account has asked that nothing about it reach anybody but Orbit - the footer's
     /// "Do not share my personal information". See Orbit.Core.Users.User.KeepsThirdPartiesOut.
     /// </summary>
-    bool KeepsThirdPartiesOut = false);
+    bool KeepsThirdPartiesOut = false,
+    /// <summary>
+    /// Whether this account has set a PIN for what is private - the only thing any client is ever told
+    /// about it. See Orbit.Core.Users.User.PrivatePinHash.
+    /// </summary>
+    bool HasPrivatePin = false);
 
 /// <summary>Changes what the caller chose to be - see Orbit.Core.Users.PresenceAvailability for the accepted names.</summary>
 public sealed record SetAvailabilityRequest(string Availability);
@@ -41,6 +46,18 @@ public sealed record SaveOwnLocationRequest(string? Address, double Latitude, do
 public sealed record UpdateProfileRequest(string DisplayName, string UserName);
 
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
+
+/// <summary>
+/// Sets, changes or takes away the PIN a client asks for before it shows what is private - see
+/// Orbit.Core.Users.User.PrivatePinHash. Proved with the account's password rather than with the PIN
+/// being replaced: four digits are a thing people forget, and one that can only be changed by somebody
+/// who still remembers it locks its own owner out.
+/// </summary>
+/// <param name="NewPin">Four to eight digits, or null to be asked no more.</param>
+public sealed record SetPrivatePinRequest(string Password, string? NewPin);
+
+/// <summary>Answers "is this my PIN" - see Orbit.Core.Users.VerifyPrivatePin.</summary>
+public sealed record VerifyPrivatePinRequest(string Pin);
 
 /// <param name="GoogleIdToken">
 /// A fresh Google sign-in proving the account's owner is the one asking - optional, so every phone build

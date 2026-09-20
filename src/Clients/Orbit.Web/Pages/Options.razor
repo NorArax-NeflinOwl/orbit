@@ -9,6 +9,7 @@
 @using Orbit.Core.Permissions
 @using Orbit.Core.Transfer
 @using Orbit.Web.Services
+@using Orbit.Core.Users.SetPrivatePin
 @inject ThemeService ThemeService
 @inject AccentColorService AccentColorService
 @inject TimeProvider TimeProvider
@@ -26,6 +27,7 @@
 @inject TransferApiClient TransferApiClient
 @inject DevicePreferences DevicePreferences
 @inject UserPermissionState Permissions
+@inject PrivatePinGate PrivatePin
 @inject ILogger<Options> Logger
 
 <PageTitle>@T["Orbit — Options"]</PageTitle>
@@ -218,6 +220,33 @@
                     @if (_passwordMessage is not null)
                     {
                         <p class="@(_passwordFailed ? "error" : "info")">@_passwordMessage</p>
+                    }
+                </div>
+
+                @* The PIN, under the password it is proved with (asked for on 2026-09-20). Here rather
+                   than beside the privacy choices because it is the same kind of secret about the same
+                   account, and because changing it takes the password - which is on this row. *@
+                <div class="options-row options-row-stacked">
+                    <div>
+                        <div class="options-row-title">@T["PIN for what is private"]<FieldHint>@T["Asked once a session before anything sealed is shown. It does not encrypt anything - your password already does that."]</FieldHint></div>
+                    </div>
+                    <div class="field">
+                        <label for="pinPasswordInput">@T["Current password"]</label>
+                        <input type="password" id="pinPasswordInput" @bind="_pinForm.Password" />
+                    </div>
+                    <div class="field">
+                        <label for="newPinInput">@T["New PIN"]<FieldHint>@T["Four to eight digits. Leave it empty to be asked no more."]</FieldHint></label>
+                        <input type="password" inputmode="numeric" autocomplete="off" maxlength="8"
+                               id="newPinInput" @bind="_pinForm.NewPin" />
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-primary" disabled="@_isChangingPin" @onclick="SetPrivatePinAsync">
+                            @(_pinForm.NewPin.Trim().Length == 0 && _account?.HasPrivatePin == true ? T["Remove PIN"] : T["Save PIN"])
+                        </button>
+                    </div>
+                    @if (_pinMessage is not null)
+                    {
+                        <p class="@(_pinFailed ? "error" : "info")">@_pinMessage</p>
                     }
                 </div>
             </div>
@@ -1023,6 +1052,11 @@
     private string? _passwordMessage;
     private bool _passwordFailed;
 
+    private readonly PrivatePinFormModel _pinForm = new();
+    private bool _isChangingPin;
+    private string? _pinMessage;
+    private bool _pinFailed;
+
     private readonly DeleteAccountFormModel _deleteAccountForm = new();
     private bool _isDeletingAccount;
     private string? _deleteAccountMessage;
@@ -1353,6 +1387,55 @@
     }
 
     /// <summary>
+    /// Sets, changes or takes away the PIN in front of what is private (2026-09-20). An empty box means
+    /// "ask me no more", which is a real answer and is what the button says when there is one to remove.
+    ///
+    /// The shape is checked here as well as on the server: four to eight digits is a thing to be told
+    /// before the password is sent, not after.
+    /// </summary>
+    private async Task SetPrivatePinAsync()
+    {
+        var pin = _pinForm.NewPin.Trim();
+        var removing = pin.Length == 0;
+        if (!removing && !SetPrivatePinCommandHandler.IsAPin(pin))
+        {
+            _pinFailed = true;
+            _pinMessage = T["A PIN is four to eight digits."];
+            return;
+        }
+
+        _isChangingPin = true;
+        _pinMessage = null;
+        try
+        {
+            var set = await UsersApiClient.SetPrivatePinAsync(_pinForm.Password, removing ? null : pin);
+            _pinFailed = !set;
+            if (!set)
+            {
+                _pinMessage = T["That current password isn't right."];
+                return;
+            }
+
+            // The gate forgets both what it knew and what it was told, so the next private thing asks
+            // again under the new answer - see PrivatePinGate.Forget.
+            PrivatePin.Forget();
+            _account = await UsersApiClient.GetAccountAsync();
+            _pinMessage = removing ? T["You won't be asked for a PIN any more."] : T["PIN saved."];
+            _pinForm.Clear();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to set the PIN for what is private");
+            _pinFailed = true;
+            _pinMessage = T["Couldn't save your PIN. Try again."];
+        }
+        finally
+        {
+            _isChangingPin = false;
+        }
+    }
+
+    /// <summary>
     /// Best-effort, and deliberately not fatal: the password has already changed by this point, so a
     /// browser that has no key to re-wrap should report that rather than pretend the change failed.
     /// </summary>
@@ -1657,6 +1740,22 @@
         {
             SentToAddress = string.Empty;
             Code = string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Setting, changing or taking away the PIN asked for in front of what is private. The account's
+    /// password proves it rather than the PIN being replaced - see SetPrivatePinCommand for why.
+    /// </summary>
+    private sealed class PrivatePinFormModel
+    {
+        public string Password { get; set; } = string.Empty;
+        public string NewPin { get; set; } = string.Empty;
+
+        public void Clear()
+        {
+            Password = string.Empty;
+            NewPin = string.Empty;
         }
     }
 

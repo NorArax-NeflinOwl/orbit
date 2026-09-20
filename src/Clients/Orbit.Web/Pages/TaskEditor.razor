@@ -45,6 +45,10 @@
 
 @* Two panels: the form on the left, which scrolls, and the panel on the right, which does not - see
    EditorRail. On a narrow screen the right one becomes a bar along the foot of the window. *@
+@* A sealed list is behind the account's PIN here as well as on the tab it is under (2026-09-20): a
+   notification or a link reaches one directly, and a door only on the tabs is a door with a corridor
+   round it. *@
+<BehindThePin Applies="_formModel.IsPrivate" OnGaveUp="LeaveTheSealedList">
 <div class="editor-page">
 <div class="editor-page-body">
 
@@ -77,7 +81,7 @@ else
         </p>
         @if (_access.CanAskToEdit && _originalOwnerUserId is { } ownerUserId)
         {
-            <RequestEditAccessButton ItemType="TaskList" ItemId="Id!.Value" ItemTitle="_formModel.Title"
+            <RequestEditAccessButton ItemType="TaskList" ItemId="Id!.Value" ItemTitle="@_formModel.Title"
                                      OwnerUserId="ownerUserId" OwnUserId="_ownUserId"
                                      OwnerDisplayName="@(_sharedByUserName ?? "them")" />
         }
@@ -281,6 +285,7 @@ else
                             <span class="field-break"></span>
                             <EventFields Model="item.Event" NotificationSettings="_notificationSettings"
                                          ShowsDescription="false"
+                                         ShowsPriorityAndColour="false"
                                          OnMapRequested="() => OpenTheMapFor(item)"
                                          IdPrefix="@($"item{_formModel.Items.IndexOf(item)}")"
                                          CanInviteGuests="true" Contacts="_contacts"
@@ -300,7 +305,7 @@ else
                                    is behind the mark beside the button - see FieldHint.Warns. *@
                                 <span class="field-with-note">
                                     <button type="button" class="btn-secondary" @onclick="() => DetachFromTheEvent(item)">@T["Detach from the event"]</button>
-                                    <FieldHint Warns="true">@T["This entry has an event in the calendar. Saving keeps the two in step."]</FieldHint>
+                                    <FieldHint Warns="true">@T["This entry has an event in the calendar. Saving keeps the two in step. Detaching makes it an ordinary entry, due when the event started, and leaves the event where it is."]</FieldHint>
                                 </span>
                             }
                         }
@@ -754,12 +759,23 @@ else
                             @T["Delete task list"]
                         </button>
                     }
+                    @* And the way out of a list somebody else's - off this reader's pages, left alone
+                       on the owner's. A shared list can be neither archived nor deleted, so without
+                       this there was no way to be rid of one. *@
+                    @if (_isShared)
+                    {
+                        <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting"
+                                @onclick="DeleteTheListAsync">
+                            @T["Remove from my list"]
+                        </button>
+                    }
                 }
             </OverflowMenu>
         </ChildContent>
     </EditorRail>
 }
 </div>
+</BehindThePin>
 
 @* Handing the list to a contact, over the page - see the menu entry in the panel. Kept to the same rule
    as the entry, so ticking Private while it is open takes it away too. *@
@@ -843,6 +859,12 @@ else
     /// which is what every route here did before and is still right for somebody who typed the address.
     /// </summary>
     private string WhenFinished => ReturnTo.Or(ComeBackTo, "/tasks");
+
+    /// <summary>
+    /// Where the PIN's question leads when it cannot be answered: the page of lists, which is where
+    /// everything else is. See BehindThePin.
+    /// </summary>
+    private void LeaveTheSealedList() => NavigationManager.NavigateTo("/tasks");
 
     private bool IsNewTaskList => Id is null;
 
@@ -2080,6 +2102,21 @@ else
             {
                 item.Notes = item.Event.Description;
             }
+
+            // The same for the two the entry now asks on the event's behalf - see EventDetailsFor, and
+            // EventFields.ShowsPriorityAndColour, which is why the event's own pair is no longer on
+            // this form. An appointment that was given a colour or a priority of its own, here or in
+            // the calendar, opens showing it: the entry's defaults would otherwise be written over it
+            // by the next save of a list somebody opened for something else entirely.
+            if (item.Colour.Length == 0 && item.Event.Color.Length > 0)
+            {
+                item.Colour = item.Event.Color;
+            }
+
+            if (item.Priority == nameof(ItemPriority.Normal))
+            {
+                item.Priority = item.Event.Priority;
+            }
         }
     }
 
@@ -2217,6 +2254,18 @@ else
         // in, so the answer on screen is the answer that is sent whatever order things happen in - the
         // same rule ProductAsked follows for an inventory entry's categories.
         item.Event.Description = item.Notes;
+
+        // And the same for how much it matters and what colour it is drawn in. The entry asks both
+        // about itself, one row up; the event's own pair is not on this form at all since 2026-09-20
+        // (EventFields.ShowsPriorityAndColour), because a Calendar entry *is* its appointment and the
+        // form asked each question twice with nothing saying which won. An entry given no colour of its
+        // own leaves the event's alone, which is what "no colour of its own" means everywhere else.
+        item.Event.Priority = item.Priority;
+        if (item.Colour.Length > 0)
+        {
+            item.Event.Color = item.Colour;
+        }
+
         return item.Event.ToRequest(item.Description);
     }
 
@@ -2480,11 +2529,23 @@ else
     /// <summary>
     /// Stops an entry being this event's, without touching the event. Whoever made it decides what
     /// happens to it, in the calendar, where they can see what they are deleting.
+    ///
+    /// **The entry stops being an appointment too** (2026-09-20). Clearing the link alone left a
+    /// Calendar entry with no event, and the next save makes one for exactly that - so detaching put a
+    /// second appointment in the calendar beside the one it had just let go of, which is how the user
+    /// found it. An entry that is no longer an event is a line of work like any other, and the event's
+    /// start becomes the deadline it is owed by, so the *when* is not lost along with the link.
     /// </summary>
     private void DetachFromTheEvent(TaskItemFormModel item)
     {
         Logger.LogInformation("User detached a task entry from its calendar event");
         item.LinkedCalendarEventId = string.Empty;
+        item.Kind = nameof(TaskItemKind.Checklist);
+        if (item.DueDate is null && item.Event.StartDate is { } startDate)
+        {
+            item.DueDate = startDate;
+            item.DueTime = item.Event.StartTime;
+        }
     }
 
     /// <summary>
@@ -3140,7 +3201,7 @@ else
         _isDeleting = true;
         try
         {
-            if (await TaskListDeletion.AskAndDeleteAsync(taskListId, _formModel.Title, gathers)
+            if (await TaskListDeletion.AskAndDeleteAsync(taskListId, _formModel.Title, gathers, _isShared)
                 is not TaskListDeletionOutcome.Deleted)
             {
                 _saveErrorMessage = TaskListDeletion.FailureMessage;

@@ -363,6 +363,12 @@ objecting to.
 **The dialog is the only one that interrupts** (`AdInterruption`). The rail and the bar simply sit
 there.
 
+**The phone's bar stands aside for the keyboard** (2026-09-20, `SoftKeyboard`, set by `MainActivity`'s
+insets listener). The bar sits across the foot of every screen, which is exactly where a keyboard opens,
+so writing anything meant reading half a form with an advert over the rest of it - on the calendar it
+covered the date and the time of the event being typed in. It comes back the moment the keyboard is put
+away, showing the same advert: nobody is handed a different one for having typed something.
+
 **An account holding the Debugger permission sees no adverts at all until it asks for them** (2026-09-11)
 - not the dialog, and not the rail or the bar either. Whoever holds that permission is looking at
 Orbit's own internals, which means they are working on Orbit rather than reading it, and the slots were
@@ -512,11 +518,34 @@ shows cards of several kinds, so it draws their tabs and offers no way to make, 
 applies to them unchanged: filing is its own command and its own endpoint
 (`MoveCalendarEventToFolderCommand`, `MoveInventoryToFolderCommand`, `PUT .../{id}/folder`) rather than a
 field on the save, for the reason `Note.MoveToFolder` gives; a new one is made under the tab the reader
-is standing on; a copy is made where the original stands; deleting a folder empties it rather than
-taking what was in it; and a folder id belonging to somebody else is refused, since filing something
+is standing on; a copy is made where the original stands; and a folder id belonging to somebody else is refused, since filing something
 under a tab its owner cannot see is the same thing as losing it. A private shelf is filed without being
 opened - its folder sits outside the sealed half, as a private note's does - and somebody reading either
 through a share never sees the owner's filing.
+
+**Only an empty folder can be deleted** (2026-09-20, `FolderTabs.StillHolds`). It used to delete a full
+one and put everything in it back under Public, which is a press that quietly rearranges a page's worth
+of things under a word that promised to remove one. A folder is one of the few things exempt from
+"deleted only from the archive" - there is no archive for a tab - but only while there is nothing in it
+to lose, which is how the exemption was worded. The entry stays in the menu and is disabled, saying to
+move what is in it somewhere else first: an entry that disappears teaches nobody why. "Still holds" is a
+different question from the count on the tab - something put away is under Archived wherever it is
+filed, so a folder holding nothing but archived things counts zero on its tab and still holds them. The
+phone still empties a full folder; `info/future-plan.md`.
+
+**A tab with nothing under it is not drawn** (2026-09-20, `FolderTabs.HoldsAnything`, applied by
+`FolderTabRow`). An empty Private or Archived tab is a press that leads to "there is nothing here", and
+the reader knows that already from its not being offered. The dashboard has pruned its tabs this way
+since 2026-09-18; the four pages that file things kept every tab whatever was in it, and now answer the
+same question - a built-in tab by what is under it, a folder somebody made by what is *filed* in it, so
+one holding nothing but archived things keeps its tab. Public always stays, and so does whatever is
+open: taking the tab out from under the reader would leave them looking at a folder they could not see
+they were in.
+
+**Where that leaves Public on its own, the tabs go and the plus stays.** A row with one tab is a
+control that can only be pressed to stay where you already are - but the row is also where a folder is
+made, and a reader with a single folder would otherwise have no way to ever make a second. So the tabs
+are what is left off, not the row.
 
 **The calendar's folders are not tabs on the dashboard**, although the notes', the lists' and the
 shelves' are. What the dashboard says about the calendar is what is on today and what is coming, and
@@ -625,6 +654,13 @@ is, and the first that applies wins:
    taking somebody else's shared thing off this reader's own list needs no archive first, because
    something shared cannot be put away at all (`ObjectMenu.DeleteNeedsTheArchive`). Left out on
    something reached through a share.
+
+   **So something shared with you says "Remove from my list"** where your own says "Delete", on all
+   four kinds - a note, a task list, an event and, since 2026-09-20, an inventory. The server reads the
+   same press as dropping that reader's own grant and leaving the owner's copy alone (each kind's
+   `Delete…CommandHandler`), and the question names that rather than borrowing the deletion's words:
+   *"Remove "Pantry" from your inventories? The owner keeps it."* The phone's shelf screen says it too,
+   and asks before doing it - until that day it deleted on the press with no question at all.
    The card stays where it is until the page is read again - it has not moved anywhere, it is under
    another tab now - and a refusal leaves the page as it was rather than redrawing a lie.
 
@@ -1142,6 +1178,30 @@ wrong reason, the filter having narrowed nothing. A tab that comes to nothing at
 ("Nothing here is private yet.", "This folder is empty."), rather than being a row of tabs over a blank
 page.
 
+**And one whose card has been put away says *that*** (2026-09-20). A folder tab is about one kind of
+card, so hiding that card empties every one of its tabs - and the page then drew nothing and said
+nothing, which reads as a tab that does not work rather than as a card that is off. It now names the
+card ("The Inventory card is hidden here. The menu at the top right brings it back."), or says so
+without naming one where the tab is about more than one. The user found it on an inventory folder; it
+was the same for all three, and is said for all three.
+
+**Which cards the dashboard draws is a choice per tab** (`DashboardCardPreferences.IsVisible`,
+2026-09-20, asked for). It was one answer for the whole page, so putting the Notes card away while
+reading one folder put it away everywhere. It is stored the way each card's *filter* already was - the
+card's key for Public, `key@tab` for the rest (`StoredKeyOf`) - so a card somebody hid before the change
+is still hidden where they hid it, on the tab the dashboard opens on. The menu's heading names the tab
+it is answering for, since the same menu now gives a different answer on each.
+
+**Folders called the same thing in different sections are one tab here** (2026-09-20, the user found
+two). A folder holds one kind of thing, so "Home" on the task lists and "Home" on the inventories are
+two stored folders - right on their own pages, and two identical tabs on a page that draws both kinds
+side by side, each showing half of what the reader meant by "home". The dashboard draws the first of
+them and reads every card of that name under it (`FolderTabRow.On`, `FolderState.FoldersCalledTheSameAs`,
+`Dashboard.IsUnder`); names are compared trimmed and without case. One of the two hidden from the
+dashboard contributes nothing to the shared tab, so hiding still hides. **Making a folder offers the
+names already used elsewhere** (a `datalist` on the naming box, `FolderTabs.NamesUsedElsewhere`) - the
+folders are still separate rows, and matching the spelling is what makes them one tab.
+
 **And a folder can be taken off the dashboard**, from its own menu on the page it was made on ("Hide on
 the dashboard", `DashboardCardPreferences.IsFolderShown`). The dashboard borrows both pages' tabs, which
 is how a folder for recipes ends up between Public and Private on the page somebody opens to see what is
@@ -1170,6 +1230,25 @@ standing on, so a note made while reading "Work" is in Work.
 A folder is **never shared**. It is a place on its owner's own pages, so a list shared with a second
 person sits in whichever folder each of them filed it under - and a shared item's `folderId` is sent as
 null to the recipient, since the owner's id names a tab that does not exist for them.
+
+**But its contents can be handed on, both ways at once** (2026-09-20, asked for). The folder's own menu
+- on the row of tabs, and in the notes' column - carries the two ways a single thing is handed on:
+
+- **Share folder** opens the same dialog the bar over a list opens for several chosen things, given
+  everything filed under that folder instead (`ShareTheFolder` on each of the four pages). One contact,
+  one level, and then a grant and an invitation for each thing in turn - so what arrives is a handful of
+  ordinary shares, which the recipient files wherever they like. What is put away is left out; what is
+  sealed, or already somebody else's, the dialog counts and names.
+- **Share link** publishes the folder (`SharedItemType.Folder`): one address showing every thing under
+  it, **each drawn exactly as its own link would draw it** (`SharedItemCard`, once per thing). Nothing
+  sealed and nothing archived is in it (`PublicSharedItemReader.ReadFolderAsync`), and a folder that has
+  since been emptied still opens and says so rather than reading as a link somebody revoked.
+
+**A folder's link cannot be claimed.** "Save to my account" promises one read-only copy, and a folder
+would hand over a page of them, unfiled - so the page offers no button and says what to do instead (ask
+to be given the folder in Orbit, which is the other half above). The refusal is in the handler as well
+as off the page, because anything the claim did not recognise used to fall through to the inventory
+branch.
 
 Three consequences worth stating, because they changed how a page behaves:
 
@@ -1240,6 +1319,44 @@ the next, and when nothing there carries it the page says so rather than claimin
 
 ### Writing a note in the browser
 
+**`/notes` is the newest note, open to write in** (2026-09-20, asked for). A note app is read by writing
+in one: every press on the page of cards was a press towards that, and the page in between was a press
+spent choosing which note to want. The address is *replaced* rather than pushed, so nothing comes back
+to it and bounces straight in again. It skips a sealed note - one says nothing until its key is given -
+and one put away, and an account with nothing to open stays on the cards, where the plus that makes the
+first note is (`Notes.OpenTheNewestNote`).
+
+**The cards keep their own address, `/notes/all`**, reached from the heading above the column of notes.
+They are still where two questions are answered that the workspace does not ask: choosing several notes
+at once, and narrowing by tag.
+
+**The panel beside a note offers the next note rather than the way back.** With no list behind it, Back
+had nothing to return to but the note it would open again, so the press is a plus instead
+(`EditorRail.OnAdd`, set by the note editor alone). What is written in the note being left is kept the
+way leaving the page keeps it, and the star in the column says it is waiting. A note started this way is
+**in Public**: this page has no folder tab, so the tab that would otherwise answer is whichever one the
+page of cards was last left on.
+
+**The folders live in that column** (2026-09-20, asked for). A **"+"** beside its heading makes one, and
+each folder somebody made carries its own menu - *rename*, *hide on the dashboard*, *delete* (refused
+while anything is in it, drawn and disabled rather than left out). The row of tabs on `/notes/all` still
+has all of it; this is the same controls where the notes are now read from. A folder with nothing in it
+is a heading with no notes under it here, unlike a built-in one: it is a thing somebody made, and its
+menu is the only way to rename or delete it.
+
+**The archive is at the top of the column**, out of the order the tabs are in, because it is the one
+heading about *when* rather than about what - somebody looking for something they archived is looking
+for that word rather than scrolling past every note they still have. It appears only once something has
+been put away, and its own menu takes it off the column (`DevicePreferences.ArchiveIsHiddenInTheNotes`,
+per device). While it is off, the **"+" becomes a menu of two** - *New folder*, *Show the archive* -
+since putting it back has to be reachable and this column has no other control of its own.
+
+**A new note has to be named.** The first line *is* the name (`NoteFormModel.Title`), so a note whose
+first line is empty is one nobody could tell from the next one in the column, in a share, or in a
+notification. Save says which answer is missing - "Give it a name." or "Write something in it." - rather
+than one sentence for both. A note that already exists is not taken away from somebody who clears its
+name while rewriting it.
+
 `NoteEditor.razor` is **one field and nothing else on that side of the screen** (2026-09-09), which is
 the shape the phone's note screen has had since the redesign: the first line is the note's title and is
 drawn as one, everything under it is the note, and there is no separate title box for the two to
@@ -1261,6 +1378,27 @@ would be lost are named and the reader can stay (`AskBeforeLeavingAsync` over
 nobody wrote in keeps nothing, so reading one and leaving warns about nothing - what counts as written
 in is what the note *says*, compared as one string because a line carries lists of its own and two
 records holding equal lists are not equal.
+
+**A note holding unsaved writing says so in the column**, beside its name: a star, and the name in the
+accent (2026-09-20, `NoteWorkspaceList`). The warning on the way out is easy to read past, and somebody
+who had written in three notes and saved one had no way to see which two were still waiting. The mark
+is kept in step as the note is typed in rather than only when the reader leaves it - the editor keeps
+what is unsaved on every change, which is also what *forgets* it again when the writing is taken back
+out, so the star goes when the note reads as it is stored.
+
+**And the question on the way out is Orbit's own panel**, naming the notes, with "Stay here" and "Leave
+and lose it". It used to be the browser's `confirm` - a grey strip at the top of the window with the
+site's address on it, which is the shape a page uses to say something it cannot be trusted about, and
+this one is about the reader's own writing. The navigation is held while the panel is open, by awaiting
+the answer inside the handler that holds it.
+
+**Saving keeps the reader in the note** (2026-09-20). It used to end on `/notes`, which is the one
+place somebody who has just written something does not want to be: writing is saved as you go along
+rather than finished, so a save that walked away turned every one of those into a trip back. The page
+says **"Saved."** instead, and stops saying it the moment anything is written - from then on it is no
+longer true (`NoteDrafts.Differs`, the same comparison a kept draft is decided by). A note that has just
+been *made* is the one exception, and only as far as its address: it has one of its own now, and
+`/notes/new` must not be left behind for Back to reopen - one press from saving the same note twice.
 
 **Turning editing on puts the caret at the end of the writing** (`ChecklistTextEditor.FocusesAtTheEnd`):
 after the last line's words, or in the last cell of a table the note ends in, or - past a closing picture
@@ -1374,8 +1512,7 @@ read.
     line that is not numbered breaks the run, which is what makes two lists with a paragraph between them
     two lists. The mark of a bulleted or dashed line is drawn the same way (CSS `::before`,
     `user-select: none`), so it is never part of the words, never selected with them and never copied.
-  - **Drawn wherever a note is read, not only where it is written**: the note's own page
-    (`.note-line[data-style]`, which `NoteSummary.razor` puts on its lines too), a note opened through a
+  - **Drawn wherever a note is read, not only where it is written**: a note opened through a
     share link (`PublicSharedItemLine.Style`, drawn by `SharedItemPage` and by the phone's
     `SharedLinkPage`), and the phone's own note screen (`NoteLineLook`, which decides the size, the bold
     and the list's mark for both of the phone's screens).
@@ -1468,7 +1605,12 @@ read.
     public blob access **off** - deliberately not `orbitdownloads`, whose blobs are anonymous-read to hand
     out the APK - reached by a connection string that is a Container App secret
     (`NotePictures:ConnectionString`); locally a directory on a named volume (`NotePictures:Directory`).
-    Which of the two is decided by whether the connection string is set. The row beside them
+    Which of the two is decided by whether the connection string is set. **The image has to own that
+    directory** or every local upload answers 500 - Docker gives a named volume the ownership of the
+    image's directory behind it, and the API runs as `$APP_UID`, so one this Dockerfile does not create
+    and chown is created root-owned and unwritable. The logs directory had that line from the start and
+    the pictures did not, so putting a picture in a note was impossible on a local stack from the day
+    the store moved onto a volume until 2026-09-20. The row beside them
     (`OP_NOTES_PICTURES`, `NotePicture`) says which note a picture belongs to, how many bytes it is and
     whether it is sealed - and nothing else.
   - **50 MB a note, counted server-side** (`NotePictureLimits`): a total across the note's pictures, and
@@ -1494,6 +1636,16 @@ read.
     takes it away** - the one thing that tells it from a table, which goes by its own menu; words never
     join it and writing that lands on it goes under it. A note that has never been saved has nowhere to
     keep a picture, so the editor says to save first.
+  - **And its own corner takes it away too** (2026-09-20, `NoteSurfaceEdits.RemoveElement`). The key was
+    not enough on its own: the caret has to be landed on the picture's line to press it, and a picture is
+    drawn by an element nobody can type in, so a reader who could not manage that had no way to be rid of
+    an attachment at all. The press is always drawn rather than shown on hover - a control nobody can
+    find is the thing that was missing, and a touch screen has no hover to find it with - and a surface
+    nobody may write to hides it, the way the tick boxes in one are stopped.
+  - **A press below the last line gives the note a line to write on** where it ends in a picture, a rule
+    or a table (`NoteSurfaceEdits.WriteUnderTheEnd`). Such a line has nothing after it and nothing to
+    type in, so there was nowhere for the caret to go and the note could not be carried on past it. The
+    press is on the space around the lines; a press on a line is still the browser's own.
   - **What a save no longer names is swept** (`NotePictureSweeper`): the save carries the ids the note
     still holds (`UpdateNoteRequest.PictureIds`), because a private note's lines are sealed and the
     server cannot read which pictures they name; a client that says nothing sweeps nothing. Deleting the
@@ -1532,6 +1684,15 @@ read.
     (`NoteSurfaceSeparatorTests`).
   - **No migration**, as with styles, marks and tables: it travels as `NoteContentLineDto.Separator`,
     is stored in the same JSON, and a line written before rules existed simply has no field there.
+  - **A note opened after sixteen hours gets a dated one at its end, unasked** (2026-09-20,
+    `NoteEditor.StampTheEndIfItHasBeenAWhile`), with an empty line under it and the caret there - so
+    what is written next is written under a line saying when: old writing, the time, new writing. The
+    gap is long enough that a day's writing is one stretch and short enough that yesterday and today are
+    told apart. Only a note with something already in it gets one, and only one this reader may write
+    in. **It is taken back out on the way to the server if nothing was written under it**
+    (`WithoutAStampNobodyWroteUnder`), which is the "if new text was added" half of what was asked for:
+    opening an old note, changing a word higher up and saving must not leave a rule at the end. It stays
+    on the surface either way, so the reader can still write under it after saving.
   - **Both clients have the tool, and both ask first** - the browser as a two-entry panel over the
     writing (`NoteEditor`, beside the styles, the table and the attachment), the phone as a sheet
     (`NoteDetailPage.UseTheSeparatorToolAsync`, `NoteDetailViewModel.SeparatorChoices`). Each works the
@@ -1666,8 +1827,8 @@ the same rule and the stored names in SQL with PostgreSQL's built-in `translate(
 (`OrbitDbContext.Translate`), so "maka" suggests "Mąka" - the `unaccent` extension would cover more
 letters but has to be allow-listed on a managed server first.
 
-**A note's text can be copied out of its menu** ("Copy the text", `NoteSummary` in the browser and the
-note's own menu on the phone since 2026-09-15). Written the way the note's own editor copies a selection
+**A note's text can be copied out of its menu** ("Copy the text", the note's own form in the browser and
+the note's menu on the phone since 2026-09-15). Written the way the note's own editor copies a selection
 out of itself - a box is `- ` and a ticked one `[x] `, both of which a paste reads back as a box - so a
 note copied here and pasted into another note arrives as the same note. The name is the first line, which
 is what a note's name already is on both clients. **The format itself is shared** (`NoteWords` in
@@ -1842,9 +2003,14 @@ those two sections are already independent for access-level purposes.
 Groups are not a place of their own: the chat page shows **one conversation list**
 (`ConversationList`) holding people and groups together, **sorted by when something last happened** -
 people and groups against each other, which is the order somebody scanning for a conversation looks in.
-A row says which kind it is with a small mark, one search box filters both, and "New group" sits under
-the list rather than in a page header. Looking for "who have I been talking to" is one place, and moving
-between a group and a person does not change screens.
+A row says which kind it is with a small mark and one search box filters both. Looking for "who have I
+been talking to" is one place, and moving between a group and a person does not change screens.
+
+**"New group" is not on that list.** It sat under it until 2026-09-20; it is on the contacts page now,
+under the Groups tab, where the groups themselves are listed. The list beside a thread is a column to
+pick from rather than a place things are made. The making itself still happens on the chat page, where
+the conversation would be - the contacts page asks for it by address (`/chat/groups?new=1`), which is
+the same address that button used.
 
 That single order needs both kinds to answer the same question, so a group carries
 `LastMessageAtUtc` of its own (`ChatGroup`), stamped where the fan-out is written -
@@ -1854,8 +2020,8 @@ totally ordered from the moment a group exists rather than needing a second rule
 the quiet ones. Groups used to follow the people in a block of their own, sorted by
 name, because there was no such time to sort them by.
 
-The list folds to a strip of initials, and **the folding is done by the stylesheet alone** — the names,
-the search box and "New group" always reach the page. That matters because on a narrow screen the list
+The list folds to a strip of initials, and **the folding is done by the stylesheet alone** — the names
+and the search box always reach the page. That matters because on a narrow screen the list
 is not an inline panel at all but a slide-out drawer, where folding means nothing: the drawer is either
 open or off-canvas. Markup that dropped the names when folded could not be talked back into showing
 them however much CSS asked, so the drawer opened as a wide panel of bare initials with no search and
@@ -2204,6 +2370,16 @@ that already had a link closes the link with it), and **cannot be duplicated by 
 the client's work and the server has no key, so a copy it made would be an empty place wearing the name
 of a full one. Somebody who wants to hand a place over turns sealing off for that place first.
 
+**The phone can turn it off too, since 2026-09-20.** It had no control for the seal at all and no field
+for it on the save, so every place made or edited there was sealed and stayed sealed - and because a
+sealed place cannot be shared, pressing Share on one and choosing somebody answered "Couldn't share
+that." for a place whose owner had never chosen to seal it. The place's own screen carries the switch
+now, its sharing panel is guarded on it the way the note, task list and shelf screens are guarded on
+theirs, and where the panel is not offered the screen says why. Two more things a save from that screen
+used to lose, both for the same reason - the content record's defaults stood in for what the place
+actually was: an open place came back sealed (and so emptied), and a place the browser had put on a task
+list came back on none.
+
 **It takes no `null`-means-not-provided fields**: one form writes every one of them, so a missing field is
 a client that meant to clear it. That is the opposite of the rule a task entry's newer fields follow, and
 deliberately so — those exist because two clients disagree about what an entry carries, and nothing but
@@ -2413,6 +2589,43 @@ or a passcode — on the notes, tasks and inventory screens, which is the physic
 promise that otherwise only holds against the server (`PrivateItemGate`). A device holding no key says
 which of the two situations it is in — no key here, or a key pair since replaced — rather than showing
 an empty editor.
+
+**The browser has a PIN of its own** (2026-09-20, asked for). One per account, hashed on the server
+beside the password (`User.PrivatePinHash`, `OS_U_PRIVATEPINHASH`), and asked **once a session** before
+the Private tab draws anything - on the notes, the task lists, the inventories and the dashboard
+(`BehindThePin`, `PrivatePinGate`). It is the browser's counterpart of the phone's device lock: the same
+promise, kept against the person standing at the screen rather than against the server.
+
+**It is a door, not a lock.** What keeps a private note unreadable is the key it is sealed with, which
+never leaves the browser; this is the question asked before what has already been *opened* is drawn.
+So the answer is held in memory and nowhere else - a tab closed and opened again asks again, which is
+the whole of "once per session" - and what is behind it is not rendered at all while it stands, rather
+than drawn and covered over.
+
+Setting, changing or removing it is in the options **under the password**, and takes the *password*
+rather than the PIN being replaced: four digits are a thing people forget, and one only its rememberer
+can change locks its own owner out. Four to eight digits, checked on both sides; an empty box means
+"ask me no more", which is a real answer. The endpoints are `PUT /api/users/me/private-pin` and
+`POST /api/users/me/private-pin/check`, both rate-limited like the password ones and both listed among
+the requests whose 401 means "wrong secret" rather than "expired session"
+(`AuthorizationMessageHandler.PasswordProvingRequests`) - a mistyped PIN must not sign anybody out.
+
+**And in front of the thing itself, not only its tab.** A notification, a link or the column beside the
+writing reaches one sealed note directly, so the three editors carry the same wrapper - a door only on
+the tabs is a door with a corridor round it.
+
+**The wrapper does no I/O.** Whether the account has a PIN is learned once, by `MainLayout`, off the
+read of the account it already makes for the privacy choice - so the answer is in hand before any page
+draws. It was the other way round to begin with, and asking inside the wrapper was wrong twice over: an
+`await` before the child content is drawn puts a network call between the reader and a form with
+nothing sealed in it, and inside the three editors it made a different test fail on every run. The
+wrapper also holds its content in **one** branch of its `if`/`else` rather than two, because Razor gives
+each branch its own place in the render tree and moving between two of them tears down the form
+somebody is filling in.
+
+**The map's points are not behind it**, and that is the user's own line: a place is met on a map read at
+a glance, and a question in front of it would be asked at every one. **Nor are events**: an event cannot
+be sealed at all (`FolderPages.HasAPrivateTab`), so there is nothing there to put a door in front of.
 
 What private costs:
 
@@ -2712,14 +2925,22 @@ further in, and whatever light doing belongs to it offered where it is read.
 | --- | --- | --- |
 | Task list | `/tasks/{id}` - tick items, see the tree it stands for, measure it against a storage | `/tasks/{id}/edit` |
 | Task entry | `/tasks/{listId}/items/{itemId}` - when, where, what the appointment is about, who is coming, and a map | `/tasks/{listId}/items/{itemId}/edit` - the list's own form, landing on this entry already unfolded |
-| Note | `/notes/{id}` - the note read, with the checklist lines in it tickable | `/notes/{id}/edit` |
+| Note | none - see below | `/notes/{id}` and `/notes/{id}/edit`, the same form |
 | Calendar event | `/calendar/{id}` - when, where, what it is about, who is coming, its reminders, and a map | `/calendar/{id}/edit` |
 | Storage | `/inventory/{id}` - one row per batch, counted up and down in place | `/inventory/{id}/edit` |
 
-What "light doing" means differs by object and is the point of the split: a list is ticked, a note's
-checklist lines are ticked, a shelf is counted up and down. An appointment has none - there is nothing
-about it to do without changing what it is - so its page has no Save, which is honest rather than
-missing. Nothing is written until Save on any of them: these are pages people scroll through.
+What "light doing" means differs by object and is the point of the split: a list is ticked, a shelf is
+counted up and down. An appointment has none - there is nothing about it to do without changing what it
+is - so its page has no Save, which is honest rather than missing. Nothing is written until Save on any
+of them: these are pages people scroll through.
+
+**A note is the exception, since 2026-09-20: it has one depth.** It had a reading page like the rest,
+and it was taken away because a note *is* writing - every press on one is a press towards writing in it,
+and a page to read first put a press in front of the only thing the page is for. Nothing went with it:
+the writing surface draws the same lines with the same real tick boxes, so a note's checklist is ticked
+where it is written. What that page alone carried moved onto the form - "All notes", Archive / Put back,
+and Delete once it has been archived - and both addresses land there, because the note's own is what
+every notification, share and dashboard row already carries.
 
 ### A shelf, read rather than edited
 
@@ -2792,13 +3013,28 @@ most of the times anybody ticks one off - stayed on the list until its date pass
 menu it comes back struck through and greyed (`item-card-done`), the same mark a finished deadline
 carries, so the two read alike where they are shown side by side.
 
-**The grid gives the same answer about what is done**, and a different one about what is past. A
+**The grid starts from the same answer about what is done**, and a different one about what is past. A
 ticked-off deadline and an appointment whose entry on a task list is ticked off both leave it, exactly
-as they leave the list, and the same menu brings them back - struck through and greyed
+as they leave the list, and a menu of its own brings them back - struck through and greyed
 (`.calendar-chip-done`). A finished deadline has read that way there all along; an appointment had no
 mark at all, for the same reason the list did not leave it out either: an event of its own has nothing
 to tick, only the entry behind it does, so the page has to tell the grids which
-(`Calendar.EventsOnTheGrid`, `Calendar.TickedOffEventIds`). All four views read from it.
+(`Calendar.EventsOnTheGrid`, `Calendar.TickedOffEventIds`). All four views read from it. **Its colour
+goes with it** (2026-09-20): the stripe down a chip's side is the event's own colour, chosen to stand
+out on a full day, which is exactly what something already done should stop doing - a finished
+appointment in bright red went on shouting over the four things still ahead of it.
+
+**A shared appointment is marked on the grid too** (2026-09-20). The list beside it has always carried
+"Shared by Anna" on its card and the grid said nothing at all, so an appointment somebody else had put
+there read as one of the reader's own. A mark after the name rather than the sentence - a chip is one
+line inside a seventh of a week - drawn in the same masked, text-coloured shape as the mark that says
+whether an entry is an event or a task, so a finished chip greys both together
+(`.calendar-chip-shared`, `SharedClass` on all three grids). Pointing at the chip reads the sentence:
+its whole name, and who shared it.
+
+**And the dashboard's cards say it** the same way. Upcoming has always said "(shared)" beside the name
+and the Inventory card badges it; Notes and Tasks said nothing, so something somebody had handed over
+looked like one of your own until it was opened. Both rows carry the Inventory card's badge now.
 
 **What is merely *over* stays on the grid.** That is the one place the two part company, and it is
 deliberate: the list answers "what is coming", so an event that has ended stops being its subject, while
@@ -2812,6 +3048,14 @@ device (`CalendarListReading`). Its grid keeps everything too.
 **Show → "Everything, including what is over"** in the page's menu puts them back, and is remembered by
 the device the way the list's order is (`CalendarListOrder`, localStorage - it describes one page for
 one reader on one screen).
+
+**The two are separate switches** (2026-09-20, the user asked). One entry used to govern both, so a
+reader who wanted a finished errand back in the list got it drawn over the month as well - and the
+reader who wanted it in one of the two places could not have it there alone. The page header's menu is
+the list's; the grid has its own, **Show → "What is already done"**, in a menu beside the view switch
+where it reads as belonging to the grid (`Calendar.GridShowsWhatIsDone`,
+`CalendarListOrder.ShowWhatIsDoneOnTheGrid`, kept per device beside the other two). Both start off, which
+is what the single switch did. What is merely *over* is not a question the grid asks at all - see below.
 
 **It is the reader's answer in every view** (`Calendar.ShowsEverythingInThisView`, 2026-09-18). The day
 and the week used to force it on, on the reasoning that opening one particular day is asking what
@@ -3031,7 +3275,7 @@ opens the list's checklist. The rows were the one dead area on the card - a read
 and the words did nothing - while the dashboard's equivalents had opened what they name all along. A
 row that belongs to a gathered list opens on *that* list, not on the one gathering it. The press stops
 at the row (`Row` carries `@onclick:stopPropagation`), because a row inside something pressable means
-that row rather than the thing around it - the same rule NoteSummary's tick rows already followed.
+that row rather than the thing around it - the same rule every tick row inside a pressable card follows.
 
 **An entry that is an appointment carries its event's colour**, the same dot the dashboard's Upcoming
 card draws. An entry keeps no colour of its own - it lives on the calendar event the entry made - so
@@ -3657,6 +3901,14 @@ the same way the entry's words are already the event's title. Two boxes for one 
 drifting apart. An appointment written before this carries the answer on the event, and the one box opens
 showing it, so a save cannot write a blank over it.
 
+**How much it matters and what colour it is drawn in are asked once too** (2026-09-20,
+`EventFields.ShowsPriorityAndColour`). The entry has both of its own - every kind does - and a calendar
+entry's form drew the event's pair underneath, so one panel asked each question twice with nothing
+saying which answer won. The event's pair is off that form; the entry's is carried onto the event when
+the list is saved, exactly as the description is. An appointment that already had a colour or a priority
+- given here before this, or in the calendar itself - opens showing it, so the entry's defaults are not
+written over it by somebody saving a list for another reason entirely.
+
 A request that says nothing about it leaves what is stored alone (`UpdateTaskListCommand.EntriesKeepingTheirNotes`)
 — the third field to follow that rule, after the categories and the product, and for the third time the
 same reason: a phone built before it had a box for this must not erase what was typed on the web. Since
@@ -4241,7 +4493,23 @@ with an empty form.
 the entry named. Orbit cannot settle that on its own: deleting the event would throw away something that
 may since have been edited in the calendar, and keeping it leaves an appointment nothing points at. So
 the save stops and hands the choice back - **Detach from the event** stops the entry being that event
-without destroying it, and the type is free to change afterwards.
+without destroying it.
+
+**Detaching makes it an ordinary entry** (2026-09-20). It used to clear the link and leave the entry a
+Calendar one - which is exactly what the save makes an event for - so detaching and saving put a *second*
+appointment in the calendar beside the one just released. An entry that is no longer an event is a line
+of work like any other, so the kind goes back to Checklist in the same press, and **the event's start
+becomes the day it is owed by** where the entry has no deadline yet, so the *when* is not lost with the
+link. The event stays where it is, for whoever made it to keep or delete in the calendar.
+
+**And a Calendar entry has no deadline of its own** (`TaskItem.DueDateUtc`, 2026-09-20). A checklist line
+with a due date, changed into an appointment, kept that date where no form showed it and nothing could
+clear it — and the calendar drew the entry twice, once as its event and once as a deadline, with one
+tick behind both, so ticking either struck through the other. The rule is the domain's, in the same
+constructor that drops a product from an entry of the wrong kind, so it holds for every client and for
+rows already stored: an entry read back from the database comes back without it. The other kinds keep
+theirs — a restock errand's date is what "what do I need before Thursday" is asked against
+(`RestockListSettings.OnlyLinkedWithDueDate`), even though the form does not offer the field.
 
 The place named on a calendar entry stays on the entry. The calendar's own location is coordinates first
 (`EventLocationRequest`) and the map overlay deliberately hands back an address rather than a pin, so
@@ -5185,6 +5453,13 @@ The change is announced to that account's **other devices** only (see
 [Live updates](#live-updates)): a conversation put away on a phone should not still be in the way on
 the laptop, and nobody else's screen changed.
 
+**In the browser it is offered wherever a conversation is met** (2026-09-20). It used to be on the
+contacts page alone, so the two places somebody actually *reads* a conversation could not be done with
+one: the thread's own menu now puts it away and leaves for the list, since what was being read is no
+longer on the page it was pressed from, and the contact card carries Archive / Put back in the corner
+every other object keeps its menu in. Both say so when the press fails - a menu that closes and does
+nothing looks exactly like one that never registered.
+
 **The phone offers all three as of 2026-09-01.** Each list - people, groups - carries its own switch to
 what has been put away, shown only once something is there, and each row's menu offers putting it away,
 bringing it back, and the thing that is not reversible: emptying a conversation, or leaving a group,
@@ -5591,7 +5866,12 @@ Following a link, like following a notification, waits for an account: the app h
 and opens it once somebody is signed in, rather than showing a stranger's shared item over a signed-out
 app. Signing in now goes on to whatever was waiting instead of always landing on the dashboard.
 
-## The home screen widget (Android)
+## The home screen widgets (Android)
+
+Three of them, listed separately in the launcher's picker as "Orbit today", "Orbit calendar" and
+"Orbit card".
+
+### Orbit today
 
 A 3 × 2 widget showing the day and the few things still ahead in it: today's appointments that have
 not finished, and what falls due today and is not done, in the order they happen. Four lines fit;
@@ -5623,4 +5903,46 @@ for a redraw itself whenever it is put down, which is the update carrying whatev
 It follows the system's light or dark mode rather than the theme chosen inside Orbit: a widget is drawn
 in the launcher's process, and the app's own choice is not something it can see.
 
-There is no iOS counterpart yet - see [Orbit.Maui — Plan](orbit-maui-plan.md), phase 8.
+### Orbit calendar
+
+A 4 × 3 widget showing the month as a grid: its name, the seven initials, and six weeks of squares.
+Today is ringed in the accent, the days either side of the month are drawn faintly so the weeks stay
+square, and a day with anything on it carries a dot. Tapping anywhere on it opens the calendar.
+
+A dot and nothing else, deliberately. The first rule above applies with more force here than anywhere:
+forty-two squares of titles would be the reader's whole month read out to whoever can see the phone.
+What the dot means is the same as what the other widget lists - an appointment, or an entry due and not
+ticked off - so a day whose errands are all done carries none. A private or sealed list marks nothing
+at all, not even a dot.
+
+Repeats are expanded before the grid is marked (`CalendarOccurrences`), so a weekly standup dots every
+Tuesday rather than only the one it was stored on. The week starts where the reader's own language
+starts it: Sunday in English, Monday in Polish. Six weeks always, so the widget is the same height in
+a month that spills over a sixth week as in one that does not.
+
+What it shows is `MonthAtAGlance` (`Orbit.Mobile.Widgets`), covered by tests; `OrbitCalendarWidget`
+(`Orbit.Maui/Platforms/Android`) is the drawing, and everything said above about how a widget is drawn
+applies to it unchanged.
+
+### Orbit card
+
+A 3 × 2 widget showing one of the dashboard's cards - whichever the reader picks when they place it.
+Notes, Tasks, Upcoming, Inventory or Places you keep; its heading is the card's own name, and under it
+the four rows that card would show, with the same right-hand detail (how long ago a note changed, how
+far through a list is, when something happens, how much is on a shelf). Tapping a row opens what it
+names where there is a path for it - a task list, a shelf - and tapping the card opens the section.
+
+It is the one widget that is configured: the launcher opens a small question ("What should this show?")
+before placing it, and the answer is kept against that widget's own id, so several can sit on one home
+screen showing different cards. On Android 12 and later a launcher may place it first and leave it
+saying "Tap to choose what this shows" until the question is answered.
+
+Four of the dashboard's nine cards are not offered: Groups, Recent chats, Contacts and Shared
+locations. A home screen is on show to whoever can see the phone and a list of who somebody talks to is
+the last thing that belongs there - and a message cannot be opened outside the app at all, since it is
+sealed to a key no widget holds, so those cards would be names with nothing under them.
+
+What it shows is `CardAtAGlance` (`Orbit.Mobile.Widgets`), covered by tests; `OrbitCardWidget` and
+`CardWidgetConfigure` (`Orbit.Maui/Platforms/Android`) are the drawing and the question.
+
+There is no iOS counterpart to any of them yet - see [Orbit.Maui — Plan](orbit-maui-plan.md), phase 8.

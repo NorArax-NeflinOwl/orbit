@@ -91,7 +91,11 @@ public sealed class AuthorizationMessageHandler(
     private static readonly (HttpMethod Method, string Path)[] PasswordProvingRequests =
     [
         (HttpMethod.Delete, "/api/users/me"),
-        (HttpMethod.Put, "/api/users/me/password")
+        (HttpMethod.Put, "/api/users/me/password"),
+        // And the PIN, which refuses the same way: a wrong four digits must not read as an expired
+        // session and sign somebody out of the app they were standing in.
+        (HttpMethod.Put, "/api/users/me/private-pin"),
+        (HttpMethod.Post, "/api/users/me/private-pin/check")
     ];
 
     private static bool RefusesThePassword(HttpRequestMessage request, HttpResponseMessage response)

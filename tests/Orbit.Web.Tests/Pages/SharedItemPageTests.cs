@@ -122,8 +122,52 @@ public sealed class SharedItemPageTests : OrbitTestContext
             new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }));
     }
 
+    /// <summary>
+    /// A link can point at a whole folder since 2026-09-20: one address showing everything filed under
+    /// a tab, each thing drawn as its own link would draw it. The user asked for it.
+    /// </summary>
+    [Fact]
+    public void A_link_to_a_folder_shows_every_thing_in_it()
+    {
+        RegisterApiClient(Folder(
+            "Recipes",
+            Item("Pierogi", Line("Flour"), Line("Potato")),
+            Item("Bigos", Line("Cabbage"))));
+
+        var cut = RenderComponent<SharedItemPage>(parameters => parameters.Add(page => page.Token, "a-token"));
+
+        Assert.Contains("Recipes", cut.Markup);
+        Assert.Contains("Pierogi", cut.Markup);
+        Assert.Contains("Flour", cut.Markup);
+        Assert.Contains("Bigos", cut.Markup);
+        // Whose it is is said once, above them, rather than on every card.
+        Assert.Single(cut.FindAll(".shared-item-owner"));
+    }
+
+    /// <summary>
+    /// And no offer to keep it. There is no such thing as a share of a folder - it stays the owner's own
+    /// tab - and the button's promise is one read-only copy, where a folder would hand over a page of
+    /// them. The page points at the other half of sharing a folder instead.
+    /// </summary>
+    [Fact]
+    public void A_folder_offers_no_way_to_keep_it_and_says_what_to_do_instead()
+    {
+        _authorization.SetAuthorized("anna");
+        RegisterApiClient(Folder("Recipes", Item("Pierogi")));
+
+        var cut = RenderComponent<SharedItemPage>(parameters => parameters.Add(page => page.Token, "a-token"));
+
+        Assert.DoesNotContain("Save to my account", cut.Markup);
+        Assert.Contains("ask them to share the folder with you", cut.Markup);
+    }
+
     private static PublicSharedItemDto Item(string title, params PublicSharedItemLineDto[] lines)
         => new("Note", title, Subtitle: null, lines, "Anna Kowalska", DateTimeOffset.UtcNow);
+
+    /// <summary>A folder as a link sends it: no lines of its own, and everything under it in Items.</summary>
+    private static PublicSharedItemDto Folder(string name, params PublicSharedItemDto[] inside)
+        => new(
+            "Folder", name, $"{inside.Length} items", [], "Anna Kowalska", DateTimeOffset.UtcNow, inside);
 
     private static PublicSharedItemLineDto Line(string text, bool isChecklistItem = false, bool isChecked = false)
         => new(text, isChecklistItem, isChecked, Detail: null);

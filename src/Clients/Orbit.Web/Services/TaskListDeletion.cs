@@ -40,19 +40,29 @@ public sealed class TaskListDeletion(
     /// <summary>The list as it was loaded - what the page of cards and the checklist both have in hand.</summary>
     public Task<TaskListDeletionOutcome> AskAndDeleteAsync(
         TaskDto taskList, CancellationToken cancellationToken = default)
-        => AskAndDeleteAsync(taskList.Id, taskList.Title, GatheredBy(taskList), cancellationToken);
+        => AskAndDeleteAsync(
+            taskList.Id, taskList.Title, GatheredBy(taskList), taskList.IsShared, cancellationToken);
 
     /// <param name="gathers">
     /// How many other lists this one's entries stand for. Passed in rather than read off a DTO because
     /// the editor asks from a form that may have changed since it loaded: somebody who has just taken
     /// the links out should not be asked about lists this list no longer gathers.
     /// </param>
+    /// <param name="isSharedWithMe">
+    /// Whether this list is somebody else's, reached through a share. Pressing it then takes it off this
+    /// reader's own pages and leaves the owner's alone (the server drops the grant - see
+    /// DeleteTaskListCommandHandler), so it is asked about in those words and the question about what it
+    /// gathers is not asked at all: nothing is being destroyed for there to be a second question about.
+    /// </param>
     public async Task<TaskListDeletionOutcome> AskAndDeleteAsync(
-        Guid taskListId, string title, int gathers, CancellationToken cancellationToken = default)
+        Guid taskListId, string title, int gathers, bool isSharedWithMe = false,
+        CancellationToken cancellationToken = default)
     {
         FailureMessage = null;
         var named = title.Length > 0 ? title : translations["Untitled"];
-        if (!await AskAsync(translations.Format("Delete task list \"{0}\"?", named)))
+        if (!await AskAsync(isSharedWithMe
+            ? translations.Format("Remove \"{0}\" from your lists? The owner keeps it.", named)
+            : translations.Format("Delete task list \"{0}\"?", named)))
         {
             return TaskListDeletionOutcome.Cancelled;
         }
@@ -60,7 +70,7 @@ public sealed class TaskListDeletion(
         // Only where there is something to ask about. A group list with no links under it - one being
         // built, or one whose links have all been removed - is an ordinary list as far as this goes.
         var deleteTheListsItGathers = false;
-        if (gathers > 0)
+        if (gathers > 0 && !isSharedWithMe)
         {
             // Said as a question about the other lists rather than about this one, and answerable
             // either way: "no" still deletes the group list, which is what the first question already
@@ -87,7 +97,9 @@ public sealed class TaskListDeletion(
             // Said on screen as well as logged: a delete that silently does nothing reads as a press
             // that never registered.
             logger.LogError(exception, "Failed to delete task list {TaskListId}", taskListId);
-            FailureMessage = translations["Couldn't delete that task list. Check your connection and try again."];
+            FailureMessage = isSharedWithMe
+                ? translations["Couldn't take that off your lists. Check your connection and try again."]
+                : translations["Couldn't delete that task list. Check your connection and try again."];
             return TaskListDeletionOutcome.Failed;
         }
 

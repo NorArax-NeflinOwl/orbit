@@ -26,7 +26,7 @@ namespace Orbit.Maui;
 /// What is shown, and what is deliberately not, is <see cref="TodayAtAGlance"/>'s to decide - it is the
 /// half that can be tested. This class is the drawing.
 /// </summary>
-[BroadcastReceiver(Label = "Orbit", Exported = false)]
+[BroadcastReceiver(Label = "@string/orbit_widget_label", Exported = false)]
 [IntentFilter(["android.appwidget.action.APPWIDGET_UPDATE", RefreshAction])]
 [MetaData("android.appwidget.provider", Resource = "@xml/orbit_today_widget_info")]
 public sealed class OrbitTodayWidget : AppWidgetProvider

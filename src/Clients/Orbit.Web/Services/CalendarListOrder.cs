@@ -31,6 +31,7 @@ public sealed class CalendarListOrder
 {
     private const string SortOrderKey = "orbit-calendar-list-sort-order";
     private const string ShowsEverythingKey = "orbit-calendar-list-shows-everything";
+    private const string GridShowsWhatIsDoneKey = "orbit-calendar-grid-shows-what-is-done";
 
     private readonly IJSRuntime _jsRuntime;
 
@@ -51,6 +52,17 @@ public sealed class CalendarListOrder
     public bool ShowsEverything { get; private set; }
 
     /// <summary>
+    /// And whether the *grid* draws what has been ticked off. Its own answer since 2026-09-20: one
+    /// switch used to govern both, so asking to see finished work in the list put it back on the month
+    /// as well, and a reader who wanted it in one of the two places could not have it there alone.
+    ///
+    /// Off by default, which is what both did before. What is merely *over* is a different question and
+    /// is never hidden from the grid: a month drawn with every past day empty would be a month that had
+    /// not happened.
+    /// </summary>
+    public bool GridShowsWhatIsDone { get; private set; }
+
+    /// <summary>
     /// Reads what was stored. Anything unreadable - a browser with storage blocked, a value written by
     /// a build that offered a different order - leaves the default standing.
     /// </summary>
@@ -66,6 +78,9 @@ public sealed class CalendarListOrder
 
             ShowsEverything =
                 await _jsRuntime.InvokeAsync<string?>("localStorage.getItem", ShowsEverythingKey) == "true";
+
+            GridShowsWhatIsDone =
+                await _jsRuntime.InvokeAsync<string?>("localStorage.getItem", GridShowsWhatIsDoneKey) == "true";
         }
         catch (JSException)
         {
@@ -80,6 +95,21 @@ public sealed class CalendarListOrder
         {
             await _jsRuntime.InvokeVoidAsync(
                 "localStorage.setItem", ShowsEverythingKey, showsEverything ? "true" : "false");
+        }
+        catch (JSException)
+        {
+            // It still applies for this session - it just won't be remembered for the next one.
+        }
+    }
+
+    /// <inheritdoc cref="GridShowsWhatIsDone"/>
+    public async Task ShowWhatIsDoneOnTheGridAsync(bool showsIt)
+    {
+        GridShowsWhatIsDone = showsIt;
+        try
+        {
+            await _jsRuntime.InvokeVoidAsync(
+                "localStorage.setItem", GridShowsWhatIsDoneKey, showsIt ? "true" : "false");
         }
         catch (JSException)
         {

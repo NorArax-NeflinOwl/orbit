@@ -74,10 +74,15 @@ public sealed class AboutScreenTests
             UnlockedPermissions.For(localStore),
             OrbitDocumentLinks.Under(new Uri("https://orbit-web.example/")));
 
-        Assert.Equal(5, about.Documents.Count);
+        // Four: the three pages the web serves, and the licence. "Do not share my personal information"
+        // is not among them since 2026-09-20 - it is a question rather than a document, and the phone
+        // asks it on the account screen. It used to be listed here and open the web client's front
+        // page, which is the dashboard and not the question.
+        Assert.Equal(4, about.Documents.Count);
         Assert.Contains(about.Documents, document => document.Url == "https://orbit-web.example/privacy");
         Assert.Contains(about.Documents, document => document.Url == "https://orbit-web.example/security");
         Assert.Contains(about.Documents, document => document.Url == "https://orbit-web.example/docs");
+        Assert.DoesNotContain(about.Documents, document => document.Url == "https://orbit-web.example/");
     }
 
     private static AboutViewModel Open(UserPermissions permissions, OrbitDocumentLinks? documents = null)

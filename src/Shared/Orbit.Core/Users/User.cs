@@ -79,6 +79,25 @@ public sealed class User
     /// </summary>
     public bool KeepsThirdPartiesOut { get; private set; }
 
+    /// <summary>
+    /// The hash of this account's PIN, or null where none has been set. Asked for on 2026-09-20.
+    ///
+    /// **It is a door, not a lock.** What actually keeps a private note unreadable is the key it is
+    /// sealed with, which is the account's own and never reaches the server (see
+    /// Orbit.Web.Services.PrivateContentSealer); this is the question a client asks before *showing*
+    /// what it has already unsealed, so a screen left open at a desk does not read out what is private
+    /// on it. Hashed the way the password is, with the same hasher, because a short secret stored in
+    /// the clear is a short secret handed to anybody who reads the table.
+    ///
+    /// One per account rather than one per device: it is a thing the reader remembers, not a property
+    /// of a browser. How long an answer lasts is the client's own question - Orbit's asks once a
+    /// session.
+    /// </summary>
+    public string? PrivatePinHash { get; private set; }
+
+    /// <summary>Whether this account has set one. The only thing any client is ever told about it.</summary>
+    public bool HasPrivatePin => PrivatePinHash is not null;
+
     private User(
         Guid id, string email, string userName, string displayName, string? passwordHash, DateTimeOffset createdAtUtc,
         string? publicKeyBase64, WrappedPrivateKey? wrappedPrivateKey, DateTimeOffset? emailVerifiedAtUtc, string? googleSubjectId)
@@ -118,7 +137,7 @@ public sealed class User
         Guid id, string email, string userName, string displayName, string? passwordHash, DateTimeOffset createdAtUtc,
         string? publicKeyBase64, WrappedPrivateKey? wrappedPrivateKey = null, DateTimeOffset? emailVerifiedAtUtc = null,
         string? googleSubjectId = null, UserLocation? location = null, UserPresence? presence = null,
-        bool keepsThirdPartiesOut = false)
+        bool keepsThirdPartiesOut = false, string? privatePinHash = null)
     {
         var user = new User(
             id, email, userName, displayName, passwordHash, createdAtUtc, publicKeyBase64, wrappedPrivateKey,
@@ -126,6 +145,7 @@ public sealed class User
         user.Location = location;
         user.Presence = presence ?? UserPresence.NeverSeen;
         user.KeepsThirdPartiesOut = keepsThirdPartiesOut;
+        user.PrivatePinHash = privatePinHash;
         return user;
     }
 
@@ -177,6 +197,13 @@ public sealed class User
     /// client re-wraps immediately afterwards, in the same flow.
     /// </summary>
     public void ChangePassword(string passwordHash) => PasswordHash = passwordHash;
+
+    /// <summary>
+    /// Sets the PIN, or takes it away with null - see <see cref="PrivatePinHash"/>. Taking it away is a
+    /// real answer: a reader who set one and no longer wants to be asked should not have to keep
+    /// answering a question they have withdrawn.
+    /// </summary>
+    public void SetPrivatePin(string? privatePinHash) => PrivatePinHash = privatePinHash;
 
     /// <summary>
     /// Replaces the stored public key with the one the browser currently reports. Overwrites any

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One of the dashboard's cards on the home screen: its name, and the few rows added into the
+     container one at a time (see OrbitCardWidget). The same shape as orbit_today_widget, which is the
+     shape the dashboard's own cards have - a heading with a short list under it. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widgetRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/orbit_widget_background"
+    android:padding="12dp">
+
+    <TextView
+        android:id="@+id/widgetDate"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="@color/orbitWidgetSubtleText"
+        android:textSize="12sp"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <LinearLayout
+        android:id="@+id/widgetLines"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingTop="4dp" />
+
+    <TextView
+        android:id="@+id/widgetMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="6dp"
+        android:textColor="@color/orbitWidgetText"
+        android:textSize="14sp"
+        android:visibility="gone" />
+</LinearLayout>

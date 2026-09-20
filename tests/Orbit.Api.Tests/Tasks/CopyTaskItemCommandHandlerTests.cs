@@ -68,7 +68,10 @@ public sealed class CopyTaskItemCommandHandlerTests
         var item = TaskItem.Create(
             "Buy milk", due, isCompleted: true, linkedTaskListIds: null,
             new TaskItemReminders(NotificationChannelForTests, Daily: true, NotificationChannelForTests, new TimeOnly(8, 30)),
-            new TaskItemSubject(TaskItemKind.Calendar, "Wały Piastowskie 1, Gdańsk"),
+            // A place on a checklist line rather than on an appointment: a Calendar entry has no
+            // deadline of its own to copy (see TaskItem.DueDateUtc), and this is the test that the
+            // deadline travels.
+            new TaskItemSubject(TaskItemKind.Location, "Wały Piastowskie 1, Gdańsk"),
             ["shopping", "home"],
             product: null,
             notes: "The one in the glass bottle");
@@ -85,7 +88,7 @@ public sealed class CopyTaskItemCommandHandlerTests
         Assert.Equal("The one in the glass bottle", copy.Notes);
         Assert.Equal(due, copy.DueDateUtc);
         Assert.True(copy.IsCompleted);
-        Assert.Equal(TaskItemKind.Calendar, copy.Kind);
+        Assert.Equal(TaskItemKind.Location, copy.Kind);
         Assert.Equal("Wały Piastowskie 1, Gdańsk", copy.Location);
         Assert.Equal(["shopping", "home"], copy.Categories);
         Assert.True(copy.RemindDaily);

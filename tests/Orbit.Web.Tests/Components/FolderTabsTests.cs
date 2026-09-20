@@ -300,11 +300,88 @@ public sealed class FolderTabsTests : OrbitTestContext
 
         cut.Find(".overflow-menu-trigger").Click();
         cut.FindAll("button").First(button => button.TextContent.Contains("Delete folder")).Click();
-        Assert.Contains("Nothing in it is deleted", cut.Markup);
+        Assert.Contains("There is nothing in it", cut.Markup);
 
         cut.FindAll(".dialog-footer button").First(button => button.TextContent.Contains("Delete folder")).Click();
 
         Assert.Contains(_deletedPaths, path => path.EndsWith($"/api/folders/{WorkFolderId}", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Only an empty one, since 2026-09-20: everything in Orbit is put away rather than deleted, and a
+    /// folder is exempt from that only while there is nothing in it to lose. It used to delete a full
+    /// folder and put everything back under Public - a press that quietly rearranges a page's worth of
+    /// things under a word that promised to remove one. Drawn and disabled rather than left out, since
+    /// an entry that disappears teaches nobody why.
+    /// </summary>
+    [Fact]
+    public void A_folder_that_still_holds_something_cannot_be_deleted()
+    {
+        RegisterFolders([AFolderCalled("Work", FolderScope.Tasks)]);
+        var cut = RenderComponent<FolderTabs>(parameters => parameters
+            .Add(tabs => tabs.Page, FolderPage.Tasks)
+            .Add(tabs => tabs.StillHolds, folderId => folderId == WorkFolderId));
+        cut.FindAll(".folder-tab").First(tab => tab.TextContent.Contains("Work")).Click();
+
+        cut.Find(".overflow-menu-trigger").Click();
+        var delete = cut.FindAll("button").First(button => button.TextContent.Contains("Delete folder"));
+
+        Assert.True(delete.HasAttribute("disabled"));
+        Assert.Contains("Move what is in it somewhere else first.", delete.GetAttribute("title"));
+    }
+
+    /// <summary>And an empty one still goes, which is the exemption the rule names.</summary>
+    [Fact]
+    public void An_empty_folder_can_still_be_deleted()
+    {
+        RegisterFolders([AFolderCalled("Work", FolderScope.Tasks)]);
+        var cut = RenderComponent<FolderTabs>(parameters => parameters
+            .Add(tabs => tabs.Page, FolderPage.Tasks)
+            .Add(tabs => tabs.StillHolds, _ => false));
+        cut.FindAll(".folder-tab").First(tab => tab.TextContent.Contains("Work")).Click();
+
+        cut.Find(".overflow-menu-trigger").Click();
+
+        Assert.False(cut.FindAll("button")
+            .First(button => button.TextContent.Contains("Delete folder"))
+            .HasAttribute("disabled"));
+    }
+
+    /// <summary>
+    /// A built-in tab with nothing under it is not drawn. An empty Private or Archived tab is a press
+    /// that leads to "there is nothing here", and the reader knows that already from its absence -
+    /// asked for on 2026-09-20 for the pages that file things, which had kept every tab whatever was
+    /// in it. The dashboard has pruned its own since 2026-09-18.
+    /// </summary>
+    [Fact]
+    public void A_built_in_tab_with_nothing_under_it_is_left_off()
+    {
+        RegisterFolders([]);
+
+        var cut = RenderComponent<FolderTabs>(parameters => parameters
+            .Add(tabs => tabs.Page, FolderPage.Notes)
+            // Something under Archived and nothing under Private, so one of the two goes.
+            .Add(tabs => tabs.HoldsAnything, tab => tab == FolderKey.Of(BuiltInFolder.Archived)));
+
+        Assert.Equal(["Public", "Archived"], TabNames(cut));
+    }
+
+    /// <summary>
+    /// And where that leaves Public on its own there is nothing to choose between, so the tabs go. The
+    /// way to make a folder stays: a reader with one folder would otherwise have no way to ever make a
+    /// second, which is a door that locks behind them.
+    /// </summary>
+    [Fact]
+    public void Public_on_its_own_draws_no_tabs_and_still_offers_a_new_folder()
+    {
+        RegisterFolders([]);
+
+        var cut = RenderComponent<FolderTabs>(parameters => parameters
+            .Add(tabs => tabs.Page, FolderPage.Notes)
+            .Add(tabs => tabs.HoldsAnything, _ => false));
+
+        Assert.Empty(TabNames(cut));
+        Assert.Single(cut.FindAll(".folder-tab-add"));
     }
 
     private IRenderedComponent<FolderTabs> RenderTabs(FolderPage page)

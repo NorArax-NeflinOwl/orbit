@@ -158,7 +158,11 @@ public sealed class InventoryEditorTests : OrbitTestContext
     private static IReadOnlyList<string> ItemNamesIn(IRenderedComponent<InventoryEditor> cut)
         => [.. cut.FindAll(".editor-item-main").Select(box => box.GetAttribute("value") ?? "")];
 
-    private void RegisterApiClients(IReadOnlyList<InventoryItemDto> items)
+    /// <param name="inventory">
+    /// The shelf itself, for a test about how it was come by rather than about what is on it. Null
+    /// leaves the reader's own - which is what every other test here wants.
+    /// </param>
+    private void RegisterApiClients(IReadOnlyList<InventoryItemDto> items, InventoryDto? inventory = null)
     {
         var handler = new StubHttpMessageHandler(request =>
         {
@@ -207,7 +211,7 @@ public sealed class InventoryEditorTests : OrbitTestContext
 
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = JsonContent.Create(new InventoryDto(
+                Content = JsonContent.Create(inventory ?? new InventoryDto(
                     InventoryId, "Pantry", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
                     IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit",
                     LockedByUserName: null, OriginalOwnerUserId: null))
@@ -221,6 +225,54 @@ public sealed class InventoryEditorTests : OrbitTestContext
         Services.AddSingleton(new NotificationsApiClient(httpClient));
         Services.AddSingleton(new PublicShareApiClient(httpClient));
     }
+
+    /// <summary>
+    /// A shelf held read-only offers to ask its owner for editing - the button a note's form, a task
+    /// list's and an event's have had all along. The inventory was the one shared thing with no way to
+    /// ask, although the owner's side already knew how to answer for one (the "_ =>" branch of
+    /// Chat.razor's BuildEditAccessRequestNotice is the inventory). Found on 2026-09-20.
+    /// </summary>
+    [Fact]
+    public void A_shelf_held_read_only_offers_to_ask_its_owner_for_editing()
+    {
+        RegisterApiClients([Item("Flour", quantity: 3)], SharedWithMe("ReadOnly"));
+
+        var cut = RenderComponent<InventoryEditor>(parameters => parameters.Add(editor => editor.InventoryId, InventoryId));
+
+        Assert.Contains("Ask to edit this", cut.Find(".request-edit-access").TextContent);
+    }
+
+    /// <summary>
+    /// And one already held at a level that permits editing does not: there is nothing left to ask for.
+    /// The same question SharedItemAccess.CanAskToEdit answers for the other three.
+    /// </summary>
+    [Fact]
+    public void A_shelf_you_can_already_change_offers_nothing_to_ask_for()
+    {
+        RegisterApiClients([Item("Flour", quantity: 3)], SharedWithMe("CanEdit"));
+
+        var cut = RenderComponent<InventoryEditor>(parameters => parameters.Add(editor => editor.InventoryId, InventoryId));
+
+        Assert.Empty(cut.FindAll(".request-edit-access"));
+    }
+
+    /// <summary>Nor does your own shelf: it is already yours to change.</summary>
+    [Fact]
+    public void A_shelf_of_your_own_offers_nothing_to_ask_for()
+    {
+        RegisterApiClients([Item("Flour", quantity: 3)]);
+
+        var cut = RenderComponent<InventoryEditor>(parameters => parameters.Add(editor => editor.InventoryId, InventoryId));
+
+        Assert.Empty(cut.FindAll(".request-edit-access"));
+    }
+
+    /// <summary>Somebody else's shelf, reached through a share at the level given.</summary>
+    private static InventoryDto SharedWithMe(string accessLevel)
+        => new(
+            InventoryId, "Pantry", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            IsShared: true, SharedByUserName: "anna", AccessLevel: accessLevel,
+            LockedByUserName: null, OriginalOwnerUserId: Guid.NewGuid());
 
     private static InventoryItemDto Item(string name, decimal quantity, decimal? minimum = null)
         => new(

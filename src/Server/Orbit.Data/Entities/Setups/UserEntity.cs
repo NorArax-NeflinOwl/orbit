@@ -41,6 +41,13 @@ public sealed class UserEntity
     /// </summary>
     public bool KeepsThirdPartiesOut { get; set; }
 
+    /// <summary>
+    /// The hash of the PIN a client asks for before it shows what is private - see
+    /// Orbit.Core.Users.User.PrivatePinHash. Null for every account that has not set one, which is what
+    /// an existing row gets when the column is added.
+    /// </summary>
+    public string? PrivatePinHash { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     /// <summary>When the user last confirmed a code sent to Email, or null if never - see Orbit.Core.Users.User.EmailVerifiedAtUtc.</summary>
     public DateTimeOffset? EmailVerifiedAtUtc { get; set; }

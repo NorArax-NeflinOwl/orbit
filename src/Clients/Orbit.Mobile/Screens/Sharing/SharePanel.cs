@@ -19,10 +19,18 @@ public sealed record AccessLevelChoice(ShareAccessLevel Value, string Name)
     public static IReadOnlyList<AccessLevelChoice> All(Translations translations)
         => [.. Enum.GetValues<ShareAccessLevel>().Select(level => new AccessLevelChoice(level, Describe(level, translations)))];
 
+    /// <summary>
+    /// Four levels, four names. EditOnly and CanEdit both read "Can edit" until 2026-09-20 - the
+    /// catch-all swallowed the one difference between them, so the picker offered the same words twice
+    /// and whichever the reader chose was a guess. They differ in exactly one thing (see
+    /// ShareAccess.CanGrant): an EditOnly holder can pass the thing on, but never with editing. The
+    /// words are the browser's own, so the same choice reads the same on both clients.
+    /// </summary>
     public static string Describe(ShareAccessLevel level, Translations translations) => level switch
     {
         ShareAccessLevel.ReadOnly => translations["Read only"],
         ShareAccessLevel.Share => translations["Can share"],
+        ShareAccessLevel.EditOnly => translations["Can edit, but not share editing"],
         _ => translations["Can edit"]
     };
 }

@@ -27,74 +27,27 @@
             </p>
         </div>
     }
+    else if (_item.Items is { } inside)
+    {
+        @* A folder: the folder's own card saying what it is and whose, then one card per thing filed
+           under it - each drawn exactly as its own link would draw it. What is sealed and what has been
+           put away are not here at all; the server leaves them out (see PublicSharedItemReader). *@
+        <SharedItemCard Item="_item" Token="@Token" OwnerDisplayName="@_item.OwnerDisplayName" />
+        @foreach (var thing in inside)
+        {
+            <SharedItemCard Item="thing" Token="@Token" />
+        }
+        <div class="card shared-item-card">
+            @* No "Save to my account" here. There is no such thing as a share of a folder - it stays
+               the owner's own tab - and the button's promise is one read-only copy, where a folder
+               would hand over a page of them, unfiled. Being given the folder in Orbit is the other
+               half of what sharing one means, and is what this points at. *@
+            <p class="page-subtitle">@T["To keep what is in here, ask them to share the folder with you in Orbit."]</p>
+        </div>
+    }
     else
     {
-        <div class="card shared-item-card">
-            <div class="shared-item-header">
-                <span class="shared-item-kind">@DescribeKind(_item.ItemType)</span>
-                <h1>@_item.Title</h1>
-                @if (_item.Subtitle is not null)
-                {
-                    <p class="page-subtitle">@_item.Subtitle</p>
-                }
-                <p class="shared-item-owner">@T["Shared by"] @_item.OwnerDisplayName</p>
-            </div>
-
-            @if (_item.Lines.Count == 0)
-            {
-                <p class="page-subtitle">@T["Nothing in it yet."]</p>
-            }
-            else
-            {
-                <ul class="shared-item-lines">
-                    @* By position, because a numbered line's number is its place in the run above it -
-                       see NoteLineStyles.NumberOf, which the note's own pages count with too. *@
-                    @for (var index = 0; index < _item.Lines.Count; index++)
-                    {
-                        var line = _item.Lines[index];
-                        var number = NoteLineStyles.NumberOf(
-                            _item.Lines.Count, index, at => NoteLineStyles.Read(_item.Lines[at].Style));
-
-                        <li class="shared-item-line @(line.IsChecked || line.IsFailed ? "shared-item-line-checked" : "")">
-                            @if (line.IsChecklistItem)
-                            {
-                                @* Disabled rather than absent: the reader can see what is done - or what
-                                   was given up on - without being offered a control that would do
-                                   nothing. See TickBox, which is the same box where it can be pressed. *@
-                                <TickBox State="@Ticks.Read(line.IsChecked, line.IsFailed)" IsDisabled="true" />
-                            }
-                            @if (line.Table is { } table)
-                            {
-                                <NoteTableView Table="@table.ToTable()" />
-                            }
-                            else if (line.Picture is { } picture)
-                            {
-                                <NotePictureView Picture="@picture" Token="@Token" />
-                            }
-                            else if (line.Separator is { } separator)
-                            {
-                                <NoteSeparatorView Stamp="@separator.Stamp" Label="@T["Separator"]" />
-                            }
-                            else
-                            {
-                                @* .note-line on the words rather than on the row: that is where every
-                                   style is drawn, and a heading read through a link is the heading it
-                                   was written as. Only a note ever sends one - see
-                                   PublicSharedItemLineDto.Style. *@
-                                <span class="note-line @(line.IsChecklistItem ? "note-line-checklist" : null) shared-item-line-text"
-                                      data-style="@NoteLineStyles.Read(line.Style).ToString().ToLowerInvariant()"
-                                      data-number="@(number > 0 ? number.ToString() : null)"><MarkedText
-                                    Text="@line.Text" Marks="@line.MarksOf()" /></span>
-                            }
-                            @if (line.Detail is not null)
-                            {
-                                <span class="shared-item-line-detail">@line.Detail</span>
-                            }
-                        </li>
-                    }
-                </ul>
-            }
-
+        <SharedItemCard Item="_item" Token="@Token" OwnerDisplayName="@_item.OwnerDisplayName">
             <div class="shared-item-footer">
                 @if (_claimMessage is not null)
                 {
@@ -118,10 +71,9 @@
                     </AuthorizeView>
                 }
             </div>
-        </div>
+        </SharedItemCard>
     }
 </div>
-
 @code {
     [Parameter]
     public string Token { get; set; } = string.Empty;
@@ -178,12 +130,4 @@
         }
     }
 
-    private string DescribeKind(string itemType) => itemType switch
-    {
-        "Note" => T["Note"],
-        "TaskList" => T["Task list"],
-        "CalendarEvent" => T["Event"],
-        "Place" => T["Location"],
-        _ => T["Inventory"]
-    };
 }

@@ -78,6 +78,41 @@ public sealed class ChatDayDividerTests
         Assert.Equal("Today", divided.DayHeading);
     }
 
+    /// <summary>
+    /// And which one is the last, since that is the only message the thread says the time under - a
+    /// column of clock times down the side of every bubble is noise, and the question a conversation at
+    /// rest has to answer is how long ago the last thing was said (asked for 2026-09-20).
+    /// </summary>
+    [Fact]
+    public void Only_the_newest_message_shows_its_time()
+    {
+        var divided = Divide(At("2026-09-10 07:00"), At("2026-09-10 08:00"), At("2026-09-10 09:00"));
+
+        Assert.Equal([false, false, true], divided.Select(message => message.ShowsTime));
+        Assert.Equal([false, false, true], divided.Select(message => message.HasMeta));
+    }
+
+    /// <summary>
+    /// The last *message*. A group thread can end with somebody joining, and an announcement says
+    /// nothing about itself at all - marking that one would leave the thread with no time on it.
+    /// </summary>
+    [Fact]
+    public void An_announcement_at_the_end_does_not_take_the_time_with_it()
+    {
+        var spoken = new ReadableChatMessage(
+            IsMine: false, "…", At("2026-09-10 09:00"), IsEdited: false, IsWaitingToSend: false);
+        var joined = new ReadableChatMessage(
+            IsMine: false, null, At("2026-09-10 09:30"), IsEdited: false, IsWaitingToSend: false)
+        {
+            Announcement = "Ada joined"
+        };
+
+        var divided = ChatDays.Divide([spoken, joined], Now, Translations());
+
+        Assert.True(divided[0].ShowsTime);
+        Assert.False(divided[1].ShowsTime);
+    }
+
     private static IReadOnlyList<ReadableChatMessage> Divide(params DateTimeOffset[] sentAt)
         => ChatDays.Divide(
             [.. sentAt.Select(when => new ReadableChatMessage(

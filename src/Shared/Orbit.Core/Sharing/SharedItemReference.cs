@@ -22,5 +22,19 @@ public enum SharedItemType
     /// others: the value is stored as text, but a client that reads it as a number would turn every
     /// stored "Inventory" into something else if one were inserted in the middle.
     /// </summary>
-    Place
+    Place,
+
+    /// <summary>
+    /// A whole folder, and through it everything filed under it - see Orbit.Core.Folders.Folder. Asked
+    /// for on 2026-09-20: the two ways a single thing is handed on, applied to the tab it is under.
+    ///
+    /// The odd one out, and worth saying why. Every other value here names a thing somebody wrote; this
+    /// one names a *place things are in*, so a link to it shows each of them in turn rather than one
+    /// item (see PublicSharedItem.Items), and handing it on in chat is handing on each thing under it
+    /// with its own grant. A folder itself is never shared - it stays the owner's own tab, and the
+    /// recipient files what arrives wherever they like.
+    ///
+    /// Appended at the end, for the reason the comment above gives.
+    /// </summary>
+    Folder
 }

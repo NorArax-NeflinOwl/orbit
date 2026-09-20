@@ -160,6 +160,32 @@ public partial class MapPage : ContentPage, Orbit.Maui.Controls.ITitleMenu
 		=> PhoneMaps.Default.OpenAsync(
 			destination.Latitude, destination.Longitude, new MapLaunchOptions { Name = destination.Label });
 
+	/// <summary>
+	/// A finger anywhere on the map. Nothing on this screen answered one before: the only way out to a
+	/// map app was a pin's callout, which needs a pin, two taps and a label the platform is willing to
+	/// draw - so somebody pressing a spot to be taken there got nothing at all (reported 2026-09-20).
+	/// </summary>
+	private void OnMapTapped(object? sender, MapClickedEventArgs e) => OfferTheMapApp(
+		new MapPoint(string.Empty, null, e.Location.Latitude, e.Location.Longitude, IsMine: false));
+
+	/// <summary>
+	/// What a tapped spot offers: handing it to whatever this phone treats as Maps, which on Android is
+	/// Google Maps and is where somebody who has just pressed a place wants to end up.
+	///
+	/// A panel rather than leaving for the map app on the tap itself. A map is dragged and pinched with
+	/// the same finger, and a stray press that throws somebody out of Orbit is worse than one that does
+	/// nothing - and the panel is also what says which spot was caught, since a finger is wider than a
+	/// street.
+	/// </summary>
+	private void OfferTheMapApp(MapPoint point)
+		=> Menu.Show(
+			[
+				new Orbit.Mobile.Screens.ScreenMenuEntry(
+					_translations["Open in your map app"], () => _ = OpenInPhoneMapsAsync(point))
+			],
+			point.Label is { Length: > 0 } named ? named : point.Description,
+			Orbit.Mobile.Screens.MenuPlacement.FromTheFoot);
+
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
@@ -210,9 +236,16 @@ public partial class MapPage : ContentPage, Orbit.Maui.Controls.ITitleMenu
 				Address = point.Description,
 				Location = new SensorLocation(point.Latitude, point.Longitude)
 			};
-			// Tapping the callout a pin opens hands the point to the phone's map app, which is where
-			// somebody who has just found a friend's position wants to be: Orbit draws where it is, and
+			// One tap on the pin, rather than one to open its callout and another on the callout: the
+			// callout is the platform's own bubble, it needs a label the platform is willing to draw,
+			// and somebody who pressed a pin has already said which point they mean. What it offers is
+			// the same - handing the point to the phone's map app, since Orbit draws where it is and
 			// the map app is what knows how to get there.
+			pin.MarkerClicked += (_, clicked) =>
+			{
+				clicked.HideInfoWindow = true;
+				OfferTheMapApp(point);
+			};
 			pin.InfoWindowClicked += async (_, _) => await OpenInPhoneMapsAsync(point);
 			PositionsMap.Pins.Add(pin);
 		}

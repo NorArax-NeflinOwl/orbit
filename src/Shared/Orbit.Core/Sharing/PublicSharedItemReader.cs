@@ -1,4 +1,5 @@
 using System.Globalization;
+using Orbit.Core.Folders;
 using Orbit.Core.Calendar;
 using Orbit.Core.Inventories;
 using Orbit.Core.Notes;
@@ -24,6 +25,7 @@ public sealed class PublicSharedItemReader
     private readonly IInventoryItemRepository _inventoryItemRepository;
     private readonly IPlaceRepository _placeRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IFolderRepository _folderRepository;
 
     public PublicSharedItemReader(
         INoteRepository noteRepository,
@@ -32,7 +34,8 @@ public sealed class PublicSharedItemReader
         IInventoryRepository inventoryRepository,
         IInventoryItemRepository inventoryItemRepository,
         IPlaceRepository placeRepository,
-        IUserRepository userRepository)
+        IUserRepository userRepository,
+        IFolderRepository folderRepository)
     {
         _noteRepository = noteRepository;
         _taskRepository = taskRepository;
@@ -41,6 +44,7 @@ public sealed class PublicSharedItemReader
         _inventoryItemRepository = inventoryItemRepository;
         _placeRepository = placeRepository;
         _userRepository = userRepository;
+        _folderRepository = folderRepository;
     }
 
     /// <summary>
@@ -72,6 +76,13 @@ public sealed class PublicSharedItemReader
                     ? (place.UserId, place.IsPrivate)
                     : null,
                 ownerUserId),
+            // A folder has no privacy of its own - it is a tab, and what is sealed inside it is left out
+            // when the link is read (see ReadFolderAsync). Owning it is the whole question here.
+            SharedItemType.Folder => IsOwnedAndPublishable(
+                await _folderRepository.GetByIdAsync(ownerUserId, itemId, cancellationToken) is { } folder
+                    ? (folder.UserId, false)
+                    : null,
+                ownerUserId),
             _ => IsOwnedAndPublishable(
                 await _inventoryRepository.GetByIdAsync(ownerUserId, itemId, cancellationToken) is { } inventory
                     ? (inventory.UserId, inventory.IsPrivate)
@@ -95,8 +106,81 @@ public sealed class PublicSharedItemReader
             SharedItemType.TaskList => await ReadTaskListAsync(link, ownerDisplayName, cancellationToken),
             SharedItemType.CalendarEvent => await ReadCalendarEventAsync(link, ownerDisplayName, cancellationToken),
             SharedItemType.Place => await ReadPlaceAsync(link, ownerDisplayName, cancellationToken),
+            SharedItemType.Folder => await ReadFolderAsync(link, ownerDisplayName, cancellationToken),
             _ => await ReadInventoryAsync(link, ownerDisplayName, cancellationToken)
         };
+    }
+
+    /// <summary>
+    /// A folder, and through it everything filed under it - each thing projected the way its own link
+    /// would show it, so one page reads as a folder's worth of notes or lists one after another.
+    ///
+    /// **What is sealed is left out**, and so is what has been put away: a link is read by anybody who
+    /// has it, and the archive is not what the owner meant to hand over. A folder that has since been
+    /// emptied still opens, and says so by having nothing in it - the alternative is a link that reads
+    /// as revoked because the owner tidied up.
+    ///
+    /// The calendar's folders are here too, although an event is never sealed: a folder is a folder.
+    /// </summary>
+    private async Task<PublicSharedItem?> ReadFolderAsync(
+        PublicShareLink link, string ownerDisplayName, CancellationToken cancellationToken)
+    {
+        var folder = await _folderRepository.GetByIdAsync(link.OwnerUserId, link.ItemId, cancellationToken);
+        if (folder is null || folder.UserId != link.OwnerUserId)
+        {
+            return null;
+        }
+
+        var items = await WhatIsFiledUnderAsync(folder, ownerDisplayName, cancellationToken);
+        var subtitle = items.Count == 1 ? "1 item" : $"{items.Count} items";
+        return new PublicSharedItem(
+            SharedItemType.Folder, folder.Name, subtitle, [], ownerDisplayName, folder.UpdatedAtUtc, items);
+    }
+
+    /// <inheritdoc cref="ReadFolderAsync"/>
+    private async Task<IReadOnlyList<PublicSharedItem>> WhatIsFiledUnderAsync(
+        Folder folder, string ownerDisplayName, CancellationToken cancellationToken)
+    {
+        switch (folder.Scope)
+        {
+            case FolderScope.Notes:
+                var notes = await _noteRepository.GetAllAsync(folder.UserId, updatedSinceUtc: null, cancellationToken);
+                return
+                [
+                    .. notes
+                        .Where(note => note.FolderId == folder.Id && !note.IsPrivate && !note.IsArchived)
+                        .Select(note => ProjectNote(note, ownerDisplayName))
+                ];
+            case FolderScope.Tasks:
+                var taskLists = await _taskRepository.GetAllAsync(folder.UserId, updatedSinceUtc: null, cancellationToken);
+                return
+                [
+                    .. taskLists
+                        .Where(taskList => taskList.FolderId == folder.Id && !taskList.IsPrivate && !taskList.IsArchived)
+                        .Select(taskList => ProjectTaskList(taskList, ownerDisplayName))
+                ];
+            case FolderScope.Calendar:
+                var events = await _calendarEventRepository.GetAllAsync(folder.UserId, updatedSinceUtc: null, cancellationToken);
+                return
+                [
+                    .. events
+                        .Where(calendarEvent => calendarEvent.FolderId == folder.Id && !calendarEvent.IsArchived)
+                        .Select(calendarEvent => ProjectCalendarEvent(calendarEvent, ownerDisplayName))
+                ];
+            default:
+                var inventories = await _inventoryRepository.GetAllAsync(folder.UserId, updatedSinceUtc: null, cancellationToken);
+                var shelves = new List<PublicSharedItem>();
+                foreach (var inventory in inventories
+                    .Where(inventory => inventory.FolderId == folder.Id && !inventory.IsPrivate && !inventory.IsArchived))
+                {
+                    shelves.Add(ProjectInventory(
+                        inventory,
+                        await _inventoryItemRepository.GetAllAsync(inventory.Id, cancellationToken),
+                        ownerDisplayName));
+                }
+
+                return shelves;
+        }
     }
 
     private async Task<PublicSharedItem?> ReadNoteAsync(PublicShareLink link, string ownerDisplayName, CancellationToken cancellationToken)
@@ -109,6 +193,15 @@ public sealed class PublicSharedItemReader
             return null;
         }
 
+        return ProjectNote(note, ownerDisplayName);
+    }
+
+    /// <summary>
+    /// One note as a link shows it. Split from the read above so a folder's link can show a note it
+    /// already has in hand without fetching it a second time - see ReadFolderAsync.
+    /// </summary>
+    private static PublicSharedItem ProjectNote(Note note, string ownerDisplayName)
+    {
         var lines = note.Content
             .Select(line => new PublicSharedItemLine(
                 line.Text, line.IsChecklistItem, line.IsChecked, Detail: null, line.IsFailed, line.Style,
@@ -127,6 +220,12 @@ public sealed class PublicSharedItemReader
             return null;
         }
 
+        return ProjectTaskList(taskList, ownerDisplayName);
+    }
+
+    /// <inheritdoc cref="ProjectNote"/>
+    private static PublicSharedItem ProjectTaskList(TaskList taskList, string ownerDisplayName)
+    {
         var lines = taskList.Items
             .Select(item => new PublicSharedItemLine(
                 item.Description, IsChecklistItem: true, item.IsCompleted, FormatDueDate(item.DueDateUtc), item.IsFailed))
@@ -149,6 +248,12 @@ public sealed class PublicSharedItemReader
             return null;
         }
 
+        return ProjectCalendarEvent(calendarEvent, ownerDisplayName);
+    }
+
+    /// <inheritdoc cref="ProjectNote"/>
+    private static PublicSharedItem ProjectCalendarEvent(CalendarEvent calendarEvent, string ownerDisplayName)
+    {
         var details = calendarEvent.Details;
         var lines = new List<PublicSharedItemLine>();
         if (!string.IsNullOrWhiteSpace(details.Description))
@@ -177,6 +282,13 @@ public sealed class PublicSharedItemReader
         }
 
         var items = await _inventoryItemRepository.GetAllAsync(inventory.Id, cancellationToken);
+        return ProjectInventory(inventory, items, ownerDisplayName);
+    }
+
+    /// <inheritdoc cref="ProjectNote"/>
+    private static PublicSharedItem ProjectInventory(
+        Inventory inventory, IReadOnlyList<InventoryItem> items, string ownerDisplayName)
+    {
         var lines = items
             .Select(item => new PublicSharedItemLine(
                 item.Name, IsChecklistItem: false, IsChecked: false,

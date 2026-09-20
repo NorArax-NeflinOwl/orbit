@@ -2286,6 +2286,10 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("character varying(16)")
                         .HasColumnName("OS_U_PRIVATEKEYWRAPNONCEBASE64");
 
+                    b.Property<string>("PrivatePinHash")
+                        .HasColumnType("text")
+                        .HasColumnName("OS_U_PRIVATEPINHASH");
+
                     b.Property<string>("PublicKeyBase64")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")

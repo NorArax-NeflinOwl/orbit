@@ -42,8 +42,19 @@ public static class FolderTabRow
         // A folder somebody took off the dashboard is not a tab there - see
         // DashboardCardPreferences.IsFolderShown. Only there: the page the folder belongs to keeps
         // drawing it, because that is where the folder is for.
-        var made = folders.FoldersOn(page)
-            .Where(folder => page != FolderPage.Dashboard || cardPreferences.IsFolderShown(folder.Id))
+        var shown = folders.FoldersOn(page)
+            .Where(folder => page != FolderPage.Dashboard || cardPreferences.IsFolderShown(folder.Id));
+
+        // And on the dashboard one tab per name, not one per folder. A folder holds one kind of thing,
+        // so "Home" on the task lists and "Home" on the inventories are two stored folders; here, where
+        // both kinds are drawn side by side, they are one answer to "show me what is at home". Two
+        // identical tabs, each showing half of it, is what the user found on 2026-09-20. The first of
+        // them stands for the rest - see FolderState.FoldersCalledTheSameAs and Dashboard.IsUnder,
+        // which reads every card of that name under it.
+        var made = (page == FolderPage.Dashboard
+                ? shown.GroupBy(folder => folder.Name.Trim(), StringComparer.CurrentCultureIgnoreCase)
+                    .Select(sameName => sameName.First())
+                : shown)
             .Select(folder => FolderKey.Of(folder.Id));
 
         return

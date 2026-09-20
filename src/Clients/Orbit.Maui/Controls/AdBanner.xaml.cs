@@ -1,7 +1,9 @@
+using Microsoft.Extensions.DependencyInjection;
 using Orbit.Core.Advertising;
 using Orbit.Mobile.Advertising;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Screens;
 
 namespace Orbit.Maui.Controls;
 
@@ -29,12 +31,35 @@ public partial class AdBanner : ContentView
 
     private readonly HouseAd? _advert = HouseAds.ForSlotOnAPhone(Slot);
 
+    /// <summary>
+    /// Whether the keyboard is up, which this bar stands aside for - see <see cref="IsShown"/>. Held
+    /// rather than asked for each time, so the bar can follow it as it changes.
+    /// </summary>
+    private readonly SoftKeyboardState? _keyboard =
+        IPlatformApplication.Current?.Services.GetService<SoftKeyboardState>();
+
     public AdBanner()
     {
         InitializeComponent();
+
+        if (_keyboard is not null)
+        {
+            _keyboard.PropertyChanged += (_, _) => OnPropertyChanged(nameof(IsShown));
+        }
     }
 
     public bool HasAdvert => _advert is not null;
+
+    /// <summary>
+    /// Whether the bar is on screen: when there is an advert to show, and the keyboard is away.
+    ///
+    /// The bar sits across the foot of every screen, which is exactly where a keyboard opens - so
+    /// writing anything on a phone meant reading half a form with an advert over the rest of it, and on
+    /// the calendar the advert covered the date and time of the event being typed in. Reported
+    /// 2026-09-20. It comes back the moment the keyboard is put away; nothing about which advert is
+    /// shown changes, so the reader is not handed a different one for having typed something.
+    /// </summary>
+    public bool IsShown => HasAdvert && _keyboard?.IsUp != true;
 
     public string Title => Translated(_advert?.Title);
 

@@ -36,6 +36,9 @@ else
 {
 @* Two panels: the form on the left, which scrolls, and the panel on the right, which does not - see
    EditorRail. On a narrow screen the right one becomes a bar along the foot of the window. *@
+@* A sealed inventory is behind the account's PIN here as well as on the tab it is under - see
+   BehindThePin, and TaskEditor, which carries the same wrapper for the same reason. *@
+<BehindThePin Applies="_formModel.IsPrivate" OnGaveUp="LeaveTheSealedInventory">
 <div class="editor-page">
 <div class="editor-page-body">
 
@@ -47,6 +50,15 @@ else
     @if (_isShared)
     {
         <p class="shared-note-banner">@T["Shared by"]@Space<strong>@_sharedByUserName</strong> - @SharedAccessDescription.</p>
+        @* Under the banner, as it is on a note's form, a task list's and an event's. The shelf was the
+           one shared thing with no way to ask, although the owner's side has always known how to
+           answer for one - the "_ =>" branch of Chat.razor's BuildEditAccessRequestNotice is this. *@
+        @if (_access.CanAskToEdit && _originalOwnerUserId is { } ownerUserId)
+        {
+            <RequestEditAccessButton ItemType="Inventory" ItemId="InventoryId!.Value" ItemTitle="@_formModel.Name"
+                                     OwnerUserId="ownerUserId" OwnUserId="_ownUserId"
+                                     OwnerDisplayName="@(_sharedByUserName ?? "them")" />
+        }
     }
 
     @* Submitting this form adds a row rather than saving it. Enter is what somebody filling a shelf
@@ -453,6 +465,7 @@ else
     </ChildContent>
 </EditorRail>
 </div>
+</BehindThePin>
 
 @if (_isSharingOpen && CanOfferSharing && _inventory is { } inventory)
 {
@@ -515,6 +528,12 @@ else
     /// what every route here did before and is still right for somebody who typed the address.
     /// </summary>
     private string WhenFinished => ReturnTo.Or(ComeBackTo, "/inventory");
+
+    /// <summary>
+    /// Where the PIN's question leads when it cannot be answered: the page of shelves, which is where
+    /// everything else is. See BehindThePin.
+    /// </summary>
+    private void LeaveTheSealedInventory() => NavigationManager.NavigateTo("/inventory");
 
     /// <summary>Absent on "/inventory/new" - see IsNewInventory.</summary>
     private bool IsNewInventory => InventoryId is null;
@@ -602,6 +621,12 @@ else
     private SharedItemAccess _access = new(IsShared: false, ShareAccessLevel.CanEdit);
 
     /// <summary>
+    /// Whose shelf this is, where it is not this reader's. Who to ask when asking to be allowed to
+    /// change it - see RequestEditAccessButton, and TaskEditor, which holds it for the same reason.
+    /// </summary>
+    private Guid? _originalOwnerUserId;
+
+    /// <summary>
     /// The inventory as it was read, kept whole for the share panel - which asks it who owns it and at
     /// what level this reader holds it. Null while a new one is still being named.
     /// </summary>
@@ -682,6 +707,7 @@ else
             _inventory = inventory;
             _isShared = inventory.IsShared;
             _sharedByUserName = inventory.SharedByUserName;
+            _originalOwnerUserId = inventory.OriginalOwnerUserId;
             _access = SharedItemAccess.For(inventory.IsShared, inventory.AccessLevel);
             _isReadOnly = !_access.CanEdit;
 

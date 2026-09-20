@@ -29,6 +29,9 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
     private static readonly Guid TaskListId = Guid.NewGuid();
     private static readonly Guid EventId = Guid.NewGuid();
 
+    /// <summary>Every appointment the page asked the calendar to create - see RegisterApiClients.</summary>
+    private readonly List<string> _appointmentsWritten = [];
+
     public TaskEditorLocationTests()
     {
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
@@ -108,6 +111,27 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
         cut.FindAll("button").First(button => button.TextContent.Contains("Detach from the event")).Click();
 
         Assert.DoesNotContain("Detach from the event", cut.Markup);
+    }
+
+    /// <summary>
+    /// And letting go of it leaves one appointment in the calendar, not two. Detaching used to clear the
+    /// link and leave the entry a Calendar one - which is exactly what the save makes an event for - so
+    /// the next save put a second appointment beside the one just released. An entry that is no longer
+    /// an event is a line of work like any other, and keeps the event's start as the day it is owed by.
+    /// </summary>
+    [Fact]
+    public void Detaching_does_not_leave_a_second_appointment_behind()
+    {
+        RegisterApiClients(Item("Dentist", kind: "Calendar", linkedCalendarEventId: EventId));
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        cut.FindAll("button").First(button => button.TextContent.Contains("Detach from the event")).Click();
+        ClickButtonSaying(cut, "Save");
+
+        Assert.Empty(_appointmentsWritten);
+        // It is an ordinary entry now, so the questions an ordinary entry is asked are back.
+        Assert.Contains("Due date", cut.Markup);
     }
 
     [Fact]
@@ -309,6 +333,14 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
 
             if (path.Contains("/calendar", StringComparison.Ordinal))
             {
+                // Every appointment written from here, so a test can say that saving made one - or that
+                // it made none. See Detaching_does_not_leave_a_second_appointment_behind.
+                if (request.Method == HttpMethod.Post)
+                {
+                    _appointmentsWritten.Add(path);
+                    return Ok(EventId);
+                }
+
                 return Ok(new[] { CalendarEvent() });
             }
 

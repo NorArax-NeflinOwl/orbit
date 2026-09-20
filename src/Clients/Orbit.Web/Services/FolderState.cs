@@ -169,6 +169,27 @@ public sealed class FolderState
             : _folders.FirstOrDefault(stored => stored.Id == folder.FolderId)?.Name ?? string.Empty;
 
     /// <summary>
+    /// Every folder that goes by the same name as this one, itself included - empty for an id this
+    /// browser has no folder for.
+    ///
+    /// A folder belongs to one kind of thing (see FolderScope), so "Home" on the task lists and "Home"
+    /// on the inventories are two stored folders rather than one seen twice. That is right on their own
+    /// pages and wrong on a page that draws several kinds side by side: the dashboard drew two
+    /// identical tabs, and pressing either showed half of what the reader meant by "home". There they
+    /// are read as one tab - see Dashboard.razor, which is the only caller.
+    ///
+    /// Compared trimmed and without case, the way a reader reads them: "Home" and "home " are one name.
+    /// </summary>
+    public IReadOnlyList<FolderDto> FoldersCalledTheSameAs(Guid folderId)
+        => _folders.FirstOrDefault(folder => folder.Id == folderId) is { } named
+            ? [.. _folders.Where(folder => GoByTheSameName(folder, named))]
+            : [];
+
+    /// <inheritdoc cref="FoldersCalledTheSameAs"/>
+    private static bool GoByTheSameName(FolderDto folder, FolderDto other)
+        => string.Equals(folder.Name.Trim(), other.Name.Trim(), StringComparison.CurrentCultureIgnoreCase);
+
+    /// <summary>
     /// Which kind of thing a folder somebody made holds - see FolderScope. Null for an id this browser
     /// has no folder for, which is what a stale one reads as.
     /// </summary>
@@ -176,6 +197,6 @@ public sealed class FolderState
         => _folders.FirstOrDefault(folder => folder.Id == folderId) is { } stored ? ScopeOf(stored) : null;
 
     /// <summary>A scope this browser doesn't recognise reads as Tasks - the same fallback the server applies.</summary>
-    private static FolderScope ScopeOf(FolderDto folder)
+    public static FolderScope ScopeOf(FolderDto folder)
         => Enum.TryParse<FolderScope>(folder.Scope, out var scope) ? scope : FolderScope.Tasks;
 }

@@ -29,7 +29,6 @@ public partial class NotesPage : ContentPage, ITitleMenu
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 		_keptInStep = new ScreenKeptInStep(syncState, () => _viewModel.ShowLocalNotesAsync(CancellationToken.None));
-		AddButton.Command = NewItemForm.Toggling(AddRow, AddField);
 		_nameAFolder = NewItemForm.Toggling(FolderRow, FolderField);
 	}
 

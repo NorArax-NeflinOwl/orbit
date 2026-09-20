@@ -155,6 +155,76 @@ public sealed class CalendarTests : OrbitTestContext
         Assert.Equal("Ginekolog: wizyta kontrolna", chip.GetAttribute("title"));
     }
 
+    /// <summary>
+    /// Opening an appointment says where it was opened from - the view being read and the day it was
+    /// built around - so leaving it comes back to that rather than to the calendar in general.
+    ///
+    /// Every way out of this page carried plain "/calendar", and a page opened that way starts on today
+    /// in the month: somebody who stepped forward, opened an appointment and came back landed in
+    /// whatever month it is now, with what they were reading nowhere on screen (reported 2026-09-20).
+    /// </summary>
+    [Fact]
+    public void Opening_an_event_says_which_day_it_was_opened_from()
+    {
+        var nextMonthNoon = DateTime.SpecifyKind(
+            DateTime.Today.AddMonths(1).AddHours(12), DateTimeKind.Local);
+        RegisterCalendarApiClient([CreateTimedEvent(nextMonthNoon, nextMonthNoon.AddHours(1), "Dentist")]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+
+        var cut = RenderComponent<Calendar>();
+        // Forward a month, so "where the reader is" and "today" are two different days. The card in the
+        // list beside the grid is what opens an appointment - a chip on a month cell is a label, and
+        // the cell itself opens the day.
+        cut.Find(".calendar-visualization-toolbar-navigation").QuerySelectorAll("button")
+            .Single(button => button.TextContent.Trim() == "›")
+            .Click();
+        cut.Find(".item-card-name").Click();
+
+        var landedOn = Uri.UnescapeDataString(navigationManager.Uri);
+        Assert.Contains("returnTo=", landedOn, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            DateOnly.FromDateTime(DateTime.Today.AddMonths(1)).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+            landedOn);
+    }
+
+    /// <summary>
+    /// An appointment somebody else shared is marked on the grid, and says whose it is when it is
+    /// pointed at. The list beside the grid has always carried "Shared by anna" on its card; the grid
+    /// said nothing at all, so a shared appointment read as one of the reader's own (reported
+    /// 2026-09-20). A mark rather than the sentence, because a chip is one line in a seventh of a week.
+    /// </summary>
+    [Fact]
+    public void An_event_somebody_shared_is_marked_on_the_month_grid()
+    {
+        var todayNoon = DateTime.SpecifyKind(DateTime.Today.AddHours(14).AddMinutes(30), DateTimeKind.Local);
+        var shared = CreateTimedEvent(todayNoon, todayNoon.AddHours(1), "Dentist") with
+        {
+            IsShared = true,
+            SharedByUserName = "anna"
+        };
+        RegisterCalendarApiClient([shared]);
+
+        var cut = RenderComponent<Calendar>();
+
+        var chip = cut.Find(".calendar-event-chip");
+        Assert.Contains("calendar-chip-shared", chip.ClassName);
+        Assert.Contains("anna", chip.GetAttribute("title"));
+    }
+
+    /// <summary>And the reader's own carries neither, which is what makes the mark worth anything.</summary>
+    [Fact]
+    public void An_event_of_your_own_is_not_marked_as_shared()
+    {
+        var todayNoon = DateTime.SpecifyKind(DateTime.Today.AddHours(14).AddMinutes(30), DateTimeKind.Local);
+        RegisterCalendarApiClient([CreateTimedEvent(todayNoon, todayNoon.AddHours(1), "Dentist")]);
+
+        var cut = RenderComponent<Calendar>();
+
+        var chip = cut.Find(".calendar-event-chip");
+        Assert.DoesNotContain("calendar-chip-shared", chip.ClassName);
+        Assert.Equal("Dentist", chip.GetAttribute("title"));
+    }
+
     [Fact]
     public void Todays_task_with_a_due_date_shows_up_as_a_task_chip_in_the_month_view()
     {
@@ -535,10 +605,11 @@ public sealed class CalendarTests : OrbitTestContext
     }
 
     /// <summary>
-    /// The grid gives the same answer as the list: what has been done leaves it, and the same menu
-    /// brings it back. It comes back struck through and greyed - an appointment whose entry is ticked
-    /// off had no mark at all before, because an event has nothing to tick and only the entry behind it
-    /// does, while a finished *deadline* has been struck through there all along.
+    /// The grid starts from the same answer as the list - what has been done leaves it - but is asked
+    /// separately, from its own menu beside the view switch. It comes back struck through and greyed:
+    /// an appointment whose entry is ticked off had no mark at all before, because an event has nothing
+    /// to tick and only the entry behind it does, while a finished *deadline* has been struck through
+    /// there all along.
     /// </summary>
     [Fact]
     public void A_ticked_off_appointment_leaves_the_month_grid_until_everything_is_asked_for()
@@ -557,7 +628,7 @@ public sealed class CalendarTests : OrbitTestContext
         var chip = Assert.Single(cut.FindAll(".calendar-event-chip"));
         Assert.Contains("Haircut", chip.TextContent);
 
-        ShowEverything(cut);
+        ShowWhatIsDoneOnTheGrid(cut);
 
         var chips = cut.FindAll(".calendar-event-chip");
         Assert.Equal(2, chips.Count);
@@ -581,8 +652,39 @@ public sealed class CalendarTests : OrbitTestContext
         var chip = Assert.Single(cut.FindAll(".calendar-task-chip"));
         Assert.Contains("Shopping", chip.TextContent);
 
+        ShowWhatIsDoneOnTheGrid(cut);
+
+        Assert.Equal(2, cut.FindAll(".calendar-task-chip").Count);
+    }
+
+    /// <summary>
+    /// And the two switches are separate, which is what the user asked for on 2026-09-20: one menu used
+    /// to govern both, so a reader who wanted finished work in the list got it drawn over the month as
+    /// well. Asking the list changes nothing on the grid, and asking the grid changes nothing in the
+    /// list.
+    /// </summary>
+    [Fact]
+    public void The_list_and_the_grid_are_asked_for_finished_work_separately()
+    {
+        Services.AddSingleton(new CalendarListOrder(new StubJSRuntime()));
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        RegisterCalendarApiClient([]);
+        RegisterTasksApiClient([
+            CreateTaskListWithDueItem(midMonth, "Shopping"),
+            TickedOff(CreateTaskListWithDueItem(midMonth, "Laundry"))]);
+
+        var cut = RenderComponent<Calendar>();
+
         ShowEverything(cut);
 
+        Assert.Contains("Laundry", ListedNames(cut));
+        var chip = Assert.Single(cut.FindAll(".calendar-task-chip"));
+        Assert.Contains("Shopping", chip.TextContent);
+
+        ShowEverything(cut);
+        ShowWhatIsDoneOnTheGrid(cut);
+
+        Assert.DoesNotContain("Laundry", ListedNames(cut));
         Assert.Equal(2, cut.FindAll(".calendar-task-chip").Count);
     }
 
@@ -645,9 +747,9 @@ public sealed class CalendarTests : OrbitTestContext
 
         cut.Find(".item-card-name").Click();
 
-        Assert.EndsWith(
-            $"/tasks/{taskList.Id}/items/{taskList.Items[0].Id}?{ReturnTo.QueryName}=%2Fcalendar",
-            navigationManager.Uri);
+        // The return address says which day and view it was opened from - see HereAndNow.
+        Assert.Contains($"/tasks/{taskList.Id}/items/{taskList.Items[0].Id}?", navigationManager.Uri);
+        Assert.Contains($"{ReturnTo.QueryName}=", navigationManager.Uri);
     }
 
     /// <summary>The guard on both: an appointment nobody has ticked off is listed as it always was.</summary>
@@ -674,10 +776,29 @@ public sealed class CalendarTests : OrbitTestContext
         => new(DateTime.Today.Year, DateTime.Today.Month, DateTime.DaysInMonth(DateTime.Today.Year, DateTime.Today.Month));
 
     private static void ShowEverything(IRenderedFragment cut)
+        => PressMenuEntry(cut, ".page-header-actions", "Everything");
+
+    /// <summary>
+    /// The grid's own entry, in the menu beside the view switch rather than in the page header's. The
+    /// two are separate switches - see Calendar.GridShowsWhatIsDone.
+    /// </summary>
+    private static void ShowWhatIsDoneOnTheGrid(IRenderedFragment cut)
+        => PressMenuEntry(cut, ".calendar-visualization-toolbar-views", "already done");
+
+    /// <summary>
+    /// Presses one entry of a menu, opening it first if it is shut. Both of these menus hold settings
+    /// and so stay open behind the entry - pressing the trigger again would close them, which is how a
+    /// test that asks for the same thing twice used to find an empty menu.
+    /// </summary>
+    private static void PressMenuEntry(IRenderedFragment cut, string within, string text)
     {
-        cut.Find(".page-header-actions .overflow-menu-trigger").Click();
-        cut.FindAll(".page-header-actions .avatar-dropdown-item")
-            .First(entry => entry.TextContent.Contains("Everything", StringComparison.Ordinal))
+        if (cut.FindAll($"{within} .overflow-menu-dropdown").Count == 0)
+        {
+            cut.Find($"{within} .overflow-menu-trigger").Click();
+        }
+
+        cut.FindAll($"{within} .avatar-dropdown-item")
+            .First(entry => entry.TextContent.Contains(text, StringComparison.Ordinal))
             .Click();
     }
 
@@ -753,9 +874,9 @@ public sealed class CalendarTests : OrbitTestContext
 
         cut.Find(".item-card-name").Click();
 
-        Assert.EndsWith(
-            $"/tasks/{taskList.Id}/items/{taskList.Items[0].Id}?{ReturnTo.QueryName}=%2Fcalendar",
-            navigationManager.Uri);
+        // The return address says which day and view it was opened from - see HereAndNow.
+        Assert.Contains($"/tasks/{taskList.Id}/items/{taskList.Items[0].Id}?", navigationManager.Uri);
+        Assert.Contains($"{ReturnTo.QueryName}=", navigationManager.Uri);
         Assert.DoesNotContain("/calendar/", navigationManager.Uri);
     }
 
@@ -772,7 +893,8 @@ public sealed class CalendarTests : OrbitTestContext
 
         cut.Find(".item-card-name").Click();
 
-        Assert.EndsWith($"/calendar/{calendarEvent.Id}", navigationManager.Uri);
+        // With the day and view it was opened from on the end of it - see HereAndNow.
+        Assert.Contains($"/calendar/{calendarEvent.Id}?", navigationManager.Uri);
     }
 
     /// <summary>
@@ -834,6 +956,32 @@ public sealed class CalendarTests : OrbitTestContext
         SortBy(cut, "Alphabetical");
 
         Assert.Equal(["Alpha", "Zulu"], ListedNames(cut));
+    }
+
+    /// <summary>
+    /// An event somebody shared with this reader is taken off their own calendar rather than deleted -
+    /// the server drops their grant and the owner keeps the event. It used to offer nothing at all: a
+    /// shared event cannot be archived either, and Delete is only offered once something has been, so
+    /// one that arrived could not be got rid of by any press on this page.
+    /// </summary>
+    [Fact]
+    public void A_shared_event_is_taken_off_your_own_calendar_rather_than_deleted()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        RegisterCalendarApiClient([
+            CreateTimedEvent(midMonth, midMonth.AddHours(1), "Their meeting") with
+            {
+                IsShared = true,
+                SharedByUserName = "bob"
+            }]);
+        RegisterTasksApiClient([]);
+        var cut = RenderComponent<Calendar>();
+
+        cut.FindAll(".item-card .overflow-menu-trigger").First().Click();
+
+        var offered = cut.Find(".item-card-menu").TextContent;
+        Assert.Contains("Remove from my list", offered);
+        Assert.DoesNotContain("Delete", offered);
     }
 
     private static void SortBy(IRenderedFragment cut, string label)

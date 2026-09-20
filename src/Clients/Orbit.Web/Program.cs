@@ -83,6 +83,10 @@ builder.Services.AddScoped<NotePictureSource>();
 // everything else here, which in a WebAssembly app is the life of the tab: a draft is unfinished
 // writing, and it goes when the tab does.
 builder.Services.AddScoped<NoteDrafts>();
+// Whether this reader has answered the PIN in front of what is private. Scoped like the drafts above,
+// and for the same reason: in a WebAssembly app that is the life of the tab, which is exactly how long
+// "once per session" lasts - see PrivatePinGate.
+builder.Services.AddScoped<PrivatePinGate>();
 builder.Services.AddHttpClient<TasksApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<InventoryApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))

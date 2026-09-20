@@ -55,7 +55,7 @@
                                    "which day", and the day view is where a particular entry is picked
                                    out. A button inside a clickable cell also gave two targets a
                                    keyboard had to tell apart for one thing. *@
-                                <span class="calendar-event-chip @DoneClass(calendarEvent.Id)" title="@calendarEvent.Details.Title"
+                                <span class="calendar-event-chip @DoneClass(calendarEvent.Id) @SharedClass(calendarEvent)" title="@ChipTitle(calendarEvent)"
                                       style="border-left-color:@EventColor(calendarEvent);">
                                     <span class="calendar-event-chip-title">@RecurringPrefix(calendarEvent)@Shortened(calendarEvent.Details.Title)</span>
                                 </span>
@@ -131,6 +131,25 @@
     public IReadOnlySet<Guid> TickedOffEventIds { get; set; } = new HashSet<Guid>();
 
     /// <summary>Whether this appointment reads as done - see TickedOffEventIds.</summary>
+    /// <summary>
+    /// A mark on the chip for an event somebody else shared - see .calendar-chip-shared, which draws it
+    /// after the name. The list beside the grid has always said "Shared by Anna" on its own card; the
+    /// grid said nothing at all, so a shared appointment read as one of the reader's own
+    /// (reported 2026-09-20). A mark rather than a name because a chip is one line in a seventh of a
+    /// week - the whole sentence is on its title attribute.
+    /// </summary>
+    private static string SharedClass(CalendarEventDto calendarEvent)
+        => calendarEvent.IsShared ? "calendar-chip-shared" : string.Empty;
+
+    /// <summary>
+    /// What the chip says when it is pointed at: its whole name, and who shared it where somebody did.
+    /// The mark beside the name says a chip is somebody else's; this is where it says whose.
+    /// </summary>
+    private string ChipTitle(CalendarEventDto calendarEvent)
+        => calendarEvent.IsShared
+            ? calendarEvent.Details.Title + " - " + T.Format("Shared by {0}", calendarEvent.SharedByUserName)
+            : calendarEvent.Details.Title;
+
     private string DoneClass(Guid eventId) => TickedOffEventIds.Contains(eventId) ? "calendar-chip-done" : string.Empty;
 
     /// <summary>

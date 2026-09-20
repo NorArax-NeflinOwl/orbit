@@ -27,8 +27,10 @@ public sealed record OrbitDocumentLinks(
             new Uri(webBaseAddress, "privacy").AbsoluteUri,
             new Uri(webBaseAddress, "security").AbsoluteUri,
             new Uri(webBaseAddress, "docs").AbsoluteUri,
-            // No page of its own on the web: it is a dialog opened from the footer, and the address
-            // that opens it is the client's own front page. The switch behind it is stored on the
-            // account, so answering it in a browser answers it for the phone as well.
-            webBaseAddress.AbsoluteUri);
+            // Nothing: the phone asks it itself, on the account screen. It used to open the web
+            // client's front page - the dialog behind that question lives in the footer there, and a
+            // link to the front page is a link to the dashboard, which is what pressing this row
+            // actually did (reported 2026-09-20). The answer is stored on the account either way, so
+            // the two clients are asking one question.
+            DoNotShare: null);
 }
