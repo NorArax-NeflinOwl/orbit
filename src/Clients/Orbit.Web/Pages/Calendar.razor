@@ -478,6 +478,19 @@
     private static CalendarViewMode? ViewModeNamed(string? name)
         => Enum.TryParse<CalendarViewMode>(name, ignoreCase: true, out var viewMode) ? viewMode : null;
 
+    /// <summary>
+    /// This page as it stands, for anything that leads away from it to come back to - the view being
+    /// read and the day it is built around, in the query string this page already obeys.
+    ///
+    /// Plain "/calendar" was what every way out carried, and a page opened that way starts on today in
+    /// the month: somebody who stepped forward to December, opened an appointment and came back landed
+    /// in whatever month it is now, with what they were reading nowhere on screen (reported
+    /// 2026-09-20).
+    /// </summary>
+    private string HereAndNow()
+        => $"/calendar?view={_viewState.ViewMode.ToString().ToLowerInvariant()}" +
+            $"&on={_viewState.ReferenceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
+
     protected override async Task OnInitializedAsync()
     {
         Logger.LogInformation("Calendar page opened, loading events");
@@ -590,7 +603,7 @@
     private void GoToEditEvent(Guid eventId)
     {
         Logger.LogInformation("User clicked 'Edit' for calendar event {EventId}", eventId);
-        NavigationManager.NavigateTo(ReturnTo.Link($"/calendar/{eventId}/edit", "/calendar"));
+        NavigationManager.NavigateTo(ReturnTo.Link($"/calendar/{eventId}/edit", HereAndNow()));
     }
 
     /// <summary>
@@ -716,15 +729,12 @@
     /// </summary>
     private void OpenTheEvent(Guid calendarEventId)
     {
-        // "Come back here" only where the press leads out of the calendar. An appointment a task list
-        // made opens as its entry, and the edit that follows used to end on /tasks (see ReturnTo); an
-        // event of its own opens the calendar's own form, which ends here anyway - saying so again
-        // would be an address carrying a parameter nothing reads.
-        var destination = CalendarEventDestination.For(calendarEventId, _taskLists);
-        if (CalendarEventDestination.RaisedBy(calendarEventId, _taskLists) is not null)
-        {
-            destination = ReturnTo.Link(destination, "/calendar");
-        }
+        // "Come back here", and here is a day in a view rather than the calendar in general - see
+        // HereAndNow. Carried whichever page the press leads to: an appointment a task list made opens
+        // as its entry, and the edit that follows used to end on /tasks; an event of its own opens the
+        // calendar's own form, which used to end on plain "/calendar" - which is today, in the month,
+        // wherever the reader had got to.
+        var destination = ReturnTo.Link(CalendarEventDestination.For(calendarEventId, _taskLists), HereAndNow());
 
         Logger.LogInformation(
             "User opened calendar event {EventId} from the calendar, going to {Destination}", calendarEventId, destination);
@@ -746,7 +756,7 @@
         // Saying where this came from, so finishing the edit comes back to the calendar rather
         // than ending on /tasks - see ReturnTo.
         NavigationManager.NavigateTo(ReturnTo.Link(
-            $"/tasks/{dueTask.TaskListId}/items/{dueTask.TaskItemId}", "/calendar"));
+            $"/tasks/{dueTask.TaskListId}/items/{dueTask.TaskItemId}", HereAndNow()));
     }
 
     /// <summary>

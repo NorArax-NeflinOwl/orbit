@@ -156,6 +156,38 @@ public sealed class CalendarTests : OrbitTestContext
     }
 
     /// <summary>
+    /// Opening an appointment says where it was opened from - the view being read and the day it was
+    /// built around - so leaving it comes back to that rather than to the calendar in general.
+    ///
+    /// Every way out of this page carried plain "/calendar", and a page opened that way starts on today
+    /// in the month: somebody who stepped forward, opened an appointment and came back landed in
+    /// whatever month it is now, with what they were reading nowhere on screen (reported 2026-09-20).
+    /// </summary>
+    [Fact]
+    public void Opening_an_event_says_which_day_it_was_opened_from()
+    {
+        var nextMonthNoon = DateTime.SpecifyKind(
+            DateTime.Today.AddMonths(1).AddHours(12), DateTimeKind.Local);
+        RegisterCalendarApiClient([CreateTimedEvent(nextMonthNoon, nextMonthNoon.AddHours(1), "Dentist")]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+
+        var cut = RenderComponent<Calendar>();
+        // Forward a month, so "where the reader is" and "today" are two different days. The card in the
+        // list beside the grid is what opens an appointment - a chip on a month cell is a label, and
+        // the cell itself opens the day.
+        cut.Find(".calendar-visualization-toolbar-navigation").QuerySelectorAll("button")
+            .Single(button => button.TextContent.Trim() == "›")
+            .Click();
+        cut.Find(".item-card-name").Click();
+
+        var landedOn = Uri.UnescapeDataString(navigationManager.Uri);
+        Assert.Contains("returnTo=", landedOn, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            DateOnly.FromDateTime(DateTime.Today.AddMonths(1)).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+            landedOn);
+    }
+
+    /// <summary>
     /// An appointment somebody else shared is marked on the grid, and says whose it is when it is
     /// pointed at. The list beside the grid has always carried "Shared by anna" on its card; the grid
     /// said nothing at all, so a shared appointment read as one of the reader's own (reported
@@ -683,9 +715,9 @@ public sealed class CalendarTests : OrbitTestContext
 
         cut.Find(".item-card-name").Click();
 
-        Assert.EndsWith(
-            $"/tasks/{taskList.Id}/items/{taskList.Items[0].Id}?{ReturnTo.QueryName}=%2Fcalendar",
-            navigationManager.Uri);
+        // The return address says which day and view it was opened from - see HereAndNow.
+        Assert.Contains($"/tasks/{taskList.Id}/items/{taskList.Items[0].Id}?", navigationManager.Uri);
+        Assert.Contains($"{ReturnTo.QueryName}=", navigationManager.Uri);
     }
 
     /// <summary>The guard on both: an appointment nobody has ticked off is listed as it always was.</summary>
@@ -791,9 +823,9 @@ public sealed class CalendarTests : OrbitTestContext
 
         cut.Find(".item-card-name").Click();
 
-        Assert.EndsWith(
-            $"/tasks/{taskList.Id}/items/{taskList.Items[0].Id}?{ReturnTo.QueryName}=%2Fcalendar",
-            navigationManager.Uri);
+        // The return address says which day and view it was opened from - see HereAndNow.
+        Assert.Contains($"/tasks/{taskList.Id}/items/{taskList.Items[0].Id}?", navigationManager.Uri);
+        Assert.Contains($"{ReturnTo.QueryName}=", navigationManager.Uri);
         Assert.DoesNotContain("/calendar/", navigationManager.Uri);
     }
 
@@ -810,7 +842,8 @@ public sealed class CalendarTests : OrbitTestContext
 
         cut.Find(".item-card-name").Click();
 
-        Assert.EndsWith($"/calendar/{calendarEvent.Id}", navigationManager.Uri);
+        // With the day and view it was opened from on the end of it - see HereAndNow.
+        Assert.Contains($"/calendar/{calendarEvent.Id}?", navigationManager.Uri);
     }
 
     /// <summary>

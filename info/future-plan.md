@@ -2661,7 +2661,9 @@ down whole rather than started, so nothing in it depends on being remembered.
 - **The event list gets its own "hide completed"**, working separately from the calendar's: the reader
   can then show finished things in one of the two places rather than in both at once.
 
-- **Going back from an event lands on today** rather than on the day it was opened from.
+- ~~**Going back from an event lands on today**~~ - done 2026-09-20: every way out of the calendar
+  carries the view and the day it was opened from (`Calendar.HereAndNow`), which is the query string
+  the page already obeyed.
 
 - **A conversation cannot be archived from inside it**, nor from the person's own info - only from the
   list of chats.
