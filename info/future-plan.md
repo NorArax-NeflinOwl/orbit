@@ -2591,6 +2591,93 @@ the session that finishes one strikes it here rather than in a report nobody rea
   offset against a nullable one that reads the same on both sides, and a contact list is a few dozen rows.
   **Not seen on a device.**
 
+## What the user asked for on 2026-09-20, second list
+
+Given while the first list of that day was being finished, and to be worked through after it. Written
+down whole rather than started, so nothing in it depends on being remembered.
+
+### Orbit.Maui
+
+- **Take "Dashboard" out of the navigation drawer.** It duplicates the Orbit entry already at the top
+  of that same list (`Drawer.xaml`), so the drawer offers one destination twice.
+
+- **The name field and the Add button go; a "+" in the bottom right replaces them.** On Notes, Tasks
+  and Inventory. The pages carry a row with a text box and a button above their list
+  (`NotesPage.xaml`, `TasksPage.xaml`, `InventoryPage.xaml`); making one thing should be the floating
+  button the rest of the app already uses (`Controls/Fab.xaml`, as the map's crosshair is).
+
+### Orbit.Web
+
+- **A shared thing says so on the dashboard's Upcoming card and nowhere else.** Tasks does not say it,
+  and probably Notes does not either (`Dashboard.razor`'s card builders, and `DashboardRow`).
+
+- **A note with unsaved changes must say so in the list, not only when leaving.** The warning on the
+  way out is easy to read past; the row in the list should carry a mark - a "*" or a highlight - for
+  as long as there is something unsaved. And the warning itself should be Orbit's own dialog rather
+  than the browser's `confirm`.
+
+- **`/notes` opens into the newest note rather than onto a list.** The most recently changed note,
+  private ones excepted, opens for editing straight away, with the list of notes down the left.
+
+  Folders move off the tab bar and into that left panel: a **"+"** on it adds a custom folder, and a
+  **menu to the right of the folder's name** holds *rename custom folder*, *hide on the dashboard*,
+  *delete custom folder*. When anything has been archived, an **Archived** folder appears at the top
+  of the list with *hide folder* in its own menu - and while it is hidden the "+" becomes a menu of
+  two: *add custom folder*, *show archive*.
+
+- **"Add note" becomes a "+" on the right-hand panel, in place of Back.** Pressing it puts an empty
+  row in the list and an empty note control beside it; the note lands in Public unless said otherwise.
+  A note with no name cannot be created at all.
+
+- **Saving a note must not navigate anywhere.** It saves and stays.
+
+- **A PIN for private things.** Notes, task lists, inventories and events - map points excepted, which
+  are sealed by their own rule (see "Places are sealed by default"). Showing or editing a private
+  thing asks for the PIN once per session, and offers to make one where the account has none. One PIN
+  for the whole account, changed in the account settings under the password subsection.
+
+- **A whole folder can be shared**, through chat and through a public link - the two ways a single
+  thing is shared today.
+
+- **An empty Private or Archived folder is not drawn at all**, and where Public is the only folder
+  left the whole bar goes with it.
+
+- **A custom folder made in the inventory appears on the dashboard without saying the Inventory card
+  is hidden there.** The same line is missing for the other kinds.
+
+- **Folders do not line up between the sections.** The "Dom" folder made for task lists is not offered
+  in the inventory's own list, so a shelf cannot be put in it - and making a second "Dom" in the
+  inventory leaves the dashboard with two custom folders of that name.
+
+- **"Show on the dashboard" moves from the dashboard to the folder.** Each folder then carries its own
+  set of cards rather than one answer covering every folder.
+
+- **The calendar greys out what is finished**, the task's own colour included - a completed entry
+  keeping its colour reads as still wanting attention.
+
+- **The calendar view says nothing about an event being shared.**
+
+- **The event list gets its own "hide completed"**, working separately from the calendar's: the reader
+  can then show finished things in one of the two places rather than in both at once.
+
+- **Going back from an event lands on today** rather than on the day it was opened from.
+
+- **A conversation cannot be archived from inside it**, nor from the person's own info - only from the
+  list of chats.
+
+- **"New group" comes off the chat list's left panel** and belongs at the contacts list, under the
+  Groups folder.
+
+- **A checklist entry that became a calendar entry is on the calendar twice.** The scenario: an entry
+  "make a doctor's appointment" with a deadline; it is done, and then its kind is changed to calendar
+  with a new date and a place. The calendar then shows both - the checklist at the old date and the
+  event at the new one - and ticking the checklist one on the calendar immediately completes the
+  calendar one.
+
+- **Detaching an event from the calendar leaves a duplicate event behind.**
+
+- **A calendar-kind task draws its priority and its colour twice on the form.**
+
 ## Smaller identified follow-ups
 
 - ~~**The phone's wait does not look like the web's yet.**~~ Fixed 2026-09-11: `OrbitLoading` (Controls) is
