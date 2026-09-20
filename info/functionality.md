@@ -2612,9 +2612,16 @@ the requests whose 401 means "wrong secret" rather than "expired session"
 
 **And in front of the thing itself, not only its tab.** A notification, a link or the column beside the
 writing reaches one sealed note directly, so the three editors carry the same wrapper - a door only on
-the tabs is a door with a corridor round it. The question is asked **only where what is behind it is
-private**: most of what the wrapper holds is an ordinary form, and a network call between the reader and
-those would be a beat of nothing paid on every one.
+the tabs is a door with a corridor round it.
+
+**The wrapper does no I/O.** Whether the account has a PIN is learned once, by `MainLayout`, off the
+read of the account it already makes for the privacy choice - so the answer is in hand before any page
+draws. It was the other way round to begin with, and asking inside the wrapper was wrong twice over: an
+`await` before the child content is drawn puts a network call between the reader and a form with
+nothing sealed in it, and inside the three editors it made a different test fail on every run. The
+wrapper also holds its content in **one** branch of its `if`/`else` rather than two, because Razor gives
+each branch its own place in the render tree and moving between two of them tears down the form
+somebody is filling in.
 
 **The map's points are not behind it**, and that is the user's own line: a place is met on a map read at
 a glance, and a question in front of it would be asked at every one. **Nor are events**: an event cannot

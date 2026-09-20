@@ -28,6 +28,7 @@ public sealed class BehindThePinTests : OrbitTestContext
     /// <param name="rightPin">The one the server will accept; anything else is refused.</param>
     private void RegisterAccount(bool hasPin, string rightPin = "1234")
     {
+        _hasPin = hasPin;
         var httpClient = new HttpClient(new StubHttpMessageHandler(request =>
         {
             var path = request.RequestUri!.AbsolutePath;
@@ -54,10 +55,20 @@ public sealed class BehindThePinTests : OrbitTestContext
         Services.AddSingleton(new UsersApiClient(httpClient));
     }
 
+    /// <summary>
+    /// What MainLayout does off the read of the account it already makes: tells the gate whether there
+    /// is a PIN, before any page draws. The component itself does no I/O - see BehindThePin.
+    /// </summary>
     private IRenderedComponent<BehindThePin> Render(bool applies = true)
-        => RenderComponent<BehindThePin>(parameters => parameters
+    {
+        Services.GetRequiredService<PrivatePinGate>().LearnWhetherThereIsOne(_hasPin);
+        return RenderComponent<BehindThePin>(parameters => parameters
             .Add(gate => gate.Applies, applies)
             .AddChildContent($"<p>{Secret}</p>"));
+    }
+
+    /// <summary>What the account being registered says about itself - see RegisterAccount.</summary>
+    private bool _hasPin;
 
     [Fact]
     public void An_account_with_no_pin_is_asked_nothing()
@@ -70,9 +81,8 @@ public sealed class BehindThePinTests : OrbitTestContext
     }
 
     /// <summary>
-    /// And what is not private is drawn without the account being asked anything at all. Most of what
-    /// this wraps is an ordinary page or an ordinary form: a network call between the reader and those
-    /// is a beat of nothing, paid on every one of them.
+    /// And what is not private is drawn even on an account that has a PIN: the door is in front of what
+    /// is sealed, not in front of the page it happens to be on.
     /// </summary>
     [Fact]
     public void What_is_not_private_is_drawn_whatever_the_account_has_set()
@@ -82,7 +92,6 @@ public sealed class BehindThePinTests : OrbitTestContext
         var cut = Render(applies: false);
 
         Assert.Contains(Secret, cut.Markup);
-        Assert.Null(Services.GetRequiredService<PrivatePinGate>().HasOne);
     }
 
     /// <summary>

@@ -32,24 +32,16 @@ else
 
     [Parameter, EditorRequired] public RenderFragment? ChildContent { get; set; }
 
-    protected override void OnInitialized() => Gate.Changed += OnGateChanged;
-
     /// <summary>
-    /// Asks the account whether there is a PIN at all - **only where what is inside is private**, and
-    /// only once per tab, the gate holding the answer for every other caller.
+    /// **This component does no I/O.** Whether the account has a PIN is learned once, by MainLayout,
+    /// off the read of the account it already makes - so the answer is in hand before any page draws
+    /// and this only ever reads it.
     ///
-    /// Here rather than in OnInitializedAsync, and gated on <see cref="Applies"/>, because this
-    /// component wraps whole editors: an await before the child content is drawn puts a network call
-    /// between the reader and a form that has nothing sealed in it, and the page behind it renders a
-    /// beat late. Most of what this wraps is not private, and asks nothing.
+    /// It was the other way round to begin with, and asking here was wrong twice over: an await before
+    /// the child content is drawn puts a network call between the reader and a form that has nothing
+    /// sealed in it, and inside the three editors it made a different test fail on every run.
     /// </summary>
-    protected override async Task OnParametersSetAsync()
-    {
-        if (Applies)
-        {
-            await Gate.LearnWhetherThereIsOneAsync();
-        }
-    }
+    protected override void OnInitialized() => Gate.Changed += OnGateChanged;
 
     public void Dispose() => Gate.Changed -= OnGateChanged;
 

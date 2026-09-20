@@ -2606,13 +2606,14 @@ down whole rather than started, so nothing in it depends on being remembered.
 
 ### Orbit.Maui
 
-- **Take "Dashboard" out of the navigation drawer.** It duplicates the Orbit entry already at the top
-  of that same list (`Drawer.xaml`), so the drawer offers one destination twice.
+- ~~**Take "Dashboard" out of the navigation drawer.**~~ Done 2026-09-20: the entry is gone and the
+  "Orbit" row at the top of the drawer - which always led there - goes into the accent while that is
+  where the reader is, so the one destination is said once and still says where you are.
 
-- **The name field and the Add button go; a "+" in the bottom right replaces them.** On Notes, Tasks
-  and Inventory. The pages carry a row with a text box and a button above their list
-  (`NotesPage.xaml`, `TasksPage.xaml`, `InventoryPage.xaml`); making one thing should be the floating
-  button the rest of the app already uses (`Controls/Fab.xaml`, as the map's crosshair is).
+- ~~**The name field and the Add button go; a "+" in the bottom right replaces them.**~~ Done
+  2026-09-20 on all three pages: the row above the list is gone and the floating button
+  (`Controls/Fab.xaml`) makes the thing straight away, with the name asked for in the note, on the
+  list or on the shelf - one press instead of three.
 
 ### Orbit.Web
 

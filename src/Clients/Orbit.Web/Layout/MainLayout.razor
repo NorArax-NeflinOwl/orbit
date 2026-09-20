@@ -10,6 +10,7 @@
 @using Orbit.Web.Services
 @inject AuthApiClient AuthApiClient
 @inject UsersApiClient UsersApiClient
+@inject PrivatePinGate PrivatePin
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject TokenStore TokenStore
 @inject TokenRefreshService TokenRefreshService
@@ -349,6 +350,11 @@
         {
             var account = await UsersApiClient.GetAccountAsync();
             await JSRuntime.InvokeVoidAsync("OrbitMapTiles.remember", account?.KeepsThirdPartiesOut ?? false);
+            // And whether there is a PIN in front of what is private, off the same read (2026-09-20).
+            // Here rather than in the pages that draw something sealed: the answer is needed before one
+            // of them draws, and a page that had to fetch it first would put a network call between the
+            // reader and a form - see PrivatePinGate and BehindThePin, which now does no I/O at all.
+            PrivatePin.LearnWhetherThereIsOne(account?.HasPrivatePin == true);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
