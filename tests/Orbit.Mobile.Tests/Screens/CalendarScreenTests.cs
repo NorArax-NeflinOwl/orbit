@@ -494,6 +494,80 @@ public sealed class CalendarScreenTests
         Assert.Equal("Groceries: Buy milk", Assert.Single(Deadlines(screen)).Label);
     }
 
+    /// <summary>
+    /// A day chosen from the grid lists everything on it, what is over included. The grid marks a day
+    /// that holds something whether or not it has been, so a list that hides half of it makes the mark
+    /// a lie - and an appointment at nine this morning became one nobody could reach, which means one
+    /// nobody could delete: the row is the only thing there is to press (reported 2026-09-20).
+    /// </summary>
+    [Fact]
+    public async Task A_chosen_day_lists_what_is_already_over_on_it()
+    {
+        using var context = new ScreenContext();
+        await context.AddEventAsync("Last week", new DateTime(2026, 8, 10, 9, 0, 0));
+        var screen = await context.OpenAsync();
+        // Not on the list of the month, which is read for what is coming.
+        Assert.DoesNotContain(Events(screen), row => row.Title == "Last week");
+
+        await screen.ChooseDayCommand.ExecuteAsync(
+            screen.Days.Single(day => day.Date == new DateTime(2026, 8, 10)));
+
+        Assert.Contains(Events(screen), row => row.Title == "Last week");
+    }
+
+    /// <summary>
+    /// Choosing a day is also saying which day a new event would be on. It used to be today whatever
+    /// was open, so tapping the 20th and then the plus offered a box that added the event to today -
+    /// and the reader had to spot the date picker and put back the day they had just tapped.
+    /// </summary>
+    [Fact]
+    public async Task Choosing_a_day_is_the_day_a_new_event_starts_on()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenAsync();
+        var chosen = new DateTime(2026, 8, 20);
+
+        await screen.ChooseDayCommand.ExecuteAsync(screen.Days.Single(day => day.Date == chosen));
+
+        Assert.Equal(chosen, screen.NewEventDate);
+    }
+
+    /// <summary>
+    /// And it really is what gets stored - the date picker feeds the same field the add box reads.
+    /// </summary>
+    [Fact]
+    public async Task An_event_added_after_choosing_a_day_lands_on_that_day()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenAsync();
+        await screen.ChooseDayCommand.ExecuteAsync(
+            screen.Days.Single(day => day.Date == new DateTime(2026, 8, 20)));
+
+        screen.NewEventTitle = "Dentist";
+        await screen.AddEventCommand.ExecuteAsync(null);
+
+        var added = Assert.Single(Events(screen), row => row.Title == "Dentist");
+        Assert.Equal(new DateTime(2026, 8, 20), added.StartUtc.LocalDateTime.Date);
+    }
+
+    /// <summary>
+    /// Letting go of the day widens the list back to the month, which says nothing about when a new
+    /// event should be - so the day last chosen stays the answer rather than jumping back to today.
+    /// </summary>
+    [Fact]
+    public async Task Letting_go_of_the_day_leaves_the_new_event_on_it()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenAsync();
+        var chosen = screen.Days.Single(day => day.Date == new DateTime(2026, 8, 20));
+
+        await screen.ChooseDayCommand.ExecuteAsync(chosen);
+        await screen.ChooseDayCommand.ExecuteAsync(chosen);
+
+        Assert.Null(screen.SelectedDay);
+        Assert.Equal(new DateTime(2026, 8, 20), screen.NewEventDate);
+    }
+
     /// <summary>A day with something due on it is not an empty day, so the grid marks it.</summary>
     [Fact]
     public async Task A_day_with_something_due_is_marked_on_the_grid()
