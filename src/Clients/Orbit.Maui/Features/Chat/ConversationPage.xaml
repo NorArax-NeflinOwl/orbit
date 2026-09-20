@@ -262,8 +262,13 @@
             </Grid>
 
             <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                <!-- Focused brings the end of the conversation back into view: the keyboard takes the
+                     bottom of the screen and the thread keeps its offset rather than its last message,
+                     so answering what you were reading meant scrolling to find it again. See
+                     OnComposeFocused. -->
                 <Entry Grid.Column="0" Placeholder="{controls:Translate 'Message'}" Text="{Binding Draft}"
                        BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceSubtleLight}, Dark={StaticResource SurfaceSubtleDark}}"
+                       Focused="OnComposeFocused"
                        ReturnType="Send" ReturnCommand="{Binding SendCommand}" />
                 <Button Grid.Column="1" Text="{controls:Translate 'Send'}" Style="{StaticResource PrimaryButton}"
                         Command="{Binding SendCommand}" />

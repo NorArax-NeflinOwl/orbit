@@ -135,4 +135,30 @@ public partial class ConversationPage : ContentPage
 	/// </summary>
 	private void OnThreadScrolled(object? sender, ItemsViewScrolledEventArgs e)
 		=> _ = _viewModel.ShowedUpToAsync(e.LastVisibleItemIndex);
+
+	/// <summary>
+	/// Brings the newest message back into view when the keyboard opens.
+	///
+	/// The keyboard takes the bottom of the screen and the thread is given the room that is left - see
+	/// MainActivity's insets listener - but a list keeps the offset it was scrolled to rather than the
+	/// item it was showing, so the end of the conversation ends up behind the keyboard. Somebody who
+	/// tapped the box to answer the message they were reading had to scroll to find it again (reported
+	/// 2026-09-20). ItemsUpdatingScrollMode does not cover this: nothing was added, the view was
+	/// resized.
+	///
+	/// After the resize rather than with it - the room is not taken until the keyboard is actually up,
+	/// and scrolling before that scrolls to where the end used to be.
+	/// </summary>
+	private void OnComposeFocused(object? sender, FocusEventArgs e)
+		=> Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(250), ShowTheNewestMessage);
+
+	private void ShowTheNewestMessage()
+	{
+		if (_viewModel.Messages.Count == 0)
+		{
+			return;
+		}
+
+		Thread.ScrollTo(_viewModel.Messages[^1], position: ScrollToPosition.End, animate: false);
+	}
 }
