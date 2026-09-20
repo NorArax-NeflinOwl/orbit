@@ -101,10 +101,15 @@ else
 {
     <EditorRail OnCancel="LeaveAsync"
                 OnEdit="GoToEditor" EditLabel="@(_event.IsShared ? T["View"] : T["Edit"])">
-        @* No Edit in here: it is a button of its own on the panel now - see EditorRail.OnEdit. *@
+        @* No Edit in here: it is a button of its own on the panel now - see EditorRail.OnEdit.
+           Somebody else's event is taken off this reader's calendar rather than destroyed, and needs no
+           archive first - see ObjectMenu.DeleteNeedsTheArchive. It used to be left out here entirely,
+           which left a shared event with no way off the page at all. *@
         <ObjectMenu AllLabel="@T["Calendar"]" OnAll="GoToCalendar"
                     IsArchived="_event.IsArchived"
-                    DeleteLabel="@(!_event.IsShared ? T["Delete"] : null)" OnDelete="DeleteAsync" />
+                    DeleteNeedsTheArchive="@(!_event.IsShared)"
+                    DeleteLabel="@(_event.IsShared ? T["Remove from my list"] : T["Delete"])"
+                    OnDelete="DeleteAsync" />
     </EditorRail>
 }
 </div>
@@ -258,7 +263,11 @@ else
     private async Task DeleteAsync()
     {
         if (_event is null
-            || !await JSRuntime.InvokeAsync<bool>("confirm", T.Format("Delete \"{0}\"?", _event.Details.Title)))
+            || !await JSRuntime.InvokeAsync<bool>(
+                "confirm",
+                _event.IsShared
+                    ? T.Format("Remove \"{0}\" from your calendar? The owner keeps it.", _event.Details.Title)
+                    : T.Format("Delete \"{0}\"?", _event.Details.Title)))
         {
             return;
         }

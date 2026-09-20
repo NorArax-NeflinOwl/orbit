@@ -449,6 +449,14 @@ else
             <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting"
                     @onclick="DeleteAsync">@T["Delete"]</button>
         }
+        @* The way out of a list somebody else's: it comes off this reader's own pages and stays on the
+           owner's (the server drops the grant). Without it a shared list could be neither put away nor
+           deleted, so nothing here got rid of one. *@
+        @if (_sections[0].TaskList.IsShared)
+        {
+            <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting"
+                    @onclick="DeleteAsync">@T["Remove from my list"]</button>
+        }
         @* Making the shelf this list needs, from the list itself. It used to be here, was taken away as
            half of something else, and came back on 2026-09-18 because the page it was left on is the
            list's *form*: somebody reading a shopping list and wanting the shelf for it had to open the

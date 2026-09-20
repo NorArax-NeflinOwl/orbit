@@ -231,8 +231,11 @@
                         <PinButton IsPinned="taskList.IsPinned" OnPinnedChanged="_ => TogglePinnedAsync(taskList)" />
                     </Pin>
                     <Menu>
-                        @* Somebody else's shared list is not this reader's to delete - the same rule
-                           the note and inventory cards already follow. *@
+                        @* Somebody else's shared list is not this reader's to delete: pressing that
+                           takes it off their own pages and leaves the owner's alone, so it says that
+                           rather than "Delete" - the wording a note's card has had. It needs no archive
+                           first either, because a share cannot be put away and requiring the archive
+                           would leave no way to be rid of one at all. *@
                         <ObjectMenu EditLabel="@T["Edit"]" OnEdit="() => GoToEditTaskList(taskList.Id)"
                                     DuplicateLabel="@(!taskList.IsShared ? T["Duplicate"] : null)"
                                     OnDuplicate="() => DuplicateTaskListAsync(taskList)"
@@ -241,7 +244,9 @@
                                     ArchiveLabel="@(!taskList.IsShared ? ArchiveLabelFor(taskList.IsArchived) : null)"
                                     OnArchive="() => SetArchivedAsync(taskList, !taskList.IsArchived)"
                                     IsArchived="taskList.IsArchived"
-                                    DeleteLabel="@(!taskList.IsShared ? T["Delete"] : null)" OnDelete="() => DeleteTaskListAsync(taskList)" />
+                                    DeleteNeedsTheArchive="@(!taskList.IsShared)"
+                                    DeleteLabel="@(taskList.IsShared ? T["Remove from my list"] : T["Delete"])"
+                                    OnDelete="() => DeleteTaskListAsync(taskList)" />
                     </Menu>
                     <Tags>
                         @if (taskList.IsGroup)

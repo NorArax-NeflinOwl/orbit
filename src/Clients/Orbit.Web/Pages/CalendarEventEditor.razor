@@ -168,6 +168,16 @@ else
                             @T["Delete event"]
                         </button>
                     }
+                    @* And the way out of an event somebody else's: it is taken off this reader's own
+                       calendar and left on the owner's (the server drops the grant). Without it a
+                       shared event could be neither put away nor deleted, so there was no way to be
+                       rid of one at all. *@
+                    @if (_isShared)
+                    {
+                        <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting" @onclick="DeleteAsync">
+                            @T["Remove from my list"]
+                        </button>
+                    }
                 </OverflowMenu>
             }
         </ChildContent>
@@ -796,7 +806,11 @@ else
     /// </summary>
     private async Task DeleteAsync()
     {
-        if (!await JSRuntime.InvokeAsync<bool>("confirm", T["Delete this event? This can't be undone."]))
+        if (!await JSRuntime.InvokeAsync<bool>(
+            "confirm",
+            _isShared
+                ? T["Remove this from your calendar? The owner keeps it."]
+                : T["Delete this event? This can't be undone."]))
         {
             return;
         }

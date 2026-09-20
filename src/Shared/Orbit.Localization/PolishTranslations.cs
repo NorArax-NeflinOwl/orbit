@@ -1858,6 +1858,13 @@ public static class PolishTranslations
             "Osoba wskazana na następcę nie należy już do tej grupy.",
         ["Remove from my list"] = "Usuń z mojej listy",
         ["Remove \"{0}\" from your list? The owner keeps it."] = "Usunąć „{0}” z Twojej listy? Właściciel ją zachowa.",
+        // The same way out, said for the other three things somebody can be handed - a task list, an
+        // event on the calendar, and the event's own form.
+        ["Remove \"{0}\" from your lists? The owner keeps it."] = "Usunąć „{0}” z Twoich list? Właściciel ją zachowa.",
+        ["Remove \"{0}\" from your calendar? The owner keeps it."] = "Usunąć „{0}” z Twojego kalendarza? Właściciel je zachowa.",
+        ["Remove this from your calendar? The owner keeps it."] = "Usunąć to z Twojego kalendarza? Właściciel je zachowa.",
+        ["Couldn't take that off your lists. Check your connection and try again."] =
+            "Nie udało się usunąć tego z Twoich list. Sprawdź połączenie i spróbuj ponownie.",
         ["Delete note \"{0}\"?"] = "Usunąć notatkę „{0}”?",
 
         // ---- Orbit.Maui's own wording. "Orbit" and the bare glyphs are deliberately absent:

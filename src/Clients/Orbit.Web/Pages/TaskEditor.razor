@@ -746,6 +746,16 @@ else
                             @T["Delete task list"]
                         </button>
                     }
+                    @* And the way out of a list somebody else's - off this reader's pages, left alone
+                       on the owner's. A shared list can be neither archived nor deleted, so without
+                       this there was no way to be rid of one. *@
+                    @if (_isShared)
+                    {
+                        <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting"
+                                @onclick="DeleteTheListAsync">
+                            @T["Remove from my list"]
+                        </button>
+                    }
                 }
             </OverflowMenu>
         </ChildContent>
@@ -3088,7 +3098,7 @@ else
         _isDeleting = true;
         try
         {
-            if (await TaskListDeletion.AskAndDeleteAsync(taskListId, _formModel.Title, gathers)
+            if (await TaskListDeletion.AskAndDeleteAsync(taskListId, _formModel.Title, gathers, _isShared)
                 is not TaskListDeletionOutcome.Deleted)
             {
                 _saveErrorMessage = TaskListDeletion.FailureMessage;

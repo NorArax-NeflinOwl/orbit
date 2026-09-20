@@ -780,6 +780,32 @@ public sealed class CalendarTests : OrbitTestContext
         Assert.Equal(["Alpha", "Zulu"], ListedNames(cut));
     }
 
+    /// <summary>
+    /// An event somebody shared with this reader is taken off their own calendar rather than deleted -
+    /// the server drops their grant and the owner keeps the event. It used to offer nothing at all: a
+    /// shared event cannot be archived either, and Delete is only offered once something has been, so
+    /// one that arrived could not be got rid of by any press on this page.
+    /// </summary>
+    [Fact]
+    public void A_shared_event_is_taken_off_your_own_calendar_rather_than_deleted()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        RegisterCalendarApiClient([
+            CreateTimedEvent(midMonth, midMonth.AddHours(1), "Their meeting") with
+            {
+                IsShared = true,
+                SharedByUserName = "bob"
+            }]);
+        RegisterTasksApiClient([]);
+        var cut = RenderComponent<Calendar>();
+
+        cut.FindAll(".item-card .overflow-menu-trigger").First().Click();
+
+        var offered = cut.Find(".item-card-menu").TextContent;
+        Assert.Contains("Remove from my list", offered);
+        Assert.DoesNotContain("Delete", offered);
+    }
+
     private static void SortBy(IRenderedFragment cut, string label)
     {
         cut.Find(".calendar-event-list-panel .overflow-menu-trigger, .page-header-actions .overflow-menu-trigger").Click();
