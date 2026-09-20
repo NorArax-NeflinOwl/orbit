@@ -69,20 +69,31 @@ public sealed class DashboardCardPreferences(IJSRuntime jsRuntime)
     /// <summary>Where <see cref="TasksTagFilterId"/> is stored among the filters - not a card key any card has.</summary>
     private const string TasksTagFilterKey = "tasks#tag-filter";
 
-    public bool IsVisible(string cardKey) => !_hiddenCardKeys.Contains(cardKey);
+    /// <summary>
+    /// Whether a card is drawn under the folder tab that is open. **One answer per tab** since
+    /// 2026-09-20, the way a card's filter already worked: what somebody wants to see of their Work
+    /// folder is not what they want of the whole dashboard, and a single answer made putting a card
+    /// away on one tab put it away on all of them.
+    ///
+    /// Public keeps the card's bare key - see <see cref="StoredKeyOf"/> - so a card somebody hid before
+    /// tabs had their own answer is still hidden where they hid it, on the tab the dashboard opens on.
+    /// </summary>
+    public bool IsVisible(string cardKey, FolderKey folder) => !_hiddenCardKeys.Contains(StoredKeyOf(cardKey, folder));
 
-    /// <summary>Whether every part of the dashboard has been put away, which needs saying on the page.</summary>
-    public bool IsAnythingVisible(IEnumerable<string> cardKeys) => cardKeys.Any(IsVisible);
+    /// <summary>Whether every part of the dashboard has been put away here, which needs saying on the page.</summary>
+    public bool IsAnythingVisible(IEnumerable<string> cardKeys, FolderKey folder)
+        => cardKeys.Any(cardKey => IsVisible(cardKey, folder));
 
-    public async Task SetVisibleAsync(string cardKey, bool isVisible)
+    public async Task SetVisibleAsync(string cardKey, FolderKey folder, bool isVisible)
     {
+        var storedKey = StoredKeyOf(cardKey, folder);
         if (isVisible)
         {
-            _hiddenCardKeys.Remove(cardKey);
+            _hiddenCardKeys.Remove(storedKey);
         }
         else
         {
-            _hiddenCardKeys.Add(cardKey);
+            _hiddenCardKeys.Add(storedKey);
         }
 
         await using var module = await ImportModuleAsync();
@@ -153,9 +164,10 @@ public sealed class DashboardCardPreferences(IJSRuntime jsRuntime)
     }
 
     /// <summary>
-    /// The key a card's filter is stored under for one tab. Public keeps the card's bare key, which is
-    /// what every filter was stored under before tabs had their own - so a filter somebody chose then
-    /// still applies where they chose it, on the tab the dashboard opens on.
+    /// The key a card's filter - and, since 2026-09-20, whether it is drawn at all - is stored under
+    /// for one tab. Public keeps the card's bare key, which is what both were stored under before tabs
+    /// had their own answer, so a choice somebody made then still applies where they made it, on the
+    /// tab the dashboard opens on.
     /// </summary>
     private static string StoredKeyOf(string cardKey, FolderKey folder)
         => folder == FolderKey.Default

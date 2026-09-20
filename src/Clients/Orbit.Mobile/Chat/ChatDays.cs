@@ -39,6 +39,18 @@ public static class ChatDays
             dayBefore = sentOn;
         }
 
+        // And which one is the last, since that is the only one that says its time - see
+        // ReadableChatMessage.IsTheNewest. The last *message*: the final line of a group thread can be
+        // somebody joining, which says nothing about itself at all.
+        for (var index = divided.Count - 1; index >= 0; index--)
+        {
+            if (divided[index].IsNotAnnouncement)
+            {
+                divided[index] = divided[index] with { IsTheNewest = true };
+                break;
+            }
+        }
+
         return divided;
     }
 }

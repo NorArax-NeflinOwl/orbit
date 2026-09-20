@@ -58,9 +58,11 @@
             }
 
             @* What a calendar is read for is what is coming, so the list leaves out what is over: a task
-               already ticked off, an event that has already ended. The grid beside it still draws them -
-               a day with something in it should say so whether or not it has been - and this is how the
-               list is asked for them too. *@
+               already ticked off, an event that has already ended. This is how it is asked for them.
+
+               The list's alone since 2026-09-20 - the grid has its own entry beside the view switch, so
+               finished work can be shown in one of the two places without the other. An event that has
+               merely ended is not a question the grid asks at all: it is drawn there either way. *@
             @* The reader's in every view since 2026-09-18, and kept per device. It used to be ticked and
                unpressable in the day and the week, which show everything - see ShowsEverythingInThisView
                for the reasoning that was and why it is now the reader's to overrule. *@
@@ -78,7 +80,7 @@
    looking at the whole calendar rather than at part of it. No Private tab here - an event is never
    sealed, see FolderPages.HasAPrivateTab. *@
 <PhoneToolbar Page="FolderPage.Calendar">
-    <FolderTabs Page="FolderPage.Calendar" CountIn="CountIn" />
+    <FolderTabs Page="FolderPage.Calendar" CountIn="CountIn" StillHolds="StillHolds" HoldsAnything="HoldsAnything" OnShareFolder="ShareTheFolder" />
 </PhoneToolbar>
 
 @* This page had nowhere to say that something went wrong, so a delete, an archive or a copy that was
@@ -105,11 +107,11 @@
         {
             @* Only an event this reader owns - one shared with them is not theirs to hand on from here.
                An event is never sealed, so nothing else is left out. *@
-            <SharePickedDialog Things="@([.. ChosenEvents.Where(calendarEvent => !calendarEvent.IsShared).Select(calendarEvent => new SharePickedDialog.ShareableThing(calendarEvent.Id, calendarEvent.Details.Title))])"
-                               LeftOut="@ChosenEvents.Count(calendarEvent => calendarEvent.IsShared)"
+            <SharePickedDialog Things="@([.. EventsBeingShared.Where(calendarEvent => !calendarEvent.IsShared).Select(calendarEvent => new SharePickedDialog.ShareableThing(calendarEvent.Id, calendarEvent.Details.Title))])"
+                               LeftOut="@EventsBeingShared.Count(calendarEvent => calendarEvent.IsShared)"
                                ShareOne="(eventId, recipientUserId, accessLevel) => CalendarApiClient.ShareCalendarEventAsync(eventId, recipientUserId, accessLevel)"
                                Invitation="(shareId, title) => new EventShareMessagePayload(shareId, title)"
-                               OnClosed="() => _isSharingPicked = false" />
+                               OnClosed="StopSharingSeveral" />
         }
         @* Handing on one appointment, from its own row - the same dialog given a list of one. See
            Notes.razor, which says why there is not a second way of sharing. *@
@@ -174,7 +176,10 @@
                         <Menu>
                         @* An event reached through a share is somebody else's, so there is nothing here
                            to duplicate: a copy would be an appointment in this reader's calendar that
-                           its owner never put there - see DuplicateCalendarEventCommand. *@
+                           its owner never put there - see DuplicateCalendarEventCommand. Pressing the
+                           last entry takes it off this reader's own calendar and leaves the owner's
+                           alone, so it is named for that and asks for no archive first - something
+                           shared cannot be put away, which left a shared event stuck here for good. *@
                         <ObjectMenu EditLabel="@(calendarEvent.IsShared ? T["View"] : T["Edit"])"
                                     OnEdit="() => GoToEditEvent(calendarEvent.Id)"
                                     DuplicateLabel="@(calendarEvent.IsShared ? null : T["Duplicate"])"
@@ -184,7 +189,9 @@
                                     ArchiveLabel="@(calendarEvent.IsShared ? null : ArchiveLabelFor(calendarEvent.IsArchived))"
                                     OnArchive="() => SetArchivedAsync(calendarEvent, !calendarEvent.IsArchived)"
                                     IsArchived="calendarEvent.IsArchived"
-                                    DeleteLabel="@T["Delete"]" OnDelete="() => DeleteEventAsync(calendarEvent)" />
+                                    DeleteNeedsTheArchive="@(!calendarEvent.IsShared)"
+                                    DeleteLabel="@(calendarEvent.IsShared ? T["Remove from my list"] : T["Delete"])"
+                                    OnDelete="() => DeleteEventAsync(calendarEvent)" />
                         </Menu>
                         <Body>
                             @* When, first: it is the one thing every row on this list has, and the
@@ -263,11 +270,24 @@
                 <button @onclick="GoToNextPeriod">›</button>
                 <h2 class="calendar-period-label">@_viewState.PeriodLabel(T.DisplayCulture)</h2>
             </div>
-            <div class="calendar-view-switch">
-                <button aria-pressed="@AriaPressed(CalendarViewMode.Day)" @onclick="() => SwitchView(CalendarViewMode.Day)">@T["Day"]</button>
-                <button aria-pressed="@AriaPressed(CalendarViewMode.Week)" @onclick="() => SwitchView(CalendarViewMode.Week)">@T["Week"]</button>
-                <button aria-pressed="@AriaPressed(CalendarViewMode.Month)" @onclick="() => SwitchView(CalendarViewMode.Month)">@T["Month"]</button>
-                <button aria-pressed="@AriaPressed(CalendarViewMode.Year)" @onclick="() => SwitchView(CalendarViewMode.Year)">@T["Year"]</button>
+            <div class="calendar-visualization-toolbar-views">
+                <div class="calendar-view-switch">
+                    <button aria-pressed="@AriaPressed(CalendarViewMode.Day)" @onclick="() => SwitchView(CalendarViewMode.Day)">@T["Day"]</button>
+                    <button aria-pressed="@AriaPressed(CalendarViewMode.Week)" @onclick="() => SwitchView(CalendarViewMode.Week)">@T["Week"]</button>
+                    <button aria-pressed="@AriaPressed(CalendarViewMode.Month)" @onclick="() => SwitchView(CalendarViewMode.Month)">@T["Month"]</button>
+                    <button aria-pressed="@AriaPressed(CalendarViewMode.Year)" @onclick="() => SwitchView(CalendarViewMode.Year)">@T["Year"]</button>
+                </div>
+                @* The grid's own switch, beside the grid rather than in the page header - the header's
+                   menu is the list's, and the two answer the question separately since 2026-09-20. What
+                   is merely over stays drawn here whatever this says; only what has been ticked off goes. *@
+                <OverflowMenu StaysOpen="true">
+                    <span class="overflow-menu-heading">@T["Show"]</span>
+                    <button type="button" class="avatar-dropdown-item @(GridShowsWhatIsDone ? "chosen" : "")"
+                            @onclick="ToggleGridShowsWhatIsDoneAsync">
+                        <span class="card-filter-mark">@(GridShowsWhatIsDone ? "✓" : "")</span>
+                        @T["What is already done"]
+                    </button>
+                </OverflowMenu>
             </div>
         </div>
 
@@ -473,6 +493,19 @@
     private static CalendarViewMode? ViewModeNamed(string? name)
         => Enum.TryParse<CalendarViewMode>(name, ignoreCase: true, out var viewMode) ? viewMode : null;
 
+    /// <summary>
+    /// This page as it stands, for anything that leads away from it to come back to - the view being
+    /// read and the day it is built around, in the query string this page already obeys.
+    ///
+    /// Plain "/calendar" was what every way out carried, and a page opened that way starts on today in
+    /// the month: somebody who stepped forward to December, opened an appointment and came back landed
+    /// in whatever month it is now, with what they were reading nowhere on screen (reported
+    /// 2026-09-20).
+    /// </summary>
+    private string HereAndNow()
+        => $"/calendar?view={_viewState.ViewMode.ToString().ToLowerInvariant()}" +
+            $"&on={_viewState.ReferenceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
+
     protected override async Task OnInitializedAsync()
     {
         Logger.LogInformation("Calendar page opened, loading events");
@@ -585,7 +618,7 @@
     private void GoToEditEvent(Guid eventId)
     {
         Logger.LogInformation("User clicked 'Edit' for calendar event {EventId}", eventId);
-        NavigationManager.NavigateTo(ReturnTo.Link($"/calendar/{eventId}/edit", "/calendar"));
+        NavigationManager.NavigateTo(ReturnTo.Link($"/calendar/{eventId}/edit", HereAndNow()));
     }
 
     /// <summary>
@@ -620,17 +653,6 @@
             : null;
 
     /// <summary>
-    /// What the grids draw: everything on the calendar, less what has been done. An appointment whose
-    /// entry on a task list is ticked off, and a deadline that is ticked off, both leave - the same
-    /// answer the list beside them gives, and the same menu brings them back.
-    ///
-    /// **What is merely *over* stays.** That is the one place this parts company with the list, and it
-    /// is deliberate: the list answers "what is coming", so an event that has ended is no longer its
-    /// subject, while a grid is a picture of the period - a month drawn with every past day empty would
-    /// be a month that had not happened. Done is a different fact from past, and only the first of them
-    /// is somebody saying "I am finished with this".
-    /// </summary>
-    /// <summary>
     /// Whether what is over is drawn alongside what is still to come: the reader's own choice in every
     /// view (CalendarListOrder.ShowsEverything, kept per device), and off by default, because a calendar
     /// is mostly read forwards.
@@ -644,8 +666,27 @@
     /// </summary>
     private bool ShowsEverythingInThisView => ListOrder.ShowsEverything;
 
+    /// <summary>
+    /// Whether the grid draws what has been ticked off. Its own answer since 2026-09-20, read from its
+    /// own menu beside the view switch: it used to take the list's, so asking the list for finished work
+    /// put it back on the month as well, and a reader who wanted it in one of the two places could not
+    /// have it there alone.
+    /// </summary>
+    private bool GridShowsWhatIsDone => ListOrder.GridShowsWhatIsDone;
+
+    /// <summary>
+    /// What the grids draw: everything on the calendar, less what has been done, unless this reader has
+    /// asked for it back. An appointment whose entry on a task list is ticked off, and a deadline that
+    /// is ticked off, both leave.
+    ///
+    /// **What is merely *over* stays, whatever the menu says.** That is where this parts company with
+    /// the list, and it is deliberate: the list answers "what is coming", so an event that has ended is
+    /// no longer its subject, while a grid is a picture of the period - a month drawn with every past
+    /// day empty would be a month that had not happened. Done is a different fact from past, and only
+    /// the first of them is somebody saying "I am finished with this".
+    /// </summary>
     private IReadOnlyList<CalendarEventDto> EventsOnTheGrid
-        => ShowsEverythingInThisView
+        => GridShowsWhatIsDone
             ? EventsUnderTheOpenTab
             : [.. EventsUnderTheOpenTab.Where(calendarEvent => !IsTickedOff(calendarEvent))];
 
@@ -668,15 +709,28 @@
         => (_events ?? []).Count(calendarEvent =>
             Folders.PlacementOn(FolderPage.Calendar, calendarEvent.FolderId, isPrivate: false, isFinished: false, calendarEvent.IsArchived) == folder);
 
+    /// <summary>Whether anything is still filed here - see FolderTabs.StillHolds, and Notes.StillHolds.</summary>
+/// <summary>
+    /// Whether a tab is worth being on the row at all - see FolderTabs.HoldsAnything. A built-in tab
+    /// goes when nothing is under it: an empty Private or Archived tab is a press that leads to "there
+    /// is nothing here", and the reader already knows that by it not being offered (asked for
+    /// 2026-09-20). A folder somebody made is judged by what is filed in it rather than by what is
+    /// under its tab - one holding nothing but archived things counts zero here and still holds them.
+    /// </summary>
+    private bool HoldsAnything(FolderKey tab)
+        => tab.FolderId is { } folderId ? StillHolds(folderId) : CountIn(tab) > 0;
+
+    private bool StillHolds(Guid folderId) => (_events ?? []).Any(calendarEvent => calendarEvent.FolderId == folderId);
+
     /// <inheritdoc cref="EventsOnTheGrid"/>
     private IReadOnlyList<DueTaskDto> DueTasksOnTheGrid
-        => ShowsEverythingInThisView
+        => GridShowsWhatIsDone
             ? _dueTasks ?? []
             : [.. (_dueTasks ?? []).Where(dueTask => !dueTask.IsCompleted)];
 
     /// <summary>
-    /// The events the grids draw as done. Only reached when the reader has asked for everything: by
-    /// default such an appointment is not on the grid at all (see EventsOnTheGrid), and this is what it
+    /// The events the grids draw as done. Only reached when the reader has asked the grid for what is
+    /// done: by default such an appointment is not on it at all (see EventsOnTheGrid), and this is what it
     /// looks like when it comes back - struck through and greyed, the mark a finished deadline has
     /// always carried there.
     /// </summary>
@@ -708,15 +762,12 @@
     /// </summary>
     private void OpenTheEvent(Guid calendarEventId)
     {
-        // "Come back here" only where the press leads out of the calendar. An appointment a task list
-        // made opens as its entry, and the edit that follows used to end on /tasks (see ReturnTo); an
-        // event of its own opens the calendar's own form, which ends here anyway - saying so again
-        // would be an address carrying a parameter nothing reads.
-        var destination = CalendarEventDestination.For(calendarEventId, _taskLists);
-        if (CalendarEventDestination.RaisedBy(calendarEventId, _taskLists) is not null)
-        {
-            destination = ReturnTo.Link(destination, "/calendar");
-        }
+        // "Come back here", and here is a day in a view rather than the calendar in general - see
+        // HereAndNow. Carried whichever page the press leads to: an appointment a task list made opens
+        // as its entry, and the edit that follows used to end on /tasks; an event of its own opens the
+        // calendar's own form, which used to end on plain "/calendar" - which is today, in the month,
+        // wherever the reader had got to.
+        var destination = ReturnTo.Link(CalendarEventDestination.For(calendarEventId, _taskLists), HereAndNow());
 
         Logger.LogInformation(
             "User opened calendar event {EventId} from the calendar, going to {Destination}", calendarEventId, destination);
@@ -738,7 +789,7 @@
         // Saying where this came from, so finishing the edit comes back to the calendar rather
         // than ending on /tasks - see ReturnTo.
         NavigationManager.NavigateTo(ReturnTo.Link(
-            $"/tasks/{dueTask.TaskListId}/items/{dueTask.TaskItemId}", "/calendar"));
+            $"/tasks/{dueTask.TaskListId}/items/{dueTask.TaskItemId}", HereAndNow()));
     }
 
     /// <summary>
@@ -868,7 +919,10 @@
         Logger.LogInformation("User clicked 'Delete' for calendar event {EventId}", calendarEvent.Id);
         _errorMessage = null;
         var confirmed = await JSRuntime.InvokeAsync<bool>(
-            "confirm", T.Format("Delete event \"{0}\"?", calendarEvent.Details.Title));
+            "confirm",
+            calendarEvent.IsShared
+                ? T.Format("Remove \"{0}\" from your calendar? The owner keeps it.", calendarEvent.Details.Title)
+                : T.Format("Delete event \"{0}\"?", calendarEvent.Details.Title));
         if (!confirmed)
         {
             return;
@@ -1000,6 +1054,33 @@
     private IReadOnlyList<CalendarEventDto> ChosenEvents
         => [.. (_events ?? []).Where(calendarEvent => _picked.Holds(calendarEvent.Id))];
 
+    /// <summary>The folder whose contents are being handed on, while one is - see ShareTheFolder.</summary>
+    private Guid? _folderBeingShared;
+
+    /// <summary>
+    /// What a share is about: the chosen appointments, or - when the folder's own menu started it -
+    /// everything filed under that folder (2026-09-20, asked for). An event is never sealed, so the
+    /// only one left out is one somebody else shared with this reader, which the dialog counts.
+    /// </summary>
+    private IReadOnlyList<CalendarEventDto> EventsBeingShared
+        => _folderBeingShared is { } folderId
+            ? [.. (_events ?? []).Where(calendarEvent => calendarEvent.FolderId == folderId && !calendarEvent.IsArchived)]
+            : ChosenEvents;
+
+    /// <inheritdoc cref="EventsBeingShared"/>
+    private void ShareTheFolder(Guid folderId)
+    {
+        Logger.LogInformation("User shared the contents of folder {FolderId}", folderId);
+        _folderBeingShared = folderId;
+        _isSharingPicked = true;
+    }
+
+    private void StopSharingSeveral()
+    {
+        _isSharingPicked = false;
+        _folderBeingShared = null;
+    }
+
     /// <inheritdoc cref="ActOnPickedAsync"/>
     private async Task FilePickedAsync(Guid? folderId)
         => await ActOnPickedAsync(calendarEvent => CalendarApiClient.MoveToFolderAsync(calendarEvent.Id, folderId));
@@ -1064,6 +1145,10 @@
     };
 
     private Task ToggleShowsEverythingAsync() => ListOrder.ShowEverythingAsync(!ListOrder.ShowsEverything);
+
+    /// <inheritdoc cref="GridShowsWhatIsDone"/>
+    private Task ToggleGridShowsWhatIsDoneAsync()
+        => ListOrder.ShowWhatIsDoneOnTheGridAsync(!ListOrder.GridShowsWhatIsDone);
 
     private async Task SetSortOrderAsync(CalendarListSortOrder sortOrder)
     {

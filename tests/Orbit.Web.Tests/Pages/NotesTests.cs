@@ -25,6 +25,59 @@ public sealed class NotesTests : OrbitTestContext
 
     public NotesTests() => Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
 
+    /// <summary>
+    /// "/notes" is the newest note, open for writing in, with the column of every note beside it
+    /// (2026-09-20, asked for). A note app is read by writing in one, and the page of cards in between
+    /// was a press spent choosing which note to want.
+    /// </summary>
+    [Fact]
+    public void Opening_the_notes_goes_straight_into_the_newest_one()
+    {
+        var older = Note("Ideas") with { UpdatedAtUtc = DateTimeOffset.UtcNow.AddDays(-1) };
+        var newest = Note("Shopping") with { UpdatedAtUtc = DateTimeOffset.UtcNow };
+        RegisterNotesApiClient([older, newest]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo("/notes");
+
+        RenderComponent<Web.Pages.Notes>();
+
+        Assert.EndsWith($"/notes/{newest.Id}", navigationManager.Uri, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Not into a sealed one, and not into one put away. A private note says nothing until its key is
+    /// given, so landing on one opens a page that cannot be read; the archive is where things go to
+    /// stop being what somebody is doing now.
+    /// </summary>
+    [Fact]
+    public void It_does_not_open_a_sealed_note_or_one_put_away()
+    {
+        var plain = Note("Ideas") with { UpdatedAtUtc = DateTimeOffset.UtcNow.AddDays(-1) };
+        RegisterNotesApiClient([
+            plain,
+            Note("Diary") with { IsPrivate = true, UpdatedAtUtc = DateTimeOffset.UtcNow },
+            Note("Last year") with { IsArchived = true, UpdatedAtUtc = DateTimeOffset.UtcNow }]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo("/notes");
+
+        RenderComponent<Web.Pages.Notes>();
+
+        Assert.EndsWith($"/notes/{plain.Id}", navigationManager.Uri, StringComparison.Ordinal);
+    }
+
+    /// <summary>And the page of cards, under its own address, stays where it is.</summary>
+    [Fact]
+    public void The_page_of_cards_keeps_its_own_address()
+    {
+        RegisterNotesApiClient([Note("Shopping")]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo("/notes/all");
+
+        RenderComponent<Web.Pages.Notes>();
+
+        Assert.EndsWith("/notes/all", navigationManager.Uri, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Every_note_is_listed()
     {
@@ -221,7 +274,7 @@ public sealed class NotesTests : OrbitTestContext
 
     /// <summary>
     /// The card opens the note to be read, and changing what it says is a named press - the same two
-    /// depths a task list and a storage have, see NoteSummary.razor.
+    /// depths a task list and a storage have, see CalendarEventSummary.razor.
     /// </summary>
     [Fact]
     public void A_card_opens_the_note_and_its_menu_opens_the_form()

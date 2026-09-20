@@ -15,7 +15,14 @@ public sealed record PublicSharedItemDto(
     string? Subtitle,
     IReadOnlyList<PublicSharedItemLineDto> Lines,
     string OwnerDisplayName,
-    DateTimeOffset UpdatedAtUtc);
+    DateTimeOffset UpdatedAtUtc,
+    /// <summary>
+    /// Where ItemType is "Folder", everything filed under it - each shaped the way its own link would
+    /// send it, so one page shows a folder's worth of notes or lists one after another. Null for every
+    /// other kind, which is a single thing. Last and defaulted so an older client reading a link to
+    /// something else is unaffected.
+    /// </summary>
+    IReadOnlyList<PublicSharedItemDto>? Items = null);
 
 /// <param name="IsFailed">Crossed out rather than ticked - see Orbit.Core.Tasks.TaskItem.IsFailed.</param>
 /// <param name="Style">

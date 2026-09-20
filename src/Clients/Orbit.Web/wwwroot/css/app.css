@@ -437,6 +437,19 @@ input.note-editor-title {
     color: var(--text-secondary);
 }
 
+/* The heading is the way to the page of cards, which "/notes" no longer opens. It reads as the heading
+   it has always been until it is pointed at, rather than as a link sitting where a heading was. */
+.note-workspace-list-heading a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.note-workspace-list-heading a:hover,
+.note-workspace-list-heading a:focus-visible {
+    color: var(--text-primary);
+    text-decoration: underline;
+}
+
 /* NoteWorkspaceList.razor: which folder the notes under it are filed in. A rule above it as well as a
    name, because the column is read down rather than across - the line is what says "a different folder
    starts here" at a glance, and the name says which. None above the first, where there is nothing to
@@ -456,6 +469,33 @@ input.note-editor-title {
     margin-top: 0;
     padding-top: 0;
     border-top: none;
+}
+
+/* The folder's name and its own menu on one line, the menu pushed to the far edge - the folders are
+   renamed, hidden and deleted from here since 2026-09-20, where the row of tabs used to hold it. */
+.note-workspace-list-folder {
+    align-items: center;
+    display: flex;
+    gap: 4px;
+    justify-content: space-between;
+}
+
+.note-workspace-list-folder-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* And the plus beside the column's own heading, which makes a folder. */
+.note-workspace-list-heading {
+    align-items: center;
+    display: flex;
+    gap: 4px;
+    justify-content: space-between;
+}
+
+.note-workspace-list-add {
+    color: var(--text-secondary);
 }
 
 .note-workspace-row {
@@ -488,6 +528,19 @@ input.note-editor-title {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* A note holding writing the server has not got. The star is the mark; the name goes into the accent
+   with it, because a single character at the end of a truncated title is the one thing an ellipsis can
+   eat. Asked for on 2026-09-20: the warning on the way out is easy to read past, and somebody who has
+   written in three notes and saved one had no way to see which two were still waiting. */
+.note-workspace-row.unsaved .note-workspace-row-title {
+    color: var(--accent);
+}
+
+.note-workspace-row-unsaved {
+    margin-left: 0.25em;
+    color: var(--accent);
 }
 
 /* No room for a third column: a fifth of a narrow window is too little to name a note in, and the
@@ -764,8 +817,43 @@ input.note-editor-title {
 }
 
 .note-picture {
+    position: relative;
     margin: 0;
     max-width: 100%;
+    /* So the corner press sits over the picture rather than over the width of the line. */
+    width: fit-content;
+}
+
+/* The press that takes the picture out, in its own corner - see createPictureElement, which says why
+   Backspace on the line was not a way to be rid of one. Always drawn rather than shown on hover: a
+   control nobody can find is the thing that was missing in the first place, and a touch screen has no
+   hover to find it with. */
+.note-picture-remove {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: 1rem;
+    line-height: 26px;
+    text-align: center;
+    cursor: pointer;
+}
+
+.note-picture-remove:hover,
+.note-picture-remove:focus-visible {
+    background: rgba(0, 0, 0, 0.75);
+}
+
+/* A surface nobody may write to has nothing to take out - the same way its tick boxes are stopped
+   rather than left live, see .note-editor-content-readonly below. */
+.note-editor-content-readonly .note-picture-remove {
+    display: none;
 }
 
 .note-picture img {
@@ -3748,6 +3836,14 @@ input.note-editor-title {
     gap: 0.5rem;
 }
 
+/* The view switch and the grid's own menu, kept together at the right end of the toolbar so the menu
+   reads as belonging to the grid rather than to the page. */
+.calendar-visualization-toolbar-views {
+    align-items: center;
+    display: flex;
+    gap: 0.5rem;
+}
+
 .calendar-period-label {
     margin: 0;
     min-width: 10rem;
@@ -3910,6 +4006,27 @@ input.note-editor-title {
     --calendar-entry-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='2' width='12' height='12' rx='3'/%3E%3Cpath d='m5 8.2 2 2 4-4.4'/%3E%3C/svg%3E");
 }
 
+/* An appointment somebody else shared, marked after its name the way the kind of entry is marked
+   before it. The list beside the grid has always said "Shared by Anna" on its card and the grid said
+   nothing at all, so a shared appointment read as one of the reader's own (reported 2026-09-20).
+
+   A mark rather than the sentence: a chip is one line inside a seventh of a week, and the sentence is
+   on the chip's title attribute, where pointing at it reads it out. Two heads, in the same masked,
+   text-coloured shape as the mark on the other side, so a done chip greys both together. */
+.calendar-chip-shared .calendar-event-chip-title::after,
+.calendar-chip-shared .calendar-event-block-title::after {
+    content: "";
+    display: inline-block;
+    width: 0.9em;
+    height: 0.9em;
+    margin-left: 0.25em;
+    vertical-align: -0.12em;
+    background-color: var(--text-secondary);
+    -webkit-mask: var(--calendar-shared-mark) center / contain no-repeat;
+    mask: var(--calendar-shared-mark) center / contain no-repeat;
+    --calendar-shared-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
+}
+
 /* Calendar.razor / CalendarMonthGrid.razor / CalendarDayGrid.razor: a due task's chip, laid out like
    .calendar-event-chip but with a fixed dashed accent color instead of the event's own Color, so a task
    with a deadline reads as a different kind of entry even though it's placed on the calendar the same way. */
@@ -3941,6 +4058,18 @@ input.note-editor-title {
 .calendar-chip-done {
     text-decoration: line-through;
     color: var(--text-secondary);
+}
+
+/* And its colour goes with it. The stripe down the side of a chip is the event's own colour, chosen to
+   make it stand out on a full day - which is exactly what something already done should stop doing. A
+   finished appointment in bright red went on shouting over the four things still ahead of it (reported
+   2026-09-20), so the stripe greys with the text. !important because the colour is written on the
+   element's own style attribute, where it is the event's to choose while it is still to come. */
+.calendar-chip-done,
+.calendar-event-block.calendar-chip-done,
+.calendar-task-chip.calendar-chip-done,
+.calendar-task-block.calendar-chip-done {
+    border-left-color: var(--text-secondary) !important;
 }
 
 /* CalendarYearGrid.razor: the 12 compact month grids, wrapping to fit the visualization panel's width. */

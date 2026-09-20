@@ -44,7 +44,7 @@ from everywhere they get typed. What this pass found and did **not** fix is in
   Action Button. Phase 8 is done on Android: every switch, picker, date or time picker and checkbox
   names itself to a screen reader and a test fails on one that does not, and the home screen widget is
   built and driven on a device (see
-  [Functionality](functionality.md#the-home-screen-widget-android)).
+  [Functionality](functionality.md#the-home-screen-widgets-android)).
   A push
   arriving while the app is in front of somebody now shows a banner on the navigation bar, which is
   where the browser shows its own; it honours `AllowMobileBanner` and the two settings that pace it,
@@ -765,6 +765,30 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **The phone still deletes a full folder** (2026-09-20). The browser now refuses one that still holds
+  something (`FolderTabs.StillHolds`, and `info/functionality.md` on why). The phone's four pages -
+  `NotesPage.xaml.cs`, `TasksPage.xaml.cs`, `CalendarPage.xaml.cs`, `InventoryPage.xaml.cs` - each ask
+  *"Delete the folder "{0}"? Nothing in it is deleted - it goes back to Public, or to Private if it is
+  sealed."* and then do exactly that. Each needs the same question asked of its own list before the
+  entry is offered. Left for the round that touches those pages.
+
+- ~~**An inventory is the one shared thing with no way to ask for editing, and no way off your own
+  page**~~ (2026-09-20). Both done the same day, in the shape the other three have.
+  `RequestEditAccessButton` is under the shared-by banner of `InventoryEditor.razor` now - the owner's
+  side already knew how to answer for one, the `_ =>` branch of `Chat.razor`'s
+  `BuildEditAccessRequestNotice` being the inventory. And both menus (`Inventories.razor`,
+  `InventorySummary.razor`) say **"Remove from my list"** rather than nothing, with
+  `DeleteNeedsTheArchive="false"` so it is offered without asking for an archive a share cannot be put
+  through; each question names what will happen ("Remove "{0}" from your inventories? The owner keeps
+  it.") rather than borrowing the deletion's words.
+
+  **The phone had the same two gaps and a third of its own.** Its shelf screen offered Archive and
+  Delete behind `CanEdit`, so a shared shelf held at that level was offered a "Delete inventory" that
+  actually drops the reader's grant, and a read-only one was offered nothing at all - the screen says
+  "Remove from my list" now, from `InventoryDetailViewModel.IsSharedWithMe`. The third: that entry went
+  **straight through on the press**, with no question at all, which is one slip of a thumb between a
+  reader and everything on a shelf. It asks now, in the two wordings above.
+
 - **"Cannot invoke JS interop… DotNetObjectReference was disposed" (issue #185): audited 2026-09-19, and
   no component owns it any more.** Every one of the seven that hands a reference to a module - the
   checklist editor, the Google button, the group conversation, the location picker, the name
@@ -821,6 +845,14 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
   ~~`ChatThreadTests.A_notification_stays_while_their_newest_message_is_not_yet_in_view` and
   `GroupConversationPagesTests` have each done it once in the same session.~~ Still uncaught.
+  `ChatThreadTests.A_message_not_yet_in_view_is_not_marked_read` joined them on 2026-09-20 - same class,
+  same shape, and it passed alone straight afterwards. All three turn on "not yet in view", which is the
+  intersection observer's answer and is settled by a render the test does not wait for.
+
+  `NameSuggestionSourceTests.A_name_of_something_says_where_it_is_and_hands_that_thing_over` failed once
+  on 2026-09-20 in the full run and passed alone and in the next full run. A fourth of the same shape -
+  a suggestion list settled by a lookup the test does not wait for - and unrelated to what was being
+  changed at the time (folders on the dashboard).
 
 - ~~**`PeriodicSyncTests` fails under load.**~~ Found and fixed 2026-09-19, while running the suite twice
   over to chase the one above. `SettleAsync` yielded the thread eight times and **hoped** the timer's
@@ -2567,6 +2599,155 @@ the session that finishes one strikes it here rather than in a report nobody rea
   offset against a nullable one that reads the same on both sides, and a contact list is a few dozen rows.
   **Not seen on a device.**
 
+## What the user asked for on 2026-09-20, second list
+
+Given while the first list of that day was being finished, and to be worked through after it. Written
+down whole rather than started, so nothing in it depends on being remembered.
+
+### Orbit.Maui
+
+- ~~**Take "Dashboard" out of the navigation drawer.**~~ Done 2026-09-20: the entry is gone and the
+  "Orbit" row at the top of the drawer - which always led there - goes into the accent while that is
+  where the reader is, so the one destination is said once and still says where you are.
+
+- ~~**The name field and the Add button go; a "+" in the bottom right replaces them.**~~ Done
+  2026-09-20 on all three pages: the row above the list is gone and the floating button
+  (`Controls/Fab.xaml`) makes the thing straight away, with the name asked for in the note, on the
+  list or on the shelf - one press instead of three.
+
+### Orbit.Web
+
+- ~~**A shared thing says so on the dashboard's Upcoming card and nowhere else.**~~ Done 2026-09-20:
+  the Notes and Tasks rows carry the Inventory card's "Shared" badge now.
+
+- ~~**A note with unsaved changes must say so in the list, not only when leaving.**~~ Done 2026-09-20:
+  a star beside its name in the column, with the name in the accent, kept in step as the note is typed
+  in rather than only when the reader leaves it (`NoteWorkspaceList`, `NoteDrafts.Changed`). The
+  question on the way out is Orbit's own panel now, naming the notes it is about.
+
+- ~~**`/notes` opens into the newest note rather than onto a list.**~~ Done 2026-09-20
+  (`Notes.OpenTheNewestNote`): the most recently changed note that is neither sealed nor put away opens
+  for writing in, with the column of every note down the left. The address is replaced rather than
+  pushed, so nothing comes back to it and bounces in again. **The page of cards keeps its own address**,
+  `/notes/all`, reached from the heading above the column - it is still the only place several notes can
+  be chosen at once and the only place tags narrow anything, and losing those was not what was asked for.
+
+  The folders moved into that left panel the same day (`NoteWorkspaceList`): a **"+"** beside its
+  heading makes one, each folder somebody made carries *rename* / *hide on the dashboard* / *delete* in
+  its own menu, **Archived** is lifted to the top with *hide folder* in its menu, and while it is
+  hidden the "+" is a menu of two - *New folder*, *Show the archive*. Deleting is refused while
+  anything is in the folder, the same rule the row of tabs applies. The row of tabs on `/notes/all`
+  keeps all of it as well: it is the same controls in the place the notes are now read from, rather
+  than a move.
+
+- ~~**"Add note" becomes a "+" on the right-hand panel, in place of Back.**~~ Done 2026-09-20
+  (`EditorRail.OnAdd`, set by the note editor alone): it opens the empty note form, and the note lands
+  in Public - this page has no folder tab, so the tab that would otherwise answer is whichever one the
+  page of cards was last left on. **A note with no name cannot be created**: the first line is the name,
+  so an empty one leaves Save greyed and the hint says which answer is missing rather than one sentence
+  for both.
+
+- ~~**Saving a note must not navigate anywhere.**~~ Done 2026-09-20: it saves, says "Saved." until the
+  next thing is written, and stays. A note that has just been *made* is the one exception, and only as
+  far as its address - "/notes/new" is replaced with the note's own so Back cannot reopen the form
+  that made it.
+
+- ~~**A PIN for private things.**~~ Done 2026-09-20 in the browser: one per account, hashed beside the
+  password (`User.PrivatePinHash`), asked once a session before the Private tab draws anything on the
+  notes, the task lists, the inventories and the dashboard (`BehindThePin`, `PrivatePinGate`), and set,
+  changed or removed in the options under the password - with the *password* as proof, so a forgotten
+  PIN does not lock its own owner out. **Events were on the list and have nothing to gate**: an event
+  cannot be sealed at all (`FolderPages.HasAPrivateTab`), so sealing one is a different and larger ask.
+  Map points are excepted as the user said.
+
+  The three editors carry the same wrapper as of the same day, so a sealed thing reached by its own
+  address - a notification, a link, the column beside the writing - asks too.
+
+  Still to do: **the phone**, which has the device lock (`PrivateItemGate`) in the same place and would
+  now have two questions in front of the same thing - which of them to keep, or whether the PIN stands
+  in for the device lock where an account has one, is a decision rather than a port.
+
+- ~~**A whole folder can be shared**, through chat and through a public link~~ - done 2026-09-20, both
+  from the folder's own menu. **By chat** it is the dialog that already shares several chosen things,
+  given everything under the folder instead: one contact, one level, a grant and an invitation each, so
+  what arrives is ordinary shares the recipient files themselves. **By link** it is a new
+  `SharedItemType.Folder`, one address showing every thing under it drawn as its own link would draw it
+  (`SharedItemCard`), with nothing sealed and nothing archived in it.
+
+  Two things deliberately left as they are: **a folder's link cannot be claimed** - "Save to my account"
+  promises one read-only copy and a folder would hand over a page of them, so the page says to ask for
+  the folder in Orbit instead - and **the folder itself is still never shared**, staying the owner's own
+  tab. Claiming a whole folder is the open question if that turns out to be wanted.
+
+- ~~**An empty Private or Archived folder is not drawn at all**~~ - done 2026-09-20 on all four pages
+  that file things (`FolderTabs.HoldsAnything`). Where that leaves Public on its own the tabs go, but
+  **the plus stays**: the row is also where a folder is made, and hiding it outright would leave a
+  reader with one folder no way to ever make a second. Said here rather than done that way because it
+  is a deliberate departure from what was asked.
+
+- ~~**A custom folder made in the inventory appears on the dashboard without saying the Inventory card
+  is hidden there.**~~ Done 2026-09-20: the tab names the card that has been put away, or says so
+  without naming one where it is about more than one card. Said for all three kinds, not only shelves.
+
+- ~~**Folders do not line up between the sections.**~~ Done 2026-09-20, the way the user chose when
+  asked: the folders stay separate rows - a folder holds one kind of thing - but the naming box offers
+  the names already used elsewhere (`FolderTabs.NamesUsedElsewhere`), and the dashboard reads folders of
+  one name as **one tab** covering every card of that name (`FolderTabRow.On`,
+  `FolderState.FoldersCalledTheSameAs`). One folder per account across all four sections was the other
+  option and was not taken; it would need a migration and a merge of what is already stored.
+
+- ~~**"Show on the dashboard" moves from the dashboard to the folder.**~~ Done 2026-09-20: which cards
+  the dashboard draws is now a choice per tab (`DashboardCardPreferences.IsVisible(cardKey, folder)`),
+  stored the way each card's filter already was. A card hidden before the change stays hidden on the tab
+  the page opens on.
+
+- ~~**The calendar greys out what is finished**, the task's own colour included~~ - done 2026-09-20:
+  `.calendar-chip-done` greys the stripe as well as the words.
+
+- ~~**The calendar view says nothing about an event being shared.**~~ Done 2026-09-20: a mark after the
+  name on all three grids (`.calendar-chip-shared`), with who shared it on the chip's title.
+
+- ~~**The event list gets its own "hide completed"**~~ - done 2026-09-20: the page header's menu is the
+  list's, and the grid has its own beside the view switch ("What is already done",
+  `Calendar.GridShowsWhatIsDone`), so finished work can be shown in one of the two places rather than in
+  both at once. What is merely *over* is still not a question the grid asks.
+
+- ~~**Going back from an event lands on today**~~ - done 2026-09-20: every way out of the calendar
+  carries the view and the day it was opened from (`Calendar.HereAndNow`), which is the query string
+  the page already obeyed.
+
+- ~~**A conversation cannot be archived from inside it**, nor from the person's own info~~ - done
+  2026-09-20: the thread's own menu puts it away and leaves for the list, and the contact card carries
+  Archive / Put back in the corner every other object keeps its menu in.
+
+- ~~**"New group" comes off the chat list's left panel**~~ - done 2026-09-20: it is under the contacts
+  page's Groups tab, and the making itself still happens on the chat page, where the conversation
+  would be.
+
+- ~~**A checklist entry that became a calendar entry is on the calendar twice.**~~ Done 2026-09-20: a
+  Calendar entry has no deadline of its own (`TaskItem.DueDateUtc`) - the event says when it is, and the
+  form only ever asked one of the two. The old deadline was kept where nothing showed it and nothing
+  could clear it, so the calendar drew the entry at both dates with one tick behind them. The rule is
+  the domain's, in the constructor that already drops a product from an entry of the wrong kind, so it
+  holds for rows already stored as well: they come back without it.
+
+- ~~**Detaching an event from the calendar leaves a duplicate event behind.**~~ Done 2026-09-20:
+  detaching cleared the link but left the entry a Calendar one, which is exactly what the save makes an
+  event for. It now stops being an appointment in the same press (`TaskEditor.DetachFromTheEvent`), and
+  the event's start becomes the day it is owed by so the *when* is not lost with the link.
+
+- **Only a checklist entry is asked for a deadline, but two other kinds can still hold one.** The form
+  asks Checklist alone (see WhatAndWhen), and Calendar entries now drop theirs - but a Location entry
+  that had one before its kind changed keeps a date nothing on screen shows. An Inventory errand's date
+  is real and used (`RestockListSettings.OnlyLinkedWithDueDate`), which is why the rule was not widened:
+  the question is whether the form should be asking those two rather than whether the date should go.
+
+- ~~**A calendar-kind task draws its priority and its colour twice on the form.**~~ Done 2026-09-20:
+  the entry asks both about itself and the event's own pair is off that form
+  (`EventFields.ShowsPriorityAndColour`); the entry's answers are carried onto the event when the list
+  is saved, and an appointment that already had a colour or a priority opens showing it rather than
+  having the entry's defaults written over it.
+
 ## Smaller identified follow-ups
 
 - ~~**The phone's wait does not look like the web's yet.**~~ Fixed 2026-09-11: `OrbitLoading` (Controls) is
@@ -2698,16 +2879,26 @@ the session that finishes one strikes it here rather than in a report nobody rea
   | --- | --- | --- |
   | Task list | `/tasks/{id}` - the checklist: tick items, see the tree of lists it stands for, measure it against a storage | `/tasks/{id}/edit` |
   | Task entry | `/tasks/{listId}/items/{itemId}` - `TaskItemSummary`: when, where, what the appointment is about, who is coming, a map, and a Done box that crosses it off | the entry's own row in the list's editor |
-  | Note | `/notes/{id}` - `NoteSummary`: the note read, with the checklist lines in it tickable | `/notes/{id}/edit` |
+  | Note | none since 2026-09-20 - `/notes/{id}` is the form | `/notes/{id}` and `/notes/{id}/edit`, both `NoteEditor` |
   | Calendar event | `/calendar/{id}` - `CalendarEventSummary`: when, where, what it is about, who is coming, its reminders, and the place on a map | `/calendar/{id}/edit` |
   | Storage | `/inventory/{id}` - the shelf read rather than edited, one row per batch: what it is, how much, when it arrived, how long it keeps | `/inventory/{id}/edit` |
   | Contact / group | `/contacts/{userId}`, `/chat/groups/{id}/info` - read-only cards about who somebody is | no form; membership is edited on the roster |
 
   The unevenness this used to record is gone: when it was written a note, an event and a storage had
-  nothing between a card and a whole form, and each of the three has had its own reading page since
+  nothing between a card and a whole form, and each of the three was given its own reading page
   (`NoteSummary`, `CalendarEventSummary`, the shelf at `/inventory/{id}`), all built to the same shape
   as part of the screen-ladder pass. A contact and a group are the deliberate exception - they are read
   and never edited as objects, so there is no second depth to give them.
+
+  **A note's has since been taken away again** (asked for on 2026-09-20, `NoteSummary.razor` deleted).
+  It is the one object whose shallow view answered a question nobody asks: a note *is* writing, so
+  every press on one was a press towards writing in it, and the reading rung put a press in the way of
+  the only thing the page is for. Nothing was lost with it - the writing surface draws the same lines
+  with the same real tick boxes, so a checklist is ticked where it is written - and what the page alone
+  carried moved onto the form: "All notes", Archive / Put back, and Delete once it has been archived.
+  Both addresses land on the form, because the note's own is what every notification, share and
+  dashboard row already carries. The other five keep theirs: a shelf, an appointment and an entry are
+  things you *read*, and a list's checklist is where it is worked rather than rewritten.
 
   ~~One thing is still wrong with it, and it is the smaller half: the shallow view and the full form are
   reached inconsistently.~~ Settled on 2026-09-07. The note half of it had already gone by the time this
@@ -2800,3 +2991,17 @@ the session that finishes one strikes it here rather than in a report nobody rea
   currently calls OpenStreetMap's free, public Nominatim instance (see
   [Functionality — Calendar](functionality.md#calendar)), whose usage policy caps it to light,
   non-commercial traffic. A deployment with real usage volume should self-host Nominatim instead.
+
+- **An edit request on the phone: what was found, and what is still unproven.** Reported 2026-09-20 from
+  a phone - a notification said a message had arrived and the conversation held nothing at all, "no
+  message, no request, nothing". The journey itself turns out to work and is now pinned down end to end
+  (`EditAccessRequestTests`): a request encrypted by the other side arrives, opens, and draws as a
+  request rather than as JSON or as a message that cannot be opened. What *was* missing is the answer -
+  the phone drew the request and offered nothing to press, so the only way to say yes was to find the
+  thing and share it again by hand. There is an **Allow editing** button on it now, which shares it back
+  at `EditOnly` exactly as the browser's own answer does.
+  Still unproven: the reported case itself, which needs two real accounts on two devices - and the
+  phone's bubble does not name *what kind of thing* was asked about the way the browser's
+  "Asked to edit a note: Shopping" does (`Chat.razor`'s `DescribeItemType`). Naming the kind needs the
+  kind through to the row and a converter to translate it, since `ReadableChatMessage` holds no
+  `Translations`.

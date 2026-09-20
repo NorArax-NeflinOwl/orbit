@@ -52,9 +52,6 @@ public sealed partial class NotesViewModel : ObservableObject
 
 
     [ObservableProperty]
-    private string _newNoteTitle = string.Empty;
-
-    [ObservableProperty]
     private bool _isRefreshing;
 
     /// <summary>The one thing this screen has to say for itself, which today is only about pinning.</summary>
@@ -288,17 +285,24 @@ public sealed partial class NotesViewModel : ObservableObject
 
     /// <summary>The way back to the dashboard, as every other list screen has - see NotesPage.</summary>
 
-    [RelayCommand(CanExecute = nameof(CanAddNote))]
+    /// <summary>
+    /// Makes a note and opens it. The plus used to unfold a name field at the top of the screen and
+    /// wait for a name before making anything; it makes an empty one and hands the reader to it now
+    /// (asked for 2026-09-20), which is one press instead of three and puts the cursor where the note
+    /// is actually written rather than in a box above a list.
+    ///
+    /// Made here rather than on the screen it opens, so it exists on this phone the moment it is asked
+    /// for - which is what the offline store is for, and what the field above was doing.
+    /// </summary>
+    [RelayCommand]
     private async Task AddNoteAsync(CancellationToken cancellationToken)
     {
-        await _notes.CreateAsync(NewNoteTitle.Trim(), NoteListItem.EmptyContent, cancellationToken);
-        NewNoteTitle = string.Empty;
+        var note = await _notes.CreateAsync(string.Empty, NoteListItem.EmptyContent, cancellationToken);
 
         await ShowLocalNotesAsync(cancellationToken);
+        _navigator.ShowNote(note.LocalId);
         await SynchroniseAsync(cancellationToken);
     }
-
-    private bool CanAddNote => NewNoteTitle.Trim().Length > 0;
 
     /// <summary>
     /// Draws the notes from what is on the phone, asking the server nothing.
@@ -575,7 +579,6 @@ public sealed partial class NotesViewModel : ObservableObject
 
         _syncState.RecordFailed();
     }
-    partial void OnNewNoteTitleChanged(string value) => AddNoteCommand.NotifyCanExecuteChanged();
 
     /// <summary>
     /// The dictionary key, not the text itself - see <see cref="Translations"/>. The same sentence the

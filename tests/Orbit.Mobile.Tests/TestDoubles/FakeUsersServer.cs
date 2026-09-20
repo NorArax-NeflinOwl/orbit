@@ -60,6 +60,12 @@ internal sealed class FakeUsersServer : HttpMessageHandler
     /// <summary>What the last deletion sent as its Google sign-in, if anything.</summary>
     public string? LastDeletionGoogleIdToken { get; private set; }
 
+    /// <summary>What the last answer to "Do not share my personal information" said, or null for none.</summary>
+    public bool? KeepsThirdPartiesOut { get; private set; }
+
+    /// <summary>Whether that answer is refused, for the screen that has to put its switch back.</summary>
+    public bool RefusesThePrivacyChoice { get; set; }
+
     /// <summary>
     /// What GET /users/me answers with. An unverified account with no Google behind it by default, which
     /// is the state that hides the Google extras - see GoogleIntegrationAccess.
@@ -102,6 +108,22 @@ internal sealed class FakeUsersServer : HttpMessageHandler
             && request.RequestUri!.AbsolutePath.EndsWith("/users/me", StringComparison.Ordinal))
         {
             return DeleteAccountAsync(request, cancellationToken);
+        }
+
+        // "Do not share my personal information", answered from the account screen - see
+        // AccountClient.SetKeepsThirdPartiesOutAsync.
+        if (request.Method == HttpMethod.Put
+            && request.RequestUri!.AbsolutePath.EndsWith("/users/me/privacy", StringComparison.Ordinal))
+        {
+            if (RefusesThePrivacyChoice)
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+            }
+
+            KeepsThirdPartiesOut = request.Content!
+                .ReadFromJsonAsync<SetPrivacyChoiceRequest>(cancellationToken)
+                .GetAwaiter().GetResult()!.KeepsThirdPartiesOut;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
         }
 
         // Asked by the account screen's Google row, which is absent unless a client id comes back -

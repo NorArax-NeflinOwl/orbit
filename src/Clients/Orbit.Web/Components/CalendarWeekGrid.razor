@@ -36,7 +36,7 @@
                 <div class="calendar-week-grid-all-day-cell">
                     @foreach (var calendarEvent in day.AllDayEvents)
                     {
-                        <button type="button" class="calendar-event-chip @DoneClass(calendarEvent.Id)"
+                        <button type="button" class="calendar-event-chip @DoneClass(calendarEvent.Id) @SharedClass(calendarEvent)" title="@ChipTitle(calendarEvent)"
                                 style="border-left-color:@EventColor(calendarEvent);"
                                 @onclick="() => EventSelectedAsync(calendarEvent.Id)">
                             <span class="calendar-event-chip-title">@RecurringPrefix(calendarEvent)@calendarEvent.Details.Title</span>
@@ -66,7 +66,7 @@
 
                 @foreach (var placedEvent in day.TimedEvents)
                 {
-                    <button type="button" class="calendar-event-block @DoneClass(placedEvent.Event.Id)"
+                    <button type="button" class="calendar-event-block @DoneClass(placedEvent.Event.Id) @SharedClass(placedEvent.Event)" title="@ChipTitle(placedEvent.Event)"
                             style="@PositionStyle(placedEvent) border-left-color:@EventColor(placedEvent.Event);"
                             @onclick="() => EventSelectedAsync(placedEvent.Event.Id)">
                         <span class="calendar-event-block-time">@FormatTimeRange(placedEvent.Event.Details)</span>
@@ -108,6 +108,25 @@
 
     /// <summary>Pressing a day's name opens that day, the way pressing a cell of the month grid does.</summary>
     [Parameter] public EventCallback<DateOnly> OnDaySelected { get; set; }
+
+    /// <summary>
+    /// A mark on the chip for an event somebody else shared - see .calendar-chip-shared, which draws it
+    /// after the name. The list beside the grid has always said "Shared by Anna" on its own card; the
+    /// grid said nothing at all, so a shared appointment read as one of the reader's own
+    /// (reported 2026-09-20). A mark rather than a name because a chip is one line in a seventh of a
+    /// week - the whole sentence is on its title attribute.
+    /// </summary>
+    private static string SharedClass(CalendarEventDto calendarEvent)
+        => calendarEvent.IsShared ? "calendar-chip-shared" : string.Empty;
+
+    /// <summary>
+    /// What the chip says when it is pointed at: its whole name, and who shared it where somebody did.
+    /// The mark beside the name says a chip is somebody else's; this is where it says whose.
+    /// </summary>
+    private string ChipTitle(CalendarEventDto calendarEvent)
+        => calendarEvent.IsShared
+            ? calendarEvent.Details.Title + " - " + T.Format("Shared by {0}", calendarEvent.SharedByUserName)
+            : calendarEvent.Details.Title;
 
     private string DoneClass(Guid eventId) => TickedOffEventIds.Contains(eventId) ? "calendar-chip-done" : string.Empty;
 

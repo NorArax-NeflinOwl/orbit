@@ -101,10 +101,15 @@ else
 {
     <EditorRail OnCancel="LeaveAsync"
                 OnEdit="GoToEditor" EditLabel="@(_event.IsShared ? T["View"] : T["Edit"])">
-        @* No Edit in here: it is a button of its own on the panel now - see EditorRail.OnEdit. *@
+        @* No Edit in here: it is a button of its own on the panel now - see EditorRail.OnEdit.
+           Somebody else's event is taken off this reader's calendar rather than destroyed, and needs no
+           archive first - see ObjectMenu.DeleteNeedsTheArchive. It used to be left out here entirely,
+           which left a shared event with no way off the page at all. *@
         <ObjectMenu AllLabel="@T["Calendar"]" OnAll="GoToCalendar"
                     IsArchived="_event.IsArchived"
-                    DeleteLabel="@(!_event.IsShared ? T["Delete"] : null)" OnDelete="DeleteAsync" />
+                    DeleteNeedsTheArchive="@(!_event.IsShared)"
+                    DeleteLabel="@(_event.IsShared ? T["Remove from my list"] : T["Delete"])"
+                    OnDelete="DeleteAsync" />
     </EditorRail>
 }
 </div>
@@ -115,7 +120,7 @@ else
     /// <summary>
     /// The page that sent the reader here, which is where this page's Back returns. The form is not
     /// handed it: the form ends back on this page, and this page still knows the way on from here because
-    /// its own address carries this. See ReturnTo, and NoteSummary, which does the same.
+    /// its own address carries this. See ReturnTo, and InventorySummary, which does the same.
     /// </summary>
     [Parameter, SupplyParameterFromQuery(Name = ReturnTo.QueryName)]
     public string? ComeBackTo { get; set; }
@@ -250,7 +255,7 @@ else
     /// <summary>Back: where this page was opened from, without leaving it behind - see NavigationTrail.</summary>
     private Task LeaveAsync() => NavigationTrail.FinishAsync(ReturnTo.Or(ComeBackTo, "/calendar"));
 
-    /// <summary>The form, told to come back to this page so the saved appointment is what it ends on - see NoteSummary.GoToEditor.</summary>
+    /// <summary>The form, told to come back to this page so the saved appointment is what it ends on - see InventorySummary.GoToEditor.</summary>
     private void GoToEditor()
         => NavigationManager.NavigateTo(ReturnTo.Link($"/calendar/{Id}/edit", NavigationTrail.Here));
 
@@ -258,7 +263,11 @@ else
     private async Task DeleteAsync()
     {
         if (_event is null
-            || !await JSRuntime.InvokeAsync<bool>("confirm", T.Format("Delete \"{0}\"?", _event.Details.Title)))
+            || !await JSRuntime.InvokeAsync<bool>(
+                "confirm",
+                _event.IsShared
+                    ? T.Format("Remove \"{0}\" from your calendar? The owner keeps it.", _event.Details.Title)
+                    : T.Format("Delete \"{0}\"?", _event.Details.Title)))
         {
             return;
         }

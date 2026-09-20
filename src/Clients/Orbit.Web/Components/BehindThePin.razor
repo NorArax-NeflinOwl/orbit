@@ -1,0 +1,49 @@
+@using Orbit.Web.Services
+@implements IDisposable
+@inject PrivatePinGate Gate
+
+@* Puts the account's PIN in front of whatever is inside it, where what is inside it is private (asked
+   for on 2026-09-20). One component rather than the same four lines on every page that draws something
+   sealed - and the pages disagree about nothing here, which is the whole reason it is one question.
+
+   While the question is unanswered nothing inside is rendered at all, rather than drawn and covered: a
+   page that draws what is private and puts a panel over it has already put it on the screen, and the
+   screen is what the question is about. *@
+@* Two branches and not three, deliberately. Razor gives each branch of an if/else its own place in the
+   render tree, so writing @ChildContent in two of them makes Blazor tear the whole subtree down and
+   build it again whenever the answer moves between those two branches - which, inside an editor, throws
+   away the form the reader was filling in. One branch holds the content, whatever the reason it is
+   being shown. *@
+@if (Applies && Gate.Asks)
+{
+    <PrivatePinDialog OnGaveUp="OnGaveUp" OnOpened="StateHasChanged" />
+}
+else
+{
+    @ChildContent
+}
+
+@code {
+    /// <summary>Whether what is inside is private at all. False draws it with no question asked.</summary>
+    [Parameter] public bool Applies { get; set; }
+
+    /// <summary>Where the reader goes when they cannot answer - see PrivatePinDialog.OnGaveUp.</summary>
+    [Parameter] public EventCallback OnGaveUp { get; set; }
+
+    [Parameter, EditorRequired] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// **This component does no I/O.** Whether the account has a PIN is learned once, by MainLayout,
+    /// off the read of the account it already makes - so the answer is in hand before any page draws
+    /// and this only ever reads it.
+    ///
+    /// It was the other way round to begin with, and asking here was wrong twice over: an await before
+    /// the child content is drawn puts a network call between the reader and a form that has nothing
+    /// sealed in it, and inside the three editors it made a different test fail on every run.
+    /// </summary>
+    protected override void OnInitialized() => Gate.Changed += OnGateChanged;
+
+    public void Dispose() => Gate.Changed -= OnGateChanged;
+
+    private void OnGateChanged() => InvokeAsync(StateHasChanged);
+}

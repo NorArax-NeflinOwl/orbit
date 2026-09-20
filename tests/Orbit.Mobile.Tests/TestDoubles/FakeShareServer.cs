@@ -84,13 +84,30 @@ internal sealed class FakeShareServer : HttpMessageHandler
             });
         }
 
-        return Task.FromResult(path.EndsWith("/shares", StringComparison.Ordinal)
-            ? new HttpResponseMessage(HttpStatusCode.OK)
+        if (path.EndsWith("/shares", StringComparison.Ordinal))
+        {
+            LastShareAsked = ReadWhatWasAsked(request, cancellationToken);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = JsonContent.Create(new ShareResultDto(LastShareId = Guid.NewGuid(), AlreadyShared))
-            }
-            : new HttpResponseMessage(HttpStatusCode.NoContent));
+            });
+        }
+
+        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
     }
+
+    /// <summary>
+    /// What the last share actually asked for - who it is for and at what level. Recorded because the
+    /// level is the whole of some requests: answering "allow editing" with a read-only share would hit
+    /// the same endpoint and pass a test that only counted the paths.
+    /// </summary>
+    public ShareAsked? LastShareAsked { get; private set; }
+
+    private static ShareAsked? ReadWhatWasAsked(HttpRequestMessage request, CancellationToken cancellationToken)
+        => request.Content?.ReadFromJsonAsync<ShareAsked>(cancellationToken).GetAwaiter().GetResult();
+
+    /// <summary>The body of a share request - see NotesClient.ShareAsync, which writes it.</summary>
+    public sealed record ShareAsked(Guid RecipientUserId, string AccessLevel);
 
     public HttpClient ToHttpClient() => new(this, disposeHandler: false) { BaseAddress = new Uri("https://orbit.example/") };
 }

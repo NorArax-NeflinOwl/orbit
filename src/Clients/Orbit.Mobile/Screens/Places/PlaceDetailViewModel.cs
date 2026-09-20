@@ -32,7 +32,7 @@ public sealed partial class PlaceDetailViewModel : ObservableObject
     public PlaceDetailViewModel(
         LocalPlaceRepository places, PlaceSynchronizer synchronizer, IPlacePicker placePicker,
         IMapHandoff maps, Translations translations, INetworkStatus networkStatus, IScreenNavigator navigator,
-        SharePanel share)
+        SharePanel share, IDeviceLocation deviceLocation, PlaceSearch placeSearch)
     {
         _places = places;
         _synchronizer = synchronizer;
@@ -41,9 +41,17 @@ public sealed partial class PlaceDetailViewModel : ObservableObject
         _translations = translations;
         _networkStatus = networkStatus;
         _navigator = navigator;
+        _deviceLocation = deviceLocation;
+        _placeSearch = placeSearch;
         Share = share;
         Priorities = Tasks.PriorityChoice.All(translations);
     }
+
+    /// <summary>Where this phone is, for "I am here" - the same reader the event's form uses.</summary>
+    private readonly IDeviceLocation _deviceLocation;
+
+    /// <summary>What a typed address is - see <see cref="PlaceSearch"/>, and SaveAsync, which asks it.</summary>
+    private readonly PlaceSearch _placeSearch;
 
     /// <summary>Offering this place to somebody else - see SharePanel, which every editor here holds.</summary>
     public SharePanel Share { get; }
@@ -85,8 +93,40 @@ public sealed partial class PlaceDetailViewModel : ObservableObject
     [ObservableProperty]
     private string _sharedBy = string.Empty;
 
+    /// <summary>
+    /// Whether the place is sealed - encrypted on this phone, so Orbit holds no readable copy of where
+    /// it is (see Orbit.Core.Places.Place.IsPrivate). A place is sealed unless its owner says otherwise,
+    /// which is the opposite default from everything else in Orbit and deliberate: where somebody
+    /// actually goes is the most personal thing the app holds.
+    ///
+    /// The phone had no control for it at all and no field on the save, so every place made or edited
+    /// here was sealed and stayed sealed - and since a sealed place cannot be shared (the server
+    /// refuses; see SharePlaceCommandHandler), pressing Share on one and choosing somebody answered
+    /// "Couldn't share that." for a place whose owner had never chosen to seal it. Reported
+    /// 2026-09-20 as "sharing doesn't work".
+    /// </summary>
+    [ObservableProperty]
+    private bool _isSealed = true;
+
+    /// <summary>
+    /// Said in place of the sharing panel while the place is sealed: there is nothing to hand anybody,
+    /// and the reason is one press away rather than a mystery.
+    /// </summary>
+    public string WhyItCannotBeShared
+        => IsSealed ? _translations["Sealed places can't be shared. Take the seal off to offer this to somebody."] : string.Empty;
+
+    public bool HasWhyItCannotBeShared => WhyItCannotBeShared.Length > 0;
+
     private double _latitude;
     private double _longitude;
+
+    /// <summary>
+    /// The lists this place belongs to, as it was loaded - see LocalPlace.TaskListIds. Kept and handed
+    /// back on every save because a save writes the whole place: nothing on this screen shows or changes
+    /// them, and passing nothing emptied them, so editing a place on the phone quietly unlinked it from
+    /// every list the browser had put it on.
+    /// </summary>
+    private IReadOnlyList<Guid> _taskListIds = [];
 
     /// <summary>How much it matters, as the picker offers it - see PriorityChoice.</summary>
     public IReadOnlyList<Tasks.PriorityChoice> Priorities { get; }
@@ -109,12 +149,27 @@ public sealed partial class PlaceDetailViewModel : ObservableObject
     /// </summary>
     public bool HasAPoint => _latitude != 0 || _longitude != 0;
 
-    /// <summary>The other half of it, so the screen can say so without a converter for "not".</summary>
-    public bool NeedsAPoint => !HasAPoint;
+    /// <summary>
+    /// The other half of it, so the screen can say so without a converter for "not" - and only while
+    /// there is no address either, since an address is a point this screen has not looked up yet.
+    /// </summary>
+    public bool NeedsAPoint => !HasAPoint && Address.Trim().Length == 0;
 
-    public bool CanSave => CanEdit && Name.Trim().Length > 0 && HasAPoint;
+    /// <summary>
+    /// A typed address counts: the save looks it up (see <see cref="TryFindTheTypedAddressAsync"/>) and
+    /// refuses with a reason if nothing is found. It used to insist on a point, which no amount of
+    /// typing could give - so the only way to keep a place at all was the map, and Save sat greyed with
+    /// nothing saying what it wanted (reported 2026-09-20).
+    /// </summary>
+    public bool CanSave => CanEdit && Name.Trim().Length > 0 && (HasAPoint || Address.Trim().Length > 0);
 
     partial void OnNameChanged(string value) => SaveCommand.NotifyCanExecuteChanged();
+
+    partial void OnAddressChanged(string value)
+    {
+        SaveCommand.NotifyCanExecuteChanged();
+        SayWhetherItHasAPoint();
+    }
 
     public void Open(Guid localId)
     {
@@ -142,9 +197,16 @@ public sealed partial class PlaceDetailViewModel : ObservableObject
         IsSharedWithMe = place.IsShared;
         IsArchived = place.IsArchived;
 
+        IsSealed = place.IsPrivate;
+        _taskListIds = place.TaskListIds;
+
         // Only a place the server knows about can be offered: a share names it by its server id, and
-        // one still waiting in the outbox has none.
-        if (place.ServerId is { } serverId)
+        // one still waiting in the outbox has none. And only an unsealed one: a sealed place has no
+        // readable copy on the server to hand anybody, which is what makes it sealed - the same guard
+        // the note, task list and inventory screens have had, and the one this screen was missing.
+        // Since a place is sealed unless its owner says otherwise, the ordinary case was the refused
+        // one: pressing Share and choosing somebody answered "Couldn't share that."
+        if (place is { ServerId: { } serverId, IsPrivate: false })
         {
             Share.Describes(SharedItemKind.Place, serverId, place.Name, OwnerToAsk(place));
         }
@@ -204,6 +266,68 @@ public sealed partial class PlaceDetailViewModel : ObservableObject
         OnPropertyChanged(nameof(NeedsAPoint));
     }
 
+    /// <summary>
+    /// Turns an address somebody typed into a point, where the place has none yet - the same lookup the
+    /// event's form makes of the place typed into it (see PlaceSearch). Leaves a place that already has
+    /// a point alone: the map put it there, and words typed beside it are a name for it rather than a
+    /// correction of it.
+    /// </summary>
+    private async Task TryFindTheTypedAddressAsync(CancellationToken cancellationToken)
+    {
+        if (HasAPoint || Address.Trim() is not { Length: > 0 } typed)
+        {
+            return;
+        }
+
+        try
+        {
+            if (await _placeSearch.SearchAsync(typed, limit: 1, cancellationToken) is [var found, ..])
+            {
+                _latitude = found.Latitude;
+                _longitude = found.Longitude;
+                SayWhetherItHasAPoint();
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            // Nothing to look it up with. The caller says so: it is about to refuse the save anyway.
+        }
+    }
+
+    /// <summary>
+    /// Where this phone is, as the map's own screen offers it. The place screen had only the map
+    /// picker, so keeping the place somebody is standing in meant finding it on a map first - asked for
+    /// on 2026-09-20. The address it comes back with fills the box only while the box is empty:
+    /// whatever somebody typed is worth more than a reverse-geocoded street.
+    /// </summary>
+    [RelayCommand]
+    private async Task UseMyLocationAsync(CancellationToken cancellationToken)
+    {
+        if (!CanEdit)
+        {
+            return;
+        }
+
+        var here = await _deviceLocation.ReadAsync(cancellationToken);
+        if (here.Outcome is not DeviceLocationOutcome.Found)
+        {
+            // The two refusals read the same to somebody standing here: no place was recorded.
+            Message = _translations["Couldn't work out where this phone is."];
+            return;
+        }
+
+        _latitude = here.Latitude;
+        _longitude = here.Longitude;
+        if (Address.Trim().Length == 0 && here.Address is { Length: > 0 } address)
+        {
+            Address = address;
+        }
+
+        Message = string.Empty;
+        SayWhetherItHasAPoint();
+        SaveCommand.NotifyCanExecuteChanged();
+    }
+
     /// <inheritdoc cref="PlacesViewModel.OpenInMapsAsync"/>
     [RelayCommand]
     private async Task OpenInMapsAsync(CancellationToken cancellationToken)
@@ -220,11 +344,31 @@ public sealed partial class PlaceDetailViewModel : ObservableObject
         IsBusy = true;
         try
         {
+            // An address somebody typed is looked up before the place is written, the way the event's
+            // form looks up the place typed into it. Without this the only way to give a place a point
+            // was the map - typing "Rynek 1" and pressing Save was refused, with the field saying
+            // nothing about why (reported 2026-09-20).
+            await TryFindTheTypedAddressAsync(cancellationToken);
+            if (!HasAPoint)
+            {
+                // A lookup that found nothing leaves the words alone and says so: a place with no point
+                // cannot be drawn on a map and the server refuses it, so this is the refusal said here
+                // rather than after a round trip.
+                Message = _translations["Couldn't find that address. Pick it on the map instead."];
+                return;
+            }
+
             var outcome = await _places.UpdateAsync(
                 _localId,
                 new PlaceContent(
                     Name, Description, Address, _latitude, _longitude, Colour,
-                    ChosenPriority?.Value ?? "Normal"),
+                    ChosenPriority?.Value ?? "Normal",
+                    // Both as the place actually is, rather than as this record defaults. Sealed is the
+                    // default, so every save from this phone re-sealed a place its owner had opened and
+                    // emptied its readable fields again; and no lists at all is the default, so a save
+                    // unlinked the place from every list the browser had put it on.
+                    TaskListIds: _taskListIds,
+                    IsPrivate: IsSealed),
                 cancellationToken);
 
             if (outcome.WasRefused())

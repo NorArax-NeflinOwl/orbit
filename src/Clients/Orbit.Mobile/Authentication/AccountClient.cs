@@ -76,6 +76,29 @@ public sealed class AccountClient
         => _httpClient.GetFromJsonAsync<AccountDto>("api/users/me", cancellationToken);
 
     /// <summary>
+    /// Answers "Do not share my personal information" - see AccountDto.KeepsThirdPartiesOut, and
+    /// User.KeepsThirdPartiesOut for what it actually turns off. Kept on the account rather than on the
+    /// device, so answering it here answers it in a browser too.
+    ///
+    /// False when it could not be sent, so the screen can put the switch back rather than show an
+    /// answer nobody recorded.
+    /// </summary>
+    public async Task<bool> SetKeepsThirdPartiesOutAsync(
+        bool keepsThemOut, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var response = await _httpClient.PutAsJsonAsync(
+                "api/users/me/privacy", new SetPrivacyChoiceRequest(keepsThemOut), cancellationToken);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// The first password on an account that has none - a Google account reaching chat. Separate from a
     /// change because there is no current password to prove.
     /// </summary>

@@ -254,6 +254,50 @@ public sealed partial class AccountViewModel : ObservableObject
     }
 
     /// <summary>
+    /// "Do not share my personal information" - kept on the account rather than on the device, so
+    /// answering it here answers it in a browser too. See User.KeepsThirdPartiesOut for what it turns
+    /// off.
+    ///
+    /// Asked here because the phone had no way to answer it: the About screen listed it among the
+    /// documents and opened the web client's front page, which is the dashboard and not the question
+    /// (reported 2026-09-20 as "do not share doesn't work, it takes me to the dashboard"). A consent
+    /// question is not something to send somebody to another app for.
+    /// </summary>
+    [ObservableProperty]
+    private bool _keepsThirdPartiesOut;
+
+    /// <summary>
+    /// Set while the stored answer is being put on screen, so showing it is not mistaken for somebody
+    /// answering it - the same guard the stock-check panel's own settings use.
+    /// </summary>
+    private bool _isShowingTheStoredPrivacyChoice;
+
+    /// <summary>
+    /// Sends the answer, and puts the switch back where the server could not be told: a switch that
+    /// stays where it was pressed while nothing recorded it is the worst of both.
+    /// </summary>
+    async partial void OnKeepsThirdPartiesOutChanged(bool value)
+    {
+        if (_isShowingTheStoredPrivacyChoice)
+        {
+            return;
+        }
+
+        if (await _accountClient.SetKeepsThirdPartiesOutAsync(value))
+        {
+            return;
+        }
+
+        PrivacyMessage.Say(_translations["Couldn't change that. Try again."], isFailure: true);
+        _isShowingTheStoredPrivacyChoice = true;
+        KeepsThirdPartiesOut = !value;
+        _isShowingTheStoredPrivacyChoice = false;
+    }
+
+    /// <summary>What the switch above has to say for itself, beside it - see FormMessage.</summary>
+    public FormMessage PrivacyMessage { get; } = new();
+
+    /// <summary>
     /// Whether the switch above is worth offering: an account that has neither confirmed an address nor
     /// connected Google cannot use the extras at all - see GoogleIntegrationAccess.
     /// </summary>
@@ -629,6 +673,11 @@ public sealed partial class AccountViewModel : ObservableObject
             // A switch for something the account cannot use yet would turn nothing off, so it is only
             // offered where the account qualifies - the line Orbit.Web draws over the same row.
             CanChooseGoogleExtras = GoogleIntegrationAccess.Qualifies(account);
+            // Read without sending it back: this is what the account already says, not somebody
+            // answering it again - see KeepsThirdPartiesOut.
+            _isShowingTheStoredPrivacyChoice = true;
+            KeepsThirdPartiesOut = account.KeepsThirdPartiesOut;
+            _isShowingTheStoredPrivacyChoice = false;
             await GoogleLink.ShowAsync(account);
             // After the Google row has asked whether Google is offered here, which is half of the answer.
             OnPropertyChanged(nameof(ConfirmsWithGoogle));

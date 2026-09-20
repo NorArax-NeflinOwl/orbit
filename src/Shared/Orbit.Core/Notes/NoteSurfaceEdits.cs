@@ -349,19 +349,28 @@ public static partial class NoteSurfaceEdits
         return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line + replacement.Count - 1, last.Text.Length));
     }
 
-    /// <summary>A pasted line read the way <see cref="Replace"/> describes.</summary>
+    /// <summary>
+    /// A pasted line read the way <see cref="Replace"/> describes. The mark is looked for after the
+    /// line's indentation and the indentation is kept, the rule <see cref="ReadTypedMarker"/> follows:
+    /// a checklist pasted in with its sub-points indented arrives as one, rather than as boxes at the
+    /// top level for the indented lines and brackets-as-words for the rest.
+    /// </summary>
     private static NoteContentLine Read(string pasted)
     {
-        var tick = PastedTick().Match(pasted);
+        var indentation = IndentationOf(pasted);
+        var rest = pasted[indentation.Length..];
+
+        var tick = PastedTick().Match(rest);
         if (tick.Success)
         {
             var isTicked = tick.Groups["mark"].Value is "x" or "X";
-            return new NoteContentLine(pasted[tick.Length..], IsChecklistItem: true, IsChecked: isTicked);
+            return new NoteContentLine(
+                indentation + rest[tick.Length..], IsChecklistItem: true, IsChecked: isTicked);
         }
 
-        var bullet = PastedBullet().Match(pasted);
+        var bullet = PastedBullet().Match(rest);
         return bullet.Success
-            ? new NoteContentLine(pasted[bullet.Length..], IsChecklistItem: true, IsChecked: false)
+            ? new NoteContentLine(indentation + rest[bullet.Length..], IsChecklistItem: true, IsChecked: false)
             : Plain(pasted);
     }
 
@@ -396,6 +405,13 @@ public static partial class NoteSurfaceEdits
     /// the marker is eaten. The phone's note screen has had exactly this rule and no toolbar at all -
     /// see NoteDetailPage. The caret stays where it was in the words, which is two characters further
     /// left now the marker has gone.
+    ///
+    /// The marker is read <em>after</em> the line's indentation, and the indentation stays: a box typed
+    /// on a line pushed in by Tab is a box on a sub-point, which is exactly what somebody indenting a
+    /// line and then typing "[]" means (asked for on 2026-09-20). It used to be anchored at the very
+    /// start of the text, so one Tab was enough to leave the brackets sitting there as words - while
+    /// the phone, reading the same rule through <see cref="TypedMarkerLength"/>, had always read it
+    /// after the indentation (see NoteDetailViewModel.ReadTypedMarker). The two agree now.
     /// </summary>
     public static SurfaceState? ReadTypedMarker(SurfaceState state)
     {
@@ -407,7 +423,8 @@ public static partial class NoteSurfaceEdits
 
         var caret = state.Caret;
         var line = state.Lines[caret.Line];
-        var marker = TypedTick().Match(line.Text);
+        var indented = IndentationOf(line.Text).Length;
+        var marker = TypedTick().Match(line.Text[indented..]);
         if (line.IsChecklistItem || line.IsAnElement || !marker.Success)
         {
             return null;
@@ -416,13 +433,14 @@ public static partial class NoteSurfaceEdits
         var lines = state.Lines.ToList();
         // The line's style is kept: a box is what the line is answered in, not what kind of line it is -
         // see NoteLineStyle, which says why the two are separate fields.
-        lines[caret.Line] = line.Changed(0, marker.Length, string.Empty) with
+        lines[caret.Line] = line.Changed(indented, marker.Length, string.Empty) with
         {
             IsChecklistItem = true,
             IsChecked = false,
             IsFailed = false
         };
-        return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, Math.Max(0, caret.Offset - marker.Length)));
+        return SurfaceState.CaretAt(
+            lines, new SurfacePoint(caret.Line, Math.Max(indented, caret.Offset - marker.Length)));
     }
 
     /// <summary>
@@ -1012,6 +1030,50 @@ public static partial class NoteSurfaceEdits
     /// <summary>The whole table taken away, and an empty line left where it stood to write on.</summary>
     public static SurfaceState? RemoveTable(SurfaceState state, int line)
         => Reshaped(state, line, _ => null);
+
+    /// <summary>
+    /// The picture (or the rule) on <paramref name="line"/>, taken away. Null when that line is neither,
+    /// which is a stale press - answered by doing nothing, the way a table's own commands answer one.
+    ///
+    /// Backspace on the line does this too, and did it first. It was not enough on its own: the caret
+    /// has to be got onto the picture's line to press it, and a picture is drawn by an element nobody
+    /// can type in, so a reader who could not land the caret there had no way at all to be rid of an
+    /// attachment (asked for on 2026-09-20). The picture's own corner now carries the press, and the
+    /// bytes are swept when the note is saved without it - see NotePictureSweeper.
+    /// </summary>
+    public static SurfaceState? RemoveElement(SurfaceState state, int line)
+    {
+        state = state.Normalized();
+        if (line < 0 || line >= state.Lines.Count || !state.Lines[line].IsTakenAwayByAKey)
+        {
+            return null;
+        }
+
+        return RemoveLine(state.Lines.ToList(), line);
+    }
+
+    /// <summary>
+    /// A line to write on under an element the note ends with, with the caret on it. Null when the note
+    /// already ends in writing, so a press that has nothing to do writes nothing and leaves no step in
+    /// the history.
+    ///
+    /// What answers a press below the last line. A picture, a rule or a table at the foot of a note is
+    /// an element with nothing after it, so there was nowhere for the caret to go: the note could not be
+    /// carried on, and the element could not be reached from beneath either. Asked for on 2026-09-20,
+    /// in the same breath as being able to take an attachment out.
+    /// </summary>
+    public static SurfaceState? WriteUnderTheEnd(SurfaceState state)
+    {
+        state = state.Normalized();
+        if (!state.Lines[^1].IsAnElement)
+        {
+            return null;
+        }
+
+        var lines = state.Lines.ToList();
+        lines.Add(SurfaceState.EmptyLine);
+        return SurfaceState.CaretAt(lines, new SurfacePoint(lines.Count - 1, 0));
+    }
 
     /// <summary>
     /// One change of shape to the table on <paramref name="line"/>, or null when that line is not a

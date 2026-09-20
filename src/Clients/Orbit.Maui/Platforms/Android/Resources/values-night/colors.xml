@@ -10,4 +10,5 @@
     <color name="orbitWidgetBackground">#1C1A19</color>
     <color name="orbitWidgetText">#F1EEEA</color>
     <color name="orbitWidgetSubtleText">#7C7977</color>
+    <color name="orbitWidgetAccent">#A79DF8</color>
 </resources>

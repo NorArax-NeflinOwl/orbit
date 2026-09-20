@@ -64,6 +64,19 @@ public sealed class ClaimPublicShareLinkCommandHandler : IRequestHandler<ClaimPu
             return ClaimPublicShareLinkResult.NotFound();
         }
 
+        // A folder's link is for reading. There is no such thing as a share of a folder - it is the
+        // owner's own tab (see SharedItemType.Folder) - and granting the reader a copy of every thing
+        // under it is a different and larger promise than the button makes: what it says is "your own
+        // read-only copy", singular, and what would arrive is a folder's worth of them, unfiled. The
+        // way to keep what is in somebody's folder is to be given it in Orbit, which is the other half
+        // of what sharing a folder means. The page offers no button here; this is the guard behind it,
+        // and it also keeps a folder out of the inventory branch below, which is where anything
+        // unrecognised would otherwise land.
+        if (link.ItemType == SharedItemType.Folder)
+        {
+            return ClaimPublicShareLinkResult.NotFound();
+        }
+
         if (link.OwnerUserId == request.ClaimingUserId)
         {
             // Their own item: it is already in their account, and a share row from them to themselves

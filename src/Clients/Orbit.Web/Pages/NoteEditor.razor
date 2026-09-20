@@ -1,6 +1,14 @@
 @page "/notes/new"
-@* One press further in than the note itself, the way a task list's editor is - see NoteSummary.razor,
-   which is what opening a note lands on. *@
+@* Where a note is met, full stop. It used to be one press further in than the note itself, the way a
+   task list's editor is, and the note's own page (NoteSummary.razor) was what opening one landed on:
+   its lines as they were, with the checklist ones tickable, and "Edit" a named press from there.
+
+   That page is gone - asked for on 2026-09-20. A note is writing, and every press on one was a press
+   towards writing in it: the reading rung answered a question nobody was asking and put a press
+   between the reader and the one thing the page is for. The surface here draws the same lines with the
+   same real tick boxes, so nothing that could be done there is lost. Both addresses land here, because
+   the note's own address is the one every notification, share and dashboard row already carries. *@
+@page "/notes/{Id:guid}"
 @page "/notes/{Id:guid}/edit"
 @attribute [Authorize]
 @implements IAsyncDisposable
@@ -49,10 +57,15 @@
 
 @* Two panels: the form on the left, which scrolls, and the panel on the right, which does not - see
    EditorRail. On a narrow screen the right one becomes a bar along the foot of the window. *@
+@* A sealed note is behind the account's PIN here as well as on the tab it is under (2026-09-20): a
+   notification, a link or the column on the left reaches one directly, and a door only on the tabs is a
+   door with a corridor round it. Around the note and not the column - the column lists names, and a
+   sealed note's name is "Private note" there in any case. *@
+<BehindThePin Applies="_formModel.IsPrivate" OnGaveUp="LeaveTheSealedNote">
 <div class="editor-page">
 <div class="editor-page-body">
 
-<PageHeader Hint="@Optional(!HasSomethingToSave && !_isLoading ? T["Write something in it."] : null)">
+<PageHeader Hint="@Optional(WhatIsMissing)">
     <Title>@(IsNewNote ? T["New note"] : T["Edit note"])</Title>
 </PageHeader>
 
@@ -68,7 +81,7 @@ else
         </p>
         @if (_access.CanAskToEdit && _originalOwnerUserId is { } ownerUserId)
         {
-            <RequestEditAccessButton ItemType="Note" ItemId="Id!.Value" ItemTitle="_formModel.Title"
+            <RequestEditAccessButton ItemType="Note" ItemId="Id!.Value" ItemTitle="@_formModel.Title"
                                      OwnerUserId="ownerUserId" OwnUserId="_ownUserId"
                                      OwnerDisplayName="@(_sharedByUserName ?? "them")" />
         }
@@ -80,6 +93,33 @@ else
     @if (_draftMessage is not null)
     {
         <p class="info">@_draftMessage</p>
+    }
+
+    @* Saving keeps the reader in the note rather than walking away from it (2026-09-20), so the page
+       has to say that it saved - a Save that does nothing visible is one somebody presses again. It
+       goes the moment anything is written, because from then on it is no longer true: what the reader
+       is looking at is not what the server holds. *@
+    @if (_savedJustNow && !HasUnsavedWriting)
+    {
+        <p class="info">@T["Saved."]</p>
+    }
+
+    @* On the way out with writing nobody saved. Orbit's own panel rather than the browser's confirm
+       box: that box is a grey strip at the top of the window with the site's address on it, which is
+       the shape a page uses to say something it cannot be trusted about - and this is about the
+       reader's own writing. It names the notes, so "which ones" is answered rather than asked back. *@
+    @if (_unsavedNames is { } unsavedNames)
+    {
+        <Dialog Title="@T["Not saved yet"]" OnClosed="() => AnswerLeaving(false)">
+            <ChildContent>
+                <p>@T.Format("Not saved yet: {0}.", unsavedNames)</p>
+                <p>@T["Leaving now loses what you wrote in them."]</p>
+            </ChildContent>
+            <Footer>
+                <button type="button" class="btn-secondary" @onclick="() => AnswerLeaving(false)">@T["Stay here"]</button>
+                <button type="button" class="btn-primary" @onclick="() => AnswerLeaving(true)">@T["Leave and lose it"]</button>
+            </Footer>
+        </Dialog>
     }
 
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form note-editor-form">
@@ -96,7 +136,7 @@ else
                                      CaretInTableChanged="inTable => OnCaretInTableChanged(inTable)"
                                      PicturePasted="OnPicturePastedAsync"
                                      PictureUrlFor="ResolvePictureUrlAsync"
-                                     @bind-Lines="_formModel.Lines" />
+                                     Lines="_formModel.Lines" LinesChanged="OnLinesChanged" />
 
                 @* Over the corner of the writing rather than above it: a toolbar at the top of a note
                    is a strip of the page given to controls before a word has been written. The styles
@@ -234,6 +274,7 @@ else
 @if (!_isLoading)
 {
     <EditorRail OnSave="SaveAsync" OnCancel="CancelAsync"
+                OnAdd="StartANewNote" AddLabel="@(T["Add note"])"
                 Notice="@(_lockedByUserName is null ? null : T.Format("{0} is currently editing this note - you can't edit it right now.", _lockedByUserName))"
                 ErrorMessage="@_saveErrorMessage"
                 SaveDisabled="@(_isSharedReadOnly || _lockedByUserName is not null || !HasSomethingToSave || _isSaving)">
@@ -282,11 +323,10 @@ else
                     }
                 </div>
 
-                @* The note on the clipboard, whole or narrowed to one state of its boxes - the same four
-                   the light view offers (NoteSummary), because the reader who is writing the note is as
-                   likely to want the shopping still to do as the reader who is only reading it. What is
-                   copied is what the form holds, unsaved lines included: it is the note in front of
-                   them. Under a line with the actions, being one. *@
+                @* The note on the clipboard, whole or narrowed to one state of its boxes - see
+                   WhatToCopy, which is the same four every other kind of thing offers. What is copied
+                   is what the form holds, unsaved lines included: it is the note in front of them.
+                   Under a line with the actions, being one. *@
                 <div class="editor-settings-divider"></div>
                 @foreach (var what in CopiedParts.All)
                 {
@@ -318,11 +358,42 @@ else
                         <button type="button" class="avatar-dropdown-item" @onclick="OpenTheShareLink">@T["Share link"]</button>
                     }
                 }
+
+                @* The two ways out of the note, and the way back to all of them. They lived on the
+                   note's own page until this form became that page - a note is opened to be written in
+                   now, with nothing to read first - so what that page carried is here.
+
+                   Put away rather than deleted, and Delete only once it has been: the rule every card
+                   follows, see ObjectMenu.IsArchived. Somebody else's note is neither - it comes off
+                   this reader's own pages and stays on the owner's, so it says that instead. *@
+                @if (!IsNewNote)
+                {
+                    <div class="editor-settings-divider"></div>
+                    <button type="button" class="avatar-dropdown-item" @onclick="GoToNotes">@T["All notes"]</button>
+                    @if (!_isShared)
+                    {
+                        <button type="button" class="avatar-dropdown-item" disabled="@_isArchiving"
+                                @onclick="() => SetArchivedAsync(!_isArchived)">
+                            @(_isArchived ? T["Put back"] : T["Archive"])
+                        </button>
+                    }
+                    @if (!_isShared && _isArchived)
+                    {
+                        <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting"
+                                @onclick="DeleteAsync">@T["Delete"]</button>
+                    }
+                    @if (_isShared)
+                    {
+                        <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting"
+                                @onclick="DeleteAsync">@T["Remove from my list"]</button>
+                    }
+                }
             </OverflowMenu>
         </ChildContent>
     </EditorRail>
 }
 </div>
+</BehindThePin>
 </div>
 
 @* Handing the note to a contact, over the page rather than in it - see the menu entry above. Kept to
@@ -420,6 +491,15 @@ else
     private Guid _ownUserId;
     private ChecklistTextEditor? _checklistEditorRef;
 
+    /// <summary>
+    /// Whether this note has been put away - see Orbit.Core.Folders.BuiltInFolder.Archived. What decides
+    /// whether the menu says Archive or Put back, and whether it offers Delete at all: Delete is reached
+    /// from the archive and nowhere else (see ObjectMenu.IsArchived, which every card follows).
+    /// </summary>
+    private bool _isArchived;
+    private bool _isArchiving;
+    private bool _isDeleting;
+
     /// <summary>Whether the note's own settings may be changed - the same answer the writing surface gets.</summary>
     private bool IsSettingsDisabled => _isSharedReadOnly || _lockedByUserName is not null || _isSaving;
 
@@ -430,9 +510,9 @@ else
     private WhatToCopy? _copied;
 
     /// <summary>
-    /// The note being written, on the clipboard - see NoteSummary.CopyTheTextAsync, which is the same
-    /// action on the same note from the screen that only reads it. The lines are taken from the form
-    /// rather than from what was last saved, since the form is the note in front of the reader.
+    /// The note being written, on the clipboard - see NoteWords, which writes it out. The lines are
+    /// taken from the form rather than from what was last saved, since the form is the note in front of
+    /// the reader.
     /// </summary>
     private async Task CopyTheTextAsync(WhatToCopy what)
     {
@@ -911,6 +991,8 @@ else
                     _canGrantEditOnly = _access.CanGrantEditOnly;
                     _originalOwnerUserId = note.OriginalOwnerUserId;
                     _sharedByUserName = note.SharedByUserName;
+                    _isArchived = note.IsArchived;
+                    StampTheEndIfItHasBeenAWhile(note);
 
                     if (!_isSharedReadOnly)
                     {
@@ -1009,8 +1091,7 @@ else
             return;
         }
 
-        var unsaved = string.Join(", ", Drafts.Names);
-        if (await Confirms(T.Format("Not saved yet: {0}. Leave and lose what you wrote?", unsaved)))
+        if (await AsksToLeaveAsync(string.Join(", ", Drafts.Names)))
         {
             Drafts.ForgetEverything();
             return;
@@ -1019,31 +1100,53 @@ else
         leaving.PreventNavigation();
     }
 
+    /// <summary>
+    /// The question itself, in Orbit's own panel rather than the browser's confirm box (asked for
+    /// 2026-09-20). A browser's box is a grey strip at the top of the window with the site's address in
+    /// it, which is the shape a page uses to say something it cannot be trusted about - and this one is
+    /// about somebody's own writing.
+    ///
+    /// Held open by awaiting the answer: the handler that asks it is what holds the navigation, so it
+    /// has to still be waiting when the reader presses. The names of the notes are what it says, which
+    /// is the whole point of asking rather than warning.
+    /// </summary>
+    private Task<bool> AsksToLeaveAsync(string unsaved)
+    {
+        _unsavedNames = unsaved;
+        _leavingAnswer = new TaskCompletionSource<bool>();
+        StateHasChanged();
+        return _leavingAnswer.Task;
+    }
+
+    /// <summary>Which notes the question is about, or null while it is not being asked.</summary>
+    private string? _unsavedNames;
+
+    private TaskCompletionSource<bool>? _leavingAnswer;
+
+    private void AnswerLeaving(bool goAnyway)
+    {
+        _unsavedNames = null;
+        var answering = _leavingAnswer;
+        _leavingAnswer = null;
+        answering?.TrySetResult(goAnyway);
+    }
+
     /// <summary>Whether this address is another note's own editor - the column beside the writing.</summary>
     private static bool IsAnotherNotesEditor(string target)
         => target.Contains("/notes/", StringComparison.OrdinalIgnoreCase)
             && target.Contains("/edit", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// The browser's own question. A confirm rather than a dialog of Orbit's: this is asked while a
-    /// navigation is being held, and anything drawn on the page would need the navigation to finish
-    /// first to be pressed.
-    /// </summary>
-    private async Task<bool> Confirms(string question)
-    {
-        try
-        {
-            return await JSRuntime.InvokeAsync<bool>("confirm", question);
-        }
-        catch (JSException)
-        {
-            // Nothing to ask with, so the reader is not held on a page they asked to leave.
-            return true;
-        }
-    }
-
     /// <summary>Said when a note opens holding writing the server does not have - see LoadTheNoteAsync.</summary>
     private string? _draftMessage;
+
+    /// <summary>Whether the last thing that happened here was a save - see the line the page draws for it.</summary>
+    private bool _savedJustNow;
+
+    /// <summary>
+    /// The id a save has just made, where this form was a new note. What the address is replaced with,
+    /// so the note has one of its own and Back cannot reopen the form that made it.
+    /// </summary>
+    private Guid? _madeThisNoteId;
 
     /// <summary>Everything about this note the form can change, in the shape a draft is kept in.</summary>
     private NoteDrafts.Draft WhatTheFormHolds()
@@ -1070,6 +1173,32 @@ else
         }
 
         Drafts.Keep(noteId, WhatTheFormHolds(), stored);
+    }
+
+    /// <summary>
+    /// Whether what is on screen is something the server has not got - the same question a draft is
+    /// kept by. Read only while the page is saying "Saved.", which is the one thing that stops being
+    /// true the moment anything is written.
+    /// </summary>
+    private bool HasUnsavedWriting
+        => _asStored is { } stored && NoteDrafts.Differs(WhatTheFormHolds(), stored);
+
+    /// <summary>
+    /// What the surface now holds, and the note's own row in the column beside it kept in step: writing
+    /// is remembered as it happens rather than only when the reader leaves for another note, so the
+    /// star beside its name appears while they are typing (asked for 2026-09-20 - the warning on the
+    /// way out is easy to read past, and three notes written in and one saved left no way to see which
+    /// two were still waiting). Keeping it is also what *forgets* it again when the writing is taken
+    /// back out, so the star goes when the note reads as it is stored - see NoteDrafts.Keep.
+    /// </summary>
+    private void OnLinesChanged(IReadOnlyList<NoteContentLineDto> lines)
+    {
+        _formModel.Lines = [.. lines];
+
+        if (Id is { } noteId)
+        {
+            KeepWhatIsUnsaved(noteId);
+        }
     }
 
     /// <summary>
@@ -1105,10 +1234,33 @@ else
     /// <summary>
     /// Mirrors Note.EnsureSomethingToRead, which is what actually refuses the save - a title on its own
     /// is a whole note, and a private one is exempt because its readable fields travel empty by design.
+    ///
+    /// **And a new note has to be named** (2026-09-20, asked for). A note is found by its name: it is
+    /// what the column beside the writing lists, what a share says and what a notification carries, and
+    /// a handful of them called "Untitled" is a set nobody can tell apart. Only on the way in - a note
+    /// that already exists is not taken away from somebody who clears its name while rewriting it.
     /// </summary>
     private bool HasSomethingToSave
-        => _formModel.IsPrivate
-            || _formModel.Lines.Any(line => !string.IsNullOrWhiteSpace(line.Text));
+        => (!IsNewNote || _formModel.Title.Trim().Length > 0)
+            && (_formModel.IsPrivate
+                || _formModel.Lines.Any(line => !string.IsNullOrWhiteSpace(line.Text)));
+
+    /// <summary>
+    /// Why Save is greyed, in the words of whichever answer is missing - a hint saying "write something
+    /// in it" over a note with three lines in it and no name explains nothing. Null once it can be saved.
+    /// </summary>
+    private string? WhatIsMissing
+    {
+        get
+        {
+            if (_isLoading || HasSomethingToSave)
+            {
+                return null;
+            }
+
+            return IsNewNote && _formModel.Title.Trim().Length == 0 ? T["Give it a name."] : T["Write something in it."];
+        }
+    }
 
     /// <summary>The folder the note was in when it was read, so a save knows whether it has been moved.</summary>
     private Guid? _savedFolderId;
@@ -1118,6 +1270,7 @@ else
         Logger.LogInformation(
             "User clicked 'Save' ({Mode}, NoteId={NoteId})", IsNewNote ? "create" : "update", Id);
         _saveErrorMessage = null;
+        _savedJustNow = false;
 
         // Blocks the button for the duration of the save (see the button above), so a second click or a
         // double Enter-press can't fire this again while the first request is still in flight and create
@@ -1131,11 +1284,15 @@ else
                     _formModel.Title, _formModel.Content, _formModel.IsPrivate, Priority: _formModel.Priority,
                     FolderId: _formModel.FolderId, Tags: _formModel.Tags));
                 Logger.LogInformation("Note {NoteId} created", newNoteId);
+                _madeThisNoteId = newNoteId;
             }
             else
             {
+                // Not _formModel.Content: a stamp this opening put at the end and nobody wrote under is
+                // taken back out on the way - see WithoutAStampNobodyWroteUnder. It is left on the
+                // surface, so the reader can still write under it; what the server keeps is the note.
                 var outcome = await NotesApiClient.UpdateNoteAsync(Id!.Value, new UpdateNoteRequest(
-                    _formModel.Title, _formModel.Content, _formModel.IsPrivate, Priority: _formModel.Priority, Tags: _formModel.Tags,
+                    _formModel.Title, ContentToSave, _formModel.IsPrivate, Priority: _formModel.Priority, Tags: _formModel.Tags,
                     PictureIds: PictureIdsKept));
                 if (outcome.Kind == EditOutcomeKind.Locked)
                 {
@@ -1208,10 +1365,23 @@ else
         }
 
         _draftMessage = null;
+        _savedJustNow = true;
 
-        // Without this form left behind it: Back after saving a new note would open the form again, one
-        // press from saving it twice. See NavigationTrail.
-        await NavigationTrail.FinishAsync(WhenFinished);
+        // Saving keeps the reader in the note (asked for 2026-09-20). It used to end on /notes, which
+        // is the one place somebody who has just written something does not want to be - writing is
+        // saved as you go along rather than finished, and a save that walks away turns every one of
+        // those into a trip back.
+        //
+        // A note that has just been *made* is the exception, and only as far as its address: it has one
+        // of its own now, and the form's "/notes/new" must not be left behind for Back to reopen, one
+        // press from saving the same note twice. The page reloads on the new id and the reader stays
+        // looking at what they wrote. See NavigationTrail.
+        if (_madeThisNoteId is { } madeNoteId)
+        {
+            // Leaves the form's own address behind rather than stepping back out of it: see
+            // InAppHistory.Leave, which replaces when the entry below does not reach the destination.
+            await NavigationTrail.FinishAsync($"/notes/{madeNoteId}");
+        }
     }
 
     /// <summary>
@@ -1260,6 +1430,187 @@ else
         }
     }
 
+    /// <summary>
+    /// How long a note has to have been left alone before coming back to it counts as coming back to it
+    /// rather than carrying on. Asked for as sixteen hours on 2026-09-20 - long enough that a day's
+    /// writing is one stretch, short enough that yesterday and today are told apart.
+    /// </summary>
+    private static readonly TimeSpan LongEnoughToBeANewSitting = TimeSpan.FromHours(16);
+
+    /// <summary>
+    /// The stamp put at the end when this note was opened after a long enough gap, or null when none
+    /// was. Kept so a save can take it back out again if nothing was written under it - see
+    /// <see cref="WithoutAStampNobodyWroteUnder"/>.
+    /// </summary>
+    private string? _stampWaitingForWriting;
+
+    /// <summary>
+    /// A note opened long after it was last written in gets a dated rule at its end and an empty line
+    /// under it, with the caret landing there (the surface opens at the end). So what is written next
+    /// is written under a line saying when - old writing, the time, new writing - which is what was
+    /// asked for on 2026-09-20.
+    ///
+    /// Only what is already written gets one: a note with nothing in it has no old half to separate
+    /// from the new. Only the reader's own, or one they may write in - a stamp on a note held read-only
+    /// would be a change nobody can save. And it is taken back out on the way to the server if nothing
+    /// was written under it, which is the "if new text was added" half of the ask: opening a note and
+    /// leaving without writing must not add a line to it.
+    /// </summary>
+    private void StampTheEndIfItHasBeenAWhile(NoteDto note)
+    {
+        if (_isSharedReadOnly
+            || DateTimeOffset.UtcNow - note.UpdatedAtUtc < LongEnoughToBeANewSitting
+            || _formModel.Lines.All(line => line.Text.Length == 0 && line.Table is null
+                && line.Picture is null && line.Separator is null))
+        {
+            return;
+        }
+
+        // The same words the separator tool writes - see InsertSeparatorAsync. Written once, here,
+        // and stored as words rather than as an instant: see NoteSeparatorLine.Stamp.
+        var stamp = DateTime.Now.ToString("f", CultureInfo.CurrentCulture);
+        _formModel.Lines =
+        [
+            .. _formModel.Lines,
+            new NoteContentLineDto(string.Empty, IsChecklistItem: false, IsChecked: false,
+                Separator: new NoteSeparatorLineDto(stamp)),
+            new NoteContentLineDto(string.Empty, IsChecklistItem: false, IsChecked: false)
+        ];
+        _stampWaitingForWriting = stamp;
+    }
+
+    /// <summary>
+    /// What to send: the lines as they are, unless the stamp this opening added is still the last thing
+    /// in the note with nothing but blank lines under it - then it goes, along with those blank lines.
+    /// A reader who opened an old note, changed a word higher up and saved gets the stamp taken out
+    /// too, which is right: the stamp says "what follows was written now", and nothing follows it.
+    /// </summary>
+    private IReadOnlyList<NoteContentLineDto> WithoutAStampNobodyWroteUnder(IReadOnlyList<NoteContentLineDto> lines)
+    {
+        if (_stampWaitingForWriting is not { } stamp)
+        {
+            return lines;
+        }
+
+        var stampedAt = -1;
+        for (var at = lines.Count - 1; at >= 0; at--)
+        {
+            if (lines[at].Separator?.Stamp == stamp)
+            {
+                stampedAt = at;
+                break;
+            }
+
+            // Anything written under it - a word, a picture, a table, another rule - means it is doing
+            // its job and stays.
+            if (lines[at].Text.Length > 0 || lines[at].Table is not null
+                || lines[at].Picture is not null || lines[at].Separator is not null
+                || lines[at].IsChecklistItem)
+            {
+                return lines;
+            }
+        }
+
+        return stampedAt < 0 ? lines : [.. lines.Take(stampedAt)];
+    }
+
+    /// <summary>Everything after the title, as the server takes it, with an unused stamp left out.</summary>
+    private IReadOnlyList<NoteContentLineDto> ContentToSave
+        => [.. WithoutAStampNobodyWroteUnder(_formModel.Lines).Skip(1)];
+
+    /// <summary>Every note of this reader's, which is where this form's menu leads back to.</summary>
+    private void GoToNotes() => NavigationManager.NavigateTo("/notes");
+
+    /// <summary>
+    /// Puts the note away, or takes it back out. Said on the page when it fails: a press that quietly
+    /// does nothing reads as one that never registered.
+    /// </summary>
+    private async Task SetArchivedAsync(bool isArchived)
+    {
+        if (Id is not { } noteId || _isArchiving)
+        {
+            return;
+        }
+
+        _isArchiving = true;
+        _saveErrorMessage = null;
+        try
+        {
+            if (await NotesApiClient.SetArchivedAsync(noteId, isArchived))
+            {
+                _isArchived = isArchived;
+                Logger.LogInformation(
+                    "Note {NoteId} was {Action}", noteId, isArchived ? "archived" : "put back");
+            }
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't change whether note {NoteId} is archived", noteId);
+            _saveErrorMessage = T["Couldn't change that. Try again."];
+        }
+        finally
+        {
+            _isArchiving = false;
+        }
+    }
+
+    /// <summary>
+    /// Deletes the note - or, for one somebody shared, drops this reader's own grant and leaves the
+    /// owner's alone (see DeleteNoteCommandHandler). Asked first, and asked with the name: a note
+    /// deleted by accident is gone. It leaves for the notes without this form behind it in the history,
+    /// which would otherwise open on a note that no longer exists.
+    /// </summary>
+    private async Task DeleteAsync()
+    {
+        if (Id is not { } noteId || _isDeleting)
+        {
+            return;
+        }
+
+        var named = _formModel.Title.Length > 0 ? _formModel.Title : T["Untitled"];
+        if (!await JSRuntime.InvokeAsync<bool>(
+            "confirm",
+            _isShared
+                ? T.Format("Remove \"{0}\" from your list? The owner keeps it.", named)
+                : T.Format("Delete \"{0}\"?", named)))
+        {
+            return;
+        }
+
+        _isDeleting = true;
+        _saveErrorMessage = null;
+        try
+        {
+            // The lock goes first: a note that turns out not to be deletable should not be left held by
+            // a form that has gone.
+            await ReleaseLockAsync(noteId);
+            await NotesApiClient.DeleteNoteAsync(noteId);
+            // Nothing is unsaved about a note that no longer exists. Both halves of that: the draft
+            // kept for it goes, and the copy the way out compares against becomes what the form holds -
+            // otherwise leaving would keep the draft again on its way and ask about a deleted note.
+            Drafts.Forget(noteId);
+            _asStored = WhatTheFormHolds();
+            await NavigationTrail.FinishAfterDeletingAsync($"/notes/{noteId}", WhenFinished, "/notes");
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't delete note {NoteId}", noteId);
+            _saveErrorMessage = T["Failed to delete the note. Try again."];
+        }
+        finally
+        {
+            _isDeleting = false;
+        }
+    }
+
     private async Task CancelAsync()
     {
         Logger.LogInformation("User clicked 'Cancel'");
@@ -1273,6 +1624,42 @@ else
         }
 
         await NavigationTrail.FinishAsync(WhenFinished);
+    }
+
+    /// <summary>
+    /// Starts the next note, from the panel beside this one (2026-09-20, asked for). It takes Back's
+    /// place there: "/notes" opens the newest note now, so the list this button used to return to is
+    /// the column already on the left of this page.
+    ///
+    /// Whatever is written here is kept rather than lost - it is held for this note the way leaving the
+    /// page keeps it (see NoteDrafts), and the star beside its name in the column says it is waiting.
+    /// The lock is let go, because somebody who has walked off to write something else is not holding
+    /// this note against anybody.
+    /// </summary>
+    /// <summary>
+    /// Where the PIN's question leads when it cannot be answered: the page of cards, which is where
+    /// everything else is. Not "/notes", which opens the newest note and would be another page opening
+    /// on its own rather than an answer to "I cannot get in".
+    /// </summary>
+    private void LeaveTheSealedNote() => NavigationManager.NavigateTo("/notes/all");
+
+    private async Task StartANewNote()
+    {
+        Logger.LogInformation("User started another note from the note they were writing in");
+        if (Id is { } noteId)
+        {
+            await ReleaseLockAsync(noteId);
+        }
+
+        // In Public, which is what the user asked for. A new note is otherwise made under the tab the
+        // reader is standing on (see the "new note" branch of the load), and this page has no tab: the
+        // column on the left shows every folder at once, so the tab that answered would be whichever
+        // one the page of cards was last left on - a folder this reader is not looking at and may not
+        // remember choosing. Saying so out loud by choosing it, rather than by a second rule about
+        // where a note goes.
+        await Folders.EnsureLoadedAsync();
+        Folders.Choose(FolderPage.Notes, FolderKey.Default);
+        NavigationManager.NavigateTo("/notes/new");
     }
 
     /// <summary>Starts a new checklist line in the editor - the actual line-splitting/marker logic lives in checklistTextEditor.js.</summary>

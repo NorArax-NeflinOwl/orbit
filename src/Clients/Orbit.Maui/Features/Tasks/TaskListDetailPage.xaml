@@ -22,23 +22,6 @@
              them, which is a form for the reader who is changing the list and clutter for the ninety-
              nine who are ticking something off it. -->
         <!-- The tags ride with the name and the description, behind the same "Edit" - see TagsForm. -->
-        <VerticalStackLayout Grid.Row="0" x:Name="ListFields" IsVisible="False" Spacing="10">
-        <controls:TitledDescription
-                                    Title="{Binding Title, Mode=TwoWay}" TitleLabel="{controls:Translate 'Title'}"
-                                    TitlePlaceholder="{controls:Translate 'Untitled'}"
-                                    SaveTitleCommand="{Binding SaveListCommand}"
-                                    Description="{Binding Description, Mode=TwoWay}"
-                                    CommitDescriptionCommand="{Binding CommitDescriptionCommand}"
-                                    IsReadOnly="{Binding IsReadOnly}"
-                                    ShowsDescription="{Binding IsNotPrivate}">
-            <controls:TitledDescription.Suggestions>
-                <controls:NameSuggestionChips BindingContext="{Binding TitleSuggestions}" />
-            </controls:TitledDescription.Suggestions>
-
-        </controls:TitledDescription>
-        <controls:TagsFieldView BindingContext="{Binding Tags}" />
-        </VerticalStackLayout>
-
         <VerticalStackLayout Grid.Row="1" Spacing="4">
             <!-- How much of the list is done, as the card that opened it says it - see
                  TaskListDetailViewModel.Progress. On the screen itself because that is where somebody
@@ -51,6 +34,18 @@
             <controls:CopyOffer IsOffered="{Binding IsCopyOffered}"
                                 TakeCommand="{Binding CopyForEditingCommand}"
                                 DeclineCommand="{Binding DeclineCopyCommand}" />
+
+            <!-- Opened from the list's own menu rather than standing at the foot of every list: sharing
+                 is something somebody does once. It hides itself for a private list, as Orbit.Web's
+                 editor hides it - there is no readable copy on the server to hand anybody, see
+                 SharePanel.
+
+                 Under the list's name, which is where every other screen answers its menu: it used to
+                 sit in the last row of the page, so choosing Share from a menu at the top opened a
+                 panel at the bottom - below the whole checklist, and easy to miss entirely (reported
+                 2026-09-20). -->
+            <controls:SharePanel x:Name="Sharing" IsVisible="False"
+                                 BindingContext="{Binding Share}" Margin="0,4" />
         </VerticalStackLayout>
 
         <!-- Unfolded by the plus over the foot of the list, like every other screen's add form - see
@@ -498,20 +493,52 @@
                             SemanticProperties.Description="{controls:Translate 'Move to list'}" />
                 </VerticalStackLayout>
 
-                <HorizontalStackLayout Spacing="16">
-                    <Button Text="{controls:Translate 'Save'}" Command="{Binding SaveItemCommand}" />
+                <!-- Save on the right, where the thumb is and where every other Save in the app sits -
+                     the event's and the note's are the round button in that corner. Cancel to its
+                     left, which is the order a pair of answers is read in. It used to be the other way
+                     round and hard against the left edge (reported 2026-09-20), so the one button
+                     worth pressing was the furthest from the hand holding the phone. -->
+                <HorizontalStackLayout Spacing="16" HorizontalOptions="End">
                     <Button Text="{controls:Translate 'Cancel'}" Style="{StaticResource LinkButton}"
                             Command="{Binding CancelItemEditCommand}" />
+                    <Button Text="{controls:Translate 'Save'}" Command="{Binding SaveItemCommand}" />
                 </HorizontalStackLayout>
             </VerticalStackLayout>
             </VerticalStackLayout>
         </ScrollView>
 
         <!-- What the list itself is, rather than what is on it - behind "Edit" in the menu under the
-             screen's name, with the fields at the top of the page. The panel's own BindingContext would
-             decide its IsVisible too, so the visibility lives on a wrapper that still reads the view
-             model. -->
-        <VerticalStackLayout x:Name="ListSettings" Grid.Row="4" Spacing="10" IsVisible="False">
+             screen's name. The panel's own BindingContext would decide its IsVisible too, so the
+             visibility lives on a wrapper that still reads the view model.
+
+             In the checklist's own row, over it, and scrolling: these fields used to be two blocks in
+             two fixed rows of this grid - the name and the tags above the list, the rest below it - and
+             together they are taller than a phone. A grid does not scroll, so opening them laid the
+             whole page on top of itself: the list's name over the screen's name, "Priority" through
+             "What is it for?", the stock card through the tags. That is the page that "breaks after
+             pressing the button for adding products" (reported 2026-09-20), which is the press that
+             opens this block. Painted with the page's own background, because what it covers is still
+             drawn underneath it. -->
+        <ScrollView x:Name="ListSettings" Grid.Row="3" IsVisible="False"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource PageBackgroundLight}, Dark={StaticResource PageBackgroundDark}}">
+        <VerticalStackLayout Spacing="10" Padding="0,0,0,24">
+
+            <!-- The list's own name, what it is for and its tags - the top of this form, and what
+                 "Edit" is mostly opened for. -->
+            <controls:TitledDescription
+                                        Title="{Binding Title, Mode=TwoWay}" TitleLabel="{controls:Translate 'Title'}"
+                                        TitlePlaceholder="{controls:Translate 'Untitled'}"
+                                        SaveTitleCommand="{Binding SaveListCommand}"
+                                        Description="{Binding Description, Mode=TwoWay}"
+                                        CommitDescriptionCommand="{Binding CommitDescriptionCommand}"
+                                        IsReadOnly="{Binding IsReadOnly}"
+                                        ShowsDescription="{Binding IsNotPrivate}">
+                <controls:TitledDescription.Suggestions>
+                    <controls:NameSuggestionChips BindingContext="{Binding TitleSuggestions}" />
+                </controls:TitledDescription.Suggestions>
+
+            </controls:TitledDescription>
+            <controls:TagsFieldView BindingContext="{Binding Tags}" />
 
             <!-- Orbit.Web's "Group list": a list that gathers the lists its items link to rather than
                  holding work of its own. It is also what makes the stock check below worth asking.
@@ -711,12 +738,8 @@
             </controls:ItemCard>
 
         </VerticalStackLayout>
+        </ScrollView>
 
-        <!-- Opened from the list's own menu rather than standing at the foot of every list: sharing is
-             something somebody does once. It hides itself for a private list, as Orbit.Web's editor
-             hides it - there is no readable copy on the server to hand anybody, see SharePanel. -->
-        <controls:SharePanel Grid.Row="4" x:Name="Sharing" IsVisible="False"
-                             BindingContext="{Binding Share}" Margin="0,4" />
 
     </Grid>
 

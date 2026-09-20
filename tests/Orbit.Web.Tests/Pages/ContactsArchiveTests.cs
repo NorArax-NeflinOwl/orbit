@@ -284,6 +284,25 @@ public sealed class ContactsArchiveTests : OrbitTestContext
     /// Answers the contact list, the group list, and the archive call itself, recording every path so a
     /// test can say whether the page actually asked rather than only that it redrew.
     /// </summary>
+    /// <summary>
+    /// Making a group is offered where the groups are listed. It used to sit at the foot of the chat
+    /// page's conversation list, which is a column to pick from rather than a place things are made -
+    /// asked for 2026-09-20. The making itself still happens on the chat page, which is where the
+    /// conversation would be.
+    /// </summary>
+    [Fact]
+    public void A_group_is_started_from_the_groups_tab()
+    {
+        Register(contacts: [], groups: [Group("Weekend trip", isArchived: false)]);
+        var navigationManager = Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
+        var cut = RenderComponent<Web.Pages.Contacts>();
+        cut.FindAll(".contacts-tab").Single(tab => tab.TextContent.Contains("Groups")).Click();
+
+        cut.FindAll("button").First(button => button.TextContent.Trim() == "New group").Click();
+
+        Assert.EndsWith("/chat/groups?new=1", navigationManager.Uri);
+    }
+
     private void Register(string[] contacts, string[]? groups = null)
     {
         var handler = new StubHttpMessageHandler(request =>

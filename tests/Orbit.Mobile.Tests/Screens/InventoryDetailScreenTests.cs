@@ -1011,6 +1011,34 @@ public sealed class InventoryDetailScreenTests
     }
 
     /// <summary>
+    /// A shelf somebody else shared says so, which is what the screen's last menu entry is named for:
+    /// pressing it drops this reader's own grant and leaves the owner's shelf alone, so it says
+    /// "Remove from my list" rather than "Delete inventory". Nothing said so until 2026-09-20, and the
+    /// archive above it - which a share cannot be put through - was the only thing offered.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_somebody_shared_knows_it_is_not_this_readers_own()
+    {
+        using var context = new ScreenContext();
+        var theirs = context.Server.AddInventory("Pantry", sharedBy: "anna");
+
+        var screen = await context.OpenAsync((await context.PullEverythingAsync(theirs.Id)).LocalId);
+
+        Assert.True(screen.IsSharedWithMe);
+    }
+
+    [Fact]
+    public async Task A_shelf_of_your_own_is_not_somebody_elses()
+    {
+        using var context = new ScreenContext();
+        var mine = await context.AddInventoryAsync("Pantry");
+
+        var screen = await context.OpenAsync(mine.LocalId);
+
+        Assert.False(screen.IsSharedWithMe);
+    }
+
+    /// <summary>
     /// A private shelf this device cannot open. Saving it would replace the sealed inventory with the
     /// empty one on screen - see the same guard on the task list.
     /// </summary>

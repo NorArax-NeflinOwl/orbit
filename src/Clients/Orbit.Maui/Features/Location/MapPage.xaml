@@ -33,7 +33,10 @@
          see MapAvailability. -->
     <Grid Grid.Row="1" IsVisible="{Binding IsUnlocked}">
         <ContentView x:Name="MapArea">
-            <maps:Map x:Name="PositionsMap" IsShowingUser="False" />
+            <!-- MapClicked: the map itself answers a finger. Until this the only thing on the screen
+                 that did was a pin's callout, which is two taps in - so a map with nothing on it read
+                 as a picture rather than as something to press (reported 2026-09-20). -->
+            <maps:Map x:Name="PositionsMap" IsShowingUser="False" MapClicked="OnMapTapped" />
         </ContentView>
 
         <!-- Over the tiles rather than under them, and only where there is something to say: where the

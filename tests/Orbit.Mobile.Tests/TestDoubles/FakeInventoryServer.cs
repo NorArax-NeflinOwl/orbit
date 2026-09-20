@@ -33,13 +33,19 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
     /// <param name="gathers">
     /// The shelves this one gathers, for a group - see Orbit.Core.Inventories.Inventory.GathersInventoryIds.
     /// </param>
+    /// <param name="sharedBy">
+    /// Whose shelf this is, where it is not the caller's - the server hands a recipient the owner's
+    /// name and id beside it, and the client draws a different screen for one (see
+    /// InventoryDetailViewModel.IsSharedWithMe). Null for the caller's own, which is most of them.
+    /// </param>
     public InventoryDto AddInventory(
         string name, bool isSharedWithOthers = false, bool isPrivate = false,
-        IReadOnlyList<Guid>? gathers = null)
+        IReadOnlyList<Guid>? gathers = null, string? sharedBy = null, string accessLevel = "CanEdit")
     {
         var now = _timeProvider.GetUtcNow();
         var inventory = new InventoryDto(
-            Guid.NewGuid(), name, now, now, false, null, "CanEdit", null, null, isPrivate, null, isSharedWithOthers,
+            Guid.NewGuid(), name, now, now, sharedBy is not null, sharedBy, accessLevel, null,
+            sharedBy is null ? null : Guid.NewGuid(), isPrivate, null, isSharedWithOthers,
             GathersInventoryIds: gathers);
 
         _inventories[inventory.Id] = inventory;

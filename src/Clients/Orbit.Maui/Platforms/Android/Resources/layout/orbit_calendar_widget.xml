@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The month on the home screen: its name, the seven initials, and six weeks of squares added one at
+     a time (see OrbitCalendarWidget). Flat, like the other widget's layout, because only the handful of
+     views RemoteViews can inflate are usable out here - there is no GridLayout to be had, so a week is
+     a horizontal row and the month is six of them. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widgetRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/orbit_widget_background"
+    android:padding="12dp">
+
+    <TextView
+        android:id="@+id/widgetMonth"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="@color/orbitWidgetText"
+        android:textSize="14sp"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <LinearLayout
+        android:id="@+id/widgetWeekdays"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingTop="6dp" />
+
+    <LinearLayout
+        android:id="@+id/widgetMonthGrid"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:paddingTop="2dp" />
+
+    <!-- What stands in for the grid when there is none to draw - a phone nobody is signed in on. An
+         empty card reads as a widget that is broken. -->
+    <TextView
+        android:id="@+id/widgetMonthMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="6dp"
+        android:textColor="@color/orbitWidgetText"
+        android:textSize="14sp"
+        android:visibility="gone" />
+</LinearLayout>

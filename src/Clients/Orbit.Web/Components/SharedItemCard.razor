@@ -1,0 +1,105 @@
+@using Orbit.Core.Abstractions
+@using Orbit.Contracts.Sharing
+@using Orbit.Core.Notes
+@using Orbit.Web.Services
+@inject Translations T
+
+@* One thing as a public link shows it: what kind it is, what it is called, and its lines. Its own
+   component since 2026-09-20, when a link could first point at a *folder* - which is this card once per
+   thing filed under it, and was otherwise the whole page written out twice. The page keeps what is about
+   the link rather than about the thing: who shared it, and the offer to keep a copy. *@
+<div class="card shared-item-card">
+    <div class="shared-item-header">
+        <span class="shared-item-kind">@DescribeKind(Item.ItemType)</span>
+        <h1>@Item.Title</h1>
+        @if (Item.Subtitle is not null)
+        {
+            <p class="page-subtitle">@Item.Subtitle</p>
+        }
+        @if (OwnerDisplayName is { Length: > 0 } owner)
+        {
+            <p class="shared-item-owner">@T["Shared by"] @owner</p>
+        }
+    </div>
+
+    @if (Item.Lines.Count == 0)
+    {
+        <p class="page-subtitle">@T["Nothing in it yet."]</p>
+    }
+    else
+    {
+        <ul class="shared-item-lines">
+            @* By position, because a numbered line's number is its place in the run above it - see
+               NoteLineStyles.NumberOf, which the note's own pages count with too. *@
+            @for (var index = 0; index < Item.Lines.Count; index++)
+            {
+                var line = Item.Lines[index];
+                var number = NoteLineStyles.NumberOf(
+                    Item.Lines.Count, index, at => NoteLineStyles.Read(Item.Lines[at].Style));
+
+                <li class="shared-item-line @(line.IsChecked || line.IsFailed ? "shared-item-line-checked" : "")">
+                    @if (line.IsChecklistItem)
+                    {
+                        @* Disabled rather than absent: the reader can see what is done - or what was
+                           given up on - without being offered a control that would do nothing. See
+                           TickBox, which is the same box where it can be pressed. *@
+                        <TickBox State="@Ticks.Read(line.IsChecked, line.IsFailed)" IsDisabled="true" />
+                    }
+                    @if (line.Table is { } table)
+                    {
+                        <NoteTableView Table="@table.ToTable()" />
+                    }
+                    else if (line.Picture is { } picture)
+                    {
+                        <NotePictureView Picture="@picture" Token="@Token" />
+                    }
+                    else if (line.Separator is { } separator)
+                    {
+                        <NoteSeparatorView Stamp="@separator.Stamp" Label="@T["Separator"]" />
+                    }
+                    else
+                    {
+                        @* .note-line on the words rather than on the row: that is where every style is
+                           drawn, and a heading read through a link is the heading it was written as.
+                           Only a note ever sends one - see PublicSharedItemLineDto.Style. *@
+                        <span class="note-line @(line.IsChecklistItem ? "note-line-checklist" : null) shared-item-line-text"
+                              data-style="@NoteLineStyles.Read(line.Style).ToString().ToLowerInvariant()"
+                              data-number="@(number > 0 ? number.ToString() : null)"><MarkedText
+                            Text="@line.Text" Marks="@line.MarksOf()" /></span>
+                    }
+                    @if (line.Detail is not null)
+                    {
+                        <span class="shared-item-line-detail">@line.Detail</span>
+                    }
+                </li>
+            }
+        </ul>
+    }
+    @ChildContent
+</div>
+
+@code {
+    [Parameter, EditorRequired] public PublicSharedItemDto Item { get; set; } = default!;
+
+    /// <summary>The link's token, which is how a note's pictures are fetched - see NotePictureView.</summary>
+    [Parameter, EditorRequired] public string Token { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Whose it is, said on the card. Left empty for a thing inside a folder: the folder above it has
+    /// already said so, and saying it again once per note is a page repeating one fact ten times.
+    /// </summary>
+    [Parameter] public string? OwnerDisplayName { get; set; }
+
+    /// <summary>Anything the page puts at the foot of the card - the offer to keep a copy.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string DescribeKind(string itemType) => itemType switch
+    {
+        "Note" => T["Note"],
+        "TaskList" => T["Task list"],
+        "CalendarEvent" => T["Event"],
+        "Place" => T["Location"],
+        "Folder" => T["Folder"],
+        _ => T["Inventory"]
+    };
+}

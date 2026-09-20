@@ -104,7 +104,8 @@ public sealed class InventorySummaryTests : OrbitTestContext
     /// <summary>
     /// A share below CanEdit still opens the form - there is nothing else it could open - but nothing
     /// there can be saved, so the menu says "View" rather than promising a Save that will refuse. It
-    /// also has nothing to delete: this inventory is not this reader's to remove.
+    /// has no Delete either: this shelf is not this reader's to destroy. What it does have since
+    /// 2026-09-20 is a way off their own pages - see the test below.
     /// </summary>
     [Fact]
     public void A_read_only_share_offers_View_and_no_Delete()
@@ -121,6 +122,25 @@ public sealed class InventorySummaryTests : OrbitTestContext
         cut.Find(".editor-rail .overflow-menu-trigger").Click();
         var entries = cut.FindAll(".avatar-dropdown-item").Select(entry => entry.TextContent.Trim()).ToList();
 
+        Assert.DoesNotContain("Delete", entries);
+    }
+
+    /// <summary>
+    /// A shelf somebody shared can be taken off this reader's own pages: the server drops their grant
+    /// and leaves the owner's shelf alone (DeleteInventoryCommandHandler). It said nothing at all until
+    /// 2026-09-20 - a share cannot be archived either, so there was no press that got rid of one.
+    /// </summary>
+    [Fact]
+    public void A_shared_shelf_can_be_taken_off_your_own_pages()
+    {
+        _isShared = true;
+        _accessLevel = "CanEdit";
+        var cut = RenderComponent<InventorySummary>(parameters => parameters.Add(page => page.InventoryId, InventoryId));
+
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        var entries = cut.FindAll(".avatar-dropdown-item").Select(entry => entry.TextContent.Trim()).ToList();
+
+        Assert.Contains("Remove from my list", entries);
         Assert.DoesNotContain("Delete", entries);
     }
 

@@ -294,10 +294,14 @@ public sealed class TasksTests : OrbitTestContext
         Assert.Contains("Edit", cut.Find(".item-card-menu").TextContent);
     }
 
-    /// <summary>Somebody else's shared list is not this reader's to delete - the same rule the note and
-    /// inventory cards already follow.</summary>
+    /// <summary>
+    /// Somebody else's shared list is not this reader's to delete, but it is theirs to be rid of: the
+    /// menu says "Remove from my list", which drops their own grant and leaves the owner's list alone
+    /// (see DeleteTaskListCommandHandler). It used to offer nothing at all - a shared list cannot be
+    /// archived either, so there was no way off the page for one.
+    /// </summary>
     [Fact]
-    public void A_shared_list_is_not_offered_for_deleting()
+    public void A_shared_list_is_taken_off_your_own_pages_rather_than_deleted()
     {
         var shared = TaskList("From Bob", Item("Something")) with { IsShared = true, SharedByUserName = "bob" };
         RegisterTasksApiClient([shared]);
@@ -305,7 +309,9 @@ public sealed class TasksTests : OrbitTestContext
         var cut = RenderComponent<Web.Pages.Tasks>();
 
         OpenTheCardMenu(cut);
-        Assert.DoesNotContain("Delete", cut.Find(".item-card-menu").TextContent);
+        var offered = cut.Find(".item-card-menu").TextContent;
+        Assert.Contains("Remove from my list", offered);
+        Assert.DoesNotContain("Delete", offered);
     }
 
     [Fact]

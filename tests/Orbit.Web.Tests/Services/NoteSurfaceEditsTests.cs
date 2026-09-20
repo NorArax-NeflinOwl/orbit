@@ -222,6 +222,43 @@ public sealed class NoteSurfaceEditsTests
         Assert.Null(NoteSurfaceEdits.ReadTypedMarker(At(0, 6, Text("milk []"))));
     }
 
+    /// <summary>
+    /// A line pushed in by Tab takes a box too, and keeps the indentation: that is a box on a sub-point,
+    /// which is what somebody who indents a line and then types "[]" means. The mark used to be looked
+    /// for at the very start of the text, so one Tab in front of it left the brackets sitting there as
+    /// words. The phone has read it after the indentation all along - see NoteDetailViewModel.
+    /// </summary>
+    [Fact]
+    public void Typed_brackets_after_an_indentation_become_a_box_on_a_sub_point()
+    {
+        var after = NoteSurfaceEdits.ReadTypedMarker(At(0, 3, Text("\t[]milk")))!;
+
+        Assert.Equal([Box("\tmilk")], after.Lines);
+        Assert.Equal(new SurfacePoint(0, 1), after.Caret);
+    }
+
+    /// <summary>Spaces are an indentation too - see NoteSurfaceEdits.IndentationOf, which counts both.</summary>
+    [Fact]
+    public void Typed_brackets_after_spaces_become_a_box_as_well()
+    {
+        var after = NoteSurfaceEdits.ReadTypedMarker(At(0, 6, Text("    []milk")))!;
+
+        Assert.Equal([Box("    milk")], after.Lines);
+        Assert.Equal(new SurfacePoint(0, 4), after.Caret);
+    }
+
+    /// <summary>
+    /// And the same for a paste, so a checklist copied out of a note with its sub-points indented comes
+    /// back as that checklist rather than as boxes at the top level and brackets underneath.
+    /// </summary>
+    [Fact]
+    public void A_pasted_indented_line_reads_as_an_indented_box()
+    {
+        var after = NoteSurfaceEdits.Replace(At(0, 0, Text("")), "[] milk\n\t[] semi-skimmed", readsMarkers: true);
+
+        Assert.Equal([Box("milk"), Box("\tsemi-skimmed")], after.Lines);
+    }
+
     [Fact]
     public void The_toolbar_box_turns_an_empty_line_into_one_and_otherwise_starts_a_line_under_the_caret()
     {

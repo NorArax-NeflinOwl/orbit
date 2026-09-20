@@ -13,7 +13,7 @@
          which part of a screen is one. -->
     <Border Padding="12,8" Margin="0" StrokeThickness="0"
             BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}"
-            IsVisible="{Binding HasAdvert, Source={x:Reference Root}, x:DataType=controls:AdBanner}">
+            IsVisible="{Binding IsShown, Source={x:Reference Root}, x:DataType=controls:AdBanner}">
         <!-- Pressing it opens the page it names in the browser, since the pages these adverts point at
              are the web client's - see HouseAdLink, which is also what decides there is nowhere to go. -->
         <Border.GestureRecognizers>

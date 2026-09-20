@@ -95,7 +95,7 @@
 @* Which folder is being read - the inventories' own, since a folder belongs to one page (see
    FolderScope). On a phone it folds into one Menu button. *@
 <PhoneToolbar Page="FolderPage.Inventories" HasNews="@NewsIsInAFolderThatIsNotOpen">
-    <FolderTabs Page="FolderPage.Inventories" CountIn="CountIn" HasNewsIn="HasNewsIn" />
+    <FolderTabs Page="FolderPage.Inventories" CountIn="CountIn" HasNewsIn="HasNewsIn" StillHolds="StillHolds" HoldsAnything="HoldsAnything" OnShareFolder="ShareTheFolder" />
 </PhoneToolbar>
 
 @* What to do with several at once, while several are chosen - see PickedThings, and Notes.razor on why it
@@ -107,12 +107,14 @@
 @if (_isSharingPicked)
 {
     @* Only a shelf this reader owns and Orbit can read - see Notes.razor, which says why. *@
-    <SharePickedDialog Things="@([.. ChosenInventories.Where(inventory => !inventory.IsShared && !inventory.IsPrivate).Select(inventory => new SharePickedDialog.ShareableThing(inventory.Id, inventory.Name))])"
-                       LeftOut="@ChosenInventories.Count(inventory => inventory.IsShared || inventory.IsPrivate)"
+    <SharePickedDialog Things="@([.. InventoriesBeingShared.Where(CanBeHandedOn).Select(inventory => new SharePickedDialog.ShareableThing(inventory.Id, inventory.Name))])"
+                       LeftOut="@InventoriesBeingShared.Count(inventory => !CanBeHandedOn(inventory))"
                        ShareOne="(inventoryId, recipientUserId, accessLevel) => InventoryApiClient.ShareInventoryAsync(inventoryId, recipientUserId, accessLevel)"
                        Invitation="(shareId, name) => new InventoryShareMessagePayload(shareId, name)"
-                       OnClosed="() => _isSharingPicked = false" />
+                       OnClosed="StopSharingSeveral" />
 }
+@* The Private tab is behind the account's PIN, where one is set - see PrivatePinGate. *@
+<BehindThePin Applies="IsReadingWhatIsPrivate" OnGaveUp="LeaveThePrivateTab">
 <ObjectList IsLoading="_inventories is null" IsEmpty="_inventories is { Count: 0 }"
             EmptyMessage="@T["No inventories yet. Create one to start tracking stock."]">
     @if (_inventories is { Count: > 0 } && ArrangedInventories.Count == 0)
@@ -140,7 +142,13 @@
                     <Menu>
                         @* The card opens the shelf to be read; changing what is on it is a named press,
                            the same as a task list's - unless a share below CanEdit means there is
-                           nothing to press it into changing, the same question Notes.razor asks. *@
+                           nothing to press it into changing, the same question Notes.razor asks.
+
+                           Somebody else's shelf is not this reader's to delete: pressing that takes it
+                           off their own pages and leaves the owner's alone, so it says so rather than
+                           "Delete" - the shape a note, a task list and an event already have. It needs
+                           no archive first either, because a share cannot be put away and requiring the
+                           archive would leave no way to be rid of one at all. *@
                         <ObjectMenu EditLabel="@(CanBeChanged(inventory) ? T["Edit"] : T["View"])" OnEdit="() => EditInventory(inventory.Id)"
                                     DuplicateLabel="@(!inventory.IsShared ? T["Duplicate"] : null)"
                                     OnDuplicate="() => DuplicateInventoryAsync(inventory)"
@@ -148,7 +156,9 @@
                                     ArchiveLabel="@(!inventory.IsShared ? ArchiveLabelFor(inventory.IsArchived) : null)"
                                     OnArchive="() => SetArchivedAsync(inventory, !inventory.IsArchived)"
                                     IsArchived="inventory.IsArchived"
-                                    DeleteLabel="@(!inventory.IsShared ? T["Delete"] : null)" OnDelete="() => DeleteInventoryAsync(inventory)" />
+                                    DeleteNeedsTheArchive="@(!inventory.IsShared)"
+                                    DeleteLabel="@(inventory.IsShared ? T["Remove from my list"] : T["Delete"])"
+                                    OnDelete="() => DeleteInventoryAsync(inventory)" />
                     </Menu>
                     <Tags>
                         @if (inventory.IsGroup)
@@ -194,6 +204,7 @@
         }
     </div>
 </ObjectList>
+</BehindThePin>
 
 @code {
     private IReadOnlyList<InventoryDto>? _inventories;
@@ -261,8 +272,7 @@
     }
 
     /// <summary>Whether this reader may actually change the shelf - the owner, or a share granted at
-    /// least EditOnly. Mirrors NoteSummary's own rung-2 check, which asks the same question of the
-    /// note it has open.</summary>
+    /// least EditOnly. Mirrors Notes.razor's own card check, which asks the same question of a note.</summary>
     private static bool CanBeChanged(InventoryDto inventory)
         => SharedItemAccess.For(inventory.IsShared, inventory.AccessLevel).CanEdit;
 
@@ -429,6 +439,37 @@
     private IReadOnlyList<InventoryDto> ChosenInventories
         => [.. (_inventories ?? []).Where(inventory => _picked.Holds(inventory.Id))];
 
+    /// <summary>Whether this shelf is this reader's to hand on - see the dialog, which says how many are not.</summary>
+    private static bool CanBeHandedOn(InventoryDto inventory) => !inventory.IsShared && !inventory.IsPrivate;
+
+    /// <summary>The folder whose contents are being handed on, while one is - see ShareTheFolder.</summary>
+    private Guid? _folderBeingShared;
+
+    /// <summary>
+    /// What a share is about: the chosen shelves, or - when the folder's own menu started it -
+    /// everything filed under that folder (2026-09-20, asked for). One dialog either way, so sharing
+    /// several things means the same thing however the several were picked out. What is put away is
+    /// left out; what is sealed or already somebody else's is left out by the dialog.
+    /// </summary>
+    private IReadOnlyList<InventoryDto> InventoriesBeingShared
+        => _folderBeingShared is { } folderId
+            ? [.. (_inventories ?? []).Where(inventory => inventory.FolderId == folderId && !inventory.IsArchived)]
+            : ChosenInventories;
+
+    /// <inheritdoc cref="InventoriesBeingShared"/>
+    private void ShareTheFolder(Guid folderId)
+    {
+        Logger.LogInformation("User shared the contents of folder {FolderId}", folderId);
+        _folderBeingShared = folderId;
+        _isSharingPicked = true;
+    }
+
+    private void StopSharingSeveral()
+    {
+        _isSharingPicked = false;
+        _folderBeingShared = null;
+    }
+
     /// <inheritdoc cref="ActOnPickedAsync"/>
     private async Task FilePickedAsync(Guid? folderId)
         => await ActOnPickedAsync(inventory => InventoryApiClient.MoveToFolderAsync(inventory.Id, folderId));
@@ -478,6 +519,19 @@
         => (_inventories ?? []).Count(inventory =>
             Folders.PlacementOn(FolderPage.Inventories, inventory.FolderId, inventory.IsPrivate, isFinished: false, inventory.IsArchived) == folder);
 
+    /// <summary>Whether anything is still filed here - see FolderTabs.StillHolds, and Notes.StillHolds.</summary>
+/// <summary>
+    /// Whether a tab is worth being on the row at all - see FolderTabs.HoldsAnything. A built-in tab
+    /// goes when nothing is under it: an empty Private or Archived tab is a press that leads to "there
+    /// is nothing here", and the reader already knows that by it not being offered (asked for
+    /// 2026-09-20). A folder somebody made is judged by what is filed in it rather than by what is
+    /// under its tab - one holding nothing but archived things counts zero here and still holds them.
+    /// </summary>
+    private bool HoldsAnything(FolderKey tab)
+        => tab.FolderId is { } folderId ? StillHolds(folderId) : CountIn(tab) > 0;
+
+    private bool StillHolds(Guid folderId) => (_inventories ?? []).Any(inventory => inventory.FolderId == folderId);
+
     /// <summary>Where a shelf's tab is - one answer for the count above and the two questions below.</summary>
     private FolderKey PlacementOf(InventoryDto inventory)
         => Folders.PlacementOn(
@@ -494,6 +548,13 @@
     private bool NewsIsInAFolderThatIsNotOpen
         => (_inventories ?? []).Any(inventory =>
             HasNewsAbout(inventory) && PlacementOf(inventory) != Folders.ChosenOn(FolderPage.Inventories));
+
+    /// <summary>Whether the reader is standing in the Private tab - what the PIN is asked for.</summary>
+    private bool IsReadingWhatIsPrivate
+        => Folders.ChosenOn(FolderPage.Inventories) == FolderKey.Of(BuiltInFolder.Private);
+
+    /// <summary>Where the question leads when it cannot be answered: back to where everything else is.</summary>
+    private void LeaveThePrivateTab() => Folders.Choose(FolderPage.Inventories, FolderKey.Default);
 
     /// <summary>The card being dragged to a new place, while one is - see RowArrangement.</summary>
     private readonly RowArrangement<InventoryDto> _cardOrder = new();
@@ -596,8 +657,14 @@
 
     private async Task DeleteInventoryAsync(InventoryDto inventory)
     {
+        // Asked in the words of what will happen. A shelf somebody shared is not being destroyed -
+        // the server drops this reader's grant and leaves the owner's shelf where it is, see
+        // DeleteInventoryCommandHandler - so it must not be asked about as a deletion.
         var confirmed = await JSRuntime.InvokeAsync<bool>(
-            "confirm", T.Format("Delete \"{0}\" and everything in it?", inventory.Name));
+            "confirm",
+            inventory.IsShared
+                ? T.Format("Remove \"{0}\" from your inventories? The owner keeps it.", inventory.Name)
+                : T.Format("Delete \"{0}\" and everything in it?", inventory.Name));
         if (!confirmed)
         {
             return;
@@ -615,7 +682,9 @@
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to delete inventory {InventoryId}", inventory.Id);
-            _errorMessage = T["Failed to delete the inventory. Try again."];
+            _errorMessage = inventory.IsShared
+                ? T["Couldn't take that off your inventories. Check your connection and try again."]
+                : T["Failed to delete the inventory. Try again."];
             return;
         }
 

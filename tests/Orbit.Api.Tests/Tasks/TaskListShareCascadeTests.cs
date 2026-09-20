@@ -165,7 +165,7 @@ public sealed class TaskListShareCascadeTests
             _publicSharedItemReader = new PublicSharedItemReader(
                 new InMemoryNoteRepository(), _taskRepository, new InMemoryCalendarEventRepository(),
                 _inventoryRepository, new InMemoryInventoryItemRepository(), new InMemoryPlaceRepository(),
-                _userRepository);
+                _userRepository, new InMemoryFolderRepository());
         }
 
         private TaskListShareCascade Cascade => new(

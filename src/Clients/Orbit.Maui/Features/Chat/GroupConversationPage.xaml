@@ -87,48 +87,78 @@
                                            MaxLines="2" Style="{StaticResource SubtleLabel}" />
                                 </Border>
 
-                                <!-- Outlined, not filled - see ConversationPage for the same bubble
-                                     and why the accent is an edge here rather than a block. -->
-                                <Border Padding="13,9" StrokeThickness="1" HorizontalOptions="Start"
-                                        BackgroundColor="Transparent"
-                                        Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}">
-                                    <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="10,10,2,10" />
-                                    </Border.StrokeShape>
-                                    <Border.Triggers>
-                                        <DataTrigger TargetType="Border" Binding="{Binding IsMine}" Value="True">
+                                <!-- The bubble and its "⋯" side by side, in a Grid - see ConversationPage,
+                                     which says why the trigger left the small print and why a horizontal
+                                     stack would stop the text wrapping. -->
+                                <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="4" HorizontalOptions="Start">
+                                    <Grid.Triggers>
+                                        <DataTrigger TargetType="Grid" Binding="{Binding IsMine}" Value="True">
                                             <Setter Property="HorizontalOptions" Value="End" />
-                                            <Setter Property="Stroke" Value="{DynamicResource Accent}" />
-                                            <Setter Property="BackgroundColor" Value="{DynamicResource AccentSubtle}" />
-                                            <Setter Property="StrokeShape">
-                                                <RoundRectangle CornerRadius="10,10,10,2" />
-                                            </Setter>
                                         </DataTrigger>
-                                    </Border.Triggers>
+                                    </Grid.Triggers>
 
-                                    <VerticalStackLayout Spacing="4">
-                                        <!-- One ink for both sides - see ConversationPage. -->
-                                        <!-- Pressable addresses, as in a one-to-one conversation - see
-                                             LinkedLabel. -->
-                                        <controls:LinkedLabel Words="{Binding Text}" FontSize="14" LineBreakMode="WordWrap" />
+                                    <!-- On anybody's message, not only the reader's own: "who has read
+                                         this" is worth asking about a message somebody else wrote too. -->
+                                    <controls:OverflowMenu Grid.Column="0" VerticalOptions="End"
+                                                           IsVisible="{Binding MenuSitsOnTheLeft}"
+                                                           Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowMessageMenuCommand, x:DataType=chat:GroupConversationPage}"
+                                                           CommandParameter="{Binding .}" />
 
-                                        <Label IsVisible="{Binding CannotBeOpened}" FontSize="12"
-                                               Style="{StaticResource SubtleLabel}">
-                                            <Label.Text>
-                                                <controls:Translate Text="This message can't be opened on this device." />
-                                            </Label.Text>
-                                        </Label>
-                                    </VerticalStackLayout>
-                                </Border>
+                                    <!-- Outlined, not filled - see ConversationPage for the same bubble
+                                         and why the accent is an edge here rather than a block. -->
+                                    <Border Grid.Column="1" Padding="13,9" StrokeThickness="1"
+                                            BackgroundColor="Transparent"
+                                            Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="10,10,2,10" />
+                                        </Border.StrokeShape>
+                                        <Border.Triggers>
+                                            <DataTrigger TargetType="Border" Binding="{Binding IsMine}" Value="True">
+                                                <Setter Property="Stroke" Value="{DynamicResource Accent}" />
+                                                <Setter Property="BackgroundColor" Value="{DynamicResource AccentSubtle}" />
+                                                <Setter Property="StrokeShape">
+                                                    <RoundRectangle CornerRadius="10,10,10,2" />
+                                                </Setter>
+                                            </DataTrigger>
+                                        </Border.Triggers>
 
-                                <HorizontalStackLayout Spacing="8">
+                                        <VerticalStackLayout Spacing="4">
+                                            <!-- One ink for both sides - see ConversationPage. -->
+                                            <!-- Pressable addresses, as in a one-to-one conversation - see
+                                                 LinkedLabel. -->
+                                            <controls:LinkedLabel Words="{Binding Text}" FontSize="14" LineBreakMode="WordWrap" />
+
+                                            <Label IsVisible="{Binding CannotBeOpened}" FontSize="12"
+                                                   Style="{StaticResource SubtleLabel}">
+                                                <Label.Text>
+                                                    <controls:Translate Text="This message can't be opened on this device." />
+                                                </Label.Text>
+                                            </Label>
+                                        </VerticalStackLayout>
+                                    </Border>
+
+                                    <!-- And the same trigger on the other side, for everybody else's. -->
+                                    <controls:OverflowMenu Grid.Column="2" VerticalOptions="End"
+                                                           IsVisible="{Binding MenuSitsOnTheRight}"
+                                                           Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowMessageMenuCommand, x:DataType=chat:GroupConversationPage}"
+                                                           CommandParameter="{Binding .}" />
+                                </Grid>
+
+                                <!-- The time only under the newest message, and the row left out when it
+                                     would be empty - see ConversationPage, which says why. -->
+                                <HorizontalStackLayout Spacing="8" IsVisible="{Binding HasMeta}">
                                     <HorizontalStackLayout.Triggers>
                                         <DataTrigger TargetType="HorizontalStackLayout" Binding="{Binding IsMine}" Value="True">
                                             <Setter Property="HorizontalOptions" Value="End" />
                                         </DataTrigger>
                                     </HorizontalStackLayout.Triggers>
 
-                                    <Label Text="{Binding SentAt}" FontSize="10.5" VerticalOptions="Center"
+                                    <Label Text="{Binding SentAt}" IsVisible="{Binding ShowsTime}"
+                                           FontSize="10.5" VerticalOptions="Center"
+                                           TextColor="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
+                                    <!-- Rewritten after it was sent - see ConversationPage's own. -->
+                                    <Label Text="{controls:Translate 'edited'}" IsVisible="{Binding IsEdited}"
+                                           FontSize="10.5" VerticalOptions="Center"
                                            TextColor="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
                                     <Label Text="{controls:Translate 'Waiting to send'}" IsVisible="{Binding IsWaitingToSend}"
                                            FontSize="10.5" VerticalOptions="Center" TextColor="{DynamicResource Accent}" />
@@ -137,12 +167,6 @@
                                     <Label IsVisible="{Binding HasGroupDelivery}" FontSize="10.5" VerticalOptions="Center"
                                            Text="{Binding IsReadByTheWholeGroup, Converter={StaticResource GroupDelivery}}"
                                            TextColor="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
-
-                                    <!-- On anybody's message, not only the reader's own: "who has read
-                                         this" is worth asking about a message somebody else wrote too. -->
-                                    <controls:OverflowMenu IsVisible="{Binding IsInAGroup}"
-                                                           Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowMessageMenuCommand, x:DataType=chat:GroupConversationPage}"
-                                                           CommandParameter="{Binding .}" />
                                 </HorizontalStackLayout>
                             </VerticalStackLayout>
                         </VerticalStackLayout>

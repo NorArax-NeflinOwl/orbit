@@ -69,6 +69,18 @@ else
                     </svg>
                 </button>
             }
+            @* And what can be done with the conversation behind them, in the same corner every other
+               object keeps its menu. Putting one away was offered on the contacts page alone until
+               2026-09-20, so the two places somebody actually reads a conversation - this page and the
+               thread itself - could not do it. *@
+            @if (_contact is { } archivable)
+            {
+                <OverflowMenu>
+                    <button type="button" class="avatar-dropdown-item" @onclick="() => SetArchivedAsync(!archivable.IsArchived)">
+                        @(archivable.IsArchived ? T["Put back"] : T["Archive"])
+                    </button>
+                </OverflowMenu>
+            }
         </div>
 
         @* Everything a profile says about somebody. Left out when the profile is the thing that could
@@ -117,6 +129,12 @@ else
         @if (_errorMessage is null && !_hasEncryptionKey)
         {
             <p class="empty-hint">@T.Format("{0} hasn't set up encryption yet - they need to log in in their own browser first before you can message them.", _displayName)</p>
+        }
+
+        @* What the menu above could not do - see SetArchivedAsync. *@
+        @if (_conversationErrorMessage is not null)
+        {
+            <p class="error">@_conversationErrorMessage</p>
         }
     </div>
 
@@ -173,6 +191,12 @@ else
     private string _displayName = string.Empty;
     private string _userName = string.Empty;
     private bool _hasEncryptionKey = true;
+
+    /// <summary>
+    /// Why putting the conversation away did nothing. Its own field rather than _errorMessage, which
+    /// means "this profile could not be read at all" and decides what the card draws.
+    /// </summary>
+    private string? _conversationErrorMessage;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -329,6 +353,34 @@ else
     /// this card lists is what they currently have, and a row for something they no longer have would be
     /// a fourth state to explain.
     /// </summary>
+    /// <summary>
+    /// Puts the conversation away, or brings it back. The card redraws with what it now is rather than
+    /// leaving the page: this page is about the person, and the person is still the person - only the
+    /// conversation has moved to another list.
+    ///
+    /// A failure has to reach the reader, as it does on the contacts page: a menu that closes and does
+    /// nothing looks exactly like a press that never registered.
+    /// </summary>
+    private async Task SetArchivedAsync(bool isArchived)
+    {
+        _conversationErrorMessage = null;
+
+        try
+        {
+            await ChatApiClient.SetConversationArchivedAsync(UserId, isArchived);
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to change whether the conversation with {UserId} is put away", UserId);
+            _conversationErrorMessage = isArchived
+                ? T["Could not put that away. Check your connection and try again."]
+                : T["Could not put that back. Check your connection and try again."];
+            return;
+        }
+
+        _contact = _contact is { } contact ? contact with { IsArchived = isArchived } : null;
+    }
+
     private async Task RevokeAsync(SharedWithContactDto share)
     {
         _revokeErrorMessage = null;

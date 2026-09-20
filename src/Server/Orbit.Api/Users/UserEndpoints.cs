@@ -30,6 +30,8 @@ using Orbit.Core.Users.LinkGoogleAccount;
 using Orbit.Core.Users.SetPassword;
 using Orbit.Core.Users.SetEncryptionKey;
 using Orbit.Core.Users.SetPublicKey;
+using Orbit.Core.Users.SetPrivatePin;
+using Orbit.Core.Users.VerifyPrivatePin;
 
 namespace Orbit.Api.Users;
 
@@ -62,7 +64,7 @@ public static class UserEndpoints
                     account.HasPassword, account.GoogleSubjectId is not null, ToDto(account.Location),
                     account.Presence.Availability.ToString(),
                     account.Presence.StatusAt(DateTimeOffset.UtcNow).ToString(),
-                    account.KeepsThirdPartiesOut));
+                    account.KeepsThirdPartiesOut, account.HasPrivatePin));
         });
 
         // The footer's "Do not share my personal information". On the account rather than in the
@@ -213,6 +215,28 @@ public static class UserEndpoints
             // Unauthorized rather than NotFound: the only realistic failure here is a wrong current
             // password, and the caller is already authenticated.
             return changed ? Results.NoContent() : Results.Unauthorized();
+        }).RequireRateLimiting(RateLimiterPolicyNames.Auth);
+
+        // The PIN a client asks for before it shows what is private. Beside the password rather than
+        // anywhere else, because it is the same kind of secret and proved with the same one - see
+        // SetPrivatePinCommand. Rate-limited like the password endpoints: four digits are guessable,
+        // and the whole point of the door is that somebody standing at the screen cannot open it.
+        users.MapPut("/me/private-pin", async (
+            SetPrivatePinRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var set = await dispatcher.SendAsync(
+                new SetPrivatePinCommand(GetUserId(user), request.Password, request.NewPin), cancellationToken);
+            // Unauthorized rather than BadRequest for a PIN that is not four to eight digits as well:
+            // the client checks the shape before it asks, so the realistic failure here is the password.
+            return set ? Results.NoContent() : Results.Unauthorized();
+        }).RequireRateLimiting(RateLimiterPolicyNames.Auth);
+
+        users.MapPost("/me/private-pin/check", async (
+            VerifyPrivatePinRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var matches = await dispatcher.SendAsync(
+                new VerifyPrivatePinQuery(GetUserId(user), request.Pin), cancellationToken);
+            return matches ? Results.NoContent() : Results.Unauthorized();
         }).RequireRateLimiting(RateLimiterPolicyNames.Auth);
 
         users.MapDelete("/me", async (

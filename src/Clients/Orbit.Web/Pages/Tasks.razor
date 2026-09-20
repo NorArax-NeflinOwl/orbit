@@ -96,7 +96,7 @@
    On a phone the lot folds into one Menu button - see PhoneToolbar, which is nothing at all on a wider
    screen. *@
 <PhoneToolbar Page="FolderPage.Tasks" HasNews="@NewsIsInAFolderThatIsNotOpen">
-    <FolderTabs Page="FolderPage.Tasks" CountIn="CountIn" HasNewsIn="HasNewsIn" />
+    <FolderTabs Page="FolderPage.Tasks" CountIn="CountIn" HasNewsIn="HasNewsIn" StillHolds="StillHolds" HoldsAnything="HoldsAnything" OnShareFolder="ShareTheFolder" />
 
     @* Only once there is something to narrow, and only about the folder that is open: a search box
        over an empty tab offers to find something on a list that is not there, and the chips would be
@@ -160,11 +160,11 @@
 @if (_isSharingPicked)
 {
     @* Only a list this reader owns and Orbit can read - see Notes.razor, which says why. *@
-    <SharePickedDialog Things="@([.. ChosenTaskLists.Where(taskList => !taskList.IsShared && !taskList.IsPrivate).Select(taskList => new SharePickedDialog.ShareableThing(taskList.Id, taskList.Title))])"
-                       LeftOut="@ChosenTaskLists.Count(taskList => taskList.IsShared || taskList.IsPrivate)"
+    <SharePickedDialog Things="@([.. TaskListsBeingShared.Where(CanBeHandedOn).Select(taskList => new SharePickedDialog.ShareableThing(taskList.Id, taskList.Title))])"
+                       LeftOut="@TaskListsBeingShared.Count(taskList => !CanBeHandedOn(taskList))"
                        ShareOne="(taskListId, recipientUserId, accessLevel) => TasksApiClient.ShareTaskListAsync(taskListId, recipientUserId, accessLevel)"
                        Invitation="(shareId, title) => new TaskListShareMessagePayload(shareId, title)"
-                       OnClosed="() => _isSharingPicked = false" />
+                       OnClosed="StopSharingSeveral" />
 }
 @* Handing on one list, from its own card - the same dialog given a list of one. See Notes.razor. *@
 @if (_sharingOne is { } sharedList)
@@ -174,6 +174,9 @@
                        Invitation="(shareId, title) => new TaskListShareMessagePayload(shareId, title)"
                        OnClosed="() => _sharingOne = null" />
 }
+@* The Private tab is behind the account's PIN, where one is set - see PrivatePinGate. Around the list
+   rather than the page: the tabs stay, so the way out of the question is another tab. *@
+<BehindThePin Applies="IsReadingWhatIsPrivate" OnGaveUp="LeaveThePrivateTab">
 <ObjectList IsLoading="_taskLists is null" IsEmpty="_taskLists is { Count: 0 }" EmptyMessage="@T["No task lists yet."]">
     @if (VisibleTaskLists.Count == 0)
     {
@@ -231,8 +234,11 @@
                         <PinButton IsPinned="taskList.IsPinned" OnPinnedChanged="_ => TogglePinnedAsync(taskList)" />
                     </Pin>
                     <Menu>
-                        @* Somebody else's shared list is not this reader's to delete - the same rule
-                           the note and inventory cards already follow. *@
+                        @* Somebody else's shared list is not this reader's to delete: pressing that
+                           takes it off their own pages and leaves the owner's alone, so it says that
+                           rather than "Delete" - the wording a note's card has had. It needs no archive
+                           first either, because a share cannot be put away and requiring the archive
+                           would leave no way to be rid of one at all. *@
                         <ObjectMenu EditLabel="@T["Edit"]" OnEdit="() => GoToEditTaskList(taskList.Id)"
                                     DuplicateLabel="@(!taskList.IsShared ? T["Duplicate"] : null)"
                                     OnDuplicate="() => DuplicateTaskListAsync(taskList)"
@@ -241,7 +247,9 @@
                                     ArchiveLabel="@(!taskList.IsShared ? ArchiveLabelFor(taskList.IsArchived) : null)"
                                     OnArchive="() => SetArchivedAsync(taskList, !taskList.IsArchived)"
                                     IsArchived="taskList.IsArchived"
-                                    DeleteLabel="@(!taskList.IsShared ? T["Delete"] : null)" OnDelete="() => DeleteTaskListAsync(taskList)" />
+                                    DeleteNeedsTheArchive="@(!taskList.IsShared)"
+                                    DeleteLabel="@(taskList.IsShared ? T["Remove from my list"] : T["Delete"])"
+                                    OnDelete="() => DeleteTaskListAsync(taskList)" />
                     </Menu>
                     <Tags>
                         @if (taskList.IsGroup)
@@ -426,6 +434,7 @@
         }
     </div>
 </ObjectList>
+</BehindThePin>
 
 @code {
     private IReadOnlyList<TaskDto>? _taskLists;
@@ -535,6 +544,13 @@
     private bool IsReadingWhatIsFinished
         => Folders.ChosenOn(FolderPage.Tasks) == FolderKey.Of(BuiltInFolder.Finished);
 
+    /// <summary>Whether the reader is standing in the Private tab - what the PIN is asked for.</summary>
+    private bool IsReadingWhatIsPrivate
+        => Folders.ChosenOn(FolderPage.Tasks) == FolderKey.Of(BuiltInFolder.Private);
+
+    /// <summary>Where the question leads when it cannot be answered: back to where everything else is.</summary>
+    private void LeaveThePrivateTab() => Folders.Choose(FolderPage.Tasks, FolderKey.Default);
+
     private IReadOnlyList<TaskListFilter> SelectableFilters
         => IsReadingWhatIsFinished ? FiltersUnderFinished : EverySelectableFilter;
 
@@ -577,6 +593,34 @@
 
     private IReadOnlyList<TaskDto> ChosenTaskLists
         => [.. (_taskLists ?? []).Where(taskList => _picked.Holds(taskList.Id))];
+
+    /// <summary>The folder whose contents are being handed on, while one is - see ShareTheFolder.</summary>
+    private Guid? _folderBeingShared;
+
+    /// <summary>
+    /// What a share is about: the chosen lists, or - when the folder's own menu started it - everything
+    /// filed under that folder (2026-09-20, asked for). One dialog either way, so sharing several things
+    /// means the same thing however the several were picked out. What is put away is left out; what is
+    /// sealed or already somebody else's is left out by the dialog, which says how many.
+    /// </summary>
+    private IReadOnlyList<TaskDto> TaskListsBeingShared
+        => _folderBeingShared is { } folderId
+            ? [.. (_taskLists ?? []).Where(taskList => taskList.FolderId == folderId && !taskList.IsArchived)]
+            : ChosenTaskLists;
+
+    /// <inheritdoc cref="TaskListsBeingShared"/>
+    private void ShareTheFolder(Guid folderId)
+    {
+        Logger.LogInformation("User shared the contents of folder {FolderId}", folderId);
+        _folderBeingShared = folderId;
+        _isSharingPicked = true;
+    }
+
+    private void StopSharingSeveral()
+    {
+        _isSharingPicked = false;
+        _folderBeingShared = null;
+    }
 
     /// <inheritdoc cref="ActOnPickedAsync"/>
     private async Task FilePickedAsync(Guid? folderId)
@@ -653,6 +697,19 @@
     private int CountIn(FolderKey folder)
         => (_taskLists ?? []).Count(taskList =>
             Folders.PlacementOn(FolderPage.Tasks, taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted, taskList.IsArchived) == folder);
+
+    /// <summary>Whether anything is still filed here - see FolderTabs.StillHolds, and Notes.StillHolds.</summary>
+/// <summary>
+    /// Whether a tab is worth being on the row at all - see FolderTabs.HoldsAnything. A built-in tab
+    /// goes when nothing is under it: an empty Private or Archived tab is a press that leads to "there
+    /// is nothing here", and the reader already knows that by it not being offered (asked for
+    /// 2026-09-20). A folder somebody made is judged by what is filed in it rather than by what is
+    /// under its tab - one holding nothing but archived things counts zero here and still holds them.
+    /// </summary>
+    private bool HoldsAnything(FolderKey tab)
+        => tab.FolderId is { } folderId ? StillHolds(folderId) : CountIn(tab) > 0;
+
+    private bool StillHolds(Guid folderId) => (_taskLists ?? []).Any(taskList => taskList.FolderId == folderId);
 
     /// <summary>Where the tab is placed - one answer, so the two questions below cannot drift apart.</summary>
     private FolderKey PlacementOf(TaskDto taskList)

@@ -103,4 +103,50 @@ public sealed class TaskItemKindTests
         Assert.Equal(TaskItemKind.Calendar, entry.Kind);
         Assert.Equal(eventId, entry.LinkedCalendarEventId);
     }
+
+    /// <summary>
+    /// The same rule about the same thing said twice, applied to when rather than where. A checklist
+    /// line with a deadline, changed into an appointment, kept the deadline where no form showed it and
+    /// nothing could clear it - and the calendar drew the entry twice, once as its event and once as a
+    /// deadline of its own, with one tick behind both.
+    /// </summary>
+    [Fact]
+    public void A_calendar_entry_has_no_deadline_of_its_own()
+    {
+        var entry = TaskItem.Create(
+            "Dentist", DateTimeOffset.UtcNow.AddDays(3), isCompleted: false,
+            subject: new TaskItemSubject(TaskItemKind.Calendar, linkedCalendarEventId: Guid.NewGuid()));
+
+        Assert.Null(entry.DueDateUtc);
+    }
+
+    /// <summary>
+    /// And it is the kind that decides, not the link: an entry switched to Calendar before its event
+    /// has been made is on its way to being an appointment, and the form has already stopped asking it
+    /// for a deadline.
+    /// </summary>
+    [Fact]
+    public void A_calendar_entry_without_an_event_yet_has_none_either()
+    {
+        var entry = Entry(TaskItemKind.Calendar);
+
+        Assert.Null(entry.DueDateUtc);
+    }
+
+    /// <summary>
+    /// An errand about an amount keeps its date, though - "what do I need before Thursday" is asked
+    /// against exactly that (RestockListSettings.OnlyLinkedWithDueDate). Nothing stands for it twice,
+    /// so there is nothing to drop.
+    /// </summary>
+    [Fact]
+    public void A_restock_errand_keeps_the_day_it_is_wanted_for()
+    {
+        var wanted = DateTimeOffset.UtcNow.AddDays(3);
+
+        var entry = TaskItem.Create(
+            "Flour", wanted, isCompleted: false,
+            subject: new TaskItemSubject(TaskItemKind.Inventory, linkedInventoryItemId: Guid.NewGuid()));
+
+        Assert.Equal(wanted, entry.DueDateUtc);
+    }
 }

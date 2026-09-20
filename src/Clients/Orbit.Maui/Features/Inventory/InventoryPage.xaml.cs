@@ -29,7 +29,6 @@ public partial class InventoryPage : ContentPage, ITitleMenu
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 		_keptInStep = new ScreenKeptInStep(syncState, () => _viewModel.ShowStoredInventoriesAsync(CancellationToken.None));
-		AddButton.Command = NewItemForm.Toggling(AddRow, AddField);
 		_nameAFolder = NewItemForm.Toggling(FolderRow, FolderField);
 	}
 

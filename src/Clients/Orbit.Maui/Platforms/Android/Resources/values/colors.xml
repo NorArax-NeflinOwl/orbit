@@ -30,4 +30,9 @@
     <!-- The ink at 45%, flattened against the background above: a launcher may draw the widget over
          wallpaper, so the one place in Orbit that cannot use an alpha ink is this one. -->
     <color name="orbitWidgetSubtleText">#949392</color>
+    <!-- The accent, for the two marks the calendar widget makes: the ring round today and the dot on
+         a day something wants. Orbit's default accent rather than a chosen one, for the reason the
+         line above gives - a widget is drawn long after the app was put down and knows nothing but the
+         system's night mode. -->
+    <color name="orbitWidgetAccent">#7260CB</color>
 </resources>

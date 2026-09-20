@@ -27,6 +27,22 @@ public sealed class TaskItem
     /// there is one box rather than two copies drifting apart (see TaskEditor.razor).
     /// </summary>
     public string Notes { get; private set; }
+
+    /// <summary>
+    /// The day this is to be done by. **Never a <see cref="TaskItemKind.Calendar"/> entry's**: an
+    /// appointment already says when it is, in its event's own start and end, and the form asks it for
+    /// one and not the other.
+    ///
+    /// Dropped rather than kept when the kind says so (2026-09-20). Changing a checklist line with a
+    /// deadline into a calendar entry left the deadline behind where nothing showed it and nothing could
+    /// clear it, and the calendar then drew the entry twice: once as its event, once as a deadline of
+    /// its own, with one tick behind both - which is how the user found it. See the constructor, where
+    /// the same is done to a product on the wrong kind of entry.
+    ///
+    /// The other two kinds keep theirs. An <see cref="TaskItemKind.Inventory"/> errand's date is what
+    /// "what do I need before Thursday" is asked against (RestockListSettings.OnlyLinkedWithDueDate),
+    /// so it is a real answer there even though the form does not offer the field.
+    /// </summary>
     public DateTimeOffset? DueDateUtc { get; private set; }
     public bool IsCompleted { get; private set; }
 
@@ -304,7 +320,6 @@ public sealed class TaskItem
         Notes = notes ?? string.Empty;
         Priority = priority;
         Colour = (colour ?? string.Empty).Trim();
-        DueDateUtc = dueDateUtc;
         // Distinct and in order: naming the same list twice is one link written twice, not two steps,
         // and it would make the entry look like it stands for more work than it does.
         LinkedTaskListIds = linkedTaskListIds is null ? [] : [.. linkedTaskListIds.Distinct()];
@@ -333,6 +348,8 @@ public sealed class TaskItem
             : [.. waitsForTaskItemIds.Distinct().Where(waitedFor => waitedFor != id)];
         Reminders = reminders ?? TaskItemReminders.Default;
         Subject = subject ?? TaskItemSubject.PlainWork;
+        // <inheritdoc cref="DueDateUtc"/> - read after the subject, because the kind is what decides it.
+        DueDateUtc = Subject.Kind == TaskItemKind.Calendar ? null : dueDateUtc;
         Categories = TidyCategories(categories);
         // The same rule the subject applies to its own links, and for the same reason: a description of
         // something to put on a shelf means nothing on an appointment, and nothing on an entry that

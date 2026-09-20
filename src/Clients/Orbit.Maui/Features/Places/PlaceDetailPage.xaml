@@ -23,6 +23,12 @@
                  sharing is something somebody does once - see NoteDetailPage, which says the same. -->
             <controls:SharePanel x:Name="Sharing" IsVisible="False" BindingContext="{Binding Share}" />
 
+            <!-- Why there is no sharing panel to open, which is otherwise a menu entry that opens
+                 nothing. A place is sealed unless its owner says otherwise, so this is the ordinary
+                 case rather than the odd one - see PlaceDetailViewModel.IsSealed. -->
+            <Label Text="{Binding WhyItCannotBeShared}" IsVisible="{Binding HasWhyItCannotBeShared}"
+                   LineBreakMode="WordWrap" Style="{StaticResource ItemCardFooter}" />
+
             <!-- Who handed it over, when somebody did. A place on this screen is either one the reader
                  kept or one they were shown, and those are different things. -->
             <Label Text="{Binding SharedBy, StringFormat='{0}'}" IsVisible="{Binding HasSharedBy}"
@@ -33,8 +39,10 @@
                    LineBreakMode="WordWrap" Style="{StaticResource ItemCardFooter}" />
 
             <Label Text="{controls:Translate 'Title'}" Style="{StaticResource FieldLabel}" />
+            <!-- A question rather than a description of the field, asked for on 2026-09-20: "What this
+                 place is" reads as something to describe, and what the box wants is a name. -->
             <Entry Text="{Binding Name}" IsReadOnly="{Binding IsReadOnly}"
-                   Placeholder="{controls:Translate 'What this place is'}" />
+                   Placeholder="{controls:Translate 'What do you call this place?'}" />
 
             <Label Text="{controls:Translate 'Description'}" Style="{StaticResource FieldLabel}" />
             <Editor Text="{Binding Description}" IsReadOnly="{Binding IsReadOnly}"
@@ -56,19 +64,43 @@
             </Label>
             <controls:FieldHint Warns="True" IsVisible="{Binding NeedsAPoint}"
                                 Label="{controls:Translate 'Location'}"
-                                Text="{controls:Translate 'Pick it on the map - a place with no point cannot be drawn on one.'}" />
+                                Text="{controls:Translate 'Type an address or pick it on the map - a place with no point cannot be drawn on one.'}" />
+            <!-- Typed or pointed at, and typed now works: the save looks the address up, the way the
+                 event's form looks up the place typed into it. Before that, a place could only be kept
+                 by finding it on the map - Save stayed greyed however much was typed here. -->
             <Entry Text="{Binding Address}" IsReadOnly="{Binding IsReadOnly}"
-                   Placeholder="{controls:Translate 'Where this happens'}" />
-            <HorizontalStackLayout Spacing="12">
-                <Button Text="{controls:Translate 'Pick on map'}" FontSize="13"
+                   Placeholder="{controls:Translate 'Where is it'}" />
+            <FlexLayout Wrap="Wrap" Direction="Row">
+                <Button Text="{controls:Translate 'Pick on map'}" FontSize="13" Padding="12,10" Margin="0,0,8,4" MinimumHeightRequest="44"
                         Style="{StaticResource LinkButton}" IsVisible="{Binding CanEdit}"
                         Command="{Binding PickOnMapCommand}" />
+                <!-- Where this phone is, as the map's own screen offers it: keeping the place somebody
+                     is standing in used to mean finding it on a map first. -->
+                <Button Text="{controls:Translate 'Use my location'}" FontSize="13" Padding="12,10" Margin="0,0,8,4" MinimumHeightRequest="44"
+                        Style="{StaticResource LinkButton}" IsVisible="{Binding CanEdit}"
+                        Command="{Binding UseMyLocationCommand}" />
                 <!-- The one thing a place is actually for. Handed to whatever this phone uses for
                      directions rather than drawn here - see IMapHandoff. -->
-                <Button Text="{controls:Translate 'Take me there'}" FontSize="13"
+                <Button Text="{controls:Translate 'Take me there'}" FontSize="13" Padding="12,10" Margin="0,0,8,4" MinimumHeightRequest="44"
                         Style="{StaticResource LinkButton}" IsVisible="{Binding HasAPoint}"
                         Command="{Binding OpenInMapsCommand}" />
-            </HorizontalStackLayout>
+            </FlexLayout>
+
+            <!-- Whether Orbit may read where this is. A place is sealed unless its owner says
+                 otherwise - the opposite default from everything else in Orbit, and deliberate: where
+                 somebody actually goes is the most personal thing the app holds. The phone had no
+                 control for it at all, so a place made here could never be shared with anybody (see
+                 PlaceDetailViewModel.IsSealed) and every save re-sealed one the browser had opened. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <VerticalStackLayout Grid.Column="0" Spacing="2">
+                    <Label Text="{controls:Translate 'Sealed'}" VerticalOptions="Center" />
+                    <Label Text="{controls:Translate 'Encrypted on this phone, so Orbit cannot read where it is. A sealed place cannot be shared.'}"
+                           FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                </VerticalStackLayout>
+                <Switch Grid.Column="1" IsToggled="{Binding IsSealed}" IsEnabled="{Binding CanEdit}"
+                        VerticalOptions="Center"
+                        SemanticProperties.Description="{controls:Translate 'Sealed'}" />
+            </Grid>
 
             <Label Text="{controls:Translate 'Priority'}" Style="{StaticResource FieldLabel}" />
             <Picker ItemsSource="{Binding Priorities}" SelectedItem="{Binding ChosenPriority}"

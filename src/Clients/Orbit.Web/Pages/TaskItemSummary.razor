@@ -204,7 +204,7 @@ else
     /// The page that sent the reader here - the calendar, usually, since an appointment a task list
     /// made opens as its entry rather than as the event - which is where this page's Back returns, and
     /// not /tasks, two sections from where they started. The form is not handed it: the form ends back
-    /// on this page, whose own address carries this. See ReturnTo, and NoteSummary.
+    /// on this page, whose own address carries this. See ReturnTo, and CalendarEventSummary.
     /// </summary>
     [Parameter, SupplyParameterFromQuery(Name = ReturnTo.QueryName)]
     public string? ComeBackTo { get; set; }
@@ -217,7 +217,7 @@ else
 
     /// <summary>
     /// Whether this list was handed over to read rather than to change. Its own field, set where the
-    /// list is loaded, the way NoteSummary keeps the same answer about a note.
+    /// list is loaded, the way NoteEditor keeps the same answer about a note.
     /// </summary>
     private bool _isReadOnly;
 
@@ -674,7 +674,7 @@ else
     /// <summary>
     /// The form for this one entry, which is the list's form opened on it - see TaskEditor's item
     /// parameter. An entry has no editor of its own yet. Told to come back to this page, so the edit
-    /// ends on the entry it changed - see NoteSummary.GoToEditor.
+    /// ends on the entry it changed - see InventorySummary.GoToEditor.
     /// </summary>
     private void GoToEditor()
         => NavigationManager.NavigateTo(

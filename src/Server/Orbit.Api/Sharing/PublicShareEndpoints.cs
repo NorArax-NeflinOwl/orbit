@@ -103,7 +103,11 @@ public static class PublicShareEndpoints
                     : new NotePictureLineDto(line.Picture.PictureId, line.Picture.ContentType, line.Picture.WidthPixels, line.Picture.HeightPixels),
                 line.Separator is null ? null : new NoteSeparatorLineDto(line.Separator.Stamp)))
                 .ToList(),
-            item.OwnerDisplayName, item.UpdatedAtUtc);
+            item.OwnerDisplayName, item.UpdatedAtUtc,
+            // One level deep and no further: a folder holds things, and a thing holds none. Null rather
+            // than an empty list for everything that is not a folder, so nothing changes on the wire for
+            // the four kinds that were here before.
+            item.AllItems.Count == 0 ? null : [.. item.AllItems.Select(ToDto)]);
 
     private static IReadOnlyList<NoteTextRunDto>? MarksSent(IReadOnlyList<Orbit.Core.Notes.NoteTextRun> marks)
         => marks.Count == 0

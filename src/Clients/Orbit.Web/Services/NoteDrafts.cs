@@ -88,6 +88,13 @@ public sealed class NoteDrafts
     /// two notes that say exactly the same thing would read as different every time. A note is a few
     /// kilobytes, and this runs when one is left rather than as it is typed.
     /// </summary>
+    /// <summary>
+    /// Whether what is on screen is something the server has not got. The same question <see cref="Keep"/>
+    /// asks before keeping anything, asked out loud for a page that has to say so while it is open - see
+    /// NoteEditor, which draws "Saved." only while this is false.
+    /// </summary>
+    public static bool Differs(Draft written, Draft asStored) => Reads(written) != Reads(asStored);
+
     private static string Reads(Draft draft)
         => JsonSerializer.Serialize(draft with { Name = string.Empty });
 }

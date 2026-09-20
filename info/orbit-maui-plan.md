@@ -746,7 +746,7 @@ of somebody now shows as a banner in the app rather than nothing at all.
 Phase 8 is met on Android: every control on both heads names itself to a screen reader, both are
 localised through the same `Orbit.Localization` the web client uses, and the home screen widget is
 built and driven on a device — the day, what is still ahead in it, and a tap that lands on the right
-screen (see [Functionality](functionality.md#the-home-screen-widget-android)). The rest of the phase —
+screen (see [Functionality](functionality.md#the-home-screen-widgets-android)). The rest of the phase —
 Live Activities, the Dynamic Island, the Action Button — is iOS-only, as is most of §9, so it is
 blocked on the same thing iOS is.
 

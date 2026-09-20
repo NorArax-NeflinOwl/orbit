@@ -208,6 +208,7 @@ classDiagram
         +string? PasswordHash
         +string? GoogleSubjectId
         +bool KeepsThirdPartiesOut
+        +string? PrivatePinHash
     }
     class WrappedPrivateKey {
         +string CiphertextBase64

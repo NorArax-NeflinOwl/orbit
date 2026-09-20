@@ -122,9 +122,19 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 			{
 				// Asks what to build rather than building it - see GenerateInventoryForm, and the
 				// browser's own overlay, which asks the same six things at the same moment.
+				//
+				// The form it opens is drawn inside the stock-check card, which lives in the block
+				// this screen keeps behind "Edit" - so pressing this while that block was hidden
+				// opened a form nobody could see, and the press read as one that did nothing at all
+				// (reported 2026-09-20). The block is brought out and the card unfolded with it.
 				shelf.Add(new ScreenMenuEntry(
 					_translations["Generate inventory"],
-					() => _viewModel.StockCheck.AskWhatToBuildCommand.Execute(null)));
+					() =>
+					{
+						ListSettings.IsVisible = true;
+						_viewModel.StockCheck.IsFolded = false;
+						_viewModel.StockCheck.AskWhatToBuildCommand.Execute(null);
+					}));
 			}
 
 			shelf.Add(new ScreenMenuEntry(
@@ -139,7 +149,7 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 		{
 			list.Add(new ScreenMenuEntry(
 				_translations["Edit"],
-				() => ListFields.IsVisible = ListSettings.IsVisible = !ListSettings.IsVisible,
+				() => ListSettings.IsVisible = !ListSettings.IsVisible,
 				ListSettings.IsVisible));
 
 			// Whether the list is finished - the box the browser's editor draws, with the same three

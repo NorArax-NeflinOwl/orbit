@@ -88,7 +88,7 @@ else
             <ConversationList Conversations="Conversations" ActiveId="ActiveConversationId" IsOpen="_isDrawerOpen"
                               IsCollapsed="_isContactListCollapsed" OnToggleCollapsed="ToggleContactListCollapsedAsync"
                               Search="@_chatSearch" SearchChanged="value => _chatSearch = value"
-                              OnSelected="OpenConversation" OnNewGroup="StartCreatingGroup" />
+                              OnSelected="OpenConversation" />
 
             <div class="chat-thread">
                 @if (ActiveConversationName is { } activeName)
@@ -120,10 +120,21 @@ else
                                     {
                                         <button type="button" class="avatar-dropdown-item" @onclick="GoToContactInfo">@T["Info"]</button>
                                     }
+                                    @* Putting the conversation away, from inside it. Until 2026-09-20 it
+                                       was offered on the contacts page alone, so somebody who had just
+                                       finished reading one had to go and find its row to be done with
+                                       it - which is the moment they actually want it gone. *@
+                                    <button type="button" class="avatar-dropdown-item" @onclick="ArchiveThisConversationAsync">@T["Archive"]</button>
                                 </div>
                             }
                         </div>
                     </div>
+                    @* What the menu above could not do. Said here rather than in place of the thread:
+                       the conversation is still open and still readable, and only the press failed. *@
+                    @if (_conversationActionError is not null)
+                    {
+                        <p class="error">@_conversationActionError</p>
+                    }
                 }
 
                 @if (IsGroupMode)
@@ -439,6 +450,9 @@ else
     private bool _isCreatingGroupBusy;
     private string _newGroupName = string.Empty;
     private readonly HashSet<Guid> _newGroupMemberIds = [];
+/// <summary>Why the conversation menu's last press did nothing - see ArchiveThisConversationAsync.</summary>
+    private string? _conversationActionError;
+
     private string? _groupErrorMessage;
 
     private Guid _ownUserId;
@@ -1614,7 +1628,9 @@ else
     /// </summary>
     private EditAccessRequestNotice BuildEditAccessRequestNotice(EditAccessRequestPayload request, Guid requesterUserId)
     {
-        var description = $"Asked to edit {DescribeItemType(request.ItemType)}: {request.ItemTitle}";
+        // Through T.Format rather than written out: the kind of thing was already translated and the
+        // sentence around it was not, so the line read half in one language and half in the other.
+        var description = T.Format("Asked to edit {0}: {1}", DescribeItemType(request.ItemType), request.ItemTitle);
 
         return new EditAccessRequestNotice(description, () => request.ItemType switch
         {
@@ -1876,6 +1892,39 @@ else
     {
         _isConversationMenuOpen = false;
         NavigationManager.NavigateTo($"/chat/groups/{GroupId}/info");
+    }
+
+    /// <summary>
+    /// Puts this conversation away and leaves for the list, since what was being read is no longer on
+    /// the page this is pressed from. The same call the contacts page's own row makes - one endpoint
+    /// per kind, and which kind this is the page already knows.
+    ///
+    /// A failure has to reach the reader: a menu that closes and does nothing looks exactly like a
+    /// press that never registered, and they will press it again.
+    /// </summary>
+    private async Task ArchiveThisConversationAsync()
+    {
+        _isConversationMenuOpen = false;
+
+        try
+        {
+            if (IsGroupMode && GroupId is { } groupId)
+            {
+                await ChatApiClient.SetGroupArchivedAsync(groupId, isArchived: true);
+            }
+            else if (!IsGroupMode)
+            {
+                await ChatApiClient.SetConversationArchivedAsync(UserId, isArchived: true);
+            }
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to put a conversation away from inside it");
+            _conversationActionError = T["Could not put that away. Check your connection and try again."];
+            return;
+        }
+
+        NavigationManager.NavigateTo("/contacts");
     }
 
     /// <summary>

@@ -505,6 +505,24 @@ public sealed class TasksScreenTests : IDisposable
         _clock.Advance(TimeSpan.FromMinutes(1));
         _server.ReplaceForTest(taskList with { Status = "Completed", UpdatedAtUtc = _clock.GetUtcNow() });
     }
+    /// <summary>Where the screen sent the reader - the plus opens the list it just made.</summary>
+    private RecordingScreenNavigator Navigator { get; } = new();
+
+    /// <summary>
+    /// The plus makes a list and opens it, as the notes screen's does - the name field above the list
+    /// is gone (asked for 2026-09-20), and a list is named on the list.
+    /// </summary>
+    [Fact]
+    public async Task The_plus_makes_a_list_and_opens_it()
+    {
+        var screen = await OpenAsync();
+
+        await screen.AddListCommand.ExecuteAsync(null);
+
+        var made = Assert.Single(screen.TaskLists);
+        Assert.Equal(made.LocalId, Navigator.LastTaskListId);
+    }
+
     private async Task<TasksViewModel> OpenAsync()
     {
         var screen = new TasksViewModel(
@@ -514,7 +532,7 @@ public sealed class TasksScreenTests : IDisposable
                 NullLogger<TaskListSynchronizer>.Instance),
             new TasksClient(_server.ToHttpClient()), FixedNetworkStatus.Online, Arrangement,
             new PrivateItemGate(new FixedDeviceAuthentication()),
-            new SyncState(Reachability.Online, _clock), new RecordingScreenNavigator(),
+            new SyncState(Reachability.Online, _clock), Navigator,
             new Translations(new InMemoryLanguageStore()), Notifications,
             new LocalFolderRepository(_localStore, _clock), new InMemoryChosenFolderStore(),
             Folders.SynchronizerAgainstNobody(_localStore, _clock));

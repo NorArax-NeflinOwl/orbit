@@ -68,6 +68,22 @@ public sealed class InventorySearchTests
     }
 
     /// <summary>
+    /// The plus makes a shelf and opens it, as the notes screen's does - the name field above the list
+    /// is gone (asked for 2026-09-20), and a shelf is named on the shelf.
+    /// </summary>
+    [Fact]
+    public async Task The_plus_makes_a_shelf_and_opens_it()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenInventoryAsync();
+
+        await screen.AddInventoryCommand.ExecuteAsync(null);
+
+        var made = Assert.Single(screen.Inventories);
+        Assert.Equal(made.LocalId, context.Navigator.LastInventoryId);
+    }
+
+    /// <summary>
     /// Opening a result opens the inventory holding it, which is the whole point: the answer to "where is
     /// it" has to be somewhere you can go.
     /// </summary>
@@ -257,9 +273,17 @@ public sealed class InventorySearchTests
         await context.AddInventoryAsync("Kitchen", Item("Flour"));
         var screen = await context.OpenInventoryAsync();
 
-        screen.OfferToShareCommand.Execute(Assert.Single(screen.Inventories));
+        await screen.OfferToShareCommand.ExecuteAsync(Assert.Single(screen.Inventories));
 
-        Assert.True(screen.Share.IsOpen);
+        // Pointed at this inventory, which is what makes the panel worth drawing at all.
+        Assert.True(screen.Share.CanShare);
+        // And with nobody to share with it says so rather than standing open on an empty list of
+        // people. It used to set IsOpen by hand and skip the panel's own Open, which is what fetches
+        // them - so the picker was empty and nothing said why ("I can't pick anybody to share an
+        // inventory with", 2026-09-20). Every other screen reaches the panel by its own button, which
+        // is why this was the only one.
+        Assert.False(screen.Share.IsOpen);
+        Assert.True(screen.Share.HasMessage);
     }
 
     private sealed class ScreenContext : IDisposable

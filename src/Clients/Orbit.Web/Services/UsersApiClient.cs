@@ -202,6 +202,39 @@ public sealed class UsersApiClient
     }
 
     /// <summary>
+    /// Sets, changes or - with null - takes away the PIN asked for before what is private is shown.
+    /// Proved with the account's password, the same as changing the password itself. False when that
+    /// password is wrong, or the PIN is not four to eight digits.
+    /// </summary>
+    public async Task<bool> SetPrivatePinAsync(
+        string password, string? newPin, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            "api/users/me/private-pin", new SetPrivatePinRequest(password, newPin), cancellationToken);
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            return false;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
+
+    /// <summary>Whether this is the account's PIN. True for an account that has set none - see PrivatePinGate.</summary>
+    public async Task<bool> VerifyPrivatePinAsync(string pin, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/users/me/private-pin/check", new VerifyPrivatePinRequest(pin), cancellationToken);
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            return false;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
+
+    /// <summary>
     /// False when what was offered does not prove it is the owner - a wrong password, or a Google sign-in
     /// that is not this account's or not a fresh one. On success, every row this account owns is gone
     /// server-side.
