@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The card widget - see orbit_today_widget_info.xml for what these attributes are for.
+
+     The one here the others do not have is android:configure: this widget shows whichever of the
+     dashboard's cards the reader picks, so the launcher opens that activity before the widget is
+     placed and only places it if the activity says yes. The class is named in full rather than left to
+     the generated one, because the name a .NET for Android type gets in the manifest is a hash - see
+     the Name on CardWidgetConfigure. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/orbit_card_widget"
+    android:configure="com.orbitmaui.android.CardWidgetConfigure"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:description="@string/orbit_card_widget_description" />

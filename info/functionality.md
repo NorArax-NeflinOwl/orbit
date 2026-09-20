@@ -5649,7 +5649,8 @@ app. Signing in now goes on to whatever was waiting instead of always landing on
 
 ## The home screen widgets (Android)
 
-Two of them, listed separately in the launcher's picker as "Orbit today" and "Orbit calendar".
+Three of them, listed separately in the launcher's picker as "Orbit today", "Orbit calendar" and
+"Orbit card".
 
 ### Orbit today
 
@@ -5704,4 +5705,25 @@ What it shows is `MonthAtAGlance` (`Orbit.Mobile.Widgets`), covered by tests; `O
 (`Orbit.Maui/Platforms/Android`) is the drawing, and everything said above about how a widget is drawn
 applies to it unchanged.
 
-There is no iOS counterpart to either yet - see [Orbit.Maui — Plan](orbit-maui-plan.md), phase 8.
+### Orbit card
+
+A 3 × 2 widget showing one of the dashboard's cards - whichever the reader picks when they place it.
+Notes, Tasks, Upcoming, Inventory or Places you keep; its heading is the card's own name, and under it
+the four rows that card would show, with the same right-hand detail (how long ago a note changed, how
+far through a list is, when something happens, how much is on a shelf). Tapping a row opens what it
+names where there is a path for it - a task list, a shelf - and tapping the card opens the section.
+
+It is the one widget that is configured: the launcher opens a small question ("What should this show?")
+before placing it, and the answer is kept against that widget's own id, so several can sit on one home
+screen showing different cards. On Android 12 and later a launcher may place it first and leave it
+saying "Tap to choose what this shows" until the question is answered.
+
+Four of the dashboard's nine cards are not offered: Groups, Recent chats, Contacts and Shared
+locations. A home screen is on show to whoever can see the phone and a list of who somebody talks to is
+the last thing that belongs there - and a message cannot be opened outside the app at all, since it is
+sealed to a key no widget holds, so those cards would be names with nothing under them.
+
+What it shows is `CardAtAGlance` (`Orbit.Mobile.Widgets`), covered by tests; `OrbitCardWidget` and
+`CardWidgetConfigure` (`Orbit.Maui/Platforms/Android`) are the drawing and the question.
+
+There is no iOS counterpart to any of them yet - see [Orbit.Maui — Plan](orbit-maui-plan.md), phase 8.

@@ -2617,6 +2617,13 @@ public static class PolishTranslations
         // The calendar widget's own line for a phone nobody is signed in on - see MonthAtAGlance.
         // "Open Orbit to see your day" is the other widget's and is already above.
         ["Open Orbit to see your month"] = "Otwórz Orbita, aby zobaczyć swój miesiąc",
+        // And the card widget's, which shows whichever of the dashboard's cards the reader picked when
+        // they placed it - see CardAtAGlance. The card names themselves are the dashboard's own and are
+        // already above.
+        ["Open Orbit to see this"] = "Otwórz Orbita, aby to zobaczyć",
+        ["Nothing on this yet"] = "Nic tu jeszcze nie ma",
+        ["What should this show?"] = "Co ma tu być pokazane?",
+        ["Tap to choose what this shows"] = "Dotknij, aby wybrać, co tu pokazać",
         // Answering a request to edit from the phone's own conversation - see
         // ConversationViewModel.AllowEditingAsync. "Allow editing" itself is already above, shared
         // with the browser's own answer to the same request.

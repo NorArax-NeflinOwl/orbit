@@ -44,7 +44,7 @@ from everywhere they get typed. What this pass found and did **not** fix is in
   Action Button. Phase 8 is done on Android: every switch, picker, date or time picker and checkbox
   names itself to a screen reader and a test fails on one that does not, and the home screen widget is
   built and driven on a device (see
-  [Functionality](functionality.md#the-home-screen-widget-android)).
+  [Functionality](functionality.md#the-home-screen-widgets-android)).
   A push
   arriving while the app is in front of somebody now shows a banner on the navigation bar, which is
   where the browser shows its own; it honours `AllowMobileBanner` and the two settings that pace it,

@@ -3,6 +3,8 @@
 <resources>
     <string name="orbit_widget_label">Orbit — dziś</string>
     <string name="orbit_calendar_widget_label">Orbit — kalendarz</string>
+    <string name="orbit_card_widget_label">Orbit — kafelek</string>
     <string name="orbit_widget_description">Dzisiejsze wydarzenia i terminy</string>
     <string name="orbit_calendar_widget_description">Miesiąc, z kropką przy każdym zajętym dniu</string>
+    <string name="orbit_card_widget_description">Dowolny kafelek z pulpitu</string>
 </resources>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One row of a card: what it is, and the one thing worth saying about it pushed to the right - the
+     way the dashboard's own rows read. The other way round from orbit_today_widget_line, where the
+     time comes first because a list of times is read down its left edge. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widgetLine"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:paddingTop="3dp"
+    android:paddingBottom="3dp">
+
+    <TextView
+        android:id="@+id/widgetLineWhat"
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="wrap_content"
+        android:paddingEnd="8dp"
+        android:textColor="@color/orbitWidgetText"
+        android:textSize="13sp"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <TextView
+        android:id="@+id/widgetLineDetail"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/orbitWidgetSubtleText"
+        android:textSize="12sp"
+        android:maxLines="1" />
+</LinearLayout>

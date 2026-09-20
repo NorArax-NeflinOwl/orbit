@@ -114,6 +114,7 @@ public partial class App : Application
 			// has just been given an appointment is a day the month's own widget should be dotting.
 			OrbitTodayWidget.Refresh(Android.App.Application.Context);
 			OrbitCalendarWidget.Refresh(Android.App.Application.Context);
+			OrbitCardWidget.Refresh(Android.App.Application.Context);
 #endif
 		};
 
