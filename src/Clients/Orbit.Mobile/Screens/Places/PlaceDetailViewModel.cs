@@ -85,8 +85,40 @@ public sealed partial class PlaceDetailViewModel : ObservableObject
     [ObservableProperty]
     private string _sharedBy = string.Empty;
 
+    /// <summary>
+    /// Whether the place is sealed - encrypted on this phone, so Orbit holds no readable copy of where
+    /// it is (see Orbit.Core.Places.Place.IsPrivate). A place is sealed unless its owner says otherwise,
+    /// which is the opposite default from everything else in Orbit and deliberate: where somebody
+    /// actually goes is the most personal thing the app holds.
+    ///
+    /// The phone had no control for it at all and no field on the save, so every place made or edited
+    /// here was sealed and stayed sealed - and since a sealed place cannot be shared (the server
+    /// refuses; see SharePlaceCommandHandler), pressing Share on one and choosing somebody answered
+    /// "Couldn't share that." for a place whose owner had never chosen to seal it. Reported
+    /// 2026-09-20 as "sharing doesn't work".
+    /// </summary>
+    [ObservableProperty]
+    private bool _isSealed = true;
+
+    /// <summary>
+    /// Said in place of the sharing panel while the place is sealed: there is nothing to hand anybody,
+    /// and the reason is one press away rather than a mystery.
+    /// </summary>
+    public string WhyItCannotBeShared
+        => IsSealed ? _translations["Sealed places can't be shared. Take the seal off to offer this to somebody."] : string.Empty;
+
+    public bool HasWhyItCannotBeShared => WhyItCannotBeShared.Length > 0;
+
     private double _latitude;
     private double _longitude;
+
+    /// <summary>
+    /// The lists this place belongs to, as it was loaded - see LocalPlace.TaskListIds. Kept and handed
+    /// back on every save because a save writes the whole place: nothing on this screen shows or changes
+    /// them, and passing nothing emptied them, so editing a place on the phone quietly unlinked it from
+    /// every list the browser had put it on.
+    /// </summary>
+    private IReadOnlyList<Guid> _taskListIds = [];
 
     /// <summary>How much it matters, as the picker offers it - see PriorityChoice.</summary>
     public IReadOnlyList<Tasks.PriorityChoice> Priorities { get; }
@@ -142,9 +174,16 @@ public sealed partial class PlaceDetailViewModel : ObservableObject
         IsSharedWithMe = place.IsShared;
         IsArchived = place.IsArchived;
 
+        IsSealed = place.IsPrivate;
+        _taskListIds = place.TaskListIds;
+
         // Only a place the server knows about can be offered: a share names it by its server id, and
-        // one still waiting in the outbox has none.
-        if (place.ServerId is { } serverId)
+        // one still waiting in the outbox has none. And only an unsealed one: a sealed place has no
+        // readable copy on the server to hand anybody, which is what makes it sealed - the same guard
+        // the note, task list and inventory screens have had, and the one this screen was missing.
+        // Since a place is sealed unless its owner says otherwise, the ordinary case was the refused
+        // one: pressing Share and choosing somebody answered "Couldn't share that."
+        if (place is { ServerId: { } serverId, IsPrivate: false })
         {
             Share.Describes(SharedItemKind.Place, serverId, place.Name, OwnerToAsk(place));
         }
@@ -224,7 +263,13 @@ public sealed partial class PlaceDetailViewModel : ObservableObject
                 _localId,
                 new PlaceContent(
                     Name, Description, Address, _latitude, _longitude, Colour,
-                    ChosenPriority?.Value ?? "Normal"),
+                    ChosenPriority?.Value ?? "Normal",
+                    // Both as the place actually is, rather than as this record defaults. Sealed is the
+                    // default, so every save from this phone re-sealed a place its owner had opened and
+                    // emptied its readable fields again; and no lists at all is the default, so a save
+                    // unlinked the place from every list the browser had put it on.
+                    TaskListIds: _taskListIds,
+                    IsPrivate: IsSealed),
                 cancellationToken);
 
             if (outcome.WasRefused())

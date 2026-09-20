@@ -23,6 +23,12 @@
                  sharing is something somebody does once - see NoteDetailPage, which says the same. -->
             <controls:SharePanel x:Name="Sharing" IsVisible="False" BindingContext="{Binding Share}" />
 
+            <!-- Why there is no sharing panel to open, which is otherwise a menu entry that opens
+                 nothing. A place is sealed unless its owner says otherwise, so this is the ordinary
+                 case rather than the odd one - see PlaceDetailViewModel.IsSealed. -->
+            <Label Text="{Binding WhyItCannotBeShared}" IsVisible="{Binding HasWhyItCannotBeShared}"
+                   LineBreakMode="WordWrap" Style="{StaticResource ItemCardFooter}" />
+
             <!-- Who handed it over, when somebody did. A place on this screen is either one the reader
                  kept or one they were shown, and those are different things. -->
             <Label Text="{Binding SharedBy, StringFormat='{0}'}" IsVisible="{Binding HasSharedBy}"
@@ -69,6 +75,22 @@
                         Style="{StaticResource LinkButton}" IsVisible="{Binding HasAPoint}"
                         Command="{Binding OpenInMapsCommand}" />
             </HorizontalStackLayout>
+
+            <!-- Whether Orbit may read where this is. A place is sealed unless its owner says
+                 otherwise - the opposite default from everything else in Orbit, and deliberate: where
+                 somebody actually goes is the most personal thing the app holds. The phone had no
+                 control for it at all, so a place made here could never be shared with anybody (see
+                 PlaceDetailViewModel.IsSealed) and every save re-sealed one the browser had opened. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <VerticalStackLayout Grid.Column="0" Spacing="2">
+                    <Label Text="{controls:Translate 'Sealed'}" VerticalOptions="Center" />
+                    <Label Text="{controls:Translate 'Encrypted on this phone, so Orbit cannot read where it is. A sealed place cannot be shared.'}"
+                           FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                </VerticalStackLayout>
+                <Switch Grid.Column="1" IsToggled="{Binding IsSealed}" IsEnabled="{Binding CanEdit}"
+                        VerticalOptions="Center"
+                        SemanticProperties.Description="{controls:Translate 'Sealed'}" />
+            </Grid>
 
             <Label Text="{controls:Translate 'Priority'}" Style="{StaticResource FieldLabel}" />
             <Picker ItemsSource="{Binding Priorities}" SelectedItem="{Binding ChosenPriority}"

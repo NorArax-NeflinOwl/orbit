@@ -394,6 +394,102 @@ public sealed class PlacesScreenTests
         Assert.True(context.Server.Places.Single().IsArchived);
     }
 
+    /// <summary>
+    /// A sealed place is offered to nobody: the server holds no readable copy to hand over, which is
+    /// what makes it sealed, and it refuses the share outright (SharePlaceCommandHandler). This screen
+    /// was the one that offered it anyway - and since a place is sealed unless its owner says
+    /// otherwise, the ordinary case was the refused one: pressing Share and choosing somebody answered
+    /// "Couldn't share that." Reported 2026-09-20 as "sharing doesn't work".
+    /// </summary>
+    [Fact]
+    public async Task A_sealed_place_offers_no_sharing_and_says_why()
+    {
+        using var context = new PlacesContext();
+        var kept = await context.Places.CreateAsync(
+            new PlaceContent("The good bakery", "", "Rynek 1", 51.24, 22.56), CancellationToken.None);
+        // Saved once, so the server knows it: a place it has never seen is offered to nobody either,
+        // and this is about the seal rather than about that.
+        var first = context.OpenDetail(kept.LocalId);
+        await first.LoadCommand.ExecuteAsync(null);
+        await first.SaveCommand.ExecuteAsync(null);
+
+        var screen = context.OpenDetail(kept.LocalId);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.True(screen.IsSealed);
+        Assert.False(screen.Share.CanShare);
+        Assert.True(screen.HasWhyItCannotBeShared);
+    }
+
+    /// <summary>And one whose seal has been taken off can be handed to somebody.</summary>
+    [Fact]
+    public async Task Taking_the_seal_off_makes_a_place_shareable()
+    {
+        using var context = new PlacesContext();
+        var kept = await context.Places.CreateAsync(
+            new PlaceContent("The good bakery", "", "Rynek 1", 51.24, 22.56), CancellationToken.None);
+        var screen = context.OpenDetail(kept.LocalId);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.IsSealed = false;
+        await screen.SaveCommand.ExecuteAsync(null);
+        var reopened = context.OpenDetail(kept.LocalId);
+        await reopened.LoadCommand.ExecuteAsync(null);
+
+        Assert.False(reopened.IsSealed);
+        Assert.True(reopened.Share.CanShare);
+        Assert.False(reopened.HasWhyItCannotBeShared);
+        // And the words are readable again on the server's side of it - sealing empties them.
+        Assert.Equal("The good bakery", Assert.Single(context.Server.Places).Name);
+    }
+
+    /// <summary>
+    /// A save keeps the seal the place has rather than the one the content record defaults to. It
+    /// defaults to sealed, so editing a place whose owner had opened it on the browser silently sealed
+    /// it again - and sealing empties the name, the address and the point.
+    /// </summary>
+    [Fact]
+    public async Task Saving_an_open_place_leaves_it_open()
+    {
+        using var context = new PlacesContext();
+        var kept = await context.Places.CreateAsync(
+            new PlaceContent("The open bakery", "", "Rynek 2", 51.25, 22.57, IsPrivate: false),
+            CancellationToken.None);
+        var screen = context.OpenDetail(kept.LocalId);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.Description = "Sourdough";
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        var stored = Assert.Single(await context.Places.GetAllAsync(CancellationToken.None));
+        Assert.False(stored.IsPrivate);
+        Assert.Equal("The open bakery", stored.Name);
+    }
+
+    /// <summary>
+    /// And it keeps the lists the place belongs to. Nothing on this screen shows them, and a save wrote
+    /// the whole place - so editing one on the phone unlinked it from every list the browser had put it
+    /// on. See LocalPlace.TaskListIds.
+    /// </summary>
+    [Fact]
+    public async Task Saving_a_place_leaves_the_lists_it_belongs_to_alone()
+    {
+        using var context = new PlacesContext();
+        var onAList = Guid.NewGuid();
+        var kept = await context.Places.CreateAsync(
+            new PlaceContent(
+                "The good bakery", "", "Rynek 1", 51.24, 22.56, TaskListIds: [onAList], IsPrivate: false),
+            CancellationToken.None);
+        var screen = context.OpenDetail(kept.LocalId);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.Description = "Sourdough";
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        var stored = Assert.Single(await context.Places.GetAllAsync(CancellationToken.None));
+        Assert.Equal([onAList], stored.TaskListIds);
+    }
+
     /// <summary>Everything a places test needs: a local store, a fake server, and the two screens.</summary>
     private sealed class PlacesContext : IDisposable
     {

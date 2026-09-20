@@ -1815,6 +1815,13 @@ public static class PolishTranslations
         ["Shared by {0}"] = "Udostępnił {0}",
         ["Pick on map"] = "Wskaż na mapie",
         ["Coordinates: {0}, {1}"] = "Współrzędne: {0}, {1}",
+        // Whether Orbit may read where a place is. Sealed unless its owner says otherwise, which is the
+        // opposite default from everything else - see Orbit.Core.Places.Place.IsPrivate.
+        ["Sealed"] = "Zaszyfrowane",
+        ["Encrypted on this phone, so Orbit cannot read where it is. A sealed place cannot be shared."] =
+            "Zaszyfrowane na tym telefonie, więc Orbit nie zna tego miejsca. Zaszyfrowanego miejsca nie da się udostępnić.",
+        ["Sealed places can't be shared. Take the seal off to offer this to somebody."] =
+            "Zaszyfrowanych miejsc nie da się udostępnić. Zdejmij szyfrowanie, aby zaproponować je komuś.",
 
         // The dashboard's short "when" labels.
         ["just now"] = "przed chwilą",
