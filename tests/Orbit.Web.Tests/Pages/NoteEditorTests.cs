@@ -585,9 +585,28 @@ public sealed class NoteEditorTests : OrbitTestContext
 
         var cut = RenderComponent<NoteEditor>();
 
-        // Caught while the mistake is still being made, rather than left to fail on the server.
+        // Caught while the mistake is still being made, rather than left to fail on the server. The
+        // first line is the note's name (NoteFormModel.Title), and a new note has to have one since
+        // 2026-09-20 - so this is the answer that is missing, and the one the hint names.
         Assert.True(cut.Find(".page-action-primary").HasAttribute("disabled"));
-        Assert.Contains("Write something in it", cut.Markup);
+        Assert.Contains("Give it a name", cut.Markup);
+    }
+
+    /// <summary>
+    /// And writing below the first line is not a name. A note is found by its name - it is what the
+    /// column beside the writing lists, what a share says and what a notification carries - so one that
+    /// starts with an empty line is a note nobody could tell from the next one (asked for 2026-09-20).
+    /// </summary>
+    [Fact]
+    public void A_new_note_written_under_an_empty_first_line_still_has_no_name()
+    {
+        RegisterApiClients(note: null);
+        var cut = RenderComponent<NoteEditor>();
+
+        WriteLines(cut, "", "Milk, bread, eggs");
+
+        Assert.True(cut.Find(".page-action-primary").HasAttribute("disabled"));
+        Assert.Contains("Give it a name", cut.Markup);
     }
 
     [Fact]
@@ -642,10 +661,15 @@ public sealed class NoteEditorTests : OrbitTestContext
     /// into, so this raises the same callback that JS raises after an edit.
     /// </summary>
     private static void WriteFirstLine(IRenderedComponent<NoteEditor> cut, string text)
+        => WriteLines(cut, text);
+
+    /// <summary>The same, for a note whose first line is not the only one that matters.</summary>
+    private static void WriteLines(IRenderedComponent<NoteEditor> cut, params string[] lines)
     {
         var editor = cut.FindComponent<Web.Components.ChecklistTextEditor>();
         cut.InvokeAsync(() => editor.Instance.LinesChanged.InvokeAsync(
-            [new Orbit.Contracts.Notes.NoteContentLineDto(text, false, false)])).GetAwaiter().GetResult();
+            [.. lines.Select(line => new Orbit.Contracts.Notes.NoteContentLineDto(line, false, false))]))
+            .GetAwaiter().GetResult();
     }
 
     /// <summary>
@@ -1119,23 +1143,26 @@ public sealed class NoteEditorTests : OrbitTestContext
         Assert.Contains($"/notes/{note.Id}/edit", navigationManager.Uri);
     }
 
-    /// <summary>Back out of the form ends where Save does, the same way - see the test above it.</summary>
+    /// <summary>
+    /// The panel beside a note offers the next note rather than the way back (2026-09-20, asked for).
+    /// "/notes" opens the newest note, so Back had nothing to return to but the note it would send the
+    /// reader straight into again; the column on the left is how the other notes are reached, and the
+    /// press is worth a way to start another one.
+    /// </summary>
     [Fact]
-    public void Leaving_the_form_without_saving_steps_back_onto_the_note()
+    public void The_panel_beside_a_note_offers_the_next_note_rather_than_the_way_back()
     {
         var note = Note("Shopping");
         RegisterApiClients(note);
-        Services.GetRequiredService<NavigationTrail>();
         var navigationManager = Services.GetRequiredService<NavigationManager>();
-        var summary = $"/notes/{note.Id}";
-        navigationManager.NavigateTo(summary);
-        navigationManager.NavigateTo(ReturnTo.Link($"/notes/{note.Id}/edit", summary));
-        // Its returnTo is read off the address navigated to above, the way the router hands it over.
+        navigationManager.NavigateTo($"/notes/{note.Id}");
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
 
-        cut.FindAll(".editor-rail button").First(button => button.GetAttribute("aria-label") == "Back").Click();
+        var rail = cut.FindAll(".editor-rail button");
+        Assert.DoesNotContain(rail, button => button.GetAttribute("aria-label") == "Back");
+        rail.First(button => button.GetAttribute("aria-label") == "Add note").Click();
 
-        Assert.Equal(-1, JSInterop.VerifyInvoke("history.go").Arguments[0]);
+        Assert.EndsWith("/notes/new", navigationManager.Uri, StringComparison.Ordinal);
     }
 
     /// <summary>

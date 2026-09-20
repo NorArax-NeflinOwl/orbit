@@ -1300,6 +1300,30 @@ the next, and when nothing there carries it the page says so rather than claimin
 
 ### Writing a note in the browser
 
+**`/notes` is the newest note, open to write in** (2026-09-20, asked for). A note app is read by writing
+in one: every press on the page of cards was a press towards that, and the page in between was a press
+spent choosing which note to want. The address is *replaced* rather than pushed, so nothing comes back
+to it and bounces straight in again. It skips a sealed note - one says nothing until its key is given -
+and one put away, and an account with nothing to open stays on the cards, where the plus that makes the
+first note is (`Notes.OpenTheNewestNote`).
+
+**The cards keep their own address, `/notes/all`**, reached from the heading above the column of notes.
+They are still where two questions are answered that the workspace does not ask: choosing several notes
+at once, and narrowing by tag.
+
+**The panel beside a note offers the next note rather than the way back.** With no list behind it, Back
+had nothing to return to but the note it would open again, so the press is a plus instead
+(`EditorRail.OnAdd`, set by the note editor alone). What is written in the note being left is kept the
+way leaving the page keeps it, and the star in the column says it is waiting. A note started this way is
+**in Public**: this page has no folder tab, so the tab that would otherwise answer is whichever one the
+page of cards was last left on.
+
+**A new note has to be named.** The first line *is* the name (`NoteFormModel.Title`), so a note whose
+first line is empty is one nobody could tell from the next one in the column, in a share, or in a
+notification. Save says which answer is missing - "Give it a name." or "Write something in it." - rather
+than one sentence for both. A note that already exists is not taken away from somebody who clears its
+name while rewriting it.
+
 `NoteEditor.razor` is **one field and nothing else on that side of the screen** (2026-09-09), which is
 the shape the phone's note screen has had since the redesign: the first line is the note's title and is
 drawn as one, everything under it is the note, and there is no separate title box for the two to

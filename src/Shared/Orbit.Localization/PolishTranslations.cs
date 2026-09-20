@@ -191,6 +191,8 @@ public static class PolishTranslations
         ["Detach from the event"] = "Odłącz od wydarzenia",
         ["About this note"] = "O tej notatce",
         ["Write something in it."] = "Napisz w niej coś.",
+        // The other half of the same answer: a new note has to be named before it can be saved.
+        ["Give it a name."] = "Nadaj jej nazwę.",
         ["Related inventory"] = "Powiązany magazyn",
         ["Done: {0}"] = "Zrobione: {0}",
         ["About this inventory"] = "O tym magazynie",

@@ -1,4 +1,9 @@
 @page "/notes"
+@* And the page of cards under its own address. "/notes" opens the newest note for writing in since
+   2026-09-20 - see OnInitializedAsync - which is where a note app is read from, and the cards are what
+   is left for the questions this page answers and the workspace does not: choosing several at once, and
+   narrowing by tag. Reached from the heading above the column of notes. *@
+@page "/notes/all"
 @implements IDisposable
 @attribute [Authorize]
 @using Orbit.Contracts.Chat
@@ -446,6 +451,39 @@
             return;
         }
         Logger.LogInformation("Loaded {NoteCount} notes", _notes.Count);
+        OpenTheNewestNote();
+    }
+
+    /// <summary>
+    /// What "/notes" now does: goes straight into writing in the note changed most recently, with the
+    /// column of every note beside it (asked for on 2026-09-20). A note app is read by writing in one -
+    /// every press on this page was a press towards that, and a page of cards in between was a press
+    /// spent choosing which note to want.
+    ///
+    /// **Not a sealed one**, and not one put away. A private note needs its key before it says anything,
+    /// so landing on one would open a page that cannot be read without a second answer; and the archive
+    /// is where things go to stop being what somebody is doing now.
+    ///
+    /// Replaces the address rather than adding to it, so Back from the note does not come here and
+    /// bounce straight back in. An account with nothing to open stays on the cards, which is where the
+    /// plus that makes the first note is.
+    /// </summary>
+    private void OpenTheNewestNote()
+    {
+        if (NavigationManager.Uri.Contains("/notes/all", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var newest = (_notes ?? [])
+            .Where(note => !note.IsPrivate && !note.IsArchived)
+            .MaxBy(note => note.UpdatedAtUtc);
+        if (newest is null)
+        {
+            return;
+        }
+
+        NavigationManager.NavigateTo($"/notes/{newest.Id}", forceLoad: false, replace: true);
     }
 
     private void GoToAddNote()

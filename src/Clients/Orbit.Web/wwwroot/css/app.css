@@ -437,6 +437,19 @@ input.note-editor-title {
     color: var(--text-secondary);
 }
 
+/* The heading is the way to the page of cards, which "/notes" no longer opens. It reads as the heading
+   it has always been until it is pointed at, rather than as a link sitting where a heading was. */
+.note-workspace-list-heading a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.note-workspace-list-heading a:hover,
+.note-workspace-list-heading a:focus-visible {
+    color: var(--text-primary);
+    text-decoration: underline;
+}
+
 /* NoteWorkspaceList.razor: which folder the notes under it are filed in. A rule above it as well as a
    name, because the column is read down rather than across - the line is what says "a different folder
    starts here" at a glance, and the name says which. None above the first, where there is nothing to

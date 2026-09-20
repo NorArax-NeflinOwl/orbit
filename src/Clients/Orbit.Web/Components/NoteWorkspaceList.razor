@@ -28,7 +28,11 @@
 else
 {
     <aside class="note-workspace-list">
-        <h2 class="note-workspace-list-heading">@T["Notes"]</h2>
+        @* The way to the page of cards, which "/notes" no longer opens - see Notes.razor. It is the one
+           place two questions are still answered: choosing several notes at once, and narrowing by tag. *@
+        <h2 class="note-workspace-list-heading">
+            <a href="/notes/all">@T["Notes"]</a>
+        </h2>
         @if (_folders.Count == 0)
         {
             <p class="empty-hint empty-list">@T["No notes yet."]</p>

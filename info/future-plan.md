@@ -2624,18 +2624,25 @@ down whole rather than started, so nothing in it depends on being remembered.
   in rather than only when the reader leaves it (`NoteWorkspaceList`, `NoteDrafts.Changed`). The
   question on the way out is Orbit's own panel now, naming the notes it is about.
 
-- **`/notes` opens into the newest note rather than onto a list.** The most recently changed note,
-  private ones excepted, opens for editing straight away, with the list of notes down the left.
+- ~~**`/notes` opens into the newest note rather than onto a list.**~~ Done 2026-09-20
+  (`Notes.OpenTheNewestNote`): the most recently changed note that is neither sealed nor put away opens
+  for writing in, with the column of every note down the left. The address is replaced rather than
+  pushed, so nothing comes back to it and bounces in again. **The page of cards keeps its own address**,
+  `/notes/all`, reached from the heading above the column - it is still the only place several notes can
+  be chosen at once and the only place tags narrow anything, and losing those was not what was asked for.
 
-  Folders move off the tab bar and into that left panel: a **"+"** on it adds a custom folder, and a
+  Still to do: folders move off the tab bar and into that left panel. A **"+"** on it adds a custom folder, and a
   **menu to the right of the folder's name** holds *rename custom folder*, *hide on the dashboard*,
   *delete custom folder*. When anything has been archived, an **Archived** folder appears at the top
   of the list with *hide folder* in its own menu - and while it is hidden the "+" becomes a menu of
   two: *add custom folder*, *show archive*.
 
-- **"Add note" becomes a "+" on the right-hand panel, in place of Back.** Pressing it puts an empty
-  row in the list and an empty note control beside it; the note lands in Public unless said otherwise.
-  A note with no name cannot be created at all.
+- ~~**"Add note" becomes a "+" on the right-hand panel, in place of Back.**~~ Done 2026-09-20
+  (`EditorRail.OnAdd`, set by the note editor alone): it opens the empty note form, and the note lands
+  in Public - this page has no folder tab, so the tab that would otherwise answer is whichever one the
+  page of cards was last left on. **A note with no name cannot be created**: the first line is the name,
+  so an empty one leaves Save greyed and the hint says which answer is missing rather than one sentence
+  for both.
 
 - ~~**Saving a note must not navigate anywhere.**~~ Done 2026-09-20: it saves, says "Saved." until the
   next thing is written, and stays. A note that has just been *made* is the one exception, and only as

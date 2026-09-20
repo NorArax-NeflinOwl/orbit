@@ -60,7 +60,7 @@
 <div class="editor-page">
 <div class="editor-page-body">
 
-<PageHeader Hint="@Optional(!HasSomethingToSave && !_isLoading ? T["Write something in it."] : null)">
+<PageHeader Hint="@Optional(WhatIsMissing)">
     <Title>@(IsNewNote ? T["New note"] : T["Edit note"])</Title>
 </PageHeader>
 
@@ -269,6 +269,7 @@ else
 @if (!_isLoading)
 {
     <EditorRail OnSave="SaveAsync" OnCancel="CancelAsync"
+                OnAdd="StartANewNote" AddLabel="@(T["Add note"])"
                 Notice="@(_lockedByUserName is null ? null : T.Format("{0} is currently editing this note - you can't edit it right now.", _lockedByUserName))"
                 ErrorMessage="@_saveErrorMessage"
                 SaveDisabled="@(_isSharedReadOnly || _lockedByUserName is not null || !HasSomethingToSave || _isSaving)">
@@ -1227,10 +1228,33 @@ else
     /// <summary>
     /// Mirrors Note.EnsureSomethingToRead, which is what actually refuses the save - a title on its own
     /// is a whole note, and a private one is exempt because its readable fields travel empty by design.
+    ///
+    /// **And a new note has to be named** (2026-09-20, asked for). A note is found by its name: it is
+    /// what the column beside the writing lists, what a share says and what a notification carries, and
+    /// a handful of them called "Untitled" is a set nobody can tell apart. Only on the way in - a note
+    /// that already exists is not taken away from somebody who clears its name while rewriting it.
     /// </summary>
     private bool HasSomethingToSave
-        => _formModel.IsPrivate
-            || _formModel.Lines.Any(line => !string.IsNullOrWhiteSpace(line.Text));
+        => (!IsNewNote || _formModel.Title.Trim().Length > 0)
+            && (_formModel.IsPrivate
+                || _formModel.Lines.Any(line => !string.IsNullOrWhiteSpace(line.Text)));
+
+    /// <summary>
+    /// Why Save is greyed, in the words of whichever answer is missing - a hint saying "write something
+    /// in it" over a note with three lines in it and no name explains nothing. Null once it can be saved.
+    /// </summary>
+    private string? WhatIsMissing
+    {
+        get
+        {
+            if (_isLoading || HasSomethingToSave)
+            {
+                return null;
+            }
+
+            return IsNewNote && _formModel.Title.Trim().Length == 0 ? T["Give it a name."] : T["Write something in it."];
+        }
+    }
 
     /// <summary>The folder the note was in when it was read, so a save knows whether it has been moved.</summary>
     private Guid? _savedFolderId;
@@ -1594,6 +1618,35 @@ else
         }
 
         await NavigationTrail.FinishAsync(WhenFinished);
+    }
+
+    /// <summary>
+    /// Starts the next note, from the panel beside this one (2026-09-20, asked for). It takes Back's
+    /// place there: "/notes" opens the newest note now, so the list this button used to return to is
+    /// the column already on the left of this page.
+    ///
+    /// Whatever is written here is kept rather than lost - it is held for this note the way leaving the
+    /// page keeps it (see NoteDrafts), and the star beside its name in the column says it is waiting.
+    /// The lock is let go, because somebody who has walked off to write something else is not holding
+    /// this note against anybody.
+    /// </summary>
+    private async Task StartANewNote()
+    {
+        Logger.LogInformation("User started another note from the note they were writing in");
+        if (Id is { } noteId)
+        {
+            await ReleaseLockAsync(noteId);
+        }
+
+        // In Public, which is what the user asked for. A new note is otherwise made under the tab the
+        // reader is standing on (see the "new note" branch of the load), and this page has no tab: the
+        // column on the left shows every folder at once, so the tab that answered would be whichever
+        // one the page of cards was last left on - a folder this reader is not looking at and may not
+        // remember choosing. Saying so out loud by choosing it, rather than by a second rule about
+        // where a note goes.
+        await Folders.EnsureLoadedAsync();
+        Folders.Choose(FolderPage.Notes, FolderKey.Default);
+        NavigationManager.NavigateTo("/notes/new");
     }
 
     /// <summary>Starts a new checklist line in the editor - the actual line-splitting/marker logic lives in checklistTextEditor.js.</summary>
