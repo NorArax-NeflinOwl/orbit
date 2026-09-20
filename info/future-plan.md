@@ -2742,3 +2742,17 @@ the session that finishes one strikes it here rather than in a report nobody rea
   currently calls OpenStreetMap's free, public Nominatim instance (see
   [Functionality — Calendar](functionality.md#calendar)), whose usage policy caps it to light,
   non-commercial traffic. A deployment with real usage volume should self-host Nominatim instead.
+
+- **An edit request on the phone: what was found, and what is still unproven.** Reported 2026-09-20 from
+  a phone - a notification said a message had arrived and the conversation held nothing at all, "no
+  message, no request, nothing". The journey itself turns out to work and is now pinned down end to end
+  (`EditAccessRequestTests`): a request encrypted by the other side arrives, opens, and draws as a
+  request rather than as JSON or as a message that cannot be opened. What *was* missing is the answer -
+  the phone drew the request and offered nothing to press, so the only way to say yes was to find the
+  thing and share it again by hand. There is an **Allow editing** button on it now, which shares it back
+  at `EditOnly` exactly as the browser's own answer does.
+  Still unproven: the reported case itself, which needs two real accounts on two devices - and the
+  phone's bubble does not name *what kind of thing* was asked about the way the browser's
+  "Asked to edit a note: Shopping" does (`Chat.razor`'s `DescribeItemType`). Naming the kind needs the
+  kind through to the row and a converter to translate it, since `ReadableChatMessage` holds no
+  `Translations`.

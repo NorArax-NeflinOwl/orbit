@@ -124,6 +124,13 @@ public sealed record ReadableChatMessage(
 
     public string EditAccessRequestName => EditAccessRequest?.Name ?? string.Empty;
 
+    /// <summary>
+    /// Whether this reader is the one who can say yes to it. Only the owner can widen access, and the
+    /// owner is whoever received the request - a copy of your own request, in your own thread, is
+    /// something to wait on rather than to answer.
+    /// </summary>
+    public bool CanBeAllowedToEdit => IsEditAccessRequest && !IsMine;
+
     /// <summary>Whether to label the bubble with its author, which only a group conversation does.</summary>
     public bool HasSenderName => SenderName is not null;
 

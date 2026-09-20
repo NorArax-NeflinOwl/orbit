@@ -23,6 +23,10 @@ public sealed partial class ConversationViewModel : ObservableObject, IDisposabl
     private readonly EncryptedChatMessageEditor _editor;
     private readonly MessageForwarder _forwarder;
     private readonly SharedItemAcceptance _acceptance;
+
+    /// <summary>The other half of a share: what answers somebody asking to be allowed to edit.</summary>
+    private readonly SharedItemSharing _sharing;
+
     private readonly ChatRepository _chatRepository;
     private readonly ChatSynchronizer _synchronizer;
     private readonly ChatClient _chatClient;
@@ -113,7 +117,8 @@ public sealed partial class ConversationViewModel : ObservableObject, IDisposabl
 
     public ConversationViewModel(
         EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, EncryptedChatMessageEditor editor,
-        MessageForwarder forwarder, SharedItemAcceptance acceptance, ChatRepository chatRepository,
+        MessageForwarder forwarder, SharedItemAcceptance acceptance, SharedItemSharing sharing,
+        ChatRepository chatRepository,
         ChatSynchronizer synchronizer, ChatClient chatClient,
         Translations translations, IScreenNavigator navigator, Live.ILiveUpdates liveUpdates,
         TimeProvider clock)
@@ -126,6 +131,7 @@ public sealed partial class ConversationViewModel : ObservableObject, IDisposabl
         _editor = editor;
         _forwarder = forwarder;
         _acceptance = acceptance;
+        _sharing = sharing;
         _chatRepository = chatRepository;
         _synchronizer = synchronizer;
         _chatClient = chatClient;
@@ -505,6 +511,42 @@ public sealed partial class ConversationViewModel : ObservableObject, IDisposabl
         }
         catch (OperationCanceledException)
         {
+        }
+    }
+
+    /// <summary>
+    /// Saying yes to somebody who asked to be allowed to change something of yours.
+    ///
+    /// Widening access is sharing it again at a level that permits editing - there is no other way to do
+    /// it, which is why the request is a request. The browser has offered this beside the request since
+    /// it was built; the phone drew the request and left it at that, so the only answer it allowed was
+    /// finding the thing yourself and sharing it by hand (reported 2026-09-20).
+    /// </summary>
+    [RelayCommand]
+    private async Task AllowEditingAsync(ReadableChatMessage? message, CancellationToken cancellationToken)
+    {
+        if (message?.EditAccessRequest is not { } request || _contact is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var outcome = await _sharing.ShareAsync(
+                request.Kind, request.ItemId, request.Name, _contact.UserId,
+                // Editing, but not the right to hand editing on: what they asked for and no more - see
+                // ShareAccessLevel, where EditOnly and CanEdit are two different answers.
+                Orbit.Core.Abstractions.ShareAccessLevel.EditOnly.ToString(), cancellationToken);
+
+            SayWhatHappened(outcome is SharingOutcome.Offered or SharingOutcome.AlreadyShared
+                ? _translations.Format("{0} can edit {1} now.", _contact.DisplayName, request.Name)
+                : outcome is SharingOutcome.Unreachable
+                    ? _translations["Allowing this needs a connection."]
+                    : _translations["Couldn't allow that. It may not be yours any more."]);
+        }
+        catch (OperationCanceledException)
+        {
+            // The screen went away mid-share.
         }
     }
 

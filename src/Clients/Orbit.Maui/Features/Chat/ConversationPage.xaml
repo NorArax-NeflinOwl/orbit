@@ -174,13 +174,21 @@
                                                  about what counts as one. -->
                                             <controls:LinkedLabel Words="{Binding Text}" FontSize="14" LineBreakMode="WordWrap" />
 
-                                            <!-- Somebody asking to be allowed to change something of yours. Nothing to
-                                                 accept in one tap: widening access means sharing it again. -->
+                                            <!-- Somebody asking to be allowed to change something of
+                                                 yours, answered here as the browser answers it: saying
+                                                 yes is sharing the thing again at a level that permits
+                                                 editing, which is the only way to widen access at all.
+                                                 The phone drew the request and offered nothing to do
+                                                 about it until 2026-09-20. -->
                                             <VerticalStackLayout Spacing="4" IsVisible="{Binding IsEditAccessRequest}">
                                                 <Label Text="{controls:Translate 'Asked to edit'}" FontSize="12"
                                                        Style="{StaticResource SubtleLabel}" />
                                                 <Label Text="{Binding EditAccessRequestName}" FontAttributes="Bold"
                                                        LineBreakMode="WordWrap" />
+                                                <Button Text="{controls:Translate 'Allow editing'}" FontSize="12" Padding="12,4"
+                                                        HorizontalOptions="Start" IsVisible="{Binding CanBeAllowedToEdit}"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.AllowEditingCommand, x:DataType=chat:ConversationPage}"
+                                                        CommandParameter="{Binding .}" />
                                             </VerticalStackLayout>
 
                                             <!-- An offer to share something, which arrives as an ordinary message whose

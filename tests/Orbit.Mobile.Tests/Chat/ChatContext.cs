@@ -129,8 +129,14 @@ internal sealed class ChatContext : IDisposable
     /// The conversation screen for the other party, built on the same pieces the tests use directly -
     /// so what a test sets up through them is what the screen then reads.
     /// </summary>
-    public ConversationViewModel Conversation()
+    /// <param name="shares">
+    /// Where a share this screen makes lands - what answers somebody asking to be allowed to edit. Its
+    /// own fake rather than the chat server: sharing is a different section of the API, and a test that
+    /// cares about it passes the one it wants to read afterwards.
+    /// </param>
+    public ConversationViewModel Conversation(FakeShareServer? shares = null)
     {
+        var shareHttp = (shares ?? new FakeShareServer()).ToHttpClient();
         var screen = new ConversationViewModel(
             Reader, Sender, Editor, Forwarder,
             // Accepting a shared item needs a client per kind, and this screen reaches none of them in
@@ -140,6 +146,9 @@ internal sealed class ChatContext : IDisposable
                 new NotesClient(Server.ToHttpClient()), new TasksClient(Server.ToHttpClient()),
                 new CalendarClient(Server.ToHttpClient()), new InventoryClient(Server.ToHttpClient()),
                 new PlacesClient(Server.ToHttpClient())),
+            new SharedItemSharing(
+                new NotesClient(shareHttp), new TasksClient(shareHttp), new CalendarClient(shareHttp),
+                new InventoryClient(shareHttp), new PlacesClient(shareHttp), Sender),
             Repository, Synchronizer, ChatClient,
             new Translations(new InMemoryLanguageStore()), new RecordingScreenNavigator(), LiveUpdates, Clock);
 

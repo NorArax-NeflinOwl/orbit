@@ -2600,6 +2600,13 @@ public static class PolishTranslations
         // rather than "Google Maps": the handoff is the platform's, and what answers it is whatever the
         // phone has. On Android that is Google Maps.
         ["Open in your map app"] = "Otwórz w aplikacji map",
+        // Answering a request to edit from the phone's own conversation - see
+        // ConversationViewModel.AllowEditingAsync. "Allow editing" itself is already above, shared
+        // with the browser's own answer to the same request.
+        ["{0} can edit {1} now."] = "{0} może teraz edytować: {1}.",
+        ["Allowing this needs a connection."] = "Zgoda wymaga połączenia.",
+        ["Couldn't allow that. It may not be yours any more."] =
+            "Nie udało się na to pozwolić. To może już nie należeć do Ciebie.",
         ["Nobody else to pass this on to yet."] = "Nie masz jeszcze nikogo, komu można to przekazać.",
     };
 }

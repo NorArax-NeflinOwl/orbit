@@ -573,7 +573,12 @@ public sealed class ContactsScreenTests
                 new EncryptedChatMessageEditor(
                     Repository, _chatClient, directoryReader, _encryptionKeyProvider,
                     NullLogger<EncryptedChatMessageEditor>.Instance),
-                new MessageForwarder(sender), Acceptance, Repository, _synchronizer, _chatClient,
+                new MessageForwarder(sender), Acceptance,
+                new SharedItemSharing(
+                    new NotesClient(_shareServer.ToHttpClient()), new TasksClient(_shareServer.ToHttpClient()),
+                    new CalendarClient(_shareServer.ToHttpClient()), new InventoryClient(_shareServer.ToHttpClient()),
+                    new PlacesClient(_shareServer.ToHttpClient()), sender),
+                Repository, _synchronizer, _chatClient,
                 new Translations(new InMemoryLanguageStore()), Navigator, new AnnouncedLiveUpdates(), _clock);
             screen.Open(contact);
             return screen;
