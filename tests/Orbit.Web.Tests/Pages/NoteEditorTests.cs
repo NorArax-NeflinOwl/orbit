@@ -988,29 +988,33 @@ public sealed class NoteEditorTests : OrbitTestContext
     /// dashboard, since its address carries it.
     /// </summary>
     [Fact]
-    public void Saving_a_note_opened_from_its_own_page_steps_back_onto_it()
+    public void Saving_a_note_leaves_the_reader_in_it()
     {
         var note = Note("Shopping");
         RegisterApiClients(note);
         Services.GetRequiredService<NavigationTrail>();
         var navigationManager = Services.GetRequiredService<NavigationManager>();
-        var summary = $"/notes/{note.Id}?returnTo=%2F";
-        navigationManager.NavigateTo(summary);
-        navigationManager.NavigateTo(ReturnTo.Link($"/notes/{note.Id}/edit", summary));
-        // Its returnTo is read off the address navigated to above, the way the router hands it over.
+        var form = ReturnTo.Link($"/notes/{note.Id}/edit", "/notes");
+        navigationManager.NavigateTo("/notes");
+        navigationManager.NavigateTo(form);
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
 
         cut.Find(".page-action-primary").Click();
 
-        Assert.Equal(-1, JSInterop.VerifyInvoke("history.go").Arguments[0]);
+        // Nowhere at all: writing is saved as you go along rather than finished, and a save that walks
+        // away turns every one of those into a trip back (asked for 2026-09-20).
+        Assert.DoesNotContain(JSInterop.Invocations, invocation => invocation.Identifier == "history.go");
+        Assert.EndsWith(form, navigationManager.Uri);
+        Assert.Contains("Saved.", cut.Markup);
     }
 
     /// <summary>
-    /// A new note, made from the notes page: saving returns to the list by stepping back, so Back from
-    /// the list does not open the form again - one press from saving the same note twice.
+    /// A note that has just been *made* is the one exception, and only as far as its address: it has
+    /// one of its own now, and "/notes/new" must not be left behind for Back to reopen - one press
+    /// from saving the same note twice. The reader stays looking at what they wrote.
     /// </summary>
     [Fact]
-    public void Saving_a_new_note_steps_back_onto_the_list_it_was_made_from()
+    public void Saving_a_new_note_lands_on_the_note_it_made()
     {
         RegisterApiClients(note: null);
         Services.GetRequiredService<NavigationTrail>();
@@ -1022,28 +1026,13 @@ public sealed class NoteEditorTests : OrbitTestContext
         WriteFirstLine(cut, "Dentist on Tuesday");
         cut.Find(".page-action-primary").Click();
 
-        Assert.Equal(-1, JSInterop.VerifyInvoke("history.go").Arguments[0]);
-    }
-
-    /// <summary>
-    /// A form reached by its address has nothing of Orbit's behind it, so there is nothing to step back
-    /// onto: it is replaced with where it names, rather than left underneath it.
-    /// </summary>
-    [Fact]
-    public void Saving_a_form_opened_directly_replaces_it_with_where_it_names()
-    {
-        var note = Note("Shopping");
-        RegisterApiClients(note);
-        var navigationManager = Services.GetRequiredService<NavigationManager>();
-        var summary = $"/notes/{note.Id}?returnTo=%2F";
-        navigationManager.NavigateTo(ReturnTo.Link($"/notes/{note.Id}/edit", summary));
-        // Its returnTo is read off the address navigated to above, the way the router hands it over.
-        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
-
-        cut.Find(".page-action-primary").Click();
-
-        Assert.Equal($"http://localhost{summary}", navigationManager.Uri);
-        Assert.True(Services.GetRequiredService<Bunit.TestDoubles.FakeNavigationManager>().History.First().Options.ReplaceHistoryEntry);
+        // Replaced rather than stepped back: the form's address is gone and the note's is on screen.
+        Assert.DoesNotContain(JSInterop.Invocations, invocation => invocation.Identifier == "history.go");
+        Assert.Contains("/notes/", navigationManager.Uri);
+        Assert.DoesNotContain("/notes/new", navigationManager.Uri);
+        Assert.True(
+            Services.GetRequiredService<Bunit.TestDoubles.FakeNavigationManager>()
+                .History.First().Options.ReplaceHistoryEntry);
     }
 
     /// <summary>
@@ -1070,7 +1059,9 @@ public sealed class NoteEditorTests : OrbitTestContext
 
         Assert.DoesNotContain(JSInterop.Invocations, invocation => invocation.Identifier == "confirm");
         Assert.False(Services.GetRequiredService<NoteDrafts>().HasAny);
-        Assert.Equal($"http://localhost{summary}", navigationManager.Uri);
+        // And the form is still where it was: saving keeps the reader in the note (2026-09-20), so
+        // there is no leaving for a question to be asked about in the first place.
+        Assert.Contains($"/notes/{note.Id}/edit", navigationManager.Uri);
     }
 
     /// <summary>Back out of the form ends where Save does, the same way - see the test above it.</summary>

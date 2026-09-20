@@ -1298,6 +1298,14 @@ nobody wrote in keeps nothing, so reading one and leaving warns about nothing - 
 in is what the note *says*, compared as one string because a line carries lists of its own and two
 records holding equal lists are not equal.
 
+**Saving keeps the reader in the note** (2026-09-20). It used to end on `/notes`, which is the one
+place somebody who has just written something does not want to be: writing is saved as you go along
+rather than finished, so a save that walked away turned every one of those into a trip back. The page
+says **"Saved."** instead, and stops saying it the moment anything is written - from then on it is no
+longer true (`NoteDrafts.Differs`, the same comparison a kept draft is decided by). A note that has just
+been *made* is the one exception, and only as far as its address: it has one of its own now, and
+`/notes/new` must not be left behind for Back to reopen - one press from saving the same note twice.
+
 **Turning editing on puts the caret at the end of the writing** (`ChecklistTextEditor.FocusesAtTheEnd`):
 after the last line's words, or in the last cell of a table the note ends in, or - past a closing picture
 or rule - after the last line that has words. The phone has no editing switch to turn on: a note opens

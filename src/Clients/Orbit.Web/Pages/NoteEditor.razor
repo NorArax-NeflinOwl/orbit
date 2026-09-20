@@ -90,6 +90,15 @@ else
         <p class="info">@_draftMessage</p>
     }
 
+    @* Saving keeps the reader in the note rather than walking away from it (2026-09-20), so the page
+       has to say that it saved - a Save that does nothing visible is one somebody presses again. It
+       goes the moment anything is written, because from then on it is no longer true: what the reader
+       is looking at is not what the server holds. *@
+    @if (_savedJustNow && !HasUnsavedWriting)
+    {
+        <p class="info">@T["Saved."]</p>
+    }
+
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form note-editor-form">
         <fieldset disabled="@(_isSharedReadOnly || _lockedByUserName is not null || _isSaving)">
             @* One field for the whole note, and nothing else on this side of the screen. The first line
@@ -1093,6 +1102,15 @@ else
     /// <summary>Said when a note opens holding writing the server does not have - see LoadTheNoteAsync.</summary>
     private string? _draftMessage;
 
+    /// <summary>Whether the last thing that happened here was a save - see the line the page draws for it.</summary>
+    private bool _savedJustNow;
+
+    /// <summary>
+    /// The id a save has just made, where this form was a new note. What the address is replaced with,
+    /// so the note has one of its own and Back cannot reopen the form that made it.
+    /// </summary>
+    private Guid? _madeThisNoteId;
+
     /// <summary>Everything about this note the form can change, in the shape a draft is kept in.</summary>
     private NoteDrafts.Draft WhatTheFormHolds()
         => new(
@@ -1119,6 +1137,14 @@ else
 
         Drafts.Keep(noteId, WhatTheFormHolds(), stored);
     }
+
+    /// <summary>
+    /// Whether what is on screen is something the server has not got - the same question a draft is
+    /// kept by. Read only while the page is saying "Saved.", which is the one thing that stops being
+    /// true the moment anything is written.
+    /// </summary>
+    private bool HasUnsavedWriting
+        => _asStored is { } stored && NoteDrafts.Differs(WhatTheFormHolds(), stored);
 
     /// <summary>
     /// Opens another note from the column, in place of this one: whatever has not been saved here is not
@@ -1166,6 +1192,7 @@ else
         Logger.LogInformation(
             "User clicked 'Save' ({Mode}, NoteId={NoteId})", IsNewNote ? "create" : "update", Id);
         _saveErrorMessage = null;
+        _savedJustNow = false;
 
         // Blocks the button for the duration of the save (see the button above), so a second click or a
         // double Enter-press can't fire this again while the first request is still in flight and create
@@ -1179,6 +1206,7 @@ else
                     _formModel.Title, _formModel.Content, _formModel.IsPrivate, Priority: _formModel.Priority,
                     FolderId: _formModel.FolderId, Tags: _formModel.Tags));
                 Logger.LogInformation("Note {NoteId} created", newNoteId);
+                _madeThisNoteId = newNoteId;
             }
             else
             {
@@ -1259,10 +1287,23 @@ else
         }
 
         _draftMessage = null;
+        _savedJustNow = true;
 
-        // Without this form left behind it: Back after saving a new note would open the form again, one
-        // press from saving it twice. See NavigationTrail.
-        await NavigationTrail.FinishAsync(WhenFinished);
+        // Saving keeps the reader in the note (asked for 2026-09-20). It used to end on /notes, which
+        // is the one place somebody who has just written something does not want to be - writing is
+        // saved as you go along rather than finished, and a save that walks away turns every one of
+        // those into a trip back.
+        //
+        // A note that has just been *made* is the exception, and only as far as its address: it has one
+        // of its own now, and the form's "/notes/new" must not be left behind for Back to reopen, one
+        // press from saving the same note twice. The page reloads on the new id and the reader stays
+        // looking at what they wrote. See NavigationTrail.
+        if (_madeThisNoteId is { } madeNoteId)
+        {
+            // Leaves the form's own address behind rather than stepping back out of it: see
+            // InAppHistory.Leave, which replaces when the entry below does not reach the destination.
+            await NavigationTrail.FinishAsync($"/notes/{madeNoteId}");
+        }
     }
 
     /// <summary>

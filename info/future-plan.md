@@ -2632,7 +2632,10 @@ down whole rather than started, so nothing in it depends on being remembered.
   row in the list and an empty note control beside it; the note lands in Public unless said otherwise.
   A note with no name cannot be created at all.
 
-- **Saving a note must not navigate anywhere.** It saves and stays.
+- ~~**Saving a note must not navigate anywhere.**~~ Done 2026-09-20: it saves, says "Saved." until the
+  next thing is written, and stays. A note that has just been *made* is the one exception, and only as
+  far as its address - "/notes/new" is replaced with the note's own so Back cannot reopen the form
+  that made it.
 
 - **A PIN for private things.** Notes, task lists, inventories and events - map points excepted, which
   are sealed by their own rule (see "Places are sealed by default"). Showing or editing a private
