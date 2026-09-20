@@ -2895,9 +2895,9 @@ most of the times anybody ticks one off - stayed on the list until its date pass
 menu it comes back struck through and greyed (`item-card-done`), the same mark a finished deadline
 carries, so the two read alike where they are shown side by side.
 
-**The grid gives the same answer about what is done**, and a different one about what is past. A
+**The grid starts from the same answer about what is done**, and a different one about what is past. A
 ticked-off deadline and an appointment whose entry on a task list is ticked off both leave it, exactly
-as they leave the list, and the same menu brings them back - struck through and greyed
+as they leave the list, and a menu of its own brings them back - struck through and greyed
 (`.calendar-chip-done`). A finished deadline has read that way there all along; an appointment had no
 mark at all, for the same reason the list did not leave it out either: an event of its own has nothing
 to tick, only the entry behind it does, so the page has to tell the grids which
@@ -2930,6 +2930,14 @@ device (`CalendarListReading`). Its grid keeps everything too.
 **Show → "Everything, including what is over"** in the page's menu puts them back, and is remembered by
 the device the way the list's order is (`CalendarListOrder`, localStorage - it describes one page for
 one reader on one screen).
+
+**The two are separate switches** (2026-09-20, the user asked). One entry used to govern both, so a
+reader who wanted a finished errand back in the list got it drawn over the month as well - and the
+reader who wanted it in one of the two places could not have it there alone. The page header's menu is
+the list's; the grid has its own, **Show → "What is already done"**, in a menu beside the view switch
+where it reads as belonging to the grid (`Calendar.GridShowsWhatIsDone`,
+`CalendarListOrder.ShowWhatIsDoneOnTheGrid`, kept per device beside the other two). Both start off, which
+is what the single switch did. What is merely *over* is not a question the grid asks at all - see below.
 
 **It is the reader's answer in every view** (`Calendar.ShowsEverythingInThisView`, 2026-09-18). The day
 and the week used to force it on, on the reasoning that opening one particular day is asking what

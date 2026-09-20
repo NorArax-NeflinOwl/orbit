@@ -3796,6 +3796,14 @@ input.note-editor-title {
     gap: 0.5rem;
 }
 
+/* The view switch and the grid's own menu, kept together at the right end of the toolbar so the menu
+   reads as belonging to the grid rather than to the page. */
+.calendar-visualization-toolbar-views {
+    align-items: center;
+    display: flex;
+    gap: 0.5rem;
+}
+
 .calendar-period-label {
     margin: 0;
     min-width: 10rem;

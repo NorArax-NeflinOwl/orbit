@@ -58,9 +58,11 @@
             }
 
             @* What a calendar is read for is what is coming, so the list leaves out what is over: a task
-               already ticked off, an event that has already ended. The grid beside it still draws them -
-               a day with something in it should say so whether or not it has been - and this is how the
-               list is asked for them too. *@
+               already ticked off, an event that has already ended. This is how it is asked for them.
+
+               The list's alone since 2026-09-20 - the grid has its own entry beside the view switch, so
+               finished work can be shown in one of the two places without the other. An event that has
+               merely ended is not a question the grid asks at all: it is drawn there either way. *@
             @* The reader's in every view since 2026-09-18, and kept per device. It used to be ticked and
                unpressable in the day and the week, which show everything - see ShowsEverythingInThisView
                for the reasoning that was and why it is now the reader's to overrule. *@
@@ -268,11 +270,24 @@
                 <button @onclick="GoToNextPeriod">›</button>
                 <h2 class="calendar-period-label">@_viewState.PeriodLabel(T.DisplayCulture)</h2>
             </div>
-            <div class="calendar-view-switch">
-                <button aria-pressed="@AriaPressed(CalendarViewMode.Day)" @onclick="() => SwitchView(CalendarViewMode.Day)">@T["Day"]</button>
-                <button aria-pressed="@AriaPressed(CalendarViewMode.Week)" @onclick="() => SwitchView(CalendarViewMode.Week)">@T["Week"]</button>
-                <button aria-pressed="@AriaPressed(CalendarViewMode.Month)" @onclick="() => SwitchView(CalendarViewMode.Month)">@T["Month"]</button>
-                <button aria-pressed="@AriaPressed(CalendarViewMode.Year)" @onclick="() => SwitchView(CalendarViewMode.Year)">@T["Year"]</button>
+            <div class="calendar-visualization-toolbar-views">
+                <div class="calendar-view-switch">
+                    <button aria-pressed="@AriaPressed(CalendarViewMode.Day)" @onclick="() => SwitchView(CalendarViewMode.Day)">@T["Day"]</button>
+                    <button aria-pressed="@AriaPressed(CalendarViewMode.Week)" @onclick="() => SwitchView(CalendarViewMode.Week)">@T["Week"]</button>
+                    <button aria-pressed="@AriaPressed(CalendarViewMode.Month)" @onclick="() => SwitchView(CalendarViewMode.Month)">@T["Month"]</button>
+                    <button aria-pressed="@AriaPressed(CalendarViewMode.Year)" @onclick="() => SwitchView(CalendarViewMode.Year)">@T["Year"]</button>
+                </div>
+                @* The grid's own switch, beside the grid rather than in the page header - the header's
+                   menu is the list's, and the two answer the question separately since 2026-09-20. What
+                   is merely over stays drawn here whatever this says; only what has been ticked off goes. *@
+                <OverflowMenu StaysOpen="true">
+                    <span class="overflow-menu-heading">@T["Show"]</span>
+                    <button type="button" class="avatar-dropdown-item @(GridShowsWhatIsDone ? "chosen" : "")"
+                            @onclick="ToggleGridShowsWhatIsDoneAsync">
+                        <span class="card-filter-mark">@(GridShowsWhatIsDone ? "✓" : "")</span>
+                        @T["What is already done"]
+                    </button>
+                </OverflowMenu>
             </div>
         </div>
 
@@ -638,17 +653,6 @@
             : null;
 
     /// <summary>
-    /// What the grids draw: everything on the calendar, less what has been done. An appointment whose
-    /// entry on a task list is ticked off, and a deadline that is ticked off, both leave - the same
-    /// answer the list beside them gives, and the same menu brings them back.
-    ///
-    /// **What is merely *over* stays.** That is the one place this parts company with the list, and it
-    /// is deliberate: the list answers "what is coming", so an event that has ended is no longer its
-    /// subject, while a grid is a picture of the period - a month drawn with every past day empty would
-    /// be a month that had not happened. Done is a different fact from past, and only the first of them
-    /// is somebody saying "I am finished with this".
-    /// </summary>
-    /// <summary>
     /// Whether what is over is drawn alongside what is still to come: the reader's own choice in every
     /// view (CalendarListOrder.ShowsEverything, kept per device), and off by default, because a calendar
     /// is mostly read forwards.
@@ -662,8 +666,27 @@
     /// </summary>
     private bool ShowsEverythingInThisView => ListOrder.ShowsEverything;
 
+    /// <summary>
+    /// Whether the grid draws what has been ticked off. Its own answer since 2026-09-20, read from its
+    /// own menu beside the view switch: it used to take the list's, so asking the list for finished work
+    /// put it back on the month as well, and a reader who wanted it in one of the two places could not
+    /// have it there alone.
+    /// </summary>
+    private bool GridShowsWhatIsDone => ListOrder.GridShowsWhatIsDone;
+
+    /// <summary>
+    /// What the grids draw: everything on the calendar, less what has been done, unless this reader has
+    /// asked for it back. An appointment whose entry on a task list is ticked off, and a deadline that
+    /// is ticked off, both leave.
+    ///
+    /// **What is merely *over* stays, whatever the menu says.** That is where this parts company with
+    /// the list, and it is deliberate: the list answers "what is coming", so an event that has ended is
+    /// no longer its subject, while a grid is a picture of the period - a month drawn with every past
+    /// day empty would be a month that had not happened. Done is a different fact from past, and only
+    /// the first of them is somebody saying "I am finished with this".
+    /// </summary>
     private IReadOnlyList<CalendarEventDto> EventsOnTheGrid
-        => ShowsEverythingInThisView
+        => GridShowsWhatIsDone
             ? EventsUnderTheOpenTab
             : [.. EventsUnderTheOpenTab.Where(calendarEvent => !IsTickedOff(calendarEvent))];
 
@@ -701,13 +724,13 @@
 
     /// <inheritdoc cref="EventsOnTheGrid"/>
     private IReadOnlyList<DueTaskDto> DueTasksOnTheGrid
-        => ShowsEverythingInThisView
+        => GridShowsWhatIsDone
             ? _dueTasks ?? []
             : [.. (_dueTasks ?? []).Where(dueTask => !dueTask.IsCompleted)];
 
     /// <summary>
-    /// The events the grids draw as done. Only reached when the reader has asked for everything: by
-    /// default such an appointment is not on the grid at all (see EventsOnTheGrid), and this is what it
+    /// The events the grids draw as done. Only reached when the reader has asked the grid for what is
+    /// done: by default such an appointment is not on it at all (see EventsOnTheGrid), and this is what it
     /// looks like when it comes back - struck through and greyed, the mark a finished deadline has
     /// always carried there.
     /// </summary>
@@ -1095,6 +1118,10 @@
     };
 
     private Task ToggleShowsEverythingAsync() => ListOrder.ShowEverythingAsync(!ListOrder.ShowsEverything);
+
+    /// <inheritdoc cref="GridShowsWhatIsDone"/>
+    private Task ToggleGridShowsWhatIsDoneAsync()
+        => ListOrder.ShowWhatIsDoneOnTheGridAsync(!ListOrder.GridShowsWhatIsDone);
 
     private async Task SetSortOrderAsync(CalendarListSortOrder sortOrder)
     {

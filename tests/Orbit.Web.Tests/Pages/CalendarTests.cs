@@ -605,10 +605,11 @@ public sealed class CalendarTests : OrbitTestContext
     }
 
     /// <summary>
-    /// The grid gives the same answer as the list: what has been done leaves it, and the same menu
-    /// brings it back. It comes back struck through and greyed - an appointment whose entry is ticked
-    /// off had no mark at all before, because an event has nothing to tick and only the entry behind it
-    /// does, while a finished *deadline* has been struck through there all along.
+    /// The grid starts from the same answer as the list - what has been done leaves it - but is asked
+    /// separately, from its own menu beside the view switch. It comes back struck through and greyed:
+    /// an appointment whose entry is ticked off had no mark at all before, because an event has nothing
+    /// to tick and only the entry behind it does, while a finished *deadline* has been struck through
+    /// there all along.
     /// </summary>
     [Fact]
     public void A_ticked_off_appointment_leaves_the_month_grid_until_everything_is_asked_for()
@@ -627,7 +628,7 @@ public sealed class CalendarTests : OrbitTestContext
         var chip = Assert.Single(cut.FindAll(".calendar-event-chip"));
         Assert.Contains("Haircut", chip.TextContent);
 
-        ShowEverything(cut);
+        ShowWhatIsDoneOnTheGrid(cut);
 
         var chips = cut.FindAll(".calendar-event-chip");
         Assert.Equal(2, chips.Count);
@@ -651,8 +652,39 @@ public sealed class CalendarTests : OrbitTestContext
         var chip = Assert.Single(cut.FindAll(".calendar-task-chip"));
         Assert.Contains("Shopping", chip.TextContent);
 
+        ShowWhatIsDoneOnTheGrid(cut);
+
+        Assert.Equal(2, cut.FindAll(".calendar-task-chip").Count);
+    }
+
+    /// <summary>
+    /// And the two switches are separate, which is what the user asked for on 2026-09-20: one menu used
+    /// to govern both, so a reader who wanted finished work in the list got it drawn over the month as
+    /// well. Asking the list changes nothing on the grid, and asking the grid changes nothing in the
+    /// list.
+    /// </summary>
+    [Fact]
+    public void The_list_and_the_grid_are_asked_for_finished_work_separately()
+    {
+        Services.AddSingleton(new CalendarListOrder(new StubJSRuntime()));
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        RegisterCalendarApiClient([]);
+        RegisterTasksApiClient([
+            CreateTaskListWithDueItem(midMonth, "Shopping"),
+            TickedOff(CreateTaskListWithDueItem(midMonth, "Laundry"))]);
+
+        var cut = RenderComponent<Calendar>();
+
         ShowEverything(cut);
 
+        Assert.Contains("Laundry", ListedNames(cut));
+        var chip = Assert.Single(cut.FindAll(".calendar-task-chip"));
+        Assert.Contains("Shopping", chip.TextContent);
+
+        ShowEverything(cut);
+        ShowWhatIsDoneOnTheGrid(cut);
+
+        Assert.DoesNotContain("Laundry", ListedNames(cut));
         Assert.Equal(2, cut.FindAll(".calendar-task-chip").Count);
     }
 
@@ -744,10 +776,29 @@ public sealed class CalendarTests : OrbitTestContext
         => new(DateTime.Today.Year, DateTime.Today.Month, DateTime.DaysInMonth(DateTime.Today.Year, DateTime.Today.Month));
 
     private static void ShowEverything(IRenderedFragment cut)
+        => PressMenuEntry(cut, ".page-header-actions", "Everything");
+
+    /// <summary>
+    /// The grid's own entry, in the menu beside the view switch rather than in the page header's. The
+    /// two are separate switches - see Calendar.GridShowsWhatIsDone.
+    /// </summary>
+    private static void ShowWhatIsDoneOnTheGrid(IRenderedFragment cut)
+        => PressMenuEntry(cut, ".calendar-visualization-toolbar-views", "already done");
+
+    /// <summary>
+    /// Presses one entry of a menu, opening it first if it is shut. Both of these menus hold settings
+    /// and so stay open behind the entry - pressing the trigger again would close them, which is how a
+    /// test that asks for the same thing twice used to find an empty menu.
+    /// </summary>
+    private static void PressMenuEntry(IRenderedFragment cut, string within, string text)
     {
-        cut.Find(".page-header-actions .overflow-menu-trigger").Click();
-        cut.FindAll(".page-header-actions .avatar-dropdown-item")
-            .First(entry => entry.TextContent.Contains("Everything", StringComparison.Ordinal))
+        if (cut.FindAll($"{within} .overflow-menu-dropdown").Count == 0)
+        {
+            cut.Find($"{within} .overflow-menu-trigger").Click();
+        }
+
+        cut.FindAll($"{within} .avatar-dropdown-item")
+            .First(entry => entry.TextContent.Contains(text, StringComparison.Ordinal))
             .Click();
     }
 

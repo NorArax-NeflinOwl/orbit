@@ -666,6 +666,8 @@ public static class PolishTranslations
         ["Open checklist"] = "Otwórz listę",
         ["Sort"] = "Sortuj",
         ["Everything, including what is over"] = "Wszystko, łącznie z tym, co minęło",
+        // And the grid's own, beside the view switch: what is done, asked for separately from the list.
+        ["What is already done"] = "To, co już zrobione",
         // The calendar's list beside the grid - see CalendarListSortOrder.
         ["By when"] = "Po dacie",
         ["By type"] = "Po typie",

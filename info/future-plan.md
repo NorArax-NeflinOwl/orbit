@@ -2667,8 +2667,10 @@ down whole rather than started, so nothing in it depends on being remembered.
 - ~~**The calendar view says nothing about an event being shared.**~~ Done 2026-09-20: a mark after the
   name on all three grids (`.calendar-chip-shared`), with who shared it on the chip's title.
 
-- **The event list gets its own "hide completed"**, working separately from the calendar's: the reader
-  can then show finished things in one of the two places rather than in both at once.
+- ~~**The event list gets its own "hide completed"**~~ - done 2026-09-20: the page header's menu is the
+  list's, and the grid has its own beside the view switch ("What is already done",
+  `Calendar.GridShowsWhatIsDone`), so finished work can be shown in one of the two places rather than in
+  both at once. What is merely *over* is still not a question the grid asks.
 
 - ~~**Going back from an event lands on today**~~ - done 2026-09-20: every way out of the calendar
   carries the view and the day it was opened from (`Calendar.HereAndNow`), which is the query string
