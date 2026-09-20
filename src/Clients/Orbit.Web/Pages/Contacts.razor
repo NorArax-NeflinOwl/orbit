@@ -130,6 +130,11 @@ else
                 {
                     <p class="empty-hint empty-list">@T["No groups yet."]</p>
                 }
+
+                @* Making one, where they are listed. It used to sit at the foot of the chat page's
+                   conversation list, which is a column to pick from rather than a place things are
+                   made - asked for 2026-09-20. *@
+                <button type="button" class="btn-secondary" @onclick="StartANewGroup">@T["New group"]</button>
             }
             else if (_tab == ContactsTab.Archive)
             {
@@ -507,5 +512,16 @@ else
     {
         Logger.LogInformation("User opening group chat {GroupId}", groupId);
         NavigationManager.NavigateTo($"/chat/groups/{groupId}");
+    }
+
+    /// <summary>
+    /// Making a group, which happens on the chat page where the conversation would be - the same
+    /// address that page's own button used to ask for (see Chat.StartCreatingGroup). The press is here
+    /// now, under the Groups tab, because this is where groups are listed.
+    /// </summary>
+    private void StartANewGroup()
+    {
+        Logger.LogInformation("User started making a group from the contacts page");
+        NavigationManager.NavigateTo("/chat/groups?new=1");
     }
 }

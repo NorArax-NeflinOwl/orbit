@@ -2671,11 +2671,13 @@ down whole rather than started, so nothing in it depends on being remembered.
   carries the view and the day it was opened from (`Calendar.HereAndNow`), which is the query string
   the page already obeyed.
 
-- **A conversation cannot be archived from inside it**, nor from the person's own info - only from the
-  list of chats.
+- ~~**A conversation cannot be archived from inside it**, nor from the person's own info~~ - done
+  2026-09-20: the thread's own menu puts it away and leaves for the list, and the contact card carries
+  Archive / Put back in the corner every other object keeps its menu in.
 
-- **"New group" comes off the chat list's left panel** and belongs at the contacts list, under the
-  Groups folder.
+- ~~**"New group" comes off the chat list's left panel**~~ - done 2026-09-20: it is under the contacts
+  page's Groups tab, and the making itself still happens on the chat page, where the conversation
+  would be.
 
 - **A checklist entry that became a calendar entry is on the calendar twice.** The scenario: an entry
   "make a doctor's appointment" with a deadline; it is done, and then its kind is changed to calendar

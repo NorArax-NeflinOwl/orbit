@@ -1901,9 +1901,14 @@ those two sections are already independent for access-level purposes.
 Groups are not a place of their own: the chat page shows **one conversation list**
 (`ConversationList`) holding people and groups together, **sorted by when something last happened** -
 people and groups against each other, which is the order somebody scanning for a conversation looks in.
-A row says which kind it is with a small mark, one search box filters both, and "New group" sits under
-the list rather than in a page header. Looking for "who have I been talking to" is one place, and moving
-between a group and a person does not change screens.
+A row says which kind it is with a small mark and one search box filters both. Looking for "who have I
+been talking to" is one place, and moving between a group and a person does not change screens.
+
+**"New group" is not on that list.** It sat under it until 2026-09-20; it is on the contacts page now,
+under the Groups tab, where the groups themselves are listed. The list beside a thread is a column to
+pick from rather than a place things are made. The making itself still happens on the chat page, where
+the conversation would be - the contacts page asks for it by address (`/chat/groups?new=1`), which is
+the same address that button used.
 
 That single order needs both kinds to answer the same question, so a group carries
 `LastMessageAtUtc` of its own (`ChatGroup`), stamped where the fan-out is written -
@@ -1913,8 +1918,8 @@ totally ordered from the moment a group exists rather than needing a second rule
 the quiet ones. Groups used to follow the people in a block of their own, sorted by
 name, because there was no such time to sort them by.
 
-The list folds to a strip of initials, and **the folding is done by the stylesheet alone** — the names,
-the search box and "New group" always reach the page. That matters because on a narrow screen the list
+The list folds to a strip of initials, and **the folding is done by the stylesheet alone** — the names
+and the search box always reach the page. That matters because on a narrow screen the list
 is not an inline panel at all but a slide-out drawer, where folding means nothing: the drawer is either
 open or off-canvas. Markup that dropped the names when folded could not be talked back into showing
 them however much CSS asked, so the drawer opened as a wide panel of bare initials with no search and
@@ -5276,6 +5281,13 @@ group" and "you are not in it", because from the caller's side those are the sam
 The change is announced to that account's **other devices** only (see
 [Live updates](#live-updates)): a conversation put away on a phone should not still be in the way on
 the laptop, and nobody else's screen changed.
+
+**In the browser it is offered wherever a conversation is met** (2026-09-20). It used to be on the
+contacts page alone, so the two places somebody actually *reads* a conversation could not be done with
+one: the thread's own menu now puts it away and leaves for the list, since what was being read is no
+longer on the page it was pressed from, and the contact card carries Archive / Put back in the corner
+every other object keeps its menu in. Both say so when the press fails - a menu that closes and does
+nothing looks exactly like one that never registered.
 
 **The phone offers all three as of 2026-09-01.** Each list - people, groups - carries its own switch to
 what has been put away, shown only once something is there, and each row's menu offers putting it away,

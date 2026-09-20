@@ -37,6 +37,27 @@ public sealed class ContactInfoTests : OrbitTestContext
         Assert.Contains("anna@example.com", cut.Markup);
     }
 
+    /// <summary>
+    /// The conversation can be put away from here. Until 2026-09-20 it was offered on the contacts
+    /// page alone, so neither of the two places somebody actually reads a conversation - this card and
+    /// the thread itself - could be done with one.
+    /// </summary>
+    [Fact]
+    public void The_conversation_can_be_put_away_from_the_card()
+    {
+        var archived = new List<string>();
+        RegisterClients(
+            userJson: $$"""{"id":"{{ContactUserId}}","userName":"anna","displayName":"Anna Kowalska","publicKeyBase64":"key"}""",
+            contactsJson: ContactListJson("Available"),
+            onRequest: request => archived.Add(request.RequestUri!.AbsolutePath));
+        var cut = Render();
+
+        cut.Find(".contact-info-card .overflow-menu-trigger").Click();
+        cut.FindAll(".avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Archive").Click();
+
+        Assert.Contains(archived, path => path.Contains("/archived", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void It_says_whether_they_are_here_right_now()
     {
@@ -197,10 +218,17 @@ public sealed class ContactInfoTests : OrbitTestContext
         """;
 
     /// <param name="userJson">Null stands for an account the API has nothing for - a 404 from /api/users.</param>
-    private void RegisterClients(string? userJson, string contactsJson)
+    /// <param name="onRequest">
+    /// Every request as it goes out, for a test about what a press actually sends rather than about
+    /// what the page draws.
+    /// </param>
+    private void RegisterClients(
+        string? userJson, string contactsJson, Action<HttpRequestMessage>? onRequest = null)
     {
         var httpClient = new HttpClient(new StubHttpMessageHandler(request =>
         {
+            onRequest?.Invoke(request);
+
             if (request.RequestUri!.AbsolutePath.Contains("/api/users/", StringComparison.Ordinal))
             {
                 return userJson is null
