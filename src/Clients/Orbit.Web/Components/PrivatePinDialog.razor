@@ -1,0 +1,101 @@
+@using Orbit.Web.Services
+@inject PrivatePinGate Gate
+@inject ILogger<PrivatePinDialog> Logger
+@inject Translations T
+
+@* The door in front of what is private, on the page that was about to draw it. Asked once a session -
+   see PrivatePinGate, which is also where the reasoning for why it is a door rather than a lock lives.
+
+   No way past it but the PIN: the page behind it is drawing nothing, and "Not now" would be a button
+   that means "show me anyway". What it does offer is the way back to where everything else is, so a
+   reader who does not remember it is not stranded on a page with one field on it. *@
+<Dialog Title="@(T["Your PIN"])" OnClosed="OnGaveUp">
+    <ChildContent>
+        <p>@T["This is private. Type your PIN to see it."]</p>
+        <div class="field">
+            <label for="privatePinBox">@T["PIN"]</label>
+            @* inputmode rather than type=number: a PIN can begin with a zero, and a number box drops it
+               along with the spinners nobody wants on four digits. *@
+            <input id="privatePinBox" type="password" inputmode="numeric" autocomplete="off"
+                   maxlength="8" value="@_pin" aria-label="@(T["PIN"])"
+                   @oninput="args => _pin = args.Value?.ToString() ?? string.Empty"
+                   @onkeydown="OnKeyDownAsync" @ref="_box" />
+        </div>
+        @if (_wasWrong)
+        {
+            <p class="error">@T["That is not the PIN."]</p>
+        }
+    </ChildContent>
+    <Footer>
+        <button type="button" class="btn-secondary" @onclick="OnGaveUp">@T["Back"]</button>
+        <button type="button" class="btn-primary" disabled="@(_pin.Length == 0 || _isAsking)"
+                @onclick="AnswerAsync">@T["Unlock"]</button>
+    </Footer>
+</Dialog>
+
+@code {
+    /// <summary>
+    /// Where the reader goes when they cannot answer. The page behind this is showing nothing, so
+    /// closing the question has to lead somewhere rather than back to a blank screen.
+    /// </summary>
+    [Parameter] public EventCallback OnGaveUp { get; set; }
+
+    /// <summary>Answered. The page redraws itself; the gate holds the answer for the rest of the session.</summary>
+    [Parameter] public EventCallback OnOpened { get; set; }
+
+    private string _pin = string.Empty;
+    private bool _wasWrong;
+    private bool _isAsking;
+    private ElementReference? _box;
+    private bool _isWaitingToFocus = true;
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            await AnswerAsync();
+        }
+    }
+
+    private async Task AnswerAsync()
+    {
+        if (_isAsking || _pin.Length == 0)
+        {
+            return;
+        }
+
+        _isAsking = true;
+        try
+        {
+            if (await Gate.AnswerAsync(_pin))
+            {
+                Logger.LogInformation("The reader answered the PIN for what is private");
+                await OnOpened.InvokeAsync();
+                return;
+            }
+
+            // Cleared, because the next attempt is a fresh one and a wrong PIN left in the box is four
+            // characters to delete before it can be.
+            Logger.LogInformation("The PIN offered for what is private was refused");
+            _wasWrong = true;
+            _pin = string.Empty;
+            _isWaitingToFocus = true;
+        }
+        finally
+        {
+            _isAsking = false;
+        }
+    }
+
+    /// <summary>A box nobody has to find and click before typing the thing the page is asking for.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_isWaitingToFocus || _box is not { } box)
+        {
+            return;
+        }
+
+        _isWaitingToFocus = false;
+        await box.FocusAsync();
+    }
+}

@@ -98,6 +98,10 @@
                        Invitation="(shareId, title) => new NoteShareMessagePayload(shareId, title)"
                        OnClosed="() => _sharingOne = null" />
 }
+@* The Private tab is behind the account's PIN, where one is set - asked once a session, see
+   PrivatePinGate. Around the list rather than around the page: the tabs stay, so the way out of the
+   question is simply another tab. *@
+<BehindThePin Applies="IsReadingWhatIsPrivate" OnGaveUp="LeaveThePrivateTab">
 <ObjectList IsLoading="_notes is null" IsEmpty="_notes is { Count: 0 }" EmptyMessage="@T["No notes."]">
     @if (_notes is { Count: > 0 } && VisibleNotes.Count == 0)
     {
@@ -193,9 +197,20 @@
         }
     </div>
 </ObjectList>
+</BehindThePin>
 
 @code {
     private IReadOnlyList<NoteDto>? _notes;
+
+    /// <summary>Whether the reader is standing in the Private tab - what the PIN is asked for.</summary>
+    private bool IsReadingWhatIsPrivate
+        => Folders.ChosenOn(FolderPage.Notes) == FolderKey.Of(BuiltInFolder.Private);
+
+    /// <summary>
+    /// Where the question leads when it cannot be answered: back to where everything else is. Closing it
+    /// has to lead somewhere - the list behind it is drawing nothing.
+    /// </summary>
+    private void LeaveThePrivateTab() => Folders.Choose(FolderPage.Notes, FolderKey.Default);
 
     /// <summary>
     /// The notes in the folder that is open. A note nobody filed is still in one - Public, or Private

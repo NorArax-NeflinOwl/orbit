@@ -2651,10 +2651,19 @@ down whole rather than started, so nothing in it depends on being remembered.
   far as its address - "/notes/new" is replaced with the note's own so Back cannot reopen the form
   that made it.
 
-- **A PIN for private things.** Notes, task lists, inventories and events - map points excepted, which
-  are sealed by their own rule (see "Places are sealed by default"). Showing or editing a private
-  thing asks for the PIN once per session, and offers to make one where the account has none. One PIN
-  for the whole account, changed in the account settings under the password subsection.
+- ~~**A PIN for private things.**~~ Done 2026-09-20 in the browser: one per account, hashed beside the
+  password (`User.PrivatePinHash`), asked once a session before the Private tab draws anything on the
+  notes, the task lists, the inventories and the dashboard (`BehindThePin`, `PrivatePinGate`), and set,
+  changed or removed in the options under the password - with the *password* as proof, so a forgotten
+  PIN does not lock its own owner out. **Events were on the list and have nothing to gate**: an event
+  cannot be sealed at all (`FolderPages.HasAPrivateTab`), so sealing one is a different and larger ask.
+  Map points are excepted as the user said.
+
+  Still to do: **the phone**, which has the device lock (`PrivateItemGate`) in the same place and would
+  now have two questions in front of the same thing - which of them to keep, or whether the PIN stands
+  in for the device lock where an account has one, is a decision rather than a port. And **opening one
+  private item by its own address** - a link from a notification, or a note reached from the column
+  beside the writing - still draws it without asking; the door is on the tabs, not yet on the editors.
 
 - **A whole folder can be shared**, through chat and through a public link - the two ways a single
   thing is shared today.

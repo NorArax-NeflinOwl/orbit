@@ -111,6 +111,9 @@ else
         </PhoneToolbar>
     }
 
+    @* The Private tab is behind the account's PIN here too - it is the same three kinds of card, met on
+       another page. See PrivatePinGate. *@
+    <BehindThePin Applies="IsReadingWhatIsPrivate" OnGaveUp="LeaveThePrivateTab">
     <div class="card-grid">
         @if (NotesUnderTheOpenTab.Count > 0 && ShowsCard("notes"))
         {
@@ -465,6 +468,7 @@ else
             </ItemCard>
         }
     </div>
+    </BehindThePin>
 
     @* A tab that narrows the page down to nothing. Every card is now drawn only where it has something
        under the open tab, so without this an empty folder - or Private on an account that has sealed
@@ -965,6 +969,9 @@ else
     /// <summary>Whether the reader is standing in the built-in Private tab - see PrivateCards.</summary>
     private bool IsReadingWhatIsPrivate
         => TheOpenTab == FolderKey.Of(BuiltInFolder.Private);
+
+    /// <summary>Where the PIN's question leads when it cannot be answered - see BehindThePin.</summary>
+    private void LeaveThePrivateTab() => Folders.Choose(FolderPage.Dashboard, FolderKey.Default);
 
     /// <summary>
     /// The only cards that can hold something sealed. Named rather than worked out from the data,

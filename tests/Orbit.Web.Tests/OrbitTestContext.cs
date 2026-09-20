@@ -146,6 +146,17 @@ public abstract class OrbitTestContext : TestContext
         // on every load, so a test about that page should not fail on a service it never exercises.
         // Empty here, which is a browser where nothing has been left unsaved.
         Services.AddScoped<NoteDrafts>();
+        // Whether the PIN in front of what is private has been answered - see PrivatePinGate. Every
+        // page that draws something sealed asks it on load, so a test about one of those pages should
+        // not fail on a service it never exercises. The account it reads has no PIN unless a test
+        // registers one that has, which is the door standing open.
+        Services.AddScoped(services => new PrivatePinGate(
+            services.GetService<UsersApiClient>()
+            ?? new UsersApiClient(new HttpClient(new StubHttpMessageHandler(_ =>
+                new HttpResponseMessage(HttpStatusCode.NotFound)))
+            {
+                BaseAddress = new Uri("https://example.test/")
+            })));
         // Which of the two the page is in. The map asks it to start its own light/night switch from
         // what the map already looks like (see ThemeService.IsDarkNowAsync), so a test about the map
         // should not fail on a service it never exercises - the same reason Translations is here.

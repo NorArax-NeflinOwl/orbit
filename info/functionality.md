@@ -2571,6 +2571,30 @@ promise that otherwise only holds against the server (`PrivateItemGate`). A devi
 which of the two situations it is in — no key here, or a key pair since replaced — rather than showing
 an empty editor.
 
+**The browser has a PIN of its own** (2026-09-20, asked for). One per account, hashed on the server
+beside the password (`User.PrivatePinHash`, `OS_U_PRIVATEPINHASH`), and asked **once a session** before
+the Private tab draws anything - on the notes, the task lists, the inventories and the dashboard
+(`BehindThePin`, `PrivatePinGate`). It is the browser's counterpart of the phone's device lock: the same
+promise, kept against the person standing at the screen rather than against the server.
+
+**It is a door, not a lock.** What keeps a private note unreadable is the key it is sealed with, which
+never leaves the browser; this is the question asked before what has already been *opened* is drawn.
+So the answer is held in memory and nowhere else - a tab closed and opened again asks again, which is
+the whole of "once per session" - and what is behind it is not rendered at all while it stands, rather
+than drawn and covered over.
+
+Setting, changing or removing it is in the options **under the password**, and takes the *password*
+rather than the PIN being replaced: four digits are a thing people forget, and one only its rememberer
+can change locks its own owner out. Four to eight digits, checked on both sides; an empty box means
+"ask me no more", which is a real answer. The endpoints are `PUT /api/users/me/private-pin` and
+`POST /api/users/me/private-pin/check`, both rate-limited like the password ones and both listed among
+the requests whose 401 means "wrong secret" rather than "expired session"
+(`AuthorizationMessageHandler.PasswordProvingRequests`) - a mistyped PIN must not sign anybody out.
+
+**The map's points are not behind it**, and that is the user's own line: a place is met on a map read at
+a glance, and a question in front of it would be asked at every one. **Nor are events**: an event cannot
+be sealed at all (`FolderPages.HasAPrivateTab`), so there is nothing there to put a door in front of.
+
 What private costs:
 
 - **It can't be shared.** `ShareNoteCommandHandler`/`ShareTaskListCommandHandler` refuse it, and an

@@ -44,6 +44,7 @@ erDiagram
         text OS_U_PRIVATEKEYSALTBASE64
         int OS_U_PRIVATEKEYDERIVATIONITERATIONS
         bool OS_U_KEEPSTHIRDPARTIESOUT
+        text OS_U_PRIVATEPINHASH "the door in front of what is private; null until one is set"
         timestamptz OS_U_EMAILVERIFIEDATUTC
     }
     OS_TAGS_COLOURS {

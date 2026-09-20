@@ -171,6 +171,8 @@ using Orbit.Core.Users.GetWrappedPrivateKey;
 using Orbit.Core.Users.Login;
 using Orbit.Core.Users.RegisterUser;
 using Orbit.Core.Users.ChangePassword;
+using Orbit.Core.Users.SetPrivatePin;
+using Orbit.Core.Users.VerifyPrivatePin;
 using Orbit.Core.Users.DeleteAccount;
 using Orbit.Core.Users.ConfirmEmailVerification;
 using Orbit.Core.Users.RequestEmailVerification;
@@ -328,6 +330,8 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<RegisterUserCommand, RegisterUserResult>, RegisterUserCommandHandler>();
         services.AddScoped<IRequestHandler<UpdateProfileCommand, UpdateProfileResult>, UpdateProfileCommandHandler>();
         services.AddScoped<IRequestHandler<ChangePasswordCommand, bool>, ChangePasswordCommandHandler>();
+        services.AddScoped<IRequestHandler<SetPrivatePinCommand, bool>, SetPrivatePinCommandHandler>();
+        services.AddScoped<IRequestHandler<VerifyPrivatePinQuery, bool>, VerifyPrivatePinQueryHandler>();
         services.AddScoped<IRequestHandler<SetPasswordCommand, bool>, SetPasswordCommandHandler>();
         services.AddScoped<IRequestHandler<SignInWithGoogleCommand, User?>, SignInWithGoogleCommandHandler>();
         services.AddScoped<IRequestHandler<LinkGoogleAccountCommand, LinkGoogleAccountResult>, LinkGoogleAccountCommandHandler>();

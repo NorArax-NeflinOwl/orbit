@@ -193,6 +193,24 @@ public static class PolishTranslations
         ["Write something in it."] = "Napisz w niej coś.",
         // The other half of the same answer: a new note has to be named before it can be saved.
         ["Give it a name."] = "Nadaj jej nazwę.",
+        // The PIN in front of what is private - the dialog, and the pair of fields in the options under
+        // the password it is proved with. See PrivatePinGate.
+        ["Your PIN"] = "Twój PIN",
+        ["PIN"] = "PIN",
+        ["This is private. Type your PIN to see it."] = "To jest prywatne. Wpisz PIN, żeby to zobaczyć.",
+        ["That is not the PIN."] = "To nie jest ten PIN.",
+        ["PIN for what is private"] = "PIN do rzeczy prywatnych",
+        ["Asked once a session before anything sealed is shown. It does not encrypt anything - your password already does that."] =
+            "Pytamy o niego raz na sesję, zanim pokażemy cokolwiek zaszyfrowanego. Sam nie szyfruje niczego - robi to już Twoje hasło.",
+        ["New PIN"] = "Nowy PIN",
+        ["Four to eight digits. Leave it empty to be asked no more."] =
+            "Od czterech do ośmiu cyfr. Zostaw puste, żeby nie być o niego pytanym.",
+        ["Save PIN"] = "Zapisz PIN",
+        ["Remove PIN"] = "Usuń PIN",
+        ["A PIN is four to eight digits."] = "PIN to od czterech do ośmiu cyfr.",
+        ["PIN saved."] = "PIN zapisany.",
+        ["You won't be asked for a PIN any more."] = "Nie będziemy już pytać o PIN.",
+        ["Couldn't save your PIN. Try again."] = "Nie udało się zapisać PIN-u. Spróbuj ponownie.",
         ["Related inventory"] = "Powiązany magazyn",
         ["Done: {0}"] = "Zrobione: {0}",
         ["About this inventory"] = "O tym magazynie",

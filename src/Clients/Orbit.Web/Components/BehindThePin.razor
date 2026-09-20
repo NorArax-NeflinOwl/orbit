@@ -1,0 +1,45 @@
+@using Orbit.Web.Services
+@implements IDisposable
+@inject PrivatePinGate Gate
+
+@* Puts the account's PIN in front of whatever is inside it, where what is inside it is private (asked
+   for on 2026-09-20). One component rather than the same four lines on every page that draws something
+   sealed - and the pages disagree about nothing here, which is the whole reason it is one question.
+
+   While the question is unanswered nothing inside is rendered at all, rather than drawn and covered: a
+   page that draws what is private and puts a panel over it has already put it on the screen, and the
+   screen is what the question is about. *@
+@if (!Applies)
+{
+    @ChildContent
+}
+else if (Gate.Asks)
+{
+    <PrivatePinDialog OnGaveUp="OnGaveUp" OnOpened="StateHasChanged" />
+}
+else
+{
+    @ChildContent
+}
+
+@code {
+    /// <summary>Whether what is inside is private at all. False draws it with no question asked.</summary>
+    [Parameter] public bool Applies { get; set; }
+
+    /// <summary>Where the reader goes when they cannot answer - see PrivatePinDialog.OnGaveUp.</summary>
+    [Parameter] public EventCallback OnGaveUp { get; set; }
+
+    [Parameter, EditorRequired] public RenderFragment? ChildContent { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Gate.Changed += OnGateChanged;
+        // Asked once for the tab's life and answered from the account that has usually just been read;
+        // the gate itself does nothing when it already knows.
+        await Gate.LearnWhetherThereIsOneAsync();
+    }
+
+    public void Dispose() => Gate.Changed -= OnGateChanged;
+
+    private void OnGateChanged() => InvokeAsync(StateHasChanged);
+}

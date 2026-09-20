@@ -82,7 +82,7 @@ public sealed class UserRepository : IUserRepository
         => User.FromPersistence(
             entity.Id, entity.Email, entity.UserName, entity.DisplayName, entity.PasswordHash, entity.CreatedAtUtc,
             entity.PublicKeyBase64, ToWrappedPrivateKey(entity), entity.EmailVerifiedAtUtc, entity.GoogleSubjectId,
-            ToLocation(entity), ToPresence(entity), entity.KeepsThirdPartiesOut);
+            ToLocation(entity), ToPresence(entity), entity.KeepsThirdPartiesOut, entity.PrivatePinHash);
 
     private static UserEntity ToEntity(User user)
         => new()
@@ -106,7 +106,8 @@ public sealed class UserRepository : IUserRepository
             LocationRecordedAtUtc = user.Location?.RecordedAtUtc,
             PresenceAvailability = user.Presence.Availability.ToString(),
             PresenceLastSeenAtUtc = user.Presence.LastSeenAtUtc,
-            KeepsThirdPartiesOut = user.KeepsThirdPartiesOut
+            KeepsThirdPartiesOut = user.KeepsThirdPartiesOut,
+            PrivatePinHash = user.PrivatePinHash
         };
 
     /// <summary>

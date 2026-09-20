@@ -113,6 +113,8 @@
                        Invitation="(shareId, name) => new InventoryShareMessagePayload(shareId, name)"
                        OnClosed="() => _isSharingPicked = false" />
 }
+@* The Private tab is behind the account's PIN, where one is set - see PrivatePinGate. *@
+<BehindThePin Applies="IsReadingWhatIsPrivate" OnGaveUp="LeaveThePrivateTab">
 <ObjectList IsLoading="_inventories is null" IsEmpty="_inventories is { Count: 0 }"
             EmptyMessage="@T["No inventories yet. Create one to start tracking stock."]">
     @if (_inventories is { Count: > 0 } && ArrangedInventories.Count == 0)
@@ -202,6 +204,7 @@
         }
     </div>
 </ObjectList>
+</BehindThePin>
 
 @code {
     private IReadOnlyList<InventoryDto>? _inventories;
@@ -514,6 +517,13 @@
     private bool NewsIsInAFolderThatIsNotOpen
         => (_inventories ?? []).Any(inventory =>
             HasNewsAbout(inventory) && PlacementOf(inventory) != Folders.ChosenOn(FolderPage.Inventories));
+
+    /// <summary>Whether the reader is standing in the Private tab - what the PIN is asked for.</summary>
+    private bool IsReadingWhatIsPrivate
+        => Folders.ChosenOn(FolderPage.Inventories) == FolderKey.Of(BuiltInFolder.Private);
+
+    /// <summary>Where the question leads when it cannot be answered: back to where everything else is.</summary>
+    private void LeaveThePrivateTab() => Folders.Choose(FolderPage.Inventories, FolderKey.Default);
 
     /// <summary>The card being dragged to a new place, while one is - see RowArrangement.</summary>
     private readonly RowArrangement<InventoryDto> _cardOrder = new();
