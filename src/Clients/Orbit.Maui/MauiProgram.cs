@@ -223,6 +223,10 @@ public static class MauiProgram
 		// navigator writes to it on every move, the phone's back gesture pops it and the top bar reads
 		// it to decide between the menu and the back arrow - see ScreenHistory.
 		services.AddSingleton<ScreenHistory>();
+		// One answer for the window, set by the platform and read by whatever should stand aside while
+		// somebody is typing - see SoftKeyboard, and MainActivity's insets listener, which is what sets
+		// it on Android.
+		services.AddSingleton<SoftKeyboard>();
 		// Both are singletons because they describe the app rather than a screen: every navigation
 		// bar reads the same presence, and every section reports into the same sync state.
 		services.AddSingleton<Orbit.Mobile.Presence.Presence>();

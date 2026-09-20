@@ -353,6 +353,12 @@ objecting to.
 **The dialog is the only one that interrupts** (`AdInterruption`). The rail and the bar simply sit
 there.
 
+**The phone's bar stands aside for the keyboard** (2026-09-20, `SoftKeyboard`, set by `MainActivity`'s
+insets listener). The bar sits across the foot of every screen, which is exactly where a keyboard opens,
+so writing anything meant reading half a form with an advert over the rest of it - on the calendar it
+covered the date and the time of the event being typed in. It comes back the moment the keyboard is put
+away, showing the same advert: nobody is handed a different one for having typed something.
+
 **An account holding the Debugger permission sees no adverts at all until it asks for them** (2026-09-11)
 - not the dialog, and not the rail or the bar either. Whoever holds that permission is looking at
 Orbit's own internals, which means they are working on Orbit rather than reading it, and the slots were
@@ -2222,6 +2228,16 @@ well as hidden on screen: it **cannot be shared**, **cannot be given a public li
 that already had a link closes the link with it), and **cannot be duplicated by the server** — sealing is
 the client's work and the server has no key, so a copy it made would be an empty place wearing the name
 of a full one. Somebody who wants to hand a place over turns sealing off for that place first.
+
+**The phone can turn it off too, since 2026-09-20.** It had no control for the seal at all and no field
+for it on the save, so every place made or edited there was sealed and stayed sealed - and because a
+sealed place cannot be shared, pressing Share on one and choosing somebody answered "Couldn't share
+that." for a place whose owner had never chosen to seal it. The place's own screen carries the switch
+now, its sharing panel is guarded on it the way the note, task list and shelf screens are guarded on
+theirs, and where the panel is not offered the screen says why. Two more things a save from that screen
+used to lose, both for the same reason - the content record's defaults stood in for what the place
+actually was: an open place came back sealed (and so emptied), and a place the browser had put on a task
+list came back on none.
 
 **It takes no `null`-means-not-provided fields**: one form writes every one of them, so a missing field is
 a client that meant to clear it. That is the opposite of the rule a task entry's newer fields follow, and

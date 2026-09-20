@@ -9,6 +9,7 @@ using AndroidX.Core.View;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Platform;
 using Orbit.Mobile.Notifications;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Navigation;
 
 namespace Orbit.Maui;
@@ -103,12 +104,13 @@ public class MainActivity : MauiAppCompatActivity
 	/// </summary>
 	private void KeepTheKeyboardOffTheFootOfThePage()
 	{
-		if (!OperatingSystem.IsAndroidVersionAtLeast(35)
-			|| Window?.DecorView.FindViewById(Android.Resource.Id.Content) is not { } content)
+		if (Window?.DecorView.FindViewById(Android.Resource.Id.Content) is not { } content)
 		{
 			return;
 		}
 
+		// On every version, not only the ones that need padding: the listener is also where the app
+		// learns the keyboard is up at all, which is what the advertising bar stands aside for.
 		ViewCompat.SetOnApplyWindowInsetsListener(content, new KeyboardRoom());
 	}
 
@@ -127,7 +129,23 @@ public class MainActivity : MauiAppCompatActivity
 			}
 
 			var keyboard = insets.GetInsets(WindowInsetsCompat.Type.Ime())?.Bottom ?? 0;
-			view.SetPadding(view.PaddingLeft, view.PaddingTop, view.PaddingRight, keyboard);
+
+			// Said out loud for the parts of a screen that stand aside while somebody types - see
+			// SoftKeyboard, and the advertising bar, which is exactly where a keyboard opens. Told on
+			// the UI thread, since what reads it is bound to.
+			if (IPlatformApplication.Current?.Services.GetService<SoftKeyboard>() is { } keyboardState)
+			{
+				var isUp = keyboard > 0;
+				Microsoft.Maui.Controls.Application.Current?.Dispatcher.Dispatch(() => keyboardState.IsUp = isUp);
+			}
+
+			// The padding is only wanted where AdjustResize has stopped doing the work - see the note on
+			// the method above. Below 35 the window is already the right size, and padding it here would
+			// be the second answer to one question.
+			if (OperatingSystem.IsAndroidVersionAtLeast(35))
+			{
+				view.SetPadding(view.PaddingLeft, view.PaddingTop, view.PaddingRight, keyboard);
+			}
 
 			// Handed on rather than consumed: the system bars' insets are somebody else's to apply, and
 			// a listener that swallowed them would take the status bar's room away from MAUI.
