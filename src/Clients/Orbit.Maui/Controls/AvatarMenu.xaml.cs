@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Orbit.Mobile.Screens.Navigation;
 
 namespace Orbit.Maui.Controls;
@@ -15,9 +16,29 @@ namespace Orbit.Maui.Controls;
 /// </summary>
 public partial class AvatarMenu : ContentView
 {
+	private readonly NavigationBarViewModel _bar;
+
 	public AvatarMenu()
 	{
 		InitializeComponent();
-		BindingContext = IPlatformApplication.Current!.Services.GetRequiredService<NavigationBarViewModel>();
+		_bar = IPlatformApplication.Current!.Services.GetRequiredService<NavigationBarViewModel>();
+		BindingContext = _bar;
+
+		// Only while on screen, for the reason <see cref="Drawer"/> spells out: the view model is shared
+		// and outlives every page that draws one of these.
+		Loaded += (_, _) => _bar.PropertyChanged += OnBarChanged;
+		Unloaded += (_, _) => _bar.PropertyChanged -= OnBarChanged;
+	}
+
+	/// <summary>
+	/// Opening the menu puts the keyboard away, the same as the drawer does and for the same reason -
+	/// see <see cref="SoftKeyboard"/>.
+	/// </summary>
+	private void OnBarChanged(object? sender, PropertyChangedEventArgs args)
+	{
+		if (args.PropertyName is nameof(NavigationBarViewModel.IsMenuOpen) && _bar.IsMenuOpen)
+		{
+			SoftKeyboard.Dismiss(this);
+		}
 	}
 }

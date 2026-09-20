@@ -184,6 +184,8 @@ classDiagram
         +Guid? FolderId
         +string Name
         +string Description
+        +IReadOnlyList~Guid~ GathersInventoryIds
+        +bool IsGroup
     }
     class InventoryItem {
         +Guid Id
@@ -245,6 +247,7 @@ classDiagram
     CalendarEventDetails "1" *-- "0..1" EventRecurrence
     CalendarEventDetails "1" *-- "0..1" EventLocation
     Inventory "1" *-- "0..*" InventoryItem
+    Inventory "0..*" --> "0..*" Inventory : gathers
     InventoryItem "0..1" --> "0..1" TaskList : pending restock
     User "1" *-- "0..1" WrappedPrivateKey
     User "1" *-- "1" UserPresence
@@ -302,6 +305,13 @@ Most modules are independent. Two are not, and both are deliberate:
   each way is a line ticked by hand or another list, and the entry is done when one way is. The same
   resolver works out a list way, and the same validator checks it for cycles. An entry has links or
   ways, never both.
+
+There is a third edge that is not a loop between modules but a loop inside one: **an inventory gathers
+other inventories** (`Inventory.GathersInventoryIds`, `OL_INVENTORIES_GATHERED`, 2026-09-18). Gathering,
+not containing - a gathered shelf keeps its own rows, its own restock list and its own tie to a task
+list, and goes on standing on the list of inventories in its own right; `IsGroup` is derived from the
+list being non-empty rather than stored. `InventoryGroups` is what refuses a ring and a shelf that is
+not the caller's, which is the same job `TaskListLinkValidator` does for the edge above it.
 
 ## The dispatcher
 

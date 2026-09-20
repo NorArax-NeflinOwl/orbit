@@ -55,6 +55,17 @@ public sealed class LocalContact
     public DateTimeOffset LastMessageAtUtc { get; set; }
 
     /// <summary>
+    /// When this person was last here - see ContactDto.LastSeenAtUtc, which has been arriving on the
+    /// phone all along and was simply not kept. Stored because the card that reads it has to answer
+    /// offline like everything else on the dashboard, and because "when was there last anything here"
+    /// is the later of this and the message above (Orbit.Core.Chat.ConversationRecency).
+    ///
+    /// Null for an account nobody has ever seen, and for every row stored before this was kept - in
+    /// which case the message is the whole answer, which is exactly what the card said before.
+    /// </summary>
+    public DateTimeOffset? LastSeenAtUtc { get; set; }
+
+    /// <summary>
     /// Put away by this reader, and by nobody else - see ContactDto.IsArchived. One-sided on purpose:
     /// the other party's list has its own row and its own answer.
     /// </summary>
@@ -67,6 +78,32 @@ public sealed class LocalContact
     /// </summary>
     [NotMapped]
     public bool IsPinned { get; set; }
+
+    /// <summary>
+    /// When the last message this phone holds from this conversation was sent, read off the messages
+    /// rather than off the row - see ChatRepository.LastMessageTimesAsync, which says why the row's own
+    /// answer goes stale. Null where this phone holds none of their messages, and then the row's answer
+    /// is the only one there is.
+    ///
+    /// Not stored: it is a fact about the messages beside it, and writing it down would give it a second
+    /// chance to disagree with them.
+    /// </summary>
+    [NotMapped]
+    public DateTimeOffset? LastMessageHeldAtUtc { get; set; }
+
+    /// <summary>
+    /// When there was last anything to read here - the message this phone actually holds where there is
+    /// one, and what the row says otherwise.
+    /// </summary>
+    public DateTimeOffset LastMessageShown => LastMessageHeldAtUtc ?? LastMessageAtUtc;
+
+    /// <summary>
+    /// That moment in the reader's own words, for the row that draws it - see RelativeMoment. Put here
+    /// by the screen rather than worked out here: this is a stored row and has no dictionary, and the
+    /// row it is drawn on has none either.
+    /// </summary>
+    [NotMapped]
+    public string WhenShown { get; set; } = string.Empty;
 
     /// <summary>
     /// How many of their messages this reader has not read - ContactDto.UnreadCount, which the server

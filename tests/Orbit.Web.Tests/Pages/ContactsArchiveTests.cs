@@ -34,6 +34,47 @@ public sealed class ContactsArchiveTests : OrbitTestContext
         Assert.DoesNotContain("Anna", cut.Markup);
     }
 
+    /// <summary>
+    /// The Chats tab is ordered the way the dashboard's "Recent chats" card is - the later of the last
+    /// message and the last time they were here (Conversation.LastAnythingFrom). It has to be: that card
+    /// is the top of this very list, and two orders would have the list reshuffle itself the moment
+    /// somebody clicked through from the card to the whole of it. 2026-09-19.
+    /// </summary>
+    [Fact]
+    public void The_chats_tab_is_ordered_the_way_the_dashboard_card_is()
+    {
+        Register(contacts: [
+            Contact("Wrote last week", isArchived: false,
+                lastMessageAtUtc: "2026-08-01T10:00:00+00:00", lastSeenAtUtc: "2026-08-01T10:00:00+00:00"),
+            Contact("Here this morning", isArchived: false,
+                lastMessageAtUtc: "2026-07-01T10:00:00+00:00", lastSeenAtUtc: "2026-08-20T08:00:00+00:00")]);
+
+        var cut = RenderComponent<Web.Pages.Contacts>();
+
+        var names = cut.Markup;
+        Assert.True(
+            names.IndexOf("Here this morning", StringComparison.Ordinal)
+                < names.IndexOf("Wrote last week", StringComparison.Ordinal),
+            "somebody who was here this morning should be above a conversation nobody has touched since");
+    }
+
+    /// <summary>
+    /// And each row says when there was last anything here - the half of this the reader actually sees.
+    /// The server answers it from the messages rather than from the contact row, which is bumped on a
+    /// send and never moved back; see GetContactsQueryHandler.LastMessageIn. 2026-09-19.
+    /// </summary>
+    [Fact]
+    public void A_chat_row_says_when_there_was_last_anything()
+    {
+        Register(contacts: [
+            Contact("Here this morning", isArchived: false,
+                lastMessageAtUtc: DateTimeOffset.UtcNow.AddHours(-2).ToString("O"))]);
+
+        var cut = RenderComponent<Web.Pages.Contacts>();
+
+        Assert.Contains("2h ago", cut.Find(".person-row-when").TextContent, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void And_is_on_the_archive_tab_instead()
     {
@@ -213,12 +254,15 @@ public sealed class ContactsArchiveTests : OrbitTestContext
             tokenStore, new TokenRefreshService(tokenStore, refreshHttpClient)));
     }
 
-    private static string Contact(string displayName, bool isArchived)
+    private static string Contact(
+        string displayName, bool isArchived,
+        string lastMessageAtUtc = "2026-08-01T10:00:00+00:00", string? lastSeenAtUtc = null)
         => $$"""
         {"userId":"{{Guid.NewGuid()}}","userName":"{{displayName.ToLowerInvariant()}}","displayName":"{{displayName}}",
          "email":"{{displayName.ToLowerInvariant()}}@example.test","publicKeyBase64":"key",
-         "lastMessageAtUtc":"2026-08-01T10:00:00+00:00","requiresApprovalFromCurrentUser":false,
+         "lastMessageAtUtc":"{{lastMessageAtUtc}}","requiresApprovalFromCurrentUser":false,
          "isPendingApprovalFromOtherParty":false,"unreadCount":0,"presenceStatus":"Offline",
+         "lastSeenAtUtc":{{(lastSeenAtUtc is null ? "null" : $"\"{lastSeenAtUtc}\"")}},
          "isArchived":{{(isArchived ? "true" : "false")}}}
         """;
 

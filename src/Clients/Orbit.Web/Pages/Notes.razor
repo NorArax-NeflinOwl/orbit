@@ -470,10 +470,15 @@
     private async Task SetPinnedAsync(NoteDto note, bool isPinned)
     {
         Logger.LogInformation("User clicked '{Action}' for note {NoteId}", isPinned ? "Pin" : "Unpin", note.Id);
+        _deleteMessage = null;
         try
         {
             if (!await NotesApiClient.SetPinnedAsync(note.Id, isPinned))
             {
+                // Refused rather than thrown, and just as invisible: the pin stays where it was and the
+                // press reads as one that never registered. See this page's own _deleteMessage, and the
+                // delete below, which has said so since it was written.
+                _deleteMessage = T["Couldn't change that note. Try again."];
                 return;
             }
         }
@@ -485,6 +490,7 @@
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to pin note {NoteId}", note.Id);
+            _deleteMessage = T["Couldn't change that note. Try again."];
             return;
         }
 
@@ -508,10 +514,12 @@
     {
         Logger.LogInformation(
             "User clicked '{Action}' for note {NoteId}", isArchived ? "Archive" : "Put back", note.Id);
+        _deleteMessage = null;
         try
         {
             if (!await NotesApiClient.SetArchivedAsync(note.Id, isArchived))
             {
+                _deleteMessage = T["Couldn't change that note. Try again."];
                 return;
             }
         }
@@ -523,6 +531,7 @@
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to archive note {NoteId}", note.Id);
+            _deleteMessage = T["Couldn't change that note. Try again."];
             return;
         }
 
@@ -534,7 +543,12 @@
     /// <summary>Which note is being deleted right now, so a second press cannot ask twice.</summary>
     private Guid? _deletingNoteId;
 
-    /// <summary>What to say about the last delete - empty while nothing needs saying.</summary>
+    /// <summary>
+    /// What to say about the last press on a row - empty while nothing needs saying. Named for the
+    /// delete it was written for; it answers for pinning, putting away and copying too, since all four
+    /// fail the same invisible way: the row stays exactly as it was, which is also what a press that
+    /// never registered looks like.
+    /// </summary>
     private string? _deleteMessage;
 
     /// <summary>

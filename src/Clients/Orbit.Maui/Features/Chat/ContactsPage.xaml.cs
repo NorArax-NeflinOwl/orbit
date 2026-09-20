@@ -45,7 +45,8 @@ public partial class ContactsPage : ContentPage, ITitleMenu
 				_translations["Show what is put away"],
 				() => _viewModel.IsShowingArchive = true,
 				_viewModel.IsShowingArchive,
-				canBeChosen: _viewModel.HasArchive)
+				canBeChosen: _viewModel.HasArchive,
+				note: _viewModel.HasArchive ? null : _translations["Nothing is put away."])
 		],
 		_translations["Show"]);
 

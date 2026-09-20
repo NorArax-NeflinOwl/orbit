@@ -10,15 +10,15 @@
          anatomy has nowhere to put an avatar, and giving each conversation a tag row would make a
          picker into a page. The same shape Orbit.Web settled on - see its PersonRow.razor.
 
-             [pin][action][avatar with status][name ...................][menu]
+             [pin][action][avatar with status][name ..............][when][menu]
 
          A group has no status on its avatar - a group is not somewhere anybody is or is not. -->
-    <Grid ColumnDefinitions="Auto,Auto,*,Auto" Padding="0,8">
+    <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" Padding="0,8">
 
         <!-- The hairline above it, which is what separates one row from the next everywhere in this
              design - see ItemCard's row shape, which draws the same rule for the lists that hold
              things rather than people. -->
-        <BoxView Grid.ColumnSpan="4" Style="{StaticResource Hairline}" VerticalOptions="Start"
+        <BoxView Grid.ColumnSpan="5" Style="{StaticResource Hairline}" VerticalOptions="Start"
                  Margin="0,-8,0,0" />
 
         <!-- No column spacing: what comes before the face is optional, and an empty column must cost
@@ -44,7 +44,15 @@
                    TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
         </VerticalStackLayout>
 
-        <ContentView x:Name="MenuHost" Grid.Column="3" IsVisible="False" VerticalOptions="Center" />
+        <!-- When there was last anything to read here, at the trailing edge the way the design's contact
+             row has it - see PersonRow.When, and ChatRepository.LastMessageTimesAsync for why it is read
+             off the messages rather than off the contact row. Nothing at all where there is nothing to
+             say, so a list of people nobody has written to yet does not grow a column of blanks. -->
+        <Label x:Name="WhenLabel" Grid.Column="3" IsVisible="False" FontSize="11" Margin="8,0,0,0"
+               VerticalOptions="Center" LineBreakMode="NoWrap"
+               TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+
+        <ContentView x:Name="MenuHost" Grid.Column="4" IsVisible="False" VerticalOptions="Center" />
     </Grid>
 
 </ContentView>

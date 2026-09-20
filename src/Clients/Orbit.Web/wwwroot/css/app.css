@@ -8018,6 +8018,16 @@ span.calendar-task-chip {
     white-space: nowrap;
 }
 
+/* When there was last anything here, pushed to the trailing edge - see PersonRow.When. It never
+   shrinks and never wraps: the name beside it is what gives way, and a date broken across two lines
+   reads as two answers. */
+.person-row-when {
+    margin-left: auto;
+    padding-left: 10px;
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
 .person-row.unread .person-row-name {
     color: var(--text-primary);
 }

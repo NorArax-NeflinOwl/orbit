@@ -528,7 +528,7 @@ else
 
     /// <summary>The drawer's contact list - already-established conversations only, most recently active first (matches Contacts.razor's own "Chats" filter).</summary>
     private IEnumerable<ContactDto> _establishedChats
-        => _contacts.Where(contact => !contact.RequiresApprovalFromCurrentUser).OrderByDescending(contact => contact.LastMessageAtUtc);
+        => _contacts.Where(contact => !contact.RequiresApprovalFromCurrentUser).OrderByDescending(Conversation.LastAnythingFrom);
 
     /// <summary>What the reader has typed into the drawer's search box.</summary>
     private string _chatSearch = string.Empty;
@@ -1810,12 +1810,17 @@ else
     /// conversation looks in, and it is what they expect of a list that holds both. Groups used to
     /// follow in a block of their own, sorted by name, because a group carried no such time - it does
     /// now (see ChatGroup.LastMessageAtUtc), so the two no longer answer different questions.
+    ///
+    /// "When something last happened" for a person is the later of their last message and the last time
+    /// they were here (Conversation.LastAnythingFrom); for a group it is its last message, because a
+    /// group is not somebody who can have been here. Each answers the one question with everything it
+    /// has, which is what keeps them comparable rather than making them two measures on one list.
     /// </summary>
     private IReadOnlyList<Conversation> Conversations =>
     [
         .. _matchingChats
             .Select(contact => (
-                When: contact.LastMessageAtUtc,
+                When: Conversation.LastAnythingFrom(contact),
                 Conversation: new Conversation(
                     contact.UserId, contact.DisplayName, IsGroup: false, UnreadFrom(contact),
                     Conversation.PresenceOf(contact),

@@ -136,7 +136,8 @@ public sealed partial class ScreenMenuEntry : ObservableObject
         bool canBeChosen = true,
         bool staysOpen = false,
         string? count = null,
-        bool hasNews = false)
+        bool hasNews = false,
+        string? note = null)
     {
         Label = label;
         _chosen = chosen;
@@ -145,7 +146,31 @@ public sealed partial class ScreenMenuEntry : ObservableObject
         StaysOpen = staysOpen;
         Count = count;
         HasNews = hasNews;
+        Note = note;
     }
+
+    /// <summary>
+    /// A line under the label saying something the label cannot - in practice, why this entry is greyed.
+    /// An entry that cannot be chosen and says nothing about it is, to the reader, a press that did not
+    /// register: they learn that the option exists and nothing about what it is waiting for. Orbit.Web
+    /// says the same thing with a FieldHint beside the control it disables.
+    ///
+    /// Optional, and not a place for an explanation of what the entry does - a menu of two-line entries
+    /// is a menu nobody reads. Where the reason fits in the label itself it belongs there instead: see
+    /// TaskItemSummaryPage's "No other list yet", which is a greyed entry that is entirely its own
+    /// explanation.
+    /// </summary>
+    public string? Note { get; }
+
+    /// <summary>Kept for the markup, which cannot ask whether a string is empty on its own.</summary>
+    public bool HasNote => !string.IsNullOrWhiteSpace(Note);
+
+    /// <summary>
+    /// What a screen reader says for this entry. The note is part of it: greying is a colour, and a
+    /// colour says nothing to somebody who cannot see it - the same reason InventoryItemRow spells out
+    /// which row was pointed at.
+    /// </summary>
+    public string Spoken => HasNote ? $"{Label}. {Note}" : Label;
 
     /// <summary>
     /// Whether something the reader has not seen is behind this entry - a folder holding a list somebody
