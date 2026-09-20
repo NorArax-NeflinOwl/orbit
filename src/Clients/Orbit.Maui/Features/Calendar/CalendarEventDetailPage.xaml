@@ -45,6 +45,15 @@
                                 TakeCommand="{Binding CopyForEditingCommand}"
                                 DeclineCommand="{Binding DeclineCopyCommand}" />
 
+            <!-- Opened from the event's own menu rather than standing at the foot of the form: sharing
+                 is something somebody does once, and this form is long enough already.
+
+                 Under the event's name, which is where every other screen answers its menu. It used to
+                 sit at the very end of this form, below the reminders and above the Google link - so
+                 choosing Share from a menu at the top opened a panel the reader had to scroll the whole
+                 form to find, and the page would not always scroll that far (reported 2026-09-20). -->
+            <controls:SharePanel x:Name="Sharing" IsVisible="False" BindingContext="{Binding Share}" />
+
             <!-- A box while it can be written in, and words while it cannot: a text box cannot hold a
                  link at all, so an address in an appointment somebody shared read-only was there to be
                  retyped rather than pressed. See LinkedLabel, which shares the browser's own rule about
@@ -320,10 +329,6 @@
                         VerticalOptions="Center"
                         SemanticProperties.Description="{controls:Translate 'Also when it starts'}" />
             </Grid>
-
-            <!-- Opened from the event's own menu rather than standing at the foot of the form: sharing
-                 is something somebody does once, and this form is long enough already. -->
-            <controls:SharePanel x:Name="Sharing" IsVisible="False" BindingContext="{Binding Share}" />
 
             <!-- Hands the event to Google Calendar as a filled-in form, which is what Orbit.Web offers
                  here too - a link rather than an API call, see GoogleCalendarEventLink. Hidden unless
