@@ -53,10 +53,30 @@ internal static class FieldBox
 			return;
 		}
 
-		// A field that has said it is not a box - see Controls/BareField.cs.
+		// A field that has said it is not a box - see Controls/BareField.cs. No outline, and no room
+		// inside it either: Android's own EditText padding is meant to sit inside a box, and with the
+		// box gone it is just space. On the note screen every line is one of these, one under the next,
+		// so that padding was counted twice between every pair of lines - which is why pressing Enter
+		// left "far too much of a gap" between them (reported 2026-09-20). What spacing a line has is
+		// the row's own to give.
 		if (Orbit.Maui.Controls.BareField.GetIsBare(element))
 		{
 			field.Background = null;
+			field.SetPadding(0, 0, 0, 0);
+
+			// And no floor under its height. Android's own field keeps a touch target's worth of room
+			// whatever is written in it, which is right for a form and wrong for a column of lines -
+			// every line of a note was that tall however short it was.
+			if (field is EditText writing)
+			{
+				writing.SetMinHeight(0);
+				writing.SetMinimumHeight(0);
+				// Android adds a fraction of the text size between lines on top of the font's own
+				// leading; a note reads as one column of writing rather than a list of fields.
+				writing.SetLineSpacing(0, 1);
+				writing.SetIncludeFontPadding(false);
+			}
+
 			return;
 		}
 
