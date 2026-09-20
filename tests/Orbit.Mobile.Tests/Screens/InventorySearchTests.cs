@@ -257,9 +257,17 @@ public sealed class InventorySearchTests
         await context.AddInventoryAsync("Kitchen", Item("Flour"));
         var screen = await context.OpenInventoryAsync();
 
-        screen.OfferToShareCommand.Execute(Assert.Single(screen.Inventories));
+        await screen.OfferToShareCommand.ExecuteAsync(Assert.Single(screen.Inventories));
 
-        Assert.True(screen.Share.IsOpen);
+        // Pointed at this inventory, which is what makes the panel worth drawing at all.
+        Assert.True(screen.Share.CanShare);
+        // And with nobody to share with it says so rather than standing open on an empty list of
+        // people. It used to set IsOpen by hand and skip the panel's own Open, which is what fetches
+        // them - so the picker was empty and nothing said why ("I can't pick anybody to share an
+        // inventory with", 2026-09-20). Every other screen reaches the panel by its own button, which
+        // is why this was the only one.
+        Assert.False(screen.Share.IsOpen);
+        Assert.True(screen.Share.HasMessage);
     }
 
     private sealed class ScreenContext : IDisposable

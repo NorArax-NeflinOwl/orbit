@@ -419,7 +419,7 @@ public sealed partial class InventoryViewModel : ObservableObject
     /// has not seen yet cannot be offered either, since there is no id to share.
     /// </summary>
     [RelayCommand]
-    private void OfferToShare(InventoryRow? row)
+    private async Task OfferToShareAsync(InventoryRow? row, CancellationToken cancellationToken)
     {
         if (row is not { CanBeShared: true }
             || _stored.FirstOrDefault(inventory => inventory.LocalId == row.LocalId) is not
@@ -431,8 +431,14 @@ public sealed partial class InventoryViewModel : ObservableObject
         Share.Describes(
             SharedItemKind.Inventory, serverId, stored.Name,
             stored.AccessLevel == "CanEdit" ? null : stored.OwnerUserId);
-        Share.IsOpen = true;
         Message = string.Empty;
+
+        // Through the panel's own Open rather than by setting IsOpen here: that is what fetches the
+        // contacts this account can share with, and what says so when there are none. Opened by hand,
+        // the panel appeared with an empty list of people and no explanation - "I can't pick anybody to
+        // share an inventory with", reported 2026-09-20. Every other screen reaches it by the panel's
+        // own button, which is why this was the only one.
+        await Share.OpenCommand.ExecuteAsync(null);
     }
 
     /// <summary>
