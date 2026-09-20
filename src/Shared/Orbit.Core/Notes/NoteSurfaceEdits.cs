@@ -1032,6 +1032,50 @@ public static partial class NoteSurfaceEdits
         => Reshaped(state, line, _ => null);
 
     /// <summary>
+    /// The picture (or the rule) on <paramref name="line"/>, taken away. Null when that line is neither,
+    /// which is a stale press - answered by doing nothing, the way a table's own commands answer one.
+    ///
+    /// Backspace on the line does this too, and did it first. It was not enough on its own: the caret
+    /// has to be got onto the picture's line to press it, and a picture is drawn by an element nobody
+    /// can type in, so a reader who could not land the caret there had no way at all to be rid of an
+    /// attachment (asked for on 2026-09-20). The picture's own corner now carries the press, and the
+    /// bytes are swept when the note is saved without it - see NotePictureSweeper.
+    /// </summary>
+    public static SurfaceState? RemoveElement(SurfaceState state, int line)
+    {
+        state = state.Normalized();
+        if (line < 0 || line >= state.Lines.Count || !state.Lines[line].IsTakenAwayByAKey)
+        {
+            return null;
+        }
+
+        return RemoveLine(state.Lines.ToList(), line);
+    }
+
+    /// <summary>
+    /// A line to write on under an element the note ends with, with the caret on it. Null when the note
+    /// already ends in writing, so a press that has nothing to do writes nothing and leaves no step in
+    /// the history.
+    ///
+    /// What answers a press below the last line. A picture, a rule or a table at the foot of a note is
+    /// an element with nothing after it, so there was nowhere for the caret to go: the note could not be
+    /// carried on, and the element could not be reached from beneath either. Asked for on 2026-09-20,
+    /// in the same breath as being able to take an attachment out.
+    /// </summary>
+    public static SurfaceState? WriteUnderTheEnd(SurfaceState state)
+    {
+        state = state.Normalized();
+        if (!state.Lines[^1].IsAnElement)
+        {
+            return null;
+        }
+
+        var lines = state.Lines.ToList();
+        lines.Add(SurfaceState.EmptyLine);
+        return SurfaceState.CaretAt(lines, new SurfacePoint(lines.Count - 1, 0));
+    }
+
+    /// <summary>
     /// One change of shape to the table on <paramref name="line"/>, or null when that line is not a
     /// table - a stale press, answered by doing nothing. A table that <paramref name="reshape"/> answers
     /// null for is gone, and the line becomes an empty line of writing rather than vanishing: what

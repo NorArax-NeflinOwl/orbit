@@ -30,6 +30,47 @@ public sealed class NoteSurfacePictureTests
         Assert.Equal(new SurfacePoint(1, 0), after.Caret);
     }
 
+    /// <summary>
+    /// The press in the picture's own corner. Backspace on its line does the same and did it first, but
+    /// the caret has to be got onto that line to press it and a picture cannot be typed in - so a reader
+    /// who could not land it there had no way to be rid of an attachment at all (2026-09-20).
+    /// </summary>
+    [Fact]
+    public void A_picture_is_taken_out_by_the_press_in_its_corner()
+    {
+        var after = NoteSurfaceEdits.RemoveElement(At(0, 0, Text("Shopping"), Picture(), Text("Later")), 1)!;
+
+        Assert.Equal([Text("Shopping"), Text("Later")], after.Lines);
+    }
+
+    /// <summary>A press on a line that is not a picture or a rule is stale - answered by doing nothing.</summary>
+    [Fact]
+    public void The_same_press_on_a_line_of_words_does_nothing()
+    {
+        Assert.Null(NoteSurfaceEdits.RemoveElement(At(0, 0, Text("Shopping"), Picture()), 0));
+        Assert.Null(NoteSurfaceEdits.RemoveElement(At(0, 0, Text("Shopping"), Picture()), 7));
+    }
+
+    /// <summary>
+    /// A note ending in a picture has nowhere for the caret to go, so it could be neither carried on nor
+    /// reached from beneath. A press below the last line gives it a line to write on.
+    /// </summary>
+    [Fact]
+    public void A_press_below_a_note_ending_in_a_picture_gives_it_a_line_to_write_on()
+    {
+        var after = NoteSurfaceEdits.WriteUnderTheEnd(At(1, 0, Text("Shopping"), Picture()))!;
+
+        Assert.Equal([Text("Shopping"), Picture(), Text("")], after.Lines);
+        Assert.Equal(new SurfacePoint(2, 0), after.Caret);
+    }
+
+    /// <summary>A note that already ends in writing has nothing to add, so the press writes nothing.</summary>
+    [Fact]
+    public void The_same_press_under_words_adds_no_line()
+    {
+        Assert.Null(NoteSurfaceEdits.WriteUnderTheEnd(At(0, 8, Text("Shopping"))));
+    }
+
     [Fact]
     public void A_picture_goes_under_a_line_with_words_on_it()
     {

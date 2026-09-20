@@ -134,7 +134,9 @@
             takesTab = TakesTab,
             takesPictures = PicturePasted.HasDelegate,
             focusAtEnd = FocusesAtTheEnd,
-            tickHint = T["Shift+click to select several lines - ticking one selected box then ticks them all."]
+            tickHint = T["Shift+click to select several lines - ticking one selected box then ticks them all."],
+            // What the press in a picture's corner says it does - see createPictureElement.
+            removePictureHint = T["Remove this picture"]
         };
         await _module.InvokeVoidAsync("initialize", _containerRef, _dotNetRef, initialLinesJson, options);
     }
@@ -274,6 +276,13 @@
                 => (NoteSurfaceEdits.RemoveTableColumn(before, columnGoneLine, request.Column ?? -1), SurfaceEditKind.Reshaping),
             "tableRemoved" when TakesStyles && request.Line is { } tableLine
                 => (NoteSurfaceEdits.RemoveTable(before, tableLine), SurfaceEditKind.Reshaping),
+            // The press in a picture's own corner - see createPictureElement, and NoteSurfaceEdits.
+            // RemoveElement, which says why Backspace alone was not a way to be rid of one.
+            "elementRemoved" when TakesStyles && request.Line is { } elementLine
+                => (NoteSurfaceEdits.RemoveElement(before, elementLine), SurfaceEditKind.Reshaping),
+            // A press below the last line, where the note ends in something nobody can type in.
+            "lineAtTheEnd" when TakesStyles
+                => (NoteSurfaceEdits.WriteUnderTheEnd(before), SurfaceEditKind.Reshaping),
             _ => (null, SurfaceEditKind.Reshaping)
         };
 

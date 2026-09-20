@@ -764,8 +764,43 @@ input.note-editor-title {
 }
 
 .note-picture {
+    position: relative;
     margin: 0;
     max-width: 100%;
+    /* So the corner press sits over the picture rather than over the width of the line. */
+    width: fit-content;
+}
+
+/* The press that takes the picture out, in its own corner - see createPictureElement, which says why
+   Backspace on the line was not a way to be rid of one. Always drawn rather than shown on hover: a
+   control nobody can find is the thing that was missing in the first place, and a touch screen has no
+   hover to find it with. */
+.note-picture-remove {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: 1rem;
+    line-height: 26px;
+    text-align: center;
+    cursor: pointer;
+}
+
+.note-picture-remove:hover,
+.note-picture-remove:focus-visible {
+    background: rgba(0, 0, 0, 0.75);
+}
+
+/* A surface nobody may write to has nothing to take out - the same way its tick boxes are stopped
+   rather than left live, see .note-editor-content-readonly below. */
+.note-editor-content-readonly .note-picture-remove {
+    display: none;
 }
 
 .note-picture img {

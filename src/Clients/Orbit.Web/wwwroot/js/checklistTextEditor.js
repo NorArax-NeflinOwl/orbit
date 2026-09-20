@@ -843,6 +843,41 @@ function onMouseDown(event, container) {
 }
 
 function onClick(event, container, state) {
+    // A picture taken out by the press in its own corner - see createPictureElement, and
+    // NoteSurfaceEdits.RemoveElement.
+    const removing = event.target && event.target.closest
+        ? event.target.closest('.note-picture-remove')
+        : null;
+    if (removing) {
+        event.preventDefault();
+        if (!isWritable(container)) {
+            return;
+        }
+
+        const pictureLine = removing.closest('.note-line');
+        const answer = ask(container, state, 'elementRemoved', {
+            line: Array.prototype.indexOf.call(container.children, pictureLine)
+        });
+        if (answer) {
+            show(container, state, answer);
+        }
+
+        return;
+    }
+
+    // A press below the last line, where the note ends in a picture, a rule or a table: there is
+    // nowhere for the caret to go, so the note gets a line to carry on writing on and the caret lands
+    // there. The press is on the container itself, which is the space around the lines rather than any
+    // of them - a press on a line is the browser's own to answer, as it has always been.
+    if (event.target === container) {
+        const answer = isWritable(container) ? ask(container, state, 'lineAtTheEnd') : null;
+        if (answer) {
+            show(container, state, answer);
+        }
+
+        return;
+    }
+
     const tick = tickOf(event);
     if (!tick) {
         return;
@@ -946,7 +981,7 @@ function notifyChanged(container, dotNetHelper) {
 function render(container, lines) {
     container.innerHTML = '';
     for (const line of lines) {
-        container.appendChild(createLineElement(line, tickHintOf(container)));
+        container.appendChild(createLineElement(line, tickHintOf(container), removePictureHintOf(container)));
     }
 
     numberTheLists(container);
@@ -990,11 +1025,12 @@ function draw(container, lines) {
     }
 
     const hint = tickHintOf(container);
+    const removeHint = removePictureHintOf(container);
     const existing = Array.from(container.children);
     lines.forEach((line, index) => {
         const element = existing[index];
         if (!element) {
-            container.appendChild(createLineElement(line, hint));
+            container.appendChild(createLineElement(line, hint, removeHint));
             return;
         }
 
@@ -1002,7 +1038,7 @@ function draw(container, lines) {
         if (isPicture || line.picture) {
             const drawn = pictureIn(element);
             if (!isPicture || !line.picture || !drawn || drawn.pictureId !== line.picture.pictureId) {
-                element.replaceWith(createLineElement(line, hint));
+                element.replaceWith(createLineElement(line, hint, removeHint));
             }
             return;
         }
@@ -1012,7 +1048,7 @@ function draw(container, lines) {
             // Rebuilt whole when it changed at all: a rule has one thing written on it and no part of it
             // worth keeping in place, since nothing is ever typed into one.
             if (!isSeparator || !line.separator || stampIn(element) !== (line.separator.stamp || '')) {
-                element.replaceWith(createLineElement(line, hint));
+                element.replaceWith(createLineElement(line, hint, removeHint));
             }
             return;
         }
@@ -1022,7 +1058,7 @@ function draw(container, lines) {
             // Rebuilt whole: a table that changed shape has no cell left in the same place to keep,
             // and the caret is put back into a cell by whoever asked (see editTable, focusCell).
             if (!isTable || !line.table || !sameTable(tableIn(element), line.table)) {
-                element.replaceWith(createLineElement(line, hint));
+                element.replaceWith(createLineElement(line, hint, removeHint));
             }
             return;
         }
@@ -1030,7 +1066,7 @@ function draw(container, lines) {
         const tick = element.querySelector('.note-line-tick');
         if (!!tick !== !!line.isChecklistItem || !element.querySelector('.note-line-text')
             || element.dataset.style !== styleOf(line)) {
-            element.replaceWith(createLineElement(line, hint));
+            element.replaceWith(createLineElement(line, hint, removeHint));
             return;
         }
 
@@ -1057,6 +1093,12 @@ function draw(container, lines) {
 function tickHintOf(container) {
     const state = instances.get(container);
     return state && state.options.tickHint ? state.options.tickHint : null;
+}
+
+/// What the press in a picture's corner is called, in the reader's language - see createPictureElement.
+function removePictureHintOf(container) {
+    const state = instances.get(container);
+    return state && state.options.removePictureHint ? state.options.removePictureHint : null;
 }
 
 function normalizeLines(lines) {
@@ -1253,7 +1295,7 @@ function sameMarks(one, other) {
             run.start === other[at].start && run.length === other[at].length && run.mark === other[at].mark);
 }
 
-function createLineElement(line, tickHint) {
+function createLineElement(line, tickHint, removePictureHint) {
     const div = document.createElement('div');
     div.className = 'note-line';
 
@@ -1272,7 +1314,7 @@ function createLineElement(line, tickHint) {
     // and turned into a URL the page owns (see NotePictureSource); until then it holds its shape.
     if (line.picture) {
         div.classList.add('note-line-picture');
-        div.appendChild(createPictureElement(line.picture));
+        div.appendChild(createPictureElement(line.picture, removePictureHint));
         return div;
     }
 
@@ -1350,7 +1392,14 @@ function createSeparatorElement(separator) {
 /// A picture line's element: not editable itself, so the caret stands beside it rather than in it, and
 /// sized from what the line says so the note does not jump when the bytes arrive. Pressed, it opens full
 /// size in a tab of its own - Apple Notes' rule, and the only thing a picture in a note is pressed for.
-function createPictureElement(picture) {
+///
+/// Its corner carries the one other thing: a press that takes it out. Backspace on the picture's line
+/// does that too and did it first, but the caret has to be got onto that line to press it, and nothing
+/// here can be typed in - so a reader who could not land it there had no way to be rid of an attachment
+/// at all. Drawn whatever the surface is; a surface nobody may write to hides it in the stylesheet, the
+/// way the tick boxes in it are stopped (see .note-editor-content-readonly), and the press itself
+/// checks as well.
+function createPictureElement(picture, removePictureHint) {
     const figure = document.createElement('figure');
     figure.className = 'note-picture';
     figure.contentEditable = 'false';
@@ -1371,6 +1420,19 @@ function createPictureElement(picture) {
         }
     });
     figure.appendChild(img);
+
+    // The press is answered by the container's own click handler, the way a tick box's is - see onClick,
+    // which reads which line it stands on off where it is.
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'note-picture-remove';
+    remove.contentEditable = 'false';
+    remove.setAttribute('aria-label', removePictureHint || 'Remove');
+    if (removePictureHint) {
+        remove.title = removePictureHint;
+    }
+    remove.textContent = '×';
+    figure.appendChild(remove);
     return figure;
 }
 
