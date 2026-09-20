@@ -129,6 +129,14 @@ else
                 {
                     <Row Title="@note.Title" OnPressed="() => GoToNote(note)">
                         <Trailing>
+                            @* Somebody else's, said on the row as the Inventory card's rows say it and
+                               as the Upcoming card says it in its own words. This card and the Tasks
+                               card said nothing at all, so a note somebody shared looked like one of
+                               your own until it was opened (reported 2026-09-20). *@
+                            @if (note.IsShared)
+                            {
+                                <span class="card-badge">@T["Shared"]</span>
+                            }
                             <TagChips Tags="note.AllTags" />
                             @RenderPriorityBadge(note.Priority)
                             <span class="row-meta">@FormatRelative(note.UpdatedAtUtc)</span>
@@ -190,6 +198,11 @@ else
                     <Row Title="@Written(taskList.Title)" OnPressed="() => GoToTaskList(taskList)"
                          AdditionalClass="@RowClasses(taskList.IsCompleted ? "completed" : null, HasNewsAbout(taskList.Id, "/tasks"))">
                         <Trailing>
+                            @* Said the same way on a list as on a note - see the Notes card above. *@
+                            @if (taskList.IsShared)
+                            {
+                                <span class="card-badge">@T["Shared"]</span>
+                            }
                             <TagChips Tags="taskList.AllTags" />
                             @RenderPriorityBadge(taskList.Priority)
                             @if (taskList.Items.Count > 0)

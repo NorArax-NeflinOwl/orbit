@@ -2861,7 +2861,22 @@ as they leave the list, and the same menu brings them back - struck through and 
 (`.calendar-chip-done`). A finished deadline has read that way there all along; an appointment had no
 mark at all, for the same reason the list did not leave it out either: an event of its own has nothing
 to tick, only the entry behind it does, so the page has to tell the grids which
-(`Calendar.EventsOnTheGrid`, `Calendar.TickedOffEventIds`). All four views read from it.
+(`Calendar.EventsOnTheGrid`, `Calendar.TickedOffEventIds`). All four views read from it. **Its colour
+goes with it** (2026-09-20): the stripe down a chip's side is the event's own colour, chosen to stand
+out on a full day, which is exactly what something already done should stop doing - a finished
+appointment in bright red went on shouting over the four things still ahead of it.
+
+**A shared appointment is marked on the grid too** (2026-09-20). The list beside it has always carried
+"Shared by Anna" on its card and the grid said nothing at all, so an appointment somebody else had put
+there read as one of the reader's own. A mark after the name rather than the sentence - a chip is one
+line inside a seventh of a week - drawn in the same masked, text-coloured shape as the mark that says
+whether an entry is an event or a task, so a finished chip greys both together
+(`.calendar-chip-shared`, `SharedClass` on all three grids). Pointing at the chip reads the sentence:
+its whole name, and who shared it.
+
+**And the dashboard's cards say it** the same way. Upcoming has always said "(shared)" beside the name
+and the Inventory card badges it; Notes and Tasks said nothing, so something somebody had handed over
+looked like one of your own until it was opened. Both rows carry the Inventory card's badge now.
 
 **What is merely *over* stays on the grid.** That is the one place the two part company, and it is
 deliberate: the list answers "what is coming", so an event that has ended stops being its subject, while

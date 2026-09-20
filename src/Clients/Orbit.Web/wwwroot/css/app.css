@@ -3945,6 +3945,27 @@ input.note-editor-title {
     --calendar-entry-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='2' width='12' height='12' rx='3'/%3E%3Cpath d='m5 8.2 2 2 4-4.4'/%3E%3C/svg%3E");
 }
 
+/* An appointment somebody else shared, marked after its name the way the kind of entry is marked
+   before it. The list beside the grid has always said "Shared by Anna" on its card and the grid said
+   nothing at all, so a shared appointment read as one of the reader's own (reported 2026-09-20).
+
+   A mark rather than the sentence: a chip is one line inside a seventh of a week, and the sentence is
+   on the chip's title attribute, where pointing at it reads it out. Two heads, in the same masked,
+   text-coloured shape as the mark on the other side, so a done chip greys both together. */
+.calendar-chip-shared .calendar-event-chip-title::after,
+.calendar-chip-shared .calendar-event-block-title::after {
+    content: "";
+    display: inline-block;
+    width: 0.9em;
+    height: 0.9em;
+    margin-left: 0.25em;
+    vertical-align: -0.12em;
+    background-color: var(--text-secondary);
+    -webkit-mask: var(--calendar-shared-mark) center / contain no-repeat;
+    mask: var(--calendar-shared-mark) center / contain no-repeat;
+    --calendar-shared-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
+}
+
 /* Calendar.razor / CalendarMonthGrid.razor / CalendarDayGrid.razor: a due task's chip, laid out like
    .calendar-event-chip but with a fixed dashed accent color instead of the event's own Color, so a task
    with a deadline reads as a different kind of entry even though it's placed on the calendar the same way. */
@@ -3976,6 +3997,18 @@ input.note-editor-title {
 .calendar-chip-done {
     text-decoration: line-through;
     color: var(--text-secondary);
+}
+
+/* And its colour goes with it. The stripe down the side of a chip is the event's own colour, chosen to
+   make it stand out on a full day - which is exactly what something already done should stop doing. A
+   finished appointment in bright red went on shouting over the four things still ahead of it (reported
+   2026-09-20), so the stripe greys with the text. !important because the colour is written on the
+   element's own style attribute, where it is the event's to choose while it is still to come. */
+.calendar-chip-done,
+.calendar-event-block.calendar-chip-done,
+.calendar-task-chip.calendar-chip-done,
+.calendar-task-block.calendar-chip-done {
+    border-left-color: var(--text-secondary) !important;
 }
 
 /* CalendarYearGrid.razor: the 12 compact month grids, wrapping to fit the visualization panel's width. */

@@ -155,6 +155,44 @@ public sealed class CalendarTests : OrbitTestContext
         Assert.Equal("Ginekolog: wizyta kontrolna", chip.GetAttribute("title"));
     }
 
+    /// <summary>
+    /// An appointment somebody else shared is marked on the grid, and says whose it is when it is
+    /// pointed at. The list beside the grid has always carried "Shared by anna" on its card; the grid
+    /// said nothing at all, so a shared appointment read as one of the reader's own (reported
+    /// 2026-09-20). A mark rather than the sentence, because a chip is one line in a seventh of a week.
+    /// </summary>
+    [Fact]
+    public void An_event_somebody_shared_is_marked_on_the_month_grid()
+    {
+        var todayNoon = DateTime.SpecifyKind(DateTime.Today.AddHours(14).AddMinutes(30), DateTimeKind.Local);
+        var shared = CreateTimedEvent(todayNoon, todayNoon.AddHours(1), "Dentist") with
+        {
+            IsShared = true,
+            SharedByUserName = "anna"
+        };
+        RegisterCalendarApiClient([shared]);
+
+        var cut = RenderComponent<Calendar>();
+
+        var chip = cut.Find(".calendar-event-chip");
+        Assert.Contains("calendar-chip-shared", chip.ClassName);
+        Assert.Contains("anna", chip.GetAttribute("title"));
+    }
+
+    /// <summary>And the reader's own carries neither, which is what makes the mark worth anything.</summary>
+    [Fact]
+    public void An_event_of_your_own_is_not_marked_as_shared()
+    {
+        var todayNoon = DateTime.SpecifyKind(DateTime.Today.AddHours(14).AddMinutes(30), DateTimeKind.Local);
+        RegisterCalendarApiClient([CreateTimedEvent(todayNoon, todayNoon.AddHours(1), "Dentist")]);
+
+        var cut = RenderComponent<Calendar>();
+
+        var chip = cut.Find(".calendar-event-chip");
+        Assert.DoesNotContain("calendar-chip-shared", chip.ClassName);
+        Assert.Equal("Dentist", chip.GetAttribute("title"));
+    }
+
     [Fact]
     public void Todays_task_with_a_due_date_shows_up_as_a_task_chip_in_the_month_view()
     {

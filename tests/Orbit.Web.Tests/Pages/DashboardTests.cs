@@ -538,6 +538,44 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.Equal(["Shopping", "Ideas"], RowTitlesIn(cut, "Notes"));
     }
 
+    /// <summary>
+    /// A note somebody shared says so on its row, and one of the reader's own does not. The Upcoming
+    /// card has always said it in its own words and the Inventory card badges it; Notes and Tasks said
+    /// nothing at all, so something somebody had handed over looked like one of your own until it was
+    /// opened (reported 2026-09-20).
+    /// </summary>
+    [Fact]
+    public void A_shared_note_says_so_on_the_dashboard()
+    {
+        RegisterNotesApiClient([
+            Note("Shopping", "Normal") with { IsShared = true, SharedByUserName = "anna" },
+            Note("Ideas", "Normal")
+        ]);
+        RegisterChatApiClient([]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        var badges = FindColumn(cut, "Notes").QuerySelectorAll(".card-badge")
+            .Select(badge => badge.TextContent.Trim())
+            .ToList();
+        Assert.Equal(["Shared"], badges);
+    }
+
+    /// <inheritdoc cref="A_shared_note_says_so_on_the_dashboard"/>
+    [Fact]
+    public void A_shared_task_list_says_so_on_the_dashboard()
+    {
+        RegisterNotesApiClient([]);
+        RegisterTasksApiClient([TaskList("Trip") with { IsShared = true, SharedByUserName = "anna" }]);
+        RegisterChatApiClient([]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Contains(
+            "Shared",
+            FindColumn(cut, "Tasks").QuerySelectorAll(".card-badge").Select(badge => badge.TextContent.Trim()));
+    }
+
     [Fact]
     public void A_card_filtered_to_one_priority_shows_only_that()
     {

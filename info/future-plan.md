@@ -2608,8 +2608,8 @@ down whole rather than started, so nothing in it depends on being remembered.
 
 ### Orbit.Web
 
-- **A shared thing says so on the dashboard's Upcoming card and nowhere else.** Tasks does not say it,
-  and probably Notes does not either (`Dashboard.razor`'s card builders, and `DashboardRow`).
+- ~~**A shared thing says so on the dashboard's Upcoming card and nowhere else.**~~ Done 2026-09-20:
+  the Notes and Tasks rows carry the Inventory card's "Shared" badge now.
 
 - **A note with unsaved changes must say so in the list, not only when leaving.** The warning on the
   way out is easy to read past; the row in the list should carry a mark - a "*" or a highlight - for
@@ -2652,10 +2652,11 @@ down whole rather than started, so nothing in it depends on being remembered.
 - **"Show on the dashboard" moves from the dashboard to the folder.** Each folder then carries its own
   set of cards rather than one answer covering every folder.
 
-- **The calendar greys out what is finished**, the task's own colour included - a completed entry
-  keeping its colour reads as still wanting attention.
+- ~~**The calendar greys out what is finished**, the task's own colour included~~ - done 2026-09-20:
+  `.calendar-chip-done` greys the stripe as well as the words.
 
-- **The calendar view says nothing about an event being shared.**
+- ~~**The calendar view says nothing about an event being shared.**~~ Done 2026-09-20: a mark after the
+  name on all three grids (`.calendar-chip-shared`), with who shared it on the chip's title.
 
 - **The event list gets its own "hide completed"**, working separately from the calendar's: the reader
   can then show finished things in one of the two places rather than in both at once.

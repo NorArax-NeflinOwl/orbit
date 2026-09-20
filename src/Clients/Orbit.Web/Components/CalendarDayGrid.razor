@@ -10,7 +10,7 @@
             <span class="calendar-day-grid-all-day-label">@T["All day"]</span>
             @foreach (var calendarEvent in Grid.AllDayEvents)
             {
-                <button type="button" class="calendar-event-chip @DoneClass(calendarEvent.Id)" style="border-left-color:@EventColor(calendarEvent);"
+                <button type="button" class="calendar-event-chip @DoneClass(calendarEvent.Id) @SharedClass(calendarEvent)" title="@ChipTitle(calendarEvent)" style="border-left-color:@EventColor(calendarEvent);"
                         @onclick="() => EventSelectedAsync(calendarEvent.Id)">
                     <span class="calendar-event-chip-title">@RecurringPrefix(calendarEvent)@calendarEvent.Details.Title</span>
                 </button>
@@ -33,7 +33,7 @@
 
             @foreach (var placedEvent in Grid.TimedEvents)
             {
-                <button type="button" class="calendar-event-block @DoneClass(placedEvent.Event.Id)" style="@PositionStyle(placedEvent) border-left-color:@EventColor(placedEvent.Event);"
+                <button type="button" class="calendar-event-block @DoneClass(placedEvent.Event.Id) @SharedClass(placedEvent.Event)" title="@ChipTitle(placedEvent.Event)" style="@PositionStyle(placedEvent) border-left-color:@EventColor(placedEvent.Event);"
                         @onclick="() => EventSelectedAsync(placedEvent.Event.Id)">
                     <span class="calendar-event-block-time">@FormatTimeRange(placedEvent.Event.Details)</span>
                     <span class="calendar-event-block-title">@RecurringPrefix(placedEvent.Event)@placedEvent.Event.Details.Title</span>
@@ -71,6 +71,25 @@
     public IReadOnlySet<Guid> TickedOffEventIds { get; set; } = new HashSet<Guid>();
 
     /// <summary>Whether this appointment reads as done - see TickedOffEventIds.</summary>
+    /// <summary>
+    /// A mark on the chip for an event somebody else shared - see .calendar-chip-shared, which draws it
+    /// after the name. The list beside the grid has always said "Shared by Anna" on its own card; the
+    /// grid said nothing at all, so a shared appointment read as one of the reader's own
+    /// (reported 2026-09-20). A mark rather than a name because a chip is one line in a seventh of a
+    /// week - the whole sentence is on its title attribute.
+    /// </summary>
+    private static string SharedClass(CalendarEventDto calendarEvent)
+        => calendarEvent.IsShared ? "calendar-chip-shared" : string.Empty;
+
+    /// <summary>
+    /// What the chip says when it is pointed at: its whole name, and who shared it where somebody did.
+    /// The mark beside the name says a chip is somebody else's; this is where it says whose.
+    /// </summary>
+    private string ChipTitle(CalendarEventDto calendarEvent)
+        => calendarEvent.IsShared
+            ? calendarEvent.Details.Title + " - " + T.Format("Shared by {0}", calendarEvent.SharedByUserName)
+            : calendarEvent.Details.Title;
+
     private string DoneClass(Guid eventId) => TickedOffEventIds.Contains(eventId) ? "calendar-chip-done" : string.Empty;
 
     [Parameter]
