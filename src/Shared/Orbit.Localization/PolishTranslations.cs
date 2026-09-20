@@ -2596,6 +2596,10 @@ public static class PolishTranslations
         ["{0} has read it."] = "{0} ją przeczytał(a).",
         ["{0} hasn't read it yet."] = "{0} jeszcze jej nie przeczytał(a).",
         ["Pass on to somebody else"] = "Przekaż komuś dalej",
+        // What a spot pressed on the phone's map offers - see MapPage.OfferTheMapApp. "Your map app"
+        // rather than "Google Maps": the handoff is the platform's, and what answers it is whatever the
+        // phone has. On Android that is Google Maps.
+        ["Open in your map app"] = "Otwórz w aplikacji map",
         ["Nobody else to pass this on to yet."] = "Nie masz jeszcze nikogo, komu można to przekazać.",
     };
 }
