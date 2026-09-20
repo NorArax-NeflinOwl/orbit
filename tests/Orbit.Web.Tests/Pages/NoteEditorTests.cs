@@ -884,6 +884,61 @@ public sealed class NoteEditorTests : OrbitTestContext
     }
 
     /// <summary>
+    /// Leaving with writing nobody saved asks in Orbit's own panel, naming the notes - the browser's
+    /// confirm box is a grey strip at the top of the window with the site's address on it, which is the
+    /// shape a page uses for something it cannot be trusted about (asked for 2026-09-20). Answering
+    /// "stay" holds the page; the writing is still there.
+    /// </summary>
+    [Fact]
+    public void Leaving_with_unsaved_writing_asks_in_orbits_own_panel()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+        WriteInTheNote(cut, "Shopping", "milk and bread");
+
+        cut.InvokeAsync(() => navigationManager.NavigateTo("/"));
+
+        // The browser was not asked anything, and the panel says which note it is about.
+        Assert.DoesNotContain(JSInterop.Invocations, invocation => invocation.Identifier == "confirm");
+        var dialog = cut.Find(".dialog-panel");
+        Assert.Contains("Shopping", dialog.TextContent);
+
+        cut.FindAll(".dialog-footer button").First(button => button.TextContent.Contains("Stay here")).Click();
+
+        // The panel goes and the writing stays: "stay" is the answer that keeps it, and going anyway is
+        // the only thing that throws it away.
+        Assert.Empty(cut.FindAll(".dialog-panel"));
+        Assert.True(Services.GetRequiredService<NoteDrafts>().HasAny);
+    }
+
+    /// <summary>
+    /// A note holding writing the server has not got says so in the column, beside its name, and stops
+    /// saying it once the writing has been saved. The warning on the way out is easy to read past, and
+    /// somebody who has written in three notes and saved one had no way to see which two were still
+    /// waiting (asked for 2026-09-20).
+    /// </summary>
+    [Fact]
+    public void A_note_with_something_unsaved_is_marked_in_the_column()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        WriteInTheNote(cut, "Shopping", "milk and bread");
+
+        var row = cut.FindAll(".note-workspace-row").First(candidate => candidate.TextContent.Contains("Shopping"));
+        Assert.Contains("unsaved", row.ClassList);
+        Assert.NotNull(row.QuerySelector(".note-workspace-row-unsaved"));
+
+        cut.Find(".page-action-primary").Click();
+
+        var saved = cut.FindAll(".note-workspace-row").First(candidate => candidate.TextContent.Contains("Shopping"));
+        Assert.DoesNotContain("unsaved", saved.ClassList);
+    }
+
+    /// <summary>
     /// The column is broken up by the folder the notes under each heading are filed in - asked for on
     /// 2026-09-19. The headings are in the order the notes page's own tabs are in, and a folder nothing
     /// is filed under is not a heading: an empty "Private" above a rule would be a separator separating

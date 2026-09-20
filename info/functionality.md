@@ -1298,6 +1298,19 @@ nobody wrote in keeps nothing, so reading one and leaving warns about nothing - 
 in is what the note *says*, compared as one string because a line carries lists of its own and two
 records holding equal lists are not equal.
 
+**A note holding unsaved writing says so in the column**, beside its name: a star, and the name in the
+accent (2026-09-20, `NoteWorkspaceList`). The warning on the way out is easy to read past, and somebody
+who had written in three notes and saved one had no way to see which two were still waiting. The mark
+is kept in step as the note is typed in rather than only when the reader leaves it - the editor keeps
+what is unsaved on every change, which is also what *forgets* it again when the writing is taken back
+out, so the star goes when the note reads as it is stored.
+
+**And the question on the way out is Orbit's own panel**, naming the notes, with "Stay here" and "Leave
+and lose it". It used to be the browser's `confirm` - a grey strip at the top of the window with the
+site's address on it, which is the shape a page uses to say something it cannot be trusted about, and
+this one is about the reader's own writing. The navigation is held while the panel is open, by awaiting
+the answer inside the handler that holds it.
+
 **Saving keeps the reader in the note** (2026-09-20). It used to end on `/notes`, which is the one
 place somebody who has just written something does not want to be: writing is saved as you go along
 rather than finished, so a save that walked away turned every one of those into a trip back. The page

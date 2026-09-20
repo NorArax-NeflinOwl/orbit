@@ -5,7 +5,9 @@
 @inject FolderState Folders
 @inject DashboardCardPreferences CardPreferences
 @inject ILogger<NoteWorkspaceList> Logger
+@inject NoteDrafts Drafts
 @inject Translations T
+@implements IDisposable
 
 @* The column of notes that stands beside the one being read or written - the far left of the three
    columns both note pages are laid out in. One component rather than one per page: it was written
@@ -36,9 +38,21 @@ else
             <h3 class="note-workspace-list-folder">@folder.Name</h3>
             @foreach (var note in folder.Notes)
             {
-                <button type="button" class="note-workspace-row @(note.Id == ChosenNoteId ? "chosen" : null)"
+                <button type="button" class="note-workspace-row @(note.Id == ChosenNoteId ? "chosen" : null) @(HasUnsavedWriting(note.Id) ? "unsaved" : null)"
                         @onclick="() => OnChosen.InvokeAsync(note.Id)">
-                    <span class="note-workspace-row-title">@NameOf(note)</span>
+                    <span class="note-workspace-row-title">
+                        @NameOf(note)
+                        @* A note holding writing the server has not got says so here, next to its name.
+                           The warning on the way out is easy to read past, and somebody who has written
+                           in three notes and saved one has no other way to see which two are waiting
+                           (asked for 2026-09-20). A star, and the row goes into the accent - see
+                           .note-workspace-row.unsaved. *@
+                        @if (HasUnsavedWriting(note.Id))
+                        {
+                            <span class="note-workspace-row-unsaved" title="@(T["Not saved yet"])"
+                                  aria-label="@(T["Not saved yet"])">*</span>
+                        }
+                    </span>
                     <span class="row-meta">@note.UpdatedAtUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
                 </button>
             }
@@ -61,12 +75,23 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        // Redrawn as writing is kept and let go of, so the star appears while somebody is typing in the
+        // note beside this column rather than only once they have left it - see NoteDrafts.
+        Drafts.Changed += OnDraftsChanged;
+
         // The folders are what the headings are named from, so they are read before the notes are
         // placed into them - a note filed under a folder this browser has not heard of falls back to a
         // built-in heading rather than to a heading with no name (see FolderPlacement).
         await Folders.EnsureLoadedAsync();
         await LoadAsync();
     }
+
+    public void Dispose() => Drafts.Changed -= OnDraftsChanged;
+
+    private void OnDraftsChanged() => InvokeAsync(StateHasChanged);
+
+    /// <summary>Whether this note holds writing the server has not got - see NoteDrafts.</summary>
+    private bool HasUnsavedWriting(Guid noteId) => Drafts.For(noteId) is not null;
 
     private async Task LoadAsync()
     {

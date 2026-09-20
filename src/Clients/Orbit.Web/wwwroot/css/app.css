@@ -490,6 +490,19 @@ input.note-editor-title {
     white-space: nowrap;
 }
 
+/* A note holding writing the server has not got. The star is the mark; the name goes into the accent
+   with it, because a single character at the end of a truncated title is the one thing an ellipsis can
+   eat. Asked for on 2026-09-20: the warning on the way out is easy to read past, and somebody who has
+   written in three notes and saved one had no way to see which two were still waiting. */
+.note-workspace-row.unsaved .note-workspace-row-title {
+    color: var(--accent);
+}
+
+.note-workspace-row-unsaved {
+    margin-left: 0.25em;
+    color: var(--accent);
+}
+
 /* No room for a third column: a fifth of a narrow window is too little to name a note in, and the
    writing needs everything there is. The note is reached from /notes there, as it always was. */
 @media (max-width: 1100px) {

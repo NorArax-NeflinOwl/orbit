@@ -99,6 +99,24 @@ else
         <p class="info">@T["Saved."]</p>
     }
 
+    @* On the way out with writing nobody saved. Orbit's own panel rather than the browser's confirm
+       box: that box is a grey strip at the top of the window with the site's address on it, which is
+       the shape a page uses to say something it cannot be trusted about - and this is about the
+       reader's own writing. It names the notes, so "which ones" is answered rather than asked back. *@
+    @if (_unsavedNames is { } unsavedNames)
+    {
+        <Dialog Title="@T["Not saved yet"]" OnClosed="() => AnswerLeaving(false)">
+            <ChildContent>
+                <p>@T.Format("Not saved yet: {0}.", unsavedNames)</p>
+                <p>@T["Leaving now loses what you wrote in them."]</p>
+            </ChildContent>
+            <Footer>
+                <button type="button" class="btn-secondary" @onclick="() => AnswerLeaving(false)">@T["Stay here"]</button>
+                <button type="button" class="btn-primary" @onclick="() => AnswerLeaving(true)">@T["Leave and lose it"]</button>
+            </Footer>
+        </Dialog>
+    }
+
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form note-editor-form">
         <fieldset disabled="@(_isSharedReadOnly || _lockedByUserName is not null || _isSaving)">
             @* One field for the whole note, and nothing else on this side of the screen. The first line
@@ -113,7 +131,7 @@ else
                                      CaretInTableChanged="inTable => OnCaretInTableChanged(inTable)"
                                      PicturePasted="OnPicturePastedAsync"
                                      PictureUrlFor="ResolvePictureUrlAsync"
-                                     @bind-Lines="_formModel.Lines" />
+                                     Lines="_formModel.Lines" LinesChanged="OnLinesChanged" />
 
                 @* Over the corner of the writing rather than above it: a toolbar at the top of a note
                    is a strip of the page given to controls before a word has been written. The styles
@@ -1066,8 +1084,7 @@ else
             return;
         }
 
-        var unsaved = string.Join(", ", Drafts.Names);
-        if (await Confirms(T.Format("Not saved yet: {0}. Leave and lose what you wrote?", unsaved)))
+        if (await AsksToLeaveAsync(string.Join(", ", Drafts.Names)))
         {
             Drafts.ForgetEverything();
             return;
@@ -1076,28 +1093,41 @@ else
         leaving.PreventNavigation();
     }
 
+    /// <summary>
+    /// The question itself, in Orbit's own panel rather than the browser's confirm box (asked for
+    /// 2026-09-20). A browser's box is a grey strip at the top of the window with the site's address in
+    /// it, which is the shape a page uses to say something it cannot be trusted about - and this one is
+    /// about somebody's own writing.
+    ///
+    /// Held open by awaiting the answer: the handler that asks it is what holds the navigation, so it
+    /// has to still be waiting when the reader presses. The names of the notes are what it says, which
+    /// is the whole point of asking rather than warning.
+    /// </summary>
+    private Task<bool> AsksToLeaveAsync(string unsaved)
+    {
+        _unsavedNames = unsaved;
+        _leavingAnswer = new TaskCompletionSource<bool>();
+        StateHasChanged();
+        return _leavingAnswer.Task;
+    }
+
+    /// <summary>Which notes the question is about, or null while it is not being asked.</summary>
+    private string? _unsavedNames;
+
+    private TaskCompletionSource<bool>? _leavingAnswer;
+
+    private void AnswerLeaving(bool goAnyway)
+    {
+        _unsavedNames = null;
+        var answering = _leavingAnswer;
+        _leavingAnswer = null;
+        answering?.TrySetResult(goAnyway);
+    }
+
     /// <summary>Whether this address is another note's own editor - the column beside the writing.</summary>
     private static bool IsAnotherNotesEditor(string target)
         => target.Contains("/notes/", StringComparison.OrdinalIgnoreCase)
             && target.Contains("/edit", StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>
-    /// The browser's own question. A confirm rather than a dialog of Orbit's: this is asked while a
-    /// navigation is being held, and anything drawn on the page would need the navigation to finish
-    /// first to be pressed.
-    /// </summary>
-    private async Task<bool> Confirms(string question)
-    {
-        try
-        {
-            return await JSRuntime.InvokeAsync<bool>("confirm", question);
-        }
-        catch (JSException)
-        {
-            // Nothing to ask with, so the reader is not held on a page they asked to leave.
-            return true;
-        }
-    }
 
     /// <summary>Said when a note opens holding writing the server does not have - see LoadTheNoteAsync.</summary>
     private string? _draftMessage;
@@ -1145,6 +1175,24 @@ else
     /// </summary>
     private bool HasUnsavedWriting
         => _asStored is { } stored && NoteDrafts.Differs(WhatTheFormHolds(), stored);
+
+    /// <summary>
+    /// What the surface now holds, and the note's own row in the column beside it kept in step: writing
+    /// is remembered as it happens rather than only when the reader leaves for another note, so the
+    /// star beside its name appears while they are typing (asked for 2026-09-20 - the warning on the
+    /// way out is easy to read past, and three notes written in and one saved left no way to see which
+    /// two were still waiting). Keeping it is also what *forgets* it again when the writing is taken
+    /// back out, so the star goes when the note reads as it is stored - see NoteDrafts.Keep.
+    /// </summary>
+    private void OnLinesChanged(IReadOnlyList<NoteContentLineDto> lines)
+    {
+        _formModel.Lines = [.. lines];
+
+        if (Id is { } noteId)
+        {
+            KeepWhatIsUnsaved(noteId);
+        }
+    }
 
     /// <summary>
     /// Opens another note from the column, in place of this one: whatever has not been saved here is not

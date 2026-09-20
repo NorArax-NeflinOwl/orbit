@@ -2614,10 +2614,10 @@ down whole rather than started, so nothing in it depends on being remembered.
 - ~~**A shared thing says so on the dashboard's Upcoming card and nowhere else.**~~ Done 2026-09-20:
   the Notes and Tasks rows carry the Inventory card's "Shared" badge now.
 
-- **A note with unsaved changes must say so in the list, not only when leaving.** The warning on the
-  way out is easy to read past; the row in the list should carry a mark - a "*" or a highlight - for
-  as long as there is something unsaved. And the warning itself should be Orbit's own dialog rather
-  than the browser's `confirm`.
+- ~~**A note with unsaved changes must say so in the list, not only when leaving.**~~ Done 2026-09-20:
+  a star beside its name in the column, with the name in the accent, kept in step as the note is typed
+  in rather than only when the reader leaves it (`NoteWorkspaceList`, `NoteDrafts.Changed`). The
+  question on the way out is Orbit's own panel now, naming the notes it is about.
 
 - **`/notes` opens into the newest note rather than onto a list.** The most recently changed note,
   private ones excepted, opens for editing straight away, with the list of notes down the left.

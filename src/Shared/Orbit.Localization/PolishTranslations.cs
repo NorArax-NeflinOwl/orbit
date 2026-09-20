@@ -2619,6 +2619,13 @@ public static class PolishTranslations
         // rather than "Google Maps": the handoff is the platform's, and what answers it is whatever the
         // phone has. On Android that is Google Maps.
         ["Open in your map app"] = "Otwórz w aplikacji map",
+        // The star beside a note that holds writing the server has not got - see NoteWorkspaceList -
+        // and the panel the way out of the editor asks in, which used to be the browser's confirm box.
+        ["Not saved yet"] = "Jeszcze niezapisane",
+        ["Not saved yet: {0}."] = "Jeszcze niezapisane: {0}.",
+        ["Leaving now loses what you wrote in them."] = "Wyjście teraz oznacza utratę tego, co w nich napisano.",
+        ["Stay here"] = "Zostań tutaj",
+        ["Leave and lose it"] = "Wyjdź i utrać zmiany",
         // The calendar widget's own line for a phone nobody is signed in on - see MonthAtAGlance.
         // "Open Orbit to see your day" is the other widget's and is already above.
         ["Open Orbit to see your month"] = "Otwórz Orbita, aby zobaczyć swój miesiąc",
