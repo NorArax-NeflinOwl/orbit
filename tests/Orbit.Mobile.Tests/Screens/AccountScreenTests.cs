@@ -182,6 +182,63 @@ public sealed class AccountScreenTests
     /// tab goes to an account that has unlocked it and to nobody else. The browser's Options draws the
     /// same line, and so does the version row in the avatar menu.
     /// </summary>
+    /// <summary>
+    /// "Do not share my personal information" is asked here, and answered here. The phone had no way to
+    /// answer it at all: the About screen listed it among the documents and opened the web client's
+    /// front page, which is the dashboard rather than the question (reported 2026-09-20). The answer is
+    /// kept on the account, so this and a browser are asking one question.
+    /// </summary>
+    [Fact]
+    public async Task The_privacy_choice_is_shown_as_the_account_holds_it_and_answered_here()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { KeepsThirdPartiesOut = true };
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+        Assert.True(screen.KeepsThirdPartiesOut);
+        // Showing what the account says is not somebody answering it again.
+        Assert.Null(context.Users.KeepsThirdPartiesOut);
+
+        screen.KeepsThirdPartiesOut = false;
+
+        // Sent without being awaited - the switch must not wait on a request - so the test does.
+        await SettleAsync(() => context.Users.KeepsThirdPartiesOut is not null);
+        Assert.False(context.Users.KeepsThirdPartiesOut);
+    }
+
+    /// <summary>
+    /// Waits for something a screen started without awaiting it. Bounded, so a test about a request
+    /// that never happens has an end.
+    /// </summary>
+    private static async Task SettleAsync(Func<bool> until)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+        while (!until() && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(10);
+        }
+    }
+
+    /// <summary>
+    /// And an answer that could not be sent puts the switch back: one that stays where it was pressed
+    /// while nothing recorded it is the worst of both.
+    /// </summary>
+    [Fact]
+    public async Task A_privacy_choice_that_could_not_be_sent_puts_the_switch_back()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+        context.Users.RefusesThePrivacyChoice = true;
+
+        screen.KeepsThirdPartiesOut = true;
+
+        await SettleAsync(() => screen.PrivacyMessage.IsShown);
+        Assert.False(screen.KeepsThirdPartiesOut);
+        Assert.True(screen.PrivacyMessage.IsShown);
+    }
+
     [Fact]
     public async Task The_Debugger_tab_is_offered_only_to_an_account_holding_it()
     {

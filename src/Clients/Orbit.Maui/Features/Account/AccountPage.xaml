@@ -292,6 +292,23 @@
                 </Label>
             </VerticalStackLayout>
 
+            <!-- The one consent question Orbit asks, and the phone had no way to answer it: the About
+                 screen listed it among the documents and opened the web client's front page, which is
+                 the dashboard and not the question. Kept on the account rather than on this device, so
+                 answering it here answers it in a browser too. -->
+            <VerticalStackLayout Spacing="4" IsVisible="{Binding IsShowingAccount}">
+                <Grid ColumnDefinitions="*,Auto">
+                    <controls:FieldHint Grid.Column="0" IsHeading="True" VerticalOptions="Center"
+                                        Label="{controls:Translate 'Do not share my personal information'}"
+                                        Text="{controls:Translate 'Turning this on stops the map fetching its background from OpenStreetMap - the map still works, with its pins and its searching, but without the picture behind them. It also keeps this account out of the trace Orbit keeps of what its server was doing.'}" />
+                    <Switch Grid.Column="1" IsToggled="{Binding KeepsThirdPartiesOut}" VerticalOptions="Start"
+                            IsEnabled="{Binding Connection.IsMet}"
+                            SemanticProperties.Description="{controls:Translate 'Do not share my personal information'}" />
+                </Grid>
+                <Label Text="{Binding PrivacyMessage.Text}" IsVisible="{Binding PrivacyMessage.IsShown}"
+                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource ErrorLabel}" />
+            </VerticalStackLayout>
+
             <!-- What this phone hands to Google, which is a different question from what the account is
                  connected to: turning these off leaves a connected account connected. Offered only
                  where the account may use them at all - see GoogleIntegrationAccess. -->
