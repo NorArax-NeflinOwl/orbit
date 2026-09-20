@@ -301,7 +301,7 @@ else
                                    is behind the mark beside the button - see FieldHint.Warns. *@
                                 <span class="field-with-note">
                                     <button type="button" class="btn-secondary" @onclick="() => DetachFromTheEvent(item)">@T["Detach from the event"]</button>
-                                    <FieldHint Warns="true">@T["This entry has an event in the calendar. Saving keeps the two in step."]</FieldHint>
+                                    <FieldHint Warns="true">@T["This entry has an event in the calendar. Saving keeps the two in step. Detaching makes it an ordinary entry, due when the event started, and leaves the event where it is."]</FieldHint>
                                 </span>
                             }
                         }
@@ -2518,11 +2518,23 @@ else
     /// <summary>
     /// Stops an entry being this event's, without touching the event. Whoever made it decides what
     /// happens to it, in the calendar, where they can see what they are deleting.
+    ///
+    /// **The entry stops being an appointment too** (2026-09-20). Clearing the link alone left a
+    /// Calendar entry with no event, and the next save makes one for exactly that - so detaching put a
+    /// second appointment in the calendar beside the one it had just let go of, which is how the user
+    /// found it. An entry that is no longer an event is a line of work like any other, and the event's
+    /// start becomes the deadline it is owed by, so the *when* is not lost along with the link.
     /// </summary>
     private void DetachFromTheEvent(TaskItemFormModel item)
     {
         Logger.LogInformation("User detached a task entry from its calendar event");
         item.LinkedCalendarEventId = string.Empty;
+        item.Kind = nameof(TaskItemKind.Checklist);
+        if (item.DueDate is null && item.Event.StartDate is { } startDate)
+        {
+            item.DueDate = startDate;
+            item.DueTime = item.Event.StartTime;
+        }
     }
 
     /// <summary>

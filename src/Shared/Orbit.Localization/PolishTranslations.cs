@@ -187,7 +187,7 @@ public static class PolishTranslations
         ["Starts"] = "Zaczyna się",
         ["Ends"] = "Kończy się",
         ["This ends before it starts."] = "To kończy się przed rozpoczęciem.",
-        ["This entry has an event in the calendar. Saving keeps the two in step."] = "Ta pozycja ma wydarzenie w kalendarzu. Zapis utrzymuje je w zgodzie.",
+        ["This entry has an event in the calendar. Saving keeps the two in step. Detaching makes it an ordinary entry, due when the event started, and leaves the event where it is."] = "Ta pozycja ma wydarzenie w kalendarzu. Zapis utrzymuje je w zgodzie. Odłączenie zamienia ją w zwykłą pozycję z terminem na początek wydarzenia, a samo wydarzenie zostaje w kalendarzu.",
         ["Detach from the event"] = "Odłącz od wydarzenia",
         ["About this note"] = "O tej notatce",
         ["Write something in it."] = "Napisz w niej coś.",

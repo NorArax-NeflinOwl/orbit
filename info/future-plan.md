@@ -2684,13 +2684,23 @@ down whole rather than started, so nothing in it depends on being remembered.
   page's Groups tab, and the making itself still happens on the chat page, where the conversation
   would be.
 
-- **A checklist entry that became a calendar entry is on the calendar twice.** The scenario: an entry
-  "make a doctor's appointment" with a deadline; it is done, and then its kind is changed to calendar
-  with a new date and a place. The calendar then shows both - the checklist at the old date and the
-  event at the new one - and ticking the checklist one on the calendar immediately completes the
-  calendar one.
+- ~~**A checklist entry that became a calendar entry is on the calendar twice.**~~ Done 2026-09-20: a
+  Calendar entry has no deadline of its own (`TaskItem.DueDateUtc`) - the event says when it is, and the
+  form only ever asked one of the two. The old deadline was kept where nothing showed it and nothing
+  could clear it, so the calendar drew the entry at both dates with one tick behind them. The rule is
+  the domain's, in the constructor that already drops a product from an entry of the wrong kind, so it
+  holds for rows already stored as well: they come back without it.
 
-- **Detaching an event from the calendar leaves a duplicate event behind.**
+- ~~**Detaching an event from the calendar leaves a duplicate event behind.**~~ Done 2026-09-20:
+  detaching cleared the link but left the entry a Calendar one, which is exactly what the save makes an
+  event for. It now stops being an appointment in the same press (`TaskEditor.DetachFromTheEvent`), and
+  the event's start becomes the day it is owed by so the *when* is not lost with the link.
+
+- **Only a checklist entry is asked for a deadline, but two other kinds can still hold one.** The form
+  asks Checklist alone (see WhatAndWhen), and Calendar entries now drop theirs - but a Location entry
+  that had one before its kind changed keeps a date nothing on screen shows. An Inventory errand's date
+  is real and used (`RestockListSettings.OnlyLinkedWithDueDate`), which is why the rule was not widened:
+  the question is whether the form should be asking those two rather than whether the date should go.
 
 - ~~**A calendar-kind task draws its priority and its colour twice on the form.**~~ Done 2026-09-20:
   the entry asks both about itself and the event's own pair is off that form

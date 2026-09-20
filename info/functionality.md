@@ -4375,7 +4375,23 @@ with an empty form.
 the entry named. Orbit cannot settle that on its own: deleting the event would throw away something that
 may since have been edited in the calendar, and keeping it leaves an appointment nothing points at. So
 the save stops and hands the choice back - **Detach from the event** stops the entry being that event
-without destroying it, and the type is free to change afterwards.
+without destroying it.
+
+**Detaching makes it an ordinary entry** (2026-09-20). It used to clear the link and leave the entry a
+Calendar one - which is exactly what the save makes an event for - so detaching and saving put a *second*
+appointment in the calendar beside the one just released. An entry that is no longer an event is a line
+of work like any other, so the kind goes back to Checklist in the same press, and **the event's start
+becomes the day it is owed by** where the entry has no deadline yet, so the *when* is not lost with the
+link. The event stays where it is, for whoever made it to keep or delete in the calendar.
+
+**And a Calendar entry has no deadline of its own** (`TaskItem.DueDateUtc`, 2026-09-20). A checklist line
+with a due date, changed into an appointment, kept that date where no form showed it and nothing could
+clear it — and the calendar drew the entry twice, once as its event and once as a deadline, with one
+tick behind both, so ticking either struck through the other. The rule is the domain's, in the same
+constructor that drops a product from an entry of the wrong kind, so it holds for every client and for
+rows already stored: an entry read back from the database comes back without it. The other kinds keep
+theirs — a restock errand's date is what "what do I need before Thursday" is asked against
+(`RestockListSettings.OnlyLinkedWithDueDate`), even though the form does not offer the field.
 
 The place named on a calendar entry stays on the entry. The calendar's own location is coordinates first
 (`EventLocationRequest`) and the map overlay deliberately hands back an address rather than a pin, so
