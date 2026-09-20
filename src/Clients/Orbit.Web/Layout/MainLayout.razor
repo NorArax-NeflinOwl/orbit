@@ -87,7 +87,7 @@
                     <NavLink class="nav-item" href="/contacts" title="@(T["Contacts"])">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="6.5" r="3" /><path d="M1.5 17c0-3 2.5-5 5.5-5s5.5 2 5.5 5" /><circle cx="15" cy="7.5" r="2.3" /><path d="M13.7 12.2c2.4.3 4.1 2 4.1 4.6" /></svg>
                         <span class="label">@T["Contacts"]</span>
-                        @RenderSectionBadge("/chat")
+                        @RenderSectionBadge("/chat", "/invitation")
                     </NavLink>
                     }
                     @if (Permissions.Has(ApplicationPermission.Location))
@@ -1033,10 +1033,16 @@
     /// The unread badge for one nav section, keyed off the Url its notifications carry ("/tasks/{id}",
     /// "/chat/{userId}", ...) - so a reminder shows up on the section it came from, not only on the
     /// avatar. Renders nothing when that section has no unread notifications.
+    ///
+    /// Several prefixes where one section is reached by more than one kind of entry: Contacts is where
+    /// people are, and an offer of something shared arrives from a person, as a message in their
+    /// conversation. It points at the invitation page (see SharedItemLink.ToAccept), which is under no
+    /// nav section of its own, so the section it came *from* is the one that badges it - without this,
+    /// being handed something lit nothing in the navigation at all.
     /// </summary>
-    private RenderFragment? RenderSectionBadge(string urlPrefix)
+    private RenderFragment? RenderSectionBadge(params string[] urlPrefixes)
     {
-        var count = NotificationFeedState.CountForSection(urlPrefix);
+        var count = urlPrefixes.Sum(NotificationFeedState.CountForSection);
         if (count == 0)
         {
             return null;
