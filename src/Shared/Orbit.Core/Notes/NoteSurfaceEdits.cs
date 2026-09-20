@@ -349,19 +349,28 @@ public static partial class NoteSurfaceEdits
         return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line + replacement.Count - 1, last.Text.Length));
     }
 
-    /// <summary>A pasted line read the way <see cref="Replace"/> describes.</summary>
+    /// <summary>
+    /// A pasted line read the way <see cref="Replace"/> describes. The mark is looked for after the
+    /// line's indentation and the indentation is kept, the rule <see cref="ReadTypedMarker"/> follows:
+    /// a checklist pasted in with its sub-points indented arrives as one, rather than as boxes at the
+    /// top level for the indented lines and brackets-as-words for the rest.
+    /// </summary>
     private static NoteContentLine Read(string pasted)
     {
-        var tick = PastedTick().Match(pasted);
+        var indentation = IndentationOf(pasted);
+        var rest = pasted[indentation.Length..];
+
+        var tick = PastedTick().Match(rest);
         if (tick.Success)
         {
             var isTicked = tick.Groups["mark"].Value is "x" or "X";
-            return new NoteContentLine(pasted[tick.Length..], IsChecklistItem: true, IsChecked: isTicked);
+            return new NoteContentLine(
+                indentation + rest[tick.Length..], IsChecklistItem: true, IsChecked: isTicked);
         }
 
-        var bullet = PastedBullet().Match(pasted);
+        var bullet = PastedBullet().Match(rest);
         return bullet.Success
-            ? new NoteContentLine(pasted[bullet.Length..], IsChecklistItem: true, IsChecked: false)
+            ? new NoteContentLine(indentation + rest[bullet.Length..], IsChecklistItem: true, IsChecked: false)
             : Plain(pasted);
     }
 
@@ -396,6 +405,13 @@ public static partial class NoteSurfaceEdits
     /// the marker is eaten. The phone's note screen has had exactly this rule and no toolbar at all -
     /// see NoteDetailPage. The caret stays where it was in the words, which is two characters further
     /// left now the marker has gone.
+    ///
+    /// The marker is read <em>after</em> the line's indentation, and the indentation stays: a box typed
+    /// on a line pushed in by Tab is a box on a sub-point, which is exactly what somebody indenting a
+    /// line and then typing "[]" means (asked for on 2026-09-20). It used to be anchored at the very
+    /// start of the text, so one Tab was enough to leave the brackets sitting there as words - while
+    /// the phone, reading the same rule through <see cref="TypedMarkerLength"/>, had always read it
+    /// after the indentation (see NoteDetailViewModel.ReadTypedMarker). The two agree now.
     /// </summary>
     public static SurfaceState? ReadTypedMarker(SurfaceState state)
     {
@@ -407,7 +423,8 @@ public static partial class NoteSurfaceEdits
 
         var caret = state.Caret;
         var line = state.Lines[caret.Line];
-        var marker = TypedTick().Match(line.Text);
+        var indented = IndentationOf(line.Text).Length;
+        var marker = TypedTick().Match(line.Text[indented..]);
         if (line.IsChecklistItem || line.IsAnElement || !marker.Success)
         {
             return null;
@@ -416,13 +433,14 @@ public static partial class NoteSurfaceEdits
         var lines = state.Lines.ToList();
         // The line's style is kept: a box is what the line is answered in, not what kind of line it is -
         // see NoteLineStyle, which says why the two are separate fields.
-        lines[caret.Line] = line.Changed(0, marker.Length, string.Empty) with
+        lines[caret.Line] = line.Changed(indented, marker.Length, string.Empty) with
         {
             IsChecklistItem = true,
             IsChecked = false,
             IsFailed = false
         };
-        return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, Math.Max(0, caret.Offset - marker.Length)));
+        return SurfaceState.CaretAt(
+            lines, new SurfacePoint(caret.Line, Math.Max(indented, caret.Offset - marker.Length)));
     }
 
     /// <summary>
