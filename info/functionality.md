@@ -1318,6 +1318,20 @@ way leaving the page keeps it, and the star in the column says it is waiting. A 
 **in Public**: this page has no folder tab, so the tab that would otherwise answer is whichever one the
 page of cards was last left on.
 
+**The folders live in that column** (2026-09-20, asked for). A **"+"** beside its heading makes one, and
+each folder somebody made carries its own menu - *rename*, *hide on the dashboard*, *delete* (refused
+while anything is in it, drawn and disabled rather than left out). The row of tabs on `/notes/all` still
+has all of it; this is the same controls where the notes are now read from. A folder with nothing in it
+is a heading with no notes under it here, unlike a built-in one: it is a thing somebody made, and its
+menu is the only way to rename or delete it.
+
+**The archive is at the top of the column**, out of the order the tabs are in, because it is the one
+heading about *when* rather than about what - somebody looking for something they archived is looking
+for that word rather than scrolling past every note they still have. It appears only once something has
+been put away, and its own menu takes it off the column (`DevicePreferences.ArchiveIsHiddenInTheNotes`,
+per device). While it is off, the **"+" becomes a menu of two** - *New folder*, *Show the archive* -
+since putting it back has to be reachable and this column has no other control of its own.
+
 **A new note has to be named.** The first line *is* the name (`NoteFormModel.Title`), so a note whose
 first line is empty is one nobody could tell from the next one in the column, in a share, or in a
 notification. Save says which answer is missing - "Give it a name." or "Write something in it." - rather

@@ -1041,6 +1041,10 @@ public static class PolishTranslations
         ["Hide on the dashboard"] = "Ukryj na pulpicie",
         ["Delete folder"] = "Usuń folder",
         ["Delete this folder?"] = "Usunąć ten folder?",
+        // The archive's own two entries in the notes column - it is at the top there and can be put
+        // away, unlike the other built-in headings. See NoteWorkspaceList.
+        ["Hide folder"] = "Ukryj folder",
+        ["Show the archive"] = "Pokaż archiwum",
         ["Nothing in it is deleted - everything goes back to Public, or to Private if it is sealed."] =
             "Nic z niego nie zostanie usunięte - wszystko wróci do Publicznych, a rzeczy zaszyfrowane do Prywatnych.",
         // Since 2026-09-20 only an empty folder can go, so the question says what little is at stake and

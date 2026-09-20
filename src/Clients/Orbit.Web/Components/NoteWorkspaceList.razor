@@ -4,7 +4,9 @@
 @inject NotesApiClient NotesApiClient
 @inject FolderState Folders
 @inject DashboardCardPreferences CardPreferences
+@inject DevicePreferences Device
 @inject ILogger<NoteWorkspaceList> Logger
+@using Microsoft.AspNetCore.Components.Web
 @inject NoteDrafts Drafts
 @inject Translations T
 @implements IDisposable
@@ -32,6 +34,30 @@ else
            place two questions are still answered: choosing several notes at once, and narrowing by tag. *@
         <h2 class="note-workspace-list-heading">
             <a href="/notes/all">@T["Notes"]</a>
+            @* Making a folder, where the folders are. One press while there is nothing else to offer;
+               a menu of two once the archive has been hidden, since putting it back has to be reachable
+               from somewhere and this is the only control the column has that is not a folder's own. *@
+            @if (_isNaming && _folderBeingRenamed is null)
+            {
+                <input class="folder-tab-name" placeholder="@(T["Folder name"])" @bind="_name" @bind:event="oninput"
+                       @onkeydown="OnNamingKeyDownAsync" @onblur="StopNaming"
+                       aria-label="@(T["Folder name"])" @ref="_nameBox" />
+            }
+            else if (Device.ArchiveIsHiddenInTheNotes)
+            {
+                <OverflowMenu>
+                    <button type="button" class="avatar-dropdown-item" @onclick="StartNaming">@T["New folder"]</button>
+                    <button type="button" class="avatar-dropdown-item" @onclick="ShowTheArchiveAsync">@T["Show the archive"]</button>
+                </OverflowMenu>
+            }
+            else
+            {
+                <button type="button" class="icon-btn note-workspace-list-add" title="@(T["New folder"])"
+                        aria-label="@(T["New folder"])" @onclick="StartNaming">
+                    <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true" fill="none"
+                         stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
+                </button>
+            }
         </h2>
         @if (_folders.Count == 0)
         {
@@ -39,7 +65,53 @@ else
         }
         @foreach (var folder in _folders)
         {
-            <h3 class="note-workspace-list-folder">@folder.Name</h3>
+            <h3 class="note-workspace-list-folder">
+                @if (_folderBeingRenamed == folder.Key.FolderId && folder.Key.FolderId is not null)
+                {
+                    <input class="folder-tab-name" @bind="_name" @bind:event="oninput"
+                           @onkeydown="OnNamingKeyDownAsync" @onblur="StopNaming"
+                           aria-label="@(T["Folder name"])" @ref="_nameBox" />
+                }
+                else
+                {
+                    <span class="note-workspace-list-folder-name">@folder.Name</span>
+                }
+                @* The folder's own controls, where the folder is - the tab row's menu, moved here
+                   (2026-09-20, asked for). The notes are read from this column now, so a row of tabs
+                   above the cards is not where somebody standing in a note would look for them. *@
+                @if (folder.Key.FolderId is { } folderId)
+                {
+                    <OverflowMenu StaysOpen="true">
+                        <button type="button" class="avatar-dropdown-item" @onclick="() => StartRenaming(folderId)">
+                            @T["Rename folder"]
+                        </button>
+                        <button type="button" class="avatar-dropdown-item"
+                                @onclick="() => SetShownOnTheDashboardAsync(folderId, !CardPreferences.IsFolderShown(folderId))">
+                            <span class="card-filter-mark">@(CardPreferences.IsFolderShown(folderId) ? "" : "✓")</span>
+                            @T["Hide on the dashboard"]
+                        </button>
+                        @* Only an empty one, the same rule the tab row applies: a folder is one of the
+                           few things Orbit deletes rather than puts away, and only while there is
+                           nothing in it to lose. Drawn and disabled rather than left out. *@
+                        <button type="button" class="avatar-dropdown-item" disabled="@(folder.Notes.Count > 0)"
+                                title="@(folder.Notes.Count > 0 ? T["Move what is in it somewhere else first."] : null)"
+                                @onclick="() => DeleteAsync(folderId)">
+                            @T["Delete folder"]
+                        </button>
+                    </OverflowMenu>
+                }
+                else if (folder.Key.BuiltIn == BuiltInFolder.Archived)
+                {
+                    @* The archive is the one built-in heading with anything to say about itself: it is
+                       at the top of the column and a reader who archives a great deal is never reading
+                       from it. Taking it off is theirs, and kept on the device. *@
+                    <OverflowMenu>
+                        <button type="button" class="avatar-dropdown-item" @onclick="HideTheArchiveAsync">
+                            @T["Hide folder"]
+                        </button>
+                    </OverflowMenu>
+                }
+            </h3>
             @foreach (var note in folder.Notes)
             {
                 <button type="button" class="note-workspace-row @(note.Id == ChosenNoteId ? "chosen" : null) @(HasUnsavedWriting(note.Id) ? "unsaved" : null)"
@@ -64,6 +136,22 @@ else
     </aside>
 }
 
+@if (_isDeleting)
+{
+    @* Asked anyway, though only an empty folder reaches here: a folder is a thing somebody made and
+       named, and losing one to a misread press is worth one question. The same panel the row of tabs
+       puts up, for the same reason. *@
+    <Dialog Title="@(T["Delete this folder?"])" OnClosed="() => _isDeleting = false">
+        <ChildContent>
+            <p>@T["There is nothing in it. The tab goes and nothing else changes."]</p>
+        </ChildContent>
+        <Footer>
+            <button type="button" class="btn-secondary" @onclick="() => _isDeleting = false">@T["Cancel"]</button>
+            <button type="button" class="btn-primary" @onclick="ConfirmDeleteAsync">@T["Delete folder"]</button>
+        </Footer>
+    </Dialog>
+}
+
 @code {
     /// <summary>The note the page beside this column is showing, marked rather than left out.</summary>
     [Parameter] public Guid? ChosenNoteId { get; set; }
@@ -71,14 +159,34 @@ else
     /// <summary>Pressed another note. The page decides what opening one means - reading it, or writing in it.</summary>
     [Parameter] public EventCallback<Guid> OnChosen { get; set; }
 
-    /// <summary>One folder's worth of the column: the heading, and the notes under it.</summary>
-    private sealed record NotesInAFolder(string Name, IReadOnlyList<NoteDto> Notes);
+    /// <summary>One folder's worth of the column: which folder it is, its heading, and the notes under it.</summary>
+    private sealed record NotesInAFolder(FolderKey Key, string Name, IReadOnlyList<NoteDto> Notes);
 
-    private IReadOnlyList<NotesInAFolder> _folders = [];
+    /// <summary>
+    /// Every note this account has, as they were read. Kept rather than grouped once, because what the
+    /// headings are and which of them are drawn changes without the notes changing - a folder made or
+    /// renamed here, the archive taken off the column - and regrouping is the cheap half of that.
+    /// </summary>
+    private IReadOnlyList<NoteDto> _everyNote = [];
+
+    private IReadOnlyList<NotesInAFolder> _folders => Grouped(_everyNote);
+
     private bool _couldNotLoad;
+    private bool _isNaming;
+    private bool _isDeleting;
+    private Guid? _folderBeingRenamed;
+    private Guid? _folderToDelete;
+    private string _name = string.Empty;
+    private ElementReference? _nameBox;
+    private bool _isWaitingToFocusTheNameBox;
 
     protected override async Task OnInitializedAsync()
     {
+        // The folders' own controls live here now, so this column is asked about what is put away and
+        // about what is on the dashboard - neither of which any page has necessarily read yet.
+        await Device.InitializeAsync();
+        await CardPreferences.InitializeAsync();
+        Folders.Changed += OnFoldersChanged;
         // Redrawn as writing is kept and let go of, so the star appears while somebody is typing in the
         // note beside this column rather than only once they have left it - see NoteDrafts.
         Drafts.Changed += OnDraftsChanged;
@@ -90,9 +198,130 @@ else
         await LoadAsync();
     }
 
-    public void Dispose() => Drafts.Changed -= OnDraftsChanged;
+    public void Dispose()
+    {
+        Drafts.Changed -= OnDraftsChanged;
+        Folders.Changed -= OnFoldersChanged;
+    }
 
     private void OnDraftsChanged() => InvokeAsync(StateHasChanged);
+
+    private void OnFoldersChanged() => InvokeAsync(StateHasChanged);
+
+    private void StartNaming()
+    {
+        _folderBeingRenamed = null;
+        _name = string.Empty;
+        _isNaming = true;
+        _isWaitingToFocusTheNameBox = true;
+    }
+
+    private void StartRenaming(Guid folderId)
+    {
+        _folderBeingRenamed = folderId;
+        _name = Folders.Folders.FirstOrDefault(folder => folder.Id == folderId)?.Name ?? string.Empty;
+        _isNaming = true;
+        _isWaitingToFocusTheNameBox = true;
+    }
+
+    /// <summary>
+    /// Enter makes or renames it, Escape leaves everything as it was - the same two keys the row of
+    /// tabs answers to, because it is the same box doing the same thing in another place.
+    /// </summary>
+    private async Task OnNamingKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+        {
+            StopNaming();
+            return;
+        }
+
+        if (args.Key != "Enter")
+        {
+            return;
+        }
+
+        var name = _name.Trim();
+        if (name.Length == 0)
+        {
+            StopNaming();
+            return;
+        }
+
+        if (_folderBeingRenamed is { } folderId)
+        {
+            Logger.LogInformation("User renamed folder {FolderId} from the notes column", folderId);
+            await Folders.RenameAsync(folderId, name);
+        }
+        else
+        {
+            Logger.LogInformation("User created a notes folder from the notes column");
+            await Folders.CreateAsync(FolderPage.Notes, name);
+        }
+
+        StopNaming();
+        await LoadAsync();
+    }
+
+    private void StopNaming()
+    {
+        _isNaming = false;
+        _folderBeingRenamed = null;
+        _name = string.Empty;
+    }
+
+    private void DeleteAsync(Guid folderId)
+    {
+        _folderToDelete = folderId;
+        _isDeleting = true;
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        _isDeleting = false;
+        if (_folderToDelete is not { } folderId)
+        {
+            return;
+        }
+
+        Logger.LogInformation("User deleted folder {FolderId} from the notes column", folderId);
+        await Folders.DeleteAsync(FolderPage.Notes, folderId);
+        _folderToDelete = null;
+        await LoadAsync();
+    }
+
+    /// <inheritdoc cref="DashboardCardPreferences.IsFolderShown"/>
+    private async Task SetShownOnTheDashboardAsync(Guid folderId, bool isShown)
+    {
+        Logger.LogInformation(
+            "User {Action} folder {FolderId} on the dashboard, from the notes column",
+            isShown ? "showed" : "hid", folderId);
+        await CardPreferences.SetFolderShownAsync(folderId, isShown);
+    }
+
+    private async Task HideTheArchiveAsync()
+    {
+        Logger.LogInformation("User hid the archive in the notes column");
+        await Device.SetArchiveHiddenInTheNotesAsync(true);
+    }
+
+    private async Task ShowTheArchiveAsync()
+    {
+        Logger.LogInformation("User showed the archive in the notes column again");
+        await Device.SetArchiveHiddenInTheNotesAsync(false);
+    }
+
+    /// <summary>A box that appears to be typed in and then has to be found and clicked is a box nobody uses.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_isWaitingToFocusTheNameBox || _nameBox is not { } box)
+        {
+            return;
+        }
+
+        _isWaitingToFocusTheNameBox = false;
+        await box.FocusAsync();
+    }
 
     /// <summary>Whether this note holds writing the server has not got - see NoteDrafts.</summary>
     private bool HasUnsavedWriting(Guid noteId) => Drafts.For(noteId) is not null;
@@ -101,7 +330,7 @@ else
     {
         try
         {
-            _folders = Grouped(await NotesApiClient.GetNotesAsync());
+            _everyNote = await NotesApiClient.GetNotesAsync();
             _couldNotLoad = false;
         }
         catch (HttpRequestException exception)
@@ -109,15 +338,21 @@ else
             // Best effort: a list that will not load leaves the column out rather than taking the note
             // beside it down with it.
             Logger.LogWarning(exception, "Couldn't list the notes beside the one being shown");
-            _folders = [];
+            _everyNote = [];
             _couldNotLoad = true;
         }
     }
 
     /// <summary>
     /// The notes under one heading each, most recently changed first inside a heading. The order of the
-    /// headings is the notes page's own row of tabs, minus the ones nothing is filed under - so the
-    /// archive is at the foot when anything is in it and absent when nothing is.
+    /// headings is the notes page's own row of tabs, minus the ones nothing is filed under - so a
+    /// folder appears once something is in it and not before.
+    ///
+    /// **The archive is lifted to the top** (2026-09-20, asked for), out of the order the tabs are in.
+    /// It is the one heading that is about *when* rather than about what: everything under it has been
+    /// put away, and a reader looking for something they archived is looking for that word rather than
+    /// scrolling to the foot of every note they still have. It can be taken off the column from its own
+    /// menu - see DevicePreferences.ArchiveIsHiddenInTheNotes.
     /// </summary>
     private IReadOnlyList<NotesInAFolder> Grouped(IReadOnlyList<NoteDto> notes)
     {
@@ -131,12 +366,30 @@ else
         // CardPreferences decides nothing here - it is only asked about the dashboard, and this is the
         // notes - but FolderTabRow is where the order of the tabs lives, and the column follows it
         // rather than keeping a second copy of it.
+        var archived = FolderKey.Of(BuiltInFolder.Archived);
+        var inOrder = FolderTabRow.On(FolderPage.Notes, Folders, CardPreferences, holdsAnything: byFolder.ContainsKey)
+            .Where(byFolder.ContainsKey)
+            .Where(folder => folder != archived || !Device.ArchiveIsHiddenInTheNotes)
+            .ToList();
+        if (inOrder.Remove(archived))
+        {
+            inOrder.Insert(0, archived);
+        }
+
+        // A custom folder with nothing in it is a heading with no notes under it - drawn anyway, since
+        // it is a folder somebody made and its own menu is the only place it can be renamed or deleted
+        // from now. The built-in ones are not: they are derived rather than made, and one holding
+        // nothing is a word about nothing.
+        var empty = Folders.FoldersOn(FolderPage.Notes)
+            .Select(folder => FolderKey.Of(folder.Id))
+            .Where(folder => !byFolder.ContainsKey(folder));
         return
         [
-            .. FolderTabRow.On(FolderPage.Notes, Folders, CardPreferences, holdsAnything: byFolder.ContainsKey)
-                .Where(byFolder.ContainsKey)
+            .. inOrder.Concat(empty)
                 .Select(folder => new NotesInAFolder(
-                    Folders.NameOf(folder, builtIn => BuiltInFolderNames.Of(builtIn, T)), byFolder[folder]))
+                    folder,
+                    Folders.NameOf(folder, builtIn => BuiltInFolderNames.Of(builtIn, T)),
+                    byFolder.GetValueOrDefault(folder, [])))
         ];
     }
 

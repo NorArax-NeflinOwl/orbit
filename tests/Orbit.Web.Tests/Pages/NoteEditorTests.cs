@@ -982,15 +982,19 @@ public sealed class NoteEditorTests : OrbitTestContext
 
         Assert.Equal(
             ["Public", "Private", "Work"],
-            cut.FindAll(".note-workspace-list-folder").Select(heading => heading.TextContent.Trim()));
+            cut.FindAll(".note-workspace-list-folder-name").Select(heading => heading.TextContent.Trim()));
     }
 
     /// <summary>
     /// A note put away is under the archive's own heading rather than among what the reader is working
     /// on - the same place the notes page files it (see FolderPlacement).
+    ///
+    /// **At the top of the column** since 2026-09-20, out of the order the tabs are in: it is the one
+    /// heading about *when* rather than about what, and somebody looking for something they archived is
+    /// looking for that word rather than scrolling past every note they still have.
     /// </summary>
     [Fact]
-    public void A_note_put_away_is_under_the_archives_heading()
+    public void A_note_put_away_is_under_the_archives_heading_at_the_top()
     {
         var note = Note("Shopping");
         var archived = Note("Last year") with { IsArchived = true };
@@ -999,8 +1003,86 @@ public sealed class NoteEditorTests : OrbitTestContext
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
 
         Assert.Equal(
-            ["Public", "Archived"],
-            cut.FindAll(".note-workspace-list-folder").Select(heading => heading.TextContent.Trim()));
+            ["Archived", "Public"],
+            cut.FindAll(".note-workspace-list-folder-name").Select(heading => heading.TextContent.Trim()));
+    }
+
+    /// <summary>
+    /// And the archive can be taken off the column, from its own menu (2026-09-20, asked for): it is at
+    /// the top, and a reader who archives a great deal is never reading from it. The plus that makes a
+    /// folder then becomes a menu of two, because putting the archive back has to be reachable from
+    /// somewhere and this column has no other control of its own.
+    /// </summary>
+    [Fact]
+    public void The_archive_can_be_taken_off_the_column_and_put_back()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note, alsoInTheList: [Note("Last year") with { IsArchived = true }]);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        var archive = cut.FindAll(".note-workspace-list-folder")
+            .First(heading => heading.TextContent.Contains("Archived", StringComparison.Ordinal));
+        archive.QuerySelector(".overflow-menu-trigger")!.Click();
+        cut.FindAll(".note-workspace-list-folder .avatar-dropdown-item")
+            .First(entry => entry.TextContent.Contains("Hide folder", StringComparison.Ordinal))
+            .Click();
+
+        Assert.DoesNotContain(
+            "Archived",
+            cut.FindAll(".note-workspace-list-folder-name").Select(heading => heading.TextContent.Trim()));
+
+        cut.Find(".note-workspace-list-heading .overflow-menu-trigger").Click();
+        cut.FindAll(".note-workspace-list-heading .avatar-dropdown-item")
+            .First(entry => entry.TextContent.Contains("Show the archive", StringComparison.Ordinal))
+            .Click();
+
+        Assert.Contains(
+            "Archived",
+            cut.FindAll(".note-workspace-list-folder-name").Select(heading => heading.TextContent.Trim()));
+    }
+
+    /// <summary>
+    /// A folder somebody made carries its own menu here - rename, hide on the dashboard, delete - which
+    /// is where the row of tabs used to hold it. The notes are read from this column now, so a row
+    /// above a page of cards is not where somebody standing in a note would look.
+    /// </summary>
+    [Fact]
+    public void A_folder_in_the_column_carries_its_own_menu()
+    {
+        var workFolderId = Guid.NewGuid();
+        var note = Note("Shopping");
+        RegisterApiClients(note, alsoInTheList: [Note("Invoices") with { FolderId = workFolderId }]);
+        RegisterFolders([new FolderDto(workFolderId, "Work", FolderScope.Notes.ToString(), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow)]);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        var work = cut.FindAll(".note-workspace-list-folder")
+            .First(heading => heading.TextContent.Contains("Work", StringComparison.Ordinal));
+        work.QuerySelector(".overflow-menu-trigger")!.Click();
+
+        var entries = cut.FindAll(".note-workspace-list-folder .avatar-dropdown-item")
+            .Select(entry => entry.TextContent.Trim())
+            .ToList();
+        Assert.Contains(entries, entry => entry.Contains("Rename folder", StringComparison.Ordinal));
+        Assert.Contains(entries, entry => entry.Contains("Hide on the dashboard", StringComparison.Ordinal));
+        // And it holds a note, so deleting it is refused rather than left out - an entry that
+        // disappears teaches nobody why.
+        var delete = cut.FindAll(".note-workspace-list-folder .avatar-dropdown-item")
+            .First(entry => entry.TextContent.Contains("Delete folder", StringComparison.Ordinal));
+        Assert.True(delete.HasAttribute("disabled"));
+    }
+
+    /// <summary>The built-in headings are derived rather than made, so there is nothing to rename or delete.</summary>
+    [Fact]
+    public void A_built_in_heading_has_no_menu()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        var publicHeading = cut.FindAll(".note-workspace-list-folder")
+            .First(heading => heading.TextContent.Contains("Public", StringComparison.Ordinal));
+
+        Assert.Null(publicHeading.QuerySelector(".overflow-menu-trigger"));
     }
 
     [Fact]

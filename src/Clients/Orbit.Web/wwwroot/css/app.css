@@ -471,6 +471,33 @@ input.note-editor-title {
     border-top: none;
 }
 
+/* The folder's name and its own menu on one line, the menu pushed to the far edge - the folders are
+   renamed, hidden and deleted from here since 2026-09-20, where the row of tabs used to hold it. */
+.note-workspace-list-folder {
+    align-items: center;
+    display: flex;
+    gap: 4px;
+    justify-content: space-between;
+}
+
+.note-workspace-list-folder-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* And the plus beside the column's own heading, which makes a folder. */
+.note-workspace-list-heading {
+    align-items: center;
+    display: flex;
+    gap: 4px;
+    justify-content: space-between;
+}
+
+.note-workspace-list-add {
+    color: var(--text-secondary);
+}
+
 .note-workspace-row {
     display: flex;
     flex-direction: column;

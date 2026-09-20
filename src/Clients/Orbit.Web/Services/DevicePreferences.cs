@@ -122,6 +122,16 @@ public sealed class DevicePreferences
     /// </summary>
     public bool? MapAtNight { get; private set; }
 
+    /// <summary>
+    /// Whether the archive is left out of the column of notes beside the writing. Shown by default: it
+    /// only appears at all once something has been put away, and a heading that had to be turned on
+    /// would be a heading nobody found. Asked for on 2026-09-20 - a reader who archives a lot has a
+    /// heading at the top of the column they are never reading from, and taking it off is theirs to do.
+    ///
+    /// Per device, like everything here: it says nothing about the notes, only about this screen.
+    /// </summary>
+    public bool ArchiveIsHiddenInTheNotes { get; private set; }
+
     public async Task InitializeAsync()
     {
         // Nothing stored means every kind; an empty string is somebody having switched every one off.
@@ -155,6 +165,16 @@ public sealed class DevicePreferences
             "false" => false,
             _ => null
         };
+        // Only an explicit "true" takes it off: a browser that was never asked shows it, which is what
+        // a heading that appears on its own has to do to be found at all.
+        ArchiveIsHiddenInTheNotes = await ReadAsync(StorageKeys.ArchiveIsHiddenInTheNotes) == "true";
+    }
+
+    /// <inheritdoc cref="ArchiveIsHiddenInTheNotes"/>
+    public Task SetArchiveHiddenInTheNotesAsync(bool isHidden)
+    {
+        ArchiveIsHiddenInTheNotes = isHidden;
+        return WriteAsync(StorageKeys.ArchiveIsHiddenInTheNotes, isHidden ? "true" : "false");
     }
 
     /// <summary>Says how the map is drawn on this device, or hands it back to the theme with null.</summary>
@@ -279,6 +299,7 @@ public sealed class DevicePreferences
         public const string AllowAdsForDebugger = "orbit-allow-ads-for-debugger";
         public const string UpcomingDays = "orbit-upcoming-days";
         public const string KindsFilledFromSuggestions = "orbit-kinds-filled-from-suggestions";
+        public const string ArchiveIsHiddenInTheNotes = "orbit-notes-archive-hidden";
     }
 }
 

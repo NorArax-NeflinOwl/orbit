@@ -2631,11 +2631,13 @@ down whole rather than started, so nothing in it depends on being remembered.
   `/notes/all`, reached from the heading above the column - it is still the only place several notes can
   be chosen at once and the only place tags narrow anything, and losing those was not what was asked for.
 
-  Still to do: folders move off the tab bar and into that left panel. A **"+"** on it adds a custom folder, and a
-  **menu to the right of the folder's name** holds *rename custom folder*, *hide on the dashboard*,
-  *delete custom folder*. When anything has been archived, an **Archived** folder appears at the top
-  of the list with *hide folder* in its own menu - and while it is hidden the "+" becomes a menu of
-  two: *add custom folder*, *show archive*.
+  The folders moved into that left panel the same day (`NoteWorkspaceList`): a **"+"** beside its
+  heading makes one, each folder somebody made carries *rename* / *hide on the dashboard* / *delete* in
+  its own menu, **Archived** is lifted to the top with *hide folder* in its menu, and while it is
+  hidden the "+" is a menu of two - *New folder*, *Show the archive*. Deleting is refused while
+  anything is in the folder, the same rule the row of tabs applies. The row of tabs on `/notes/all`
+  keeps all of it as well: it is the same controls in the place the notes are now read from, rather
+  than a move.
 
 - ~~**"Add note" becomes a "+" on the right-hand panel, in place of Back.**~~ Done 2026-09-20
   (`EditorRail.OnAdd`, set by the note editor alone): it opens the empty note form, and the note lands
