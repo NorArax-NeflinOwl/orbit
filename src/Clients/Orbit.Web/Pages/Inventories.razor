@@ -140,7 +140,13 @@
                     <Menu>
                         @* The card opens the shelf to be read; changing what is on it is a named press,
                            the same as a task list's - unless a share below CanEdit means there is
-                           nothing to press it into changing, the same question Notes.razor asks. *@
+                           nothing to press it into changing, the same question Notes.razor asks.
+
+                           Somebody else's shelf is not this reader's to delete: pressing that takes it
+                           off their own pages and leaves the owner's alone, so it says so rather than
+                           "Delete" - the shape a note, a task list and an event already have. It needs
+                           no archive first either, because a share cannot be put away and requiring the
+                           archive would leave no way to be rid of one at all. *@
                         <ObjectMenu EditLabel="@(CanBeChanged(inventory) ? T["Edit"] : T["View"])" OnEdit="() => EditInventory(inventory.Id)"
                                     DuplicateLabel="@(!inventory.IsShared ? T["Duplicate"] : null)"
                                     OnDuplicate="() => DuplicateInventoryAsync(inventory)"
@@ -148,7 +154,9 @@
                                     ArchiveLabel="@(!inventory.IsShared ? ArchiveLabelFor(inventory.IsArchived) : null)"
                                     OnArchive="() => SetArchivedAsync(inventory, !inventory.IsArchived)"
                                     IsArchived="inventory.IsArchived"
-                                    DeleteLabel="@(!inventory.IsShared ? T["Delete"] : null)" OnDelete="() => DeleteInventoryAsync(inventory)" />
+                                    DeleteNeedsTheArchive="@(!inventory.IsShared)"
+                                    DeleteLabel="@(inventory.IsShared ? T["Remove from my list"] : T["Delete"])"
+                                    OnDelete="() => DeleteInventoryAsync(inventory)" />
                     </Menu>
                     <Tags>
                         @if (inventory.IsGroup)
@@ -598,8 +606,14 @@
 
     private async Task DeleteInventoryAsync(InventoryDto inventory)
     {
+        // Asked in the words of what will happen. A shelf somebody shared is not being destroyed -
+        // the server drops this reader's grant and leaves the owner's shelf where it is, see
+        // DeleteInventoryCommandHandler - so it must not be asked about as a deletion.
         var confirmed = await JSRuntime.InvokeAsync<bool>(
-            "confirm", T.Format("Delete \"{0}\" and everything in it?", inventory.Name));
+            "confirm",
+            inventory.IsShared
+                ? T.Format("Remove \"{0}\" from your inventories? The owner keeps it.", inventory.Name)
+                : T.Format("Delete \"{0}\" and everything in it?", inventory.Name));
         if (!confirmed)
         {
             return;
@@ -617,7 +631,9 @@
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to delete inventory {InventoryId}", inventory.Id);
-            _errorMessage = T["Failed to delete the inventory. Try again."];
+            _errorMessage = inventory.IsShared
+                ? T["Couldn't take that off your inventories. Check your connection and try again."]
+                : T["Failed to delete the inventory. Try again."];
             return;
         }
 

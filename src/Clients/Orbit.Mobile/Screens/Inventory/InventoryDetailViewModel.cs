@@ -414,6 +414,15 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
 
     public bool CanEdit => !IsReadOnly;
 
+    /// <summary>
+    /// Whether this shelf reached the reader through a share rather than being theirs. What the menu's
+    /// last entry is named for: pressing it on somebody else's shelf drops this reader's own grant and
+    /// leaves the owner's shelf where it is - see DeleteInventoryCommandHandler - so it must not say
+    /// "Delete". The note's screen has drawn the same line since the archive rule arrived.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isSharedWithMe;
+
     public void Open(Guid localId, Guid? productId = null)
     {
         _localId = localId;
@@ -783,6 +792,7 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
         Name = inventory.Name;
         FolderId = inventory.FolderId;
         IsArchived = inventory.IsArchived;
+        IsSharedWithMe = inventory.IsShared;
         Folders = [.. await _folderRepository.GetAllAsync(FolderScope.Inventories, cancellationToken)];
         Description = inventory.Description;
         _savedDescription = inventory.Description;

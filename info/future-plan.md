@@ -772,16 +772,22 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   sealed."* and then do exactly that. Each needs the same question asked of its own list before the
   entry is offered. Left for the round that touches those pages.
 
-- **An inventory is the one shared thing with no way to ask for editing, and no way off your own page**
-  (2026-09-20). Fixing both for an event turned this up. `RequestEditAccessButton` is now under the
-  shared-by banner of a note's form, a task list's and an event's; `InventoryEditor.razor` has the same
-  banner and no button, although the owner's side already knows how to answer for one - the `_ =>`
-  branch of `Chat.razor`'s `BuildEditAccessRequestNotice` is the inventory. And its menus
-  (`Inventories.razor`, `InventorySummary.razor`) still say `DeleteLabel="@(!inventory.IsShared ? ...
-  : null)"`, which is the shape a note, a task list and an event have just moved off: a shelf shared
-  with somebody can be neither put away nor deleted, so there is nothing they can press to be rid of
-  it. Both are a handful of lines each, in the shape the other three now have. Left undone because the
-  list asked for on 2026-09-20 names task lists and events and this is neither.
+- ~~**An inventory is the one shared thing with no way to ask for editing, and no way off your own
+  page**~~ (2026-09-20). Both done the same day, in the shape the other three have.
+  `RequestEditAccessButton` is under the shared-by banner of `InventoryEditor.razor` now - the owner's
+  side already knew how to answer for one, the `_ =>` branch of `Chat.razor`'s
+  `BuildEditAccessRequestNotice` being the inventory. And both menus (`Inventories.razor`,
+  `InventorySummary.razor`) say **"Remove from my list"** rather than nothing, with
+  `DeleteNeedsTheArchive="false"` so it is offered without asking for an archive a share cannot be put
+  through; each question names what will happen ("Remove "{0}" from your inventories? The owner keeps
+  it.") rather than borrowing the deletion's words.
+
+  **The phone had the same two gaps and a third of its own.** Its shelf screen offered Archive and
+  Delete behind `CanEdit`, so a shared shelf held at that level was offered a "Delete inventory" that
+  actually drops the reader's grant, and a read-only one was offered nothing at all - the screen says
+  "Remove from my list" now, from `InventoryDetailViewModel.IsSharedWithMe`. The third: that entry went
+  **straight through on the press**, with no question at all, which is one slip of a thumb between a
+  reader and everything on a shelf. It asks now, in the two wordings above.
 
 - **"Cannot invoke JS interop… DotNetObjectReference was disposed" (issue #185): audited 2026-09-19, and
   no component owns it any more.** Every one of the seven that hands a reference to a module - the

@@ -640,6 +640,13 @@ is, and the first that applies wins:
    taking somebody else's shared thing off this reader's own list needs no archive first, because
    something shared cannot be put away at all (`ObjectMenu.DeleteNeedsTheArchive`). Left out on
    something reached through a share.
+
+   **So something shared with you says "Remove from my list"** where your own says "Delete", on all
+   four kinds - a note, a task list, an event and, since 2026-09-20, an inventory. The server reads the
+   same press as dropping that reader's own grant and leaving the owner's copy alone (each kind's
+   `Delete…CommandHandler`), and the question names that rather than borrowing the deletion's words:
+   *"Remove "Pantry" from your inventories? The owner keeps it."* The phone's shelf screen says it too,
+   and asks before doing it - until that day it deleted on the press with no question at all.
    The card stays where it is until the page is read again - it has not moved anywhere, it is under
    another tab now - and a refusal leaves the page as it was rather than redrawing a lie.
 

@@ -47,6 +47,15 @@ else
     @if (_isShared)
     {
         <p class="shared-note-banner">@T["Shared by"]@Space<strong>@_sharedByUserName</strong> - @SharedAccessDescription.</p>
+        @* Under the banner, as it is on a note's form, a task list's and an event's. The shelf was the
+           one shared thing with no way to ask, although the owner's side has always known how to
+           answer for one - the "_ =>" branch of Chat.razor's BuildEditAccessRequestNotice is this. *@
+        @if (_access.CanAskToEdit && _originalOwnerUserId is { } ownerUserId)
+        {
+            <RequestEditAccessButton ItemType="Inventory" ItemId="InventoryId!.Value" ItemTitle="@_formModel.Name"
+                                     OwnerUserId="ownerUserId" OwnUserId="_ownUserId"
+                                     OwnerDisplayName="@(_sharedByUserName ?? "them")" />
+        }
     }
 
     @* Submitting this form adds a row rather than saving it. Enter is what somebody filling a shelf
@@ -602,6 +611,12 @@ else
     private SharedItemAccess _access = new(IsShared: false, ShareAccessLevel.CanEdit);
 
     /// <summary>
+    /// Whose shelf this is, where it is not this reader's. Who to ask when asking to be allowed to
+    /// change it - see RequestEditAccessButton, and TaskEditor, which holds it for the same reason.
+    /// </summary>
+    private Guid? _originalOwnerUserId;
+
+    /// <summary>
     /// The inventory as it was read, kept whole for the share panel - which asks it who owns it and at
     /// what level this reader holds it. Null while a new one is still being named.
     /// </summary>
@@ -682,6 +697,7 @@ else
             _inventory = inventory;
             _isShared = inventory.IsShared;
             _sharedByUserName = inventory.SharedByUserName;
+            _originalOwnerUserId = inventory.OriginalOwnerUserId;
             _access = SharedItemAccess.For(inventory.IsShared, inventory.AccessLevel);
             _isReadOnly = !_access.CanEdit;
 

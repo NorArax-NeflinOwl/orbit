@@ -192,15 +192,40 @@ public sealed class InventoriesTests : OrbitTestContext
         Assert.Contains("Shared by Anna", cut.Markup);
     }
 
+    /// <summary>
+    /// Somebody else's shelf is not this reader's to delete - that would take it from its owner - but
+    /// it is theirs to be rid of. The menu says "Remove from my list", which drops their own grant and
+    /// leaves the owner's shelf alone (DeleteInventoryCommandHandler). It offered nothing at all until
+    /// 2026-09-20: a share cannot be archived either, so there was no way off the page for one.
+    /// </summary>
     [Fact]
-    public void Somebody_elses_inventory_is_not_offered_for_deleting()
+    public void Somebody_elses_inventory_is_taken_off_your_own_pages_rather_than_deleted()
     {
-        // Deleting it would take it from its owner, which is not what "remove this from my list" means.
         RegisterApiClients([Inventory("Pantry", isShared: true, sharedByUserName: "Anna", accessLevel: "CanEdit")]);
 
         var cut = RenderComponent<Web.Pages.Inventories>();
+        var actions = ActionsOf(cut);
 
-        Assert.DoesNotContain("Delete", ActionsOf(cut));
+        Assert.Contains("Remove from my list", actions);
+        Assert.DoesNotContain("Delete", actions);
+    }
+
+    /// <summary>
+    /// The other half of the rule, unchanged: the reader's *own* shelf is deleted only once it has been
+    /// put away, so an un-archived one offers Archive and no Delete. What the shared shelf above gets is
+    /// an exception to that, not a way round it - a share cannot be archived at all.
+    /// </summary>
+    [Fact]
+    public void Your_own_shelf_is_still_archived_before_it_can_be_deleted()
+    {
+        RegisterApiClients([Inventory("Pantry")]);
+
+        var cut = RenderComponent<Web.Pages.Inventories>();
+        var actions = ActionsOf(cut);
+
+        Assert.DoesNotContain("Delete", actions);
+        Assert.DoesNotContain("Remove from my list", actions);
+        Assert.Contains("Archive", actions);
     }
 
     [Fact]

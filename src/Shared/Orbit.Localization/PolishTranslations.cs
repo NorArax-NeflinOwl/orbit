@@ -1904,6 +1904,11 @@ public static class PolishTranslations
         ["Remove this from your calendar? The owner keeps it."] = "Usunąć to z Twojego kalendarza? Właściciel je zachowa.",
         ["Couldn't take that off your lists. Check your connection and try again."] =
             "Nie udało się usunąć tego z Twoich list. Sprawdź połączenie i spróbuj ponownie.",
+        // And the fourth, the shelf - the last shared thing that had no way off your own pages.
+        ["Remove \"{0}\" from your inventories? The owner keeps it."] =
+            "Usunąć „{0}” z Twoich magazynów? Właściciel go zachowa.",
+        ["Couldn't take that off your inventories. Check your connection and try again."] =
+            "Nie udało się usunąć tego z Twoich magazynów. Sprawdź połączenie i spróbuj ponownie.",
         ["Delete note \"{0}\"?"] = "Usunąć notatkę „{0}”?",
 
         // ---- Orbit.Maui's own wording. "Orbit" and the bare glyphs are deliberately absent:

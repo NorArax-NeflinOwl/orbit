@@ -68,15 +68,23 @@ public partial class InventoryDetailPage : ContentPage, ITitleMenu
 		// The other way out of a list, and immediately above Delete on purpose: somebody reaching for
 		// Delete because they want this out of the way should meet it first - one of the two is
 		// reversible. Only for this reader's own, the way filing is - see BuiltInFolder.Archived.
-		if (_viewModel.CanEdit)
+		if (_viewModel.CanEdit && !_viewModel.IsSharedWithMe)
 		{
 			entries.Add(new ScreenMenuEntry(
 				_viewModel.IsArchived ? _translations["Put back"] : _translations["Archive"],
 				() => _viewModel.ArchiveCommand.Execute(!_viewModel.IsArchived)));
-
-			entries.Add(new ScreenMenuEntry(
-				_translations["Delete inventory"], () => _viewModel.DeleteCommand.Execute(null)));
 		}
+
+		// Somebody else's shelf is not this reader's to delete, but it is theirs to be rid of: the same
+		// press drops their own grant and leaves the owner's shelf alone, which is why it is named for
+		// what it will actually do - the line a note's screen has drawn all along. Offered whatever
+		// level the share is held at, since a shelf shared to read is still one somebody may want off
+		// their pages - and it was the archive above that made this impossible before, a share being
+		// something that cannot be put away.
+		entries.Add(new ScreenMenuEntry(
+			_viewModel.IsSharedWithMe ? _translations["Remove from my list"] : _translations["Delete inventory"],
+			() => _ = BeRidOfItAsync(),
+			canBeChosen: _viewModel.CanEdit || _viewModel.IsSharedWithMe));
 
 		// Where this thing's own copies are found again - see CopyHistoryViewModel. Only once there is
 		// one, and here rather than in the account's menu: a history belongs to the thing it is the
@@ -185,6 +193,29 @@ public partial class InventoryDetailPage : ContentPage, ITitleMenu
 		else if (chosen == moveDown)
 		{
 			_viewModel.MoveItemDownCommand.Execute(item);
+		}
+	}
+
+	/// <summary>
+	/// Asked first, as every delete in Orbit is - and named, so the question says which shelf. This one
+	/// went straight through on the press until 2026-09-20, which is one slip of a thumb between a
+	/// reader and everything on a shelf.
+	///
+	/// Two questions rather than one: a shelf somebody shared is not being destroyed at all - the owner
+	/// keeps it - and asking about that in a deletion's words would be asking about the wrong thing.
+	/// </summary>
+	private async Task BeRidOfItAsync()
+	{
+		var goAhead = _viewModel.IsSharedWithMe
+			? _translations["Remove from my list"]
+			: _translations["Delete"];
+		var question = _viewModel.IsSharedWithMe
+			? _translations.Format("Remove \"{0}\" from your inventories? The owner keeps it.", _viewModel.Name)
+			: _translations.Format("Delete \"{0}\" and everything in it?", _viewModel.Name);
+
+		if (await Confirmation.AskAsync(this, question, goAhead, _translations["Cancel"]))
+		{
+			_viewModel.DeleteCommand.Execute(null);
 		}
 	}
 }
