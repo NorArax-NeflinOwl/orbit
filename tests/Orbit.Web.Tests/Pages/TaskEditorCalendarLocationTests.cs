@@ -167,7 +167,9 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
         ExpandTheOnlyItem(cut);
         SayWhenItHappens(cut);
 
-        cut.Find("#item0Priority").Change("High");
+        // The entry's own priority, which is the event's too since 2026-09-20 - the form used to ask
+        // twice, once here and once inside the event's fields.
+        cut.FindAll("select").First(box => box.GetAttribute("aria-label") == "Entry priority").Change("High");
         // Repeating, four times, every three weeks.
         cut.FindAll("input[type=checkbox]").Single(box => box.ParentElement!.TextContent.Contains("Recurring event")).Change(true);
         cut.Find("#item0Frequency").Change("Weekly");
@@ -183,6 +185,25 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
         Assert.Equal("Weekly", details.Recurrence.Frequency);
         Assert.Equal(3, details.Recurrence.IntervalCount);
         Assert.Equal(4, details.Recurrence.OccurrenceCount);
+    }
+
+    /// <summary>
+    /// One priority and one colour on the form, not two. A Calendar entry *is* its appointment, and the
+    /// form asked each question twice - once about the entry and once inside the event's own fields -
+    /// with nothing saying which one won (reported 2026-09-20). The entry's pair is what is left, and
+    /// it is what reaches the event.
+    /// </summary>
+    [Fact]
+    public void The_form_asks_for_one_priority_and_one_colour()
+    {
+        RegisterApiClients(Item("Dentist"));
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+        SayWhenItHappens(cut);
+
+        Assert.Empty(cut.FindAll("#item0Priority"));
+        Assert.Single(cut.FindAll("select"), box => box.GetAttribute("aria-label") == "Entry priority");
+        Assert.Single(cut.FindAll("input[type=color]"));
     }
 
     /// <summary>

@@ -153,15 +153,18 @@
             </div>
         }
 
-        <div class="field-row">
-            <label>@T["Color"]<input type="color" @bind="Model.Color" /></label>
-            <label for="@($"{IdPrefix}Priority")">@T["Priority"]</label>
-            <select id="@($"{IdPrefix}Priority")" @bind="Model.Priority">
-                <option value="High">@T["High"]</option>
-                <option value="Normal">@T["Normal"]</option>
-                <option value="Low">@T["Low"]</option>
-            </select>
-        </div>
+        @if (ShowsPriorityAndColour)
+        {
+            <div class="field-row">
+                <label>@T["Color"]<input type="color" @bind="Model.Color" /></label>
+                <label for="@($"{IdPrefix}Priority")">@T["Priority"]</label>
+                <select id="@($"{IdPrefix}Priority")" @bind="Model.Priority">
+                    <option value="High">@T["High"]</option>
+                    <option value="Normal">@T["Normal"]</option>
+                    <option value="Low">@T["Low"]</option>
+                </select>
+            </div>
+        }
     </section>
 
     @* Everything about being told, in one place: how long before, on which channel, and whether the
@@ -322,6 +325,15 @@
     /// drifting apart, which is what the entry's categories used to be. See TaskEditor.razor.
     /// </summary>
     [Parameter] public bool ShowsDescription { get; set; } = true;
+
+    /// <summary>
+    /// Whether this form asks how much the appointment matters and what colour it is drawn in. False on
+    /// a task list, where the entry asks both of those about itself and a Calendar entry *is* its
+    /// appointment - so the form asked each question twice, in two different places, with nothing
+    /// saying which one won (reported 2026-09-20). The entry's answers are carried onto the event when
+    /// the list is saved; see TaskEditor.SaveTheCalendarAsync.
+    /// </summary>
+    [Parameter] public bool ShowsPriorityAndColour { get; set; } = true;
 
     [Parameter] public bool CanInviteGuests { get; set; }
 

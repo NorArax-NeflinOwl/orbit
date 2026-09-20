@@ -2687,7 +2687,11 @@ down whole rather than started, so nothing in it depends on being remembered.
 
 - **Detaching an event from the calendar leaves a duplicate event behind.**
 
-- **A calendar-kind task draws its priority and its colour twice on the form.**
+- ~~**A calendar-kind task draws its priority and its colour twice on the form.**~~ Done 2026-09-20:
+  the entry asks both about itself and the event's own pair is off that form
+  (`EventFields.ShowsPriorityAndColour`); the entry's answers are carried onto the event when the list
+  is saved, and an appointment that already had a colour or a priority opens showing it rather than
+  having the entry's defaults written over it.
 
 ## Smaller identified follow-ups
 

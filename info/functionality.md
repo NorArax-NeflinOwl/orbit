@@ -3754,6 +3754,14 @@ the same way the entry's words are already the event's title. Two boxes for one 
 drifting apart. An appointment written before this carries the answer on the event, and the one box opens
 showing it, so a save cannot write a blank over it.
 
+**How much it matters and what colour it is drawn in are asked once too** (2026-09-20,
+`EventFields.ShowsPriorityAndColour`). The entry has both of its own - every kind does - and a calendar
+entry's form drew the event's pair underneath, so one panel asked each question twice with nothing
+saying which answer won. The event's pair is off that form; the entry's is carried onto the event when
+the list is saved, exactly as the description is. An appointment that already had a colour or a priority
+- given here before this, or in the calendar itself - opens showing it, so the entry's defaults are not
+written over it by somebody saving a list for another reason entirely.
+
 A request that says nothing about it leaves what is stored alone (`UpdateTaskListCommand.EntriesKeepingTheirNotes`)
 — the third field to follow that rule, after the categories and the product, and for the third time the
 same reason: a phone built before it had a box for this must not erase what was typed on the web. Since

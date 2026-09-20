@@ -281,6 +281,7 @@ else
                             <span class="field-break"></span>
                             <EventFields Model="item.Event" NotificationSettings="_notificationSettings"
                                          ShowsDescription="false"
+                                         ShowsPriorityAndColour="false"
                                          OnMapRequested="() => OpenTheMapFor(item)"
                                          IdPrefix="@($"item{_formModel.Items.IndexOf(item)}")"
                                          CanInviteGuests="true" Contacts="_contacts"
@@ -2090,6 +2091,21 @@ else
             {
                 item.Notes = item.Event.Description;
             }
+
+            // The same for the two the entry now asks on the event's behalf - see EventDetailsFor, and
+            // EventFields.ShowsPriorityAndColour, which is why the event's own pair is no longer on
+            // this form. An appointment that was given a colour or a priority of its own, here or in
+            // the calendar, opens showing it: the entry's defaults would otherwise be written over it
+            // by the next save of a list somebody opened for something else entirely.
+            if (item.Colour.Length == 0 && item.Event.Color.Length > 0)
+            {
+                item.Colour = item.Event.Color;
+            }
+
+            if (item.Priority == nameof(ItemPriority.Normal))
+            {
+                item.Priority = item.Event.Priority;
+            }
         }
     }
 
@@ -2227,6 +2243,18 @@ else
         // in, so the answer on screen is the answer that is sent whatever order things happen in - the
         // same rule ProductAsked follows for an inventory entry's categories.
         item.Event.Description = item.Notes;
+
+        // And the same for how much it matters and what colour it is drawn in. The entry asks both
+        // about itself, one row up; the event's own pair is not on this form at all since 2026-09-20
+        // (EventFields.ShowsPriorityAndColour), because a Calendar entry *is* its appointment and the
+        // form asked each question twice with nothing saying which won. An entry given no colour of its
+        // own leaves the event's alone, which is what "no colour of its own" means everywhere else.
+        item.Event.Priority = item.Priority;
+        if (item.Colour.Length > 0)
+        {
+            item.Event.Color = item.Colour;
+        }
+
         return item.Event.ToRequest(item.Description);
     }
 
