@@ -739,6 +739,17 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **An inventory is the one shared thing with no way to ask for editing, and no way off your own page**
+  (2026-09-20). Fixing both for an event turned this up. `RequestEditAccessButton` is now under the
+  shared-by banner of a note's form, a task list's and an event's; `InventoryEditor.razor` has the same
+  banner and no button, although the owner's side already knows how to answer for one - the `_ =>`
+  branch of `Chat.razor`'s `BuildEditAccessRequestNotice` is the inventory. And its menus
+  (`Inventories.razor`, `InventorySummary.razor`) still say `DeleteLabel="@(!inventory.IsShared ? ...
+  : null)"`, which is the shape a note, a task list and an event have just moved off: a shelf shared
+  with somebody can be neither put away nor deleted, so there is nothing they can press to be rid of
+  it. Both are a handful of lines each, in the shape the other three now have. Left undone because the
+  list asked for on 2026-09-20 names task lists and events and this is neither.
+
 - **Two of Orbit.Web's test classes fail once in a while under the whole suite and pass alone**
   (2026-09-18). `NameSuggestionSourceTests` was the timer rather than the subject - the panel waits out
   a 150ms settle delay and the wait was left at bUnit's own one second, which a machine running the

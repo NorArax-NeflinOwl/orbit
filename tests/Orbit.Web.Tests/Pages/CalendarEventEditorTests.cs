@@ -537,6 +537,55 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
         Assert.Contains("Delete event", entries);
     }
 
+    /// <summary>
+    /// An event held read-only offers to ask its owner for more, the way a note and a task list already
+    /// did - this form was the one of the three that offered nothing, so somebody shared an event to
+    /// look at had no way to say they needed to change it. The name in the request is the event's.
+    /// </summary>
+    [Fact]
+    public void An_event_held_read_only_offers_to_ask_its_owner_for_editing()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var crypto = JSInterop.SetupModule("./js/e2eeChat.js");
+        crypto.Setup<bool>("hasOwnPrivateKey", _ => true).SetResult(true);
+        crypto.Setup<string>("ensureOwnPublicKey", _ => true).SetResult("a-public-key");
+        string? sealedText = null;
+        crypto.Setup<EncryptedChatMessageSender.EncryptedPayload>("encryptMessage", invocation =>
+            {
+                sealedText = invocation.Arguments.Count > 2 ? invocation.Arguments[2] as string : null;
+                return true;
+            })
+            .SetResult(new EncryptedChatMessageSender.EncryptedPayload("sealed", "nonce"));
+        var eventId = Guid.NewGuid();
+        _existingEvent = AnEventCalled(eventId, "Dentist") with
+        {
+            IsShared = true,
+            SharedByUserName = "anna",
+            AccessLevel = "ReadOnly",
+            OriginalOwnerUserId = ContactUserId
+        };
+        RegisterChatApiClient([Contact]);
+
+        var cut = RenderComponent<CalendarEventEditor>(parameters => parameters.Add(editor => editor.Id, eventId));
+        cut.Find(".request-edit-access button").Click();
+
+        cut.WaitForAssertion(() => Assert.NotNull(sealedText));
+        Assert.Contains("Dentist", sealedText);
+    }
+
+    /// <summary>Nobody asks their own event's owner for anything: it is already theirs to change.</summary>
+    [Fact]
+    public void An_event_of_your_own_offers_nothing_to_ask_for()
+    {
+        var eventId = Guid.NewGuid();
+        _existingEvent = AnEventCalled(eventId, "Dentist");
+        RegisterChatApiClient([]);
+
+        var cut = RenderComponent<CalendarEventEditor>(parameters => parameters.Add(editor => editor.Id, eventId));
+
+        Assert.Empty(cut.FindAll(".request-edit-access"));
+    }
+
     /// <param name="isArchived">
     /// Whether it has been put away, which is what decides whether the form offers Delete at all - see
     /// ObjectMenu.IsArchived, the rule this form joined on 2026-09-19.

@@ -52,6 +52,15 @@ else
     {
         <p class="shared-event-banner">@T["This event was shared by"]@Space<strong>@_sharedByUserName</strong> - @SharedAccessDescription.
         </p>
+        @* The same offer a note and a task list held open and an event did not: only the owner can
+           widen access, so somebody holding this one read-only asks them for it. See
+           RequestEditAccessButton, and Chat.razor, which is where the owner answers. *@
+        @if (_access.CanAskToEdit && _originalOwnerUserId is { } ownerUserId)
+        {
+            <RequestEditAccessButton ItemType="CalendarEvent" ItemId="Id!.Value" ItemTitle="@_title"
+                                     OwnerUserId="ownerUserId" OwnUserId="_ownUserId"
+                                     OwnerDisplayName="@(_sharedByUserName ?? "them")" />
+        }
     }
 
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form">

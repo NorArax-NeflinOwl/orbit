@@ -68,7 +68,7 @@ else
         </p>
         @if (_access.CanAskToEdit && _originalOwnerUserId is { } ownerUserId)
         {
-            <RequestEditAccessButton ItemType="Note" ItemId="Id!.Value" ItemTitle="_formModel.Title"
+            <RequestEditAccessButton ItemType="Note" ItemId="Id!.Value" ItemTitle="@_formModel.Title"
                                      OwnerUserId="ownerUserId" OwnUserId="_ownUserId"
                                      OwnerDisplayName="@(_sharedByUserName ?? "them")" />
         }

@@ -204,6 +204,44 @@ public sealed class NoteEditorTests : OrbitTestContext
     }
 
     /// <summary>
+    /// The owner is asked about the note by name. The name was handed over as a plain attribute value -
+    /// ItemTitle="_formModel.Title" rather than "@_formModel.Title" - which is a string, not a field, so
+    /// every owner was asked to allow editing of a note called "_formModel.Title". Read off what is
+    /// sealed rather than off the page, because the name only ever appears inside the message.
+    /// </summary>
+    [Fact]
+    public void Asking_the_owner_to_edit_a_note_asks_about_it_by_name()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var crypto = JSInterop.SetupModule("./js/e2eeChat.js");
+        crypto.Setup<bool>("hasOwnPrivateKey", _ => true).SetResult(true);
+        crypto.Setup<string>("ensureOwnPublicKey", _ => true).SetResult("a-public-key");
+        string? sealedText = null;
+        crypto.Setup<EncryptedChatMessageSender.EncryptedPayload>("encryptMessage", invocation =>
+            {
+                sealedText = invocation.Arguments.Count > 2 ? invocation.Arguments[2] as string : null;
+                return true;
+            })
+            .SetResult(new EncryptedChatMessageSender.EncryptedPayload("sealed", "nonce"));
+
+        var note = Note("Shopping") with
+        {
+            IsShared = true,
+            SharedByUserName = "anna",
+            AccessLevel = "ReadOnly",
+            OriginalOwnerUserId = ContactUserId
+        };
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        cut.Find(".request-edit-access button").Click();
+
+        cut.WaitForAssertion(() => Assert.NotNull(sealedText));
+        Assert.Contains("Shopping", sealedText);
+        Assert.DoesNotContain("_formModel", sealedText);
+    }
+
+    /// <summary>
     /// Both halves of handing a note over: the share the server records, and the sealed message that
     /// carries its id - the only thing a recipient can press "Accept" on (see Chat.razor's
     /// TryParseShare). The server cannot send the second, holding no key to seal it with, so a screen

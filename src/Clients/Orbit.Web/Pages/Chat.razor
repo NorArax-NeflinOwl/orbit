@@ -1614,7 +1614,9 @@ else
     /// </summary>
     private EditAccessRequestNotice BuildEditAccessRequestNotice(EditAccessRequestPayload request, Guid requesterUserId)
     {
-        var description = $"Asked to edit {DescribeItemType(request.ItemType)}: {request.ItemTitle}";
+        // Through T.Format rather than written out: the kind of thing was already translated and the
+        // sentence around it was not, so the line read half in one language and half in the other.
+        var description = T.Format("Asked to edit {0}: {1}", DescribeItemType(request.ItemType), request.ItemTitle);
 
         return new EditAccessRequestNotice(description, () => request.ItemType switch
         {
