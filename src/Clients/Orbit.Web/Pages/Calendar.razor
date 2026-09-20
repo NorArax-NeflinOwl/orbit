@@ -78,7 +78,7 @@
    looking at the whole calendar rather than at part of it. No Private tab here - an event is never
    sealed, see FolderPages.HasAPrivateTab. *@
 <PhoneToolbar Page="FolderPage.Calendar">
-    <FolderTabs Page="FolderPage.Calendar" CountIn="CountIn" />
+    <FolderTabs Page="FolderPage.Calendar" CountIn="CountIn" StillHolds="StillHolds" />
 </PhoneToolbar>
 
 <div class="calendar-layout">
@@ -664,6 +664,9 @@
     private int CountIn(FolderKey folder)
         => (_events ?? []).Count(calendarEvent =>
             Folders.PlacementOn(FolderPage.Calendar, calendarEvent.FolderId, isPrivate: false, isFinished: false, calendarEvent.IsArchived) == folder);
+
+    /// <summary>Whether anything is still filed here - see FolderTabs.StillHolds, and Notes.StillHolds.</summary>
+    private bool StillHolds(Guid folderId) => (_events ?? []).Any(calendarEvent => calendarEvent.FolderId == folderId);
 
     /// <inheritdoc cref="EventsOnTheGrid"/>
     private IReadOnlyList<DueTaskDto> DueTasksOnTheGrid

@@ -1015,6 +1015,11 @@ public static class PolishTranslations
         ["Delete this folder?"] = "Usunąć ten folder?",
         ["Nothing in it is deleted - everything goes back to Public, or to Private if it is sealed."] =
             "Nic z niego nie zostanie usunięte - wszystko wróci do Publicznych, a rzeczy zaszyfrowane do Prywatnych.",
+        // Since 2026-09-20 only an empty folder can go, so the question says what little is at stake and
+        // a folder that still holds something says what to do about it.
+        ["There is nothing in it. The tab goes and nothing else changes."] =
+            "Nic w nim nie ma. Zniknie sama zakładka i nic poza tym.",
+        ["Move what is in it somewhere else first."] = "Najpierw przenieś to, co w nim jest.",
         ["Nothing in this folder."] = "Nic w tym folderze.",
         ["No notes carry those tags."] = "Żadna notatka nie ma tych tagów.",
         // Making a second one of something, and what the copy is called - see Orbit.Contracts.DuplicateRequest.

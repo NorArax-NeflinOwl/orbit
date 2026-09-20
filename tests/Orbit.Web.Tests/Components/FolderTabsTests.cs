@@ -300,11 +300,51 @@ public sealed class FolderTabsTests : OrbitTestContext
 
         cut.Find(".overflow-menu-trigger").Click();
         cut.FindAll("button").First(button => button.TextContent.Contains("Delete folder")).Click();
-        Assert.Contains("Nothing in it is deleted", cut.Markup);
+        Assert.Contains("There is nothing in it", cut.Markup);
 
         cut.FindAll(".dialog-footer button").First(button => button.TextContent.Contains("Delete folder")).Click();
 
         Assert.Contains(_deletedPaths, path => path.EndsWith($"/api/folders/{WorkFolderId}", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Only an empty one, since 2026-09-20: everything in Orbit is put away rather than deleted, and a
+    /// folder is exempt from that only while there is nothing in it to lose. It used to delete a full
+    /// folder and put everything back under Public - a press that quietly rearranges a page's worth of
+    /// things under a word that promised to remove one. Drawn and disabled rather than left out, since
+    /// an entry that disappears teaches nobody why.
+    /// </summary>
+    [Fact]
+    public void A_folder_that_still_holds_something_cannot_be_deleted()
+    {
+        RegisterFolders([AFolderCalled("Work", FolderScope.Tasks)]);
+        var cut = RenderComponent<FolderTabs>(parameters => parameters
+            .Add(tabs => tabs.Page, FolderPage.Tasks)
+            .Add(tabs => tabs.StillHolds, folderId => folderId == WorkFolderId));
+        cut.FindAll(".folder-tab").First(tab => tab.TextContent.Contains("Work")).Click();
+
+        cut.Find(".overflow-menu-trigger").Click();
+        var delete = cut.FindAll("button").First(button => button.TextContent.Contains("Delete folder"));
+
+        Assert.True(delete.HasAttribute("disabled"));
+        Assert.Contains("Move what is in it somewhere else first.", delete.GetAttribute("title"));
+    }
+
+    /// <summary>And an empty one still goes, which is the exemption the rule names.</summary>
+    [Fact]
+    public void An_empty_folder_can_still_be_deleted()
+    {
+        RegisterFolders([AFolderCalled("Work", FolderScope.Tasks)]);
+        var cut = RenderComponent<FolderTabs>(parameters => parameters
+            .Add(tabs => tabs.Page, FolderPage.Tasks)
+            .Add(tabs => tabs.StillHolds, _ => false));
+        cut.FindAll(".folder-tab").First(tab => tab.TextContent.Contains("Work")).Click();
+
+        cut.Find(".overflow-menu-trigger").Click();
+
+        Assert.False(cut.FindAll("button")
+            .First(button => button.TextContent.Contains("Delete folder"))
+            .HasAttribute("disabled"));
     }
 
     private IRenderedComponent<FolderTabs> RenderTabs(FolderPage page)

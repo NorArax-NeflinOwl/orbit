@@ -739,6 +739,13 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **The phone still deletes a full folder** (2026-09-20). The browser now refuses one that still holds
+  something (`FolderTabs.StillHolds`, and `info/functionality.md` on why). The phone's four pages -
+  `NotesPage.xaml.cs`, `TasksPage.xaml.cs`, `CalendarPage.xaml.cs`, `InventoryPage.xaml.cs` - each ask
+  *"Delete the folder "{0}"? Nothing in it is deleted - it goes back to Public, or to Private if it is
+  sealed."* and then do exactly that. Each needs the same question asked of its own list before the
+  entry is offered. Left for the round that touches those pages.
+
 - **An inventory is the one shared thing with no way to ask for editing, and no way off your own page**
   (2026-09-20). Fixing both for an event turned this up. `RequestEditAccessButton` is now under the
   shared-by banner of a note's form, a task list's and an event's; `InventoryEditor.razor` has the same

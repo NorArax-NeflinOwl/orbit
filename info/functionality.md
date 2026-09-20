@@ -502,11 +502,20 @@ shows cards of several kinds, so it draws their tabs and offers no way to make, 
 applies to them unchanged: filing is its own command and its own endpoint
 (`MoveCalendarEventToFolderCommand`, `MoveInventoryToFolderCommand`, `PUT .../{id}/folder`) rather than a
 field on the save, for the reason `Note.MoveToFolder` gives; a new one is made under the tab the reader
-is standing on; a copy is made where the original stands; deleting a folder empties it rather than
-taking what was in it; and a folder id belonging to somebody else is refused, since filing something
+is standing on; a copy is made where the original stands; and a folder id belonging to somebody else is refused, since filing something
 under a tab its owner cannot see is the same thing as losing it. A private shelf is filed without being
 opened - its folder sits outside the sealed half, as a private note's does - and somebody reading either
 through a share never sees the owner's filing.
+
+**Only an empty folder can be deleted** (2026-09-20, `FolderTabs.StillHolds`). It used to delete a full
+one and put everything in it back under Public, which is a press that quietly rearranges a page's worth
+of things under a word that promised to remove one. A folder is one of the few things exempt from
+"deleted only from the archive" - there is no archive for a tab - but only while there is nothing in it
+to lose, which is how the exemption was worded. The entry stays in the menu and is disabled, saying to
+move what is in it somewhere else first: an entry that disappears teaches nobody why. "Still holds" is a
+different question from the count on the tab - something put away is under Archived wherever it is
+filed, so a folder holding nothing but archived things counts zero on its tab and still holds them. The
+phone still empties a full folder; `info/future-plan.md`.
 
 **The calendar's folders are not tabs on the dashboard**, although the notes', the lists' and the
 shelves' are. What the dashboard says about the calendar is what is on today and what is coming, and

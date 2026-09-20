@@ -85,7 +85,15 @@
                     <span class="card-filter-mark">@(CardPreferences.IsFolderShown(chosenFolderId) ? "" : "✓")</span>
                     @T["Hide on the dashboard"]
                 </button>
-                <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteAsync(chosenFolderId)">
+                @* Only an empty one, since 2026-09-20. Everything in Orbit is put away rather than
+                   deleted, and a folder is one of the few things exempt from that - but only while
+                   there is nothing in it to lose. It used to delete a full folder and put everything
+                   back under Public, which is a press that quietly rearranges a page's worth of things
+                   under a word that promised to remove one. Drawn and disabled rather than left out:
+                   an entry that disappears teaches nobody why. *@
+                <button type="button" class="avatar-dropdown-item" disabled="@(!IsEmpty(chosenFolderId))"
+                        title="@(IsEmpty(chosenFolderId) ? null : T["Move what is in it somewhere else first."])"
+                        @onclick="() => DeleteAsync(chosenFolderId)">
                     @T["Delete folder"]
                 </button>
             </OverflowMenu>
@@ -96,12 +104,11 @@
 
 @if (_isDeleting)
 {
-    @* Asked, because a tab full of things looks exactly like a tab about to lose them. What actually
-       happens is said in the question, since it is not what the word "delete" suggests: nothing in it
-       is deleted. *@
+    @* Asked anyway, though only an empty folder reaches here: a tab is a thing somebody made and named,
+       and losing one to a misread press is worth one question. *@
     <Dialog Title="@(T["Delete this folder?"])" OnClosed="() => _isDeleting = false">
         <ChildContent>
-            <p>@T["Nothing in it is deleted - everything goes back to Public, or to Private if it is sealed."]</p>
+            <p>@T["There is nothing in it. The tab goes and nothing else changes."]</p>
         </ChildContent>
         <Footer>
             <button type="button" class="btn-secondary" @onclick="() => _isDeleting = false">@T["Cancel"]</button>
@@ -148,6 +155,18 @@
     /// put away on this page as well - a folder is not empty because its card is hidden.
     /// </summary>
     [Parameter] public Func<FolderKey, bool>? HoldsAnything { get; set; }
+
+    /// <summary>
+    /// Whether anything at all is still filed under this folder - asked before it can be deleted, since
+    /// 2026-09-20. A different question from <see cref="CountIn"/>, which counts what is under the
+    /// *tab*: something put away is under Archived wherever it is filed, so a folder holding nothing
+    /// but archived things counts zero and still holds them. A page that does not answer this is taken
+    /// at its word that a folder can go, which is what every page did before the rule existed.
+    /// </summary>
+    [Parameter] public Func<Guid, bool>? StillHolds { get; set; }
+
+    /// <summary>Whether this folder can be deleted at all - see the menu entry, and <see cref="StillHolds"/>.</summary>
+    private bool IsEmpty(Guid folderId) => StillHolds is null || !StillHolds(folderId);
 
     /// <inheritdoc cref="FolderTabRow.IsWorthDrawing"/>
     private bool IsWorthDrawing => FolderTabRow.IsWorthDrawing(Page, Folders, CardPreferences, HoldsAnything);

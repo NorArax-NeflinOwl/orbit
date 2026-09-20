@@ -96,7 +96,7 @@
    On a phone the lot folds into one Menu button - see PhoneToolbar, which is nothing at all on a wider
    screen. *@
 <PhoneToolbar Page="FolderPage.Tasks" HasNews="@NewsIsInAFolderThatIsNotOpen">
-    <FolderTabs Page="FolderPage.Tasks" CountIn="CountIn" HasNewsIn="HasNewsIn" />
+    <FolderTabs Page="FolderPage.Tasks" CountIn="CountIn" HasNewsIn="HasNewsIn" StillHolds="StillHolds" />
 
     @* Only once there is something to narrow, and only about the folder that is open: a search box
        over an empty tab offers to find something on a list that is not there, and the chips would be
@@ -658,6 +658,9 @@
     private int CountIn(FolderKey folder)
         => (_taskLists ?? []).Count(taskList =>
             Folders.PlacementOn(FolderPage.Tasks, taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted, taskList.IsArchived) == folder);
+
+    /// <summary>Whether anything is still filed here - see FolderTabs.StillHolds, and Notes.StillHolds.</summary>
+    private bool StillHolds(Guid folderId) => (_taskLists ?? []).Any(taskList => taskList.FolderId == folderId);
 
     /// <summary>Where the tab is placed - one answer, so the two questions below cannot drift apart.</summary>
     private FolderKey PlacementOf(TaskDto taskList)

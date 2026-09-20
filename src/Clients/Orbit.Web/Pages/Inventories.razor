@@ -95,7 +95,7 @@
 @* Which folder is being read - the inventories' own, since a folder belongs to one page (see
    FolderScope). On a phone it folds into one Menu button. *@
 <PhoneToolbar Page="FolderPage.Inventories" HasNews="@NewsIsInAFolderThatIsNotOpen">
-    <FolderTabs Page="FolderPage.Inventories" CountIn="CountIn" HasNewsIn="HasNewsIn" />
+    <FolderTabs Page="FolderPage.Inventories" CountIn="CountIn" HasNewsIn="HasNewsIn" StillHolds="StillHolds" />
 </PhoneToolbar>
 
 @* What to do with several at once, while several are chosen - see PickedThings, and Notes.razor on why it
@@ -476,6 +476,9 @@
     private int CountIn(FolderKey folder)
         => (_inventories ?? []).Count(inventory =>
             Folders.PlacementOn(FolderPage.Inventories, inventory.FolderId, inventory.IsPrivate, isFinished: false, inventory.IsArchived) == folder);
+
+    /// <summary>Whether anything is still filed here - see FolderTabs.StillHolds, and Notes.StillHolds.</summary>
+    private bool StillHolds(Guid folderId) => (_inventories ?? []).Any(inventory => inventory.FolderId == folderId);
 
     /// <summary>Where a shelf's tab is - one answer for the count above and the two questions below.</summary>
     private FolderKey PlacementOf(InventoryDto inventory)
