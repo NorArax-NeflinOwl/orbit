@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
@@ -33,6 +34,9 @@ public sealed class NoteEditorTests : OrbitTestContext
     private static readonly Guid OwnUserId = Guid.NewGuid();
     private static readonly Guid ContactUserId = Guid.NewGuid();
 
+    /// <summary>The writing surface's JS module, kept so a test can read what it was handed.</summary>
+    private readonly BunitJSModuleInterop _surfaceModule;
+
     /// <summary>Who is signed in, kept so a client built later can be given it without resolving anything.</summary>
     private readonly OrbitAuthenticationStateProvider _authenticationStateProvider;
 
@@ -50,6 +54,7 @@ public sealed class NoteEditorTests : OrbitTestContext
         // the calls it makes have to be declared - none of these tests exercise what that editor does,
         // they just can't render without it.
         var checklistEditorModule = JSInterop.SetupModule("./js/checklistTextEditor.js");
+        _surfaceModule = checklistEditorModule;
         checklistEditorModule.SetupVoid("initialize", _ => true).SetVoidResult();
         checklistEditorModule.SetupVoid("dispose", _ => true).SetVoidResult();
 
@@ -387,6 +392,89 @@ public sealed class NoteEditorTests : OrbitTestContext
         Assert.Contains("Remove from my list", offered);
         Assert.DoesNotContain("Archive", offered);
         Assert.DoesNotContain("Delete", offered);
+    }
+
+    /// <summary>
+    /// A note opened a long time after it was last written in gets a dated rule at its end, with an
+    /// empty line under it and the caret there - so what is written next is written under a line saying
+    /// when. Sixteen hours, asked for on 2026-09-20.
+    /// </summary>
+    [Fact]
+    public void A_note_left_alone_for_long_enough_opens_with_a_dated_rule_at_its_end()
+    {
+        var note = Note("Shopping") with { UpdatedAtUtc = DateTimeOffset.UtcNow.AddHours(-20) };
+        RegisterApiClients(note);
+
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        var lines = WhatTheSurfaceWasGiven(cut);
+        Assert.Contains("\"separator\":{", lines);
+        Assert.Contains(DateTime.Now.ToString("f", CultureInfo.CurrentCulture), lines);
+    }
+
+    /// <summary>Coming back to a note written in an hour ago is carrying on, not a new sitting.</summary>
+    [Fact]
+    public void A_note_written_in_recently_opens_as_it_was()
+    {
+        var note = Note("Shopping") with { UpdatedAtUtc = DateTimeOffset.UtcNow.AddHours(-1) };
+        RegisterApiClients(note);
+
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        Assert.DoesNotContain("\"separator\":{", WhatTheSurfaceWasGiven(cut));
+    }
+
+    /// <summary>
+    /// The "if new text was added" half of it: opening an old note, writing nothing under the rule and
+    /// saving must not leave a rule in the note. It is taken back out on the way to the server.
+    /// </summary>
+    [Fact]
+    public void A_rule_nobody_wrote_under_is_not_saved()
+    {
+        var note = Note("Shopping") with { UpdatedAtUtc = DateTimeOffset.UtcNow.AddHours(-20) };
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        cut.Find(".page-action-primary").Click();
+
+        Assert.NotNull(_lastSavedNoteJson);
+        Assert.DoesNotContain("\"separator\":{", _lastSavedNoteJson);
+    }
+
+    /// <summary>And the other half: a rule with writing under it is the note, and is stored.</summary>
+    [Fact]
+    public void A_rule_written_under_is_saved_with_what_follows_it()
+    {
+        var note = Note("Shopping") with { UpdatedAtUtc = DateTimeOffset.UtcNow.AddHours(-20) };
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        var surface = cut.FindComponent<Web.Components.ChecklistTextEditor>();
+        cut.InvokeAsync(() => surface.Instance.LinesChanged.InvokeAsync(
+            new List<NoteContentLineDto>
+            {
+                new("Shopping", false, false),
+                new("A line", false, false),
+                new(string.Empty, false, false,
+                    Separator: new NoteSeparatorLineDto(DateTime.Now.ToString("f", CultureInfo.CurrentCulture))),
+                new("and bread", false, false)
+            })).GetAwaiter().GetResult();
+        cut.Find(".page-action-primary").Click();
+
+        Assert.NotNull(_lastSavedNoteJson);
+        Assert.Contains("\"separator\":{", _lastSavedNoteJson);
+        Assert.Contains("and bread", _lastSavedNoteJson);
+    }
+
+    /// <summary>The lines the writing surface was handed when it was set up - see ChecklistTextEditor.</summary>
+    private string WhatTheSurfaceWasGiven(IRenderedComponent<NoteEditor> cut)
+    {
+        _ = cut;
+        return _surfaceModule.Invocations
+            .Where(invocation => invocation.Identifier is "initialize" or "setLines")
+            .SelectMany(invocation => invocation.Arguments)
+            .OfType<string>()
+            .LastOrDefault(argument => argument.StartsWith('[')) ?? string.Empty;
     }
 
     /// <summary>Opens the panel's menu and reads what it offers besides the note's settings.</summary>
@@ -1083,6 +1171,14 @@ public sealed class NoteEditorTests : OrbitTestContext
                 };
             }
 
+            // What a save actually sends, for the tests that are about that rather than about where the
+            // form ends up.
+            if (request.Method == HttpMethod.Put && path.StartsWith("/api/notes/", StringComparison.Ordinal))
+            {
+                _lastSavedNoteJson = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
             if (path.StartsWith("/api/notes", StringComparison.Ordinal))
             {
                 return note is null
@@ -1122,6 +1218,9 @@ public sealed class NoteEditorTests : OrbitTestContext
 
     /// <summary>What the share wrote into the conversation, and whether the share itself was recorded.</summary>
     private string? _lastChatMessageJson;
+
+    /// <summary>The body of the last PUT the form sent - what a save actually stored.</summary>
+    private string? _lastSavedNoteJson;
     private bool _wasShared;
 
     /// <summary>

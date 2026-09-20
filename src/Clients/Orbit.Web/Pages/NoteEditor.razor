@@ -958,6 +958,7 @@ else
                     _originalOwnerUserId = note.OriginalOwnerUserId;
                     _sharedByUserName = note.SharedByUserName;
                     _isArchived = note.IsArchived;
+                    StampTheEndIfItHasBeenAWhile(note);
 
                     if (!_isSharedReadOnly)
                     {
@@ -1181,8 +1182,11 @@ else
             }
             else
             {
+                // Not _formModel.Content: a stamp this opening put at the end and nobody wrote under is
+                // taken back out on the way - see WithoutAStampNobodyWroteUnder. It is left on the
+                // surface, so the reader can still write under it; what the server keeps is the note.
                 var outcome = await NotesApiClient.UpdateNoteAsync(Id!.Value, new UpdateNoteRequest(
-                    _formModel.Title, _formModel.Content, _formModel.IsPrivate, Priority: _formModel.Priority, Tags: _formModel.Tags,
+                    _formModel.Title, ContentToSave, _formModel.IsPrivate, Priority: _formModel.Priority, Tags: _formModel.Tags,
                     PictureIds: PictureIdsKept));
                 if (outcome.Kind == EditOutcomeKind.Locked)
                 {
@@ -1306,6 +1310,94 @@ else
             _isSharing = false;
         }
     }
+
+    /// <summary>
+    /// How long a note has to have been left alone before coming back to it counts as coming back to it
+    /// rather than carrying on. Asked for as sixteen hours on 2026-09-20 - long enough that a day's
+    /// writing is one stretch, short enough that yesterday and today are told apart.
+    /// </summary>
+    private static readonly TimeSpan LongEnoughToBeANewSitting = TimeSpan.FromHours(16);
+
+    /// <summary>
+    /// The stamp put at the end when this note was opened after a long enough gap, or null when none
+    /// was. Kept so a save can take it back out again if nothing was written under it - see
+    /// <see cref="WithoutAStampNobodyWroteUnder"/>.
+    /// </summary>
+    private string? _stampWaitingForWriting;
+
+    /// <summary>
+    /// A note opened long after it was last written in gets a dated rule at its end and an empty line
+    /// under it, with the caret landing there (the surface opens at the end). So what is written next
+    /// is written under a line saying when - old writing, the time, new writing - which is what was
+    /// asked for on 2026-09-20.
+    ///
+    /// Only what is already written gets one: a note with nothing in it has no old half to separate
+    /// from the new. Only the reader's own, or one they may write in - a stamp on a note held read-only
+    /// would be a change nobody can save. And it is taken back out on the way to the server if nothing
+    /// was written under it, which is the "if new text was added" half of the ask: opening a note and
+    /// leaving without writing must not add a line to it.
+    /// </summary>
+    private void StampTheEndIfItHasBeenAWhile(NoteDto note)
+    {
+        if (_isSharedReadOnly
+            || DateTimeOffset.UtcNow - note.UpdatedAtUtc < LongEnoughToBeANewSitting
+            || _formModel.Lines.All(line => line.Text.Length == 0 && line.Table is null
+                && line.Picture is null && line.Separator is null))
+        {
+            return;
+        }
+
+        // The same words the separator tool writes - see InsertSeparatorAsync. Written once, here,
+        // and stored as words rather than as an instant: see NoteSeparatorLine.Stamp.
+        var stamp = DateTime.Now.ToString("f", CultureInfo.CurrentCulture);
+        _formModel.Lines =
+        [
+            .. _formModel.Lines,
+            new NoteContentLineDto(string.Empty, IsChecklistItem: false, IsChecked: false,
+                Separator: new NoteSeparatorLineDto(stamp)),
+            new NoteContentLineDto(string.Empty, IsChecklistItem: false, IsChecked: false)
+        ];
+        _stampWaitingForWriting = stamp;
+    }
+
+    /// <summary>
+    /// What to send: the lines as they are, unless the stamp this opening added is still the last thing
+    /// in the note with nothing but blank lines under it - then it goes, along with those blank lines.
+    /// A reader who opened an old note, changed a word higher up and saved gets the stamp taken out
+    /// too, which is right: the stamp says "what follows was written now", and nothing follows it.
+    /// </summary>
+    private IReadOnlyList<NoteContentLineDto> WithoutAStampNobodyWroteUnder(IReadOnlyList<NoteContentLineDto> lines)
+    {
+        if (_stampWaitingForWriting is not { } stamp)
+        {
+            return lines;
+        }
+
+        var stampedAt = -1;
+        for (var at = lines.Count - 1; at >= 0; at--)
+        {
+            if (lines[at].Separator?.Stamp == stamp)
+            {
+                stampedAt = at;
+                break;
+            }
+
+            // Anything written under it - a word, a picture, a table, another rule - means it is doing
+            // its job and stays.
+            if (lines[at].Text.Length > 0 || lines[at].Table is not null
+                || lines[at].Picture is not null || lines[at].Separator is not null
+                || lines[at].IsChecklistItem)
+            {
+                return lines;
+            }
+        }
+
+        return stampedAt < 0 ? lines : [.. lines.Take(stampedAt)];
+    }
+
+    /// <summary>Everything after the title, as the server takes it, with an unused stamp left out.</summary>
+    private IReadOnlyList<NoteContentLineDto> ContentToSave
+        => [.. WithoutAStampNobodyWroteUnder(_formModel.Lines).Skip(1)];
 
     /// <summary>Every note of this reader's, which is where this form's menu leads back to.</summary>
     private void GoToNotes() => NavigationManager.NavigateTo("/notes");

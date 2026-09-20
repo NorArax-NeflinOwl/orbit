@@ -1480,6 +1480,16 @@ read.
     takes it away** - the one thing that tells it from a table, which goes by its own menu; words never
     join it and writing that lands on it goes under it. A note that has never been saved has nowhere to
     keep a picture, so the editor says to save first.
+  - **And its own corner takes it away too** (2026-09-20, `NoteSurfaceEdits.RemoveElement`). The key was
+    not enough on its own: the caret has to be landed on the picture's line to press it, and a picture is
+    drawn by an element nobody can type in, so a reader who could not manage that had no way to be rid of
+    an attachment at all. The press is always drawn rather than shown on hover - a control nobody can
+    find is the thing that was missing, and a touch screen has no hover to find it with - and a surface
+    nobody may write to hides it, the way the tick boxes in one are stopped.
+  - **A press below the last line gives the note a line to write on** where it ends in a picture, a rule
+    or a table (`NoteSurfaceEdits.WriteUnderTheEnd`). Such a line has nothing after it and nothing to
+    type in, so there was nowhere for the caret to go and the note could not be carried on past it. The
+    press is on the space around the lines; a press on a line is still the browser's own.
   - **What a save no longer names is swept** (`NotePictureSweeper`): the save carries the ids the note
     still holds (`UpdateNoteRequest.PictureIds`), because a private note's lines are sealed and the
     server cannot read which pictures they name; a client that says nothing sweeps nothing. Deleting the
@@ -1518,6 +1528,15 @@ read.
     (`NoteSurfaceSeparatorTests`).
   - **No migration**, as with styles, marks and tables: it travels as `NoteContentLineDto.Separator`,
     is stored in the same JSON, and a line written before rules existed simply has no field there.
+  - **A note opened after sixteen hours gets a dated one at its end, unasked** (2026-09-20,
+    `NoteEditor.StampTheEndIfItHasBeenAWhile`), with an empty line under it and the caret there - so
+    what is written next is written under a line saying when: old writing, the time, new writing. The
+    gap is long enough that a day's writing is one stretch and short enough that yesterday and today are
+    told apart. Only a note with something already in it gets one, and only one this reader may write
+    in. **It is taken back out on the way to the server if nothing was written under it**
+    (`WithoutAStampNobodyWroteUnder`), which is the "if new text was added" half of what was asked for:
+    opening an old note, changing a word higher up and saving must not leave a rule at the end. It stays
+    on the surface either way, so the reader can still write under it after saving.
   - **Both clients have the tool, and both ask first** - the browser as a two-entry panel over the
     writing (`NoteEditor`, beside the styles, the table and the attachment), the phone as a sheet
     (`NoteDetailPage.UseTheSeparatorToolAsync`, `NoteDetailViewModel.SeparatorChoices`). Each works the
