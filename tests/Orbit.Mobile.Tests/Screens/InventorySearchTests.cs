@@ -68,6 +68,22 @@ public sealed class InventorySearchTests
     }
 
     /// <summary>
+    /// The plus makes a shelf and opens it, as the notes screen's does - the name field above the list
+    /// is gone (asked for 2026-09-20), and a shelf is named on the shelf.
+    /// </summary>
+    [Fact]
+    public async Task The_plus_makes_a_shelf_and_opens_it()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenInventoryAsync();
+
+        await screen.AddInventoryCommand.ExecuteAsync(null);
+
+        var made = Assert.Single(screen.Inventories);
+        Assert.Equal(made.LocalId, context.Navigator.LastInventoryId);
+    }
+
+    /// <summary>
     /// Opening a result opens the inventory holding it, which is the whole point: the answer to "where is
     /// it" has to be somewhere you can go.
     /// </summary>

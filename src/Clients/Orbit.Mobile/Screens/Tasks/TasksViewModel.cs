@@ -35,9 +35,6 @@ public sealed partial class TasksViewModel : ObservableObject
     private readonly PrivateItemGate _privateItems;
 
     [ObservableProperty]
-    private string _newListTitle = string.Empty;
-
-    [ObservableProperty]
     private bool _isRefreshing;
 
     /// <summary>The one thing this screen has to say for itself, which today is only about pinning.</summary>
@@ -242,17 +239,16 @@ public sealed partial class TasksViewModel : ObservableObject
         await SynchroniseAsync(cancellationToken);
     }
 
-    [RelayCommand(CanExecute = nameof(CanAddList))]
+    /// <inheritdoc cref="Notes.NotesViewModel.AddNoteCommand"/>
+    [RelayCommand]
     private async Task AddListAsync(CancellationToken cancellationToken)
     {
-        await _taskLists.CreateAsync(NewListTitle.Trim(), TaskListRow.NoItems, cancellationToken);
-        NewListTitle = string.Empty;
+        var taskList = await _taskLists.CreateAsync(string.Empty, TaskListRow.NoItems, cancellationToken);
 
         await ShowStoredListsAsync(cancellationToken);
+        _navigator.ShowTaskList(taskList.LocalId);
         await SynchroniseAsync(cancellationToken);
     }
-
-    private bool CanAddList => NewListTitle.Trim().Length > 0;
 
     /// <summary>
     /// Opens one list. A hidden row opens nothing: it offers the lock instead, which is the whole point
@@ -784,5 +780,4 @@ public sealed partial class TasksViewModel : ObservableObject
 
         _syncState.RecordFailed();
     }
-    partial void OnNewListTitleChanged(string value) => AddListCommand.NotifyCanExecuteChanged();
 }

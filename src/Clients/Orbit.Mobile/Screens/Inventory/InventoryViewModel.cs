@@ -29,9 +29,6 @@ public sealed partial class InventoryViewModel : ObservableObject
     private readonly LocalNotificationRepository? _notifications;
 
     [ObservableProperty]
-    private string _newInventoryName = string.Empty;
-
-    [ObservableProperty]
     private bool _isRefreshing;
 
     /// <summary>
@@ -358,17 +355,16 @@ public sealed partial class InventoryViewModel : ObservableObject
         await SynchroniseAsync(cancellationToken);
     }
 
-    [RelayCommand(CanExecute = nameof(CanAddInventory))]
+    /// <inheritdoc cref="Notes.NotesViewModel.AddNoteCommand"/>
+    [RelayCommand]
     private async Task AddInventoryAsync(CancellationToken cancellationToken)
     {
-        await _inventories.CreateAsync(NewInventoryName.Trim(), cancellationToken);
-        NewInventoryName = string.Empty;
+        var inventory = await _inventories.CreateAsync(string.Empty, cancellationToken);
 
         await ShowStoredInventoriesAsync(cancellationToken);
+        _navigator.ShowInventory(inventory.LocalId);
         await SynchroniseAsync(cancellationToken);
     }
-
-    private bool CanAddInventory => NewInventoryName.Trim().Length > 0;
 
     /// <inheritdoc cref="Notes.NotesViewModel.Open"/>
     [RelayCommand]
@@ -591,5 +587,4 @@ public sealed partial class InventoryViewModel : ObservableObject
 
         _syncState.RecordFailed();
     }
-    partial void OnNewInventoryNameChanged(string value) => AddInventoryCommand.NotifyCanExecuteChanged();
 }

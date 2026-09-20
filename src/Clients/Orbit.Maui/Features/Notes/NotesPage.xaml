@@ -31,19 +31,9 @@
             <!-- While several notes are being chosen - see PickingSeveral. -->
             <controls:PickingBar BindingContext="{Binding Picking}" />
 
-            <Grid x:Name="AddRow" IsVisible="False" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <Entry x:Name="AddField" Grid.Column="0"
-                       Placeholder="{controls:Translate 'New note'}"
-                       Text="{Binding NewNoteTitle}"
-                       ReturnType="Done"
-                       ReturnCommand="{Binding AddNoteCommand}" />
-                <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Style="{StaticResource PrimaryButton}"
-                        Command="{Binding AddNoteCommand}" />
-            </Grid>
-
             <!-- Naming a new folder, unfolded from the menu rather than standing on the screen: making
-                 one is something somebody does once, and the same row the plus unfolds for a new note -
-                 see NewItemForm, which both are toggled by. -->
+                 one is something somebody does once. The plus in the corner makes a note instead of
+                 unfolding a row like this one - see NotesViewModel.AddNoteCommand. -->
             <Grid x:Name="FolderRow" IsVisible="False" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <Entry x:Name="FolderField" Grid.Column="0"
                        Placeholder="{controls:Translate 'Folder name'}"
@@ -169,7 +159,7 @@
         <!-- Across the foot, under everything the page itself draws - see AdBanner, and .ad-banner
              in Orbit.Web's app.css, which is the same bar on a narrow window. -->
         <controls:AdBanner Grid.Row="2" />
-        <controls:Fab x:Name="AddButton" Grid.Row="1" IsAboveAdBar="True"
+        <controls:Fab Grid.Row="1" IsAboveAdBar="True" Command="{Binding AddNoteCommand}"
                       Description="{controls:Translate 'Add note'}" />
         <controls:NavigationBar Grid.Row="0" />
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
