@@ -47,9 +47,14 @@ WORKDIR /app
 RUN apk add --no-cache tzdata
 ENV TZ=Europe/Warsaw
 
-# Logs are volume-mounted (see docker-compose.yml); owning the directory before switching off root
-# means the non-root $APP_UID user (built into the base image) can actually write to the volume.
-RUN mkdir -p /app/logs && chown -R $APP_UID:$APP_UID /app/logs
+# Logs and a note's pictures are both volume-mounted (see docker-compose.yml); owning the directories
+# before switching off root means the non-root $APP_UID user (built into the base image) can actually
+# write to the volumes. Docker gives a named volume the ownership of the image's directory behind it,
+# so one that does not exist here is created root-owned and nothing in the container can write to it -
+# which is exactly what happened to the pictures when they moved onto a volume and this line was not
+# extended: locally, every attempt to put a picture in a note answered 500 with "Permission denied".
+# Azure is unaffected, since there the pictures go to a storage account instead.
+RUN mkdir -p /app/logs /app/pictures && chown -R $APP_UID:$APP_UID /app/logs /app/pictures
 USER $APP_UID
 
 COPY --from=build --chown=$APP_UID:$APP_UID /app/publish .

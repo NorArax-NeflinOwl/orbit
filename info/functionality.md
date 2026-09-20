@@ -1463,7 +1463,12 @@ read.
     public blob access **off** - deliberately not `orbitdownloads`, whose blobs are anonymous-read to hand
     out the APK - reached by a connection string that is a Container App secret
     (`NotePictures:ConnectionString`); locally a directory on a named volume (`NotePictures:Directory`).
-    Which of the two is decided by whether the connection string is set. The row beside them
+    Which of the two is decided by whether the connection string is set. **The image has to own that
+    directory** or every local upload answers 500 - Docker gives a named volume the ownership of the
+    image's directory behind it, and the API runs as `$APP_UID`, so one this Dockerfile does not create
+    and chown is created root-owned and unwritable. The logs directory had that line from the start and
+    the pictures did not, so putting a picture in a note was impossible on a local stack from the day
+    the store moved onto a volume until 2026-09-20. The row beside them
     (`OP_NOTES_PICTURES`, `NotePicture`) says which note a picture belongs to, how many bytes it is and
     whether it is sealed - and nothing else.
   - **50 MB a note, counted server-side** (`NotePictureLimits`): a total across the note's pictures, and
