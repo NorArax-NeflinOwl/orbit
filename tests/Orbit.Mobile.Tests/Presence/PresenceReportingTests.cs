@@ -99,10 +99,35 @@ public sealed class PresenceReportingTests
     }
 
     /// <summary>
-    /// With no connection at all the heartbeat stops rather than asking every twenty seconds (see
-    /// PresenceReporter.BeatAsync), so the retry waits for whatever starts it again - a resume, a
-    /// sign-in - instead of being dropped there.
+    /// A choice lost to no connection goes out on a later beat, and so does the heartbeat itself.
+    ///
+    /// The run used to end on the first failed request. There was no way back into it either - Start
+    /// returns early while a run is recorded, and nothing cleared that record - so one moment of bad
+    /// signal left the account silent for the rest of the session, and the server, which ages a quiet
+    /// account out, showed somebody using the app as away (reported 2026-09-20).
     /// </summary>
+    [Fact]
+    public async Task A_beat_lost_to_no_connection_does_not_end_the_heartbeat()
+    {
+        using var context = new ReportingContext();
+        context.Server.IsUnreachable = true;
+        using var reporter = context.Reporter();
+        reporter.Start();
+
+        context.Presence.Choose(ChosenAvailability.Unavailable);
+        await context.SettleAsync();
+        await context.BeatAsync();
+        Assert.Null(context.Server.Availability);
+
+        // The signal comes back, and nothing has restarted anything: the same run picks it up.
+        context.Server.IsUnreachable = false;
+        await context.BeatAsync();
+
+        Assert.Equal(nameof(PresenceAvailability.DoNotDisturb), context.Server.Availability);
+        Assert.True(context.Server.HeartbeatCount > 0);
+    }
+
+    /// <summary>And a stop and a start still work, which is what a resume does.</summary>
     [Fact]
     public async Task A_choice_lost_to_no_connection_goes_out_when_reporting_starts_again()
     {

@@ -121,25 +121,50 @@ public sealed class PresenceReporter : IDisposable
     private async Task BeatAsync(CancellationToken cancellationToken)
     {
         using var timer = new PeriodicTimer(HeartbeatInterval, _timeProvider);
+
+        // Whether the last beat failed, so an outage is said once rather than every twenty seconds.
+        var isOutOfTouch = false;
         try
         {
             do
             {
                 if (await _sessionStore.GetAsync() is not null)
                 {
-                    // The choice first, when one is still owed: a heartbeat says this account is here,
-                    // and saying so while the server still believes it is available is the state this
-                    // is meant to get out of.
-                    if (_serverHasNotBeenTold)
+                    try
                     {
-                        await ReportChoiceAsync();
-                    }
+                        // The choice first, when one is still owed: a heartbeat says this account is
+                        // here, and saying so while the server still believes it is available is the
+                        // state this is meant to get out of.
+                        if (_serverHasNotBeenTold)
+                        {
+                            await ReportChoiceAsync();
+                        }
 
-                    // Over the live connection when there is one, which is the cheaper half of what
-                    // that connection is for - and as the request it always was when there is not.
-                    if (!await _liveUpdates.TryReportPresenceAsync(isAtTheKeyboard: true))
+                        // Over the live connection when there is one, which is the cheaper half of what
+                        // that connection is for - and as the request it always was when there is not.
+                        if (!await _liveUpdates.TryReportPresenceAsync(isAtTheKeyboard: true))
+                        {
+                            await _usersClient.SendPresenceHeartbeatAsync(cancellationToken);
+                        }
+
+                        isOutOfTouch = false;
+                    }
+                    catch (HttpRequestException exception)
                     {
-                        await _usersClient.SendPresenceHeartbeatAsync(cancellationToken);
+                        // One failed beat is a silence, and a silence is what this reports anyway - the
+                        // server ages a quiet account out on its own.
+                        //
+                        // The loop carries on, because the signal coming back is the common case. This
+                        // used to end the run instead, and there was no way back into it: Start returns
+                        // early while a run is recorded, and nothing cleared that record - so one
+                        // failed request left the account silent for the rest of the session and the
+                        // server showed somebody using the app as away (reported 2026-09-20).
+                        if (!isOutOfTouch)
+                        {
+                            _logger.LogInformation(
+                                "Presence heartbeat could not be sent ({Reason})", exception.Message);
+                            isOutOfTouch = true;
+                        }
                     }
                 }
             }
@@ -147,13 +172,6 @@ public sealed class PresenceReporter : IDisposable
         }
         catch (OperationCanceledException)
         {
-        }
-        catch (HttpRequestException exception)
-        {
-            // One failed heartbeat is a silence, and a silence is already what this reports. Stopping
-            // here rather than retrying keeps a phone with no signal from a request every twenty
-            // seconds; the next Start - a resume, a sign-in - picks it up again.
-            _logger.LogInformation("Presence heartbeat stopped ({Reason})", exception.Message);
         }
     }
 }
