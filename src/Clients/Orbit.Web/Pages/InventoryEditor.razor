@@ -36,6 +36,9 @@ else
 {
 @* Two panels: the form on the left, which scrolls, and the panel on the right, which does not - see
    EditorRail. On a narrow screen the right one becomes a bar along the foot of the window. *@
+@* A sealed inventory is behind the account's PIN here as well as on the tab it is under - see
+   BehindThePin, and TaskEditor, which carries the same wrapper for the same reason. *@
+<BehindThePin Applies="_formModel.IsPrivate" OnGaveUp="LeaveTheSealedInventory">
 <div class="editor-page">
 <div class="editor-page-body">
 
@@ -462,6 +465,7 @@ else
     </ChildContent>
 </EditorRail>
 </div>
+</BehindThePin>
 
 @if (_isSharingOpen && CanOfferSharing && _inventory is { } inventory)
 {
@@ -524,6 +528,12 @@ else
     /// what every route here did before and is still right for somebody who typed the address.
     /// </summary>
     private string WhenFinished => ReturnTo.Or(ComeBackTo, "/inventory");
+
+    /// <summary>
+    /// Where the PIN's question leads when it cannot be answered: the page of shelves, which is where
+    /// everything else is. See BehindThePin.
+    /// </summary>
+    private void LeaveTheSealedInventory() => NavigationManager.NavigateTo("/inventory");
 
     /// <summary>Absent on "/inventory/new" - see IsNewInventory.</summary>
     private bool IsNewInventory => InventoryId is null;

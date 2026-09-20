@@ -2610,6 +2610,12 @@ can change locks its own owner out. Four to eight digits, checked on both sides;
 the requests whose 401 means "wrong secret" rather than "expired session"
 (`AuthorizationMessageHandler.PasswordProvingRequests`) - a mistyped PIN must not sign anybody out.
 
+**And in front of the thing itself, not only its tab.** A notification, a link or the column beside the
+writing reaches one sealed note directly, so the three editors carry the same wrapper - a door only on
+the tabs is a door with a corridor round it. The question is asked **only where what is behind it is
+private**: most of what the wrapper holds is an ordinary form, and a network call between the reader and
+those would be a beat of nothing paid on every one.
+
 **The map's points are not behind it**, and that is the user's own line: a place is met on a map read at
 a glance, and a question in front of it would be asked at every one. **Nor are events**: an event cannot
 be sealed at all (`FolderPages.HasAPrivateTab`), so there is nothing there to put a door in front of.

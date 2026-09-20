@@ -9,11 +9,12 @@
    While the question is unanswered nothing inside is rendered at all, rather than drawn and covered: a
    page that draws what is private and puts a panel over it has already put it on the screen, and the
    screen is what the question is about. *@
-@if (!Applies)
-{
-    @ChildContent
-}
-else if (Gate.Asks)
+@* Two branches and not three, deliberately. Razor gives each branch of an if/else its own place in the
+   render tree, so writing @ChildContent in two of them makes Blazor tear the whole subtree down and
+   build it again whenever the answer moves between those two branches - which, inside an editor, throws
+   away the form the reader was filling in. One branch holds the content, whatever the reason it is
+   being shown. *@
+@if (Applies && Gate.Asks)
 {
     <PrivatePinDialog OnGaveUp="OnGaveUp" OnOpened="StateHasChanged" />
 }
@@ -31,12 +32,23 @@ else
 
     [Parameter, EditorRequired] public RenderFragment? ChildContent { get; set; }
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized() => Gate.Changed += OnGateChanged;
+
+    /// <summary>
+    /// Asks the account whether there is a PIN at all - **only where what is inside is private**, and
+    /// only once per tab, the gate holding the answer for every other caller.
+    ///
+    /// Here rather than in OnInitializedAsync, and gated on <see cref="Applies"/>, because this
+    /// component wraps whole editors: an await before the child content is drawn puts a network call
+    /// between the reader and a form that has nothing sealed in it, and the page behind it renders a
+    /// beat late. Most of what this wraps is not private, and asks nothing.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
     {
-        Gate.Changed += OnGateChanged;
-        // Asked once for the tab's life and answered from the account that has usually just been read;
-        // the gate itself does nothing when it already knows.
-        await Gate.LearnWhetherThereIsOneAsync();
+        if (Applies)
+        {
+            await Gate.LearnWhetherThereIsOneAsync();
+        }
     }
 
     public void Dispose() => Gate.Changed -= OnGateChanged;

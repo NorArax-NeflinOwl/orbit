@@ -2659,11 +2659,12 @@ down whole rather than started, so nothing in it depends on being remembered.
   cannot be sealed at all (`FolderPages.HasAPrivateTab`), so sealing one is a different and larger ask.
   Map points are excepted as the user said.
 
+  The three editors carry the same wrapper as of the same day, so a sealed thing reached by its own
+  address - a notification, a link, the column beside the writing - asks too.
+
   Still to do: **the phone**, which has the device lock (`PrivateItemGate`) in the same place and would
   now have two questions in front of the same thing - which of them to keep, or whether the PIN stands
-  in for the device lock where an account has one, is a decision rather than a port. And **opening one
-  private item by its own address** - a link from a notification, or a note reached from the column
-  beside the writing - still draws it without asking; the door is on the tabs, not yet on the editors.
+  in for the device lock where an account has one, is a decision rather than a port.
 
 - ~~**A whole folder can be shared**, through chat and through a public link~~ - done 2026-09-20, both
   from the folder's own menu. **By chat** it is the dialog that already shares several chosen things,

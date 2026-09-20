@@ -57,6 +57,11 @@
 
 @* Two panels: the form on the left, which scrolls, and the panel on the right, which does not - see
    EditorRail. On a narrow screen the right one becomes a bar along the foot of the window. *@
+@* A sealed note is behind the account's PIN here as well as on the tab it is under (2026-09-20): a
+   notification, a link or the column on the left reaches one directly, and a door only on the tabs is a
+   door with a corridor round it. Around the note and not the column - the column lists names, and a
+   sealed note's name is "Private note" there in any case. *@
+<BehindThePin Applies="_formModel.IsPrivate" OnGaveUp="LeaveTheSealedNote">
 <div class="editor-page">
 <div class="editor-page-body">
 
@@ -388,6 +393,7 @@ else
     </EditorRail>
 }
 </div>
+</BehindThePin>
 </div>
 
 @* Handing the note to a contact, over the page rather than in it - see the menu entry above. Kept to
@@ -1630,6 +1636,13 @@ else
     /// The lock is let go, because somebody who has walked off to write something else is not holding
     /// this note against anybody.
     /// </summary>
+    /// <summary>
+    /// Where the PIN's question leads when it cannot be answered: the page of cards, which is where
+    /// everything else is. Not "/notes", which opens the newest note and would be another page opening
+    /// on its own rather than an answer to "I cannot get in".
+    /// </summary>
+    private void LeaveTheSealedNote() => NavigationManager.NavigateTo("/notes/all");
+
     private async Task StartANewNote()
     {
         Logger.LogInformation("User started another note from the note they were writing in");

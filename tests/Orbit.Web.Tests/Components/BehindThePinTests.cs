@@ -69,6 +69,11 @@ public sealed class BehindThePinTests : OrbitTestContext
         Assert.Contains(Secret, cut.Markup);
     }
 
+    /// <summary>
+    /// And what is not private is drawn without the account being asked anything at all. Most of what
+    /// this wraps is an ordinary page or an ordinary form: a network call between the reader and those
+    /// is a beat of nothing, paid on every one of them.
+    /// </summary>
     [Fact]
     public void What_is_not_private_is_drawn_whatever_the_account_has_set()
     {
@@ -77,6 +82,7 @@ public sealed class BehindThePinTests : OrbitTestContext
         var cut = Render(applies: false);
 
         Assert.Contains(Secret, cut.Markup);
+        Assert.Null(Services.GetRequiredService<PrivatePinGate>().HasOne);
     }
 
     /// <summary>

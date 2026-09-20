@@ -51,6 +51,14 @@ public sealed class PrivatePinGate
     /// </summary>
     public void LearnWhetherThereIsOne(bool hasOne)
     {
+        // Nothing to say where nothing moved. Every page that draws something sealed asks this on load,
+        // and telling them all to redraw because the answer is still "no door" is a render for nothing -
+        // which, landing mid-interaction, is a render nobody asked for in the middle of a form.
+        if (HasOne == hasOne)
+        {
+            return;
+        }
+
         HasOne = hasOne;
         if (!hasOne)
         {

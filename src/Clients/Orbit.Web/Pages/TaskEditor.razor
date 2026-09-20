@@ -45,6 +45,10 @@
 
 @* Two panels: the form on the left, which scrolls, and the panel on the right, which does not - see
    EditorRail. On a narrow screen the right one becomes a bar along the foot of the window. *@
+@* A sealed list is behind the account's PIN here as well as on the tab it is under (2026-09-20): a
+   notification or a link reaches one directly, and a door only on the tabs is a door with a corridor
+   round it. *@
+<BehindThePin Applies="_formModel.IsPrivate" OnGaveUp="LeaveTheSealedList">
 <div class="editor-page">
 <div class="editor-page-body">
 
@@ -771,6 +775,7 @@ else
     </EditorRail>
 }
 </div>
+</BehindThePin>
 
 @* Handing the list to a contact, over the page - see the menu entry in the panel. Kept to the same rule
    as the entry, so ticking Private while it is open takes it away too. *@
@@ -854,6 +859,12 @@ else
     /// which is what every route here did before and is still right for somebody who typed the address.
     /// </summary>
     private string WhenFinished => ReturnTo.Or(ComeBackTo, "/tasks");
+
+    /// <summary>
+    /// Where the PIN's question leads when it cannot be answered: the page of lists, which is where
+    /// everything else is. See BehindThePin.
+    /// </summary>
+    private void LeaveTheSealedList() => NavigationManager.NavigateTo("/tasks");
 
     private bool IsNewTaskList => Id is null;
 
