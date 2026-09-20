@@ -443,14 +443,14 @@ public sealed class NoteEditorTests : OrbitTestContext
 
     /// <summary>And the other half: a rule with writing under it is the note, and is stored.</summary>
     [Fact]
-    public void A_rule_written_under_is_saved_with_what_follows_it()
+    public async Task A_rule_written_under_is_saved_with_what_follows_it()
     {
         var note = Note("Shopping") with { UpdatedAtUtc = DateTimeOffset.UtcNow.AddHours(-20) };
         RegisterApiClients(note);
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
 
         var surface = cut.FindComponent<Web.Components.ChecklistTextEditor>();
-        cut.InvokeAsync(() => surface.Instance.LinesChanged.InvokeAsync(
+        await cut.InvokeAsync(() => surface.Instance.LinesChanged.InvokeAsync(
             new List<NoteContentLineDto>
             {
                 new("Shopping", false, false),
@@ -458,7 +458,7 @@ public sealed class NoteEditorTests : OrbitTestContext
                 new(string.Empty, false, false,
                     Separator: new NoteSeparatorLineDto(DateTime.Now.ToString("f", CultureInfo.CurrentCulture))),
                 new("and bread", false, false)
-            })).GetAwaiter().GetResult();
+            }));
         cut.Find(".page-action-primary").Click();
 
         Assert.NotNull(_lastSavedNoteJson);
