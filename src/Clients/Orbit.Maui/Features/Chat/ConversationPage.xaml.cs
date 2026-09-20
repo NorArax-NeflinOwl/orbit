@@ -49,7 +49,14 @@ public partial class ConversationPage : ContentPage
 			return;
 		}
 
-		List<ScreenMenuEntry> entries = [];
+		// What the bubble no longer says by itself: when it was sent, and how far it got. The thread
+		// shows the time under the newest message alone now - see ReadableChatMessage.IsTheNewest - so
+		// this is where every other message answers "when was that". First, as the group thread's own
+		// "who has read this" is.
+		List<ScreenMenuEntry> entries =
+		[
+			new(_translations["Info"], () => _ = ShowMessageInfoAsync(message))
+		];
 
 		if (message.CanBeChanged)
 		{
@@ -61,8 +68,11 @@ public partial class ConversationPage : ContentPage
 
 		if (message.CanBeForwarded)
 		{
+			// "Forward" on its own said nothing to the person who asked for this (2026-09-20): it names
+			// a mechanism rather than what pressing it does, and what it does is pick somebody to send
+			// this same message on to.
 			entries.Add(new ScreenMenuEntry(
-				_translations["Forward"], () => _viewModel.StartForwardingCommand.Execute(message)));
+				_translations["Pass on to somebody else"], () => _viewModel.StartForwardingCommand.Execute(message)));
 		}
 
 		if (message.CanBeRepliedTo)
@@ -73,6 +83,14 @@ public partial class ConversationPage : ContentPage
 
 		Menu.Show(entries, _translations["Message options"], placement: MenuPlacement.FromTheFoot);
 	}
+
+	/// <summary>
+	/// What this one message says about itself - see ConversationViewModel.DescribeMessage, which writes
+	/// it. In the platform's own dialog, as the group thread's receipts are: it is read and dismissed.
+	/// </summary>
+	private async Task ShowMessageInfoAsync(ReadableChatMessage message)
+		=> await DisplayAlertAsync(
+			_translations["Info"], _viewModel.DescribeMessage(message), _translations["Close"]);
 
 	/// <summary>
 	/// Who this is, apart from what they have said. One entry today, and it is the one Orbit.Web's own

@@ -76,6 +76,26 @@ public sealed record ReadableChatMessage(
     /// <summary>Whether a divider belongs over this message - see <see cref="DayHeading"/>.</summary>
     public bool StartsANewDay => DayHeading.Length > 0;
 
+    /// <summary>
+    /// Whether this is the last line of the thread, which is the only one that says its time out loud.
+    ///
+    /// A column of clock times down the side of every bubble is noise: a conversation is read as a
+    /// conversation, and the one thing it has to answer at rest is how long ago the last thing was said
+    /// (asked for 2026-09-20). Every other message still answers "when was that" - through the Info its
+    /// own menu offers, which is also where who read it and when is said. Set by <see cref="ChatDays"/>,
+    /// which is where everything else about how a message sits in the thread is decided.
+    /// </summary>
+    public bool IsTheNewest { get; init; }
+
+    /// <summary>Whether the small print under this bubble carries the time - see <see cref="IsTheNewest"/>.</summary>
+    public bool ShowsTime => IsTheNewest;
+
+    /// <summary>
+    /// Whether that small print has anything in it at all. Without this the thread keeps a row of
+    /// nothing under every bubble but the last, and pays its spacing for it.
+    /// </summary>
+    public bool HasMeta => ShowsTime || IsWaitingToSend || IsReadByThem || IsEdited || HasGroupDelivery;
+
     /// <summary>Whether this message is an offer to share something - see SharedItemInvitation.</summary>
     public bool IsInvitation => Invitation is not null;
 
@@ -113,8 +133,24 @@ public sealed record ReadableChatMessage(
     /// Whether this can be passed on. Needs something to pass: a message that could not be opened here
     /// has no text to re-encrypt for somebody else, and one still queued has not been sent even once.
     /// </summary>
-    /// <summary>Whether the message has any action at all - what decides if it gets a menu trigger.</summary>
-    public bool HasActions => CanBeChanged || CanBeForwarded || CanBeRepliedTo;
+    /// <summary>
+    /// Whether the message has any action at all - what decides if it gets a menu trigger. A group
+    /// message always has one even when there is nothing to do to it: "who has read this" is worth
+    /// asking about anybody's message, and Info about your own.
+    /// </summary>
+    public bool HasActions => CanBeChanged || CanBeForwarded || CanBeRepliedTo || IsInAGroup;
+
+    /// <summary>
+    /// Which side of the bubble the "⋯" sits on. Beside it rather than under it, because under it is
+    /// where the message's own small print goes and a trigger among small print reads as small print
+    /// (asked for 2026-09-20). The reader's own messages hang off the right of the thread, so their
+    /// trigger goes to the left of the bubble and everybody else's the other way about - it always sits
+    /// on the inside, where a thumb is, rather than off the edge of the screen.
+    /// </summary>
+    public bool MenuSitsOnTheLeft => HasActions && IsMine;
+
+    /// <inheritdoc cref="MenuSitsOnTheLeft"/>
+    public bool MenuSitsOnTheRight => HasActions && !IsMine;
 
     public bool CanBeForwarded => Text is { Length: > 0 } && !IsWaitingToSend;
 

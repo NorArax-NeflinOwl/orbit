@@ -508,6 +508,61 @@ public sealed partial class ConversationViewModel : ObservableObject, IDisposabl
         }
     }
 
+    /// <summary>
+    /// Everything one message says about itself, for the Info its menu offers: when it was sent, whether
+    /// it has been rewritten since, and how far it got.
+    ///
+    /// The thread itself only shows the time under its newest message now - see
+    /// ReadableChatMessage.IsTheNewest - so this is where the rest of them answer "when was that", and
+    /// the only place "who read it, and when" is said at all in a one-to-one conversation.
+    ///
+    /// "Had read it by" rather than "read it at": the server keeps one mark per conversation rather than
+    /// one per message - see ConversationReadState - so what is known is the moment they were last
+    /// reading, not the moment they reached this line. Saying the first as the second would be a made-up
+    /// number on a screen whose whole purpose is to be exact.
+    /// </summary>
+    public string DescribeMessage(ReadableChatMessage? message)
+    {
+        if (message is null)
+        {
+            return string.Empty;
+        }
+
+        List<string> said =
+        [
+            _translations.Format(
+                "Sent {0}", message.SentAtUtc.ToLocalTime().ToString("f", _translations.DisplayCulture))
+        ];
+
+        if (message.IsEdited)
+        {
+            said.Add(_translations["Rewritten after it was sent."]);
+        }
+
+        var who = _contact?.DisplayName ?? _translations["Someone"];
+        if (message.IsWaitingToSend)
+        {
+            said.Add(_translations["Still waiting to go out from this phone."]);
+        }
+        else if (!message.IsMine)
+        {
+            said.Add(_translations.Format("Written by {0}.", who));
+        }
+        else if (message.IsReadByThem)
+        {
+            said.Add(_theyReadUpToUtc is { } readUpTo
+                ? _translations.Format(
+                    "{0} had read it by {1}.", who, readUpTo.ToLocalTime().ToString("g", _translations.DisplayCulture))
+                : _translations.Format("{0} has read it.", who));
+        }
+        else
+        {
+            said.Add(_translations.Format("{0} hasn't read it yet.", who));
+        }
+
+        return string.Join(Environment.NewLine, said);
+    }
+
     [RelayCommand]
     private void CancelForwarding()
     {

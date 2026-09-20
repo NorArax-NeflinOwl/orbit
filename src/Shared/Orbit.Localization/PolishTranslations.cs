@@ -2583,5 +2583,19 @@ public static class PolishTranslations
             "Zaproszenie można otworzyć tylko online. Spróbuj ponownie, gdy wrócisz do sieci.",
         ["An invitation can only be accepted online. Try again when you are back."] =
             "Zaproszenie można zaakceptować tylko online. Spróbuj ponownie, gdy wrócisz do sieci.",
+
+        // ---- What a message says about itself on the phone, now that the thread shows the time under
+        // its newest line alone - see ReadableChatMessage.IsTheNewest and ConversationViewModel's own
+        // DescribeMessage, which writes the rest of this out in the menu's Info. ----
+        ["edited"] = "edytowana",
+        ["Sent {0}"] = "Wysłano: {0}",
+        ["Rewritten after it was sent."] = "Zmieniona po wysłaniu.",
+        ["Still waiting to go out from this phone."] = "Wciąż czeka na wysłanie z tego telefonu.",
+        ["Written by {0}."] = "Napisał(a): {0}.",
+        ["{0} had read it by {1}."] = "{0} przeczytał(a) ją najpóźniej o {1}.",
+        ["{0} has read it."] = "{0} ją przeczytał(a).",
+        ["{0} hasn't read it yet."] = "{0} jeszcze jej nie przeczytał(a).",
+        ["Pass on to somebody else"] = "Przekaż komuś dalej",
+        ["Nobody else to pass this on to yet."] = "Nie masz jeszcze nikogo, komu można to przekazać.",
     };
 }
