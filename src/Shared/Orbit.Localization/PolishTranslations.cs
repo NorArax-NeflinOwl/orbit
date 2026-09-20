@@ -355,6 +355,8 @@ public static class PolishTranslations
             "Nie udało się przeliczyć względem magazynu. Spróbuj ponownie.",
         ["Hide"] = "Ukryj",
         ["Show on the dashboard"] = "Pokaż na pulpicie",
+        // The same menu, now answering for one tab at a time - the heading says which.
+        ["Show under {0}"] = "Pokaż w „{0}”",
         ["Orbit's order"] = "Kolejność Orbita",
         ["Show"] = "Pokaż",
         ["Search conversations"] = "Szukaj rozmów",
@@ -369,6 +371,12 @@ public static class PolishTranslations
             "Wszystko jest ukryte. Menu w prawym górnym rogu przywraca elementy.",
         ["Nothing here is private yet."] = "Nic tutaj nie jest jeszcze prywatne.",
         ["This folder is empty."] = "Ten folder jest pusty.",
+        // Why a folder's tab on the dashboard draws nothing: its one card is put away.
+        ["The {0} card is hidden here. The menu at the top right brings it back."] =
+            "Karta „{0}” jest tu ukryta. Menu w prawym górnym rogu ją przywraca.",
+        // The same, where the tab is about more than one card and there is no single one to name.
+        ["Every card this folder is about is hidden here. The menu at the top right brings it back."] =
+            "Wszystkie karty tego folderu są tu ukryte. Menu w prawym górnym rogu je przywraca.",
         ["Drag to reorder"] = "Przeciągnij, aby zmienić kolejność",
         ["Minimise"] = "Zminimalizuj",
         ["Open the calendar"] = "Otwórz kalendarz",

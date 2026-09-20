@@ -37,14 +37,19 @@
     <Title>@T["Dashboard"]</Title>
     <Description>@T["Everything on your plate, in one place."]</Description>
     <Actions>
-        @* Which parts of this page are wanted at all. A menu of settings rather than of actions, so it
-           stays open while several are changed - see OverflowMenu.StaysOpen. *@
+        @* Which parts of this page are wanted under the tab that is open. A menu of settings rather
+           than of actions, so it stays open while several are changed - see OverflowMenu.StaysOpen.
+
+           Per tab since 2026-09-20, the way each card's filter already was: what somebody wants to see
+           of their Work folder is not what they want of the whole dashboard, and one answer for the
+           page made putting a card away on one tab put it away on all of them. The heading says which
+           tab is being answered for, since the same menu now gives a different answer on each. *@
         <OverflowMenu StaysOpen="true">
-            <span class="overflow-menu-heading">@T["Show on the dashboard"]</span>
+            <span class="overflow-menu-heading">@T.Format("Show under {0}", NameOfTheOpenTab)</span>
             @foreach (var part in DashboardParts)
             {
                 <label class="avatar-dropdown-item">
-                    <input type="checkbox" checked="@CardPreferences.IsVisible(part.Key)"
+                    <input type="checkbox" checked="@CardPreferences.IsVisible(part.Key, TheOpenTab)"
                            @onchange="args => SetPartVisibleAsync(part.Key, (bool)args.Value!)" />
                     @T[part.Name]
                 </label>
@@ -69,7 +74,7 @@ else if (_notes.Count == 0 && _taskLists.Count == 0 && _events.Count == 0 && _co
 }
 else
 {
-    @if (CardPreferences.IsVisible("today"))
+    @if (CardPreferences.IsVisible("today", TheOpenTab))
     {
         @* The whole strip is the way to the calendar: it is a summary of a day, and the page that shows
            a day is the calendar. A button rather than a link so it reads as one thing to press. *@
@@ -464,14 +469,31 @@ else
     @* A tab that narrows the page down to nothing. Every card is now drawn only where it has something
        under the open tab, so without this an empty folder - or Private on an account that has sealed
        nothing - is a row of tabs above a blank page. *@
-    @if (HasNothingUnderTheOpenTab)
+    @* And a tab whose one card has been put away. A folder somebody made is about exactly one kind of
+       card, so hiding that card empties every one of its tabs - and the page then drew nothing and said
+       nothing, which reads as a tab that does not work rather than as a card that is off. Asked for on
+       2026-09-20 about an inventory folder; the same is true of the other two, so it is said for all
+       three. Before the line below, because this is the reason rather than the folder being empty. *@
+    @if (TheHiddenCardUnderTheOpenTab is { } hiddenCard)
+    {
+        <p class="empty-hint empty-list">
+            @T.Format("The {0} card is hidden here. The menu at the top right brings it back.", T[hiddenCard.Name])
+        </p>
+    }
+    else if (EveryCardHereIsHidden)
+    {
+        @* Folders of the same name in different sections are one tab here, so a tab can be about more
+           than one card - and then there is no single one to name. *@
+        <p class="empty-hint empty-list">@T["Every card this folder is about is hidden here. The menu at the top right brings it back."]</p>
+    }
+    else if (HasNothingUnderTheOpenTab)
     {
         <p class="empty-hint empty-list">
             @(IsReadingWhatIsPrivate ? T["Nothing here is private yet."] : T["This folder is empty."])
         </p>
     }
 
-    @if (!CardPreferences.IsAnythingVisible(DashboardParts.Select(part => part.Key)))
+    @if (!CardPreferences.IsAnythingVisible(DashboardParts.Select(part => part.Key), TheOpenTab))
     {
         <p class="empty-hint empty-list">@T["Everything here is hidden. The menu at the top right brings it back."]</p>
     }
@@ -536,7 +558,7 @@ else
     /// </summary>
     private IReadOnlyList<NoteDto> NotesUnderTheOpenTab =>
         [.. (_notes ?? [])
-            .Where(note => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived))];
+            .Where(note => IsUnder(TheOpenTab, note.FolderId, note.IsPrivate, note.IsArchived))];
 
     private IReadOnlyList<NoteDto> NotesToShow =>
         [.. NotesUnderTheOpenTab.Where(note => Matches("notes", note.IsPinned, note.Priority))];
@@ -555,7 +577,7 @@ else
     /// <inheritdoc cref="NotesUnderTheOpenTab"/>
     private IReadOnlyList<TaskDto> TaskListsUnderTheOpenTab =>
         [.. (_taskLists ?? [])
-            .Where(taskList => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, taskList.FolderId, taskList.IsPrivate, isFinished: false, taskList.IsArchived))
+            .Where(taskList => IsUnder(TheOpenTab, taskList.FolderId, taskList.IsPrivate, taskList.IsArchived))
             .Where(taskList => !taskList.IsCompleted || taskList.IsPinned)];
 
     /// <summary>
@@ -587,9 +609,28 @@ else
             || (_taskLists ?? []).Any(taskList => IsUnder(tab, taskList.FolderId, taskList.IsPrivate, taskList.IsArchived))
             || (_inventories ?? []).Any(inventory => IsUnder(tab, inventory.FolderId, inventory.IsPrivate, inventory.IsArchived));
 
-    /// <summary>Which of this page's tabs one card is under - see FolderState.PlacementOn.</summary>
+    /// <summary>
+    /// Which of this page's tabs one card is under - see FolderState.PlacementOn.
+    ///
+    /// By name rather than by id where a folder is involved, since 2026-09-20. A folder holds one kind
+    /// of thing, so "Home" on the task lists and "Home" on the inventories are two stored folders; this
+    /// page draws both kinds side by side, and there they are one tab - see FolderTabRow.On, which
+    /// draws the first of them and leaves the rest to this. A folder its owner took off the dashboard
+    /// counts for nothing here, so hiding one of two same-named folders still hides what is in it.
+    /// </summary>
     private bool IsUnder(FolderKey tab, Guid? folderId, bool isPrivate, bool isArchived)
-        => Folders.PlacementOn(FolderPage.Dashboard, folderId, isPrivate, isFinished: false, isArchived) == tab;
+    {
+        var placement = Folders.PlacementOn(FolderPage.Dashboard, folderId, isPrivate, isFinished: false, isArchived);
+        if (placement == tab)
+        {
+            return true;
+        }
+
+        return placement.FolderId is { } placed
+            && tab.FolderId is { } drawn
+            && CardPreferences.IsFolderShown(placed)
+            && Folders.FoldersCalledTheSameAs(drawn).Any(folder => folder.Id == placed);
+    }
 
     /// <inheritdoc cref="FolderTabRow.IsWorthDrawing"/>
     private bool ThereIsMoreThanOneFolder
@@ -607,7 +648,7 @@ else
     /// <inheritdoc cref="NotesUnderTheOpenTab"/>
     private IReadOnlyList<InventoryDto> InventoriesUnderTheOpenTab =>
         [.. (_inventories ?? [])
-            .Where(inventory => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, inventory.FolderId, inventory.IsPrivate, isFinished: false, inventory.IsArchived))];
+            .Where(inventory => IsUnder(TheOpenTab, inventory.FolderId, inventory.IsPrivate, inventory.IsArchived))];
 
     private IReadOnlyList<UpcomingEntry> UpcomingToShow =>
         [.. Upcoming()
@@ -827,7 +868,13 @@ else
     /// DashboardCardPreferences.FilterFor.
     /// </summary>
     private DashboardCardFilter FilterFor(string cardKey)
-        => CardPreferences.FilterFor(cardKey, Folders.ChosenOn(FolderPage.Dashboard));
+        => CardPreferences.FilterFor(cardKey, TheOpenTab);
+
+    /// <summary>The tab this page is being read under - what every per-tab answer here is asked for.</summary>
+    private FolderKey TheOpenTab => Folders.ChosenOn(FolderPage.Dashboard);
+
+    /// <summary>Its name, for the menu that says which tab it is answering for.</summary>
+    private string NameOfTheOpenTab => Folders.NameOf(TheOpenTab, builtIn => BuiltInFolderNames.Of(builtIn, T));
 
     /// <summary>The two horizons the Upcoming card's own menu offers - see its markup.</summary>
     private static readonly IReadOnlyList<(int Days, string Label)> CardHorizons = [(7, "Show 7 days"), (30, "Show 30 days")];
@@ -848,19 +895,21 @@ else
 
     private async Task SetCardFilterAsync(string cardKey, DashboardCardFilter filter)
     {
-        var folder = Folders.ChosenOn(FolderPage.Dashboard);
+        var folder = TheOpenTab;
         Logger.LogInformation("User filtered dashboard card {CardKey} to {Filter} under {Folder}", cardKey, filter, folder);
         await CardPreferences.SetFilterAsync(cardKey, folder, filter);
     }
 
     /// <summary>
-    /// Takes one part of the dashboard off this reader's page, or puts it back - on this device, for the
-    /// same reason pinning is not stored server-side.
+    /// Takes one part of the dashboard off this reader's page, or puts it back - under the tab they are
+    /// standing on, and on this device, for the same reason pinning is not stored server-side.
     /// </summary>
     private async Task SetPartVisibleAsync(string cardKey, bool isVisible)
     {
-        Logger.LogInformation("User {Action} dashboard card {CardKey}", isVisible ? "showed" : "hid", cardKey);
-        await CardPreferences.SetVisibleAsync(cardKey, isVisible);
+        Logger.LogInformation(
+            "User {Action} dashboard card {CardKey} under {Folder}",
+            isVisible ? "showed" : "hid", cardKey, TheOpenTab);
+        await CardPreferences.SetVisibleAsync(cardKey, TheOpenTab, isVisible);
     }
 
     /// <summary>
@@ -911,11 +960,11 @@ else
     /// is left alone: it is where everything is unless it was filed or sealed, which is the whole page.
     /// </summary>
     private bool ShowsCard(string cardKey)
-        => CardPreferences.IsVisible(cardKey) && IsAboutTheOpenTab(cardKey);
+        => CardPreferences.IsVisible(cardKey, TheOpenTab) && IsAboutTheOpenTab(cardKey);
 
     /// <summary>Whether the reader is standing in the built-in Private tab - see PrivateCards.</summary>
     private bool IsReadingWhatIsPrivate
-        => Folders.ChosenOn(FolderPage.Dashboard) == FolderKey.Of(BuiltInFolder.Private);
+        => TheOpenTab == FolderKey.Of(BuiltInFolder.Private);
 
     /// <summary>
     /// The only cards that can hold something sealed. Named rather than worked out from the data,
@@ -931,29 +980,67 @@ else
     /// account with nothing in it is answered further up by "Nothing to show".
     /// </summary>
     private bool HasNothingUnderTheOpenTab
-        => (IsReadingWhatIsPrivate || Folders.ChosenOn(FolderPage.Dashboard).FolderId is not null)
+        => (IsReadingWhatIsPrivate || TheOpenTab.FolderId is not null)
         && !(NotesUnderTheOpenTab.Count > 0 && IsAboutTheOpenTab("notes"))
         && !(TaskListsUnderTheOpenTab.Count > 0 && IsAboutTheOpenTab("tasks"))
         && !(InventoriesUnderTheOpenTab.Count > 0 && IsAboutTheOpenTab("inventories"));
 
+    /// <summary>
+    /// The cards a folder tab is about: one per kind of thing filed under a folder of that name. Just
+    /// the one on its own page, and up to three here, where folders called the same thing in different
+    /// sections are read as one tab - see IsUnder. Empty under a built-in tab, which is about every
+    /// card at once.
+    /// </summary>
+    private IReadOnlyList<DashboardPart> CardsTheOpenTabIsAbout
+        => TheOpenTab.FolderId is { } folderId
+            ? [.. Folders.FoldersCalledTheSameAs(folderId)
+                .Where(folder => CardPreferences.IsFolderShown(folder.Id))
+                .Select(folder => CardKeyOf(FolderState.ScopeOf(folder)))
+                .OfType<string>()
+                .Distinct(StringComparer.Ordinal)
+                .Select(cardKey => DashboardParts.First(part => part.Key == cardKey))]
+            : [];
+
+    /// <summary>
+    /// Which card a kind of folder is drawn on, or null where none is - the calendar's folders are not
+    /// tabs here at all (see FolderPages.ScopesOn), so a card can never be about one.
+    /// </summary>
+    private static string? CardKeyOf(FolderScope scope) => scope switch
+    {
+        FolderScope.Notes => "notes",
+        FolderScope.Tasks => "tasks",
+        FolderScope.Inventories => "inventories",
+        _ => null
+    };
+
+    /// <summary>
+    /// Whether every card the open tab is about has been put away, which is why the page under it is
+    /// blank. Asked whether the folder holds anything or not: with the cards off, "this folder is
+    /// empty" would be a guess about something the page is not drawing.
+    /// </summary>
+    private bool EveryCardHereIsHidden
+        => CardsTheOpenTabIsAbout.Count > 0
+        && CardsTheOpenTabIsAbout.All(part => !CardPreferences.IsVisible(part.Key, TheOpenTab));
+
+    /// <summary>The one to name where there is only one, so the page can say which card it means.</summary>
+    private DashboardPart? TheHiddenCardUnderTheOpenTab
+        => EveryCardHereIsHidden && CardsTheOpenTabIsAbout.Count == 1 ? CardsTheOpenTabIsAbout[0] : null;
+
     private bool IsAboutTheOpenTab(string cardKey)
     {
-        if (Folders.ChosenOn(FolderPage.Dashboard).FolderId is not { } folderId)
+        if (TheOpenTab.FolderId is null)
         {
             return !IsReadingWhatIsPrivate || PrivateCards.Contains(cardKey);
         }
 
-        // A stale id - a folder deleted on its own page while the dashboard held it open - narrows to
-        // nothing rather than quietly to the task lists. The row of tabs drops it on the next render.
-        return Folders.ScopeOf(folderId) switch
-        {
-            FolderScope.Notes => cardKey == "notes",
-            FolderScope.Tasks => cardKey == "tasks",
-            FolderScope.Inventories => cardKey == "inventories",
-            // The calendar's folders are not tabs here at all - see FolderPages.ScopesOn - so a card
-            // can never be about one.
-            _ => false
-        };
+        // Every kind filed under a folder of this name, not only the one the tab happens to be drawn
+        // for: "Home" on the task lists and "Home" on the inventories are one tab here, and it is about
+        // both cards - see CardsTheOpenTabIsAbout.
+        //
+        // A stale id - a folder deleted on its own page while the dashboard held it open - names
+        // nothing, so this narrows to nothing rather than quietly to the task lists. The row of tabs
+        // drops it on the next render.
+        return CardsTheOpenTabIsAbout.Any(part => part.Key == cardKey);
     }
 
     /// <summary>
@@ -1172,7 +1259,7 @@ else
         Logger.LogInformation("User set the Tasks card's tag filter to {FilterId}", filterId);
         if (filterId is not null)
         {
-            await CardPreferences.SetFilterAsync("tasks", Folders.ChosenOn(FolderPage.Dashboard), DashboardCardFilter.All);
+            await CardPreferences.SetFilterAsync("tasks", TheOpenTab, DashboardCardFilter.All);
         }
 
         await CardPreferences.SetTasksTagFilterAsync(filterId);

@@ -849,6 +849,11 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   same shape, and it passed alone straight afterwards. All three turn on "not yet in view", which is the
   intersection observer's answer and is settled by a render the test does not wait for.
 
+  `NameSuggestionSourceTests.A_name_of_something_says_where_it_is_and_hands_that_thing_over` failed once
+  on 2026-09-20 in the full run and passed alone and in the next full run. A fourth of the same shape -
+  a suggestion list settled by a lookup the test does not wait for - and unrelated to what was being
+  changed at the time (folders on the dashboard).
+
 - ~~**`PeriodicSyncTests` fails under load.**~~ Found and fixed 2026-09-19, while running the suite twice
   over to chase the one above. `SettleAsync` yielded the thread eight times and **hoped** the timer's
   run had happened - a guess at how many turns the scheduler needs, which a loaded machine disproves.
@@ -2651,15 +2656,21 @@ down whole rather than started, so nothing in it depends on being remembered.
   reader with one folder no way to ever make a second. Said here rather than done that way because it
   is a deliberate departure from what was asked.
 
-- **A custom folder made in the inventory appears on the dashboard without saying the Inventory card
-  is hidden there.** The same line is missing for the other kinds.
+- ~~**A custom folder made in the inventory appears on the dashboard without saying the Inventory card
+  is hidden there.**~~ Done 2026-09-20: the tab names the card that has been put away, or says so
+  without naming one where it is about more than one card. Said for all three kinds, not only shelves.
 
-- **Folders do not line up between the sections.** The "Dom" folder made for task lists is not offered
-  in the inventory's own list, so a shelf cannot be put in it - and making a second "Dom" in the
-  inventory leaves the dashboard with two custom folders of that name.
+- ~~**Folders do not line up between the sections.**~~ Done 2026-09-20, the way the user chose when
+  asked: the folders stay separate rows - a folder holds one kind of thing - but the naming box offers
+  the names already used elsewhere (`FolderTabs.NamesUsedElsewhere`), and the dashboard reads folders of
+  one name as **one tab** covering every card of that name (`FolderTabRow.On`,
+  `FolderState.FoldersCalledTheSameAs`). One folder per account across all four sections was the other
+  option and was not taken; it would need a migration and a merge of what is already stored.
 
-- **"Show on the dashboard" moves from the dashboard to the folder.** Each folder then carries its own
-  set of cards rather than one answer covering every folder.
+- ~~**"Show on the dashboard" moves from the dashboard to the folder.**~~ Done 2026-09-20: which cards
+  the dashboard draws is now a choice per tab (`DashboardCardPreferences.IsVisible(cardKey, folder)`),
+  stored the way each card's filter already was. A card hidden before the change stays hidden on the tab
+  the page opens on.
 
 - ~~**The calendar greys out what is finished**, the task's own colour included~~ - done 2026-09-20:
   `.calendar-chip-done` greys the stripe as well as the words.

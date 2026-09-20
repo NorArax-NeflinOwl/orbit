@@ -830,6 +830,88 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.Contains("Receipts", TabNames(cut));
     }
 
+    /// <summary>
+    /// And opening that tab says why the page under it is blank. A folder somebody made is about
+    /// exactly one kind of card, so putting that card away empties every one of its tabs - and the page
+    /// drew nothing and said nothing, which reads as a tab that does not work. The user found it on an
+    /// inventory folder; it is the same for all three, and said for all three.
+    /// </summary>
+    [Fact]
+    public void A_tab_whose_card_is_put_away_says_so()
+    {
+        var receipts = Guid.NewGuid();
+        RegisterChatApiClient([]);
+        RegisterNotesApiClient([Note("Receipt", "Normal") with { FolderId = receipts }]);
+        RegisterFolders(new FolderDto(
+            receipts, "Receipts", nameof(FolderScope.Notes), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
+        // Put away under that tab and nowhere else - each tab keeps its own answer since 2026-09-20,
+        // and the key it is stored under names the tab (DashboardCardPreferences.StoredKeyOf).
+        RegisterDashboardCardPreferences(filters: null, hidden: $"notes@{receipts}");
+        var cut = RenderComponent<Dashboard>();
+
+        OpenTheTab(cut, "Receipts");
+
+        Assert.Contains("The Notes card is hidden here", cut.Markup);
+        // And not the other answer: the folder is not empty, it is simply not being drawn.
+        Assert.DoesNotContain("This folder is empty", cut.Markup);
+    }
+
+    /// <summary>
+    /// Putting a card away is a thing said about one tab, not about the page. Asked for on 2026-09-20 -
+    /// what somebody wants to see of their Receipts folder is not what they want of the whole
+    /// dashboard, and one answer for the page made hiding a card on one tab hide it on all of them.
+    /// </summary>
+    [Fact]
+    public void A_card_put_away_under_one_tab_is_still_drawn_under_another()
+    {
+        var receipts = Guid.NewGuid();
+        RegisterChatApiClient([]);
+        RegisterNotesApiClient([
+            Note("Receipt", "Normal") with { FolderId = receipts },
+            Note("Shopping", "Normal")]);
+        RegisterFolders(new FolderDto(
+            receipts, "Receipts", nameof(FolderScope.Notes), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
+        RegisterDashboardCardPreferences(filters: null, hidden: $"notes@{receipts}");
+
+        var cut = RenderComponent<Dashboard>();
+
+        // Public is where the page opens, and the card is drawn there.
+        Assert.Contains("Notes", CardNames(cut));
+
+        OpenTheTab(cut, "Receipts");
+
+        Assert.DoesNotContain("Notes", CardNames(cut));
+    }
+
+    /// <summary>
+    /// Folders called the same thing in two sections are one tab here, showing both. A folder holds one
+    /// kind of thing, so "Home" on the task lists and "Home" on the inventories are two stored folders
+    /// - right on their own pages, and two identical tabs here, each showing half of what the reader
+    /// meant by "home". The user found it on 2026-09-20.
+    /// </summary>
+    [Fact]
+    public void Folders_of_the_same_name_in_two_sections_are_one_tab_here()
+    {
+        var homeOnTheLists = Guid.NewGuid();
+        var homeOnTheShelves = Guid.NewGuid();
+        RegisterChatApiClient([]);
+        RegisterTasksApiClient([TaskList("Repairs") with { FolderId = homeOnTheLists }]);
+        RegisterInventoryApiClient([Inventory("Pantry") with { FolderId = homeOnTheShelves }]);
+        RegisterFolders(
+            new FolderDto(homeOnTheLists, "Home", nameof(FolderScope.Tasks), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow),
+            new FolderDto(homeOnTheShelves, "Home", nameof(FolderScope.Inventories), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Single(TabNames(cut), name => name.Contains("Home", StringComparison.Ordinal));
+
+        OpenTheTab(cut, "Home");
+
+        // And the one tab is about both cards, so neither half is left behind it.
+        Assert.Contains("Tasks", CardNames(cut));
+        Assert.Contains("Inventory", CardNames(cut));
+    }
+
     /// <summary>The names on the row of folder tabs, in the order they are drawn.</summary>
     private static IReadOnlyList<string> TabNames(IRenderedFragment cut)
         => [.. cut.FindAll(".folder-tab").Select(tab => tab.TextContent.Trim())];

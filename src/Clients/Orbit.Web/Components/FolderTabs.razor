@@ -55,9 +55,22 @@
     {
         @if (_isNaming && _folderBeingRenamed is null)
         {
+            @* The names already in use in the other sections, offered as the box is typed in. A folder
+               holds one kind of thing, so "Home" on the task lists is not the "Home" on the inventories
+               and has to be made again there - and typing it a second time by hand is how two folders
+               meant to be the same end up spelled differently. The dashboard reads folders of one name
+               as one tab (see FolderTabRow.On), which is what makes matching the spelling worth doing.
+               Asked for on 2026-09-20. *@
             <input class="folder-tab-name" placeholder="@(T["Folder name"])" @bind="_name" @bind:event="oninput"
+                   list="@NameSuggestionsId"
                    @onkeydown="args => OnNamingKeyDownAsync(args)" @onblur="StopNaming"
                    aria-label="@(T["Folder name"])" @ref="_nameBox" />
+            <datalist id="@NameSuggestionsId">
+                @foreach (var name in NamesUsedElsewhere)
+                {
+                    <option value="@name"></option>
+                }
+            </datalist>
         }
         else
         {
@@ -186,6 +199,32 @@
     private IEnumerable<FolderKey> Tabs => FolderTabRow.On(Page, Folders, CardPreferences, HoldsAnything);
 
     private string NameOf(FolderKey tab) => Folders.NameOf(tab, builtIn => BuiltInFolderNames.Of(builtIn, T));
+
+    /// <summary>Where this row's suggestions hang - one row per page, so the page's own name will do.</summary>
+    private string NameSuggestionsId => $"folder-names-{Page}";
+
+    /// <summary>
+    /// Folder names this account has used on other pages and not on this one. Offered while a new
+    /// folder is being named - see the box. Names already used here are left out: making a second
+    /// "Home" on the same page is not what anybody means by picking the name off a list.
+    /// </summary>
+    private IReadOnlyList<string> NamesUsedElsewhere
+    {
+        get
+        {
+            var alreadyHere = Folders.FoldersOn(Page)
+                .Select(folder => folder.Name.Trim())
+                .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
+            return
+            [
+                .. Folders.Folders
+                    .Select(folder => folder.Name.Trim())
+                    .Where(name => name.Length > 0 && !alreadyHere.Contains(name))
+                    .Distinct(StringComparer.CurrentCultureIgnoreCase)
+                    .OrderBy(name => name, StringComparer.CurrentCulture)
+            ];
+        }
+    }
 
     private void Choose(FolderKey tab)
     {

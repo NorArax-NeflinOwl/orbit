@@ -1178,6 +1178,30 @@ wrong reason, the filter having narrowed nothing. A tab that comes to nothing at
 ("Nothing here is private yet.", "This folder is empty."), rather than being a row of tabs over a blank
 page.
 
+**And one whose card has been put away says *that*** (2026-09-20). A folder tab is about one kind of
+card, so hiding that card empties every one of its tabs - and the page then drew nothing and said
+nothing, which reads as a tab that does not work rather than as a card that is off. It now names the
+card ("The Inventory card is hidden here. The menu at the top right brings it back."), or says so
+without naming one where the tab is about more than one. The user found it on an inventory folder; it
+was the same for all three, and is said for all three.
+
+**Which cards the dashboard draws is a choice per tab** (`DashboardCardPreferences.IsVisible`,
+2026-09-20, asked for). It was one answer for the whole page, so putting the Notes card away while
+reading one folder put it away everywhere. It is stored the way each card's *filter* already was - the
+card's key for Public, `key@tab` for the rest (`StoredKeyOf`) - so a card somebody hid before the change
+is still hidden where they hid it, on the tab the dashboard opens on. The menu's heading names the tab
+it is answering for, since the same menu now gives a different answer on each.
+
+**Folders called the same thing in different sections are one tab here** (2026-09-20, the user found
+two). A folder holds one kind of thing, so "Home" on the task lists and "Home" on the inventories are
+two stored folders - right on their own pages, and two identical tabs on a page that draws both kinds
+side by side, each showing half of what the reader meant by "home". The dashboard draws the first of
+them and reads every card of that name under it (`FolderTabRow.On`, `FolderState.FoldersCalledTheSameAs`,
+`Dashboard.IsUnder`); names are compared trimmed and without case. One of the two hidden from the
+dashboard contributes nothing to the shared tab, so hiding still hides. **Making a folder offers the
+names already used elsewhere** (a `datalist` on the naming box, `FolderTabs.NamesUsedElsewhere`) - the
+folders are still separate rows, and matching the spelling is what makes them one tab.
+
 **And a folder can be taken off the dashboard**, from its own menu on the page it was made on ("Hide on
 the dashboard", `DashboardCardPreferences.IsFolderShown`). The dashboard borrows both pages' tabs, which
 is how a folder for recipes ends up between Public and Private on the page somebody opens to see what is
