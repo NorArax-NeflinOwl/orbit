@@ -119,12 +119,13 @@
                     <PinButton IsPinned="note.IsPinned" OnPinnedChanged="pinned => SetPinnedAsync(note, pinned)" />
                 </Pin>
                 <Menu>
-                    @* The card opens the note to be read; changing what it says is a named press, the
-                       same as a task list's - see NoteSummary.razor. Named for what it will actually
-                       do: a note shared read-only opens in the form to be looked at, and calling that
-                       "Edit" here and "View" one press further in said two different things about one
-                       note. Somebody else's note is not this reader's to delete: pressing that takes it
-                       off their list and leaves the owner's alone, so it says that rather than "Delete". *@
+                    @* The card opens the note to be written in - there is no reading rung any more (see
+                       NoteEditor.razor, which is what /notes/{id} lands on since 2026-09-20), so this
+                       entry and the card lead to the same place and it is named for what the reader
+                       will find there: "View" for a note shared read-only, which opens in the form to
+                       be looked at. Somebody else's note is not this reader's to delete: pressing that
+                       takes it off their list and leaves the owner's alone, so it says that rather
+                       than "Delete". *@
                     <ObjectMenu EditLabel="@(CanBeChanged(note) ? T["Edit"] : T["View"])" OnEdit="() => GoToEditNote(note.Id)"
                                 DuplicateLabel="@(note.IsShared ? null : T["Duplicate"])"
                                 OnDuplicate="() => DuplicateNoteAsync(note)"
@@ -437,8 +438,8 @@
     }
 
     /// <summary>
-    /// Whether this reader may change the note, which is what the menu is named for - see NoteSummary,
-    /// which asks the same question of the note it has open.
+    /// Whether this reader may change the note, which is what the menu is named for - see NoteEditor,
+    /// which asks the same question of the note it has open and greys its Save on the answer.
     /// </summary>
     private static bool CanBeChanged(NoteDto note)
         => !note.IsShared || SharedItemAccess.For(note.IsShared, note.AccessLevel).CanEdit;

@@ -221,7 +221,7 @@ public sealed class NotesTests : OrbitTestContext
 
     /// <summary>
     /// The card opens the note to be read, and changing what it says is a named press - the same two
-    /// depths a task list and a storage have, see NoteSummary.razor.
+    /// depths a task list and a storage have, see CalendarEventSummary.razor.
     /// </summary>
     [Fact]
     public void A_card_opens_the_note_and_its_menu_opens_the_form()

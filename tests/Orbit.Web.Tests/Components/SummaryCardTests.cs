@@ -52,7 +52,7 @@ public sealed class SummaryCardTests : OrbitTestContext
         Assert.False(opened);
     }
 
-    /// <summary>NoteSummary's own spacing and cursor-default selector for a tick row, which nothing
+    /// <summary>a checklist card's own spacing and cursor-default selector for a tick row, which nothing
     /// else here carries - see .note-summary-opens in app.css.</summary>
     [Fact]
     public void A_page_can_add_its_own_class_beside_the_shared_one()

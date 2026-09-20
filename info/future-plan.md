@@ -2623,16 +2623,26 @@ the session that finishes one strikes it here rather than in a report nobody rea
   | --- | --- | --- |
   | Task list | `/tasks/{id}` - the checklist: tick items, see the tree of lists it stands for, measure it against a storage | `/tasks/{id}/edit` |
   | Task entry | `/tasks/{listId}/items/{itemId}` - `TaskItemSummary`: when, where, what the appointment is about, who is coming, a map, and a Done box that crosses it off | the entry's own row in the list's editor |
-  | Note | `/notes/{id}` - `NoteSummary`: the note read, with the checklist lines in it tickable | `/notes/{id}/edit` |
+  | Note | none since 2026-09-20 - `/notes/{id}` is the form | `/notes/{id}` and `/notes/{id}/edit`, both `NoteEditor` |
   | Calendar event | `/calendar/{id}` - `CalendarEventSummary`: when, where, what it is about, who is coming, its reminders, and the place on a map | `/calendar/{id}/edit` |
   | Storage | `/inventory/{id}` - the shelf read rather than edited, one row per batch: what it is, how much, when it arrived, how long it keeps | `/inventory/{id}/edit` |
   | Contact / group | `/contacts/{userId}`, `/chat/groups/{id}/info` - read-only cards about who somebody is | no form; membership is edited on the roster |
 
   The unevenness this used to record is gone: when it was written a note, an event and a storage had
-  nothing between a card and a whole form, and each of the three has had its own reading page since
+  nothing between a card and a whole form, and each of the three was given its own reading page
   (`NoteSummary`, `CalendarEventSummary`, the shelf at `/inventory/{id}`), all built to the same shape
   as part of the screen-ladder pass. A contact and a group are the deliberate exception - they are read
   and never edited as objects, so there is no second depth to give them.
+
+  **A note's has since been taken away again** (asked for on 2026-09-20, `NoteSummary.razor` deleted).
+  It is the one object whose shallow view answered a question nobody asks: a note *is* writing, so
+  every press on one was a press towards writing in it, and the reading rung put a press in the way of
+  the only thing the page is for. Nothing was lost with it - the writing surface draws the same lines
+  with the same real tick boxes, so a checklist is ticked where it is written - and what the page alone
+  carried moved onto the form: "All notes", Archive / Put back, and Delete once it has been archived.
+  Both addresses land on the form, because the note's own is what every notification, share and
+  dashboard row already carries. The other five keep theirs: a shelf, an appointment and an entry are
+  things you *read*, and a list's checklist is where it is worked rather than rewritten.
 
   ~~One thing is still wrong with it, and it is the smaller half: the shallow view and the full form are
   reached inconsistently.~~ Settled on 2026-09-07. The note half of it had already gone by the time this

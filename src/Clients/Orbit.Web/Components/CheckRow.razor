@@ -11,10 +11,10 @@
      - see TaskListChecklist, whose grouped view has drawn its rows this way all along and whose flat
      view used to tick when the same words were pressed there.
 
-   The press stops here either way. A tick row can sit inside something else that is pressable - see
-   NoteSummary, whose whole card opens the editor - and ticking a line there means ticking that line,
-   not opening the note to write in. Nothing is lost where there is nothing above to reach: the other
-   three sit in plain cards. *@
+   The press stops here either way. A tick row can sit inside something else that is pressable - a
+   SummaryCard, whose whole card opens the form - and ticking a line there means ticking that line, not
+   opening the thing to write in. Nothing is lost where there is nothing above to reach: the rest sit
+   in plain cards. *@
 @* Whatever follows the title is wrapped in one span rather than left as loose children. It costs
    nothing where there is room - the span is display:contents, so its children are the row's own flex
    items exactly as they were - and it is what lets a narrow screen put the whole trailing half on a

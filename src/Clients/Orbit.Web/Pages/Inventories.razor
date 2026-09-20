@@ -261,8 +261,7 @@
     }
 
     /// <summary>Whether this reader may actually change the shelf - the owner, or a share granted at
-    /// least EditOnly. Mirrors NoteSummary's own rung-2 check, which asks the same question of the
-    /// note it has open.</summary>
+    /// least EditOnly. Mirrors Notes.razor's own card check, which asks the same question of a note.</summary>
     private static bool CanBeChanged(InventoryDto inventory)
         => SharedItemAccess.For(inventory.IsShared, inventory.AccessLevel).CanEdit;
 

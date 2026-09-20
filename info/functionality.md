@@ -1361,8 +1361,7 @@ read.
     line that is not numbered breaks the run, which is what makes two lists with a paragraph between them
     two lists. The mark of a bulleted or dashed line is drawn the same way (CSS `::before`,
     `user-select: none`), so it is never part of the words, never selected with them and never copied.
-  - **Drawn wherever a note is read, not only where it is written**: the note's own page
-    (`.note-line[data-style]`, which `NoteSummary.razor` puts on its lines too), a note opened through a
+  - **Drawn wherever a note is read, not only where it is written**: a note opened through a
     share link (`PublicSharedItemLine.Style`, drawn by `SharedItemPage` and by the phone's
     `SharedLinkPage`), and the phone's own note screen (`NoteLineLook`, which decides the size, the bold
     and the list's mark for both of the phone's screens).
@@ -1653,8 +1652,8 @@ the same rule and the stored names in SQL with PostgreSQL's built-in `translate(
 (`OrbitDbContext.Translate`), so "maka" suggests "Mąka" - the `unaccent` extension would cover more
 letters but has to be allow-listed on a managed server first.
 
-**A note's text can be copied out of its menu** ("Copy the text", `NoteSummary` in the browser and the
-note's own menu on the phone since 2026-09-15). Written the way the note's own editor copies a selection
+**A note's text can be copied out of its menu** ("Copy the text", the note's own form in the browser and
+the note's menu on the phone since 2026-09-15). Written the way the note's own editor copies a selection
 out of itself - a box is `- ` and a ticked one `[x] `, both of which a paste reads back as a box - so a
 note copied here and pasted into another note arrives as the same note. The name is the first line, which
 is what a note's name already is on both clients. **The format itself is shared** (`NoteWords` in
@@ -2699,14 +2698,22 @@ further in, and whatever light doing belongs to it offered where it is read.
 | --- | --- | --- |
 | Task list | `/tasks/{id}` - tick items, see the tree it stands for, measure it against a storage | `/tasks/{id}/edit` |
 | Task entry | `/tasks/{listId}/items/{itemId}` - when, where, what the appointment is about, who is coming, and a map | `/tasks/{listId}/items/{itemId}/edit` - the list's own form, landing on this entry already unfolded |
-| Note | `/notes/{id}` - the note read, with the checklist lines in it tickable | `/notes/{id}/edit` |
+| Note | none - see below | `/notes/{id}` and `/notes/{id}/edit`, the same form |
 | Calendar event | `/calendar/{id}` - when, where, what it is about, who is coming, its reminders, and a map | `/calendar/{id}/edit` |
 | Storage | `/inventory/{id}` - one row per batch, counted up and down in place | `/inventory/{id}/edit` |
 
-What "light doing" means differs by object and is the point of the split: a list is ticked, a note's
-checklist lines are ticked, a shelf is counted up and down. An appointment has none - there is nothing
-about it to do without changing what it is - so its page has no Save, which is honest rather than
-missing. Nothing is written until Save on any of them: these are pages people scroll through.
+What "light doing" means differs by object and is the point of the split: a list is ticked, a shelf is
+counted up and down. An appointment has none - there is nothing about it to do without changing what it
+is - so its page has no Save, which is honest rather than missing. Nothing is written until Save on any
+of them: these are pages people scroll through.
+
+**A note is the exception, since 2026-09-20: it has one depth.** It had a reading page like the rest,
+and it was taken away because a note *is* writing - every press on one is a press towards writing in it,
+and a page to read first put a press in front of the only thing the page is for. Nothing went with it:
+the writing surface draws the same lines with the same real tick boxes, so a note's checklist is ticked
+where it is written. What that page alone carried moved onto the form - "All notes", Archive / Put back,
+and Delete once it has been archived - and both addresses land there, because the note's own is what
+every notification, share and dashboard row already carries.
 
 ### A shelf, read rather than edited
 
@@ -3005,7 +3012,7 @@ opens the list's checklist. The rows were the one dead area on the card - a read
 and the words did nothing - while the dashboard's equivalents had opened what they name all along. A
 row that belongs to a gathered list opens on *that* list, not on the one gathering it. The press stops
 at the row (`Row` carries `@onclick:stopPropagation`), because a row inside something pressable means
-that row rather than the thing around it - the same rule NoteSummary's tick rows already followed.
+that row rather than the thing around it - the same rule every tick row inside a pressable card follows.
 
 **An entry that is an appointment carries its event's colour**, the same dot the dashboard's Upcoming
 card draws. An entry keeps no colour of its own - it lives on the calendar event the entry made - so

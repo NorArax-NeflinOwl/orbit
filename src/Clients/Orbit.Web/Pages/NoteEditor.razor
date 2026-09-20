@@ -1,6 +1,14 @@
 @page "/notes/new"
-@* One press further in than the note itself, the way a task list's editor is - see NoteSummary.razor,
-   which is what opening a note lands on. *@
+@* Where a note is met, full stop. It used to be one press further in than the note itself, the way a
+   task list's editor is, and the note's own page (NoteSummary.razor) was what opening one landed on:
+   its lines as they were, with the checklist ones tickable, and "Edit" a named press from there.
+
+   That page is gone - asked for on 2026-09-20. A note is writing, and every press on one was a press
+   towards writing in it: the reading rung answered a question nobody was asking and put a press
+   between the reader and the one thing the page is for. The surface here draws the same lines with the
+   same real tick boxes, so nothing that could be done there is lost. Both addresses land here, because
+   the note's own address is the one every notification, share and dashboard row already carries. *@
+@page "/notes/{Id:guid}"
 @page "/notes/{Id:guid}/edit"
 @attribute [Authorize]
 @implements IAsyncDisposable
@@ -282,11 +290,10 @@ else
                     }
                 </div>
 
-                @* The note on the clipboard, whole or narrowed to one state of its boxes - the same four
-                   the light view offers (NoteSummary), because the reader who is writing the note is as
-                   likely to want the shopping still to do as the reader who is only reading it. What is
-                   copied is what the form holds, unsaved lines included: it is the note in front of
-                   them. Under a line with the actions, being one. *@
+                @* The note on the clipboard, whole or narrowed to one state of its boxes - see
+                   WhatToCopy, which is the same four every other kind of thing offers. What is copied
+                   is what the form holds, unsaved lines included: it is the note in front of them.
+                   Under a line with the actions, being one. *@
                 <div class="editor-settings-divider"></div>
                 @foreach (var what in CopiedParts.All)
                 {
@@ -316,6 +323,36 @@ else
                     @if (CanOfferALink)
                     {
                         <button type="button" class="avatar-dropdown-item" @onclick="OpenTheShareLink">@T["Share link"]</button>
+                    }
+                }
+
+                @* The two ways out of the note, and the way back to all of them. They lived on the
+                   note's own page until this form became that page - a note is opened to be written in
+                   now, with nothing to read first - so what that page carried is here.
+
+                   Put away rather than deleted, and Delete only once it has been: the rule every card
+                   follows, see ObjectMenu.IsArchived. Somebody else's note is neither - it comes off
+                   this reader's own pages and stays on the owner's, so it says that instead. *@
+                @if (!IsNewNote)
+                {
+                    <div class="editor-settings-divider"></div>
+                    <button type="button" class="avatar-dropdown-item" @onclick="GoToNotes">@T["All notes"]</button>
+                    @if (!_isShared)
+                    {
+                        <button type="button" class="avatar-dropdown-item" disabled="@_isArchiving"
+                                @onclick="() => SetArchivedAsync(!_isArchived)">
+                            @(_isArchived ? T["Put back"] : T["Archive"])
+                        </button>
+                    }
+                    @if (!_isShared && _isArchived)
+                    {
+                        <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting"
+                                @onclick="DeleteAsync">@T["Delete"]</button>
+                    }
+                    @if (_isShared)
+                    {
+                        <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting"
+                                @onclick="DeleteAsync">@T["Remove from my list"]</button>
                     }
                 }
             </OverflowMenu>
@@ -420,6 +457,15 @@ else
     private Guid _ownUserId;
     private ChecklistTextEditor? _checklistEditorRef;
 
+    /// <summary>
+    /// Whether this note has been put away - see Orbit.Core.Folders.BuiltInFolder.Archived. What decides
+    /// whether the menu says Archive or Put back, and whether it offers Delete at all: Delete is reached
+    /// from the archive and nowhere else (see ObjectMenu.IsArchived, which every card follows).
+    /// </summary>
+    private bool _isArchived;
+    private bool _isArchiving;
+    private bool _isDeleting;
+
     /// <summary>Whether the note's own settings may be changed - the same answer the writing surface gets.</summary>
     private bool IsSettingsDisabled => _isSharedReadOnly || _lockedByUserName is not null || _isSaving;
 
@@ -430,9 +476,9 @@ else
     private WhatToCopy? _copied;
 
     /// <summary>
-    /// The note being written, on the clipboard - see NoteSummary.CopyTheTextAsync, which is the same
-    /// action on the same note from the screen that only reads it. The lines are taken from the form
-    /// rather than from what was last saved, since the form is the note in front of the reader.
+    /// The note being written, on the clipboard - see NoteWords, which writes it out. The lines are
+    /// taken from the form rather than from what was last saved, since the form is the note in front of
+    /// the reader.
     /// </summary>
     private async Task CopyTheTextAsync(WhatToCopy what)
     {
@@ -911,6 +957,7 @@ else
                     _canGrantEditOnly = _access.CanGrantEditOnly;
                     _originalOwnerUserId = note.OriginalOwnerUserId;
                     _sharedByUserName = note.SharedByUserName;
+                    _isArchived = note.IsArchived;
 
                     if (!_isSharedReadOnly)
                     {
@@ -1257,6 +1304,99 @@ else
         finally
         {
             _isSharing = false;
+        }
+    }
+
+    /// <summary>Every note of this reader's, which is where this form's menu leads back to.</summary>
+    private void GoToNotes() => NavigationManager.NavigateTo("/notes");
+
+    /// <summary>
+    /// Puts the note away, or takes it back out. Said on the page when it fails: a press that quietly
+    /// does nothing reads as one that never registered.
+    /// </summary>
+    private async Task SetArchivedAsync(bool isArchived)
+    {
+        if (Id is not { } noteId || _isArchiving)
+        {
+            return;
+        }
+
+        _isArchiving = true;
+        _saveErrorMessage = null;
+        try
+        {
+            if (await NotesApiClient.SetArchivedAsync(noteId, isArchived))
+            {
+                _isArchived = isArchived;
+                Logger.LogInformation(
+                    "Note {NoteId} was {Action}", noteId, isArchived ? "archived" : "put back");
+            }
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't change whether note {NoteId} is archived", noteId);
+            _saveErrorMessage = T["Couldn't change that. Try again."];
+        }
+        finally
+        {
+            _isArchiving = false;
+        }
+    }
+
+    /// <summary>
+    /// Deletes the note - or, for one somebody shared, drops this reader's own grant and leaves the
+    /// owner's alone (see DeleteNoteCommandHandler). Asked first, and asked with the name: a note
+    /// deleted by accident is gone. It leaves for the notes without this form behind it in the history,
+    /// which would otherwise open on a note that no longer exists.
+    /// </summary>
+    private async Task DeleteAsync()
+    {
+        if (Id is not { } noteId || _isDeleting)
+        {
+            return;
+        }
+
+        var named = _formModel.Title.Length > 0 ? _formModel.Title : T["Untitled"];
+        if (!await JSRuntime.InvokeAsync<bool>(
+            "confirm",
+            _isShared
+                ? T.Format("Remove \"{0}\" from your list? The owner keeps it.", named)
+                : T.Format("Delete \"{0}\"?", named)))
+        {
+            return;
+        }
+
+        _isDeleting = true;
+        _saveErrorMessage = null;
+        try
+        {
+            // The lock goes first: a note that turns out not to be deletable should not be left held by
+            // a form that has gone.
+            await ReleaseLockAsync(noteId);
+            await NotesApiClient.DeleteNoteAsync(noteId);
+            // Nothing is unsaved about a note that no longer exists. Both halves of that: the draft
+            // kept for it goes, and the copy the way out compares against becomes what the form holds -
+            // otherwise leaving would keep the draft again on its way and ask about a deleted note.
+            Drafts.Forget(noteId);
+            _asStored = WhatTheFormHolds();
+            await NavigationTrail.FinishAfterDeletingAsync($"/notes/{noteId}", WhenFinished, "/notes");
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't delete note {NoteId}", noteId);
+            _saveErrorMessage = T["Failed to delete the note. Try again."];
+        }
+        finally
+        {
+            _isDeleting = false;
         }
     }
 

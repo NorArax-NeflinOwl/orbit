@@ -1,6 +1,7 @@
-@* The rung-2 card: press what it says and the form opens, keyboard included - see NoteSummary,
-   InventorySummary and CalendarEventSummary, which used to draw this and its own Enter/Space handling
-   three times over. Whatever sits inside keeps its own controls' press - a checklist's tick box, the
+@* The rung-2 card: press what it says and the form opens, keyboard included - see InventorySummary and
+   CalendarEventSummary, which used to draw this and its own Enter/Space handling three times over. A
+   note had one too until 2026-09-20, when its reading rung was taken away and opening a note became
+   opening its form. Whatever sits inside keeps its own controls' press - a checklist's tick box, the
    two buttons that count a batch - by stopping its own click before it reaches this one; that stays the
    page's job, since only the page knows which of its own rows need it. *@
 <div class="card summary-opens @AdditionalClass" role="button" tabindex="0"
@@ -14,7 +15,7 @@
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
     /// <summary>
-    /// Extra classes a page needs beside the shared ones - NoteSummary's checklist spacing and its own
+    /// Extra classes a page needs beside the shared ones - a checklist card's own spacing and its
     /// cursor-default selector for a tick row, which nothing else here carries.
     /// </summary>
     [Parameter] public string? AdditionalClass { get; set; }

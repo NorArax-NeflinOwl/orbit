@@ -314,6 +314,81 @@ public sealed class NoteEditorTests : OrbitTestContext
         Assert.DoesNotContain("Share link", MenuEntries(cut));
     }
 
+    /// <summary>
+    /// A note is opened straight into its form. It used to land on a page that read it - its lines with
+    /// the checklist ones tickable - and "Edit" was a named press from there; that rung is gone
+    /// (2026-09-20), and the note's own address, which every notification and dashboard row carries,
+    /// leads here.
+    /// </summary>
+    [Fact]
+    public void The_note_s_own_address_opens_the_form()
+    {
+        var routes = typeof(NoteEditor)
+            .GetCustomAttributes(typeof(RouteAttribute), inherit: false)
+            .Cast<RouteAttribute>()
+            .Select(route => route.Template)
+            .ToList();
+
+        Assert.Contains("/notes/{Id:guid}", routes);
+        // And the old one still answers, because links written before this change carry it.
+        Assert.Contains("/notes/{Id:guid}/edit", routes);
+    }
+
+    /// <summary>
+    /// What the note's own page used to carry, now that this form is that page: the way back to all of
+    /// them, and the two ways out. Put away first and deleted only from there - the rule every card
+    /// follows, see ObjectMenu.IsArchived.
+    /// </summary>
+    [Fact]
+    public void The_menu_puts_a_note_away_and_offers_Delete_only_once_it_is()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        var offered = OpenTheMenu(cut);
+        Assert.Contains("All notes", offered);
+        Assert.Contains("Archive", offered);
+        Assert.DoesNotContain("Delete", offered);
+    }
+
+    [Fact]
+    public void A_note_already_put_away_offers_Put_back_and_Delete()
+    {
+        var note = Note("Shopping") with { IsArchived = true };
+        RegisterApiClients(note);
+
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        var offered = OpenTheMenu(cut);
+        Assert.Contains("Put back", offered);
+        Assert.Contains("Delete", offered);
+    }
+
+    /// <summary>
+    /// Somebody else's note can be neither put away nor deleted - both would reach into the owner's own
+    /// pages - so the one way out of it says what it really does: the server drops this reader's grant.
+    /// </summary>
+    [Fact]
+    public void A_shared_note_is_taken_off_your_own_list_rather_than_archived()
+    {
+        var note = Note("Their note") with
+        {
+            IsShared = true,
+            SharedByUserName = "anna",
+            AccessLevel = "ReadOnly"
+        };
+        RegisterApiClients(note);
+
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        var offered = OpenTheMenu(cut);
+        Assert.Contains("Remove from my list", offered);
+        Assert.DoesNotContain("Archive", offered);
+        Assert.DoesNotContain("Delete", offered);
+    }
+
     /// <summary>Opens the panel's menu and reads what it offers besides the note's settings.</summary>
     private static IReadOnlyList<string> OpenTheMenu(IRenderedComponent<NoteEditor> cut)
     {

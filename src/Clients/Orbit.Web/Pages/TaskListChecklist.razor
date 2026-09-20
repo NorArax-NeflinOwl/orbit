@@ -531,7 +531,7 @@ else
     /// The page that sent the reader here, which is where this page's Back returns: somebody who reached
     /// a list from the calendar means the calendar when they say "back". What this page opens - an
     /// entry, the form - is told to come back here instead, and this page still knows the way on because
-    /// its own address carries this. See ReturnTo, and NoteSummary, which does the same.
+    /// its own address carries this. See ReturnTo, and InventorySummary, which does the same.
     /// </summary>
     [Parameter, SupplyParameterFromQuery(Name = ReturnTo.QueryName)]
     public string? ComeBackTo { get; set; }

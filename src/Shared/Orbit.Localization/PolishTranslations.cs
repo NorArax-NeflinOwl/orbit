@@ -1728,6 +1728,8 @@ public static class PolishTranslations
         ["keeps"] = "nie psuje się",
         ["That note no longer exists."] = "Tej notatki już nie ma.",
         ["Failed to delete the note. Try again."] = "Nie udało się usunąć notatki. Spróbuj ponownie.",
+        // Said beside Save when putting a note away, or taking it back out, did not go through.
+        ["Couldn't change that. Try again."] = "Nie udało się tego zmienić. Spróbuj ponownie.",
         ["All notes"] = "Wszystkie notatki",
         ["That event no longer exists."] = "Tego wydarzenia już nie ma.",
         ["Failed to delete the event. Try again."] = "Nie udało się usunąć wydarzenia. Spróbuj ponownie.",
