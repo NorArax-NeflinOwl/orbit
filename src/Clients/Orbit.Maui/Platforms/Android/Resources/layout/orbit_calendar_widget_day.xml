@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One square of the month, and one of the initials across the top - the same layout for both, with
+     the dot hidden on an initial.
+
+     A seventh of the row each: the width is nothing and the weight is one, which is what makes seven
+     of them share a week evenly whatever the widget has been resized to.
+
+     The number is a fixed square rather than wrapped text so the ring drawn behind today is a circle
+     rather than an ellipse round a two-digit date. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widgetDay"
+    android:layout_width="0dp"
+    android:layout_weight="1"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center">
+
+    <TextView
+        android:id="@+id/widgetDayNumber"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:gravity="center"
+        android:textColor="@color/orbitWidgetText"
+        android:textSize="12sp"
+        android:maxLines="1" />
+
+    <TextView
+        android:id="@+id/widgetDayDot"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="•"
+        android:textColor="@color/orbitWidgetAccent"
+        android:textSize="10sp"
+        android:visibility="invisible" />
+</LinearLayout>

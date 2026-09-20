@@ -5647,7 +5647,11 @@ Following a link, like following a notification, waits for an account: the app h
 and opens it once somebody is signed in, rather than showing a stranger's shared item over a signed-out
 app. Signing in now goes on to whatever was waiting instead of always landing on the dashboard.
 
-## The home screen widget (Android)
+## The home screen widgets (Android)
+
+Two of them, listed separately in the launcher's picker as "Orbit today" and "Orbit calendar".
+
+### Orbit today
 
 A 3 × 2 widget showing the day and the few things still ahead in it: today's appointments that have
 not finished, and what falls due today and is not done, in the order they happen. Four lines fit;
@@ -5679,4 +5683,25 @@ for a redraw itself whenever it is put down, which is the update carrying whatev
 It follows the system's light or dark mode rather than the theme chosen inside Orbit: a widget is drawn
 in the launcher's process, and the app's own choice is not something it can see.
 
-There is no iOS counterpart yet - see [Orbit.Maui — Plan](orbit-maui-plan.md), phase 8.
+### Orbit calendar
+
+A 4 × 3 widget showing the month as a grid: its name, the seven initials, and six weeks of squares.
+Today is ringed in the accent, the days either side of the month are drawn faintly so the weeks stay
+square, and a day with anything on it carries a dot. Tapping anywhere on it opens the calendar.
+
+A dot and nothing else, deliberately. The first rule above applies with more force here than anywhere:
+forty-two squares of titles would be the reader's whole month read out to whoever can see the phone.
+What the dot means is the same as what the other widget lists - an appointment, or an entry due and not
+ticked off - so a day whose errands are all done carries none. A private or sealed list marks nothing
+at all, not even a dot.
+
+Repeats are expanded before the grid is marked (`CalendarOccurrences`), so a weekly standup dots every
+Tuesday rather than only the one it was stored on. The week starts where the reader's own language
+starts it: Sunday in English, Monday in Polish. Six weeks always, so the widget is the same height in
+a month that spills over a sixth week as in one that does not.
+
+What it shows is `MonthAtAGlance` (`Orbit.Mobile.Widgets`), covered by tests; `OrbitCalendarWidget`
+(`Orbit.Maui/Platforms/Android`) is the drawing, and everything said above about how a widget is drawn
+applies to it unchanged.
+
+There is no iOS counterpart to either yet - see [Orbit.Maui — Plan](orbit-maui-plan.md), phase 8.

@@ -14,8 +14,13 @@ namespace Orbit.Mobile.Screens;
 /// What it is for so far is the advertising bar, which sits across the foot of every screen and is
 /// exactly where a keyboard opens - so writing anything on a phone meant reading half a form with an
 /// advert over the rest of it (reported 2026-09-20).
+///
+/// Named for the state rather than for the keyboard because Orbit.Maui has a SoftKeyboard of its own -
+/// the one that puts it away when a panel opens. Two types of that name in one app is a trap: a file
+/// inside Orbit.Maui.Controls binds the unqualified name to its own namespace's, and the error it gets
+/// is about static classes rather than about the two meanings.
 /// </summary>
-public sealed partial class SoftKeyboard : ObservableObject
+public sealed partial class SoftKeyboardState : ObservableObject
 {
     [ObservableProperty]
     private bool _isUp;

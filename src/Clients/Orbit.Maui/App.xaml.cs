@@ -110,8 +110,10 @@ public partial class App : Application
 
 #if ANDROID
 			// The home screen is where somebody putting the app down is going, and what it shows was
-			// filled in before whatever they just did - see OrbitTodayWidget.
+			// filled in before whatever they just did - see OrbitTodayWidget. Both of them: a day that
+			// has just been given an appointment is a day the month's own widget should be dotting.
 			OrbitTodayWidget.Refresh(Android.App.Application.Context);
+			OrbitCalendarWidget.Refresh(Android.App.Application.Context);
 #endif
 		};
 

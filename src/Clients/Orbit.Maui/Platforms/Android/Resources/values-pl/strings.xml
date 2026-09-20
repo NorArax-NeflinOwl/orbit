@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The Polish half of the widget picker's description - see values/strings.xml. -->
 <resources>
+    <string name="orbit_widget_label">Orbit — dziś</string>
+    <string name="orbit_calendar_widget_label">Orbit — kalendarz</string>
     <string name="orbit_widget_description">Dzisiejsze wydarzenia i terminy</string>
+    <string name="orbit_calendar_widget_description">Miesiąc, z kropką przy każdym zajętym dniu</string>
 </resources>

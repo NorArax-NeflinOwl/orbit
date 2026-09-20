@@ -35,8 +35,8 @@ public partial class AdBanner : ContentView
     /// Whether the keyboard is up, which this bar stands aside for - see <see cref="IsShown"/>. Held
     /// rather than asked for each time, so the bar can follow it as it changes.
     /// </summary>
-    private readonly SoftKeyboard? _keyboard =
-        IPlatformApplication.Current?.Services.GetService<SoftKeyboard>();
+    private readonly SoftKeyboardState? _keyboard =
+        IPlatformApplication.Current?.Services.GetService<SoftKeyboardState>();
 
     public AdBanner()
     {

@@ -2614,6 +2614,9 @@ public static class PolishTranslations
         // rather than "Google Maps": the handoff is the platform's, and what answers it is whatever the
         // phone has. On Android that is Google Maps.
         ["Open in your map app"] = "Otwórz w aplikacji map",
+        // The calendar widget's own line for a phone nobody is signed in on - see MonthAtAGlance.
+        // "Open Orbit to see your day" is the other widget's and is already above.
+        ["Open Orbit to see your month"] = "Otwórz Orbita, aby zobaczyć swój miesiąc",
         // Answering a request to edit from the phone's own conversation - see
         // ConversationViewModel.AllowEditingAsync. "Allow editing" itself is already above, shared
         // with the browser's own answer to the same request.

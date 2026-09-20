@@ -131,9 +131,9 @@ public class MainActivity : MauiAppCompatActivity
 			var keyboard = insets.GetInsets(WindowInsetsCompat.Type.Ime())?.Bottom ?? 0;
 
 			// Said out loud for the parts of a screen that stand aside while somebody types - see
-			// SoftKeyboard, and the advertising bar, which is exactly where a keyboard opens. Told on
+			// SoftKeyboardState, and the advertising bar, which is exactly where a keyboard opens. Told on
 			// the UI thread, since what reads it is bound to.
-			if (IPlatformApplication.Current?.Services.GetService<SoftKeyboard>() is { } keyboardState)
+			if (IPlatformApplication.Current?.Services.GetService<SoftKeyboardState>() is { } keyboardState)
 			{
 				var isUp = keyboard > 0;
 				Microsoft.Maui.Controls.Application.Current?.Dispatcher.Dispatch(() => keyboardState.IsUp = isUp);

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The calendar widget as the launcher needs to know it before Orbit's own code runs - see
+     orbit_today_widget_info.xml, which says the same about the other one.
+
+     Bigger than that one because a month is six weeks of seven squares and there is no arranging that
+     into a strip: four cells by three is the smallest placing that leaves a date legible at arm's
+     length. Half an hour is Android's own shortest redraw, and it is what moves the ring onto the new
+     day at midnight without the app ever being opened. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="180dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="3"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/orbit_calendar_widget"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:description="@string/orbit_calendar_widget_description" />
