@@ -159,8 +159,8 @@ erDiagram
         uuid OL_PS_ID PK
         text OL_PS_TOKEN "the whole access check"
         uuid OL_PS_OWNERUSERID FK
-        text OL_PS_ITEMTYPE "SharedItemType, stored by name"
-        uuid OL_PS_ITEMID
+        text OL_PS_ITEMTYPE "SharedItemType, stored by name - 'Folder' too, since 2026-09-20"
+        uuid OL_PS_ITEMID "the thing, or the folder whose contents the link shows"
         timestamptz OL_PS_REVOKEDATUTC
     }
 ```

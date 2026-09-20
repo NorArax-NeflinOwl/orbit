@@ -96,7 +96,7 @@
    On a phone the lot folds into one Menu button - see PhoneToolbar, which is nothing at all on a wider
    screen. *@
 <PhoneToolbar Page="FolderPage.Tasks" HasNews="@NewsIsInAFolderThatIsNotOpen">
-    <FolderTabs Page="FolderPage.Tasks" CountIn="CountIn" HasNewsIn="HasNewsIn" StillHolds="StillHolds" HoldsAnything="HoldsAnything" />
+    <FolderTabs Page="FolderPage.Tasks" CountIn="CountIn" HasNewsIn="HasNewsIn" StillHolds="StillHolds" HoldsAnything="HoldsAnything" OnShareFolder="ShareTheFolder" />
 
     @* Only once there is something to narrow, and only about the folder that is open: a search box
        over an empty tab offers to find something on a list that is not there, and the chips would be
@@ -160,11 +160,11 @@
 @if (_isSharingPicked)
 {
     @* Only a list this reader owns and Orbit can read - see Notes.razor, which says why. *@
-    <SharePickedDialog Things="@([.. ChosenTaskLists.Where(taskList => !taskList.IsShared && !taskList.IsPrivate).Select(taskList => new SharePickedDialog.ShareableThing(taskList.Id, taskList.Title))])"
-                       LeftOut="@ChosenTaskLists.Count(taskList => taskList.IsShared || taskList.IsPrivate)"
+    <SharePickedDialog Things="@([.. TaskListsBeingShared.Where(CanBeHandedOn).Select(taskList => new SharePickedDialog.ShareableThing(taskList.Id, taskList.Title))])"
+                       LeftOut="@TaskListsBeingShared.Count(taskList => !CanBeHandedOn(taskList))"
                        ShareOne="(taskListId, recipientUserId, accessLevel) => TasksApiClient.ShareTaskListAsync(taskListId, recipientUserId, accessLevel)"
                        Invitation="(shareId, title) => new TaskListShareMessagePayload(shareId, title)"
-                       OnClosed="() => _isSharingPicked = false" />
+                       OnClosed="StopSharingSeveral" />
 }
 @* Handing on one list, from its own card - the same dialog given a list of one. See Notes.razor. *@
 @if (_sharingOne is { } sharedList)
@@ -593,6 +593,34 @@
 
     private IReadOnlyList<TaskDto> ChosenTaskLists
         => [.. (_taskLists ?? []).Where(taskList => _picked.Holds(taskList.Id))];
+
+    /// <summary>The folder whose contents are being handed on, while one is - see ShareTheFolder.</summary>
+    private Guid? _folderBeingShared;
+
+    /// <summary>
+    /// What a share is about: the chosen lists, or - when the folder's own menu started it - everything
+    /// filed under that folder (2026-09-20, asked for). One dialog either way, so sharing several things
+    /// means the same thing however the several were picked out. What is put away is left out; what is
+    /// sealed or already somebody else's is left out by the dialog, which says how many.
+    /// </summary>
+    private IReadOnlyList<TaskDto> TaskListsBeingShared
+        => _folderBeingShared is { } folderId
+            ? [.. (_taskLists ?? []).Where(taskList => taskList.FolderId == folderId && !taskList.IsArchived)]
+            : ChosenTaskLists;
+
+    /// <inheritdoc cref="TaskListsBeingShared"/>
+    private void ShareTheFolder(Guid folderId)
+    {
+        Logger.LogInformation("User shared the contents of folder {FolderId}", folderId);
+        _folderBeingShared = folderId;
+        _isSharingPicked = true;
+    }
+
+    private void StopSharingSeveral()
+    {
+        _isSharingPicked = false;
+        _folderBeingShared = null;
+    }
 
     /// <inheritdoc cref="ActOnPickedAsync"/>
     private async Task FilePickedAsync(Guid? folderId)

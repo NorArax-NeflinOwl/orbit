@@ -180,7 +180,7 @@ public sealed class SealedPlaceTests
             => new PublicSharedItemReader(
                     new InMemoryNoteRepository(), new InMemoryTaskRepository(),
                     new InMemoryCalendarEventRepository(), new InMemoryInventoryRepository(),
-                    new InMemoryInventoryItemRepository(), _places, _users)
+                    new InMemoryInventoryItemRepository(), _places, _users, new InMemoryFolderRepository())
                 .CanPublishAsync(OwnerUserId, SharedItemType.Place, placeId, CancellationToken.None);
     }
 }

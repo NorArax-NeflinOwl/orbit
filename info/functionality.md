@@ -1231,6 +1231,25 @@ A folder is **never shared**. It is a place on its owner's own pages, so a list 
 person sits in whichever folder each of them filed it under - and a shared item's `folderId` is sent as
 null to the recipient, since the owner's id names a tab that does not exist for them.
 
+**But its contents can be handed on, both ways at once** (2026-09-20, asked for). The folder's own menu
+- on the row of tabs, and in the notes' column - carries the two ways a single thing is handed on:
+
+- **Share folder** opens the same dialog the bar over a list opens for several chosen things, given
+  everything filed under that folder instead (`ShareTheFolder` on each of the four pages). One contact,
+  one level, and then a grant and an invitation for each thing in turn - so what arrives is a handful of
+  ordinary shares, which the recipient files wherever they like. What is put away is left out; what is
+  sealed, or already somebody else's, the dialog counts and names.
+- **Share link** publishes the folder (`SharedItemType.Folder`): one address showing every thing under
+  it, **each drawn exactly as its own link would draw it** (`SharedItemCard`, once per thing). Nothing
+  sealed and nothing archived is in it (`PublicSharedItemReader.ReadFolderAsync`), and a folder that has
+  since been emptied still opens and says so rather than reading as a link somebody revoked.
+
+**A folder's link cannot be claimed.** "Save to my account" promises one read-only copy, and a folder
+would hand over a page of them, unfiled - so the page offers no button and says what to do instead (ask
+to be given the folder in Orbit, which is the other half above). The refusal is in the handler as well
+as off the page, because anything the claim did not recognise used to fall through to the inventory
+branch.
+
 Three consequences worth stating, because they changed how a page behaves:
 
 - The task list page no longer offers a **Completed** chip. A finished list nobody filed is in Finished

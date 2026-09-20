@@ -54,7 +54,8 @@
    the tab called "Work" here is not the tab called "Work" on the task lists - see FolderScope. On a
    phone it folds into one Menu button - see PhoneToolbar, which is nothing at all on a wider screen. *@
 <PhoneToolbar Page="FolderPage.Notes" HasNews="@NewsIsInAFolderThatIsNotOpen">
-    <FolderTabs Page="FolderPage.Notes" CountIn="CountIn" HasNewsIn="HasNewsIn" StillHolds="StillHolds" HoldsAnything="HoldsAnything" />
+    <FolderTabs Page="FolderPage.Notes" CountIn="CountIn" HasNewsIn="HasNewsIn" StillHolds="StillHolds" HoldsAnything="HoldsAnything"
+                OnShareFolder="ShareTheFolder" />
 
     @* Narrowing by the reader's own words for their notes - the same browser the tasks page narrows by
        its categories in (ValueBrowser), because it is the same question asked of a different page. Only
@@ -81,11 +82,11 @@
 {
     @* Only a note this reader owns and Orbit can read: the server refuses to share a sealed one, and one
        shared with this reader is not theirs to hand on from here. *@
-    <SharePickedDialog Things="@([.. ChosenNotes.Where(note => !note.IsShared && !note.IsPrivate).Select(note => new SharePickedDialog.ShareableThing(note.Id, note.Title))])"
-                       LeftOut="@ChosenNotes.Count(note => note.IsShared || note.IsPrivate)"
+    <SharePickedDialog Things="@([.. NotesBeingShared.Where(CanBeHandedOn).Select(note => new SharePickedDialog.ShareableThing(note.Id, note.Title))])"
+                       LeftOut="@NotesBeingShared.Count(note => !CanBeHandedOn(note))"
                        ShareOne="(noteId, recipientUserId, accessLevel) => NotesApiClient.ShareNoteAsync(noteId, recipientUserId, accessLevel)"
                        Invitation="(shareId, title) => new NoteShareMessagePayload(shareId, title)"
-                       OnClosed="() => _isSharingPicked = false" />
+                       OnClosed="StopSharingSeveral" />
 }
 @* Handing on one note, from its own card. The same dialog the bar above opens for several, given a list
    of one: sharing is sharing whether it is one thing or four, and a second way of doing it would be a
@@ -291,6 +292,36 @@
     /// <summary>The chosen notes themselves, which is what the actions below loop over.</summary>
     private IReadOnlyList<NoteDto> ChosenNotes
         => [.. (_notes ?? []).Where(note => _picked.Holds(note.Id))];
+
+    /// <summary>The folder whose contents are being handed on, while one is - see ShareTheFolder.</summary>
+    private Guid? _folderBeingShared;
+
+    /// <summary>
+    /// What a share is about: the chosen notes, or - when the folder's own menu started it - everything
+    /// filed under that folder (2026-09-20, asked for). One dialog either way, so sharing several
+    /// things means the same thing however the several were picked out: one contact, one level, and a
+    /// grant and an invitation for each. What is put away is left out, being no longer what the folder
+    /// is about; what is sealed or already somebody else's is left out by the dialog, which says how
+    /// many.
+    /// </summary>
+    private IReadOnlyList<NoteDto> NotesBeingShared
+        => _folderBeingShared is { } folderId
+            ? [.. (_notes ?? []).Where(note => note.FolderId == folderId && !note.IsArchived)]
+            : ChosenNotes;
+
+    /// <inheritdoc cref="NotesBeingShared"/>
+    private void ShareTheFolder(Guid folderId)
+    {
+        Logger.LogInformation("User shared the contents of folder {FolderId}", folderId);
+        _folderBeingShared = folderId;
+        _isSharingPicked = true;
+    }
+
+    private void StopSharingSeveral()
+    {
+        _isSharingPicked = false;
+        _folderBeingShared = null;
+    }
 
     /// <summary>
     /// Files every chosen note, one call each - which is what the server already takes, so no bulk

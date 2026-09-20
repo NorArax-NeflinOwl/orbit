@@ -95,7 +95,7 @@
 @* Which folder is being read - the inventories' own, since a folder belongs to one page (see
    FolderScope). On a phone it folds into one Menu button. *@
 <PhoneToolbar Page="FolderPage.Inventories" HasNews="@NewsIsInAFolderThatIsNotOpen">
-    <FolderTabs Page="FolderPage.Inventories" CountIn="CountIn" HasNewsIn="HasNewsIn" StillHolds="StillHolds" HoldsAnything="HoldsAnything" />
+    <FolderTabs Page="FolderPage.Inventories" CountIn="CountIn" HasNewsIn="HasNewsIn" StillHolds="StillHolds" HoldsAnything="HoldsAnything" OnShareFolder="ShareTheFolder" />
 </PhoneToolbar>
 
 @* What to do with several at once, while several are chosen - see PickedThings, and Notes.razor on why it
@@ -107,11 +107,11 @@
 @if (_isSharingPicked)
 {
     @* Only a shelf this reader owns and Orbit can read - see Notes.razor, which says why. *@
-    <SharePickedDialog Things="@([.. ChosenInventories.Where(inventory => !inventory.IsShared && !inventory.IsPrivate).Select(inventory => new SharePickedDialog.ShareableThing(inventory.Id, inventory.Name))])"
-                       LeftOut="@ChosenInventories.Count(inventory => inventory.IsShared || inventory.IsPrivate)"
+    <SharePickedDialog Things="@([.. InventoriesBeingShared.Where(CanBeHandedOn).Select(inventory => new SharePickedDialog.ShareableThing(inventory.Id, inventory.Name))])"
+                       LeftOut="@InventoriesBeingShared.Count(inventory => !CanBeHandedOn(inventory))"
                        ShareOne="(inventoryId, recipientUserId, accessLevel) => InventoryApiClient.ShareInventoryAsync(inventoryId, recipientUserId, accessLevel)"
                        Invitation="(shareId, name) => new InventoryShareMessagePayload(shareId, name)"
-                       OnClosed="() => _isSharingPicked = false" />
+                       OnClosed="StopSharingSeveral" />
 }
 @* The Private tab is behind the account's PIN, where one is set - see PrivatePinGate. *@
 <BehindThePin Applies="IsReadingWhatIsPrivate" OnGaveUp="LeaveThePrivateTab">
@@ -438,6 +438,37 @@
 
     private IReadOnlyList<InventoryDto> ChosenInventories
         => [.. (_inventories ?? []).Where(inventory => _picked.Holds(inventory.Id))];
+
+    /// <summary>Whether this shelf is this reader's to hand on - see the dialog, which says how many are not.</summary>
+    private static bool CanBeHandedOn(InventoryDto inventory) => !inventory.IsShared && !inventory.IsPrivate;
+
+    /// <summary>The folder whose contents are being handed on, while one is - see ShareTheFolder.</summary>
+    private Guid? _folderBeingShared;
+
+    /// <summary>
+    /// What a share is about: the chosen shelves, or - when the folder's own menu started it -
+    /// everything filed under that folder (2026-09-20, asked for). One dialog either way, so sharing
+    /// several things means the same thing however the several were picked out. What is put away is
+    /// left out; what is sealed or already somebody else's is left out by the dialog.
+    /// </summary>
+    private IReadOnlyList<InventoryDto> InventoriesBeingShared
+        => _folderBeingShared is { } folderId
+            ? [.. (_inventories ?? []).Where(inventory => inventory.FolderId == folderId && !inventory.IsArchived)]
+            : ChosenInventories;
+
+    /// <inheritdoc cref="InventoriesBeingShared"/>
+    private void ShareTheFolder(Guid folderId)
+    {
+        Logger.LogInformation("User shared the contents of folder {FolderId}", folderId);
+        _folderBeingShared = folderId;
+        _isSharingPicked = true;
+    }
+
+    private void StopSharingSeveral()
+    {
+        _isSharingPicked = false;
+        _folderBeingShared = null;
+    }
 
     /// <inheritdoc cref="ActOnPickedAsync"/>
     private async Task FilePickedAsync(Guid? folderId)

@@ -98,6 +98,12 @@ else
                                 @onclick="() => DeleteAsync(folderId)">
                             @T["Delete folder"]
                         </button>
+                        @* One address showing everything in this folder to anybody who has it - the same
+                           entry the row of tabs carries. Handing it on in chat is on the page of cards,
+                           which is where a contact is chosen from. *@
+                        <button type="button" class="avatar-dropdown-item" @onclick="() => _folderToLinkTo = folderId">
+                            @T["Share link"]
+                        </button>
                     </OverflowMenu>
                 }
                 else if (folder.Key.BuiltIn == BuiltInFolder.Archived)
@@ -136,6 +142,16 @@ else
     </aside>
 }
 
+@if (_folderToLinkTo is { } linkedFolderId)
+{
+    <Dialog Title="@(T["Share link"])" OnClosed="() => _folderToLinkTo = null">
+        <ChildContent>
+            <p>@T["Anyone with this link can read what is in this folder. Nothing sealed, and nothing you have put away, is in it."]</p>
+            <ShareLinkButton ItemType="Folder" ItemId="linkedFolderId" />
+        </ChildContent>
+    </Dialog>
+}
+
 @if (_isDeleting)
 {
     @* Asked anyway, though only an empty folder reaches here: a folder is a thing somebody made and
@@ -172,6 +188,9 @@ else
     private IReadOnlyList<NotesInAFolder> _folders => Grouped(_everyNote);
 
     private bool _couldNotLoad;
+    /// <summary>The folder whose public link is being shown, while one is - see the panel.</summary>
+    private Guid? _folderToLinkTo;
+
     private bool _isNaming;
     private bool _isDeleting;
     private Guid? _folderBeingRenamed;

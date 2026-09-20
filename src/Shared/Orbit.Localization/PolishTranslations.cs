@@ -1044,6 +1044,12 @@ public static class PolishTranslations
             = "Usunąć folder \"{0}\"? Nic z niego nie ginie - wraca do Publicznych, a jeśli jest zapieczętowane, do Prywatnych.",
         // Also the heading over what can be done to the folders themselves, beside the list of them.
         ["Folder"] = "Folder",
+        // Handing a whole tab on, the two ways a single thing is handed on - see FolderTabs.
+        ["Share folder"] = "Udostępnij folder",
+        ["Anyone with this link can read what is in this folder. Nothing sealed, and nothing you have put away, is in it."] =
+            "Każdy, kto ma ten link, przeczyta to, co jest w tym folderze. Nie ma w nim rzeczy zaszyfrowanych ani tego, co schowano do archiwum.",
+        ["To keep what is in here, ask them to share the folder with you in Orbit."] =
+            "Żeby zachować to, co tu jest, poproś o udostępnienie folderu w Orbicie.",
         ["Folder name"] = "Nazwa folderu",
         ["Public"] = "Publiczne",
         ["Finished"] = "Ukończone",

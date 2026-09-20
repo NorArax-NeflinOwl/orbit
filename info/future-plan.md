@@ -2665,8 +2665,17 @@ down whole rather than started, so nothing in it depends on being remembered.
   private item by its own address** - a link from a notification, or a note reached from the column
   beside the writing - still draws it without asking; the door is on the tabs, not yet on the editors.
 
-- **A whole folder can be shared**, through chat and through a public link - the two ways a single
-  thing is shared today.
+- ~~**A whole folder can be shared**, through chat and through a public link~~ - done 2026-09-20, both
+  from the folder's own menu. **By chat** it is the dialog that already shares several chosen things,
+  given everything under the folder instead: one contact, one level, a grant and an invitation each, so
+  what arrives is ordinary shares the recipient files themselves. **By link** it is a new
+  `SharedItemType.Folder`, one address showing every thing under it drawn as its own link would draw it
+  (`SharedItemCard`), with nothing sealed and nothing archived in it.
+
+  Two things deliberately left as they are: **a folder's link cannot be claimed** - "Save to my account"
+  promises one read-only copy and a folder would hand over a page of them, so the page says to ask for
+  the folder in Orbit instead - and **the folder itself is still never shared**, staying the owner's own
+  tab. Claiming a whole folder is the open question if that turns out to be wanted.
 
 - ~~**An empty Private or Archived folder is not drawn at all**~~ - done 2026-09-20 on all four pages
   that file things (`FolderTabs.HoldsAnything`). Where that leaves Public on its own the tabs go, but

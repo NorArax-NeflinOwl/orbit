@@ -80,7 +80,7 @@
    looking at the whole calendar rather than at part of it. No Private tab here - an event is never
    sealed, see FolderPages.HasAPrivateTab. *@
 <PhoneToolbar Page="FolderPage.Calendar">
-    <FolderTabs Page="FolderPage.Calendar" CountIn="CountIn" StillHolds="StillHolds" HoldsAnything="HoldsAnything" />
+    <FolderTabs Page="FolderPage.Calendar" CountIn="CountIn" StillHolds="StillHolds" HoldsAnything="HoldsAnything" OnShareFolder="ShareTheFolder" />
 </PhoneToolbar>
 
 @* This page had nowhere to say that something went wrong, so a delete, an archive or a copy that was
@@ -107,11 +107,11 @@
         {
             @* Only an event this reader owns - one shared with them is not theirs to hand on from here.
                An event is never sealed, so nothing else is left out. *@
-            <SharePickedDialog Things="@([.. ChosenEvents.Where(calendarEvent => !calendarEvent.IsShared).Select(calendarEvent => new SharePickedDialog.ShareableThing(calendarEvent.Id, calendarEvent.Details.Title))])"
-                               LeftOut="@ChosenEvents.Count(calendarEvent => calendarEvent.IsShared)"
+            <SharePickedDialog Things="@([.. EventsBeingShared.Where(calendarEvent => !calendarEvent.IsShared).Select(calendarEvent => new SharePickedDialog.ShareableThing(calendarEvent.Id, calendarEvent.Details.Title))])"
+                               LeftOut="@EventsBeingShared.Count(calendarEvent => calendarEvent.IsShared)"
                                ShareOne="(eventId, recipientUserId, accessLevel) => CalendarApiClient.ShareCalendarEventAsync(eventId, recipientUserId, accessLevel)"
                                Invitation="(shareId, title) => new EventShareMessagePayload(shareId, title)"
-                               OnClosed="() => _isSharingPicked = false" />
+                               OnClosed="StopSharingSeveral" />
         }
         @* Handing on one appointment, from its own row - the same dialog given a list of one. See
            Notes.razor, which says why there is not a second way of sharing. *@
@@ -1053,6 +1053,33 @@
 
     private IReadOnlyList<CalendarEventDto> ChosenEvents
         => [.. (_events ?? []).Where(calendarEvent => _picked.Holds(calendarEvent.Id))];
+
+    /// <summary>The folder whose contents are being handed on, while one is - see ShareTheFolder.</summary>
+    private Guid? _folderBeingShared;
+
+    /// <summary>
+    /// What a share is about: the chosen appointments, or - when the folder's own menu started it -
+    /// everything filed under that folder (2026-09-20, asked for). An event is never sealed, so the
+    /// only one left out is one somebody else shared with this reader, which the dialog counts.
+    /// </summary>
+    private IReadOnlyList<CalendarEventDto> EventsBeingShared
+        => _folderBeingShared is { } folderId
+            ? [.. (_events ?? []).Where(calendarEvent => calendarEvent.FolderId == folderId && !calendarEvent.IsArchived)]
+            : ChosenEvents;
+
+    /// <inheritdoc cref="EventsBeingShared"/>
+    private void ShareTheFolder(Guid folderId)
+    {
+        Logger.LogInformation("User shared the contents of folder {FolderId}", folderId);
+        _folderBeingShared = folderId;
+        _isSharingPicked = true;
+    }
+
+    private void StopSharingSeveral()
+    {
+        _isSharingPicked = false;
+        _folderBeingShared = null;
+    }
 
     /// <inheritdoc cref="ActOnPickedAsync"/>
     private async Task FilePickedAsync(Guid? folderId)

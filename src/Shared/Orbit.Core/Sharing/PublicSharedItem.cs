@@ -12,13 +12,26 @@ namespace Orbit.Core.Sharing;
 /// no lock state, no notification settings, and no e-mail address for anyone involved.
 /// </summary>
 /// <param name="OwnerDisplayName">Whose item this is, so a reader knows who sent them the link - the display name only, never the e-mail behind it.</param>
+/// <param name="Items">
+/// Where this is a <see cref="SharedItemType.Folder"/>, everything filed under it - each projected the
+/// way its own link would show it, so one page shows a folder's worth of notes or lists one after
+/// another. Empty for every other kind, which is a single thing and says what it is in
+/// <see cref="Lines"/>. Last and defaulted for that reason.
+///
+/// A folder's own <see cref="Lines"/> are empty: what a folder says is what is in it.
+/// </param>
 public sealed record PublicSharedItem(
     SharedItemType ItemType,
     string Title,
     string? Subtitle,
     IReadOnlyList<PublicSharedItemLine> Lines,
     string OwnerDisplayName,
-    DateTimeOffset UpdatedAtUtc);
+    DateTimeOffset UpdatedAtUtc,
+    IReadOnlyList<PublicSharedItem>? Items = null)
+{
+    /// <summary>What is in it, as something to read without a null check - see <see cref="Items"/>.</summary>
+    public IReadOnlyList<PublicSharedItem> AllItems => Items ?? [];
+}
 
 /// <param name="Detail">A due date, a quantity, a location - whatever the line's own kind adds beneath the text.</param>
 /// <param name="IsFailed">Crossed out rather than ticked - a line, or an entry, somebody gave up on.</param>

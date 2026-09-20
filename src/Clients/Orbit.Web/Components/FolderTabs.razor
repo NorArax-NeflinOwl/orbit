@@ -112,10 +112,37 @@
                         @onclick="() => DeleteAsync(chosenFolderId)">
                     @T["Delete folder"]
                 </button>
+                @* Handing the whole tab on, the two ways a single thing is handed on (2026-09-20). The
+                   folder itself is never shared - it stays this reader's own tab - so what travels is
+                   everything under it: by chat, each with its own grant and its own invitation, which
+                   is the page's own doing (see OnShareFolder); by link, one address showing every one
+                   of them to anybody who has it. *@
+                @if (OnShareFolder.HasDelegate)
+                {
+                    <button type="button" class="avatar-dropdown-item" @onclick="() => OnShareFolder.InvokeAsync(chosenFolderId)">
+                        @T["Share folder"]
+                    </button>
+                }
+                <button type="button" class="avatar-dropdown-item" @onclick="() => _folderToLinkTo = chosenFolderId">
+                    @T["Share link"]
+                </button>
             </OverflowMenu>
         }
     }
 </div>
+}
+
+@if (_folderToLinkTo is { } linkedFolderId)
+{
+    @* The same button every editor publishes its own item with, given a folder - so a link means the
+       same thing and looks the same whatever it points at. In a panel rather than in the menu: it has a
+       field to read the address out of and a way to stop sharing, neither of which fits on a menu row. *@
+    <Dialog Title="@(T["Share link"])" OnClosed="() => _folderToLinkTo = null">
+        <ChildContent>
+            <p>@T["Anyone with this link can read what is in this folder. Nothing sealed, and nothing you have put away, is in it."]</p>
+            <ShareLinkButton ItemType="Folder" ItemId="linkedFolderId" />
+        </ChildContent>
+    </Dialog>
 }
 
 @if (_isDeleting)
@@ -186,6 +213,16 @@
 
     /// <inheritdoc cref="FolderTabRow.IsWorthDrawing"/>
     private bool IsWorthDrawing => FolderTabRow.IsWorthDrawing(Page, Folders, CardPreferences, HoldsAnything);
+
+    /// <summary>
+    /// Hands this folder's contents to a contact, each with its own grant - the page's own doing, since
+    /// what "share one of these" means differs by kind. Left unset by a page that cannot share what it
+    /// holds, and the entry is then not drawn at all.
+    /// </summary>
+    [Parameter] public EventCallback<Guid> OnShareFolder { get; set; }
+
+    /// <summary>The folder whose public link is being shown, while one is - see the panel.</summary>
+    private Guid? _folderToLinkTo;
 
     private bool _isNaming;
     private bool _isDeleting;
