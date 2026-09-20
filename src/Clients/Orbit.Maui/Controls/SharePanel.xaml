@@ -17,7 +17,7 @@
         <Label Text="{Binding Connection.Explanation}" IsVisible="{Binding Connection.IsNotMet}"
                FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
 
-        <Button Text="{controls:Translate 'Share'}" HorizontalOptions="Start" FontSize="13" Padding="12,4"
+        <Button Text="{controls:Translate 'Share'}" HorizontalOptions="Start" FontSize="13" Padding="12,10" MinimumHeightRequest="44"
                 Style="{StaticResource LinkButton}" IsVisible="{Binding IsClosed}"
                 IsEnabled="{Binding Connection.IsMet}" Command="{Binding OpenCommand}" />
 
@@ -35,16 +35,16 @@
                     SemanticProperties.Description="{controls:Translate 'What they may do'}" />
 
             <HorizontalStackLayout Spacing="12">
-                <Button Text="{controls:Translate 'Share'}" FontSize="13" Padding="12,4"
+                <Button Text="{controls:Translate 'Share'}" FontSize="13" Padding="12,10" MinimumHeightRequest="44"
                         Command="{Binding SendCommand}" />
-                <Button Text="{controls:Translate 'Cancel'}" FontSize="13" Padding="12,4"
+                <Button Text="{controls:Translate 'Cancel'}" FontSize="13" Padding="12,10" MinimumHeightRequest="44"
                         Style="{StaticResource LinkButton}" Command="{Binding CloseCommand}" />
             </HorizontalStackLayout>
         </VerticalStackLayout>
 
         <!-- On something that arrived through somebody else's share and cannot be changed. Asking is
              all a reader can do: only the owner can widen access. -->
-        <Button Text="{controls:Translate 'Ask to edit this'}" FontSize="13" Padding="12,4"
+        <Button Text="{controls:Translate 'Ask to edit this'}" FontSize="13" Padding="12,10" MinimumHeightRequest="44"
                 HorizontalOptions="Start" IsVisible="{Binding CanAskToEdit}"
                 IsEnabled="{Binding Connection.IsMet}"
                 Style="{StaticResource LinkButton}" Command="{Binding AskToEditCommand}" />
@@ -52,10 +52,10 @@
         <!-- The other kind of sharing: a link anyone can read, with no Orbit account and nothing to
              accept. Offered beside the first because they answer different questions. -->
         <HorizontalStackLayout Spacing="12" IsVisible="{Binding IsClosed}">
-            <Button Text="{controls:Translate 'Share a link'}" FontSize="13" Padding="12,4"
+            <Button Text="{controls:Translate 'Share a link'}" FontSize="13" Padding="12,10" MinimumHeightRequest="44"
                     Style="{StaticResource LinkButton}" IsEnabled="{Binding Connection.IsMet}"
                     Command="{Binding CreateLinkCommand}" />
-            <Button Text="{controls:Translate 'Stop the link'}" FontSize="13" Padding="12,4"
+            <Button Text="{controls:Translate 'Stop the link'}" FontSize="13" Padding="12,10" MinimumHeightRequest="44"
                     IsVisible="{Binding HasLink}" Style="{StaticResource LinkButton}"
                     TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
                     Command="{Binding RevokeLinkCommand}" />

@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Location;
 using Orbit.Mobile.Sync;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Places;
@@ -171,6 +172,73 @@ public sealed class PlacesScreenTests
 
         Assert.False(screen.CanSave);
         Assert.True(screen.NeedsAPoint);
+    }
+
+    /// <summary>
+    /// An address typed into the box is looked up when the place is saved, the way the event's form
+    /// looks up the place typed into it. Until 2026-09-20 the only way to give a place a point was the
+    /// map: Save stayed greyed however much was typed here, and nothing said why.
+    /// </summary>
+    [Fact]
+    public async Task An_address_typed_in_is_looked_up_when_the_place_is_saved()
+    {
+        using var context = new PlacesContext
+        {
+            AddressLookup = StubHttpMessageHandler.RespondingWith(new[]
+            {
+                new { lat = "51.2465", lon = "22.5684", display_name = "Rynek 1, Lublin" }
+            })
+        };
+        var stored = await context.Places.CreateAsync(
+            new PlaceContent("Bakery", "", "", 0, 0), CancellationToken.None);
+        var screen = context.OpenDetail(stored.LocalId);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.Address = "Rynek 1, Lublin";
+        Assert.True(screen.CanSave);
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        var kept = Assert.Single(await context.Places.GetAllAsync(CancellationToken.None));
+        Assert.Equal(51.2465, kept.Latitude, 4);
+        Assert.Equal(22.5684, kept.Longitude, 4);
+    }
+
+    /// <summary>And an address nothing can be found for is said out loud rather than refused in silence.</summary>
+    [Fact]
+    public async Task An_address_that_cannot_be_found_says_so()
+    {
+        using var context = new PlacesContext();
+        var stored = await context.Places.CreateAsync(
+            new PlaceContent("Bakery", "", "", 0, 0), CancellationToken.None);
+        var screen = context.OpenDetail(stored.LocalId);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.Address = "nowhere at all";
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        Assert.True(screen.HasMessage);
+        Assert.Equal(0, Assert.Single(await context.Places.GetAllAsync(CancellationToken.None)).Latitude);
+    }
+
+    /// <summary>
+    /// And the place somebody is standing in can be kept without finding it on a map first - the same
+    /// press the map's own screen offers, asked for on 2026-09-20.
+    /// </summary>
+    [Fact]
+    public async Task My_location_gives_the_place_its_point()
+    {
+        using var context = new PlacesContext();
+        var stored = await context.Places.CreateAsync(
+            new PlaceContent("Bakery", "", "", 0, 0), CancellationToken.None);
+        var screen = context.OpenDetail(stored.LocalId);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        await screen.UseMyLocationCommand.ExecuteAsync(null);
+
+        Assert.True(screen.HasAPoint);
+        // The address comes with it while the box is empty - somebody's own words would be worth more.
+        Assert.Equal("Marszałkowska, Warszawa, Poland", screen.Address);
+        Assert.True(screen.CanSave);
     }
 
     /// <summary>
@@ -525,12 +593,22 @@ public sealed class PlacesScreenTests
             Places, Synchronizer, Network, _translations, new SyncState(Reachability.Over(Network), TimeProvider.System), Navigator, Maps,
             TimeProvider.System, new InMemoryListArrangementStore());
 
+        /// <summary>Where the phone says it is, for "Use my location" - see FixedDeviceLocation.</summary>
+        public FixedDeviceLocation Here { get; } = new();
+
+        /// <summary>
+        /// What an address typed into the screen comes back as. Nothing by default: most of these
+        /// tests pin the place rather than type it, and a lookup nobody arranged should find nothing.
+        /// </summary>
+        public StubHttpMessageHandler AddressLookup { get; set; } = StubHttpMessageHandler.RespondingWith(Array.Empty<object>());
+
         public PlaceDetailViewModel OpenDetail(Guid localId)
         {
             var screen = new PlaceDetailViewModel(
                 Places, Synchronizer, Picker, Maps, _translations, Network, Navigator,
                 // Sharing is not what these are about; the panel is here because the screen holds one.
-                ShareTestPanel.For(_localStore, new ChatRepository(_localStore, TimeProvider.System)));
+                ShareTestPanel.For(_localStore, new ChatRepository(_localStore, TimeProvider.System)),
+                Here, new PlaceSearch(AddressLookup.ToHttpClient()));
             screen.Open(localId);
             return screen;
         }

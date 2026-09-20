@@ -887,6 +887,15 @@ public static class PolishTranslations
         ["A place worth keeping"] = "Miejsce warte zapisania",
         ["This place"] = "To miejsce",
         ["What this place is"] = "Czym jest to miejsce",
+        // What the phone's place screen asks instead, since 2026-09-20: a question rather than a
+        // description of the field, because what the box wants is a name. "Where this happens" stays
+        // where it belongs - on an event, which does happen somewhere.
+        ["What do you call this place?"] = "Jak nazwiesz to miejsce?",
+        ["Where is it"] = "Gdzie to jest",
+        ["Type an address or pick it on the map - a place with no point cannot be drawn on one."] =
+            "Wpisz adres lub wskaż je na mapie - miejsca bez punktu nie da się na niej narysować.",
+        ["Couldn't find that address. Pick it on the map instead."] =
+            "Nie znaleziono takiego adresu. Wskaż je na mapie.",
         // Under the name while there is none - Create waits for one, see PlaceForm.CanSave.
         ["Give the place a name to keep it."] = "Nadaj miejscu nazwę, aby je zapisać.",
         ["Anything worth remembering about it"] = "Co warto o nim pamiętać",
