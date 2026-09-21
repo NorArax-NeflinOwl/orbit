@@ -858,11 +858,21 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   the press sat between, and how many options are on screen - so the next occurrence names the cause
   rather than repeating this paragraph.
 
-  ~~`ChatThreadTests.A_notification_stays_while_their_newest_message_is_not_yet_in_view` and
-  `GroupConversationPagesTests` have each done it once in the same session.~~ Still uncaught.
-  `ChatThreadTests.A_message_not_yet_in_view_is_not_marked_read` joined them on 2026-09-20 - same class,
-  same shape, and it passed alone straight afterwards. All three turn on "not yet in view", which is the
-  intersection observer's answer and is settled by a render the test does not wait for.
+  ~~`ChatThreadTests.A_notification_stays_while_their_newest_message_is_not_yet_in_view`,
+  `ChatThreadTests.A_message_not_yet_in_view_is_not_marked_read` and `GroupConversationPagesTests`.~~
+  **Both caught and fixed 2026-09-21**, by running the web suite fifteen times three abreast and the chat
+  classes twenty-four times six abreast. Neither was what it was suspected of - "not yet in view" had
+  nothing to do with it:
+  - `ChatThreadTests` threw `InvalidOperationException: Collection was modified` from its own
+    `TicksSoFar()`. bUnit keeps JS invocations in plain lists; the poll loop adds to them on the
+    renderer's dispatcher while the test counted them from its own thread every 50 ms. Any test in the
+    class that waited on ticks could draw it, which is why it looked like three different ones. The count
+    is taken on `Renderer.Dispatcher` now. One run in fifteen before.
+  - `GroupConversationPagesTests` found a member's row by the colour of their avatar - one of 360 hues
+    hashed from a `Guid.NewGuid()` drawn once per process - so in a process where two members came out
+    the same hue, `First` took the reader's own row for Anna's and three tests failed together. Proven by
+    fixing two ids that share a hue: the old lookup failed those same three, the new one, by the name the
+    row shows, passes.
 
   `NameSuggestionSourceTests.A_name_of_something_says_where_it_is_and_hands_that_thing_over` failed once
   on 2026-09-20 in the full run and passed alone and in the next full run. A fourth of the same shape -
@@ -890,7 +900,8 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   always corrected; a later caller that forgets would store a time for an entry that is not done, or
   none for one that is.
 
-- **Three group chat tests failed once under the full suite and have not since.** Noticed 2026-09-12:
+- ~~**Three group chat tests failed once under the full suite and have not since.**~~ Explained and
+  fixed 2026-09-21: the avatar-colour lookup above, which is why it was always three at once. Noticed 2026-09-12:
   `GroupConversationPagesTests` failed on the first full `dotnet test Orbit.CI.slnf` after the merge,
   then passed on their own, on a re-run of that assembly, and on two further full runs, with nothing
   changed in between - so this reads as flakiness under cross-assembly parallelism rather than anything
