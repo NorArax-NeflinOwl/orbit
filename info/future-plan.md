@@ -819,8 +819,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   a panel per entry (the task editor), leaving one entry cleared whichever panel was bound, including
   another entry's. Its arrow keys then did nothing and nothing said why. It takes the panel now and
   clears only its own; `ci/verify-menu-anchor.mjs` holds it.
-- **Two of Orbit.Web's test classes fail once in a while under the whole suite and pass alone**
-  (2026-09-18). `NameSuggestionSourceTests` was the timer rather than the subject - the panel waits out
+- ~~**Two of Orbit.Web's test classes fail once in a while under the whole suite and pass alone**
+  (2026-09-18).~~ **All of it found and fixed by 2026-09-21** - the cause of the `NameSuggestionSourceTests`
+  half is at the end of this entry, the other two classes' just before it. What follows is the chase as
+  it went. `NameSuggestionSourceTests` was the timer rather than the subject - the panel waits out
   a 150ms settle delay and the wait was left at bUnit's own one second, which a machine running the
   suite in parallel drifts past; both its waits now allow five seconds. **That was not the whole of
   it**, and the failure was caught in the act afterwards:
@@ -873,6 +875,17 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
     the same hue, `First` took the reader's own row for Anna's and three tests failed together. Proven by
     fixing two ids that share a hue: the old lookup failed those same three, the new one, by the name the
     row shows, passes.
+
+  **The `NameSuggestionSourceTests` cause, 2026-09-21: bUnit's `Click()` does not wait.** While the
+  renderer's dispatcher is busy it only queues the press and returns, so the assertion ran before
+  `ChooseAsync` - and the dispatcher *was* busy, with the panel's `OnAfterRenderAsync`, which starts
+  straight after the very render `WaitForAssertion` wakes up on. Shown by holding the dispatcher for
+  300 ms on purpose: `null` straight after `Click()`, the name a moment later, and the name straight
+  after `ClickAsync`. Both tests press with `ClickAsync` now. Neither of the two `NameSuggestions` fixes
+  above was the cause, as suspected. **The same shape could be anywhere** a test clicks right after
+  waiting for a render that something off the dispatcher started; nothing else has been seen to fail
+  from it, so the rest were not changed on spec - but a flaky "nothing happened after the press" is the
+  first thing to check it against.
 
   `NameSuggestionSourceTests.A_name_of_something_says_where_it_is_and_hands_that_thing_over` failed once
   on 2026-09-20 in the full run and passed alone and in the next full run. A fourth of the same shape -

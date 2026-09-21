@@ -104,6 +104,13 @@ Separately, a value referring to a placeholder its English does not supply throw
 written, and every entry is formatted once to prove it cannot. Fewer placeholders than the English is
 allowed and deliberate: Polish plurals do not map onto an English "list"/"lists".
 
+**bUnit's `Click()` does not wait for the press.** While the renderer's dispatcher is busy it only
+queues the event and returns, so an assertion straight after it can run before the handler has. That
+is harmless on an idle component and a flake on one that is still finishing something - an
+`OnAfterRenderAsync`, or a render a background task asked for through `InvokeAsync`. After waiting for
+such a render, press with `await element.ClickAsync(new MouseEventArgs())`: `NameSuggestionSourceTests`
+failed about one run in five with a second suite alongside, for exactly this, until 2026-09-21.
+
 ### `tests/Orbit.Mobile.Tests`
 
 Covers the mobile client's platform-independent half (`src/Clients/Orbit.Mobile`): the API clients and
