@@ -177,7 +177,6 @@ Two things it does that are worth copying if this loop ever grows a sibling:
   also true of a loop that never started, and a fixed delay cannot tell the two apart.
 - **It does its own waiting.** bUnit's `WaitForAssertion` re-checks when the component renders, and a
   tick behind a hidden tab renders nothing at all - which is exactly the case being tested.
-
 What it covers: nothing is polled behind a hidden tab and something is when the tab is in front; the
 conversation list is read twice in ten ticks rather than on every one, while the messages are read on
 each; leaving the page and opening a group each stop the loop; and an account the API will not resolve
@@ -265,6 +264,13 @@ adb shell am start -n "com.orbitmaui.android/crc64a05c27c563ec9e41.MainActivity"
 - **Ask which activity rather than guessing:** `adb shell cmd package resolve-activity --brief
   com.orbitmaui.android`. `monkey -c LAUNCHER` does not start this package, and logcat prints a second,
   different hash that is not the launcher.
+- **A second `-t:Install` with unchanged sources pushes nothing**, and the emulator keeps running the
+  previous build. Delete `obj/Debug/net10.0-android/upload.flag` and `.../devices.cache` first, and
+  check it landed with `adb shell run-as com.orbitmaui.android ls files/.__override__/arm64-v8a`.
+  **Never delete `files/.__override__` after an ordinary install**: under fast deployment that directory
+  *is* the code, and the app then aborts with "No assemblies found... Assuming this is part of Fast
+  Deployment", which reads exactly like a crash. Clearing it is only for a hand-installed
+  `-p:EmbedAssembliesIntoApk=true` build.
 - **Give a fast-deployed launch 25-30 seconds before touching the screen.** Taps aimed at the splash
   queue up and Android raises "Orbit isn't responding", which reads exactly like a crash caused by the
   change under test.
@@ -417,6 +423,27 @@ and was written by putting the fault in and watching it go red.
 ```bash
 npm install --no-save playwright@1 && npx playwright install chromium && node ci/verify-map-markers.mjs
 ```
+
+### The five browser harnesses on a machine without node
+
+Docker is enough, the same way the diagrams check runs without node (`uml/README.md`). The image
+carries Chromium already, so nothing is downloaded but the npm package - and **the package has to be
+pinned to the image's own version**. `playwright@1` pulls a newer one than the image's browser build and
+every harness fails with *"Executable doesn't exist at /ms-playwright/chromium_headless_shell-…"*,
+which reads like a broken image rather than a version mismatch.
+
+```bash
+docker run --rm -v "$PWD:/w:ro" mcr.microsoft.com/playwright:v1.56.0-noble sh -c \
+  "mkdir -p /app/src/Clients/Orbit.Web && cp -r /w/ci /app/ci \
+   && cp -r /w/src/Clients/Orbit.Web/wwwroot /app/src/Clients/Orbit.Web/wwwroot \
+   && cd /app && npm install --no-save playwright@1.56.0 >/dev/null 2>&1 \
+   && for h in browser-crypto push-notifications note-surface menu-anchor map-markers; do node ci/verify-\$h.mjs; done"
+```
+
+Only `ci/` and `wwwroot` are copied, into a container that is thrown away: the repository is mounted
+read-only, and copying `src/` whole would drag every `bin` and `obj` along. On Windows, pass the path as
+`-v "E:\path\to\worktree:/w:ro"`, and from Git Bash prefix the command with `MSYS_NO_PATHCONV=1` so the
+`/w` is not rewritten into a Windows path.
 
 ## Running locally
 
