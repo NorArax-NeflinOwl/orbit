@@ -9,7 +9,8 @@
 // one fault that no test in this repository could have caught: the whole of it is in a browser module,
 // and bUnit executes no JavaScript at all.
 //
-// So this is the round trip and nothing else. Every kind of line the editor knows goes in through
+// So this is the round trip, and one key pressed on an element's line (see the second half). Every kind
+// of line the editor knows goes in through
 // initialize, and getLinesAsJson reads the surface back; a line that comes back saying something
 // different is the failure. It serves wwwroot itself rather than booting Blazor, the way
 // verify-browser-crypto.mjs does and for the same reason: the module is a plain ES module with no
@@ -185,6 +186,81 @@ const results = await page.evaluate(async () => {
 
     return results;
 });
+
+// The second half: a key pressed with the caret on an element's line. The caret is left exactly there
+// after a picture or a rule is put in (domPoint puts it on the line, before the element, because neither
+// has a place for words), so the very next key lands on it. The browser would type into the element's
+// own line - drawn beside it, and dropped by the next read, since that line is read as the element
+// alone. That is what happened to a rule until 2026-09-21: its line was missing from the guard the
+// picture had. What is checked is the handoff, not what C# does with it: the words must not reach the
+// element's line, and they must be handed to C# as a replace, which NoteSurfaceEdits.Replace answers
+// by putting them under the element.
+const onAnElement = [
+    {
+        name: "a picture",
+        line: {
+            text: "", isChecklistItem: false, isChecked: false, style: "Body",
+            picture: { pictureId: "77777777-7777-7777-7777-777777777777", contentType: "image/png", widthPixels: 320, heightPixels: 200 },
+        },
+    },
+    { name: "a dated rule", line: { text: "", isChecklistItem: false, isChecked: false, style: "Body", separator: { stamp: "21.09.2026 21:18" } } },
+    { name: "a plain rule", line: { text: "", isChecklistItem: false, isChecked: false, style: "Body", separator: { stamp: "" } } },
+];
+
+for (const { name, line } of onAnElement) {
+    await page.evaluate(async (element) => {
+        const surface = await import("./js/checklistTextEditor.js");
+        const container = document.createElement("div");
+        container.setAttribute("contenteditable", "true");
+        document.body.replaceChildren(container);
+
+        // Blazor's end, recording what it is asked and answering nothing - so whatever reaches the
+        // element's line got there by the browser typing it, not by an answer being drawn.
+        window.asked = [];
+        const blazor = {
+            invokeMethod: (method, json) => {
+                if (method === "Edit") {
+                    window.asked.push(JSON.parse(json));
+                }
+                return null;
+            },
+            invokeMethodAsync: () => Promise.resolve(null),
+        };
+        const writing = { text: "Before", isChecklistItem: false, isChecked: false, style: "Body" };
+        surface.initialize(container, blazor, JSON.stringify([writing, element]), {});
+        window.surfaceUnderTest = { surface, container };
+
+        container.focus();
+        const range = document.createRange();
+        range.setStart(container.children[1], 0);
+        range.collapse(true);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+    }, line);
+
+    await page.keyboard.type("B");
+
+    results.push(await page.evaluate((name) => {
+        const { surface, container } = window.surfaceUnderTest;
+        const elementLine = container.children[1];
+        const stray = Array.from(elementLine.childNodes)
+            .filter((node) => node.nodeType === Node.TEXT_NODE && node.textContent.length > 0)
+            .map((node) => node.textContent)
+            .join("");
+        const handedOver = window.asked.some((request) => request.command === "replace" && request.text === "B");
+        surface.dispose(container);
+        container.remove();
+
+        const wrong = [];
+        if (stray) {
+            wrong.push(`the browser typed ${JSON.stringify(stray)} into the element's own line`);
+        }
+        if (!handedOver) {
+            wrong.push(`the key was not handed to C# as a replace (asked: ${JSON.stringify(window.asked.map((request) => request.command))})`);
+        }
+        return { name: `a key pressed on ${name}'s line goes to C#`, passed: wrong.length === 0, detail: wrong.join("; ") };
+    }, name));
+}
 
 await browser.close();
 server.close();

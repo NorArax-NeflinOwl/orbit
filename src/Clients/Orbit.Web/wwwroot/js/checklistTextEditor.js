@@ -746,10 +746,14 @@ function onBeforeInput(event, container, state) {
         return;
     }
 
-    // Words typed on a picture's line would land beside the picture in its own element; they go to C#
-    // instead, which puts them under it (see NoteSurfaceEdits.Replace).
+    // Words typed on a picture's line, or a rule's, would land beside it in its own element; they go to
+    // C# instead, which puts them under it (see NoteSurfaceEdits.Replace). A rule's line is exactly
+    // where the caret is left after the rule is put in (see domPoint), so without this the first thing
+    // typed after drawing one went into the rule's element - drawn beside it, and dropped by the next
+    // read of the surface, since a rule's line is read as the rule alone (found 2026-09-21).
     const caretLine = closestLine(window.getSelection() && window.getSelection().anchorNode, container);
-    if (caretLine && caretLine.classList.contains('note-line-picture') && (event.inputType || '').startsWith('insert')
+    if (caretLine && (caretLine.classList.contains('note-line-picture') || caretLine.classList.contains('note-line-separator'))
+        && (event.inputType || '').startsWith('insert')
         && event.inputType !== 'insertCompositionText') {
         event.preventDefault();
         const typed = event.data ?? (event.dataTransfer ? event.dataTransfer.getData('text/plain') : '');

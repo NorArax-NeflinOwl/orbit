@@ -388,6 +388,14 @@ without — go in through `initialize`, and `getLinesAsJson` reads the surface b
 back saying something different is the failure, and a kind of line the read does not know comes back as
 an empty one, which is exactly the shape of the fault.
 
+**And one key pressed on an element's line**, added 2026-09-21 for the same kind of fault from the other
+side. After a picture or a rule is put in, the caret is left on its line, before it, since neither has a
+place for words - so the next key lands there. A picture's line was guarded: the key is stopped and
+handed to C#, whose `NoteSurfaceEdits.Replace` puts the words under it. A rule's line was not, so the
+first thing typed after drawing a rule went into the rule's own element, and the next read dropped it.
+Three checks, a picture's line and both kinds of rule: nothing typed into the element's line, and the
+key handed over as a `replace`. With the guard taken off the rule, exactly the two rule checks fail.
+
 It runs in the `test` job of `main_orbit.yml` beside the other two, on the browser they already
 installed. By hand:
 
