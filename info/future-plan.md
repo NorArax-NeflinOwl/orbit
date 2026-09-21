@@ -765,6 +765,15 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **The phone's separator tool is out of sight, with nothing to say it is there** (2026-09-21, seen on
+  a Pixel 7 emulator at 1080 px). The note screen's tool row scrolls sideways and stops short of Save;
+  its XAML comment counts on the last tool being cut off at the edge, which "says there is more to
+  swipe to". On this width it is not: the row ends on the table tool drawn whole, and the separator sits
+  wholly past it, so the screen shows no sign of a rule tool at all - found only by reading the markup
+  and swiping. Nothing is lost, it is only not found. Ways out, each a design call rather than a fix:
+  a fade on the row's trailing edge whenever it can scroll, a narrower `TouchSize` for the row, or the
+  separator put before the table. Not changed on spec for that reason.
+
 - **The other two reminder services still send one notice per thing** (2026-09-21). The task services
   gather everything an owner has falling due in the same poll into one notice now
   (`SeveralEntriesAtOnce`), because the second notice of a minute is the one nobody sees - the web
