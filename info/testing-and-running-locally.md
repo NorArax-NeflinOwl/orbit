@@ -177,6 +177,11 @@ Two things it does that are worth copying if this loop ever grows a sibling:
   also true of a loop that never started, and a fixed delay cannot tell the two apart.
 - **It does its own waiting.** bUnit's `WaitForAssertion` re-checks when the component renders, and a
   tick behind a hidden tab renders nothing at all - which is exactly the case being tested.
+- **It counts on the renderer's dispatcher.** bUnit's `JSInterop.Invocations` is a plain list that a
+  running loop adds to from the dispatcher; reading it from the test's thread while a tick was adding
+  one threw "Collection was modified" about one run in fifteen. Anything that reads it while a timer is
+  still going needs `Renderer.Dispatcher.InvokeAsync` around the read.
+
 What it covers: nothing is polled behind a hidden tab and something is when the tab is in front; the
 conversation list is read twice in ten ticks rather than on every one, while the messages are read on
 each; leaving the page and opening a group each stop the loop; and an account the API will not resolve

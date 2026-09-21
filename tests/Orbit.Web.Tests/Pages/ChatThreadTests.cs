@@ -493,9 +493,16 @@ public sealed class ChatThreadTests : OrbitTestContext
     /// How many times the loop has come round. Counted off the one thing it does before deciding
     /// anything else - asking whether the tab is in front of somebody - so it counts a tick that went
     /// on to fetch nothing just the same.
+    ///
+    /// Read on the renderer's dispatcher, which is where the loop records its calls. bUnit keeps them in
+    /// plain lists, and counting them from the test's own thread while a tick was adding one threw
+    /// "Collection was modified" about one run in fifteen - the failure three of these tests were blamed
+    /// on, uncaught, until 2026-09-21.
     /// </summary>
     private int TicksSoFar()
-        => JSInterop.Invocations.Count(invocation => invocation.Identifier == "isPageVisible");
+        => Renderer.Dispatcher
+            .InvokeAsync(() => JSInterop.Invocations.Count(invocation => invocation.Identifier == "isPageVisible"))
+            .GetAwaiter().GetResult();
 
     /// <summary>
     /// The tick count once a tick already under way has finished recording itself. A loop is stopped
