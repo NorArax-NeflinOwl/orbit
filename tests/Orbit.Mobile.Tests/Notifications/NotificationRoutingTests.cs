@@ -56,6 +56,9 @@ public sealed class NotificationRoutingTests
     [Theory]
     [InlineData("/inventory", NotificationTarget.Inventory)]
     [InlineData("/map", NotificationTarget.Map)]
+    // One notice about entries on several lists names no list at all - see
+    // Orbit.Core.Tasks.SeveralEntriesAtOnce, and the opener, which lands on the lists themselves.
+    [InlineData("/tasks", NotificationTarget.TaskList)]
     public void The_destinations_that_name_nothing_in_particular_still_lead_somewhere(string url, NotificationTarget expected)
     {
         var destination = NotificationDestination.Parse(url);

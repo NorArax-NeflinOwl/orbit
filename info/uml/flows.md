@@ -227,6 +227,11 @@ coordination — no lock, no queue, no leader election — and it is why
 `OS_EVENTS_REMINDERS`, `OS_TASKS_REMINDERS`, `OS_TASKS_OVERDUE` and `OS_INVENTORIES_EXPIRY` exist as
 tables of their own.
 
+**A claim is per entry, a notice is per reader.** The two task services gather everything one owner has
+falling due in the same poll into a single notice (see `SeveralEntriesAtOnce`), but claim each entry on
+its own first - so an entry the other replica has already claimed is left out of this notice instead of
+holding the rest of it up, and an entry nothing went out about has its claim released again.
+
 The worst case is a claim written and the send then failing, which costs a missed reminder rather than a
 duplicate one. That is the direction chosen deliberately: a reminder arriving twice is worse than a
 reminder arriving once and late.

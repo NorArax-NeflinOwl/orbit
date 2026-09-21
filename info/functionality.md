@@ -828,6 +828,18 @@ through `LinkedTaskCompletionResolver` - the same pass every read of a list alre
 reminder and the checklist cannot disagree about whether an entry is done. That is one extra read per
 owner per poll, and only for an owner who has such an entry waiting on a reminder.
 
+**Everything falling due in the same minute is one notice** (2026-09-21, `SeveralEntriesAtOnce`,
+`OneNoticeForWhatFellDueTogetherTests`). Two entries due at 17:00 sent two of everything and the reader
+saw one: the web draws a banner for the newest entry only (`MainLayout.ShowBannerForNewestEntryAsync`)
+and both clients keep a minimum gap between banners (`BannerMinimumGapSeconds`, `ForegroundNotices`), so
+the second notice of a minute quietly replaced the first. `OverdueTaskNotificationBackgroundService` and
+`DailyTaskReminderBackgroundService` now gather a poll's entries per owner: one feed entry, one push and
+one e-mail naming each of them ("These tasks are overdue: …"), leading to the one list they are all on
+or to `/tasks` when they are not. A single entry says exactly what it always said. The claim is still
+per entry (`OS_TASKS_OVERDUE`, `OS_TASKS_REMINDERS`), so an entry another replica is already speaking
+about simply stays out of this notice, and an entry set to e-mail only is named in the e-mail and not in
+the push.
+
 **The phone has folders too, since 2026-09-10.** It has no room for a row of tabs, so the folders are a
 group in the menu under the screen's name - each with the count of what is in it, which is what the
 Classical design draws. On all three screens the browser has them on: the notes, the task lists, and

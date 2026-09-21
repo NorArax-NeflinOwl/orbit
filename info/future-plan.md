@@ -765,6 +765,21 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **The other two reminder services still send one notice per thing** (2026-09-21). The task services
+  gather everything an owner has falling due in the same poll into one notice now
+  (`SeveralEntriesAtOnce`), because the second notice of a minute is the one nobody sees - the web
+  banners the newest entry only and both clients keep a minimum gap between banners.
+  `CalendarEventReminderBackgroundService` and the inventory's expiry warnings have the same shape and
+  the same loss: two appointments starting at nine, or three things going off on the same day, cost the
+  reader all but one banner. Left out of the round that fixed the task side because the user reported
+  deadlines, and because each has wording of its own to gather ("These events start at …"). The
+  mechanism is ready for them: one content builder taking a list, and a `GroupBy` on the owner.
+
+- **Nothing gathers across the four services.** An overdue notice and an expiry warning landing in the
+  same minute are still two notices, and only one of them is seen. Gathering those would mean a notice
+  queue per reader rather than a poll per kind - a bigger change than this one, and worth doing only if
+  it turns out to happen in practice.
+
 - **The phone still deletes a full folder** (2026-09-20). The browser now refuses one that still holds
   something (`FolderTabs.StillHolds`, and `info/functionality.md` on why). The phone's four pages -
   `NotesPage.xaml.cs`, `TasksPage.xaml.cs`, `CalendarPage.xaml.cs`, `InventoryPage.xaml.cs` - each ask
