@@ -817,6 +817,40 @@ different question. The rule lives in the query rather than in the scheduler, so
 the real repositories (`NothingIsAnnouncedAboutFinishedWorkTests`) - an in-memory double hands back
 whatever it was seeded with, and a filter that was never written passes there.
 
+**An entry that stands for other lists is asked about rather than skipped** (2026-09-21,
+`LinkedEntryCompletion`, `AnEntryStandingForListsStillSpeaksTests`). Its stored tick is always "not
+done" (see `TaskItem.Create`), and a way that is a list is worked out on every read rather than stored,
+so no SQL filter can tell such an entry from work still owed. Both reminder queries used to answer that
+by leaving every one of them out - which meant a deadline set on an entry standing for another list
+said nothing at all when it passed, while an ordinary entry due the same minute spoke (reported by the
+user with a linked entry due at 17:00). They are kept now, and the lists behind them are resolved
+through `LinkedTaskCompletionResolver` - the same pass every read of a list already makes, so a
+reminder and the checklist cannot disagree about whether an entry is done. That is one extra read per
+owner per poll, and only for an owner who has such an entry waiting on a reminder.
+
+**Everything falling due in the same minute is one notice** (2026-09-21, `SeveralEntriesAtOnce`,
+`OneNoticeForWhatFellDueTogetherTests`). Two entries due at 17:00 sent two of everything and the reader
+saw one: the web draws a banner for the newest entry only (`MainLayout.ShowBannerForNewestEntryAsync`)
+and both clients keep a minimum gap between banners (`BannerMinimumGapSeconds`, `ForegroundNotices`), so
+the second notice of a minute quietly replaced the first. `OverdueTaskNotificationBackgroundService` and
+`DailyTaskReminderBackgroundService` now gather a poll's entries per owner: one feed entry, one push and
+one e-mail naming each of them ("These tasks are overdue: …"), leading to the one list they are all on
+or to `/tasks` when they are not. A single entry says exactly what it always said. The claim is still
+per entry (`OS_TASKS_OVERDUE`, `OS_TASKS_REMINDERS`), so an entry another replica is already speaking
+about simply stays out of this notice, and an entry set to e-mail only is named in the e-mail and not in
+the push.
+
+**The calendar and the shelves gather the same way, since the same day** (`OneNoticeForEventsAndShelvesTests`).
+Two appointments whose reminders fall due in one poll are one "Upcoming events" notice naming both and
+leading to `/calendar`; the events are named and nothing more, since their lead times can differ and a
+start time would have to be written in a time zone the server does not know. Several things nearing
+their date are one "Things expiring soon" notice naming each with its date, leading to the one storage
+they are all on - with no row picked out, since a mark on one would say the others did not matter - or
+to `/inventory` when they are on several. A calendar reminder goes to the event's owner and to every
+guest who accepted it, so there it is gathered **per reader** rather than per owner: each reader gets one
+notice about everything due for them, and a reminder's claim (`OS_EVENTS_REMINDERS`, still per event,
+lead time and occurrence) is released only when nothing about it went out to anybody.
+
 **The phone has folders too, since 2026-09-10.** It has no room for a row of tabs, so the folders are a
 group in the menu under the screen's name - each with the count of what is in it, which is what the
 Classical design draws. On all three screens the browser has them on: the notes, the task lists, and
@@ -933,8 +967,9 @@ installed before this, which is the case it was written for.
 - **Not sending them keeps them.** A request that says nothing about an entry's ways leaves the stored
   ones alone (`UpdateTaskListCommand.EntriesKeepingTheirAlternatives`, the sixth field to follow that
   rule). Phone builds already installed save lists without knowing ways exist.
-- **Reminders.** An entry whose ways include a list gets no daily or overdue reminder, the same as a
-  linked entry, because its stored tick cannot know that list is finished.
+- **Reminders.** An entry whose ways include a list is reminded about like any other, the same as a
+  linked entry: its stored tick cannot know that list is finished, so the lists are resolved on the poll
+  instead (`LinkedEntryCompletion`). It used to get no daily or overdue reminder at all.
 
 **A name picked from the suggestions makes the entry the same thing, not a new one** (2026-09-11,
 `TaskItem.ReferencesTaskItemId`, `TaskItemReferences`, `NameSuggestion.Sources`). The name is typed first
@@ -1299,7 +1334,6 @@ their restock tasks exactly as they would on the next save. An item's open resto
 not copied, and should not be: the errand is about the shelf it was raised from.
 
 ## Notes
-
 
 `POST /api/notes` and `PUT /api/notes/{id}` both take `{ title, content }`, where `content` is an
 ordered list of lines, each `{ text, isChecklistItem, isChecked, isFailed, style }` — a note is plain
@@ -2655,7 +2689,6 @@ true — there is nothing left for it to read.
 That is also why a private inventory **raises no restock tasks and sends no expiry reminders**: both are
 worked out from item rows that no longer exist. `IsBelowMinimum` is recomputed in the browser after
 opening the payload, the same way a private task list's completion is.
-
 
 ## The map, and the location behind it
 

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Orbit.Core.Notifications;
+using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.OverdueNotifications;
 using Orbit.Data.Entities;
 
@@ -8,10 +9,12 @@ namespace Orbit.Data.Repositories;
 public sealed class OverdueTaskNotificationRepository : IOverdueTaskNotificationRepository
 {
     private readonly OrbitDbContext _dbContext;
+    private readonly LinkedEntryCompletion _linkedEntryCompletion;
 
-    public OverdueTaskNotificationRepository(OrbitDbContext dbContext)
+    public OverdueTaskNotificationRepository(OrbitDbContext dbContext, LinkedEntryCompletion linkedEntryCompletion)
     {
         _dbContext = dbContext;
+        _linkedEntryCompletion = linkedEntryCompletion;
     }
 
     public async Task<IReadOnlyList<OverdueTaskItem>> GetIncompleteWithDueDateAsync(CancellationToken cancellationToken)
@@ -28,10 +31,9 @@ public sealed class OverdueTaskNotificationRepository : IOverdueTaskNotification
             // See TaskList.IsCompleted, which is what OP_T_ISCOMPLETED stores.
             // Neither ticked nor crossed out: an entry somebody gave up on is finished with, and
             // being reminded of it every morning would be the app arguing with the reader.
-            // An entry done by ways that include a list is left out with the linked ones, for the reason
-            // DailyTaskReminderRepository gives.
-            where !item.IsCompleted && !item.IsFailed && !task.IsCompleted && item.DueDateUtc != null && !item.LinkedTaskLists.Any()
-                && !item.Alternatives.Any(way => way.LinkedTaskListId != null)
+            // An entry that stands for other lists, or is done one of several ways among them a list,
+            // carries a stored tick that can never say so - it is kept here and asked about below.
+            where !item.IsCompleted && !item.IsFailed && !task.IsCompleted && item.DueDateUtc != null
                 && item.OverdueNotificationChannel != "None"
             select new
             {
@@ -41,10 +43,18 @@ public sealed class OverdueTaskNotificationRepository : IOverdueTaskNotification
                 task.Title,
                 item.Description,
                 item.DueDateUtc,
-                item.OverdueNotificationChannel
+                item.OverdueNotificationChannel,
+                PointsAtLists = item.LinkedTaskLists.Any() || item.Alternatives.Any(way => way.LinkedTaskListId != null)
             }).ToListAsync(cancellationToken);
 
+        // The lists behind such an entry are what say whether it is still owed - see LinkedEntryCompletion,
+        // and the user's report that an entry standing for another list never spoke when its deadline passed.
+        var finishedByTheirLists = await _linkedEntryCompletion.FinishedByTheirListsAsync(
+            [.. rows.Where(row => row.PointsAtLists).Select(row => new EntryPointingAtLists(row.UserId, row.Id))],
+            cancellationToken);
+
         return rows
+            .Where(row => !finishedByTheirLists.Contains(row.Id))
             .Select(row => new OverdueTaskItem(
                 row.Id, row.TaskId, row.UserId, row.Title, row.Description, row.DueDateUtc!.Value,
                 Enum.Parse<NotificationChannel>(row.OverdueNotificationChannel, ignoreCase: true)))

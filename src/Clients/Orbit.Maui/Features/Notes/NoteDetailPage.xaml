@@ -307,11 +307,19 @@
              from the edge and 8 of air. With the table and the separator the row is seven 44s, which is
              more than a phone has between the two corners, and laid out loose the last tool sat under
              Save - its drawing showing through Save's tick, and half of it pressing Save instead. A tool
-             cut off at the edge says there is more to swipe to; one under another button says nothing. -->
-        <ScrollView Grid.Row="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never"
-                    HorizontalOptions="Fill" VerticalOptions="End" Margin="70,0,82,72"
-                    IsVisible="{Binding CanEdit}">
-        <HorizontalStackLayout Spacing="0" HorizontalOptions="Start">
+             cut off at the edge was meant to say there is more to swipe to, but where the row stops
+             depends on the phone's width: at 1080 px it ended on the table tool drawn whole, and the
+             separator sat wholly past it with nothing on screen to say it existed (2026-09-21). So the
+             row's trailing edge fades out whenever there is more past it - see ShowWhatIsPastTheEdge -
+             which says "swipe" on every width rather than on the ones a tool happens to be cut at. -->
+        <!-- As tall as the tools and no taller: the fade below fills its cell, and a cell with no height
+             of its own would be the whole screen - the row drifting up to the middle and the fade laid
+             over the writing's right edge. 44 is the tools' TouchSize. -->
+        <Grid Grid.Row="1" HorizontalOptions="Fill" VerticalOptions="End" Margin="70,0,82,72" HeightRequest="44"
+              IsVisible="{Binding CanEdit}">
+        <ScrollView x:Name="ToolRow" Orientation="Horizontal" HorizontalScrollBarVisibility="Never"
+                    HorizontalOptions="Fill">
+        <HorizontalStackLayout x:Name="ToolRowTools" Spacing="0" HorizontalOptions="Start">
             <controls:IconButton Data="M7,4 L3,8 L7,12 M3,8 H12 A4.5,4.5 0 0 1 12,17 H8" TouchSize="44"
                                  Command="{Binding UndoCommand}" IsEnabledForPress="{Binding CanUndo}"
                                  Description="{controls:Translate 'Undo'}" />
@@ -355,6 +363,13 @@
                                  Description="{controls:Translate 'Separator'}" />
         </HorizontalStackLayout>
         </ScrollView>
+        <!-- The fade itself: the page's own colour, from clear to solid, over the row's last few points.
+             Painted from code (ShowWhatIsPastTheEdge) because the clear end has to be the page colour at
+             no opacity - a gradient from "Transparent" passes through grey - and has to follow the
+             theme. It takes no touches, so a tool half under it still presses. -->
+        <BoxView x:Name="ToolRowFade" WidthRequest="40" HorizontalOptions="End" VerticalOptions="Fill"
+                 InputTransparent="True" IsVisible="False" />
+        </Grid>
 
         <controls:NavigationBar Grid.Row="0" />
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"

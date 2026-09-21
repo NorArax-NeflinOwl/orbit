@@ -82,100 +82,132 @@ public sealed class CalendarEventReminderBackgroundService : BackgroundService
 
         var dueReminders = await scheduler.FindDueRemindersAsync(
             DateTimeOffset.UtcNow, LookBackWindow, cancellationToken, maxResults: MaxRemindersPerPoll);
+
+        // Claimed one reminder at a time, then told one reader at a time: an event's reminder reaches
+        // its owner and every guest, and a reader with two appointments at nine gets one notice naming
+        // both rather than two a second apart - the second of which nobody sees, for the reason
+        // EventReminderPushContent's list overload gives.
+        var toTell = new List<(DueEventReminder Reminder, EventReminderOccurrence Occurrence, User Recipient)>();
+        var withSomebodyToTell = new List<DueEventReminder>();
         foreach (var dueReminder in dueReminders)
         {
-            await SendReminderEmailAsync(
-                dueReminder, userRepository, calendarEventShareRepository, eventReminderRepository, emailSender,
-                pushNotificationDispatcher, notificationRecorder, _logger, cancellationToken);
+            var calendarEvent = dueReminder.CalendarEvent;
+
+            // Reserves this specific reminder before doing anything else - the unique index backing
+            // TryClaimAsync (see its comment) is the actual concurrency guard, letting more than one
+            // instance of this background service poll at the same time in the future without a
+            // distributed lock or message queue: whichever instance's claim lands first wins, the other
+            // backs off here.
+            var claimedAtUtc = DateTimeOffset.UtcNow;
+            var claimed = await eventReminderRepository.TryClaimAsync(
+                calendarEvent.Id, dueReminder.MinutesBeforeStart, dueReminder.OccurrenceStartUtc, claimedAtUtc, cancellationToken);
+            if (!claimed)
+            {
+                continue;
+            }
+
+            var recipients = await ResolveRecipientsAsync(calendarEvent, userRepository, calendarEventShareRepository, cancellationToken);
+            if (recipients.Count == 0)
+            {
+                // The owning account was deleted after the event was created, and no guest has accepted a
+                // share of it either - nothing meaningful to notify, and no one to ever notify, so the
+                // claim stays in place rather than being retried.
+                continue;
+            }
+
+            var occurrence = new EventReminderOccurrence(
+                BuildOccurrenceDetails(calendarEvent.Details, dueReminder.OccurrenceStartUtc), calendarEvent.Id,
+                dueReminder.MinutesBeforeStart);
+            withSomebodyToTell.Add(dueReminder);
+            toTell.AddRange(recipients.Select(recipient => (dueReminder, occurrence, recipient)));
+        }
+
+        var spokenFor = new HashSet<DueEventReminder>();
+        foreach (var reader in toTell.GroupBy(told => told.Recipient.Id))
+        {
+            spokenFor.UnionWith(await TellAsync(
+                reader.First().Recipient, [.. reader.Select(told => (told.Reminder, told.Occurrence))], emailSender,
+                pushNotificationDispatcher, notificationRecorder, _logger, cancellationToken));
+        }
+
+        // A claim guards the whole event+lead-time pair, not each reader (see TryClaimAsync), so once
+        // anything has gone out about a reminder to anybody its claim stays in place - releasing it would
+        // make a later poll resend to whoever already received it. Only a reminder nothing at all went
+        // out about is released, making a full retry on the next poll safe.
+        foreach (var unannounced in withSomebodyToTell.Where(dueReminder => !spokenFor.Contains(dueReminder)))
+        {
+            await eventReminderRepository.ReleaseClaimAsync(
+                unannounced.CalendarEvent.Id, unannounced.MinutesBeforeStart, unannounced.OccurrenceStartUtc, cancellationToken);
         }
     }
 
-    private static async Task SendReminderEmailAsync(
-        DueEventReminder dueReminder,
-        IUserRepository userRepository,
-        ICalendarEventShareRepository calendarEventShareRepository,
-        IEventReminderRepository eventReminderRepository,
+    /// <summary>
+    /// Everything due for one reader in this poll, as one notice on each channel, and which reminders
+    /// something actually went out about. A recorded feed entry counts as having gone out (see
+    /// NotificationRecordResult), and so does a push - PushNotificationDispatcher never throws. It names
+    /// every reminder whatever channel each asked for, since the feed is where the reader looks back;
+    /// the push and the e-mail each name only the reminders that asked for them.
+    /// </summary>
+    private static async Task<IReadOnlyList<DueEventReminder>> TellAsync(
+        User recipient,
+        IReadOnlyList<(DueEventReminder Reminder, EventReminderOccurrence Occurrence)> reminders,
         IEmailSender emailSender,
         PushNotificationDispatcher pushNotificationDispatcher,
         NotificationRecorder notificationRecorder,
         ILogger<CalendarEventReminderBackgroundService> logger,
         CancellationToken cancellationToken)
     {
-        var calendarEvent = dueReminder.CalendarEvent;
+        var channelsAskedFor = reminders.Aggregate(
+            NotificationChannel.None, (channels, each) => channels | ChannelOf(each.Reminder));
 
-        // Reserves this specific reminder before doing anything else - the unique index backing
-        // TryClaimAsync (see its comment) is the actual concurrency guard, letting more than one
-        // instance of this background service poll at the same time in the future without a distributed
-        // lock or message queue: whichever instance's claim lands first wins, the other backs off here.
-        var claimedAtUtc = DateTimeOffset.UtcNow;
-        var claimed = await eventReminderRepository.TryClaimAsync(
-            calendarEvent.Id, dueReminder.MinutesBeforeStart, dueReminder.OccurrenceStartUtc, claimedAtUtc, cancellationToken);
-        if (!claimed)
-        {
-            return;
-        }
-
-        var recipients = await ResolveRecipientsAsync(calendarEvent, userRepository, calendarEventShareRepository, cancellationToken);
-        if (recipients.Count == 0)
-        {
-            // The owning account was deleted after the event was created, and no guest has accepted a
-            // share of it either - nothing meaningful to notify, and no one to ever notify, so the claim
-            // stays in place rather than being retried.
-            return;
-        }
-
-        var occurrenceDetails = BuildOccurrenceDetails(calendarEvent.Details, dueReminder.OccurrenceStartUtc);
-        var channel = calendarEvent.Details.ReminderNotificationChannel;
         // Built unconditionally (not just inside the Push branch below) since the in-app feed entry
         // reuses the same title/body/url a push notification would use, independent of whether push
-        // delivery itself ends up allowed for a given recipient.
-        var pushPayload = EventReminderPushContent.Build(occurrenceDetails, calendarEvent.Id, dueReminder.MinutesBeforeStart);
+        // delivery itself ends up allowed for this reader.
+        var recordResult = await notificationRecorder.RecordAndFilterAsync(
+            recipient.Id, channelsAskedFor, NotificationEntryKind.PushReminder,
+            EventReminderPushContent.Build([.. reminders.Select(each => each.Occurrence)]), cancellationToken);
 
-        // Sent best-effort per recipient: the claim above guards the whole event+lead-time pair, not
-        // each recipient individually (see TryClaimAsync), so once at least one notification has gone
-        // out the claim must stay in place - releasing it would make a later poll resend to whoever
-        // already received it. Only when every single recipient's e-mail fails (or the channel has no
-        // e-mail leg to begin with) does nothing go out, making a full retry on the next poll safe -
-        // PushNotificationDispatcher never throws, so a push send always counts as delivered here. A
-        // recipient's recorded feed entry counts the same way (see NotificationRecordResult).
-        var sentToAnyRecipient = false;
-        foreach (var recipient in recipients)
+        var spokenFor = new List<DueEventReminder>();
+        if (recordResult.EntryRecorded)
         {
-            var recordResult = await notificationRecorder.RecordAndFilterAsync(
-                recipient.Id, channel, NotificationEntryKind.PushReminder,
-                pushPayload, cancellationToken);
-            sentToAnyRecipient = sentToAnyRecipient || recordResult.EntryRecorded;
-            var recipientChannel = recordResult.AllowedChannel;
+            spokenFor.AddRange(reminders.Select(each => each.Reminder));
+        }
 
-            if (recipientChannel.HasFlag(NotificationChannel.Email))
+        var allowed = recordResult.AllowedChannel;
+
+        if (allowed.HasFlag(NotificationChannel.Email) && Asking(reminders, NotificationChannel.Email) is { Count: > 0 } toEmail)
+        {
+            try
             {
-                try
-                {
-                    var (subject, body) = EventReminderEmailContent.Build(occurrenceDetails, dueReminder.MinutesBeforeStart);
-                    await emailSender.SendAsync(recipient.Email, subject, body, cancellationToken);
-                    sentToAnyRecipient = true;
-                }
-                catch (Exception exception) when (exception is not OperationCanceledException)
-                {
-                    logger.LogError(
-                        exception, "Failed to send calendar event reminder e-mail to user {RecipientUserId} for event {EventId}",
-                        recipient.Id, calendarEvent.Id);
-                }
+                var (subject, body) = EventReminderEmailContent.Build([.. toEmail.Select(each => each.Occurrence)]);
+                await emailSender.SendAsync(recipient.Email, subject, body, cancellationToken);
+                spokenFor.AddRange(toEmail.Select(each => each.Reminder));
             }
-
-            if (recipientChannel.HasFlag(NotificationChannel.Push))
+            catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                await pushNotificationDispatcher.NotifyUserAsync(recipient.Id, pushPayload, cancellationToken);
-                sentToAnyRecipient = true;
+                logger.LogError(
+                    exception, "Failed to send calendar event reminder e-mail to user {RecipientUserId}", recipient.Id);
             }
         }
 
-        if (!sentToAnyRecipient)
+        if (allowed.HasFlag(NotificationChannel.Push) && Asking(reminders, NotificationChannel.Push) is { Count: > 0 } toPush)
         {
-            await eventReminderRepository.ReleaseClaimAsync(
-                calendarEvent.Id, dueReminder.MinutesBeforeStart, dueReminder.OccurrenceStartUtc, cancellationToken);
+            await pushNotificationDispatcher.NotifyUserAsync(
+                recipient.Id, EventReminderPushContent.Build([.. toPush.Select(each => each.Occurrence)]), cancellationToken);
+            spokenFor.AddRange(toPush.Select(each => each.Reminder));
         }
+
+        return spokenFor;
     }
+
+    /// <summary>The channel the event asked its reminders to arrive on - an event-wide setting, not a per-guest one.</summary>
+    private static NotificationChannel ChannelOf(DueEventReminder dueReminder)
+        => dueReminder.CalendarEvent.Details.ReminderNotificationChannel;
+
+    /// <summary>The reminders whose event asks for this channel: an event set to e-mail only is named in the e-mail and not in the push.</summary>
+    private static List<(DueEventReminder Reminder, EventReminderOccurrence Occurrence)> Asking(
+        IReadOnlyList<(DueEventReminder Reminder, EventReminderOccurrence Occurrence)> reminders, NotificationChannel channel)
+        => [.. reminders.Where(each => ChannelOf(each.Reminder).HasFlag(channel))];
 
     /// <summary>
     /// The event details to notify about: as stored, for a non-recurring event or a recurring event's very

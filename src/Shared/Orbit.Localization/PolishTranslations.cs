@@ -1291,6 +1291,19 @@ public static class PolishTranslations
         ["Task \"{0}\" from list \"{1}\" is still waiting to be done."] = "Zadanie „{0}” z listy „{1}” wciąż czeka na wykonanie.",
         ["Overdue task"] = "Zaległe zadanie",
         ["Task \"{0}\" from list \"{1}\" is overdue."] = "Zadanie „{0}” z listy „{1}” jest zaległe.",
+        // What everything falling due in the same minute is said in, rather than one notice per entry -
+        // see SeveralEntriesAtOnce. Always about more than one, so the plural needs no counting.
+        ["Overdue tasks"] = "Zaległe zadania",
+        ["These tasks are overdue: {0}."] = "Te zadania są zaległe: {0}.",
+        ["Task reminders"] = "Przypomnienia o zadaniach",
+        ["These tasks are still waiting to be done: {0}."] = "Te zadania wciąż czekają na wykonanie: {0}.",
+        // The same gathering for the calendar and the shelves - see EventReminderPushContent and
+        // InventoryExpiryPushContent. Its own title key rather than "Expiring soon", whose Polish is
+        // about one thing.
+        ["Upcoming events"] = "Zbliżające się wydarzenia",
+        ["These events are coming up: {0}."] = "Zbliżają się te wydarzenia: {0}.",
+        ["Things expiring soon"] = "Rzeczy, które niedługo się przeterminują",
+        ["These are nearing their expiry date: {0}."] = "Te rzeczy zbliżają się do daty ważności: {0}.",
         ["Added to a group"] = "Dodano Cię do grupy",
         ["{0} added you to {1}"] = "{0} dodał(a) Cię do grupy {1}",
         // One sentence per kind rather than a noun dropped into a shared one: Polish declines what was

@@ -104,6 +104,13 @@ Separately, a value referring to a placeholder its English does not supply throw
 written, and every entry is formatted once to prove it cannot. Fewer placeholders than the English is
 allowed and deliberate: Polish plurals do not map onto an English "list"/"lists".
 
+**bUnit's `Click()` does not wait for the press.** While the renderer's dispatcher is busy it only
+queues the event and returns, so an assertion straight after it can run before the handler has. That
+is harmless on an idle component and a flake on one that is still finishing something - an
+`OnAfterRenderAsync`, or a render a background task asked for through `InvokeAsync`. After waiting for
+such a render, press with `await element.ClickAsync(new MouseEventArgs())`: `NameSuggestionSourceTests`
+failed about one run in five with a second suite alongside, for exactly this, until 2026-09-21.
+
 ### `tests/Orbit.Mobile.Tests`
 
 Covers the mobile client's platform-independent half (`src/Clients/Orbit.Mobile`): the API clients and
@@ -177,6 +184,10 @@ Two things it does that are worth copying if this loop ever grows a sibling:
   also true of a loop that never started, and a fixed delay cannot tell the two apart.
 - **It does its own waiting.** bUnit's `WaitForAssertion` re-checks when the component renders, and a
   tick behind a hidden tab renders nothing at all - which is exactly the case being tested.
+- **It counts on the renderer's dispatcher.** bUnit's `JSInterop.Invocations` is a plain list that a
+  running loop adds to from the dispatcher; reading it from the test's thread while a tick was adding
+  one threw "Collection was modified" about one run in fifteen. Anything that reads it while a timer is
+  still going needs `Renderer.Dispatcher.InvokeAsync` around the read.
 
 What it covers: nothing is polled behind a hidden tab and something is when the tab is in front; the
 conversation list is read twice in ten ticks rather than on every one, while the messages are read on
@@ -265,6 +276,27 @@ adb shell am start -n "com.orbitmaui.android/crc64a05c27c563ec9e41.MainActivity"
 - **Ask which activity rather than guessing:** `adb shell cmd package resolve-activity --brief
   com.orbitmaui.android`. `monkey -c LAUNCHER` does not start this package, and logcat prints a second,
   different hash that is not the launcher.
+- **A walk of its own, without touching the Compose stack**, as used on 2026-09-21 for issues #293,
+  #294 and #296: run `Orbit.Api` from the worktree on port 5099 against a database of its own
+  (`ConnectionStrings__Orbit` = the user-secrets string with `Database=orbit_android`, and
+  `WebClientOrigins=http://localhost:5098`; it migrates on start), build the phone with
+  `-p:OrbitDevelopmentApiPort=5099`, and run `Orbit.Web` on 5098 pointed at it. **The web's API address
+  cannot be set from outside at run time in .NET 10**: the WebAssembly app's environment is fixed at
+  build time, so an `ASPNETCORE_ENVIRONMENT` or `Blazor-Environment` header is ignored and the app
+  keeps asking port 5080. Pass `-p:WasmApplicationEnvironmentName=Android` to `dotnet run` and put
+  `{"ApiBaseAddress": "http://localhost:5099/"}` in a local, uncommitted
+  `wwwroot/appsettings.Android.json`. A preview entry in `.claude/launch.json` that runs a script needs
+  Git's `bash.exe` by full path: a bare `bash` resolves to WSL's and fails with `execvpe /bin/bash`.
+- **Whether the phone is really talking to that API is in the drawer, not the avatar menu**: the drawer
+  heads with "Synced" (or why not) beside "Orbit", and ends with the build's hash. Check both before
+  trusting anything seen - an app pointed at nothing still shows its local store and looks healthy.
+- **A second `-t:Install` with unchanged sources pushes nothing**, and the emulator keeps running the
+  previous build. Delete `obj/Debug/net10.0-android/upload.flag` and `.../devices.cache` first, and
+  check it landed with `adb shell run-as com.orbitmaui.android ls files/.__override__/arm64-v8a`.
+  **Never delete `files/.__override__` after an ordinary install**: under fast deployment that directory
+  *is* the code, and the app then aborts with "No assemblies found... Assuming this is part of Fast
+  Deployment", which reads exactly like a crash. Clearing it is only for a hand-installed
+  `-p:EmbedAssembliesIntoApk=true` build.
 - **Give a fast-deployed launch 25-30 seconds before touching the screen.** Taps aimed at the splash
   queue up and Android raises "Orbit isn't responding", which reads exactly like a crash caused by the
   change under test.
@@ -370,6 +402,14 @@ without — go in through `initialize`, and `getLinesAsJson` reads the surface b
 back saying something different is the failure, and a kind of line the read does not know comes back as
 an empty one, which is exactly the shape of the fault.
 
+**And one key pressed on an element's line**, added 2026-09-21 for the same kind of fault from the other
+side. After a picture or a rule is put in, the caret is left on its line, before it, since neither has a
+place for words - so the next key lands there. A picture's line was guarded: the key is stopped and
+handed to C#, whose `NoteSurfaceEdits.Replace` puts the words under it. A rule's line was not, so the
+first thing typed after drawing a rule went into the rule's own element, and the next read dropped it.
+Three checks, a picture's line and both kinds of rule: nothing typed into the element's line, and the
+key handed over as a `replace`. With the guard taken off the rule, exactly the two rule checks fail.
+
 It runs in the `test` job of `main_orbit.yml` beside the other two, on the browser they already
 installed. By hand:
 
@@ -417,6 +457,27 @@ and was written by putting the fault in and watching it go red.
 ```bash
 npm install --no-save playwright@1 && npx playwright install chromium && node ci/verify-map-markers.mjs
 ```
+
+### The five browser harnesses on a machine without node
+
+Docker is enough, the same way the diagrams check runs without node (`uml/README.md`). The image
+carries Chromium already, so nothing is downloaded but the npm package - and **the package has to be
+pinned to the image's own version**. `playwright@1` pulls a newer one than the image's browser build and
+every harness fails with *"Executable doesn't exist at /ms-playwright/chromium_headless_shell-…"*,
+which reads like a broken image rather than a version mismatch.
+
+```bash
+docker run --rm -v "$PWD:/w:ro" mcr.microsoft.com/playwright:v1.56.0-noble sh -c \
+  "mkdir -p /app/src/Clients/Orbit.Web && cp -r /w/ci /app/ci \
+   && cp -r /w/src/Clients/Orbit.Web/wwwroot /app/src/Clients/Orbit.Web/wwwroot \
+   && cd /app && npm install --no-save playwright@1.56.0 >/dev/null 2>&1 \
+   && for h in browser-crypto push-notifications note-surface menu-anchor map-markers; do node ci/verify-\$h.mjs; done"
+```
+
+Only `ci/` and `wwwroot` are copied, into a container that is thrown away: the repository is mounted
+read-only, and copying `src/` whole would drag every `bin` and `obj` along. On Windows, pass the path as
+`-v "E:\path\to\worktree:/w:ro"`, and from Git Bash prefix the command with `MSYS_NO_PATHCONV=1` so the
+`/w` is not rewritten into a Windows path.
 
 ## Running locally
 

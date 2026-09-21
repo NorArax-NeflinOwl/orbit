@@ -28,6 +28,33 @@ public static class EventReminderEmailContent
         return (subject, string.Join(Environment.NewLine, bodyLines));
     }
 
+    /// <summary>
+    /// One e-mail for everything that fell due in the same poll, a few lines per event - the same
+    /// gathering EventReminderPushContent does. A single reminder keeps the mail it always had.
+    /// </summary>
+    public static (string Subject, string Body) Build(IReadOnlyList<EventReminderOccurrence> reminders)
+    {
+        if (reminders is [var theOnlyOne])
+        {
+            return Build(theOnlyOne.Details, theOnlyOne.MinutesBeforeStart);
+        }
+
+        var subject = $"Reminder: {reminders.Count} upcoming events";
+        var bodyLines = new List<string> { "These events are coming up:" };
+        foreach (var reminder in reminders)
+        {
+            bodyLines.Add(string.Empty);
+            bodyLines.Add($"\"{reminder.Details.Title}\" starts {FormatLeadTime(reminder.MinutesBeforeStart)}.");
+            bodyLines.Add($"Start: {reminder.Details.StartUtc.LocalDateTime:dd.MM.yyyy HH:mm}");
+            if (reminder.Details.Location is { } location)
+            {
+                bodyLines.Add($"Location: {FormatLocation(location)}");
+            }
+        }
+
+        return (subject, string.Join(Environment.NewLine, bodyLines));
+    }
+
     private static string FormatLeadTime(int minutesBeforeStart)
         => minutesBeforeStart switch
         {

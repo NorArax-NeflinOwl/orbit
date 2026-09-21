@@ -765,6 +765,38 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- ~~**The phone's separator tool is out of sight, with nothing to say it is there**~~ Done the same day,
+  the first of the three ways out, as the user chose: the row's trailing edge fades into the page while
+  there are tools past it, and stops fading once the row is scrolled to its end (`ToolRowFade`,
+  `NoteDetailPage.ShowWhatIsPastTheEdge`). Seen on the emulator both ways. As noticed: (2026-09-21, seen on
+  a Pixel 7 emulator at 1080 px). The note screen's tool row scrolls sideways and stops short of Save;
+  its XAML comment counts on the last tool being cut off at the edge, which "says there is more to
+  swipe to". On this width it is not: the row ends on the table tool drawn whole, and the separator sits
+  wholly past it, so the screen shows no sign of a rule tool at all - found only by reading the markup
+  and swiping. Nothing is lost, it is only not found. Ways out, each a design call rather than a fix:
+  a fade on the row's trailing edge whenever it can scroll, a narrower `TouchSize` for the row, or the
+  separator put before the table. Not changed on spec for that reason.
+
+- ~~**The other two reminder services still send one notice per thing**~~ Done the same day, both: the
+  calendar gathers per reader (a reminder reaches the owner and every guest who accepted), the shelves
+  per owner, and both were walked on a running stack - two appointments and two things going off each
+  arrived as one notice, landed where they should on the phone, and were not sent again on later polls.
+  See `info/functionality.md`, "The calendar and the shelves gather the same way". As noticed:
+  (2026-09-21). The task services
+  gather everything an owner has falling due in the same poll into one notice now
+  (`SeveralEntriesAtOnce`), because the second notice of a minute is the one nobody sees - the web
+  banners the newest entry only and both clients keep a minimum gap between banners.
+  `CalendarEventReminderBackgroundService` and the inventory's expiry warnings have the same shape and
+  the same loss: two appointments starting at nine, or three things going off on the same day, cost the
+  reader all but one banner. Left out of the round that fixed the task side because the user reported
+  deadlines, and because each has wording of its own to gather ("These events start at …"). The
+  mechanism is ready for them: one content builder taking a list, and a `GroupBy` on the owner.
+
+- **Nothing gathers across the four services.** An overdue notice and an expiry warning landing in the
+  same minute are still two notices, and only one of them is seen. Gathering those would mean a notice
+  queue per reader rather than a poll per kind - a bigger change than this one, and worth doing only if
+  it turns out to happen in practice.
+
 - **The phone still deletes a full folder** (2026-09-20). The browser now refuses one that still holds
   something (`FolderTabs.StillHolds`, and `info/functionality.md` on why). The phone's four pages -
   `NotesPage.xaml.cs`, `TasksPage.xaml.cs`, `CalendarPage.xaml.cs`, `InventoryPage.xaml.cs` - each ask
@@ -804,8 +836,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   a panel per entry (the task editor), leaving one entry cleared whichever panel was bound, including
   another entry's. Its arrow keys then did nothing and nothing said why. It takes the panel now and
   clears only its own; `ci/verify-menu-anchor.mjs` holds it.
-- **Two of Orbit.Web's test classes fail once in a while under the whole suite and pass alone**
-  (2026-09-18). `NameSuggestionSourceTests` was the timer rather than the subject - the panel waits out
+- ~~**Two of Orbit.Web's test classes fail once in a while under the whole suite and pass alone**
+  (2026-09-18).~~ **All of it found and fixed by 2026-09-21** - the cause of the `NameSuggestionSourceTests`
+  half is at the end of this entry, the other two classes' just before it. What follows is the chase as
+  it went. `NameSuggestionSourceTests` was the timer rather than the subject - the panel waits out
   a 150ms settle delay and the wait was left at bUnit's own one second, which a machine running the
   suite in parallel drifts past; both its waits now allow five seconds. **That was not the whole of
   it**, and the failure was caught in the act afterwards:
@@ -843,11 +877,32 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   the press sat between, and how many options are on screen - so the next occurrence names the cause
   rather than repeating this paragraph.
 
-  ~~`ChatThreadTests.A_notification_stays_while_their_newest_message_is_not_yet_in_view` and
-  `GroupConversationPagesTests` have each done it once in the same session.~~ Still uncaught.
-  `ChatThreadTests.A_message_not_yet_in_view_is_not_marked_read` joined them on 2026-09-20 - same class,
-  same shape, and it passed alone straight afterwards. All three turn on "not yet in view", which is the
-  intersection observer's answer and is settled by a render the test does not wait for.
+  ~~`ChatThreadTests.A_notification_stays_while_their_newest_message_is_not_yet_in_view`,
+  `ChatThreadTests.A_message_not_yet_in_view_is_not_marked_read` and `GroupConversationPagesTests`.~~
+  **Both caught and fixed 2026-09-21**, by running the web suite fifteen times three abreast and the chat
+  classes twenty-four times six abreast. Neither was what it was suspected of - "not yet in view" had
+  nothing to do with it:
+  - `ChatThreadTests` threw `InvalidOperationException: Collection was modified` from its own
+    `TicksSoFar()`. bUnit keeps JS invocations in plain lists; the poll loop adds to them on the
+    renderer's dispatcher while the test counted them from its own thread every 50 ms. Any test in the
+    class that waited on ticks could draw it, which is why it looked like three different ones. The count
+    is taken on `Renderer.Dispatcher` now. One run in fifteen before.
+  - `GroupConversationPagesTests` found a member's row by the colour of their avatar - one of 360 hues
+    hashed from a `Guid.NewGuid()` drawn once per process - so in a process where two members came out
+    the same hue, `First` took the reader's own row for Anna's and three tests failed together. Proven by
+    fixing two ids that share a hue: the old lookup failed those same three, the new one, by the name the
+    row shows, passes.
+
+  **The `NameSuggestionSourceTests` cause, 2026-09-21: bUnit's `Click()` does not wait.** While the
+  renderer's dispatcher is busy it only queues the press and returns, so the assertion ran before
+  `ChooseAsync` - and the dispatcher *was* busy, with the panel's `OnAfterRenderAsync`, which starts
+  straight after the very render `WaitForAssertion` wakes up on. Shown by holding the dispatcher for
+  300 ms on purpose: `null` straight after `Click()`, the name a moment later, and the name straight
+  after `ClickAsync`. Both tests press with `ClickAsync` now. Neither of the two `NameSuggestions` fixes
+  above was the cause, as suspected. **The same shape could be anywhere** a test clicks right after
+  waiting for a render that something off the dispatcher started; nothing else has been seen to fail
+  from it, so the rest were not changed on spec - but a flaky "nothing happened after the press" is the
+  first thing to check it against.
 
   `NameSuggestionSourceTests.A_name_of_something_says_where_it_is_and_hands_that_thing_over` failed once
   on 2026-09-20 in the full run and passed alone and in the next full run. A fourth of the same shape -
@@ -875,7 +930,8 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   always corrected; a later caller that forgets would store a time for an entry that is not done, or
   none for one that is.
 
-- **Three group chat tests failed once under the full suite and have not since.** Noticed 2026-09-12:
+- ~~**Three group chat tests failed once under the full suite and have not since.**~~ Explained and
+  fixed 2026-09-21: the avatar-colour lookup above, which is why it was always three at once. Noticed 2026-09-12:
   `GroupConversationPagesTests` failed on the first full `dotnet test Orbit.CI.slnf` after the merge,
   then passed on their own, on a re-run of that assembly, and on two further full runs, with nothing
   changed in between - so this reads as flakiness under cross-assembly parallelism rather than anything

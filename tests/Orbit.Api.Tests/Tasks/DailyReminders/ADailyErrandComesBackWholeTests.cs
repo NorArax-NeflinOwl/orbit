@@ -85,7 +85,9 @@ public sealed class ADailyErrandComesBackWholeTests : IDisposable
     }
 
     private Task ReopenAsync(TaskList taskList)
-        => new DailyTaskReminderRepository(_database.DbContext)
+        => new DailyTaskReminderRepository(
+                _database.DbContext,
+                new LinkedEntryCompletion(new TaskRepository(_database.DbContext), new LinkedTaskCompletionResolver()))
             .ReopenAsync(taskList.Items.Single().Id, Today, CancellationToken.None);
 
     private async Task<TaskItem> RereadAsync(TaskList taskList)

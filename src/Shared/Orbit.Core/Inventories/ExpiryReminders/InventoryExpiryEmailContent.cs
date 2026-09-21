@@ -12,4 +12,23 @@ public static class InventoryExpiryEmailContent
 
         return (subject, body);
     }
+
+    /// <summary>
+    /// One e-mail for everything that came near its date in the same poll, a line per thing - the same
+    /// gathering InventoryExpiryPushContent does. A single thing keeps the mail it always had.
+    /// </summary>
+    public static (string Subject, string Body) Build(IReadOnlyList<DueExpiryReminder> reminders)
+    {
+        if (reminders is [var theOnlyOne])
+        {
+            return Build(theOnlyOne);
+        }
+
+        var subject = $"{reminders.Count} things expiring soon";
+        var body = string.Join(Environment.NewLine, [
+            "These things in your inventory are nearing their expiry date:",
+            .. reminders.Select(reminder => $"- \"{reminder.Name}\" (expires: {reminder.ExpiryDate.LocalDateTime:dd.MM.yyyy})")]);
+
+        return (subject, body);
+    }
 }

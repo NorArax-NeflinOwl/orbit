@@ -71,7 +71,46 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		TableButton.Command = new Command(async () => await UseTheTableToolAsync());
 		SeparatorButton.Command = new Command(async () => await UseTheSeparatorToolAsync());
 		_viewModel.CaretPlaced += OnCaretPlaced;
+
+		// Whether the tool row's edge fades depends on how far it is scrolled, how wide it is and how
+		// wide its tools are - and the last two change as the keyboard comes and goes and a translation
+		// makes a label longer, so all three are listened to.
+		ToolRow.Scrolled += (_, _) => ShowWhatIsPastTheEdge();
+		ToolRow.SizeChanged += (_, _) => ShowWhatIsPastTheEdge();
+		ToolRowTools.SizeChanged += (_, _) => ShowWhatIsPastTheEdge();
+		PaintTheFade();
 	}
+
+	/// <summary>
+	/// Fades the tool row's trailing edge while there are tools past it, and only then - a fade over the
+	/// last tool of a row already scrolled to its end would say there is more when there is not. The row
+	/// is wider than the room it has on most phones (see the comment on it in NoteDetailPage.xaml), and on
+	/// some the last visible tool ends exactly at the edge, which left the separator tool with nothing to
+	/// say it was there at all (2026-09-21).
+	/// </summary>
+	private void ShowWhatIsPastTheEdge()
+	{
+		var pastTheEdge = ToolRowTools.Width - (ToolRow.ScrollX + ToolRow.Width);
+		ToolRowFade.IsVisible = ToolRow.Width > 0 && pastTheEdge > 1;
+	}
+
+	/// <summary>
+	/// The fade is the page's own colour, from no opacity to full, so it reads as the row running under
+	/// the page rather than as a shadow. Painted from code because the clear end must be that colour at
+	/// alpha 0 - a gradient from Transparent passes through grey on the way - and read again whenever the
+	/// theme changes (see OnAppearing).
+	/// </summary>
+	private void PaintTheFade()
+	{
+		var key = Application.Current?.RequestedTheme == AppTheme.Dark ? "PageBackgroundDark" : "PageBackgroundLight";
+		var page = Application.Current?.Resources.TryGetValue(key, out var value) is true && value is Color colour
+			? colour
+			: Colors.Transparent;
+		ToolRowFade.Background = new LinearGradientBrush(
+			[new GradientStop(page.WithAlpha(0), 0), new GradientStop(page, 1)], new Point(0, 0.5), new Point(1, 0.5));
+	}
+
+	private void RepaintTheFade(object? sender, AppThemeChangedEventArgs arguments) => PaintTheFade();
 
 	/// <summary>
 	/// Where to put the caret once a line waiting in <see cref="_toFocus"/> has its field, or null to
@@ -168,6 +207,11 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
 
+		// Listened to only while the screen is shown: the application outlives the page, and a
+		// subscription nobody takes off is a page that never goes away.
+		Application.Current!.RequestedThemeChanged += RepaintTheFade;
+		PaintTheFade();
+
 		// Back is the way out of this screen - the bar has no arrow - and this screen is the one that
 		// throws work away when it is used, because the note is written by Save and by nothing else.
 		_history.AskBeforeLeaving(MayLeaveAsync);
@@ -177,6 +221,7 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	protected override async void OnDisappearing()
 	{
 		base.OnDisappearing();
+		Application.Current!.RequestedThemeChanged -= RepaintTheFade;
 		_history.StopAskingBeforeLeaving(MayLeaveAsync);
 		await _viewModel.CloseAsync();
 	}

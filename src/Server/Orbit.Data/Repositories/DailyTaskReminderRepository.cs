@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Orbit.Core.Notifications;
+using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.DailyReminders;
 using Orbit.Data.Entities;
 
@@ -8,10 +9,12 @@ namespace Orbit.Data.Repositories;
 public sealed class DailyTaskReminderRepository : IDailyTaskReminderRepository
 {
     private readonly OrbitDbContext _dbContext;
+    private readonly LinkedEntryCompletion _linkedEntryCompletion;
 
-    public DailyTaskReminderRepository(OrbitDbContext dbContext)
+    public DailyTaskReminderRepository(OrbitDbContext dbContext, LinkedEntryCompletion linkedEntryCompletion)
     {
         _dbContext = dbContext;
+        _linkedEntryCompletion = linkedEntryCompletion;
     }
 
     public async Task<IReadOnlyList<DailyTaskReminderCandidate>> GetEligibleAsync(CancellationToken cancellationToken)
@@ -35,10 +38,10 @@ public sealed class DailyTaskReminderRepository : IDailyTaskReminderRepository
             join task in _dbContext.Tasks.AsNoTracking() on item.TaskId equals task.Id
             // A list somebody closed is not owed any more, so it stops asking: saying "no more of this"
             // and then being reminded of it every morning is the app arguing with the reader.
-            // An entry done by ways that include a list is left out with the linked ones: its stored tick
-            // cannot know that list is finished - see TaskItemAlternativeEntity.IsDone.
-            where item.RemindDaily && !task.IsCompleted && !item.LinkedTaskLists.Any()
-                && !item.Alternatives.Any(way => way.LinkedTaskListId != null)
+            // An entry standing for other lists, and one done by ways among them a list, carry a stored
+            // tick that cannot know those lists are finished - see TaskItemAlternativeEntity.IsDone. They
+            // are kept here and asked about below rather than left out, which is what used to silence them.
+            where item.RemindDaily && !task.IsCompleted
                 && item.DailyReminderNotificationChannel != "None"
                 // Finished with, either way, and the asking stops - unless the entry is work that happens
                 // again tomorrow whatever was done about it today, which on the shelf's standing round is
@@ -54,10 +57,17 @@ public sealed class DailyTaskReminderRepository : IDailyTaskReminderRepository
                 item.Description,
                 item.DueDateUtc,
                 item.DailyReminderNotificationChannel,
-                item.DailyReminderTimeOfDayMinutes
+                item.DailyReminderTimeOfDayMinutes,
+                PointsAtLists = item.LinkedTaskLists.Any() || item.Alternatives.Any(way => way.LinkedTaskListId != null)
             }).ToListAsync(cancellationToken);
 
+        // The lists behind such an entry are what say whether it is still owed - see LinkedEntryCompletion.
+        var finishedByTheirLists = await _linkedEntryCompletion.FinishedByTheirListsAsync(
+            [.. rows.Where(row => row.PointsAtLists).Select(row => new EntryPointingAtLists(row.UserId, row.Id))],
+            cancellationToken);
+
         return rows
+            .Where(row => !finishedByTheirLists.Contains(row.Id))
             .Select(row => new DailyTaskReminderCandidate(
                 row.Id,
                 row.TaskId,

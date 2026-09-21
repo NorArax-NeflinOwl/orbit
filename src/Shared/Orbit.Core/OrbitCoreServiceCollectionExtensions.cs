@@ -296,6 +296,9 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<TaskListLinkValidator>();
         // Stateless per call - safe to share a single instance for the app's lifetime.
         services.AddSingleton<LinkedTaskCompletionResolver>();
+        // Depends on ITaskRepository (scoped, backed by the DbContext), so it must be scoped too - read
+        // by the two reminder repositories, which is where the entries it answers about are found.
+        services.AddScoped<LinkedEntryCompletion>();
         // Depends on IOverdueTaskNotificationRepository (scoped, backed by the DbContext), so it must be
         // scoped too - used by Orbit.Api's OverdueTaskNotificationBackgroundService, not through
         // IDispatcher, since it's a system-level poll rather than a per-user command or query (mirrors
