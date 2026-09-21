@@ -765,7 +765,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
-- **The phone's separator tool is out of sight, with nothing to say it is there** (2026-09-21, seen on
+- ~~**The phone's separator tool is out of sight, with nothing to say it is there**~~ Done the same day,
+  the first of the three ways out, as the user chose: the row's trailing edge fades into the page while
+  there are tools past it, and stops fading once the row is scrolled to its end (`ToolRowFade`,
+  `NoteDetailPage.ShowWhatIsPastTheEdge`). Seen on the emulator both ways. As noticed: (2026-09-21, seen on
   a Pixel 7 emulator at 1080 px). The note screen's tool row scrolls sideways and stops short of Save;
   its XAML comment counts on the last tool being cut off at the edge, which "says there is more to
   swipe to". On this width it is not: the row ends on the table tool drawn whole, and the separator sits
