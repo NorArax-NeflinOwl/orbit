@@ -817,6 +817,17 @@ different question. The rule lives in the query rather than in the scheduler, so
 the real repositories (`NothingIsAnnouncedAboutFinishedWorkTests`) - an in-memory double hands back
 whatever it was seeded with, and a filter that was never written passes there.
 
+**An entry that stands for other lists is asked about rather than skipped** (2026-09-21,
+`LinkedEntryCompletion`, `AnEntryStandingForListsStillSpeaksTests`). Its stored tick is always "not
+done" (see `TaskItem.Create`), and a way that is a list is worked out on every read rather than stored,
+so no SQL filter can tell such an entry from work still owed. Both reminder queries used to answer that
+by leaving every one of them out - which meant a deadline set on an entry standing for another list
+said nothing at all when it passed, while an ordinary entry due the same minute spoke (reported by the
+user with a linked entry due at 17:00). They are kept now, and the lists behind them are resolved
+through `LinkedTaskCompletionResolver` - the same pass every read of a list already makes, so a
+reminder and the checklist cannot disagree about whether an entry is done. That is one extra read per
+owner per poll, and only for an owner who has such an entry waiting on a reminder.
+
 **The phone has folders too, since 2026-09-10.** It has no room for a row of tabs, so the folders are a
 group in the menu under the screen's name - each with the count of what is in it, which is what the
 Classical design draws. On all three screens the browser has them on: the notes, the task lists, and
@@ -933,8 +944,9 @@ installed before this, which is the case it was written for.
 - **Not sending them keeps them.** A request that says nothing about an entry's ways leaves the stored
   ones alone (`UpdateTaskListCommand.EntriesKeepingTheirAlternatives`, the sixth field to follow that
   rule). Phone builds already installed save lists without knowing ways exist.
-- **Reminders.** An entry whose ways include a list gets no daily or overdue reminder, the same as a
-  linked entry, because its stored tick cannot know that list is finished.
+- **Reminders.** An entry whose ways include a list is reminded about like any other, the same as a
+  linked entry: its stored tick cannot know that list is finished, so the lists are resolved on the poll
+  instead (`LinkedEntryCompletion`). It used to get no daily or overdue reminder at all.
 
 **A name picked from the suggestions makes the entry the same thing, not a new one** (2026-09-11,
 `TaskItem.ReferencesTaskItemId`, `TaskItemReferences`, `NameSuggestion.Sources`). The name is typed first
@@ -1299,7 +1311,6 @@ their restock tasks exactly as they would on the next save. An item's open resto
 not copied, and should not be: the errand is about the shelf it was raised from.
 
 ## Notes
-
 
 `POST /api/notes` and `PUT /api/notes/{id}` both take `{ title, content }`, where `content` is an
 ordered list of lines, each `{ text, isChecklistItem, isChecked, isFailed, style }` — a note is plain
@@ -2655,7 +2666,6 @@ true — there is nothing left for it to read.
 That is also why a private inventory **raises no restock tasks and sends no expiry reminders**: both are
 worked out from item rows that no longer exist. `IsBelowMinimum` is recomputed in the browser after
 opening the payload, the same way a private task list's completion is.
-
 
 ## The map, and the location behind it
 
