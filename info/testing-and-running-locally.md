@@ -276,6 +276,20 @@ adb shell am start -n "com.orbitmaui.android/crc64a05c27c563ec9e41.MainActivity"
 - **Ask which activity rather than guessing:** `adb shell cmd package resolve-activity --brief
   com.orbitmaui.android`. `monkey -c LAUNCHER` does not start this package, and logcat prints a second,
   different hash that is not the launcher.
+- **A walk of its own, without touching the Compose stack**, as used on 2026-09-21 for issues #293,
+  #294 and #296: run `Orbit.Api` from the worktree on port 5099 against a database of its own
+  (`ConnectionStrings__Orbit` = the user-secrets string with `Database=orbit_android`, and
+  `WebClientOrigins=http://localhost:5098`; it migrates on start), build the phone with
+  `-p:OrbitDevelopmentApiPort=5099`, and run `Orbit.Web` on 5098 pointed at it. **The web's API address
+  cannot be set from outside at run time in .NET 10**: the WebAssembly app's environment is fixed at
+  build time, so an `ASPNETCORE_ENVIRONMENT` or `Blazor-Environment` header is ignored and the app
+  keeps asking port 5080. Pass `-p:WasmApplicationEnvironmentName=Android` to `dotnet run` and put
+  `{"ApiBaseAddress": "http://localhost:5099/"}` in a local, uncommitted
+  `wwwroot/appsettings.Android.json`. A preview entry in `.claude/launch.json` that runs a script needs
+  Git's `bash.exe` by full path: a bare `bash` resolves to WSL's and fails with `execvpe /bin/bash`.
+- **Whether the phone is really talking to that API is in the drawer, not the avatar menu**: the drawer
+  heads with "Synced" (or why not) beside "Orbit", and ends with the build's hash. Check both before
+  trusting anything seen - an app pointed at nothing still shows its local store and looks healthy.
 - **A second `-t:Install` with unchanged sources pushes nothing**, and the emulator keeps running the
   previous build. Delete `obj/Debug/net10.0-android/upload.flag` and `.../devices.cache` first, and
   check it landed with `adb shell run-as com.orbitmaui.android ls files/.__override__/arm64-v8a`.
