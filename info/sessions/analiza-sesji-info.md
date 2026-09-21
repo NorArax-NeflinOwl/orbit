@@ -40,15 +40,17 @@ services #305 left out.
   has three new checks; 19/19.
 - **The calendar and the shelves gather their reminders** into one notice per reader, as #305 did for
   tasks; 13 new tests; walked live (one notice each, right destinations on the phone, no resend).
+- **The phone's note tool row fades at its trailing edge** while there are tools past it (the user's
+  choice of the three ways out, after the separator tool was found wholly off-screen at 1080 px).
+  `ToolRowFade` in `NoteDetailPage.xaml`, painted and shown from the code-behind; the wrapping `Grid` is
+  44 high on purpose - without a height it filled the screen and lifted the row to the middle. Seen on
+  the emulator: faded over the table tool, gone once scrolled to the end.
 - Last full run: `dotnet test Orbit.CI.slnf` 5179 passed / 0 failed (Api 1644, Web 1766, Mobile 1769);
   Release build 0 warnings; diagrams 18/18.
 
 ## Still failing / unknown
 
 - Nothing failing.
-- **The phone's Separator tool is off-screen** at 1080 px with nothing to hint at it
-  (`info/future-plan.md`, "Noticed while working"). A design call - a fading edge, a narrower row or a
-  different order - so it is **the user's to choose**; ask, do not pick.
 - **Nothing gathers across the four reminder services**: an overdue notice and an expiry warning in the
   same minute are still two. Written down as not worth a notice queue unless it is seen in practice.
 - Start/Share on the map from a phone is still unwalked (needs a real device's location).
