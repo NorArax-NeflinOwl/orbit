@@ -774,7 +774,12 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   a fade on the row's trailing edge whenever it can scroll, a narrower `TouchSize` for the row, or the
   separator put before the table. Not changed on spec for that reason.
 
-- **The other two reminder services still send one notice per thing** (2026-09-21). The task services
+- ~~**The other two reminder services still send one notice per thing**~~ Done the same day, both: the
+  calendar gathers per reader (a reminder reaches the owner and every guest who accepted), the shelves
+  per owner, and both were walked on a running stack - two appointments and two things going off each
+  arrived as one notice, landed where they should on the phone, and were not sent again on later polls.
+  See `info/functionality.md`, "The calendar and the shelves gather the same way". As noticed:
+  (2026-09-21). The task services
   gather everything an owner has falling due in the same poll into one notice now
   (`SeveralEntriesAtOnce`), because the second notice of a minute is the one nobody sees - the web
   banners the newest entry only and both clients keep a minimum gap between banners.

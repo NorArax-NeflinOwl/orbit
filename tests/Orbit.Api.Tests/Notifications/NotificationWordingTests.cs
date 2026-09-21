@@ -62,6 +62,16 @@ public sealed class NotificationWordingTests
                 new DueDailyTaskReminder(
                     Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Chores", "Water the plants", null,
                     NotificationChannel.Push, DateOnly.FromDateTime(DateTime.UtcNow))]),
+            EventReminderPushContent.Build([
+                new EventReminderOccurrence(details, Guid.NewGuid(), 0),
+                new EventReminderOccurrence(details with { Title = "Standup" }, Guid.NewGuid(), 15)]),
+            InventoryExpiryPushContent.Build([
+                new DueExpiryReminder(
+                    Guid.NewGuid(), InventoryId: Guid.NewGuid(), Guid.NewGuid(), "Milk", DateTimeOffset.UtcNow,
+                    NotificationChannel.Push, Quantity: 1),
+                new DueExpiryReminder(
+                    Guid.NewGuid(), InventoryId: Guid.NewGuid(), Guid.NewGuid(), "Eggs", DateTimeOffset.UtcNow,
+                    NotificationChannel.Push, Quantity: 6)]),
             OverdueTaskPushContent.Build([
                 new OverdueTaskItem(
                     Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Groceries", "Buy milk", DateTimeOffset.UtcNow),

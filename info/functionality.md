@@ -840,6 +840,17 @@ per entry (`OS_TASKS_OVERDUE`, `OS_TASKS_REMINDERS`), so an entry another replic
 about simply stays out of this notice, and an entry set to e-mail only is named in the e-mail and not in
 the push.
 
+**The calendar and the shelves gather the same way, since the same day** (`OneNoticeForEventsAndShelvesTests`).
+Two appointments whose reminders fall due in one poll are one "Upcoming events" notice naming both and
+leading to `/calendar`; the events are named and nothing more, since their lead times can differ and a
+start time would have to be written in a time zone the server does not know. Several things nearing
+their date are one "Things expiring soon" notice naming each with its date, leading to the one storage
+they are all on - with no row picked out, since a mark on one would say the others did not matter - or
+to `/inventory` when they are on several. A calendar reminder goes to the event's owner and to every
+guest who accepted it, so there it is gathered **per reader** rather than per owner: each reader gets one
+notice about everything due for them, and a reminder's claim (`OS_EVENTS_REMINDERS`, still per event,
+lead time and occurrence) is released only when nothing about it went out to anybody.
+
 **The phone has folders too, since 2026-09-10.** It has no room for a row of tabs, so the folders are a
 group in the menu under the screen's name - each with the count of what is in it, which is what the
 Classical design draws. On all three screens the browser has them on: the notes, the task lists, and
