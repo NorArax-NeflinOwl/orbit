@@ -31,4 +31,22 @@ public static class EventReminderPushContent
                 leadTime is null ? [details.Title] : [details.Title, leadTime],
                 $"/calendar/{calendarEventId}");
     }
+
+    /// <summary>
+    /// One reminder for everything of a reader's that fell due in the same poll - two appointments at
+    /// nine cost the reader the second banner otherwise, for the reason Orbit.Core.Tasks.SeveralEntriesAtOnce
+    /// gives. A single reminder says what it always said.
+    ///
+    /// The events are named and nothing else. Their lead times can differ, and a start time would have
+    /// to be written in the reader's own time zone, which the server does not know - the calendar the
+    /// notice leads to says both. It leads to the calendar rather than to one of them, since there is no
+    /// page for "these two".
+    /// </summary>
+    public static PushNotificationPayload Build(IReadOnlyList<EventReminderOccurrence> reminders)
+        => reminders is [var theOnlyOne]
+            ? Build(theOnlyOne.Details, theOnlyOne.CalendarEventId, theOnlyOne.MinutesBeforeStart)
+            : new PushNotificationPayload(
+                "Upcoming events", "These events are coming up: {0}.",
+                [string.Join(", ", reminders.Select(reminder => reminder.Details.Title))],
+                "/calendar");
 }

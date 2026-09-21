@@ -39,7 +39,7 @@ public sealed class NameSuggestionSourceTests : OrbitTestContext
     }
 
     [Fact]
-    public void A_name_of_something_says_where_it_is_and_hands_that_thing_over()
+    public async Task A_name_of_something_says_where_it_is_and_hands_that_thing_over()
     {
         NameSuggestionPick? picked = null;
         var cut = RenderComponent<NameSuggestions>(parameters => parameters
@@ -58,7 +58,7 @@ public sealed class NameSuggestionSourceTests : OrbitTestContext
 
         var option = cut.Find(".name-suggestion-option");
         Assert.Contains("in Burger", option.TextContent, StringComparison.Ordinal);
-        option.Click();
+        await PressAsync(option);
 
         Assert.Equal(SourceId, picked!.Source.Id);
         Assert.Equal("Sauce", picked.Name);
@@ -66,7 +66,7 @@ public sealed class NameSuggestionSourceTests : OrbitTestContext
 
     /// <summary>A kind switched off on the Preferences tab is offered as its words alone - see DevicePreferences.KindsFilledFromSuggestions.</summary>
     [Fact]
-    public void A_kind_switched_off_is_offered_as_words_only()
+    public async Task A_kind_switched_off_is_offered_as_words_only()
     {
         string? chosen = null;
         NameSuggestionPick? picked = null;
@@ -87,15 +87,20 @@ public sealed class NameSuggestionSourceTests : OrbitTestContext
             () => Assert.Single(cut.FindAll(".name-suggestion-option")), TimeSpan.FromSeconds(5));
 
         Assert.DoesNotContain("in Burger", cut.Find(".name-suggestion-option").TextContent, StringComparison.Ordinal);
-        var rendersBefore = cut.RenderCount;
-        cut.Find(".name-suggestion-option").Click();
+        await PressAsync(cut.Find(".name-suggestion-option"));
 
-        Assert.True(
-            chosen is not null,
-            $"nothing was chosen. picked={(picked is null ? "null" : picked.Name)}, "
-                + $"renders before the press={rendersBefore}, after={cut.RenderCount}, "
-                + $"options now={cut.FindAll(".name-suggestion-option").Count}");
         Assert.Equal("Sauce", chosen);
         Assert.Null(picked);
     }
+
+    /// <summary>
+    /// A press that is waited for. bUnit's own <c>Click()</c> does not wait: while the renderer's
+    /// dispatcher is still busy - here with the panel's OnAfterRenderAsync, which starts straight after
+    /// the render WaitForAssertion was woken by - the press is only queued, and the assertion ran before
+    /// ChooseAsync did. That was the "nothing was chosen" both tests here failed with under load, caught
+    /// 2026-09-21 by holding the dispatcher on purpose: null straight after Click(), the name a moment
+    /// later, and the name straight after ClickAsync.
+    /// </summary>
+    private static Task PressAsync(AngleSharp.Dom.IElement option)
+        => option.ClickAsync(new Microsoft.AspNetCore.Components.Web.MouseEventArgs());
 }

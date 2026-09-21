@@ -52,6 +52,31 @@ public sealed class NotificationWordingTests
                 NotificationChannel.Push, DateOnly.FromDateTime(DateTime.UtcNow))),
             OverdueTaskPushContent.Build(new OverdueTaskItem(
                 Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Groceries", "Buy milk", DateTimeOffset.UtcNow)),
+            // And what each of the two says about everything that fell due in the same minute - see
+            // SeveralEntriesAtOnce. A sentence only a collective notice uses is still a sentence a
+            // Polish reader has to be able to read.
+            DailyTaskReminderPushContent.Build([
+                new DueDailyTaskReminder(
+                    Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Groceries", "Buy milk", null,
+                    NotificationChannel.Push, DateOnly.FromDateTime(DateTime.UtcNow)),
+                new DueDailyTaskReminder(
+                    Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Chores", "Water the plants", null,
+                    NotificationChannel.Push, DateOnly.FromDateTime(DateTime.UtcNow))]),
+            EventReminderPushContent.Build([
+                new EventReminderOccurrence(details, Guid.NewGuid(), 0),
+                new EventReminderOccurrence(details with { Title = "Standup" }, Guid.NewGuid(), 15)]),
+            InventoryExpiryPushContent.Build([
+                new DueExpiryReminder(
+                    Guid.NewGuid(), InventoryId: Guid.NewGuid(), Guid.NewGuid(), "Milk", DateTimeOffset.UtcNow,
+                    NotificationChannel.Push, Quantity: 1),
+                new DueExpiryReminder(
+                    Guid.NewGuid(), InventoryId: Guid.NewGuid(), Guid.NewGuid(), "Eggs", DateTimeOffset.UtcNow,
+                    NotificationChannel.Push, Quantity: 6)]),
+            OverdueTaskPushContent.Build([
+                new OverdueTaskItem(
+                    Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Groceries", "Buy milk", DateTimeOffset.UtcNow),
+                new OverdueTaskItem(
+                    Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Chores", "Water the plants", DateTimeOffset.UtcNow)]),
             .. SharingSentences()
         ];
     }

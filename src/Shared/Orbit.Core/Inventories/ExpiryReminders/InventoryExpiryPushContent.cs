@@ -22,4 +22,29 @@ public static class InventoryExpiryPushContent
             // that settles this entry is the one before the "?" - see NotificationUrl.
             NotificationUrl.Naming($"/inventory/{reminder.InventoryId}", reminder.InventoryItemId));
     }
+
+    /// <summary>
+    /// One warning for everything of an owner's that came near its date in the same poll - the second
+    /// warning of a minute is the one nobody sees, for the reason Orbit.Core.Tasks.SeveralEntriesAtOnce
+    /// gives. A single thing says what it always said, row mark and all.
+    ///
+    /// Each thing is named with its date, since two of them rarely go off on the same day and the date
+    /// is what says which to use first. It leads to the one storage they are all on, without a row
+    /// picked out - a mark on one row would say the others did not matter - or to the storages
+    /// themselves when they are on several.
+    /// </summary>
+    public static PushNotificationPayload Build(IReadOnlyList<DueExpiryReminder> reminders)
+    {
+        if (reminders is [var theOnlyOne])
+        {
+            return Build(theOnlyOne);
+        }
+
+        var named = string.Join(", ", reminders.Select(reminder =>
+            $"{reminder.Name} ({reminder.ExpiryDate.LocalDateTime.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture)})"));
+        var inventoryIds = reminders.Select(reminder => reminder.InventoryId).Distinct().ToList();
+        return new PushNotificationPayload(
+            "Things expiring soon", "These are nearing their expiry date: {0}.", [named],
+            inventoryIds is [var theOnlyInventory] ? $"/inventory/{theOnlyInventory}" : "/inventory");
+    }
 }

@@ -156,6 +156,9 @@ public sealed class NotificationOpeningTests
     // server sends.
     [InlineData("/inventory", "ShowInventory")]
     [InlineData("/map", "ShowMap")]
+    // A notice about entries on more than one list names no list either, for the same reason - see
+    // Orbit.Core.Tasks.SeveralEntriesAtOnce.
+    [InlineData("/tasks", "ShowTasks")]
     public async Task The_destinations_that_need_nothing_looked_up_open_straight_away(string url, string expected)
     {
         using var context = new OpeningContext();

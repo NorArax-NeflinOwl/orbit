@@ -1,4 +1,5 @@
 using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.Tasks;
 using Orbit.Data;
 using Orbit.Data.Entities;
 using Orbit.Data.Repositories;
@@ -29,14 +30,26 @@ public sealed class NothingIsAnnouncedAboutFinishedWorkTests : IDisposable
 
     public void Dispose() => _database.Dispose();
 
+    /// <summary>
+    /// The real repositories, each with the live completion an entry pointing at other lists is read by -
+    /// see LinkedEntryCompletion, which walks the owner's own lists through the resolver every read of a
+    /// list already uses. An ordinary entry never reaches it, so these tests are unaffected by it.
+    /// </summary>
+    private OverdueTaskNotificationRepository OverdueNotices => new(_dbContext, LinkedEntries);
+
+    /// <inheritdoc cref="OverdueNotices"/>
+    private DailyTaskReminderRepository DailyReminders => new(_dbContext, LinkedEntries);
+
+    private LinkedEntryCompletion LinkedEntries
+        => new(new TaskRepository(_dbContext), new LinkedTaskCompletionResolver());
+
     [Fact]
     public async Task An_overdue_entry_on_an_open_list_is_still_announced()
     {
         AListWithAnOverdueEntry(isListDone: false);
         await _dbContext.SaveChangesAsync();
 
-        var overdue = await new OverdueTaskNotificationRepository(_dbContext)
-            .GetIncompleteWithDueDateAsync(CancellationToken.None);
+        var overdue = await OverdueNotices.GetIncompleteWithDueDateAsync(CancellationToken.None);
 
         Assert.Single(overdue);
     }
@@ -51,8 +64,7 @@ public sealed class NothingIsAnnouncedAboutFinishedWorkTests : IDisposable
         AListWithAnOverdueEntry(isListDone: true);
         await _dbContext.SaveChangesAsync();
 
-        var overdue = await new OverdueTaskNotificationRepository(_dbContext)
-            .GetIncompleteWithDueDateAsync(CancellationToken.None);
+        var overdue = await OverdueNotices.GetIncompleteWithDueDateAsync(CancellationToken.None);
 
         Assert.Empty(overdue);
     }
@@ -63,7 +75,7 @@ public sealed class NothingIsAnnouncedAboutFinishedWorkTests : IDisposable
         AListWithADailyReminder(isListDone: false);
         await _dbContext.SaveChangesAsync();
 
-        var due = await new DailyTaskReminderRepository(_dbContext).GetEligibleAsync(CancellationToken.None);
+        var due = await DailyReminders.GetEligibleAsync(CancellationToken.None);
 
         Assert.Single(due);
     }
@@ -75,7 +87,7 @@ public sealed class NothingIsAnnouncedAboutFinishedWorkTests : IDisposable
         AListWithADailyReminder(isListDone: true);
         await _dbContext.SaveChangesAsync();
 
-        var due = await new DailyTaskReminderRepository(_dbContext).GetEligibleAsync(CancellationToken.None);
+        var due = await DailyReminders.GetEligibleAsync(CancellationToken.None);
 
         Assert.Empty(due);
     }
@@ -92,7 +104,7 @@ public sealed class NothingIsAnnouncedAboutFinishedWorkTests : IDisposable
         AListWithADailyReminder(isListDone: false, isEntryDone: true);
         await _dbContext.SaveChangesAsync();
 
-        var due = await new DailyTaskReminderRepository(_dbContext).GetEligibleAsync(CancellationToken.None);
+        var due = await DailyReminders.GetEligibleAsync(CancellationToken.None);
 
         Assert.Empty(due);
     }
@@ -104,7 +116,7 @@ public sealed class NothingIsAnnouncedAboutFinishedWorkTests : IDisposable
         AListWithADailyReminder(isListDone: false, isEntryFailed: true);
         await _dbContext.SaveChangesAsync();
 
-        var due = await new DailyTaskReminderRepository(_dbContext).GetEligibleAsync(CancellationToken.None);
+        var due = await DailyReminders.GetEligibleAsync(CancellationToken.None);
 
         Assert.Empty(due);
     }
@@ -120,7 +132,7 @@ public sealed class NothingIsAnnouncedAboutFinishedWorkTests : IDisposable
         var taskListId = AShelfsRestockList(isEntryDone: true);
         await _dbContext.SaveChangesAsync();
 
-        var due = await new DailyTaskReminderRepository(_dbContext).GetEligibleAsync(CancellationToken.None);
+        var due = await DailyReminders.GetEligibleAsync(CancellationToken.None);
 
         var standing = Assert.Single(due);
         Assert.Equal(taskListId, standing.TaskListId);
@@ -145,7 +157,7 @@ public sealed class NothingIsAnnouncedAboutFinishedWorkTests : IDisposable
         });
         await _dbContext.SaveChangesAsync();
 
-        var due = await new DailyTaskReminderRepository(_dbContext).GetEligibleAsync(CancellationToken.None);
+        var due = await DailyReminders.GetEligibleAsync(CancellationToken.None);
 
         Assert.Empty(due);
     }
@@ -157,7 +169,7 @@ public sealed class NothingIsAnnouncedAboutFinishedWorkTests : IDisposable
         AListWithADailyReminder(isListDone: false);
         await _dbContext.SaveChangesAsync();
 
-        var due = await new DailyTaskReminderRepository(_dbContext).GetEligibleAsync(CancellationToken.None);
+        var due = await DailyReminders.GetEligibleAsync(CancellationToken.None);
 
         Assert.False(Assert.Single(due).ComesRoundAgain);
     }

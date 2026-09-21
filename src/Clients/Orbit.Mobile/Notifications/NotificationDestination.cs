@@ -131,6 +131,10 @@ public sealed record NotificationDestination(
                 => ForOffer(kind, shareId, sharerUserId)
                     ?? ForId(NotificationTarget.Conversation, sharerUserId),
             ["tasks", var taskListId] => ForId(NotificationTarget.TaskList, taskListId),
+            // A notice about entries on more than one list names no list at all - there is no page for
+            // "these four entries", so it leads to the lists themselves (see
+            // Orbit.Core.Tasks.SeveralEntriesAtOnce). The same shape "/inventory" already had.
+            ["tasks"] => new NotificationDestination(NotificationTarget.TaskList),
             // The path names the event, but the app has no screen for one event on its own, so the id
             // is deliberately dropped rather than carried to somewhere that cannot use it.
             ["calendar", _] or ["calendar"] => new NotificationDestination(NotificationTarget.Calendar),

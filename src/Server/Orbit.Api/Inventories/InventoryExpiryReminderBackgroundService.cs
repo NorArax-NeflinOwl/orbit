@@ -69,16 +69,53 @@ public sealed class InventoryExpiryReminderBackgroundService : BackgroundService
         var notificationRecorder = scope.ServiceProvider.GetRequiredService<NotificationRecorder>();
 
         var dueReminders = await scheduler.FindDueRemindersAsync(DateTimeOffset.UtcNow, cancellationToken, MaxRemindersPerPoll);
-        foreach (var reminder in dueReminders)
+
+        // One warning per owner rather than one per thing - see InventoryExpiryPushContent's list overload
+        // for what the second warning of a minute costs the reader.
+        foreach (var owner in dueReminders.GroupBy(reminder => reminder.UserId))
         {
+            var claimedReminders = await ClaimAsync(owner, inventoryExpiryNotificationRepository, cancellationToken);
+            if (claimedReminders.Count == 0)
+            {
+                continue;
+            }
+
             await NotifyOwnerAsync(
-                reminder, inventoryExpiryNotificationRepository, userRepository, emailSender, pushNotificationDispatcher,
-                notificationRecorder, cancellationToken);
+                owner.Key, claimedReminders, inventoryExpiryNotificationRepository, userRepository, emailSender,
+                pushNotificationDispatcher, notificationRecorder, cancellationToken);
         }
     }
 
+    /// <summary>
+    /// Reserves each of one owner's (item, expiry date) pairs before anything is sent, and answers with
+    /// the ones this poll won - the unique index backing TryClaimAsync (see its comment) is the actual
+    /// concurrency guard, letting more than one instance of this background service poll at the same
+    /// time without a distributed lock or message queue: whichever instance's claim lands first wins,
+    /// the other backs off here. Claimed one at a time even though the warning is collective, so a thing
+    /// another instance is already warning about simply stays out of this one.
+    /// </summary>
+    private static async Task<IReadOnlyList<DueExpiryReminder>> ClaimAsync(
+        IEnumerable<DueExpiryReminder> dueReminders,
+        IInventoryExpiryNotificationRepository inventoryExpiryNotificationRepository,
+        CancellationToken cancellationToken)
+    {
+        var claimedReminders = new List<DueExpiryReminder>();
+        foreach (var reminder in dueReminders)
+        {
+            var claimedAtUtc = DateTimeOffset.UtcNow;
+            if (await inventoryExpiryNotificationRepository.TryClaimAsync(
+                reminder.InventoryItemId, reminder.ExpiryDate, claimedAtUtc, cancellationToken))
+            {
+                claimedReminders.Add(reminder);
+            }
+        }
+
+        return claimedReminders;
+    }
+
     private async Task NotifyOwnerAsync(
-        DueExpiryReminder reminder,
+        Guid userId,
+        IReadOnlyList<DueExpiryReminder> claimedReminders,
         IInventoryExpiryNotificationRepository inventoryExpiryNotificationRepository,
         IUserRepository userRepository,
         IEmailSender emailSender,
@@ -86,65 +123,87 @@ public sealed class InventoryExpiryReminderBackgroundService : BackgroundService
         NotificationRecorder notificationRecorder,
         CancellationToken cancellationToken)
     {
-        // Reserves this specific (item, expiry date) pair before doing anything else - the unique index
-        // backing TryClaimAsync (see its comment) is the actual concurrency guard, letting more than one
-        // instance of this background service poll at the same time without a distributed lock or
-        // message queue: whichever instance's claim lands first wins, the other backs off here.
-        var claimedAtUtc = DateTimeOffset.UtcNow;
-        var claimed = await inventoryExpiryNotificationRepository.TryClaimAsync(
-            reminder.InventoryItemId, reminder.ExpiryDate, claimedAtUtc, cancellationToken);
-        if (!claimed)
-        {
-            return;
-        }
-
         // Built unconditionally (not just inside the Push branch below) since the in-app feed entry
         // reuses the same title/body/url a push notification would use, independent of whether push
-        // delivery itself ends up allowed.
-        var payload = InventoryExpiryPushContent.Build(reminder);
+        // delivery itself ends up allowed. It names every claimed thing, whatever channel each asked for:
+        // the feed is where the reader looks back, and a thing missing from it was never warned about.
+        var payload = InventoryExpiryPushContent.Build(claimedReminders);
         var recordResult = await notificationRecorder.RecordAndFilterAsync(
-            reminder.UserId, reminder.NotificationChannel, NotificationEntryKind.PushReminder,
-            payload, cancellationToken);
+            userId, ChannelsAskedFor(claimedReminders), NotificationEntryKind.PushReminder, payload, cancellationToken);
 
-        // Sent best-effort per channel, mirroring OverdueTaskNotificationBackgroundService: the claim
-        // above guards the whole (item, expiry date) pair, not each channel individually, so once at
-        // least one notification has gone out the claim must stay in place - releasing it would make a
-        // later poll resend it. A recorded feed entry counts the same as a channel send here (see
-        // NotificationRecordResult).
-        var sentOnAnyChannel = recordResult.EntryRecorded;
+        // Sent best-effort per channel, mirroring OverdueTaskNotificationBackgroundService: a claim guards
+        // its whole (item, expiry date) pair, not each channel individually, so once something has gone
+        // out about a thing its claim must stay in place - releasing it would make a later poll resend
+        // it. A recorded feed entry counts the same as a channel send here (see NotificationRecordResult).
+        var spokenFor = new HashSet<Guid>();
+        if (recordResult.EntryRecorded)
+        {
+            spokenFor.UnionWith(claimedReminders.Select(reminder => reminder.InventoryItemId));
+        }
+
         var channel = recordResult.AllowedChannel;
 
-        if (channel.HasFlag(NotificationChannel.Push))
+        if (channel.HasFlag(NotificationChannel.Push) && Asking(claimedReminders, NotificationChannel.Push) is { Count: > 0 } toPush)
         {
-            await pushNotificationDispatcher.NotifyUserAsync(reminder.UserId, payload, cancellationToken);
-            sentOnAnyChannel = true;
+            await pushNotificationDispatcher.NotifyUserAsync(userId, InventoryExpiryPushContent.Build(toPush), cancellationToken);
+            spokenFor.UnionWith(toPush.Select(reminder => reminder.InventoryItemId));
         }
 
-        if (channel.HasFlag(NotificationChannel.Email))
+        if (channel.HasFlag(NotificationChannel.Email) && Asking(claimedReminders, NotificationChannel.Email) is { Count: > 0 } toEmail)
         {
-            try
-            {
-                var owner = await userRepository.GetByIdAsync(reminder.UserId, cancellationToken);
-                if (owner is not null)
-                {
-                    var (subject, body) = InventoryExpiryEmailContent.Build(reminder);
-                    await emailSender.SendAsync(owner.Email, subject, body, cancellationToken);
-                    sentOnAnyChannel = true;
-                }
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                _logger.LogError(
-                    exception, "Failed to send an inventory expiry e-mail for item {InventoryItemId}", reminder.InventoryItemId);
-            }
+            spokenFor.UnionWith(await EmailOwnerAsync(userId, toEmail, userRepository, emailSender, cancellationToken));
         }
 
-        if (!sentOnAnyChannel)
+        foreach (var unannounced in claimedReminders.Where(reminder => !spokenFor.Contains(reminder.InventoryItemId)))
         {
-            // Nothing actually went out (a build failure, a missing owner, or the channel had no legs to
-            // begin with) - release the claim so this item is retried on the next poll instead of
+            // Nothing actually went out about this one (a missing owner, a failed e-mail, or the channel
+            // had no legs to begin with) - release its claim so it is retried on the next poll instead of
             // silently never being warned about.
-            await inventoryExpiryNotificationRepository.ReleaseClaimAsync(reminder.InventoryItemId, reminder.ExpiryDate, cancellationToken);
+            await inventoryExpiryNotificationRepository.ReleaseClaimAsync(
+                unannounced.InventoryItemId, unannounced.ExpiryDate, cancellationToken);
         }
     }
+
+    /// <summary>
+    /// Answers with the things the e-mail actually named, which is none of them when there is nobody to
+    /// send it to or the send fails. A failed e-mail is logged rather than thrown: the other channels
+    /// have already spoken, and the things it would have named are simply left unclaimed for next poll.
+    /// </summary>
+    private async Task<IReadOnlyList<Guid>> EmailOwnerAsync(
+        Guid userId,
+        IReadOnlyList<DueExpiryReminder> reminders,
+        IUserRepository userRepository,
+        IEmailSender emailSender,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var owner = await userRepository.GetByIdAsync(userId, cancellationToken);
+            if (owner is null)
+            {
+                return [];
+            }
+
+            var (subject, body) = InventoryExpiryEmailContent.Build(reminders);
+            await emailSender.SendAsync(owner.Email, subject, body, cancellationToken);
+            return [.. reminders.Select(reminder => reminder.InventoryItemId)];
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogError(exception, "Failed to send an inventory expiry e-mail to user {UserId}", userId);
+            return [];
+        }
+    }
+
+    /// <summary>Every channel any of these things asks for, which is what the account's own settings filter.</summary>
+    private static NotificationChannel ChannelsAskedFor(IReadOnlyList<DueExpiryReminder> reminders)
+        => reminders.Aggregate(NotificationChannel.None, (channels, reminder) => channels | reminder.NotificationChannel);
+
+    /// <summary>
+    /// The things whose own setting asks for this channel. One collective warning still says only what
+    /// the things in it chose to be told on: a thing set to e-mail only is named in the e-mail and not in
+    /// the push.
+    /// </summary>
+    private static List<DueExpiryReminder> Asking(IReadOnlyList<DueExpiryReminder> reminders, NotificationChannel channel)
+        => [.. reminders.Where(reminder => reminder.NotificationChannel.HasFlag(channel))];
 }

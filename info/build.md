@@ -203,3 +203,11 @@ same request against a Production-configured run before believing a 500.
   branch a worktree is on (113 commits, on 2026-09-10). A phone reporting "Couldn't sync" while the
   API answers 404 to a `/changes` endpoint the client expects is this, not a client bug: rebuild from
   the worktree with `docker compose -p orbit up -d --no-deps --build orbit-api orbit-web`.
+- **A Razor loop variable named `section` does not compile** on SDK 10.0.112 and later: inside a code
+  block `@section` is read as the layout directive. It broke `TaskListChecklist.razor` once
+  (renamed `checklistSection`); name such a variable anything else.
+- **A Linux container with no .NET SDK** (a remote session) can still get one when the direct download
+  host is refused by a proxy: install `packages-microsoft-prod.deb` from
+  `https://packages.microsoft.com/config/ubuntu/24.04/` and then `apt-get install dotnet-sdk-10.0`.
+  Restoring from nuget.org works from there. Without an SDK nothing is compiled, and a branch written
+  that way has to be built and run on a machine that has one before it is merged.

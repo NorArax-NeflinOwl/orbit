@@ -284,11 +284,22 @@ public sealed class GroupConversationPagesTests : OrbitTestContext
         return RowFor(cut, memberUserId);
     }
 
-    /// <summary>Which row is whose, by the colour their avatar is drawn in - see AvatarHelper.</summary>
+    /// <summary>
+    /// Which row is whose, by the name it shows - what a reader goes by. It used to go by the colour of
+    /// the avatar, which is one of 360 hues hashed from an id these tests draw at random once per process -
+    /// so now and then two members came out the same colour and the whole class failed at once, finding
+    /// the reader's own row where Anna's was asked for (caught 2026-09-21, after three uncaught sightings).
+    /// </summary>
     private static AngleSharp.Dom.IElement RowFor(IRenderedFragment cut, Guid memberUserId)
         => cut.FindAll(".group-member-row")
-            .First(candidate => candidate.QuerySelector(".avatar-sm")!
-                .GetAttribute("style")!.Contains(AvatarHelper.AvatarColor(memberUserId), StringComparison.Ordinal));
+            .Single(candidate => candidate.QuerySelector(".row-title")!.TextContent.Trim() == NameShownFor(memberUserId));
+
+    /// <summary>The name each member's row shows - see GroupMembers.DisplayNameFor and the contacts RegisterChatApi answers with.</summary>
+    private static string NameShownFor(Guid memberUserId)
+        => memberUserId == OwnUserId ? "You"
+            : memberUserId == OtherUserId ? "Anna Kowalska"
+            : memberUserId == AddableUserId ? "Piotr Nowak"
+            : throw new ArgumentOutOfRangeException(nameof(memberUserId), memberUserId, "Not one of this test's members.");
 
     private static AngleSharp.Dom.IElement ItemSaying(AngleSharp.Dom.IElement menu, string label)
         => menu.QuerySelectorAll(".avatar-dropdown-item").First(item => item.TextContent.Trim() == label);

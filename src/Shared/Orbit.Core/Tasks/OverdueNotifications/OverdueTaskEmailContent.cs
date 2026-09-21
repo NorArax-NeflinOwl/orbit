@@ -12,4 +12,27 @@ public static class OverdueTaskEmailContent
 
         return (subject, body);
     }
+
+    /// <summary>
+    /// One e-mail for everything that fell due in the same poll, a line per entry - the same gathering
+    /// the push notification does (see <see cref="OverdueTaskPushContent"/>), because an inbox with four
+    /// mails a minute apart is no easier to read than four banners nobody saw. One entry keeps the mail
+    /// it always had.
+    /// </summary>
+    public static (string Subject, string Body) Build(IReadOnlyList<OverdueTaskItem> overdueTaskItems)
+    {
+        if (overdueTaskItems is [var theOnlyOne])
+        {
+            return Build(theOnlyOne);
+        }
+
+        var subject = $"{overdueTaskItems.Count} overdue tasks";
+        var body = string.Join(Environment.NewLine, [
+            "These tasks are overdue:",
+            .. overdueTaskItems.Select(item =>
+                $"- \"{item.Description}\" from list \"{item.TaskListTitle}\" " +
+                $"(due: {item.DueDateUtc.LocalDateTime:dd.MM.yyyy HH:mm})")]);
+
+        return (subject, body);
+    }
 }

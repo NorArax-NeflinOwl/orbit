@@ -163,9 +163,13 @@ public sealed class NotificationOpener
     private async Task<NotificationOpenOutcome> OpenTaskListAsync(
         Guid? taskListServerId, CancellationToken cancellationToken)
     {
+        // No list named means the notice is about entries on several of them (see
+        // Orbit.Core.Tasks.SeveralEntriesAtOnce), so the lists themselves are where it lands - the same
+        // answer a shelf-less "/inventory" address gets below.
         if (taskListServerId is not { } serverId)
         {
-            return NotificationOpenOutcome.NowhereToGo;
+            _navigator.ShowTasks();
+            return NotificationOpenOutcome.Opened;
         }
 
         var taskList = await FindTaskListAsync(serverId, cancellationToken)

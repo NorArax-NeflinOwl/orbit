@@ -75,16 +75,68 @@ public sealed class DailyTaskReminderBackgroundService : BackgroundService
         // per-user time zone.
         var dueReminders = await scheduler.FindDueRemindersAsync(
             DateTimeOffset.Now, LookBackWindow, cancellationToken, maxResults: MaxRemindersPerPoll);
-        foreach (var dueReminder in dueReminders)
+
+        // One reminder per owner rather than one per entry - see SeveralEntriesAtOnce for what the
+        // second notice of a minute costs the reader.
+        foreach (var owner in dueReminders.GroupBy(dueReminder => dueReminder.UserId))
         {
+            var claimedReminders = await ClaimAsync(owner, dailyTaskReminderRepository, cancellationToken);
+            if (claimedReminders.Count == 0)
+            {
+                continue;
+            }
+
             await SendReminderAsync(
-                dueReminder, dailyTaskReminderRepository, userRepository, emailSender, pushNotificationDispatcher, notificationRecorder,
-                _logger, cancellationToken);
+                owner.Key, claimedReminders, dailyTaskReminderRepository, userRepository, emailSender,
+                pushNotificationDispatcher, notificationRecorder, _logger, cancellationToken);
         }
     }
 
+    /// <summary>
+    /// Reserves each of one owner's due reminders before anything is sent, and answers with the ones
+    /// this poll won - the unique index backing TryClaimAsync (see its comment) is the actual
+    /// concurrency guard, letting more than one instance of this background service poll at the same
+    /// time without a distributed lock or message queue: whichever instance's claim lands first wins,
+    /// the other backs off here. Claimed one at a time even though the reminder is collective, so an
+    /// entry another instance is already speaking about simply stays out of this one.
+    ///
+    /// Only what comes round again is brought back, and it is brought back before the reminder goes out
+    /// so the notification is about something still to do. An ordinary errand is not touched at all: it
+    /// is asked about until it is done, and a reminder that un-ticked it would be the app taking the
+    /// reader's answer away - see DailyTaskReminderCandidate.ComesRoundAgain, and the decision recorded
+    /// in info/future-plan.md. Its deadline is left alone for the same reason.
+    /// </summary>
+    private static async Task<IReadOnlyList<DueDailyTaskReminder>> ClaimAsync(
+        IEnumerable<DueDailyTaskReminder> dueReminders,
+        IDailyTaskReminderRepository dailyTaskReminderRepository,
+        CancellationToken cancellationToken)
+    {
+        var claimedReminders = new List<DueDailyTaskReminder>();
+        foreach (var dueReminder in dueReminders)
+        {
+            var claimedAtUtc = DateTimeOffset.UtcNow;
+            var claimed = await dailyTaskReminderRepository.TryClaimAsync(
+                dueReminder.TaskItemId, dueReminder.ReminderDate, claimedAtUtc, cancellationToken);
+            if (!claimed)
+            {
+                continue;
+            }
+
+            if (dueReminder.ComesRoundAgain)
+            {
+                await dailyTaskReminderRepository.ReopenAsync(
+                    dueReminder.TaskItemId, dueReminder.ReminderDate, cancellationToken);
+            }
+
+            claimedReminders.Add(dueReminder);
+        }
+
+        return claimedReminders;
+    }
+
     private static async Task SendReminderAsync(
-        DueDailyTaskReminder dueReminder,
+        Guid userId,
+        IReadOnlyList<DueDailyTaskReminder> claimedReminders,
         IDailyTaskReminderRepository dailyTaskReminderRepository,
         IUserRepository userRepository,
         IEmailSender emailSender,
@@ -93,76 +145,92 @@ public sealed class DailyTaskReminderBackgroundService : BackgroundService
         ILogger<DailyTaskReminderBackgroundService> logger,
         CancellationToken cancellationToken)
     {
-        // Reserves this specific (task item, date) pair before doing anything else - the unique index
-        // backing TryClaimAsync (see its comment) is the actual concurrency guard, letting more than one
-        // instance of this background service poll at the same time without a distributed lock or message
-        // queue: whichever instance's claim lands first wins, the other backs off here.
-        var claimedAtUtc = DateTimeOffset.UtcNow;
-        var claimed = await dailyTaskReminderRepository.TryClaimAsync(
-            dueReminder.TaskItemId, dueReminder.ReminderDate, claimedAtUtc, cancellationToken);
-        if (!claimed)
-        {
-            return;
-        }
-
-        // Only what comes round again is brought back, and it is brought back before the reminder goes
-        // out so the notification is about something still to do. An ordinary errand is not touched at
-        // all: it is asked about until it is done, and a reminder that un-ticked it would be the app
-        // taking the reader's answer away - see DailyTaskReminderCandidate.ComesRoundAgain, and the
-        // decision recorded in info/future-plan.md. Its deadline is left alone for the same reason.
-        if (dueReminder.ComesRoundAgain)
-        {
-            await dailyTaskReminderRepository.ReopenAsync(
-                dueReminder.TaskItemId, dueReminder.ReminderDate, cancellationToken);
-        }
-
         // Built unconditionally (not just inside the Push branch below) since the in-app feed entry
         // reuses the same title/body/url a push notification would use, independent of whether push
-        // delivery itself ends up allowed.
-        var payload = DailyTaskReminderPushContent.Build(dueReminder);
+        // delivery itself ends up allowed. It names every claimed entry, whatever channel each of them
+        // asked for: the feed is where the reader looks back, and an entry missing from it is an entry
+        // that was never announced at all.
+        var payload = DailyTaskReminderPushContent.Build(claimedReminders);
         var recordResult = await notificationRecorder.RecordAndFilterAsync(
-            dueReminder.UserId, dueReminder.NotificationChannel, NotificationEntryKind.PushReminder,
-            payload, cancellationToken);
+            userId, ChannelsAskedFor(claimedReminders), NotificationEntryKind.PushReminder, payload, cancellationToken);
 
-        // Sent best-effort per channel, mirroring CalendarEventReminderBackgroundService: the claim above
-        // guards the whole (task item, date) pair, not each channel individually, so once at least one
-        // notification has gone out the claim must stay in place - releasing it would resend on a later poll.
-        // A recorded feed entry counts the same as a channel send here (see NotificationRecordResult) -
-        // both globally-disabled delivery channels shouldn't make this reminder look unclaimed again.
-        var sentOnAnyChannel = recordResult.EntryRecorded;
+        // Sent best-effort per channel, mirroring CalendarEventReminderBackgroundService: a claim guards
+        // its whole (task item, date) pair, not each channel individually, so once something has gone out
+        // about an entry its claim must stay in place - releasing it would resend on a later poll. A
+        // recorded feed entry counts the same as a channel send here (see NotificationRecordResult) -
+        // both globally-disabled delivery channels shouldn't make these reminders look unclaimed again.
+        var spokenFor = new HashSet<Guid>();
+        if (recordResult.EntryRecorded)
+        {
+            spokenFor.UnionWith(claimedReminders.Select(dueReminder => dueReminder.TaskItemId));
+        }
+
         var channel = recordResult.AllowedChannel;
 
-        if (channel.HasFlag(NotificationChannel.Push))
+        if (channel.HasFlag(NotificationChannel.Push) && Asking(claimedReminders, NotificationChannel.Push) is { Count: > 0 } toPush)
         {
-            await pushNotificationDispatcher.NotifyUserAsync(dueReminder.UserId, payload, cancellationToken);
-            sentOnAnyChannel = true;
+            await pushNotificationDispatcher.NotifyUserAsync(userId, DailyTaskReminderPushContent.Build(toPush), cancellationToken);
+            spokenFor.UnionWith(toPush.Select(dueReminder => dueReminder.TaskItemId));
         }
 
-        if (channel.HasFlag(NotificationChannel.Email))
+        if (channel.HasFlag(NotificationChannel.Email) && Asking(claimedReminders, NotificationChannel.Email) is { Count: > 0 } toEmail)
         {
-            try
-            {
-                var owner = await userRepository.GetByIdAsync(dueReminder.UserId, cancellationToken);
-                if (owner is not null)
-                {
-                    var (subject, body) = DailyTaskReminderEmailContent.Build(dueReminder);
-                    await emailSender.SendAsync(owner.Email, subject, body, cancellationToken);
-                    sentOnAnyChannel = true;
-                }
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                logger.LogError(
-                    exception, "Failed to send a daily task reminder e-mail for task item {TaskItemId}", dueReminder.TaskItemId);
-            }
+            spokenFor.UnionWith(await EmailOwnerAsync(userId, toEmail, userRepository, emailSender, logger, cancellationToken));
         }
 
-        if (!sentOnAnyChannel)
+        foreach (var unannounced in claimedReminders.Where(dueReminder => !spokenFor.Contains(dueReminder.TaskItemId)))
         {
-            // Nothing actually went out (a build failure, a missing owner, or the channel had no legs to
-            // begin with) - release the claim so today's reminder is retried on the next poll instead of
-            // silently never being sent.
-            await dailyTaskReminderRepository.ReleaseClaimAsync(dueReminder.TaskItemId, dueReminder.ReminderDate, cancellationToken);
+            // Nothing actually went out about this one (a missing owner, a failed e-mail, or the channel
+            // had no legs to begin with) - release its claim so today's reminder is retried on the next
+            // poll instead of silently never being sent.
+            await dailyTaskReminderRepository.ReleaseClaimAsync(
+                unannounced.TaskItemId, unannounced.ReminderDate, cancellationToken);
         }
     }
+
+    /// <summary>
+    /// Answers with the entries the e-mail actually named, which is none of them when there is nobody to
+    /// send it to or the send fails. A failed e-mail is logged rather than thrown: the other channels
+    /// have already spoken, and the entries it would have named are simply left unclaimed for next poll.
+    /// </summary>
+    private static async Task<IReadOnlyList<Guid>> EmailOwnerAsync(
+        Guid userId,
+        IReadOnlyList<DueDailyTaskReminder> dueReminders,
+        IUserRepository userRepository,
+        IEmailSender emailSender,
+        ILogger<DailyTaskReminderBackgroundService> logger,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var owner = await userRepository.GetByIdAsync(userId, cancellationToken);
+            if (owner is null)
+            {
+                return [];
+            }
+
+            var (subject, body) = DailyTaskReminderEmailContent.Build(dueReminders);
+            await emailSender.SendAsync(owner.Email, subject, body, cancellationToken);
+            return [.. dueReminders.Select(dueReminder => dueReminder.TaskItemId)];
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogError(exception, "Failed to send a daily task reminder e-mail to user {UserId}", userId);
+            return [];
+        }
+    }
+
+    /// <summary>Every channel any of these reminders asks for, which is what the account's own settings filter.</summary>
+    private static NotificationChannel ChannelsAskedFor(IReadOnlyList<DueDailyTaskReminder> dueReminders)
+        => dueReminders.Aggregate(
+            NotificationChannel.None, (channels, dueReminder) => channels | dueReminder.NotificationChannel);
+
+    /// <summary>
+    /// The reminders whose own setting asks for this channel - see TaskItemReminders.DailyChannel. One
+    /// collective reminder still says only what the entries in it chose to be told on: an entry set to
+    /// e-mail only is named in the e-mail and not in the push.
+    /// </summary>
+    private static List<DueDailyTaskReminder> Asking(
+        IReadOnlyList<DueDailyTaskReminder> dueReminders, NotificationChannel channel)
+        => [.. dueReminders.Where(dueReminder => dueReminder.NotificationChannel.HasFlag(channel))];
 }
