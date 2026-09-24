@@ -2247,10 +2247,12 @@ public static class PolishTranslations
         ["Share a link"] = "Udostępnij linkiem",
 
         // Asking whoever owns something to let you change it, and seeing that ask arrive.
-        ["Asked to edit"] = "Prosi o prawo edycji",
         // What the owner reads when the ask arrives - the kind of thing in the accusative ("a note" and
         // the three beside it), then its name.
         ["Asked to edit {0}: {1}"] = "Prosi o prawo edycji: {0} „{1}”",
+        // The phone says the same thing in two lines, the name being the second of them, so it needs the
+        // sentence without it - see EditAccessRequest.AskedToEdit.
+        ["Asked to edit {0}"] = "Prosi o prawo edycji: {0}",
         ["Asked them. They will see it in your conversation."] = "Poproszono. Zobaczy to w Waszej rozmowie.",
         ["Couldn't send that request."] = "Nie udało się wysłać tej prośby.",
         ["Stop the link"] = "Wyłącz link",

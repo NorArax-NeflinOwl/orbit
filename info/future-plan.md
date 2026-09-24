@@ -3076,8 +3076,11 @@ down whole rather than started, so nothing in it depends on being remembered.
   the phone drew the request and offered nothing to press, so the only way to say yes was to find the
   thing and share it again by hand. There is an **Allow editing** button on it now, which shares it back
   at `EditOnly` exactly as the browser's own answer does.
-  Still unproven: the reported case itself, which needs two real accounts on two devices - and the
-  phone's bubble does not name *what kind of thing* was asked about the way the browser's
-  "Asked to edit a note: Shopping" does (`Chat.razor`'s `DescribeItemType`). Naming the kind needs the
-  kind through to the row and a converter to translate it, since `ReadableChatMessage` holds no
-  `Translations`.
+  **The bubble names the kind since 2026-09-24**, the way the browser's "Asked to edit a note: Shopping"
+  does: the words are `EditAccessRequest.AskedToEdit` in `Orbit.Mobile`, where a test can read them, and
+  `AskedToEditConverter` reaches for `Translations` on the row's behalf - the row is read out of
+  ciphertext by a project that knows nothing about a screen. The name stays on its own line under it,
+  which is the shape every other structured bubble on the phone has. A place is named rather than
+  falling through to "an inventory", which is the one place this says more than `Chat.razor` does.
+
+  Still unproven: the reported case itself, which needs two real accounts on two devices.
