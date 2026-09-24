@@ -1439,8 +1439,22 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   **Done 2026-09-11, the user's choice:** the link runs the other way. Saving a list on the web makes a
   place for each Location entry (`TaskEntryPlaces`), and the place names its entry
   (`Place.SourceTaskItemId`). The point is still stored once, on the place. On the map these places are
-  grouped under their list, can be hidden, and open their list from the pin. The phone does not make
-  them yet - see functionality.md, "A task list's Location entry keeps a place of its own".
+  grouped under their list, can be hidden, and open their list from the pin.
+
+  **The phone does not make them yet**, and as of 2026-09-24 it at least stops throwing the link away:
+  `LocalPlace.SourceTaskItemId` is read from the server and kept (`APlaceRemembersTheEntryItCameFrom`),
+  so a place the browser made from an entry is now something the phone can tell apart from one kept by
+  hand. Nothing draws that difference there yet - the list and the map still show both alike, which is
+  what functionality.md's "A task list's Location entry keeps a place of its own" describes.
+
+  What *making* them there still needs, and the question in the middle of it: the browser hands
+  `TaskEntryPlaces` the **server's** task list id, and a phone saves lists that the server has never
+  seen. So either a place made on a phone waits for its list to have a server id - which means the
+  making cannot simply follow the save - or it carries the local one and disagrees with every place the
+  browser made for the same list. The rest is a straight port and needs no decision: name the place
+  after the entry, the point from `PlaceSearch` (the phone's Nominatim, the browser's rule - the point
+  it already had if the address has not changed, else the words looked up, else no place until a later
+  save), sealed when the list is, and a place whose entry is gone goes with it.
 
 - **Why the map's Start and Share do nothing on a phone: two of the three causes are ruled out.** Both
   are hidden below 680px as of 2026-09-09 (`.map-panel-start`, `.map-panel-share`), on a report that

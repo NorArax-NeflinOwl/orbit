@@ -36,14 +36,14 @@ internal sealed class FakePlacesServer : HttpMessageHandler
     public PlaceDto AddPlace(
         string name, string address = "Piękna 1, Warszawa", double latitude = 52.2297, double longitude = 21.0122,
         bool isShared = false, string? sharedBy = null, string accessLevel = "CanEdit",
-        bool isSharedWithOthers = false, bool isArchived = false)
+        bool isSharedWithOthers = false, bool isArchived = false, Guid? sourceTaskItemId = null)
     {
         var now = _timeProvider.GetUtcNow();
         var place = new PlaceDto(
             Guid.NewGuid(), name, string.Empty, new EventLocationDto(address, latitude, longitude),
             Colour: string.Empty, Priority: "Normal", TaskListIds: [], now, now,
             isShared, sharedBy, accessLevel, isShared ? Guid.NewGuid() : null, isSharedWithOthers,
-            IsArchived: isArchived);
+            SourceTaskItemId: sourceTaskItemId, IsArchived: isArchived);
 
         _places[place.Id] = place;
         return place;
@@ -92,7 +92,8 @@ internal sealed class FakePlacesServer : HttpMessageHandler
         var place = new PlaceDto(
             Guid.NewGuid(), asked!.Name, asked.Description, asked.Where, asked.Colour, asked.Priority,
             asked.TaskListIds ?? [], now, now,
-            IsPrivate: asked.IsPrivate, EncryptedContent: asked.EncryptedContent);
+            IsPrivate: asked.IsPrivate, EncryptedContent: asked.EncryptedContent,
+            SourceTaskItemId: asked.SourceTaskItemId);
 
         _places[place.Id] = place;
         return Json(place.Id);
@@ -116,6 +117,9 @@ internal sealed class FakePlacesServer : HttpMessageHandler
         }
 
         var asked = await request.Content!.ReadFromJsonAsync<SavePlaceRequest>(cancellationToken);
+        // SourceTaskItemId is deliberately not among what a save replaces, as on the real server: null
+        // there means "leave the entry this place answers to alone", so a place edited on a phone -
+        // which sends none - is not cut loose from the entry it was made from. See SavePlaceRequest.
         _places[placeId] = stored with
         {
             Name = asked!.Name,
