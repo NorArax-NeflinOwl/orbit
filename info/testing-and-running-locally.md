@@ -508,6 +508,25 @@ runtime. This starts:
   `/api/notes`, `/api/tasks`, `/api/calendar-events`)
 - the [Aspire dashboard](http://localhost:18888) for live logs and traces from the API
 
+**When Docker Desktop starts and the engine never answers** (2026-09-24, Docker Desktop 4.76.0 on
+Windows): the app runs, its WSL distro runs, and every `docker` command hangs against
+`\\.\pipe\dockerDesktopLinuxEngine` until it times out. The reason is not in the daemon's own log -
+`dockerd.log` is the *last successful* start, days old, which reads like a daemon that is up. It is in
+`%LOCALAPPDATA%\Docker\log\host\com.docker.backend.exe.log`, where `backend crashed` names the service
+that could not start, and the cause is always a socket left behind by an unclean shutdown:
+
+```
+starting services: initializing Inference manager: listening on unix://...\Docker\run\dockerInference:
+remove ...: The file cannot be accessed by the system.
+```
+
+Those files (`Docker\run\dockerInference`, `docker-secrets-engine\engine.sock`, and any sibling) are
+AF_UNIX reparse points whose owner is gone: Windows refuses to delete them, and so does Docker, which is
+why restarting the app fixes nothing and why "Reset to factory defaults" is the only button it offers.
+**Rename the folder they are in** - the directory entry moves although its children cannot be deleted -
+and start Docker Desktop again; it recreates the sockets. Expect to do it twice: the crash names one
+service at a time, so the next one appears after the first is cleared.
+
 ### Accessing Orbit.Web from another device on your network
 
 The web client always calls the API under whatever origin you used to load the page — `orbit-web`'s own
