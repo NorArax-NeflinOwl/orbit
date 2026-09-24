@@ -8,7 +8,7 @@
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Calendar;assembly=Orbit.Mobile"
     x:DataType="screens:CalendarViewModel"
     x:Name="Page"
-    Title="{Binding PeriodLabel}">
+    Title="{Binding ScreenTitle}">
 
     <ContentPage.Resources>
         <!-- The bar down the left of a row in the list - see EventColourConverter, which hands over a

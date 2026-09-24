@@ -8,7 +8,7 @@
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Notes;assembly=Orbit.Mobile"
     x:DataType="screens:NotesViewModel"
     x:Name="Page"
-    Title="{controls:Translate 'Notes'}">
+    Title="{Binding ScreenTitle}">
 
     <ContentPage.Resources>
     </ContentPage.Resources>

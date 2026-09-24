@@ -1437,15 +1437,60 @@ public sealed class DashboardScreenTests
     [InlineData(DashboardCardKind.RecentChats, "ShowContacts")]
     [InlineData(DashboardCardKind.Contacts, "ShowContacts")]
     [InlineData(DashboardCardKind.SharedLocations, "ShowMap")]
-    public void A_cards_heading_opens_its_section(DashboardCardKind kind, string expectedDestination)
+    public async Task A_cards_heading_opens_its_section(DashboardCardKind kind, string expectedDestination)
     {
         using var context = new DashboardContext();
         var screen = context.Open();
 
-        screen.OpenSectionCommand.Execute(
+        await screen.OpenSectionCommand.ExecuteAsync(
             new DashboardCard(kind, "Whatever it is called", "1", []));
 
         Assert.Equal(expectedDestination, context.Navigator.LastDestination);
+    }
+
+    /// <summary>
+    /// And it opens it under the folder the dashboard is being read under, rather than under whatever
+    /// that section was last left on - which is what a card pressed from "Work" used to do (reported
+    /// 2026-09-24). Matched by name: a folder holds one kind of thing, so "Work" on the notes and
+    /// "Work" on the task lists are two stored folders and one answer here.
+    /// </summary>
+    [Fact]
+    public async Task And_it_opens_it_under_the_folder_the_dashboard_is_being_read_under()
+    {
+        using var context = new DashboardContext();
+        var notesWork = await context.Folders.CreateAsync("Work", FolderScope.Notes);
+        var tasksWork = await context.Folders.CreateAsync("Work", FolderScope.Tasks);
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(notesWork.LocalId));
+        await screen.OpenSectionCommand.ExecuteAsync(
+            new DashboardCard(DashboardCardKind.Tasks, "Tasks", "1", []));
+
+        Assert.Equal("ShowTasks", context.Navigator.LastDestination);
+        Assert.Equal(FolderKey.Of(tasksWork.LocalId), context.ChosenFolders.Read(FolderPage.Tasks));
+    }
+
+    /// <summary>
+    /// A name with no folder of its own on the screen being opened leaves that screen on Public rather
+    /// than on a tab it cannot draw - and on whatever it was last left on least of all, which would be
+    /// the bug again wearing a different hat.
+    /// </summary>
+    [Fact]
+    public async Task And_a_folder_that_section_does_not_have_leaves_it_on_the_ordinary_one()
+    {
+        using var context = new DashboardContext();
+        var notesOnly = await context.Folders.CreateAsync("Reading", FolderScope.Notes);
+        var tasksElsewhere = await context.Folders.CreateAsync("Errands", FolderScope.Tasks);
+        context.ChosenFolders.Write(FolderPage.Tasks, FolderKey.Of(tasksElsewhere.LocalId));
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(notesOnly.LocalId));
+        await screen.OpenSectionCommand.ExecuteAsync(
+            new DashboardCard(DashboardCardKind.Tasks, "Tasks", "1", []));
+
+        Assert.Equal(FolderKey.Default, context.ChosenFolders.Read(FolderPage.Tasks));
     }
 
     /// <summary>

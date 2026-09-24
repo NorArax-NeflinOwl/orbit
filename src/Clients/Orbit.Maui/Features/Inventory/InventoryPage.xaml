@@ -8,7 +8,7 @@
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Inventory;assembly=Orbit.Mobile"
     x:DataType="screens:InventoryViewModel"
     x:Name="Page"
-    Title="{controls:Translate 'Inventory'}">
+    Title="{Binding ScreenTitle}">
 
     <Grid RowDefinitions="Auto,*,Auto">
 

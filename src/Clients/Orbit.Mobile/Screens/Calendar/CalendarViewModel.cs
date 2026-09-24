@@ -123,6 +123,14 @@ public sealed partial class CalendarViewModel : ObservableObject
     public string ChosenFolderName
         => FolderChoices.FirstOrDefault(choice => choice.IsChosen)?.Name ?? string.Empty;
 
+    /// <inheritdoc cref="Notes.NotesViewModel.ScreenTitle"/>
+    /// <remarks>
+    /// The calendar's own name is the period it is showing rather than the word "Calendar" - see
+    /// <see cref="PeriodLabel"/> - so the folder joins that.
+    /// </remarks>
+    public string ScreenTitle
+        => ScreenTitleWithFolder.Of(PeriodLabel, Folders.Chosen, ChosenFolderName);
+
     /// <inheritdoc cref="Notes.NotesViewModel.NewFolderName"/>
     [ObservableProperty]
     private string _newFolderName = string.Empty;
@@ -767,6 +775,8 @@ public sealed partial class CalendarViewModel : ObservableObject
         ShowTheChosenDay(stored);
 
         OnPropertyChanged(nameof(PeriodLabel));
+        // The bar's name is the period and the folder beside it, so it follows both - see ScreenTitle.
+        OnPropertyChanged(nameof(ScreenTitle));
         OnPropertyChanged(nameof(IsShowingOneDay));
         OnPropertyChanged(nameof(IsNotShowingOneDay));
         OnPropertyChanged(nameof(HasDayTimeline));

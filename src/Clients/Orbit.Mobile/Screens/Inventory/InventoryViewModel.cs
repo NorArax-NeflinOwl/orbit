@@ -155,6 +155,10 @@ public sealed partial class InventoryViewModel : ObservableObject
     public string ChosenFolderName
         => FolderChoices.FirstOrDefault(choice => choice.IsChosen)?.Name ?? string.Empty;
 
+    /// <inheritdoc cref="Notes.NotesViewModel.ScreenTitle"/>
+    public string ScreenTitle
+        => ScreenTitleWithFolder.Of(_translations["Inventory"], Folders.Chosen, ChosenFolderName);
+
     /// <inheritdoc cref="Notes.NotesViewModel.NewFolderName"/>
     [ObservableProperty]
     private string _newFolderName = string.Empty;
@@ -504,6 +508,7 @@ public sealed partial class InventoryViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(ChosenFolderName));
+        OnPropertyChanged(nameof(ScreenTitle));
 
         _everyShelf = held;
         _stored = [.. held.Where(inventory => Folders.Holds(placements[inventory.LocalId]))];
