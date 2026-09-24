@@ -797,12 +797,13 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   queue per reader rather than a poll per kind - a bigger change than this one, and worth doing only if
   it turns out to happen in practice.
 
-- **The phone still deletes a full folder** (2026-09-20). The browser now refuses one that still holds
-  something (`FolderTabs.StillHolds`, and `info/functionality.md` on why). The phone's four pages -
-  `NotesPage.xaml.cs`, `TasksPage.xaml.cs`, `CalendarPage.xaml.cs`, `InventoryPage.xaml.cs` - each ask
-  *"Delete the folder "{0}"? Nothing in it is deleted - it goes back to Public, or to Private if it is
-  sealed."* and then do exactly that. Each needs the same question asked of its own list before the
-  entry is offered. Left for the round that touches those pages.
+- ~~**The phone still deletes a full folder**~~ (2026-09-20, done 2026-09-24). The four pages -
+  `NotesPage.xaml.cs`, `TasksPage.xaml.cs`, `CalendarPage.xaml.cs`, `InventoryPage.xaml.cs` - grey
+  "Delete folder" and say *"Move what is in it somewhere else first."* under it, the browser's own
+  words. The answer comes from `FolderTabs.ChosenStillHolds`, which each view model feeds with
+  `NoteWhatIsFiled` as it reads its rows: where a row is *filed*, not the tab it is drawn under, so a
+  folder holding nothing but things put away still holds them. The question now says what is true -
+  *"Delete the folder "{0}"? There is nothing in it - the entry goes and nothing else changes."*
 
 - ~~**An inventory is the one shared thing with no way to ask for editing, and no way off your own
   page**~~ (2026-09-20). Both done the same day, in the shape the other three have.

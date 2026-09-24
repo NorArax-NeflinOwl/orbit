@@ -215,7 +215,15 @@ public partial class TasksPage : ContentPage, ITitleMenu
 				_translations["Hide on the dashboard"],
 				() => _viewModel.ToggleShownOnTheDashboardCommand.Execute(null),
 				_viewModel.IsChosenFolderHiddenOnTheDashboard));
-			entries.Add(new ScreenMenuEntry(_translations["Delete folder"], () => _ = DeleteTheFolderAsync()));
+			// Only an empty one - see NotesPage.FolderActions, and FolderTabs.ChosenStillHolds. A
+			// finished list is still filed where its owner put it, which is why the count on the tab
+			// cannot answer this.
+			var stillHolds = _viewModel.Folders.ChosenStillHolds;
+			entries.Add(new ScreenMenuEntry(
+				_translations["Delete folder"],
+				() => _ = DeleteTheFolderAsync(),
+				canBeChosen: !stillHolds,
+				note: stillHolds ? _translations["Move what is in it somewhere else first."] : null));
 		}
 
 		return entries;
@@ -237,7 +245,7 @@ public partial class TasksPage : ContentPage, ITitleMenu
 	private async Task DeleteTheFolderAsync()
 	{
 		var question = _translations.Format(
-			"Delete the folder \"{0}\"? Nothing in it is deleted - it goes back to Public, or to Private if it is sealed.",
+			"Delete the folder \"{0}\"? There is nothing in it - the entry goes and nothing else changes.",
 			_viewModel.ChosenFolderName);
 
 		if (await Confirmation.AskAsync(this, question, _translations["Delete folder"], _translations["Cancel"]))

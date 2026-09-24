@@ -837,6 +837,32 @@ public sealed class CalendarScreenTests
         Assert.Equal(0, screen.FolderChoices.Single(choice => choice.Name == "Someday").Count);
     }
 
+    /// <summary>
+    /// Only an empty folder can be deleted, on this screen as in the browser - see
+    /// FolderTabs.ChosenStillHolds, and NoteFoldersTests, which says what deleting a full one did. A
+    /// repeat comes back as a copy for every day it falls on and every copy carries the one event's
+    /// folder, so the answer is about the event rather than the days.
+    /// </summary>
+    [Fact]
+    public async Task A_folder_with_an_event_in_it_says_it_still_holds_something()
+    {
+        using var context = new ScreenContext();
+        var standup = await context.LocalIdOfAsync(
+            await context.AddEventAsync("Standup", new DateTime(2026, 8, 20, 9, 0, 0)));
+        var screen = await context.OpenAsync();
+        var week = await context.Folders.CreateAsync("This week", FolderScope.Calendar);
+        var someday = await context.Folders.CreateAsync("Someday", FolderScope.Calendar);
+
+        await context.Events.FileAsync(standup, week.LocalId);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(week.LocalId));
+        Assert.True(screen.Folders.ChosenStillHolds);
+
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(someday.LocalId));
+        Assert.False(screen.Folders.ChosenStillHolds);
+    }
+
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();

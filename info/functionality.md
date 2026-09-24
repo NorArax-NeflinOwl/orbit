@@ -531,7 +531,10 @@ to lose, which is how the exemption was worded. The entry stays in the menu and 
 move what is in it somewhere else first: an entry that disappears teaches nobody why. "Still holds" is a
 different question from the count on the tab - something put away is under Archived wherever it is
 filed, so a folder holding nothing but archived things counts zero on its tab and still holds them. The
-phone still empties a full folder; `info/future-plan.md`.
+phone refuses the same press since 2026-09-24: its four list screens tell `FolderTabs.NoteWhatIsFiled`
+where their own rows are filed as they read them, and "Delete folder" is greyed with the same sentence
+under it while `ChosenStillHolds` is true. The question it asks once it is allowed says so - *"There is
+nothing in it - the entry goes and nothing else changes."*
 
 **A tab with nothing under it is not drawn** (2026-09-20, `FolderTabs.HoldsAnything`, applied by
 `FolderTabRow`). An empty Private or Archived tab is a press that leads to "there is nothing here", and

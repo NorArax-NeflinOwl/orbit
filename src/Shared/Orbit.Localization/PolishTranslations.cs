@@ -1039,9 +1039,10 @@ public static class PolishTranslations
         ["{0} of the chosen are somebody else's, so they were left as they are."] = "Należą do kogoś innego, więc zostały bez zmian: {0}.",
         ["{0} of the chosen can't be shared - private, somebody else's, or not on the server yet."] = "Nie da się udostępnić: {0} - prywatne, cudze albo jeszcze niewysłane na serwer.",
         ["No folder"] = "Bez folderu",
-        // Said before a folder goes, because "delete folder" reads as though its notes go too.
-        ["Delete the folder \"{0}\"? Nothing in it is deleted - it goes back to Public, or to Private if it is sealed."]
-            = "Usunąć folder \"{0}\"? Nic z niego nie ginie - wraca do Publicznych, a jeśli jest zapieczętowane, do Prywatnych.",
+        // Said before a folder goes, because "delete folder" reads as though its notes go too. Only an
+        // empty one can be deleted at all, on either client, so the question can say so outright.
+        ["Delete the folder \"{0}\"? There is nothing in it - the entry goes and nothing else changes."]
+            = "Usunąć folder \"{0}\"? Nic w nim nie ma - znika sam wpis i nic poza tym się nie zmienia.",
         // Also the heading over what can be done to the folders themselves, beside the list of them.
         ["Folder"] = "Folder",
         // Handing a whole tab on, the two ways a single thing is handed on - see FolderTabs.

@@ -325,6 +325,11 @@ public sealed partial class NotesViewModel : ObservableObject
             note => note.LocalId,
             note => Folders.Where(note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived));
 
+        // And where each note is filed, which is not the same question as the tab it is drawn under:
+        // a note put away is under Archived wherever it was filed. Asked before a folder may be
+        // deleted - see FolderTabs.NoteWhatIsFiled.
+        Folders.NoteWhatIsFiled(stored.Select(note => note.FolderId));
+
         // And which folders hold something the reader has not seen - a note somebody shared, say - so
         // the menu can say which one to open. The browser puts the same dot on the tab; following a
         // notification is how somebody arrives here, and the screen opens on whatever folder it was

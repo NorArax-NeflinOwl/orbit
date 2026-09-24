@@ -175,7 +175,15 @@ public partial class CalendarPage : ContentPage, ITitleMenu
 				_viewModel.StartRenamingTheOpenFolder();
 				UnfoldTheFolderRow();
 			}));
-			entries.Add(new ScreenMenuEntry(_translations["Delete folder"], () => _ = DeleteTheFolderAsync()));
+			// Only an empty one - see NotesPage.FolderActions, and FolderTabs.ChosenStillHolds. An
+			// event put away is under Archived wherever it was filed, which is why the count on the
+			// tab cannot answer this.
+			var stillHolds = _viewModel.Folders.ChosenStillHolds;
+			entries.Add(new ScreenMenuEntry(
+				_translations["Delete folder"],
+				() => _ = DeleteTheFolderAsync(),
+				canBeChosen: !stillHolds,
+				note: stillHolds ? _translations["Move what is in it somewhere else first."] : null));
 		}
 
 		return entries;
@@ -193,14 +201,11 @@ public partial class CalendarPage : ContentPage, ITitleMenu
 		_nameAFolder.Execute(null);
 	}
 
-	/// <summary>
-	/// Asked first, as every delete in Orbit is - and the question says what it does *not* do, because
-	/// "delete folder" reads like what is in it goes too, and it does not.
-	/// </summary>
+	/// <inheritdoc cref="Notes.NotesPage.DeleteTheFolderAsync"/>
 	private async Task DeleteTheFolderAsync()
 	{
 		var question = _translations.Format(
-			"Delete the folder \"{0}\"? Nothing in it is deleted - it goes back to Public, or to Private if it is sealed.",
+			"Delete the folder \"{0}\"? There is nothing in it - the entry goes and nothing else changes.",
 			_viewModel.ChosenFolderName);
 
 		if (await Confirmation.AskAsync(this, question, _translations["Delete folder"], _translations["Cancel"]))

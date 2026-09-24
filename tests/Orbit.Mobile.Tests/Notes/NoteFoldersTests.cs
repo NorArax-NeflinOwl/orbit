@@ -202,6 +202,66 @@ public sealed class NoteFoldersTests
     }
 
     /// <summary>
+    /// The menu asks whether the open folder still holds anything before it offers to delete it - the
+    /// browser greys the same entry on the same answer (Orbit.Web's FolderTabs.StillHolds, 2026-09-20).
+    /// Until then the phone deleted a full folder and put everything back under Public, which is a
+    /// press that quietly rearranges a screen's worth of notes under a word that promised to remove one.
+    /// </summary>
+    [Fact]
+    public async Task A_folder_with_a_note_in_it_says_it_still_holds_something()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping");
+        var screen = await context.OpenAsync();
+        var work = await context.Folders.CreateAsync("Work", FolderScope.Notes);
+
+        await context.Notes.FileAsync(note.LocalId, work.LocalId);
+        await screen.LoadCommand.ExecuteAsync(null);
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(work.LocalId));
+
+        Assert.True(screen.Folders.ChosenStillHolds);
+    }
+
+    [Fact]
+    public async Task And_an_empty_one_says_it_holds_nothing()
+    {
+        using var context = new ScreenContext();
+        await context.AddNoteAsync("Shopping");
+        var screen = await context.OpenAsync();
+        var work = await context.Folders.CreateAsync("Work", FolderScope.Notes);
+
+        await screen.LoadCommand.ExecuteAsync(null);
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(work.LocalId));
+
+        Assert.False(screen.Folders.ChosenStillHolds);
+        // And a built-in folder, which cannot be deleted at all, answers for nothing.
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(BuiltInFolder.Public));
+        Assert.False(screen.Folders.ChosenStillHolds);
+    }
+
+    /// <summary>
+    /// The trap the count on the tab falls into: a note put away is drawn under Archived wherever it
+    /// was filed, so the folder it is in counts zero and still holds it. Deleting the folder on that
+    /// count would move a note nobody was looking at.
+    /// </summary>
+    [Fact]
+    public async Task A_folder_holding_nothing_but_a_note_put_away_still_holds_it()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Old receipts");
+        var screen = await context.OpenAsync();
+        var work = await context.Folders.CreateAsync("Work", FolderScope.Notes);
+
+        await context.Notes.FileAsync(note.LocalId, work.LocalId);
+        await context.Notes.ArchiveAsync(note.LocalId, isArchived: true);
+        await screen.LoadCommand.ExecuteAsync(null);
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(work.LocalId));
+
+        Assert.Equal(0, screen.FolderChoices.Single(choice => choice.Name == "Work").Count);
+        Assert.True(screen.Folders.ChosenStillHolds);
+    }
+
+    /// <summary>
     /// A sealed note is in Private wherever it was filed - unless its owner filed it somewhere of their
     /// own, because filing beats every built-in folder. See FolderPlacement, which says why.
     /// </summary>
