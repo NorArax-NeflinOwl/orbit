@@ -315,7 +315,14 @@ adb shell am start -n "com.orbitmaui.android/crc64a05c27c563ec9e41.MainActivity"
 - **An AVD's `config.ini` must name the system image that is actually installed.** On the Windows
   machine only `google_apis` is, so an AVD whose `image.sysdir.1` or `tag.id` says
   `google_apis_playstore` will not start, and the emulator reports it as "Broken AVD system path" rather
-  than as a missing image.
+  than as a missing image. `Orbit_Pixel_API_36_pr288` is the one that does start there.
+- **`adb` is not on PATH on the Windows machine**: it is at
+  `%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe`. From Git Bash, prefix any command naming a
+  device path with `MSYS_NO_PATHCONV=1`, or `/sdcard/ui.xml` is rewritten into a Windows path before
+  `adb` ever sees it.
+- **A sideways swipe with the soft keyboard up can type.** A swipe meant to move between weeks or tabs
+  that starts over the keyboard is read as gesture typing, and the words land in whatever field has
+  focus - dismiss it first.
 - **`dumpsys input_method | grep mServedView` is the truth about focus.** `uiautomator`'s
   `focused="true"` has sat on a button while typing went somewhere else entirely.
 - **A worktree needs four gitignored files**, not three: `.env` and `docker-compose.override.yml` from
