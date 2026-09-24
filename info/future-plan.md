@@ -2845,6 +2845,69 @@ down whole rather than started, so nothing in it depends on being remembered.
   is saved, and an appointment that already had a colour or a priority opens showing it rather than
   having the entry's defaults written over it.
 
+## What the user asked for on 2026-09-24
+
+Two lists in one message, the phone's and the browser's. Written down whole before any of it was
+started, because a list this long is where things quietly go missing. Nothing here is guessed at: where
+a line needed a reading it did not state, the reading is marked as such.
+
+### Orbit.Maui
+
+- **The formatting row hides behind the keyboard once a note is long**, and the writing runs under the
+  UI. Reported as: the options are hidden while the keyboard is up, and you have to scroll by hand or
+  write a few lines before they come back; it happens when the note holds a lot of text and the writing
+  starts near its foot. **What the browser did about the same thing is the asked-for fix: keep three
+  empty lines of room at the end, for the UI to be drawn over.** (Walked on 2026-09-24 on a *short*
+  note, where the row sits clear above the keyboard - see the keyboard-inset entry above. So this is
+  about a note long enough to scroll, not about the inset padding, and the two must not be confused.)
+- **Too many icons in the note's formatting row.** The table goes under the tick-box button, which
+  becomes a menu for formatting and for putting elements in; the rest of the row moves in there too.
+- **Checking for an update does not find the newest version.** The phone holds 0.3.15 and 0.3.16 has
+  been out since the evening of 2026-09-23.
+- **The title menu cannot be scrolled**, so a long one is cut off at the foot of the screen.
+- **Still no Refresh** beside the account's name or on the navigation panel: one press to fetch the
+  newest data from the server into the local database, which also means running a sync and checking the
+  connection.
+- **Make the app feel smoother** - a light animation on an action, and between screens, rather than
+  everything arriving at once.
+- **A tile opens the wrong folder.** Going from folder A through a card opens the list of what is in
+  folder B - the folder that screen was last left on.
+- **The title panel should say which folder is being read.** Public need not be named, being the
+  default.
+
+### Orbit.Web
+
+- **A split screen.** A button in the top right divides the window into two pages, each with its own
+  navigation panel. Only in the full view, so at full HD it can be split once.
+- **The mobile view should start at 800px rather than 1100px**, so half of a full-HD screen is still the
+  full view - which is what lets the screen be split twice, three pages across at full HD.
+- **A search button beside the notifications bell.** It opens a search over everything the account
+  holds: note names and their writing, task lists and their entries, events, places on the map, and
+  inventories and what is on them.
+- **Everything from every folder, on the dashboard** - a way to see it all at once.
+- **A filter of one's own on the dashboard**, choosing what it draws. It works the way the task list's
+  tags do.
+- **Filtering by those filters and by folders on the calendar** as well.
+- **A gram is not half a gram.** Where an inventory row is measured in grams or milligrams, plus and
+  minus should move it by 50, not by 0.5.
+- **Saving an inventory still does not finish the entries that asked for it.** A row whose stock has
+  reached the minimum should tick the task entries standing for it.
+- **An expired inventory item should fail the entry that stands for it**, worked out and written
+  without anybody asking.
+- **A use-by date per piece.** Where a row holds more than one piece or package - other units count as
+  one - the list should open into its pieces, each with its own date to edit.
+- **A Setup page**, and filters are made there rather than where they are now. It also holds the
+  folders: made, renamed and given a visibility per notes, tasks, events, inventories and the map.
+- **Opening a private note says nothing about making a PIN.**
+- **"Public" becomes "All"**, and holds everything from every folder except what is private and what is
+  put away.
+
+**Read against what is already here**: "Everything from every folder on the dashboard" and *"Public
+becomes All"* are two halves of one change, and the second settles what the first should do; the folder
+half of the **Setup** page overlaps *"Hide on the dashboard"*, which is a visibility per folder kept on
+the device today (`FolderTabs.HideOnTheDashboard`), and the asked-for one is per kind rather than per
+screen.
+
 ## Smaller identified follow-ups
 
 - ~~**The phone's wait does not look like the web's yet.**~~ Fixed 2026-09-11: `OrbitLoading` (Controls) is
