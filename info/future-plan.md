@@ -1017,9 +1017,13 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
   A hold does nothing on a line with no box, or on a note with fewer than two boxes: there is nothing to
   choose it against, and a mode turned on by accident would have to be turned off by hand. Five tests in
-  `NoteDetailScreenTests.SeveralBoxes` cover what the command does; **the gesture itself is not covered
-  and has not been seen on a device** - nothing this project can run raises an Android long click, so
-  whether the hold arrives at all is the one thing still to check there.
+  `NoteDetailScreenTests.SeveralBoxes` cover what the command does; the gesture itself is covered by
+  none of them. **Held on an emulator on 2026-09-24 and it arrives**: the hint line and "Finish
+  selecting" appear, every line grows its "Select this line" control, the box that was held is the one
+  chosen - both halves at once, as this said - and the box's own tick does *not* move, so the press the
+  handler marks handled really is swallowed. A hold is raised from outside the app by
+  `adb shell input swipe <x> <y> <x> <y> 800`, which is what "nothing this project can run raises an
+  Android long click" was missing.
 
 - ~~**The phone's multi-line paste rests on an unverified Android detail.**~~ Confirmed on an emulator
   (API 36) on 2026-09-24, and the belief held: `NoteDetailViewModel.Paste` finds a pasted checklist's
@@ -2373,7 +2377,9 @@ the session that finishes one strikes it here rather than in a report nobody rea
   a `ScrollView` in the page's `*` row and a second stack in the `Auto` row below it, which never
   scrolled and took as much height as it wanted. Both are inside the one scroller now, still as two
   stacks because they read different binding contexts (the entry's own fields, and what is about the
-  entry from the list's side). **Not seen on a device.**
+  entry from the list's side). **Walked on an emulator on 2026-09-24**: the form travels as one from
+  the name down to "Move to list", Cancel and Save travelling with it, and nothing but the page's own
+  "Done: n of m" line stays put - which sits above the form rather than over it.
 - **Separators made in the browser are not read correctly on Android.** Explained on 2026-09-19: this
   is the fault `af12718d` fixed on 2026-09-16. `extractLines`, the browser's read of its own writing
   surface - which runs on every keystroke and on every save - read a table and a picture back and not a
@@ -2384,7 +2390,8 @@ the session that finishes one strikes it here rather than in a report nobody rea
   count.~~ Done for a task list's entries, which is where it was reported: the tap that opens an entry
   is on the row and the row has a transparent fill, so the empty half of a short line counts. It used
   to sit on the stack of labels, which is exactly as wide and as tall as what is written there. The
-  circle and the "⋯" answer their own presses. **Not seen on a device.**
+  circle and the "⋯" answer their own presses. **Walked on an emulator on 2026-09-24**: a press on the
+  empty half of a short entry's line, well right of the words and clear of the "⋯", opens that entry.
 - ~~**The note editor carries furniture it does not need**: the footer with information at the bottom
   goes, and the tags belong in the menu rather than on the page.~~ Done: the foot is gone - the line
   saying who shared the note in and when it last changed (that is on the note's row in the list), and

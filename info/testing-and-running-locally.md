@@ -334,6 +334,9 @@ adb shell am start -n "com.orbitmaui.android/crc64a05c27c563ec9e41.MainActivity"
 - **An empty line is invisible to `uiautomator`.** A node with no text and no `content-desc` is not
   worth printing, so a note's empty line, a box with nothing written in it yet and anything else blank
   simply is not in the dump. Take a screenshot for those rather than concluding they are not there.
+- **A long press is a swipe that goes nowhere**: `adb shell input swipe <x> <y> <x> <y> 800`. Android's
+  own long click arrives from it, which is how the hold that starts choosing several boxes in a note was
+  finally seen (2026-09-24) after being written down as something nothing here could raise.
 - **A worktree needs four gitignored files**, not three: `.env` and `docker-compose.override.yml` from
   the main checkout, and `Platforms/Android/google-services.json` plus
   `Platforms/Android/AndroidManifestOverlay.xml` from `secrets/` - see `secrets/README.md`. Without the
