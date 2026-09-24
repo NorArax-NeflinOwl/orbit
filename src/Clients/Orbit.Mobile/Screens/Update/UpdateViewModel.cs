@@ -14,9 +14,9 @@ namespace Orbit.Mobile.Screens.Update;
 /// it does not know what the reader is holding - a phone does, and a page offering an iPhone build to
 /// somebody on Android is a page they have to read past to find their half.
 ///
-/// What is on offer comes from the verdict startup already obtained, so this screen asks nobody: the
-/// server names the newer version and where it lives, per platform, and the answer is remembered across
-/// launches - see MobileVersionGate.
+/// What is on offer comes from the server, asked each time this screen is opened - the server names the
+/// newer version and where it lives, per platform, and the answer is remembered across launches so that
+/// a phone with no signal still has something to say. See MobileVersionGate.
 /// </summary>
 public sealed partial class UpdateViewModel : ObservableObject
 {
@@ -75,10 +75,23 @@ public sealed partial class UpdateViewModel : ObservableObject
         OnPropertyChanged(nameof(HasIphoneBuild));
     }
 
+    /// <summary>
+    /// Asks the server, rather than repeating what startup was told. Opening this screen *is* the
+    /// question "is there a newer one", and until 2026-09-24 it answered with the verdict from the last
+    /// launch - so a release published while the app was running, or while the phone had been offline
+    /// when it started, was invisible here however often it was opened. See
+    /// MobileVersionGate.CheckAgainAsync, which falls back to what is remembered when it cannot reach
+    /// anybody.
+    /// </summary>
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
-        var decision = await _versionGate.RememberedDecisionAsync(cancellationToken);
+        // The ask has a five-second deadline of its own, so the screen says what it is doing rather
+        // than sitting blank - which reads as a screen that has answered and found nothing.
+        Summary = _translations["Checking for a newer version…"];
+        CanUpdate = false;
+
+        var decision = await _versionGate.CheckAgainAsync(cancellationToken);
         _updateUrl = decision?.UpdateUrl;
         CanUpdate = _updateUrl is { Length: > 0 };
         Summary = Describe(decision);

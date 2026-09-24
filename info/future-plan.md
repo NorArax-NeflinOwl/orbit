@@ -2862,8 +2862,20 @@ a line needed a reading it did not state, the reading is marked as such.
   about a note long enough to scroll, not about the inset padding, and the two must not be confused.)
 - **Too many icons in the note's formatting row.** The table goes under the tick-box button, which
   becomes a menu for formatting and for putting elements in; the rest of the row moves in there too.
-- **Checking for an update does not find the newest version.** The phone holds 0.3.15 and 0.3.16 has
-  been out since the evening of 2026-09-23.
+- ~~**Checking for an update does not find the newest version.**~~ The app's half is fixed (2026-09-24):
+  the Update screen **asked nobody**. It read the verdict startup happened to obtain
+  (`RememberedDecisionAsync`), so a release published while the app was running - or one published while
+  the phone had been offline at startup - was invisible there however often the screen was opened.
+  It asks the server as it opens now (`MobileVersionGate.CheckAgainAsync`), says so while it waits, and
+  falls back to the remembered answer when it cannot reach anybody.
+
+  **Two things found looking at the rest of it, both for the user rather than the code.** The deployed
+  server was told `MobileVersion__Android__LatestVersion=0.3.17` by the release run of 2026-09-21, so a
+  *release* phone on 0.3.15 should already be offered one - and no Android release has run since, so a
+  0.3.16 built by hand was never recorded and no phone can learn of it (the release workflow is what
+  sets that env var; see `.github/workflows/android-release.yml`). And a **development build points at
+  a local API**, where `appsettings.json` leaves `LatestVersion` empty on purpose, so an update is never
+  offered there whatever is released - which is the likeliest reading of a phone that finds nothing.
 - **The title menu cannot be scrolled**, so a long one is cut off at the foot of the screen.
 - **Still no Refresh** beside the account's name or on the navigation panel: one press to fetch the
   newest data from the server into the local database, which also means running a sync and checking the
@@ -2888,8 +2900,13 @@ a line needed a reading it did not state, the reading is marked as such.
 - **A filter of one's own on the dashboard**, choosing what it draws. It works the way the task list's
   tags do.
 - **Filtering by those filters and by folders on the calendar** as well.
-- **A gram is not half a gram.** Where an inventory row is measured in grams or milligrams, plus and
-  minus should move it by 50, not by 0.5.
+- ~~**A gram is not half a gram.**~~ Done 2026-09-24 (`InventoryAmountStep`): a row measured in the
+  small units moves by fifty, everything else by half, and the two buttons say the number rather than a
+  half they no longer all move by. **Millilitres went in with milligrams** although only grams were
+  named - the same size of unit with the same problem. The rule is in `Orbit.Core` so both clients can
+  read it, and **only the browser does**: the phone's own two buttons still move by a whole one, which
+  is a difference nobody has decided on. Whether the phone should follow this or keep its whole one is
+  the open half.
 - **Saving an inventory still does not finish the entries that asked for it.** A row whose stock has
   reached the minimum should tick the task entries standing for it.
 - **An expired inventory item should fail the entry that stands for it**, worked out and written
@@ -2898,7 +2915,10 @@ a line needed a reading it did not state, the reading is marked as such.
   one - the list should open into its pieces, each with its own date to edit.
 - **A Setup page**, and filters are made there rather than where they are now. It also holds the
   folders: made, renamed and given a visibility per notes, tasks, events, inventories and the map.
-- **Opening a private note says nothing about making a PIN.**
+- ~~**Opening a private note says nothing about making a PIN.**~~ Done 2026-09-24: `BehindThePin` says
+  it over whatever is sealed while the account has no PIN at all, with the link to Options. There
+  rather than on the note's own page, because it is the one place that knows both halves - and a shelf
+  and a task list are as private as a note is.
 - **"Public" becomes "All"**, and holds everything from every folder except what is private and what is
   put away.
 

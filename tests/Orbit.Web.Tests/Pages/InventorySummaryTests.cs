@@ -180,6 +180,31 @@ public sealed class InventorySummaryTests : OrbitTestContext
         Assert.Contains("0.5", cut.Find(".shelf-batch-amount").TextContent);
     }
 
+    /// <summary>
+    /// Except where a half is no use to anybody. A row in milligrams moves by fifty, which is what was
+    /// asked for on 2026-09-24: nothing is ever weighed out half a milligram at a time, and the row
+    /// needed a hundred presses to move what one press should. Millilitres go with it - the same size
+    /// of unit with the same problem - and the buttons say the number rather than a half they no longer
+    /// all move by. See InventoryAmountStep.
+    /// </summary>
+    [Theory]
+    [InlineData("Milligram", "50", "150")]
+    [InlineData("Millilitre", "50", "150")]
+    [InlineData("Kilogram", "0.5", "100.5")]
+    [InlineData("Piece", "0.5", "100.5")]
+    public void A_row_in_the_small_units_moves_by_fifty(string unit, string step, string afterwards)
+    {
+        _shelf = [Batch(FirstBatchId, "Yeast", 100, DateTime.Today, expires: null, unit)];
+        var cut = RenderComponent<InventorySummary>(parameters => parameters.Add(page => page.InventoryId, InventoryId));
+
+        var more = cut.FindAll(".shelf-batch-count button").First(button => button.TextContent.Contains('+'));
+        Assert.Equal($"Add {step}: Yeast", more.GetAttribute("aria-label"));
+
+        more.Click();
+
+        Assert.Contains(afterwards, cut.Find(".shelf-batch-amount").TextContent);
+    }
+
     /// <summary>Half of a half is nothing, and the button that would go below it is greyed from there.</summary>
     [Fact]
     public void Counting_the_last_half_down_lands_on_nothing_rather_than_below_it()
@@ -305,9 +330,10 @@ public sealed class InventorySummaryTests : OrbitTestContext
         return bell;
     }
 
-    private static InventoryItemDto Batch(Guid id, string name, decimal quantity, DateTime added, DateTime? expires)
+    private static InventoryItemDto Batch(
+        Guid id, string name, decimal quantity, DateTime added, DateTime? expires, string unit = "Piece")
         => new(
-            id, name, "Food", "Dry goods", quantity, MinimumQuantity: null, Unit: "Piece",
+            id, name, "Food", "Dry goods", quantity, MinimumQuantity: null, Unit: unit,
             ExpiryDate: expires is null ? null : new DateTimeOffset(DateTime.SpecifyKind(expires.Value, DateTimeKind.Local)),
             ExpiryNotificationChannel: "None", IsBelowMinimum: false, HasPendingRestockTask: false,
             CreatedAtUtc: new DateTimeOffset(DateTime.SpecifyKind(added, DateTimeKind.Local)),
