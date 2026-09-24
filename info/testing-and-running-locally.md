@@ -324,7 +324,16 @@ adb shell am start -n "com.orbitmaui.android/crc64a05c27c563ec9e41.MainActivity"
   that starts over the keyboard is read as gesture typing, and the words land in whatever field has
   focus - dismiss it first.
 - **`dumpsys input_method | grep mServedView` is the truth about focus.** `uiautomator`'s
-  `focused="true"` has sat on a button while typing went somewhere else entirely.
+  `focused="true"` has sat on a button while typing went somewhere else entirely. It also prints that
+  field's size (`0,0-975,48`), which is how a field that grows with its text is checked without reading
+  a picture: a note's line went 48 high to 96 when the sentence wrapped.
+- **The clipboard is the host's.** The emulator shares it, so `Set-Clipboard` in PowerShell (or any
+  copy on the machine) fills Android's, and `adb shell input keyevent 279` pastes into whatever has
+  focus. There is no `adb shell cmd clipboard` on this image. That is the only way to raise a real
+  paste - `input text` is typing, and the editor tells the two apart on purpose.
+- **An empty line is invisible to `uiautomator`.** A node with no text and no `content-desc` is not
+  worth printing, so a note's empty line, a box with nothing written in it yet and anything else blank
+  simply is not in the dump. Take a screenshot for those rather than concluding they are not there.
 - **A worktree needs four gitignored files**, not three: `.env` and `docker-compose.override.yml` from
   the main checkout, and `Platforms/Android/google-services.json` plus
   `Platforms/Android/AndroidManifestOverlay.xml` from `secrets/` - see `secrets/README.md`. Without the

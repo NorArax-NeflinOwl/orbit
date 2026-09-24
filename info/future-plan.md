@@ -973,8 +973,9 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
   Covered by `NoteDetailScreenTests.Indent` - the level put on and taken off, a level written as spaces,
   a line with nothing to take away left alone and not recorded as a step, a level as one step of the
-  history, a box kept, and a note shared in to read indenting nothing. **Not yet looked at on a device**,
-  which for the Tab half is the part worth looking at: nothing here has run on a hardware keyboard.
+  history, a box kept, and a note shared in to read indenting nothing. **The two buttons were walked on
+  an emulator on 2026-09-24** - Indent put a tab at the head of the line and Outdent took it off again.
+  The Tab half is still the part worth looking at: nothing here has run on a hardware keyboard.
 
   As noticed: The browser's Tab and Shift+Tab (2026-09-11) have no
   phone counterpart: a soft keyboard has no Tab key, and a hardware keyboard's Tab moves the focus on.
@@ -992,7 +993,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   (`Enter`'s `keepsIndentation`, with `IndentationOf` moved to `Orbit.Core`), because a one-line field
   cannot open at a column somebody has to type their way to; and the tick-box button still boxes every line
   it starts, following the caret's line so an ended list turns it off. Where the caret lands is said
-  through `CaretPlaced` like every other edit made off the keyboard. Not yet looked at on a device. As
+  through `CaretPlaced` like every other edit made off the keyboard. **Both halves walked on an emulator
+  on 2026-09-24**: Enter at the end of a box opens a new box, a second Enter on that empty box ends the
+  list in place and leaves a plain line with the caret in it; and one Backspace at the head of an
+  emptied box takes the whole line, putting the caret at the end of the line above. As
   noticed: In the browser
   (`NoteSurfaceEdits.Enter`/`Backspace`) Enter on an empty box turns it into a plain line in place, and
   Backspace at the head of an empty box takes the whole line in one press. On the phone
@@ -1017,17 +1021,20 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   and has not been seen on a device** - nothing this project can run raises an Android long click, so
   whether the hold arrives at all is the one thing still to check there.
 
-- **The phone's multi-line paste rests on an unverified Android detail.** `NoteDetailViewModel.Paste`
-  finds a pasted checklist's lines by the line breaks a one-line `Entry` keeps in its text. Android's
-  single-line `EditText` is believed to keep them (it only draws them as spaces), but no device has
-  confirmed it; if it drops them, a pasted checklist arrives as one line with the marks inside it, as it
-  did before. Check on a device by pasting two lines into a note; if they arrive joined, the paste has to
-  be caught before the field flattens it (a custom `EditText` overriding `onTextContextMenuItem`).
+- ~~**The phone's multi-line paste rests on an unverified Android detail.**~~ Confirmed on an emulator
+  (API 36) on 2026-09-24, and the belief held: `NoteDetailViewModel.Paste` finds a pasted checklist's
+  lines by the line breaks the field keeps in its text, and Android keeps them. Two lines pasted in
+  arrive as two lines; `[] Eggs` / `[x] Butter` pasted in arrive as two boxes, the second ticked and
+  struck through. No custom `EditText` is needed. (The clipboard was filled from the host - the
+  emulator shares it - and the paste raised with `adb shell input keyevent 279`.)
 
 - ~~**The phone's undo and redo buttons are small targets.**~~ Fixed 2026-09-11: they are 44 across
   (`IconButton.TouchSize`, which leaves every other icon button at 30), level with the 44 tick-box button
-  and touching each other; the drawings stay 18, and the row ends well short of Save. Not yet looked at on
-  a device. As noticed: they are `IconButton`s, 30 across like every
+  and touching each other; the drawings stay 18, and the row ends well short of Save. **Measured on an
+  emulator on 2026-09-24**: every tool in the note's row reports 44×44 to `uiautomator` - undo, redo,
+  indent, outdent, "Aa" and the table alike - with the tick-box at 42 and Save at 54. So the row is
+  thumb-sized throughout, and the sentence above about the rest staying 30 is not true of this row,
+  whatever it is elsewhere. As noticed: they are `IconButton`s, 30 across like every
   icon button in the app, beside the 44 tick-box button - under the 44-48 a thumb is usually given. Worth
   looking at on a device with the rest of the note's foot rather than on its own.
 
@@ -1883,7 +1890,11 @@ Paragraph styles landed on 2026-09-14 - `NoteLineStyle`, the "Aa" tool, and the 
   sheet of the eight (`NoteDetailViewModel.StyleChoices`, worded there so the wording is testable) and
   working `NoteSurfaceEdits.Restyle` on the surface the screen already builds - the shape `Indent` and
   `Outdent` follow. A sheet rather than a row of buttons: eight choices over the writing would be most of
-  the writing on a phone. Covered by `NoteDetailScreenTests.Style`. **Not yet seen on a device.**
+  the writing on a phone. Covered by `NoteDetailScreenTests.Style`. **Walked on an emulator on
+  2026-09-24**: the "Aa" opens a sheet of the eight over a Cancel, and Heading applied to a ticked line
+  keeps both - the line is drawn at the heading's size and still struck through once the caret leaves
+  it. (The strike is absent while the line is open for writing, because a line being written in is the
+  `Editor` rather than the `Label` that carries `TextDecorations` - see NoteDetailPage.xaml.)
 - ~~**Tables.**~~ Done 2026-09-14, as a kind of line, the shape the user chose (decision 2 above):
   `NoteTable` on `NoteContentLine.Table`, `NoteTables` for its shape, the guards in `NoteSurfaceEdits`
   written first with `NoteSurfaceTableTests`, then the drawing. See `info/functionality.md`, "A table is
@@ -2344,15 +2355,19 @@ the session that finishes one strikes it here rather than in a report nobody rea
   sideways. The return key then writes a newline instead of raising Completed, so Enter is read from
   the text - one newline and nothing else goes through the same surface Enter as before
   (`NoteDetailViewModel.EnterWasTypedInto`), keeping the indentation and the box; several lines at once
-  are still a paste. Built and covered by tests, **not seen on a device**.
+  are still a paste. **Seen on an emulator on 2026-09-24**: a sentence too long for the width is drawn
+  on two rows and the field grows to take them (`uiautomator` reads it 48px tall with one row and 96
+  with two), rather than being dragged sideways.
 - ~~**The formatting row sits under the keyboard**; it belongs above it, where it can be reached.~~
   Answered for Android 15 and later, where the cause is: the activity asks for `AdjustResize`, and from
   API 35 Android draws every app edge to edge and stops resizing the window for the keyboard at all -
   the keyboard is an inset the app has to account for, so anything anchored to the foot of a page ends
   up beneath it. `MainActivity.KeepTheKeyboardOffTheFootOfThePage` pads the content by the keyboard's
   own inset and by nothing else, only from 35 up, since below that `AdjustResize` is still doing the
-  work. **Not seen on a device, and it assumes the phone is on 15 or later** - if it is older, the
-  cause is something else and this changed nothing.
+  work. **Seen on an emulator on 2026-09-24, on API 36**: with the keyboard up the tool row sits clear
+  above it with the writing above that, and the row travels back down when the keyboard goes. What is
+  still unanswered is a phone older than 15, where the cause would be something else and this changed
+  nothing.
 - ~~**Editing an entry on a task list does not scroll as one form.** Part of it scrolls and part is
   fixed, so half the screen is blocked and covers what is being read.~~ Done: the form was two halves -
   a `ScrollView` in the page's `*` row and a second stack in the `Auto` row below it, which never
@@ -2375,7 +2390,8 @@ the session that finishes one strikes it here rather than in a report nobody rea
   saying who shared the note in and when it last changed (that is on the note's row in the list), and
   the hint about typing `[]`, which now lives only in `info/functionality.md`. The tags are a "Tags"
   entry in the menu under the note's name, drawn under the writing when asked for; `Footnote` and its
-  two tests went with the foot. **Not seen on a device.**
+  two tests went with the foot. **Seen on an emulator on 2026-09-24**: nothing under the writing but
+  the tool row, and "Tags" in the menu under the note's name, between Share and Archive.
 - ~~**Something edited later still shows as it was.**~~ Not a sync fault at all, which is why it
   survived being reported twice: the two clients were reading **different fields**. An entry tied to an
   appointment keeps the day and the hour on the *event* - that is where an editor writes them - and its
@@ -2389,8 +2405,11 @@ the session that finishes one strikes it here rather than in a report nobody rea
   and this editor follows it. A note ending in a picture, a table or a rule had no way to go on at all:
   an element draws no field, so there was nothing to put the caret in and nothing to press Enter on. An
   empty line already waiting at the end takes the caret rather than a second one being made. The
-  surface has always known what Enter on an element means; only the way in was missing. **Not seen on a
-  device.**
+  surface has always known what Enter on an element means; only the way in was missing. **Walked on an
+  emulator on 2026-09-24**: pressing the room well below the last line and typing wrote a plain line at
+  the end, taking the empty line that was already waiting rather than adding a second. Walked on a note
+  ending in a line rather than in a picture, so the way in is proven and the element case rests on the
+  tests.
 
 ### Orbit.Web
 
