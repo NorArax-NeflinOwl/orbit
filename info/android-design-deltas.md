@@ -157,7 +157,9 @@ about them is under "Screens already built" below.
   screen's rows are in it and a tick on the one being read; a folder holding nothing shows no number at
   all, because a standing "0" is not news. Beside it a *Folder* group - **New folder**, which unfolds
   the same kind of naming row the plus unfolds for a new note, and **Delete folder** while one somebody
-  made is open. Filing is under the note's or the list's own name once it is open, the lists having
+  made is open - greyed, with *"Move what is in it somewhere else first."* under it, until that folder
+  is empty (2026-09-24, walked on the emulator on the notes, the tasks and the shelves;
+  `ScreenMenuEntry.Note`, and `info/functionality.md` on why only an empty one goes). Filing is under the note's or the list's own name once it is open, the lists having
   given up their per-row menus. The **dashboard** has the group too, drawing both pages' folders at once
   and narrowing to the card the open one is about - it offers no way to make a folder, there being no
   dashboard card to file into one. See `info/functionality.md` for the rest, including what the phone

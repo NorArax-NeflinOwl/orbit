@@ -164,6 +164,27 @@ public sealed class InventorySearchTests
         Assert.Equal("Found in 1 of 2 inventories.", screen.ItemMatchSummary);
     }
 
+    /// <summary>
+    /// Only an empty folder can be deleted, here as in the browser - see FolderTabs.ChosenStillHolds,
+    /// and NoteFoldersTests, which says what deleting a full one did.
+    /// </summary>
+    [Fact]
+    public async Task A_folder_with_a_shelf_in_it_says_it_still_holds_something()
+    {
+        using var context = new ScreenContext();
+        var pantry = await context.AddInventoryAsync("Pantry", Item("Flour"));
+        await context.FileAsync(pantry.LocalId, "Downstairs");
+        var upstairs = await context.Folders.CreateAsync("Upstairs", FolderScope.Inventories);
+        var screen = await context.OpenInventoryAsync();
+
+        var downstairs = screen.FolderChoices.Single(choice => choice.Name == "Downstairs");
+        await screen.ChooseFolderCommand.ExecuteAsync(downstairs.Key);
+        Assert.True(screen.Folders.ChosenStillHolds);
+
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(upstairs.LocalId));
+        Assert.False(screen.Folders.ChosenStillHolds);
+    }
+
     /// <summary>Nothing to apologise for when every shelf could be read - just what was found.</summary>
     [Fact]
     public async Task With_every_shelf_readable_the_summary_is_only_the_count()

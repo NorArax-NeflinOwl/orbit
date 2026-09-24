@@ -728,6 +728,12 @@ public sealed partial class CalendarViewModel : ObservableObject
                     occurrences.First().FolderId, isPrivate: false, isFinished: false,
                     occurrences.First().IsArchived));
 
+        // And where each event is filed, which is not the tab it is drawn under: one put away is under
+        // Archived wherever it was filed. Asked before a folder may be deleted - see
+        // FolderTabs.NoteWhatIsFiled. A repeat's copies all carry the one event's folder, and the
+        // answer is a set, so they need no grouping of their own here.
+        Folders.NoteWhatIsFiled(held.Select(calendarEvent => calendarEvent.FolderId));
+
         FolderChoices.Clear();
         foreach (var choice in Folders.Describe(placements.Values))
         {

@@ -14,6 +14,7 @@
 
     <ContentPage.Resources>
         <controls:WidthFractionConverter x:Key="WidthFraction" />
+        <controls:AskedToEditConverter x:Key="AskedToEdit" />
     </ContentPage.Resources>
 
     <Grid RowDefinitions="Auto,*,Auto">
@@ -181,8 +182,11 @@
                                                  The phone drew the request and offered nothing to do
                                                  about it until 2026-09-20. -->
                                             <VerticalStackLayout Spacing="4" IsVisible="{Binding IsEditAccessRequest}">
-                                                <Label Text="{controls:Translate 'Asked to edit'}" FontSize="12"
-                                                       Style="{StaticResource SubtleLabel}" />
+                                                <!-- Naming the kind, as the browser's own line does: two
+                                                     requests waiting used to read "Asked to edit" twice
+                                                     with only the names to tell them apart. -->
+                                                <Label Text="{Binding EditAccessRequest, Converter={StaticResource AskedToEdit}}"
+                                                       FontSize="12" Style="{StaticResource SubtleLabel}" />
                                                 <Label Text="{Binding EditAccessRequestName}" FontAttributes="Bold"
                                                        LineBreakMode="WordWrap" />
                                                 <Button Text="{controls:Translate 'Allow editing'}" FontSize="12" Padding="12,4"

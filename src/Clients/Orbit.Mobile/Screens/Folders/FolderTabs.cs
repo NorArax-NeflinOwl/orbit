@@ -125,6 +125,35 @@ public sealed class FolderTabs
     public bool Holds(FolderKey where) => where == Chosen;
 
     /// <summary>
+    /// Which folders the screen's rows are filed under, told by the screen as it reads them - the id
+    /// each row carries, not the tab it ends up on.
+    ///
+    /// A different question from the counts <see cref="Describe(IReadOnlyList{RowInAFolder})"/> works
+    /// out, and this is why it is asked separately: those are about the tab a row is drawn under, and
+    /// something put away is drawn under Archived wherever it is filed - so a folder holding nothing
+    /// but archived things counts zero and still holds them.
+    ///
+    /// Asked before a folder can be deleted. A screen that never says anything is taken at its word
+    /// that its folders are empty, which is what every screen did before the rule existed - see
+    /// Orbit.Web's FolderTabs.StillHolds, where it was decided on 2026-09-20.
+    /// </summary>
+    public void NoteWhatIsFiled(IEnumerable<Guid?> folderIds)
+        => _filed = folderIds.OfType<Guid>().ToHashSet();
+
+    /// <summary>Where the screen's rows are filed - see <see cref="NoteWhatIsFiled"/>.</summary>
+    private IReadOnlySet<Guid> _filed = new HashSet<Guid>();
+
+    /// <summary>Whether anything at all is still filed under this folder.</summary>
+    public bool StillHolds(Guid folderId) => _filed.Contains(folderId);
+
+    /// <summary>
+    /// Whether the folder being read still holds something, so the menu can grey "Delete folder"
+    /// rather than offer a press that empties a folder into Public under a word that promised to
+    /// remove one. False while a built-in folder is open: those cannot be deleted at all.
+    /// </summary>
+    public bool ChosenStillHolds => Chosen.FolderId is { } folderId && StillHolds(folderId);
+
+    /// <summary>
     /// Which kind of thing the folder being read holds - null while a built-in one is open, since those
     /// are not about one kind, and null too for an id this screen has no folder for.
     ///

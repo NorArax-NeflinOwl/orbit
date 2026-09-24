@@ -531,7 +531,10 @@ to lose, which is how the exemption was worded. The entry stays in the menu and 
 move what is in it somewhere else first: an entry that disappears teaches nobody why. "Still holds" is a
 different question from the count on the tab - something put away is under Archived wherever it is
 filed, so a folder holding nothing but archived things counts zero on its tab and still holds them. The
-phone still empties a full folder; `info/future-plan.md`.
+phone refuses the same press since 2026-09-24: its four list screens tell `FolderTabs.NoteWhatIsFiled`
+where their own rows are filed as they read them, and "Delete folder" is greyed with the same sentence
+under it while `ChosenStillHolds` is true. The question it asks once it is allowed says so - *"There is
+nothing in it - the entry goes and nothing else changes."*
 
 **A tab with nothing under it is not drawn** (2026-09-20, `FolderTabs.HoldsAnything`, applied by
 `FolderTabRow`). An empty Private or Archived tab is a press that leads to "there is nothing here", and
@@ -2505,7 +2508,9 @@ when it is not: an open list's address already sits readable on the server, and 
 key the browser may not hold. All of this is best effort after the list is saved, so a place that could
 not be made never turns a save that worked into an error. The phone does not make these places yet; it
 shows and edits them like any other place, and an edit there leaves the link to the entry alone, because
-a save that does not name an entry keeps the one it had.
+a save that does not name an entry keeps the one it had. It does **hold** the link since 2026-09-24
+(`LocalPlace.SourceTaskItemId`, read on every sync and never sent back), so the phone can tell a place
+made from an entry from one somebody kept - which is what drawing the difference there will need.
 
 On the map, **Places you keep** lists the places kept by hand first, then these, under the name of the
 list each came from. The list's own menu has **Hide places from tasks** (✓ while on, remembered by the

@@ -134,7 +134,17 @@ public partial class NotesPage : ContentPage, ITitleMenu
 				_translations["Hide on the dashboard"],
 				() => _viewModel.ToggleShownOnTheDashboardCommand.Execute(null),
 				_viewModel.IsChosenFolderHiddenOnTheDashboard));
-			entries.Add(new ScreenMenuEntry(_translations["Delete folder"], () => _ = DeleteTheFolderAsync()));
+			// Only an empty one, as the browser has refused since 2026-09-20. Deleting a full folder put
+			// everything in it back under Public, which is a press that quietly rearranges a screen's
+			// worth of things under a word that promised to remove one. Greyed with the reason beside
+			// it rather than left out: an entry that disappears teaches nobody why. The folder is asked
+			// where its notes are *filed*, not what its tab counts - see FolderTabs.ChosenStillHolds.
+			var stillHolds = _viewModel.Folders.ChosenStillHolds;
+			entries.Add(new ScreenMenuEntry(
+				_translations["Delete folder"],
+				() => _ = DeleteTheFolderAsync(),
+				canBeChosen: !stillHolds,
+				note: stillHolds ? _translations["Move what is in it somewhere else first."] : null));
 		}
 
 		return entries;
@@ -153,13 +163,14 @@ public partial class NotesPage : ContentPage, ITitleMenu
 	}
 
 	/// <summary>
-	/// Asked first, as every delete in Orbit is - and the question says what it does *not* do, because
-	/// "delete folder" reads like the notes go with it and they do not.
+	/// Asked first, as every delete in Orbit is, though only an empty folder reaches here: a folder is
+	/// something somebody made and named, and losing one to a misread press is worth one question. The
+	/// question says what is in it, because "delete folder" reads like the notes go with it.
 	/// </summary>
 	private async Task DeleteTheFolderAsync()
 	{
 		var question = _translations.Format(
-			"Delete the folder \"{0}\"? Nothing in it is deleted - it goes back to Public, or to Private if it is sealed.",
+			"Delete the folder \"{0}\"? There is nothing in it - the entry goes and nothing else changes.",
 			_viewModel.ChosenFolderName);
 
 		if (await Confirmation.AskAsync(this, question, _translations["Delete folder"], _translations["Cancel"]))

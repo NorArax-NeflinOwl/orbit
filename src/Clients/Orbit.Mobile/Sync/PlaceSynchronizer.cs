@@ -246,6 +246,10 @@ public sealed class PlaceSynchronizer
         place.Colour = incoming.Colour;
         place.Priority = incoming.Priority;
         place.TaskListIds = incoming.TaskListIds;
+        // Which entry it was made from, if any - see LocalPlace.SourceTaskItemId. Read and never sent
+        // back: SavePlaceRequest leaves it alone when nothing names it, which is what keeps a place
+        // edited here tied to its entry.
+        place.SourceTaskItemId = incoming.SourceTaskItemId;
         place.CreatedAtUtc = incoming.CreatedAtUtc;
         place.UpdatedAtUtc = incoming.UpdatedAtUtc;
         place.IsShared = incoming.IsShared;

@@ -482,6 +482,11 @@ public sealed partial class InventoryViewModel : ObservableObject
             inventory => Folders.Where(
                 inventory.FolderId, inventory.IsPrivate, isFinished: false, inventory.IsArchived));
 
+        // And where each shelf is filed, which is not the tab it is drawn under: one put away is under
+        // Archived wherever it was filed. Asked before a folder may be deleted - see
+        // FolderTabs.NoteWhatIsFiled.
+        Folders.NoteWhatIsFiled(held.Select(inventory => inventory.FolderId));
+
         // And which folders hold something the reader has not seen - a warning about something going
         // off, say - so the menu can say which one to open. See UnreadNews, and the dot the browser puts
         // on the tab this entry stands for.

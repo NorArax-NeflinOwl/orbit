@@ -797,12 +797,13 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   queue per reader rather than a poll per kind - a bigger change than this one, and worth doing only if
   it turns out to happen in practice.
 
-- **The phone still deletes a full folder** (2026-09-20). The browser now refuses one that still holds
-  something (`FolderTabs.StillHolds`, and `info/functionality.md` on why). The phone's four pages -
-  `NotesPage.xaml.cs`, `TasksPage.xaml.cs`, `CalendarPage.xaml.cs`, `InventoryPage.xaml.cs` - each ask
-  *"Delete the folder "{0}"? Nothing in it is deleted - it goes back to Public, or to Private if it is
-  sealed."* and then do exactly that. Each needs the same question asked of its own list before the
-  entry is offered. Left for the round that touches those pages.
+- ~~**The phone still deletes a full folder**~~ (2026-09-20, done 2026-09-24). The four pages -
+  `NotesPage.xaml.cs`, `TasksPage.xaml.cs`, `CalendarPage.xaml.cs`, `InventoryPage.xaml.cs` - grey
+  "Delete folder" and say *"Move what is in it somewhere else first."* under it, the browser's own
+  words. The answer comes from `FolderTabs.ChosenStillHolds`, which each view model feeds with
+  `NoteWhatIsFiled` as it reads its rows: where a row is *filed*, not the tab it is drawn under, so a
+  folder holding nothing but things put away still holds them. The question now says what is true -
+  *"Delete the folder "{0}"? There is nothing in it - the entry goes and nothing else changes."*
 
 - ~~**An inventory is the one shared thing with no way to ask for editing, and no way off your own
   page**~~ (2026-09-20). Both done the same day, in the shape the other three have.
@@ -972,8 +973,9 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
   Covered by `NoteDetailScreenTests.Indent` - the level put on and taken off, a level written as spaces,
   a line with nothing to take away left alone and not recorded as a step, a level as one step of the
-  history, a box kept, and a note shared in to read indenting nothing. **Not yet looked at on a device**,
-  which for the Tab half is the part worth looking at: nothing here has run on a hardware keyboard.
+  history, a box kept, and a note shared in to read indenting nothing. **The two buttons were walked on
+  an emulator on 2026-09-24** - Indent put a tab at the head of the line and Outdent took it off again.
+  The Tab half is still the part worth looking at: nothing here has run on a hardware keyboard.
 
   As noticed: The browser's Tab and Shift+Tab (2026-09-11) have no
   phone counterpart: a soft keyboard has no Tab key, and a hardware keyboard's Tab moves the focus on.
@@ -991,7 +993,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   (`Enter`'s `keepsIndentation`, with `IndentationOf` moved to `Orbit.Core`), because a one-line field
   cannot open at a column somebody has to type their way to; and the tick-box button still boxes every line
   it starts, following the caret's line so an ended list turns it off. Where the caret lands is said
-  through `CaretPlaced` like every other edit made off the keyboard. Not yet looked at on a device. As
+  through `CaretPlaced` like every other edit made off the keyboard. **Both halves walked on an emulator
+  on 2026-09-24**: Enter at the end of a box opens a new box, a second Enter on that empty box ends the
+  list in place and leaves a plain line with the caret in it; and one Backspace at the head of an
+  emptied box takes the whole line, putting the caret at the end of the line above. As
   noticed: In the browser
   (`NoteSurfaceEdits.Enter`/`Backspace`) Enter on an empty box turns it into a plain line in place, and
   Backspace at the head of an empty box takes the whole line in one press. On the phone
@@ -1012,21 +1017,28 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
   A hold does nothing on a line with no box, or on a note with fewer than two boxes: there is nothing to
   choose it against, and a mode turned on by accident would have to be turned off by hand. Five tests in
-  `NoteDetailScreenTests.SeveralBoxes` cover what the command does; **the gesture itself is not covered
-  and has not been seen on a device** - nothing this project can run raises an Android long click, so
-  whether the hold arrives at all is the one thing still to check there.
+  `NoteDetailScreenTests.SeveralBoxes` cover what the command does; the gesture itself is covered by
+  none of them. **Held on an emulator on 2026-09-24 and it arrives**: the hint line and "Finish
+  selecting" appear, every line grows its "Select this line" control, the box that was held is the one
+  chosen - both halves at once, as this said - and the box's own tick does *not* move, so the press the
+  handler marks handled really is swallowed. A hold is raised from outside the app by
+  `adb shell input swipe <x> <y> <x> <y> 800`, which is what "nothing this project can run raises an
+  Android long click" was missing.
 
-- **The phone's multi-line paste rests on an unverified Android detail.** `NoteDetailViewModel.Paste`
-  finds a pasted checklist's lines by the line breaks a one-line `Entry` keeps in its text. Android's
-  single-line `EditText` is believed to keep them (it only draws them as spaces), but no device has
-  confirmed it; if it drops them, a pasted checklist arrives as one line with the marks inside it, as it
-  did before. Check on a device by pasting two lines into a note; if they arrive joined, the paste has to
-  be caught before the field flattens it (a custom `EditText` overriding `onTextContextMenuItem`).
+- ~~**The phone's multi-line paste rests on an unverified Android detail.**~~ Confirmed on an emulator
+  (API 36) on 2026-09-24, and the belief held: `NoteDetailViewModel.Paste` finds a pasted checklist's
+  lines by the line breaks the field keeps in its text, and Android keeps them. Two lines pasted in
+  arrive as two lines; `[] Eggs` / `[x] Butter` pasted in arrive as two boxes, the second ticked and
+  struck through. No custom `EditText` is needed. (The clipboard was filled from the host - the
+  emulator shares it - and the paste raised with `adb shell input keyevent 279`.)
 
 - ~~**The phone's undo and redo buttons are small targets.**~~ Fixed 2026-09-11: they are 44 across
   (`IconButton.TouchSize`, which leaves every other icon button at 30), level with the 44 tick-box button
-  and touching each other; the drawings stay 18, and the row ends well short of Save. Not yet looked at on
-  a device. As noticed: they are `IconButton`s, 30 across like every
+  and touching each other; the drawings stay 18, and the row ends well short of Save. **Measured on an
+  emulator on 2026-09-24**: every tool in the note's row reports 44×44 to `uiautomator` - undo, redo,
+  indent, outdent, "Aa" and the table alike - with the tick-box at 42 and Save at 54. So the row is
+  thumb-sized throughout, and the sentence above about the rest staying 30 is not true of this row,
+  whatever it is elsewhere. As noticed: they are `IconButton`s, 30 across like every
   icon button in the app, beside the 44 tick-box button - under the 44-48 a thumb is usually given. Worth
   looking at on a device with the rest of the note's foot rather than on its own.
 
@@ -1427,8 +1439,22 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   **Done 2026-09-11, the user's choice:** the link runs the other way. Saving a list on the web makes a
   place for each Location entry (`TaskEntryPlaces`), and the place names its entry
   (`Place.SourceTaskItemId`). The point is still stored once, on the place. On the map these places are
-  grouped under their list, can be hidden, and open their list from the pin. The phone does not make
-  them yet - see functionality.md, "A task list's Location entry keeps a place of its own".
+  grouped under their list, can be hidden, and open their list from the pin.
+
+  **The phone does not make them yet**, and as of 2026-09-24 it at least stops throwing the link away:
+  `LocalPlace.SourceTaskItemId` is read from the server and kept (`APlaceRemembersTheEntryItCameFrom`),
+  so a place the browser made from an entry is now something the phone can tell apart from one kept by
+  hand. Nothing draws that difference there yet - the list and the map still show both alike, which is
+  what functionality.md's "A task list's Location entry keeps a place of its own" describes.
+
+  What *making* them there still needs, and the question in the middle of it: the browser hands
+  `TaskEntryPlaces` the **server's** task list id, and a phone saves lists that the server has never
+  seen. So either a place made on a phone waits for its list to have a server id - which means the
+  making cannot simply follow the save - or it carries the local one and disagrees with every place the
+  browser made for the same list. The rest is a straight port and needs no decision: name the place
+  after the entry, the point from `PlaceSearch` (the phone's Nominatim, the browser's rule - the point
+  it already had if the address has not changed, else the words looked up, else no place until a later
+  save), sealed when the list is, and a place whose entry is gone goes with it.
 
 - **Why the map's Start and Share do nothing on a phone: two of the three causes are ruled out.** Both
   are hidden below 680px as of 2026-09-09 (`.map-panel-start`, `.map-panel-share`), on a report that
@@ -1882,7 +1908,11 @@ Paragraph styles landed on 2026-09-14 - `NoteLineStyle`, the "Aa" tool, and the 
   sheet of the eight (`NoteDetailViewModel.StyleChoices`, worded there so the wording is testable) and
   working `NoteSurfaceEdits.Restyle` on the surface the screen already builds - the shape `Indent` and
   `Outdent` follow. A sheet rather than a row of buttons: eight choices over the writing would be most of
-  the writing on a phone. Covered by `NoteDetailScreenTests.Style`. **Not yet seen on a device.**
+  the writing on a phone. Covered by `NoteDetailScreenTests.Style`. **Walked on an emulator on
+  2026-09-24**: the "Aa" opens a sheet of the eight over a Cancel, and Heading applied to a ticked line
+  keeps both - the line is drawn at the heading's size and still struck through once the caret leaves
+  it. (The strike is absent while the line is open for writing, because a line being written in is the
+  `Editor` rather than the `Label` that carries `TextDecorations` - see NoteDetailPage.xaml.)
 - ~~**Tables.**~~ Done 2026-09-14, as a kind of line, the shape the user chose (decision 2 above):
   `NoteTable` on `NoteContentLine.Table`, `NoteTables` for its shape, the guards in `NoteSurfaceEdits`
   written first with `NoteSurfaceTableTests`, then the drawing. See `info/functionality.md`, "A table is
@@ -2343,21 +2373,27 @@ the session that finishes one strikes it here rather than in a report nobody rea
   sideways. The return key then writes a newline instead of raising Completed, so Enter is read from
   the text - one newline and nothing else goes through the same surface Enter as before
   (`NoteDetailViewModel.EnterWasTypedInto`), keeping the indentation and the box; several lines at once
-  are still a paste. Built and covered by tests, **not seen on a device**.
+  are still a paste. **Seen on an emulator on 2026-09-24**: a sentence too long for the width is drawn
+  on two rows and the field grows to take them (`uiautomator` reads it 48px tall with one row and 96
+  with two), rather than being dragged sideways.
 - ~~**The formatting row sits under the keyboard**; it belongs above it, where it can be reached.~~
   Answered for Android 15 and later, where the cause is: the activity asks for `AdjustResize`, and from
   API 35 Android draws every app edge to edge and stops resizing the window for the keyboard at all -
   the keyboard is an inset the app has to account for, so anything anchored to the foot of a page ends
   up beneath it. `MainActivity.KeepTheKeyboardOffTheFootOfThePage` pads the content by the keyboard's
   own inset and by nothing else, only from 35 up, since below that `AdjustResize` is still doing the
-  work. **Not seen on a device, and it assumes the phone is on 15 or later** - if it is older, the
-  cause is something else and this changed nothing.
+  work. **Seen on an emulator on 2026-09-24, on API 36**: with the keyboard up the tool row sits clear
+  above it with the writing above that, and the row travels back down when the keyboard goes. What is
+  still unanswered is a phone older than 15, where the cause would be something else and this changed
+  nothing.
 - ~~**Editing an entry on a task list does not scroll as one form.** Part of it scrolls and part is
   fixed, so half the screen is blocked and covers what is being read.~~ Done: the form was two halves -
   a `ScrollView` in the page's `*` row and a second stack in the `Auto` row below it, which never
   scrolled and took as much height as it wanted. Both are inside the one scroller now, still as two
   stacks because they read different binding contexts (the entry's own fields, and what is about the
-  entry from the list's side). **Not seen on a device.**
+  entry from the list's side). **Walked on an emulator on 2026-09-24**: the form travels as one from
+  the name down to "Move to list", Cancel and Save travelling with it, and nothing but the page's own
+  "Done: n of m" line stays put - which sits above the form rather than over it.
 - **Separators made in the browser are not read correctly on Android.** Explained on 2026-09-19: this
   is the fault `af12718d` fixed on 2026-09-16. `extractLines`, the browser's read of its own writing
   surface - which runs on every keystroke and on every save - read a table and a picture back and not a
@@ -2368,13 +2404,15 @@ the session that finishes one strikes it here rather than in a report nobody rea
   count.~~ Done for a task list's entries, which is where it was reported: the tap that opens an entry
   is on the row and the row has a transparent fill, so the empty half of a short line counts. It used
   to sit on the stack of labels, which is exactly as wide and as tall as what is written there. The
-  circle and the "⋯" answer their own presses. **Not seen on a device.**
+  circle and the "⋯" answer their own presses. **Walked on an emulator on 2026-09-24**: a press on the
+  empty half of a short entry's line, well right of the words and clear of the "⋯", opens that entry.
 - ~~**The note editor carries furniture it does not need**: the footer with information at the bottom
   goes, and the tags belong in the menu rather than on the page.~~ Done: the foot is gone - the line
   saying who shared the note in and when it last changed (that is on the note's row in the list), and
   the hint about typing `[]`, which now lives only in `info/functionality.md`. The tags are a "Tags"
   entry in the menu under the note's name, drawn under the writing when asked for; `Footnote` and its
-  two tests went with the foot. **Not seen on a device.**
+  two tests went with the foot. **Seen on an emulator on 2026-09-24**: nothing under the writing but
+  the tool row, and "Tags" in the menu under the note's name, between Share and Archive.
 - ~~**Something edited later still shows as it was.**~~ Not a sync fault at all, which is why it
   survived being reported twice: the two clients were reading **different fields**. An entry tied to an
   appointment keeps the day and the hour on the *event* - that is where an editor writes them - and its
@@ -2388,8 +2426,11 @@ the session that finishes one strikes it here rather than in a report nobody rea
   and this editor follows it. A note ending in a picture, a table or a rule had no way to go on at all:
   an element draws no field, so there was nothing to put the caret in and nothing to press Enter on. An
   empty line already waiting at the end takes the caret rather than a second one being made. The
-  surface has always known what Enter on an element means; only the way in was missing. **Not seen on a
-  device.**
+  surface has always known what Enter on an element means; only the way in was missing. **Walked on an
+  emulator on 2026-09-24**: pressing the room well below the last line and typing wrote a plain line at
+  the end, taking the empty line that was already waiting rather than adding a second. Walked on a note
+  ending in a line rather than in a picture, so the way in is proven and the element case rests on the
+  tests.
 
 ### Orbit.Web
 
@@ -3056,8 +3097,11 @@ down whole rather than started, so nothing in it depends on being remembered.
   the phone drew the request and offered nothing to press, so the only way to say yes was to find the
   thing and share it again by hand. There is an **Allow editing** button on it now, which shares it back
   at `EditOnly` exactly as the browser's own answer does.
-  Still unproven: the reported case itself, which needs two real accounts on two devices - and the
-  phone's bubble does not name *what kind of thing* was asked about the way the browser's
-  "Asked to edit a note: Shopping" does (`Chat.razor`'s `DescribeItemType`). Naming the kind needs the
-  kind through to the row and a converter to translate it, since `ReadableChatMessage` holds no
-  `Translations`.
+  **The bubble names the kind since 2026-09-24**, the way the browser's "Asked to edit a note: Shopping"
+  does: the words are `EditAccessRequest.AskedToEdit` in `Orbit.Mobile`, where a test can read them, and
+  `AskedToEditConverter` reaches for `Translations` on the row's behalf - the row is read out of
+  ciphertext by a project that knows nothing about a screen. The name stays on its own line under it,
+  which is the shape every other structured bubble on the phone has. A place is named rather than
+  falling through to "an inventory", which is the one place this says more than `Chat.razor` does.
+
+  Still unproven: the reported case itself, which needs two real accounts on two devices.

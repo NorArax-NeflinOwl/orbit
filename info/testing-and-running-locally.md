@@ -315,9 +315,28 @@ adb shell am start -n "com.orbitmaui.android/crc64a05c27c563ec9e41.MainActivity"
 - **An AVD's `config.ini` must name the system image that is actually installed.** On the Windows
   machine only `google_apis` is, so an AVD whose `image.sysdir.1` or `tag.id` says
   `google_apis_playstore` will not start, and the emulator reports it as "Broken AVD system path" rather
-  than as a missing image.
+  than as a missing image. `Orbit_Pixel_API_36_pr288` is the one that does start there.
+- **`adb` is not on PATH on the Windows machine**: it is at
+  `%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe`. From Git Bash, prefix any command naming a
+  device path with `MSYS_NO_PATHCONV=1`, or `/sdcard/ui.xml` is rewritten into a Windows path before
+  `adb` ever sees it.
+- **A sideways swipe with the soft keyboard up can type.** A swipe meant to move between weeks or tabs
+  that starts over the keyboard is read as gesture typing, and the words land in whatever field has
+  focus - dismiss it first.
 - **`dumpsys input_method | grep mServedView` is the truth about focus.** `uiautomator`'s
-  `focused="true"` has sat on a button while typing went somewhere else entirely.
+  `focused="true"` has sat on a button while typing went somewhere else entirely. It also prints that
+  field's size (`0,0-975,48`), which is how a field that grows with its text is checked without reading
+  a picture: a note's line went 48 high to 96 when the sentence wrapped.
+- **The clipboard is the host's.** The emulator shares it, so `Set-Clipboard` in PowerShell (or any
+  copy on the machine) fills Android's, and `adb shell input keyevent 279` pastes into whatever has
+  focus. There is no `adb shell cmd clipboard` on this image. That is the only way to raise a real
+  paste - `input text` is typing, and the editor tells the two apart on purpose.
+- **An empty line is invisible to `uiautomator`.** A node with no text and no `content-desc` is not
+  worth printing, so a note's empty line, a box with nothing written in it yet and anything else blank
+  simply is not in the dump. Take a screenshot for those rather than concluding they are not there.
+- **A long press is a swipe that goes nowhere**: `adb shell input swipe <x> <y> <x> <y> 800`. Android's
+  own long click arrives from it, which is how the hold that starts choosing several boxes in a note was
+  finally seen (2026-09-24) after being written down as something nothing here could raise.
 - **A worktree needs four gitignored files**, not three: `.env` and `docker-compose.override.yml` from
   the main checkout, and `Platforms/Android/google-services.json` plus
   `Platforms/Android/AndroidManifestOverlay.xml` from `secrets/` - see `secrets/README.md`. Without the
@@ -500,6 +519,25 @@ runtime. This starts:
 - the API at `http://localhost:8081` (`/health`, `/health/ready`, `/health/live`, `/api/auth/*`,
   `/api/notes`, `/api/tasks`, `/api/calendar-events`)
 - the [Aspire dashboard](http://localhost:18888) for live logs and traces from the API
+
+**When Docker Desktop starts and the engine never answers** (2026-09-24, Docker Desktop 4.76.0 on
+Windows): the app runs, its WSL distro runs, and every `docker` command hangs against
+`\\.\pipe\dockerDesktopLinuxEngine` until it times out. The reason is not in the daemon's own log -
+`dockerd.log` is the *last successful* start, days old, which reads like a daemon that is up. It is in
+`%LOCALAPPDATA%\Docker\log\host\com.docker.backend.exe.log`, where `backend crashed` names the service
+that could not start, and the cause is always a socket left behind by an unclean shutdown:
+
+```
+starting services: initializing Inference manager: listening on unix://...\Docker\run\dockerInference:
+remove ...: The file cannot be accessed by the system.
+```
+
+Those files (`Docker\run\dockerInference`, `docker-secrets-engine\engine.sock`, and any sibling) are
+AF_UNIX reparse points whose owner is gone: Windows refuses to delete them, and so does Docker, which is
+why restarting the app fixes nothing and why "Reset to factory defaults" is the only button it offers.
+**Rename the folder they are in** - the directory entry moves although its children cannot be deleted -
+and start Docker Desktop again; it recreates the sockets. Expect to do it twice: the crash names one
+service at a time, so the next one appears after the first is cleared.
 
 ### Accessing Orbit.Web from another device on your network
 
