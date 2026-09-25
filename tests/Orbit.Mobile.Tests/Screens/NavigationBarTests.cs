@@ -317,9 +317,37 @@ public sealed class NavigationBarTests
         context.Network.Becomes(false);
         var bar = context.Open();
 
-        await bar.ReconnectCommand.ExecuteAsync(null);
+        await bar.RefreshCommand.ExecuteAsync(null);
 
         Assert.True(bar.CanReconnect);
+    }
+
+    /// <summary>
+    /// The drawer's Refresh is the same action offered unconditionally: until 2026-09-24 the only way
+    /// to say "fetch now" was a button that appears when the phone believes it is offline, so a phone
+    /// that looked fine had none at all. Asked for that day.
+    ///
+    /// It moves the word in the corner while it runs, the way the timer's own runs do - what it did not
+    /// do before, so a press on it looked like a press that never registered.
+    /// </summary>
+    [Fact]
+    public async Task Refreshing_says_what_it_is_doing_and_where_it_got_to()
+    {
+        var context = new BarContext("Ala");
+        var bar = context.Open();
+        var saidAlong = new List<string>();
+        bar.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(bar.SyncLabel))
+            {
+                saidAlong.Add(bar.SyncLabel);
+            }
+        };
+
+        await bar.RefreshCommand.ExecuteAsync(null);
+
+        Assert.Contains(saidAlong, said => said.Contains("Syncing", StringComparison.Ordinal));
+        Assert.False(bar.IsSyncing);
     }
 
     /// <summary>

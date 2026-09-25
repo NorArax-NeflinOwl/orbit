@@ -211,6 +211,11 @@ public static class PolishTranslations
         ["PIN saved."] = "PIN zapisany.",
         ["You won't be asked for a PIN any more."] = "Nie będziemy już pytać o PIN.",
         ["Couldn't save your PIN. Try again."] = "Nie udało się zapisać PIN-u. Spróbuj ponownie.",
+        // Said over what is sealed while the account has no PIN at all - see BehindThePin. Two strings
+        // and not one, the second being the link: the sentence ends on it, so Polish keeps its order.
+        ["Nobody is asked for a PIN before what is private is shown."] =
+            "Nikt nie jest pytany o PIN, zanim pokaże się to, co prywatne.",
+        ["Set a PIN in Options"] = "Ustaw PIN w Opcjach",
         ["Related inventory"] = "Powiązany magazyn",
         ["Done: {0}"] = "Zrobione: {0}",
         ["About this inventory"] = "O tym magazynie",
@@ -1039,9 +1044,10 @@ public static class PolishTranslations
         ["{0} of the chosen are somebody else's, so they were left as they are."] = "Należą do kogoś innego, więc zostały bez zmian: {0}.",
         ["{0} of the chosen can't be shared - private, somebody else's, or not on the server yet."] = "Nie da się udostępnić: {0} - prywatne, cudze albo jeszcze niewysłane na serwer.",
         ["No folder"] = "Bez folderu",
-        // Said before a folder goes, because "delete folder" reads as though its notes go too.
-        ["Delete the folder \"{0}\"? Nothing in it is deleted - it goes back to Public, or to Private if it is sealed."]
-            = "Usunąć folder \"{0}\"? Nic z niego nie ginie - wraca do Publicznych, a jeśli jest zapieczętowane, do Prywatnych.",
+        // Said before a folder goes, because "delete folder" reads as though its notes go too. Only an
+        // empty one can be deleted at all, on either client, so the question can say so outright.
+        ["Delete the folder \"{0}\"? There is nothing in it - the entry goes and nothing else changes."]
+            = "Usunąć folder \"{0}\"? Nic w nim nie ma - znika sam wpis i nic poza tym się nie zmienia.",
         // Also the heading over what can be done to the folders themselves, beside the list of them.
         ["Folder"] = "Folder",
         // Handing a whole tab on, the two ways a single thing is handed on - see FolderTabs.
@@ -1822,12 +1828,16 @@ public static class PolishTranslations
         ["{0} min before"] = "{0} min wcześniej",
         ["Delete \"{0}\"?"] = "Usunąć „{0}”?",
         ["Delete event \"{0}\"?"] = "Usunąć wydarzenie „{0}”?",
-        // The two buttons on a shelf row. They used to move it by one - see InventorySummary.Step for
-        // why half. The number is written the way each language writes it.
-        ["0.5 more"] = "O 0,5 więcej",
-        ["0.5 less"] = "O 0,5 mniej",
-        ["0.5 more: {0}"] = "O 0,5 więcej: {0}",
-        ["0.5 less: {0}"] = "O 0,5 mniej: {0}",
+        // The two buttons on a shelf row. They used to move it by one, then by half, and since
+        // 2026-09-24 by whatever the row's unit deserves - see InventoryAmountStep. The number is
+        // handed in rather than written into the word, because it is not the same on every row: a row
+        // in milligrams moves by fifty and one in kilos by half.
+        // Worded "add" and "take off" rather than "{0} more": that key is already the home screen
+        // widget's "jeszcze {0}", and one English string cannot be both.
+        ["Add {0}"] = "Dodaj {0}",
+        ["Take {0} off"] = "Odejmij {0}",
+        ["Add {0}: {1}"] = "Dodaj {0}: {1}",
+        ["Take {0} off: {1}"] = "Odejmij {0}: {1}",
         ["No"] = "Nie",
         ["another user"] = "inny użytkownik",
         ["This login is already taken."] = "Ten login jest już zajęty.",
@@ -2246,10 +2256,12 @@ public static class PolishTranslations
         ["Share a link"] = "Udostępnij linkiem",
 
         // Asking whoever owns something to let you change it, and seeing that ask arrive.
-        ["Asked to edit"] = "Prosi o prawo edycji",
         // What the owner reads when the ask arrives - the kind of thing in the accusative ("a note" and
         // the three beside it), then its name.
         ["Asked to edit {0}: {1}"] = "Prosi o prawo edycji: {0} „{1}”",
+        // The phone says the same thing in two lines, the name being the second of them, so it needs the
+        // sentence without it - see EditAccessRequest.AskedToEdit.
+        ["Asked to edit {0}"] = "Prosi o prawo edycji: {0}",
         ["Asked them. They will see it in your conversation."] = "Poproszono. Zobaczy to w Waszej rozmowie.",
         ["Couldn't send that request."] = "Nie udało się wysłać tej prośby.",
         ["Stop the link"] = "Wyłącz link",
@@ -2391,6 +2403,9 @@ public static class PolishTranslations
         ["You have Orbit {0}, which is the newest there is."] = "Masz Orbita {0} — nowszego nie ma.",
         ["Orbit hasn't been able to check for a newer version yet."] =
             "Orbit nie zdążył jeszcze sprawdzić, czy jest nowsza wersja.",
+        // While the screen is asking. It has a five-second deadline of its own, and a screen sitting
+        // blank for five seconds reads as one that has answered and found nothing.
+        ["Checking for a newer version…"] = "Sprawdzanie, czy jest nowsza wersja…",
 
         // The page the phone apps are downloaded from.
         ["Orbit — Get the app"] = "Orbit — Pobierz aplikację",

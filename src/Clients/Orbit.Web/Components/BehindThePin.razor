@@ -1,6 +1,7 @@
 @using Orbit.Web.Services
 @implements IDisposable
 @inject PrivatePinGate Gate
+@inject Translations T
 
 @* Puts the account's PIN in front of whatever is inside it, where what is inside it is private (asked
    for on 2026-09-20). One component rather than the same four lines on every page that draws something
@@ -20,6 +21,22 @@
 }
 else
 {
+    @* Where the account has no PIN at all, say so the moment the reader is actually looking at
+       something private. Until 2026-09-24 the door was simply open and nothing on any screen said it
+       could be shut, so the setting existed for whoever happened to find it in Options - reported as
+       "opening a private note says nothing about making a PIN".
+
+       Here rather than on the note's own page: this is the one place that knows both halves, and a
+       shelf and a task list are as private as a note is. Small print, and only over what is sealed, so
+       it is a thing said once in the place it is about rather than a banner following the reader
+       around. *@
+    @if (Applies && Gate.HasOne == false)
+    {
+        <p class="field-hint">
+            @T["Nobody is asked for a PIN before what is private is shown."]@Space<a href="/options">@T["Set a PIN in Options"]</a>
+        </p>
+    }
+
     @ChildContent
 }
 

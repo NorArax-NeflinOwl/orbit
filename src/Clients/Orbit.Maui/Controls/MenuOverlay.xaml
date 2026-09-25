@@ -31,6 +31,11 @@
                  and what it is filtered to, where you are shared and with whom - and the design draws
                  both in the one panel, each under its own heading, rather than making the reader open
                  a second menu to reach the second half. -->
+            <!-- Scrolled, because a menu can be longer than the screen: the notes' own is five groups
+                 and twenty entries, and on a 2400px phone the last of them sat below the bottom edge
+                 with nothing saying so (reported 2026-09-24). The cap that makes this scroll rather
+                 than grow is set in the code-behind, from the height the overlay actually has. -->
+            <ScrollView x:Name="Entries" VerticalScrollBarVisibility="Default">
             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Groups}" Spacing="0">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="screens:ScreenMenuGroup">
@@ -105,6 +110,7 @@
                     </DataTemplate>
                 </BindableLayout.ItemTemplate>
             </VerticalStackLayout>
+            </ScrollView>
         </Border>
     </Grid>
 </ContentView>

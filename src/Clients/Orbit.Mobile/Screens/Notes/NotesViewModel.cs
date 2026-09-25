@@ -154,6 +154,14 @@ public sealed partial class NotesViewModel : ObservableObject
         => FolderChoices.FirstOrDefault(choice => choice.IsChosen)?.Name ?? string.Empty;
 
     /// <summary>
+    /// What the bar calls this screen - its name and, where it is narrowed to anything but the ordinary
+    /// folder, that folder beside it. See <see cref="ScreenTitleWithFolder"/>, which says why the phone
+    /// needs this and the browser does not.
+    /// </summary>
+    public string ScreenTitle
+        => ScreenTitleWithFolder.Of(_translations["Notes"], Folders.Chosen, ChosenFolderName);
+
+    /// <summary>
     /// Whether the list has anything in it. The screen draws a hairline above every row and one more
     /// below the last, so that the column closes rather than stopping mid-air - and that closing line
     /// is the one thing that must not be drawn under an empty list, where it would be a rule under the
@@ -325,6 +333,11 @@ public sealed partial class NotesViewModel : ObservableObject
             note => note.LocalId,
             note => Folders.Where(note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived));
 
+        // And where each note is filed, which is not the same question as the tab it is drawn under:
+        // a note put away is under Archived wherever it was filed. Asked before a folder may be
+        // deleted - see FolderTabs.NoteWhatIsFiled.
+        Folders.NoteWhatIsFiled(stored.Select(note => note.FolderId));
+
         // And which folders hold something the reader has not seen - a note somebody shared, say - so
         // the menu can say which one to open. The browser puts the same dot on the tab; following a
         // notification is how somebody arrives here, and the screen opens on whatever folder it was
@@ -343,6 +356,7 @@ public sealed partial class NotesViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(ChosenFolderName));
+        OnPropertyChanged(nameof(ScreenTitle));
 
         // The account's tag colours, read from this phone like everything else on the screen.
         var tagColours = _tagColours is null ? null : await _tagColours.ColoursAsync(cancellationToken);

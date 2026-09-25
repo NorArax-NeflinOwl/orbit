@@ -66,6 +66,29 @@ public sealed class SyncState
 
     public void RecordStarted() => MoveTo(SyncCondition.Syncing);
 
+    /// <summary>
+    /// What one finished attempt does to the indicator: whether it got through, and whether it brought
+    /// anything the screens have not drawn. In one place because there is more than one way to ask for
+    /// a sync - the timer, and the reader pressing Refresh - and an attempt that moved the word in the
+    /// corner for one and not the other is an app that looks broken depending on who started it.
+    /// </summary>
+    public void Record(SyncResult result)
+    {
+        if (result.ReachedTheServer)
+        {
+            RecordSucceeded();
+        }
+        else
+        {
+            RecordFailed();
+        }
+
+        if (result.Sent + result.Received + result.RemovedLocally > 0)
+        {
+            RecordBroughtSomethingNew();
+        }
+    }
+
     public void RecordSucceeded()
     {
         LastSyncedAtUtc = _timeProvider.GetUtcNow();

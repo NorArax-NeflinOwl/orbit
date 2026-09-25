@@ -81,6 +81,47 @@ public sealed class BehindThePinTests : OrbitTestContext
     }
 
     /// <summary>
+    /// And it is told the door can be shut. Until 2026-09-24 an account with no PIN met what was
+    /// private with the door simply open and nothing on any screen saying it could be closed, so the
+    /// setting existed for whoever happened to find it in Options - reported as "opening a private note
+    /// says nothing about making a PIN".
+    /// </summary>
+    [Fact]
+    public void And_is_told_where_to_set_one()
+    {
+        RegisterAccount(hasPin: false);
+
+        var cut = Render();
+
+        Assert.Contains("Nobody is asked for a PIN", cut.Markup);
+        Assert.Equal("/options", cut.Find("p.field-hint a").GetAttribute("href"));
+    }
+
+    /// <summary>And not over what is not private: it is a thing said in the place it is about.</summary>
+    [Fact]
+    public void And_is_not_told_it_over_what_is_not_private()
+    {
+        RegisterAccount(hasPin: false);
+
+        var cut = Render(applies: false);
+
+        Assert.DoesNotContain("Nobody is asked for a PIN", cut.Markup);
+    }
+
+    /// <summary>And an account that has one is not told to make one.</summary>
+    [Fact]
+    public void And_an_account_that_has_one_is_left_alone()
+    {
+        RegisterAccount(hasPin: true, rightPin: "1234");
+        var cut = Render();
+
+        Answer(cut, "1234");
+
+        Assert.Contains(Secret, cut.Markup);
+        Assert.DoesNotContain("Nobody is asked for a PIN", cut.Markup);
+    }
+
+    /// <summary>
     /// And what is not private is drawn even on an account that has a PIN: the door is in front of what
     /// is sealed, not in front of the page it happens to be on.
     /// </summary>

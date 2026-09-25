@@ -1,9 +1,11 @@
 @page "/inventory/{InventoryId:guid}"
 @attribute [Authorize]
 @implements IDisposable
+@using System.Globalization
 @using System.Net
 @using Orbit.Contracts.Inventories
 @using Orbit.Core.Abstractions
+@using Orbit.Core.Inventories
 @using Orbit.Web.Services
 @inject InventoryApiClient InventoryApiClient
 @inject NavigationManager NavigationManager
@@ -61,12 +63,15 @@ else
                    putting some back are the two things somebody does standing in front of it, and
                    opening an editor to type a number is not what either of them feels like. *@
                 <span class="shelf-batch-count" @onclick="() => { }" @onclick:stopPropagation="true">
+                    @* The step follows the row's unit - see InventoryAmountStep - so the words on the
+                       button say the number rather than a half that only some rows move by. *@
                     <button type="button" class="icon-btn" disabled="@(batch.Quantity <= 0)"
-                            title="@(T["0.5 less"])" aria-label="@T.Format("0.5 less: {0}", batch.Name)"
-                            @onclick="() => Count(batch, -Step)">−</button>
-                    <button type="button" class="icon-btn" title="@(T["0.5 more"])"
-                            aria-label="@T.Format("0.5 more: {0}", batch.Name)"
-                            @onclick="() => Count(batch, Step)">+</button>
+                            title="@T.Format("Take {0} off", Written(StepFor(batch)))"
+                            aria-label="@T.Format("Take {0} off: {1}", Written(StepFor(batch)), batch.Name)"
+                            @onclick="() => Count(batch, -StepFor(batch))">−</button>
+                    <button type="button" class="icon-btn" title="@T.Format("Add {0}", Written(StepFor(batch)))"
+                            aria-label="@T.Format("Add {0}: {1}", Written(StepFor(batch)), batch.Name)"
+                            @onclick="() => Count(batch, StepFor(batch))">+</button>
                 </span>
                 <span class="row-title">@batch.Name</span>
                 @if (TheBellMeans(batch))
@@ -166,13 +171,15 @@ else
     public Guid? Highlight { get; set; }
 
     /// <summary>
-    /// How much the two buttons on a row move the shelf by. Half rather than one, asked for on
-    /// 2026-09-18: most of what a shelf holds is counted in something a half of makes sense of - half a
-    /// kilo, half a litre, half a packet - and somebody who wants a whole one presses twice. Going the
-    /// other way round, a shelf that could only move in ones could not record half a bottle at all
-    /// without opening the form and typing it.
+    /// How much the two buttons on this row move the shelf by - the shared rule, so the phone's own
+    /// stepper moves by the same amount. Half for the units a half of makes sense of (asked for on
+    /// 2026-09-18) and fifty for the small ones, where a half is no use to anybody (2026-09-24). See
+    /// <see cref="InventoryAmountStep"/>.
     /// </summary>
-    private const decimal Step = 0.5m;
+    private static decimal StepFor(InventoryItemDto batch) => InventoryAmountStep.Of(batch.Unit);
+
+    /// <summary>The step as the buttons say it: "0.5" or "50", never "0.50" or "50.00".</summary>
+    private static string Written(decimal step) => step.ToString("0.##", CultureInfo.CurrentCulture);
 
     private InventoryDto? _inventory;
     private IReadOnlyList<InventoryItemDto> _shelf = [];

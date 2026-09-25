@@ -433,6 +433,11 @@
             // An entry tied to an event is that event, so the list shows one of them rather than the
             // same appointment twice, one card under the other. The grids have always done this - see
             // CalendarGridBuilder.DueTasksOnDate - and the list beside them had not.
+            if (!TheOpenTabShowsDeadlines)
+            {
+                return [];
+            }
+
             var listedEventIds = _listedEvents.Select(calendarEvent => calendarEvent.Id).ToHashSet();
             return [.. (_dueTasks ?? [])
                 .Where(dueTask => DateOnly.FromDateTime(dueTask.DueDateUtc.LocalDateTime) is var due
@@ -724,9 +729,20 @@
 
     /// <inheritdoc cref="EventsOnTheGrid"/>
     private IReadOnlyList<DueTaskDto> DueTasksOnTheGrid
-        => GridShowsWhatIsDone
-            ? _dueTasks ?? []
-            : [.. (_dueTasks ?? []).Where(dueTask => !dueTask.IsCompleted)];
+        => !TheOpenTabShowsDeadlines
+            ? []
+            : GridShowsWhatIsDone
+                ? _dueTasks ?? []
+                : [.. (_dueTasks ?? []).Where(dueTask => !dueTask.IsCompleted)];
+
+    /// <summary>
+    /// Whether the tab that is open is one the deadlines belong on - see
+    /// <see cref="CalendarDeadlineTab"/>, which is the rule the phone reads too and says why that is
+    /// Public alone. Every tab drew them until 2026-09-25, so the Archived tab showed a page of things
+    /// that had not been archived at all, in the list and on the grid alike.
+    /// </summary>
+    private bool TheOpenTabShowsDeadlines
+        => CalendarDeadlineTab.ShowsDeadlines(Folders.ChosenOn(FolderPage.Calendar));
 
     /// <summary>
     /// The events the grids draw as done. Only reached when the reader has asked the grid for what is

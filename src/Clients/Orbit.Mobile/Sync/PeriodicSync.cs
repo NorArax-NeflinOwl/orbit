@@ -124,20 +124,7 @@ public sealed class PeriodicSync : IDisposable
         _syncState.RecordStarted();
         try
         {
-            var result = await _synchronise(cancellationToken);
-            if (result.ReachedTheServer)
-            {
-                _syncState.RecordSucceeded();
-            }
-            else
-            {
-                _syncState.RecordFailed();
-            }
-
-            if (result.Sent + result.Received + result.RemovedLocally > 0)
-            {
-                _syncState.RecordBroughtSomethingNew();
-            }
+            _syncState.Record(await _synchronise(cancellationToken));
         }
         catch (HttpRequestException exception)
         {

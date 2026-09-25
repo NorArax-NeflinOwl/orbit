@@ -1,4 +1,5 @@
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Folders;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Mobile.Api;
@@ -468,6 +469,32 @@ public sealed class TasksScreenTests : IDisposable
         var screen = await OpenAsync();
 
         Assert.False(Assert.Single(screen.TaskLists).HasUnseenAction);
+    }
+
+    /// <summary>
+    /// Only an empty folder can be deleted, here as in the browser - see FolderTabs.ChosenStillHolds,
+    /// and NoteFoldersTests, which says what deleting a full one did. Asked of where the lists are
+    /// filed rather than of the tab's count: a list put away is drawn under Archived and is still in
+    /// the folder its owner chose.
+    /// </summary>
+    [Fact]
+    public async Task A_folder_with_a_list_in_it_says_it_still_holds_something()
+    {
+        var folders = new LocalFolderRepository(_localStore, _clock);
+        var work = await folders.CreateAsync("Work", FolderScope.Tasks);
+        var someday = await folders.CreateAsync("Someday", FolderScope.Tasks);
+        var shopping = await _taskLists.CreateAsync("Shopping", TaskListRow.NoItems);
+        await _taskLists.FileAsync(shopping.LocalId, work.LocalId);
+        await _taskLists.ArchiveAsync(shopping.LocalId, isArchived: true);
+
+        var screen = await OpenAsync();
+
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(work.LocalId));
+        Assert.Equal(0, screen.FolderChoices.Single(choice => choice.Name == "Work").Count);
+        Assert.True(screen.Folders.ChosenStillHolds);
+
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(someday.LocalId));
+        Assert.False(screen.Folders.ChosenStillHolds);
     }
 
     private async Task AddAsync(params string[] titles)

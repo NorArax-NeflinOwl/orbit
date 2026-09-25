@@ -225,6 +225,10 @@ public sealed partial class TasksViewModel : ObservableObject
     public string ChosenFolderName
         => FolderChoices.FirstOrDefault(choice => choice.IsChosen)?.Name ?? string.Empty;
 
+    /// <inheritdoc cref="Notes.NotesViewModel.ScreenTitle"/>
+    public string ScreenTitle
+        => ScreenTitleWithFolder.Of(_translations["Tasks"], Folders.Chosen, ChosenFolderName);
+
     /// <summary>What the cards are sorted by - the half of the arrangement a reader chooses directly.</summary>
     public TaskListSortOrder SortOrder => _arrangement.SortOrder;
 
@@ -499,6 +503,11 @@ public sealed partial class TasksViewModel : ObservableObject
         // And which of them hold something the reader has not seen, so the menu can say which folder to
         // open - the dot the browser puts on the tab. Following a notification is how somebody arrives
         // here, and the screen opens on whatever folder it was last left on.
+        // And where each list is filed, which is a third question again: a finished or put-away list is
+        // drawn under its own tab and is still in the folder it was filed into - see
+        // FolderTabs.NoteWhatIsFiled, which is what a folder is asked before it may be deleted.
+        Folders.NoteWhatIsFiled(_stored.Select(taskList => taskList.FolderId));
+
         FolderChoices.Clear();
         foreach (var choice in Folders.Describe(
             [.. _stored.Select(taskList => new RowInAFolder(Where(taskList), HasNewsAbout(taskList)))]))
@@ -507,6 +516,7 @@ public sealed partial class TasksViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(ChosenFolderName));
+        OnPropertyChanged(nameof(ScreenTitle));
 
         TaskLists.Clear();
         foreach (var taskList in TaskListView.Arrange(_stored, StatusFilter, _arrangement)

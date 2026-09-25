@@ -986,22 +986,31 @@ public sealed partial class DashboardViewModel : ObservableObject
     /// the few most relevant rows and the section itself has the rest. The same destinations Orbit.Web's
     /// card headings lead to; the two chat cards both lead to Contacts there, because that page holds
     /// the chats and the directory as tabs.
+    ///
+    /// The four sections that have folders are narrowed to the one this screen is being read under
+    /// first - see FolderTabs.ChooseTheSameOnAsync. Without it a card pressed while the dashboard was
+    /// narrowed to "Work" opened its section on whatever folder that section was last left on, which is
+    /// an answer to a question nobody asked (reported 2026-09-24).
     /// </summary>
     [RelayCommand]
-    private void OpenSection(DashboardCard? card)
+    private async Task OpenSectionAsync(DashboardCard? card, CancellationToken cancellationToken)
     {
         switch (card?.Kind)
         {
             case DashboardCardKind.Notes:
+                await Folders.ChooseTheSameOnAsync(FolderPage.Notes, cancellationToken);
                 _navigator.ShowNotes();
                 break;
             case DashboardCardKind.Tasks:
+                await Folders.ChooseTheSameOnAsync(FolderPage.Tasks, cancellationToken);
                 _navigator.ShowTasks();
                 break;
             case DashboardCardKind.Upcoming:
+                await Folders.ChooseTheSameOnAsync(FolderPage.Calendar, cancellationToken);
                 _navigator.ShowCalendar();
                 break;
             case DashboardCardKind.Inventories:
+                await Folders.ChooseTheSameOnAsync(FolderPage.Inventories, cancellationToken);
                 _navigator.ShowInventory();
                 break;
             case DashboardCardKind.Places:

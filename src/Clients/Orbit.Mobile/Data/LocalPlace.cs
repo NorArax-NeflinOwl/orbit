@@ -51,6 +51,19 @@ public sealed class LocalPlace : Orbit.Mobile.Sync.ISharedState
     /// </summary>
     public IReadOnlyList<Guid> TaskListIds { get; set; } = [];
 
+    /// <summary>
+    /// The Location entry of a task list this place was made from, or null for one kept by hand - see
+    /// Orbit.Core.Places.Place.SourceTaskItemId, and Orbit.Web's TaskEntryPlaces, which is what makes
+    /// them. Read from the server and never sent: `SavePlaceRequest.SourceTaskItemId` is the one field
+    /// where null means "leave it alone", exactly so that a place edited on a phone is not cut loose
+    /// from its entry.
+    ///
+    /// Kept here because a place made from an entry is not a place somebody keeps: the browser lists
+    /// those apart and leads from the pin back to the list. Readable even while the place is sealed,
+    /// like whether it is archived - it says where the place came from, not where it is.
+    /// </summary>
+    public Guid? SourceTaskItemId { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
 
     public DateTimeOffset UpdatedAtUtc { get; set; }

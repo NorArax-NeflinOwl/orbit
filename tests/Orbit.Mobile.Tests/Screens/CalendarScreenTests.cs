@@ -837,6 +837,111 @@ public sealed class CalendarScreenTests
         Assert.Equal(0, screen.FolderChoices.Single(choice => choice.Name == "Someday").Count);
     }
 
+    /// <summary>
+    /// A deadline is drawn under the tab anything unfiled is drawn under, and under no other. It is an
+    /// entry on a task list rather than an appointment: it has no folder of this page's, and nothing
+    /// here can put one away. Every tab drew every deadline until 2026-09-25, so the Archived tab
+    /// showed a page of things that had not been archived at all - reported that day, in the list and
+    /// in the grid alike. See CalendarDeadlineTab.
+    /// </summary>
+    [Fact]
+    public async Task A_deadline_is_only_on_the_tab_where_anything_unfiled_is()
+    {
+        using var context = new ScreenContext();
+        await context.AddDeadlineAsync("Groceries", "Buy milk", new DateTime(2026, 8, 20, 17, 0, 0));
+        var screen = await context.OpenAsync();
+
+        Assert.Single(Deadlines(screen));
+
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(BuiltInFolder.Archived));
+
+        Assert.Empty(Deadlines(screen));
+        Assert.DoesNotContain(screen.Listed, entry => entry.IsDeadline);
+    }
+
+    /// <summary>
+    /// And not under a folder somebody made for their appointments either: the entry is not filed
+    /// there, and a tab that draws what is not in it is a tab that answers a different question.
+    /// </summary>
+    [Fact]
+    public async Task And_not_under_a_folder_somebody_made_for_appointments()
+    {
+        using var context = new ScreenContext();
+        await context.AddDeadlineAsync("Groceries", "Buy milk", new DateTime(2026, 8, 20, 17, 0, 0));
+        var screen = await context.OpenAsync();
+        var week = await context.Folders.CreateAsync("This week", FolderScope.Calendar);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(week.LocalId));
+
+        Assert.Empty(Deadlines(screen));
+    }
+
+    /// <summary>
+    /// An appointment can be put away from the card that draws it, not only from its own screen. The
+    /// calendar's card offered Delete alone until 2026-09-25, which made it the one list in Orbit
+    /// where the only way to clear something off the screen was to destroy it.
+    /// </summary>
+    [Fact]
+    public async Task An_appointment_is_put_away_from_its_card()
+    {
+        using var context = new ScreenContext();
+        await context.AddEventAsync("Dentist", new DateTime(2026, 8, 20, 9, 0, 0));
+        var screen = await context.OpenAsync();
+        var card = Assert.Single(screen.Listed, entry => entry.IsEvent);
+        Assert.False(card.IsArchived);
+
+        await screen.ArchiveListedCommand.ExecuteAsync(card);
+
+        // Off the list it was on, and under Archived instead - which is what putting away means.
+        Assert.DoesNotContain(screen.Listed, entry => entry.IsEvent);
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(BuiltInFolder.Archived));
+        Assert.True(Assert.Single(screen.Listed, entry => entry.IsEvent).IsArchived);
+    }
+
+    /// <summary>And brought back from the same card, which is what the word on it then says.</summary>
+    [Fact]
+    public async Task And_brought_back_from_the_same_card()
+    {
+        using var context = new ScreenContext();
+        await context.AddEventAsync("Dentist", new DateTime(2026, 8, 20, 9, 0, 0));
+        var screen = await context.OpenAsync();
+        await screen.ArchiveListedCommand.ExecuteAsync(Assert.Single(screen.Listed, entry => entry.IsEvent));
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(BuiltInFolder.Archived));
+
+        await screen.ArchiveListedCommand.ExecuteAsync(Assert.Single(screen.Listed, entry => entry.IsEvent));
+
+        Assert.Empty(screen.Listed);
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Default);
+        Assert.False(Assert.Single(screen.Listed, entry => entry.IsEvent).IsArchived);
+    }
+
+    /// <summary>
+    /// Only an empty folder can be deleted, on this screen as in the browser - see
+    /// FolderTabs.ChosenStillHolds, and NoteFoldersTests, which says what deleting a full one did. A
+    /// repeat comes back as a copy for every day it falls on and every copy carries the one event's
+    /// folder, so the answer is about the event rather than the days.
+    /// </summary>
+    [Fact]
+    public async Task A_folder_with_an_event_in_it_says_it_still_holds_something()
+    {
+        using var context = new ScreenContext();
+        var standup = await context.LocalIdOfAsync(
+            await context.AddEventAsync("Standup", new DateTime(2026, 8, 20, 9, 0, 0)));
+        var screen = await context.OpenAsync();
+        var week = await context.Folders.CreateAsync("This week", FolderScope.Calendar);
+        var someday = await context.Folders.CreateAsync("Someday", FolderScope.Calendar);
+
+        await context.Events.FileAsync(standup, week.LocalId);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(week.LocalId));
+        Assert.True(screen.Folders.ChosenStillHolds);
+
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(someday.LocalId));
+        Assert.False(screen.Folders.ChosenStillHolds);
+    }
+
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();

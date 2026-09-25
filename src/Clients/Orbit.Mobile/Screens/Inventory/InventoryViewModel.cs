@@ -155,6 +155,10 @@ public sealed partial class InventoryViewModel : ObservableObject
     public string ChosenFolderName
         => FolderChoices.FirstOrDefault(choice => choice.IsChosen)?.Name ?? string.Empty;
 
+    /// <inheritdoc cref="Notes.NotesViewModel.ScreenTitle"/>
+    public string ScreenTitle
+        => ScreenTitleWithFolder.Of(_translations["Inventory"], Folders.Chosen, ChosenFolderName);
+
     /// <inheritdoc cref="Notes.NotesViewModel.NewFolderName"/>
     [ObservableProperty]
     private string _newFolderName = string.Empty;
@@ -482,6 +486,11 @@ public sealed partial class InventoryViewModel : ObservableObject
             inventory => Folders.Where(
                 inventory.FolderId, inventory.IsPrivate, isFinished: false, inventory.IsArchived));
 
+        // And where each shelf is filed, which is not the tab it is drawn under: one put away is under
+        // Archived wherever it was filed. Asked before a folder may be deleted - see
+        // FolderTabs.NoteWhatIsFiled.
+        Folders.NoteWhatIsFiled(held.Select(inventory => inventory.FolderId));
+
         // And which folders hold something the reader has not seen - a warning about something going
         // off, say - so the menu can say which one to open. See UnreadNews, and the dot the browser puts
         // on the tab this entry stands for.
@@ -499,6 +508,7 @@ public sealed partial class InventoryViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(ChosenFolderName));
+        OnPropertyChanged(nameof(ScreenTitle));
 
         _everyShelf = held;
         _stored = [.. held.Where(inventory => Folders.Holds(placements[inventory.LocalId]))];

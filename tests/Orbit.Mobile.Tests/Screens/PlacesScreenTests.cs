@@ -34,6 +34,54 @@ public sealed class PlacesScreenTests
     }
 
     /// <summary>
+    /// A place the browser made from a Location entry of a task list says so on this phone too. The
+    /// server has held the link since 2026-09-11 (TaskEntryPlaces, Place.SourceTaskItemId) and the
+    /// phone threw it away on every sync, so a place made from an entry was indistinguishable here from
+    /// one somebody kept by hand.
+    /// </summary>
+    [Fact]
+    public async Task A_place_made_from_a_task_entry_says_which_entry_on_this_phone_too()
+    {
+        using var context = new PlacesContext();
+        var entryId = Guid.NewGuid();
+        context.Server.AddPlace("The chemist", sourceTaskItemId: entryId);
+        context.Server.AddPlace("The good bakery");
+
+        var screen = context.OpenList();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var stored = await context.Places.GetAllAsync();
+        Assert.Equal(entryId, Assert.Single(stored, place => place.Name == "The chemist").SourceTaskItemId);
+        // And one kept by hand still answers to nothing, which is what tells the two apart.
+        Assert.Null(Assert.Single(stored, place => place.Name == "The good bakery").SourceTaskItemId);
+    }
+
+    /// <summary>
+    /// Editing such a place here must not cut it loose from its entry. The phone sends no
+    /// SourceTaskItemId at all, and null on a save means "leave it alone" - the one field in
+    /// SavePlaceRequest where it does, written that way for exactly this.
+    /// </summary>
+    [Fact]
+    public async Task And_changing_it_here_leaves_it_answering_to_that_entry()
+    {
+        using var context = new PlacesContext();
+        var entryId = Guid.NewGuid();
+        var onTheServer = context.Server.AddPlace("The chemist", sourceTaskItemId: entryId);
+        var list = context.OpenList();
+        await list.LoadCommand.ExecuteAsync(null);
+        var stored = Assert.Single(await context.Places.GetAllAsync());
+
+        var detail = context.OpenDetail(stored.LocalId);
+        detail.Name = "The chemist on the corner";
+        await detail.SaveCommand.ExecuteAsync(null);
+        await list.LoadCommand.ExecuteAsync(null);
+
+        var afterwards = Assert.Single(context.Server.Places, place => place.Id == onTheServer.Id);
+        Assert.Equal(entryId, afterwards.SourceTaskItemId);
+        Assert.Equal(entryId, Assert.Single(await context.Places.GetAllAsync()).SourceTaskItemId);
+    }
+
+    /// <summary>
     /// A place handed over reaches this phone through the same feed as one the reader kept - the server
     /// answers with both - and the row says which it is, because those are different things.
     /// </summary>
