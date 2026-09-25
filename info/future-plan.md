@@ -2931,6 +2931,24 @@ a line needed a reading it did not state, the reading is marked as such.
 - **"Public" becomes "All"**, and holds everything from every folder except what is private and what is
   put away.
 
+### Added 2026-09-25, with a picture of the hole
+
+- ~~**The page of task lists leaves holes between the cards.**~~ Done the same day. `.task-card-grid`
+  was a two-column CSS grid, and a grid has rows: a row is as tall as the tallest card in it, so a list
+  of six entries beside one of twenty left a hole under the short one the height of the difference, and
+  every card after those two began below the tall one. Task cards are the worst case - they carry their
+  entries and they can be collapsed to one line, neither of which the page can even out.
+
+  It is **multi-column** now (`column-count: 2`, `break-inside: avoid` on each card), which packs them
+  with no holes at all. **What it costs, and what to revisit**: the cards read *down* each column and
+  then across, where a grid read across and then down. Nothing depends on that order - pinned cards are
+  sorted to the front by the page rather than by a CSS `order`, which multi-column would ignore - but it
+  is a change in how the page is read and not only in how it looks. CSS grid will do this properly with
+  `grid-template-rows: masonry`; no browser ships it unflagged yet, and that is the rule to come back to.
+
+  Only this page: the dashboard's `.card-grid` stretches its cards to the row's height rather than
+  leaving a hole beside them, and the notes and the inventories are a single column (`.item-card-list`).
+
 **Read against what is already here**: "Everything from every folder on the dashboard" and *"Public
 becomes All"* are two halves of one change, and the second settles what the first should do; the folder
 half of the **Setup** page overlaps *"Hide on the dashboard"*, which is a visibility per folder kept on
