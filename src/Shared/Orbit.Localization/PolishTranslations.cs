@@ -1348,6 +1348,12 @@ public static class PolishTranslations
         ["Notification as the event approaches"] = "Powiadomienie przed wydarzeniem",
         ["This event was shared by"] = "To wydarzenie udostępnił",
         ["Checklist item"] = "Pozycja listy",
+        // The menu under the button in the corner of a note, which the row of icons over the writing
+        // was folded into on 2026-09-25 - see NoteDetailPage.ShowTheWritingTools. Two groups: what this
+        // line is, and what to put in the note beside the writing.
+        ["Writing tools"] = "Narzędzia pisania",
+        ["This line"] = "Ta linia",
+        ["Put in"] = "Wstaw",
         // The row of tools over the corner of a note - see NoteEditor. Three of the four are drawn for
         // the design that has them rather than for anything they do yet, and say so when pressed.
         ["Text style"] = "Styl tekstu",

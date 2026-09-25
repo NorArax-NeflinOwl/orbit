@@ -768,7 +768,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 - ~~**The phone's separator tool is out of sight, with nothing to say it is there**~~ Done the same day,
   the first of the three ways out, as the user chose: the row's trailing edge fades into the page while
   there are tools past it, and stops fading once the row is scrolled to its end (`ToolRowFade`,
-  `NoteDetailPage.ShowWhatIsPastTheEdge`). Seen on the emulator both ways. As noticed: (2026-09-21, seen on
+  `NoteDetailPage.ShowWhatIsPastTheEdge`). Seen on the emulator both ways. **Overtaken on 2026-09-25**:
+  the row is four tools now and the separator is in the menu under the corner button, so on an ordinary
+  phone there is nothing past the edge to fade. The fade is kept for the width or the translation where
+  there still is. As noticed: (2026-09-21, seen on
   a Pixel 7 emulator at 1080 px). The note screen's tool row scrolls sideways and stops short of Save;
   its XAML comment counts on the last tool being cut off at the edge, which "says there is more to
   swipe to". On this width it is not: the row ends on the table tool drawn whole, and the separator sits
@@ -2865,8 +2868,17 @@ a line needed a reading it did not state, the reading is marked as such.
   is about 18 and the row is 44, so what answers it is the furniture's height rather than a count of
   lines. (Not to be confused with the keyboard inset, which is a different thing and was walked on
   2026-09-24 on a short note - see the entry above.)
-- **Too many icons in the note's formatting row.** The table goes under the tick-box button, which
-  becomes a menu for formatting and for putting elements in; the rest of the row moves in there too.
+- ~~**Too many icons in the note's formatting row.**~~ Done 2026-09-25
+  (`NoteDetailPage.ShowTheWritingTools`). Seven became four and a menu. What stayed in the row is what
+  somebody presses again and again while writing a line - undo, redo and the two indents - and what
+  moved under the corner button is what they reach for once: the tick box, the text style, the table
+  and the separator, in two groups (**This line**, **Put in**).
+
+  Two decisions worth knowing: the corner button is drawn as the "⋯" every other menu in the app is
+  opened by rather than keeping the tick box's own drawing, because a tick box that opens a menu is a
+  lie about what the press does; and it **stays washed in the accent while a checklist is being
+  written**, so the one tool that is a mode still says on the screen that it is on, which is what moving
+  it into a shut menu would otherwise have cost.
 - ~~**Checking for an update does not find the newest version.**~~ The app's half is fixed (2026-09-24):
   the Update screen **asked nobody**. It read the verdict startup happened to obtain
   (`RememberedDecisionAsync`), so a release published while the app was running - or one published while

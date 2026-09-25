@@ -296,19 +296,24 @@
 
         <!-- Two buttons over the foot of the note, which is the one screen in Orbit with a button in
              each corner. Save on the right, where the thumb is: this screen is prose being typed, so it
-             is written down when the writer says so rather than line by line. The tick box on the left,
-             smaller because it is the lesser of the two - pressed, it puts a box on the line being
-             written in and keeps putting one on each new line until it is pressed again. -->
+             is written down when the writer says so rather than line by line. The writing's own tools
+             on the left, smaller because they are the lesser of the two.
+
+             That left button used to be the tick box itself and is the way into all of them since
+             2026-09-25 - the row over the writing had seven icons in it and was reported as too many.
+             Drawn as the "⋯" every other menu in the app is opened by, and still washed in the accent
+             while a checklist is being written, so the one tool that is a *mode* still says on the
+             screen that it is on. See ShowTheWritingTools. -->
         <controls:Fab x:Name="SaveButton" Grid.Row="1" IsAboveAdBar="True"
                       IsVisible="{Binding CanEdit}"
                       Data="M5,12 L10,17 L19,7"
                       Command="{Binding SaveLinesCommand}"
                       Description="{controls:Translate 'Save'}" />
-        <controls:Fab x:Name="ChecklistButton" Grid.Row="1" IsAboveAdBar="True" IsOnTheLeft="True"
+        <controls:Fab x:Name="ToolsButton" Grid.Row="1" IsAboveAdBar="True" IsOnTheLeft="True"
                       Diameter="44" IsVisible="{Binding CanEdit}"
                       IsOn="{Binding IsWritingAChecklist}"
-                      Data="M4,5 H20 M4,5 V19 H20 V5 M8,12 L11,15 L16,9"
-                      Description="{controls:Translate 'Checklist item'}" />
+                      Data="M6.6,12 A1.6,1.6 0 1 1 3.4,12 A1.6,1.6 0 1 1 6.6,12 Z M13.6,12 A1.6,1.6 0 1 1 10.4,12 A1.6,1.6 0 1 1 13.6,12 Z M20.6,12 A1.6,1.6 0 1 1 17.4,12 A1.6,1.6 0 1 1 20.6,12 Z"
+                      Description="{controls:Translate 'Writing tools'}" />
 
         <!-- Undo and redo, beside the tick-box button: a phone has no Ctrl+Z, and these are the writing's
              own tools as the tick box is. Dimmed while there is nothing to undo or redo - see
@@ -354,28 +359,11 @@
             <controls:IconButton x:Name="OutdentButton" TouchSize="44"
                                  Data="M4,5 H16 M8,10 H16 M8,15 H16 M5,8 L2,10.5 L5,13"
                                  Description="{controls:Translate 'Outdent'}" />
-            <!-- What the line being written in is - a heading, a line of a list, ordinary writing. The
-                 browser's "Aa" control, as a sheet: eight choices in a row over the writing would be
-                 most of the writing on a phone. Drawn as a large A and a small one, which is how every
-                 editor draws this. -->
-            <controls:IconButton x:Name="StyleButton" TouchSize="44"
-                                 Data="M2,16 L6,5 L10,16 M3.2,12.5 H8.8 M12,16 L14.6,9 L17.2,16 M12.8,14 H16.4"
-                                 Description="{controls:Translate 'Text style'}" />
-            <!-- The browser's table tool, which means two things told apart by where the caret is:
-                 outside a table it puts one where the line being written in is, inside one it opens a
-                 sheet of what can be done to that table. Drawn as a grid, which is how every editor
-                 draws it. Its command is set in the code-behind for the reason the buttons beside it
-                 give - only the page knows whether a cell has the caret. -->
-            <controls:IconButton x:Name="TableButton" TouchSize="44"
-                                 Data="M3,4 H17 V16 H3 Z M3,8 H17 M3,12 H17 M8,4 V16 M13,4 V16"
-                                 Description="{controls:Translate 'Table'}" />
-            <!-- A rule across the note, which asks what to write on it before it puts one in - see
-                 NoteDetailViewModel.SeparatorChoices. A sheet again, for the reason the style button
-                 gives; its command is set in the code-behind like the rest of this row. Drawn as the
-                 rule itself, faint writing above and below it. -->
-            <controls:IconButton x:Name="SeparatorButton" TouchSize="44"
-                                 Data="M2,10 H18 M5,5.5 H15 M5,14.5 H15"
-                                 Description="{controls:Translate 'Separator'}" />
+            <!-- The style, the table and the separator used to stand here as three more icons. They are
+                 in the menu under the button in the left corner since 2026-09-25, on a report that
+                 there were too many icons over the writing: what is left in this row is what somebody
+                 presses again and again while writing a line, and what moved is what they reach for
+                 once. See ShowTheWritingTools. -->
         </HorizontalStackLayout>
         </ScrollView>
         <!-- The fade itself: the page's own colour, from clear to solid, over the row's last few points.

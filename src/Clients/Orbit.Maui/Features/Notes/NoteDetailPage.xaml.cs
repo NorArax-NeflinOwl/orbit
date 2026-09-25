@@ -64,12 +64,9 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 		_translations = translations;
-		ChecklistButton.Command = new Command(PutABoxOnThisLine);
+		ToolsButton.Command = new Command(ShowTheWritingTools);
 		IndentButton.Command = new Command(() => ReindentThisLine(more: true));
 		OutdentButton.Command = new Command(() => ReindentThisLine(more: false));
-		StyleButton.Command = new Command(async () => await ChooseAStyleAsync());
-		TableButton.Command = new Command(async () => await UseTheTableToolAsync());
-		SeparatorButton.Command = new Command(async () => await UseTheSeparatorToolAsync());
 		_viewModel.CaretPlaced += OnCaretPlaced;
 
 		// Whether the tool row's edge fades depends on how far it is scrolled, how wide it is and how
@@ -499,7 +496,48 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		});
 
 	/// <summary>
-	/// The button in the bottom-left corner. It does two things at once because the design gives it
+	/// Everything the writing can be done to, under the button in the bottom-left corner. The row over
+	/// the note used to carry all seven of these as icons and was reported on 2026-09-24 as too many:
+	/// what stayed in the row is what somebody presses again and again while writing a line - undo,
+	/// redo and the two indents - and what came in here is what they reach for once.
+	///
+	/// Two groups, because it answers two questions: what this line *is*, and what to put in the note
+	/// beside the writing. Orbit's own panel rather than the platform's action sheet, which is what
+	/// every other menu on the phone is - the two sheets the style and the separator still open are a
+	/// step further in, where a choice is a list of eight.
+	///
+	/// The tick box is first and carries its mark, because it is the one of them that is a mode: it
+	/// stays on until it is pressed again, and the button that opens this menu stays washed in the
+	/// accent to say so while it is.
+	/// </summary>
+	private void ShowTheWritingTools()
+	{
+		if (!_viewModel.CanEdit)
+		{
+			return;
+		}
+
+		Menu.ShowGroups(
+			[
+				new ScreenMenuGroup(
+					_translations["This line"],
+					[
+						new ScreenMenuEntry(
+							_translations["Checklist item"], PutABoxOnThisLine, _viewModel.IsWritingAChecklist),
+						new ScreenMenuEntry(_translations["Text style"], () => _ = ChooseAStyleAsync())
+					]),
+				new ScreenMenuGroup(
+					_translations["Put in"],
+					[
+						new ScreenMenuEntry(_translations["Table"], () => _ = UseTheTableToolAsync()),
+						new ScreenMenuEntry(_translations["Separator"], () => _ = UseTheSeparatorToolAsync())
+					])
+			],
+			MenuPlacement.FromTheFoot);
+	}
+
+	/// <summary>
+	/// What the tick box in that menu does. It does two things at once because the design gives it
 	/// two: it puts a tick box on the line being written in, and it keeps putting one on every new line
 	/// until it is pressed again - which also takes the box off whatever line is being written in then.
 	/// </summary>
