@@ -2893,7 +2893,15 @@ a line needed a reading it did not state, the reading is marked as such.
   sets that env var; see `.github/workflows/android-release.yml`). And a **development build points at
   a local API**, where `appsettings.json` leaves `LatestVersion` empty on purpose, so an update is never
   offered there whatever is released - which is the likeliest reading of a phone that finds nothing.
-- **The title menu cannot be scrolled**, so a long one is cut off at the foot of the screen.
+- ~~**The title menu cannot be scrolled**, so a long one is cut off at the foot of the screen.~~ Done
+  2026-09-24: the panel's groups are in a `ScrollView` capped at the height the overlay actually has -
+  not the display's, since the bar, the ad strip and the system insets are all outside it.
+
+  **And a defect of its own found on a device the next day**: a `ScrollView` fills by default, so the
+  panel became as tall as its *cap* rather than as tall as what was in it, and a menu of four entries
+  was drawn as a box down the whole screen with the entries at the top. `VerticalOptions="Start"` makes
+  it wrap its content again. Seen both ways on the emulator. The scroll itself is not walked - it needs
+  a menu longer than the screen, and the notes' own (five groups, twenty entries) fits.
 - ~~**Still no Refresh** beside the account's name or on the navigation panel.~~ Done 2026-09-24: it is
   in the drawer's head, beside the word that says where the phone stands, because that word is what it
   changes. One press is all three things asked for, which is what a sync already is - it fetches what
