@@ -2853,13 +2853,18 @@ a line needed a reading it did not state, the reading is marked as such.
 
 ### Orbit.Maui
 
-- **The formatting row hides behind the keyboard once a note is long**, and the writing runs under the
-  UI. Reported as: the options are hidden while the keyboard is up, and you have to scroll by hand or
-  write a few lines before they come back; it happens when the note holds a lot of text and the writing
-  starts near its foot. **What the browser did about the same thing is the asked-for fix: keep three
-  empty lines of room at the end, for the UI to be drawn over.** (Walked on 2026-09-24 on a *short*
-  note, where the row sits clear above the keyboard - see the keyboard-inset entry above. So this is
-  about a note long enough to scroll, not about the inset padding, and the two must not be confused.)
+- ~~**The formatting row hides behind the keyboard once a note is long**, and the writing runs under the
+  UI.~~ Done 2026-09-25. The room under the last line - which has been pressable since 2026-09-18 - was
+  **72 tall, and the furniture over the foot of that page reaches 128**: the tool row sits 72 up and is
+  44 tall, and the two buttons sit 72 up with Save 56 across. So the writing could only ever be scrolled
+  to within 72 of the bottom, and the last lines stayed under the row - which is why writing near the
+  foot of a long note meant scrolling by hand or typing blind until enough lines pushed it clear. The
+  room is 132 now (128 and four of air), and the tags field carries the same below it while it is drawn.
+
+  Asked for as **"three empty lines of room"**, which is the browser's own measure; on the phone a line
+  is about 18 and the row is 44, so what answers it is the furniture's height rather than a count of
+  lines. (Not to be confused with the keyboard inset, which is a different thing and was walked on
+  2026-09-24 on a short note - see the entry above.)
 - **Too many icons in the note's formatting row.** The table goes under the tick-box button, which
   becomes a menu for formatting and for putting elements in; the rest of the row moves in there too.
 - ~~**Checking for an update does not find the newest version.**~~ The app's half is fixed (2026-09-24):
@@ -2930,6 +2935,14 @@ a line needed a reading it did not state, the reading is marked as such.
   and a task list are as private as a note is.
 - **"Public" becomes "All"**, and holds everything from every folder except what is private and what is
   put away.
+
+### Added 2026-09-25, on the calendar
+
+- **The Archived folder shows task entries**, both in the list beside the calendar and in the calendar
+  itself. Whatever is put away should be under that tab and nowhere else, and what is *not* put away
+  should not be under it at all.
+- **There is no "Archive" on the calendar, only "Delete".** Everything in Orbit is put away rather than
+  thrown away; the calendar is the one screen that offers only the second.
 
 ### Added 2026-09-25, with a picture of the hole
 

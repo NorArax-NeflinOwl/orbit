@@ -250,8 +250,20 @@
                      what Apple Notes does with the same room, which is the editor this one follows.
 
                      An empty line already waiting at the end takes the caret instead of a second one
-                     being made, so pressing here twice does not leave a blank line behind. -->
-                <Grid HeightRequest="72" BackgroundColor="Transparent" IsVisible="{Binding CanEdit}">
+                     being made, so pressing here twice does not leave a blank line behind.
+
+                     **As tall as what is drawn over it**, which is what it was not until 2026-09-25: it
+                     was 72, and the furniture over the foot of this page reaches 128 - the tool row
+                     sits 72 up and is 44 tall, the two buttons sit 72 up and Save is 56 across. So the
+                     writing could only ever be scrolled to within 72 of the bottom and the last lines
+                     stayed under the row, which is why writing near the foot of a long note meant
+                     scrolling by hand or typing blind until enough lines pushed it clear. 132 is that
+                     128 and four of air.
+
+                     Asked for as "three empty lines of room", which is the measure the browser's own
+                     editor uses; here a line is about 18 and the row is 44, so the number that answers
+                     it is the furniture's height rather than a count of lines. -->
+                <Grid HeightRequest="132" BackgroundColor="Transparent" IsVisible="{Binding CanEdit}">
                     <Grid.GestureRecognizers>
                         <TapGestureRecognizer Tapped="OnRoomUnderTheWritingPressed" />
                     </Grid.GestureRecognizers>
@@ -269,8 +281,11 @@
                      last changed, and the line saying that typing "[]" starts a tick box. The first is
                      on the note's row in the list it came from; the second is written down in
                      info/functionality.md, which is the only place it now lives. -->
+                <!-- With the same 132 under it while it is drawn: the room above is the writing's
+                     clearance, and a field drawn below that room would be the thing under the tool row
+                     instead. -->
                 <controls:TagsFieldView x:Name="TagsField" BindingContext="{Binding Tags}"
-                                        IsVisible="False" Margin="0,20,0,0" />
+                                        IsVisible="False" Margin="0,20,0,132" />
             </VerticalStackLayout>
         </ScrollView>
 
