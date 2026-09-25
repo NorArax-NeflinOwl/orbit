@@ -318,6 +318,31 @@ public sealed class CalendarTests : OrbitTestContext
         Assert.DoesNotContain("Haircut", cut.Markup);
     }
 
+    /// <summary>
+    /// A deadline is drawn under the tab anything unfiled is drawn under, and under no other. It is an
+    /// entry on a task list rather than an appointment: it has no folder of this page's, and nothing
+    /// here can put one away. Every tab drew every deadline until 2026-09-25, so the Archived tab
+    /// showed a page of things that had not been archived at all - reported that day, in the list and
+    /// on the grid alike. See CalendarDeadlineTab, which the phone reads too.
+    /// </summary>
+    [Fact]
+    public void A_deadline_is_only_on_the_tab_where_anything_unfiled_is()
+    {
+        var todayMorning = DateTime.SpecifyKind(DateTime.Today.AddHours(9), DateTimeKind.Local);
+        RegisterCalendarApiClient([
+            CreateTimedEvent(todayMorning, todayMorning.AddHours(1), "Dentist") with { IsArchived = true }]);
+        RegisterTasksApiClient([CreateTaskListWithDueItem(todayMorning, "Send the report")]);
+
+        var cut = RenderComponent<Calendar>();
+        Assert.Contains("Send the", cut.Markup);
+
+        cut.FindAll(".folder-tab").Single(tab => tab.TextContent.Contains("Archived")).Click();
+
+        // The appointment that was put away is there; the deadline, which nobody put anywhere, is not.
+        Assert.Contains("Dentist", cut.Markup);
+        Assert.DoesNotContain("Send the", cut.Markup);
+    }
+
     /// <summary>The calendar draws no Private tab - an event is never sealed, see FolderPages.HasAPrivateTab.</summary>
     [Fact]
     public void The_calendar_offers_no_Private_tab()

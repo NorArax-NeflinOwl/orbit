@@ -41,10 +41,27 @@ public sealed class MobileVersionGate
     }
 
     public async Task<VersionGateDecision> DecideAsync(CancellationToken cancellationToken = default)
+        => await CheckAgainAsync(cancellationToken) ?? VersionGateDecision.Supported;
+
+    /// <summary>
+    /// Asks the server now and remembers what it says - what a screen somebody opened *to check for an
+    /// update* needs, as against what startup happened to decide.
+    ///
+    /// The Update screen read the remembered verdict alone until 2026-09-24, so it could only ever
+    /// repeat the answer from the last launch: a release published while the app was running was
+    /// invisible to it, and so was one published while the phone had been offline at startup. A screen
+    /// whose whole purpose is the question has to ask it.
+    ///
+    /// Null means the server could not be reached and nothing is remembered about this build - the one
+    /// thing <see cref="DecideAsync"/> deliberately does not distinguish, because a gate that let the
+    /// app through and a gate that knew it was supported come to the same thing at startup, and a
+    /// screen saying which is which does not.
+    /// </summary>
+    public async Task<VersionGateDecision?> CheckAgainAsync(CancellationToken cancellationToken = default)
     {
         if (await AskServerAsync(cancellationToken) is not { } fresh)
         {
-            return await ReadRememberedDecisionAsync(cancellationToken);
+            return await RememberedDecisionAsync(cancellationToken);
         }
 
         await _cache.WriteAsync(
@@ -103,7 +120,4 @@ public sealed class MobileVersionGate
             : new VersionGateDecision(remembered.Verdict, remembered.LatestVersion, remembered.UpdateUrl);
     }
 
-    /// <summary>Nothing known lets the app through - see the rule in this class's own summary.</summary>
-    private async Task<VersionGateDecision> ReadRememberedDecisionAsync(CancellationToken cancellationToken)
-        => await RememberedDecisionAsync(cancellationToken) ?? VersionGateDecision.Supported;
 }

@@ -211,6 +211,11 @@ public static class PolishTranslations
         ["PIN saved."] = "PIN zapisany.",
         ["You won't be asked for a PIN any more."] = "Nie będziemy już pytać o PIN.",
         ["Couldn't save your PIN. Try again."] = "Nie udało się zapisać PIN-u. Spróbuj ponownie.",
+        // Said over what is sealed while the account has no PIN at all - see BehindThePin. Two strings
+        // and not one, the second being the link: the sentence ends on it, so Polish keeps its order.
+        ["Nobody is asked for a PIN before what is private is shown."] =
+            "Nikt nie jest pytany o PIN, zanim pokaże się to, co prywatne.",
+        ["Set a PIN in Options"] = "Ustaw PIN w Opcjach",
         ["Related inventory"] = "Powiązany magazyn",
         ["Done: {0}"] = "Zrobione: {0}",
         ["About this inventory"] = "O tym magazynie",
@@ -1823,12 +1828,16 @@ public static class PolishTranslations
         ["{0} min before"] = "{0} min wcześniej",
         ["Delete \"{0}\"?"] = "Usunąć „{0}”?",
         ["Delete event \"{0}\"?"] = "Usunąć wydarzenie „{0}”?",
-        // The two buttons on a shelf row. They used to move it by one - see InventorySummary.Step for
-        // why half. The number is written the way each language writes it.
-        ["0.5 more"] = "O 0,5 więcej",
-        ["0.5 less"] = "O 0,5 mniej",
-        ["0.5 more: {0}"] = "O 0,5 więcej: {0}",
-        ["0.5 less: {0}"] = "O 0,5 mniej: {0}",
+        // The two buttons on a shelf row. They used to move it by one, then by half, and since
+        // 2026-09-24 by whatever the row's unit deserves - see InventoryAmountStep. The number is
+        // handed in rather than written into the word, because it is not the same on every row: a row
+        // in milligrams moves by fifty and one in kilos by half.
+        // Worded "add" and "take off" rather than "{0} more": that key is already the home screen
+        // widget's "jeszcze {0}", and one English string cannot be both.
+        ["Add {0}"] = "Dodaj {0}",
+        ["Take {0} off"] = "Odejmij {0}",
+        ["Add {0}: {1}"] = "Dodaj {0}: {1}",
+        ["Take {0} off: {1}"] = "Odejmij {0}: {1}",
         ["No"] = "Nie",
         ["another user"] = "inny użytkownik",
         ["This login is already taken."] = "Ten login jest już zajęty.",
@@ -2394,6 +2403,9 @@ public static class PolishTranslations
         ["You have Orbit {0}, which is the newest there is."] = "Masz Orbita {0} — nowszego nie ma.",
         ["Orbit hasn't been able to check for a newer version yet."] =
             "Orbit nie zdążył jeszcze sprawdzić, czy jest nowsza wersja.",
+        // While the screen is asking. It has a five-second deadline of its own, and a screen sitting
+        // blank for five seconds reads as one that has answered and found nothing.
+        ["Checking for a newer version…"] = "Sprawdzanie, czy jest nowsza wersja…",
 
         // The page the phone apps are downloaded from.
         ["Orbit — Get the app"] = "Orbit — Pobierz aplikację",

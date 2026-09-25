@@ -125,6 +125,58 @@ public sealed class FolderTabs
     public bool Holds(FolderKey where) => where == Chosen;
 
     /// <summary>
+    /// Narrows another screen to the folder this one is being read under, before somebody is taken
+    /// there. What a card on the dashboard is for: it is a way into the section behind it, and arriving
+    /// at that section under whatever folder it happened to be left on last is a press that answers a
+    /// different question from the one asked. Reported on 2026-09-24 - "going from folder A through a
+    /// card opens the list of what is in folder B".
+    ///
+    /// Matched by <b>name</b>, not by id: a folder holds one kind of thing, so "Home" on the notes and
+    /// "Home" on the task lists are two stored folders, and the dashboard draws both kinds side by
+    /// side - which is why the browser reads them as one tab there (FolderTabRow.On). A name with no
+    /// folder of its own on that screen, and a built-in tab that screen does not draw, both fall back
+    /// to Public rather than narrowing it to something it cannot show.
+    /// </summary>
+    public async Task ChooseTheSameOnAsync(FolderPage page, CancellationToken cancellationToken = default)
+    {
+        if (page == Page)
+        {
+            return;
+        }
+
+        _chosen.Write(page, await TheSameOnAsync(page, cancellationToken));
+    }
+
+    private async Task<FolderKey> TheSameOnAsync(FolderPage page, CancellationToken cancellationToken)
+    {
+        if (Chosen.FolderId is not { } folderId)
+        {
+            // A built-in one is the same word on both screens - unless that screen has no such tab,
+            // and then there is nothing to carry. See FolderPages.
+            return Chosen.BuiltIn switch
+            {
+                BuiltInFolder.Private when !page.HasAPrivateTab() => FolderKey.Default,
+                BuiltInFolder.Finished when !page.HasAFinishedTab() => FolderKey.Default,
+                BuiltInFolder.Archived when !page.HasAnArchivedTab() => FolderKey.Default,
+                _ => Chosen
+            };
+        }
+
+        var all = await _folders.GetAllAsync(cancellationToken);
+        if (all.FirstOrDefault(folder => folder.LocalId == folderId) is not { } here)
+        {
+            return FolderKey.Default;
+        }
+
+        var scopes = page.ScopesOn().Select(scope => scope.ToString()).ToHashSet();
+        var there = all.FirstOrDefault(folder =>
+            scopes.Contains(folder.Scope)
+            && string.Equals(folder.Name.Trim(), here.Name.Trim(), StringComparison.CurrentCultureIgnoreCase));
+
+        return there is null ? FolderKey.Default : FolderKey.Of(there.LocalId);
+    }
+
+    /// <summary>
     /// Which folders the screen's rows are filed under, told by the screen as it reads them - the id
     /// each row carries, not the tab it ends up on.
     ///

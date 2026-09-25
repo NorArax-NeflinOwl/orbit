@@ -50,7 +50,9 @@
                         <Path Data="{StaticResource ReconnectIcon}" InputTransparent="True"
                               Fill="{DynamicResource Accent}" HeightRequest="18" WidthRequest="18"
                               Aspect="Uniform" HorizontalOptions="Center" VerticalOptions="Center" />
-                        <Button BackgroundColor="Transparent" BorderWidth="0" Command="{Binding ReconnectCommand}"
+                        <!-- The drawer's Refresh, under the name that fits what pressing it means
+                             while the phone is offline - see NavigationBarViewModel.RefreshAsync. -->
+                        <Button BackgroundColor="Transparent" BorderWidth="0" Command="{Binding RefreshCommand}"
                                 SemanticProperties.Description="{controls:Translate 'Reconnect'}" />
                     </Grid>
                 </Grid>

@@ -2845,6 +2845,139 @@ down whole rather than started, so nothing in it depends on being remembered.
   is saved, and an appointment that already had a colour or a priority opens showing it rather than
   having the entry's defaults written over it.
 
+## What the user asked for on 2026-09-24
+
+Two lists in one message, the phone's and the browser's. Written down whole before any of it was
+started, because a list this long is where things quietly go missing. Nothing here is guessed at: where
+a line needed a reading it did not state, the reading is marked as such.
+
+### Orbit.Maui
+
+- ~~**The formatting row hides behind the keyboard once a note is long**, and the writing runs under the
+  UI.~~ Done 2026-09-25. The room under the last line - which has been pressable since 2026-09-18 - was
+  **72 tall, and the furniture over the foot of that page reaches 128**: the tool row sits 72 up and is
+  44 tall, and the two buttons sit 72 up with Save 56 across. So the writing could only ever be scrolled
+  to within 72 of the bottom, and the last lines stayed under the row - which is why writing near the
+  foot of a long note meant scrolling by hand or typing blind until enough lines pushed it clear. The
+  room is 132 now (128 and four of air), and the tags field carries the same below it while it is drawn.
+
+  Asked for as **"three empty lines of room"**, which is the browser's own measure; on the phone a line
+  is about 18 and the row is 44, so what answers it is the furniture's height rather than a count of
+  lines. (Not to be confused with the keyboard inset, which is a different thing and was walked on
+  2026-09-24 on a short note - see the entry above.)
+- **Too many icons in the note's formatting row.** The table goes under the tick-box button, which
+  becomes a menu for formatting and for putting elements in; the rest of the row moves in there too.
+- ~~**Checking for an update does not find the newest version.**~~ The app's half is fixed (2026-09-24):
+  the Update screen **asked nobody**. It read the verdict startup happened to obtain
+  (`RememberedDecisionAsync`), so a release published while the app was running - or one published while
+  the phone had been offline at startup - was invisible there however often the screen was opened.
+  It asks the server as it opens now (`MobileVersionGate.CheckAgainAsync`), says so while it waits, and
+  falls back to the remembered answer when it cannot reach anybody.
+
+  **Two things found looking at the rest of it, both for the user rather than the code.** The deployed
+  server was told `MobileVersion__Android__LatestVersion=0.3.17` by the release run of 2026-09-21, so a
+  *release* phone on 0.3.15 should already be offered one - and no Android release has run since, so a
+  0.3.16 built by hand was never recorded and no phone can learn of it (the release workflow is what
+  sets that env var; see `.github/workflows/android-release.yml`). And a **development build points at
+  a local API**, where `appsettings.json` leaves `LatestVersion` empty on purpose, so an update is never
+  offered there whatever is released - which is the likeliest reading of a phone that finds nothing.
+- **The title menu cannot be scrolled**, so a long one is cut off at the foot of the screen.
+- ~~**Still no Refresh** beside the account's name or on the navigation panel.~~ Done 2026-09-24: it is
+  in the drawer's head, beside the word that says where the phone stands, because that word is what it
+  changes. One press is all three things asked for, which is what a sync already is - it fetches what
+  the server has into the local database, sends what was done offline, and the attempt itself is the
+  connection check.
+
+  The action already existed as the avatar menu's **Reconnect** and was offered *only while the phone
+  believed it was offline*, so a phone that looked fine had no way to say "now" at all. One command now
+  (`NavigationBarViewModel.RefreshAsync`), met in two places under the name that fits each. It also
+  records itself in `SyncState` the way the timer's runs do, which it never did: the corner stayed on
+  whatever it last said while Reconnect ran, so pressing it looked like a press that never registered,
+  and a screen the reader was looking at was never told anything had arrived.
+- **Make the app feel smoother** - a light animation on an action, and between screens, rather than
+  everything arriving at once.
+- **A tile opens the wrong folder.** Going from folder A through a card opens the list of what is in
+  folder B - the folder that screen was last left on.
+- **The title panel should say which folder is being read.** Public need not be named, being the
+  default.
+
+### Orbit.Web
+
+- **A split screen.** A button in the top right divides the window into two pages, each with its own
+  navigation panel. Only in the full view, so at full HD it can be split once.
+- **The mobile view should start at 800px rather than 1100px**, so half of a full-HD screen is still the
+  full view - which is what lets the screen be split twice, three pages across at full HD.
+- **A search button beside the notifications bell.** It opens a search over everything the account
+  holds: note names and their writing, task lists and their entries, events, places on the map, and
+  inventories and what is on them.
+- **Everything from every folder, on the dashboard** - a way to see it all at once.
+- **A filter of one's own on the dashboard**, choosing what it draws. It works the way the task list's
+  tags do.
+- **Filtering by those filters and by folders on the calendar** as well.
+- ~~**A gram is not half a gram.**~~ Done 2026-09-24 (`InventoryAmountStep`): a row measured in the
+  small units moves by fifty, everything else by half, and the two buttons say the number rather than a
+  half they no longer all move by. **Millilitres went in with milligrams** although only grams were
+  named - the same size of unit with the same problem. The rule is in `Orbit.Core` so both clients can
+  read it, and **only the browser does**: the phone's own two buttons still move by a whole one, which
+  is a difference nobody has decided on. Whether the phone should follow this or keep its whole one is
+  the open half.
+- **Saving an inventory still does not finish the entries that asked for it.** A row whose stock has
+  reached the minimum should tick the task entries standing for it.
+- **An expired inventory item should fail the entry that stands for it**, worked out and written
+  without anybody asking.
+- **A use-by date per piece.** Where a row holds more than one piece or package - other units count as
+  one - the list should open into its pieces, each with its own date to edit.
+- **A Setup page**, and filters are made there rather than where they are now. It also holds the
+  folders: made, renamed and given a visibility per notes, tasks, events, inventories and the map.
+- ~~**Opening a private note says nothing about making a PIN.**~~ Done 2026-09-24: `BehindThePin` says
+  it over whatever is sealed while the account has no PIN at all, with the link to Options. There
+  rather than on the note's own page, because it is the one place that knows both halves - and a shelf
+  and a task list are as private as a note is.
+- **"Public" becomes "All"**, and holds everything from every folder except what is private and what is
+  put away.
+
+### Added 2026-09-25, on the calendar
+
+- ~~**The Archived folder shows task entries**, both in the list beside the calendar and in the calendar
+  itself.~~ Done the same day, on **both clients**, from one rule (`CalendarDeadlineTab`). A deadline is
+  an entry on a task list rather than an appointment: it has no folder of that page's - whatever folder
+  it has belongs to its list, in another scope - and nothing on the calendar can put one away, because
+  putting away belongs to the list it sits on. So it is drawn where anything unfiled and not put away
+  is drawn, which is Public, and nowhere else. Both clients drew every deadline under every tab, so a
+  folder somebody made for appointments showed them too.
+- ~~**There is no "Archive" on the calendar, only "Delete".**~~ Done the same day. It is the **phone**
+  that was missing it: the browser's calendar card has had Archive and Put back since the archive
+  existed, and the event's own screen on the phone could do it too - it was the card's three-dot menu
+  that offered Delete alone, which made the calendar the one list in Orbit where the only way to clear
+  something off the screen was to destroy it (`CalendarViewModel.ArchiveListedAsync`).
+
+  Offered on an appointment and not on a deadline, for the reason above: a deadline's Delete means the
+  entry coming off its list, and there is nothing on this page that could put one away.
+
+### Added 2026-09-25, with a picture of the hole
+
+- ~~**The page of task lists leaves holes between the cards.**~~ Done the same day. `.task-card-grid`
+  was a two-column CSS grid, and a grid has rows: a row is as tall as the tallest card in it, so a list
+  of six entries beside one of twenty left a hole under the short one the height of the difference, and
+  every card after those two began below the tall one. Task cards are the worst case - they carry their
+  entries and they can be collapsed to one line, neither of which the page can even out.
+
+  It is **multi-column** now (`column-count: 2`, `break-inside: avoid` on each card), which packs them
+  with no holes at all. **What it costs, and what to revisit**: the cards read *down* each column and
+  then across, where a grid read across and then down. Nothing depends on that order - pinned cards are
+  sorted to the front by the page rather than by a CSS `order`, which multi-column would ignore - but it
+  is a change in how the page is read and not only in how it looks. CSS grid will do this properly with
+  `grid-template-rows: masonry`; no browser ships it unflagged yet, and that is the rule to come back to.
+
+  Only this page: the dashboard's `.card-grid` stretches its cards to the row's height rather than
+  leaving a hole beside them, and the notes and the inventories are a single column (`.item-card-list`).
+
+**Read against what is already here**: "Everything from every folder on the dashboard" and *"Public
+becomes All"* are two halves of one change, and the second settles what the first should do; the folder
+half of the **Setup** page overlaps *"Hide on the dashboard"*, which is a visibility per folder kept on
+the device today (`FolderTabs.HideOnTheDashboard`), and the asked-for one is per kind rather than per
+screen.
+
 ## Smaller identified follow-ups
 
 - ~~**The phone's wait does not look like the web's yet.**~~ Fixed 2026-09-11: `OrbitLoading` (Controls) is

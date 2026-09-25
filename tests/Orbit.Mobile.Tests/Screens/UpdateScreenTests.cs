@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using Orbit.Contracts.Config;
 using Orbit.Core.Mobile;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Update;
@@ -13,8 +14,9 @@ namespace Orbit.Mobile.Tests.Screens;
 ///
 /// Two things make it a different screen. It shows one platform, its own, because a phone knows what it
 /// is and the other half would only be read past; and it says where the reader stands, because whoever
-/// opens it already has the app. It asks nobody: what is on offer is the verdict startup obtained, so
-/// this works with no connection and costs nothing to open.
+/// opens it already has the app. It asks the server as it opens, since opening it is the question - and
+/// falls back to what the last answer was when it cannot reach anybody, so it still says something with
+/// no connection.
 /// </summary>
 public sealed class UpdateScreenTests
 {
@@ -164,17 +166,69 @@ public sealed class UpdateScreenTests
         Assert.False(screen.HasAndroidBuild);
     }
 
+    /// <summary>
+    /// Opening this screen is the question "is there a newer one", so it asks the server rather than
+    /// repeating what startup was told. Until 2026-09-24 it read the remembered verdict alone, so a
+    /// release published while the app was running was invisible here however often the screen was
+    /// opened - reported as "checking for an update does not find the newest version".
+    /// </summary>
+    [Fact]
+    public async Task A_release_published_since_this_app_started_is_found()
+    {
+        // What the last launch was told, and what has happened since.
+        var screen = Open(
+            MobilePlatform.Android,
+            new CachedVersionVerdict(Installed, MobileVersionVerdict.Supported, Installed, null),
+            server: StubHttpMessageHandler.RespondingWith(
+                new MobileVersionVerdictDto(
+                    nameof(MobileVersionVerdict.UpdateAvailable), "1.4.0", "https://orbit.example/apk")));
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Contains("1.4.0", screen.Summary);
+        Assert.True(screen.CanUpdate);
+    }
+
+    /// <summary>
+    /// And what it is told is remembered, so the next launch has an answer without asking - which is
+    /// what lets the gate decide at all on a phone with no signal.
+    /// </summary>
+    [Fact]
+    public async Task And_what_the_server_said_is_remembered()
+    {
+        var cache = new InMemoryVersionVerdictCache(null);
+        var appVersion = new AppVersion(MobilePlatform.Android, Installed);
+        var gate = new MobileVersionGate(
+            appVersion,
+            StubHttpMessageHandler.RespondingWith(
+                    new MobileVersionVerdictDto(
+                        nameof(MobileVersionVerdict.UpdateAvailable), "1.4.0", "https://orbit.example/apk"))
+                .ToHttpClient(),
+            cache,
+            NullLogger<MobileVersionGate>.Instance);
+        var screen = new UpdateViewModel(
+            gate, appVersion, new RecordingUpdateLink(), new Translations(new InMemoryLanguageStore()));
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var remembered = await cache.ReadAsync(CancellationToken.None);
+        Assert.Equal("1.4.0", remembered!.LatestVersion);
+        Assert.Equal(Installed, remembered.DisplayVersion);
+    }
+
     private static CachedVersionVerdict ANewerOne()
         => new(Installed, MobileVersionVerdict.UpdateAvailable, "1.4.0", "https://orbit.example/apk");
 
     private static UpdateViewModel Open(
-        MobilePlatform platform, CachedVersionVerdict? remembered = null, IUpdateLink? link = null)
+        MobilePlatform platform, CachedVersionVerdict? remembered = null, IUpdateLink? link = null,
+        StubHttpMessageHandler? server = null)
     {
         var appVersion = new AppVersion(platform, Installed);
         var gate = new MobileVersionGate(
             appVersion,
-            // Unreachable on purpose: this screen reads what is remembered and asks nobody.
-            StubHttpMessageHandler.Unreachable().ToHttpClient(),
+            // Unreachable unless a test says otherwise, which is what puts every one of the tests above
+            // on the remembered-verdict path - the answer a phone with no signal gets.
+            (server ?? StubHttpMessageHandler.Unreachable()).ToHttpClient(),
             new InMemoryVersionVerdictCache(remembered),
             NullLogger<MobileVersionGate>.Instance);
 

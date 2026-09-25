@@ -202,6 +202,26 @@ public sealed class NoteFoldersTests
     }
 
     /// <summary>
+    /// The bar says which folder the screen is being read under, because on the phone the folders are
+    /// in a menu that is shut - see ScreenTitleWithFolder. Asked for on 2026-09-24.
+    /// </summary>
+    [Fact]
+    public async Task The_screens_name_says_which_folder_is_open()
+    {
+        using var context = new ScreenContext();
+        await context.AddNoteAsync("Shopping");
+        var screen = await context.OpenAsync();
+        var work = await context.Folders.CreateAsync("Work", FolderScope.Notes);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal("Notes", screen.ScreenTitle);
+
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(work.LocalId));
+
+        Assert.Equal("Notes · Work", screen.ScreenTitle);
+    }
+
+    /// <summary>
     /// The menu asks whether the open folder still holds anything before it offers to delete it - the
     /// browser greys the same entry on the same answer (Orbit.Web's FolderTabs.StillHolds, 2026-09-20).
     /// Until then the phone deleted a full folder and put everything back under Public, which is a

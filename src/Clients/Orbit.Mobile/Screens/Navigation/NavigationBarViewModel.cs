@@ -332,17 +332,37 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     private bool _canReconnect;
 
     /// <summary>
-    /// Tries the server again, now, rather than waiting for whatever would have tried next.
+    /// Fetches everything the server has, now, rather than waiting for whatever would have asked next -
+    /// the drawer's Refresh, and the avatar menu's Reconnect, which are one action met in two places.
+    /// Asked for on 2026-09-24: there was no way to say "fetch now" at all while the phone looked fine,
+    /// because Reconnect is only offered when it does not (see <see cref="CanReconnect"/>).
     ///
-    /// It cannot put the phone back on a network - no app can - so what it actually does is attempt the
-    /// work that being offline prevented. That is the useful half: a phone whose connection came back
-    /// without the system noticing, or one behind a portal that has just been signed into, is in step
-    /// again afterwards, and the corner says so instead of "No connection" until something else asks.
+    /// It is three things in one press, which is what the request asked for and what a sync already is:
+    /// it brings the local database up to date, it sends whatever was done offline, and the attempt
+    /// itself is the connection check - a phone whose connection came back without the system noticing,
+    /// or one behind a portal that has just been signed into, is in step again afterwards and the word
+    /// in the corner says so instead of "No connection".
+    ///
+    /// Recorded in <see cref="SyncState"/> exactly as the timer's own runs are, which it was not until
+    /// 2026-09-24: the corner stayed on whatever it last said while this ran, and a screen the reader
+    /// was looking at never heard that anything had arrived (see SyncState.Record).
     /// </summary>
     [RelayCommand]
-    private async Task ReconnectAsync(CancellationToken cancellationToken)
+    private async Task RefreshAsync(CancellationToken cancellationToken)
     {
-        await _synchronizer.SynchroniseAsync(cancellationToken);
+        _syncState.RecordStarted();
+        try
+        {
+            _syncState.Record(await _synchronizer.SynchroniseAsync(cancellationToken));
+        }
+        catch (HttpRequestException)
+        {
+            // Reached and refused - an expired session, most often. AppNavigator watches the session
+            // store and moves to sign-in when that is what happened, so there is nothing to do here
+            // beyond not claiming the phone is offline. The same reading PeriodicSync makes.
+            _syncState.RecordFailed();
+        }
+
         await _permissions.RefreshAsync(cancellationToken);
         ShowWhetherToOfferReconnecting();
     }

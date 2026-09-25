@@ -84,6 +84,13 @@ public sealed record CalendarListEntry
 
     public bool IsDeadline => Deadline is not null;
 
+    /// <summary>
+    /// Whether this row is an appointment its owner has put away - what the card's menu reads to know
+    /// which way round to offer it. A deadline is never one: putting away belongs to the task list the
+    /// entry sits on, not to the calendar it falls due on.
+    /// </summary>
+    public bool IsArchived => Event?.IsArchived ?? false;
+
     /// <summary>When it happens, as the row says it - both kinds have one, which is why they share a list.</summary>
     public string When => Event?.When ?? Deadline?.When ?? string.Empty;
 

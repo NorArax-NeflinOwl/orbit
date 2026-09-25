@@ -8,7 +8,7 @@
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Tasks;assembly=Orbit.Mobile"
     x:DataType="screens:TasksViewModel"
     x:Name="Page"
-    Title="{controls:Translate 'Tasks'}">
+    Title="{Binding ScreenTitle}">
 
     <ContentPage.Resources>
         <!-- How much of the bar under a list's row is filled - see ProgressColumnsConverter. -->

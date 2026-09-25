@@ -13,6 +13,7 @@ public partial class MenuOverlay : ContentView
 	{
 		InitializeComponent();
 		BindingContextChanged += (_, _) => Follow(BindingContext as ScreenMenu);
+		SizeChanged += (_, _) => CapTheHeight();
 	}
 
 	private ScreenMenu? _menu;
@@ -68,5 +69,28 @@ public partial class MenuOverlay : ContentView
 		Panel.HorizontalOptions = fromTheFoot ? LayoutOptions.Fill : LayoutOptions.Center;
 		Panel.WidthRequest = fromTheFoot ? -1 : 264;
 		Panel.Margin = fromTheFoot ? new Thickness(12, 12, 12, 20) : new Thickness(12, 56, 12, 12);
+		CapTheHeight();
+	}
+
+	/// <summary>
+	/// How tall the entries may be before they scroll instead of growing: what the overlay has, less
+	/// the margins the panel is placed with and the panel's own padding. Without a cap the panel sizes
+	/// itself to its contents - it is aligned to one edge rather than filling - so a menu longer than
+	/// the screen ran off the bottom of it with nothing saying so, which is how the notes' own menu was
+	/// found cut off on 2026-09-24.
+	///
+	/// Set from the height the overlay actually has rather than from the display's, because the two are
+	/// not the same: the bar, the ad strip at the foot and the system's own insets are all outside it.
+	/// A floor of 160 so that a panel measured before the first layout is still worth opening.
+	/// </summary>
+	private void CapTheHeight()
+	{
+		if (Height <= 0)
+		{
+			return;
+		}
+
+		const double panelPadding = 24;
+		Entries.MaximumHeightRequest = Math.Max(160, Height - Panel.Margin.Top - Panel.Margin.Bottom - panelPadding);
 	}
 }

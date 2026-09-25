@@ -7928,20 +7928,38 @@ p.field-hint {
     color: var(--text-tertiary);
 }
 
-/* Two task lists to a row, and one on a narrow screen. Wider than the single column a page of notes
+/* Two task lists to a column, and one on a narrow screen. Wider than the single column a page of notes
    wants, because a task card carries its items underneath and two of those side by side still read -
    but not the three-or-more a free-flowing grid would give on a wide monitor, where a card becomes a
-   column too narrow for the lines inside it. */
+   column too narrow for the lines inside it.
+
+   Columns rather than a grid, since 2026-09-25. A grid has rows, and a row is as tall as the tallest
+   card in it: a list of six entries beside one of twenty left a hole under the short one the height of
+   the difference, and every card after them began below the tall one. Task cards are the worst case
+   for that - they carry their entries, they can be collapsed to a single line, and neither is something
+   the page can even out. Reported with a picture of exactly that hole.
+
+   What it costs: the cards read *down* each column and then across, the way a newspaper does, where a
+   grid read across and then down. Nothing here depends on that order - pinned cards are sorted to the
+   front by the page that builds them, not by a CSS `order` (which multi-column would ignore) - but it
+   is a change in how the page is read, not only in how it looks. CSS grid will do this properly with
+   `grid-template-rows: masonry`, which no browser ships unflagged yet; when one does, this is the rule
+   to revisit. */
 .task-card-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-    align-items: start;
+    column-count: 2;
+    column-gap: 12px;
+}
+
+/* A card is never split down the middle by a column break, and carries its own spacing: column-gap
+   sets the space *between* the columns and nothing between the cards down one. */
+.task-card-grid > * {
+    break-inside: avoid;
+    margin-bottom: 12px;
 }
 
 @media (max-width: 900px) {
     .task-card-grid {
-        grid-template-columns: minmax(0, 1fr);
+        column-count: 1;
     }
 }
 
