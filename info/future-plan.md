@@ -2877,9 +2877,18 @@ a line needed a reading it did not state, the reading is marked as such.
   a local API**, where `appsettings.json` leaves `LatestVersion` empty on purpose, so an update is never
   offered there whatever is released - which is the likeliest reading of a phone that finds nothing.
 - **The title menu cannot be scrolled**, so a long one is cut off at the foot of the screen.
-- **Still no Refresh** beside the account's name or on the navigation panel: one press to fetch the
-  newest data from the server into the local database, which also means running a sync and checking the
-  connection.
+- ~~**Still no Refresh** beside the account's name or on the navigation panel.~~ Done 2026-09-24: it is
+  in the drawer's head, beside the word that says where the phone stands, because that word is what it
+  changes. One press is all three things asked for, which is what a sync already is - it fetches what
+  the server has into the local database, sends what was done offline, and the attempt itself is the
+  connection check.
+
+  The action already existed as the avatar menu's **Reconnect** and was offered *only while the phone
+  believed it was offline*, so a phone that looked fine had no way to say "now" at all. One command now
+  (`NavigationBarViewModel.RefreshAsync`), met in two places under the name that fits each. It also
+  records itself in `SyncState` the way the timer's runs do, which it never did: the corner stayed on
+  whatever it last said while Reconnect ran, so pressing it looked like a press that never registered,
+  and a screen the reader was looking at was never told anything had arrived.
 - **Make the app feel smoother** - a light animation on an action, and between screens, rather than
   everything arriving at once.
 - **A tile opens the wrong folder.** Going from folder A through a card opens the list of what is in

@@ -539,6 +539,14 @@ Nothing is attempted with nobody signed in, or while the phone believes it has n
 offline would put "couldn't sync" in the corner every few minutes for a reader working offline on
 purpose, which is the app behaving as designed.
 
+**And a Refresh in the drawer's head runs the same thing on demand** (2026-09-24,
+`NavigationBarViewModel.RefreshAsync`), beside the word that says where the phone stands. Until then the
+only way to ask for a sync was the avatar menu's **Reconnect**, offered *only* while the phone believed
+it was offline, so a phone that looked fine had no way to say "now". They are one command met in two
+places under the name that fits each. Both record the attempt in `SyncState` the way the timer's own
+runs do — which Reconnect never did, so the corner stayed on whatever it last said while it ran and a
+screen left open was never told anything had arrived.
+
 **A screen left open redraws itself** when such a run brings something down, and only then
 (`SyncState.BroughtSomethingNew`, `ScreenKeptInStep`). The redraw reads the phone's own store and asks
 the server nothing: running the screen's own load would mean a second full synchronisation behind every

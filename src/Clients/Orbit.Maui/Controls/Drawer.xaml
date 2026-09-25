@@ -20,6 +20,10 @@
         <x:String x:Key="ContactsIcon">M16,21 V19 A4,4 0 0 0 12,15 H6 A4,4 0 0 0 2,19 V21 M5,7 A4,4 0 1 1 13,7 A4,4 0 1 1 5,7 Z M22,21 V19 A4,4 0 0 0 19,15.1 M16,3.1 A4,4 0 0 1 16,10.9</x:String>
         <x:String x:Key="NotificationsIcon">M6,8 A6,6 0 0 1 18,8 C18,15 21,17 21,17 H3 C3,17 6,15 6,8 Z M10.3,21 A1.9,1.9 0 0 0 13.7,21</x:String>
         <x:String x:Key="AboutIcon">M3,12 A9,9 0 1 1 21,12 A9,9 0 1 1 3,12 Z M12,16 V11 M12,8 H12.01</x:String>
+        <!-- The same arrow-round-a-circle the avatar menu offers while the phone is offline, which is
+             the same action - see NavigationBarViewModel.RefreshAsync. Filled rather than stroked,
+             so it is written on its own 20x20 canvas rather than the 24x24 the sections use. -->
+        <x:String x:Key="RefreshIcon">M10,3.2 A6.8,6.8 0 1 1 3.6,7.9 L1.6,7.2 A8.9,8.9 0 1 0 10,1.1 Z M10,0 L14,3.2 L10,6.4 Z</x:String>
     </ContentView.Resources>
 
     <!-- Every section, with its name back beside it. These were six unlabelled icons in the top bar
@@ -50,8 +54,8 @@
                 <!-- Who this is and whether the phone is in step, which used to be the first two lines of
                      the avatar's menu. The mark is the way to the dashboard, as the logo in the old bar
                      was. -->
-                <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="20,0,20,18">
-                    <BoxView Grid.Column="0" Grid.ColumnSpan="3" Style="{StaticResource Hairline}"
+                <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10" Padding="20,0,12,18">
+                    <BoxView Grid.Column="0" Grid.ColumnSpan="4" Style="{StaticResource Hairline}"
                              VerticalOptions="End" Margin="0,0,0,-1" />
                     <controls:OrbitMark Grid.Column="0" MarkSize="26" VerticalOptions="Center"
                                         InputTransparent="True" />
@@ -69,6 +73,22 @@
                     </Label>
                     <Label Grid.Column="2" Text="{Binding SyncLabel}" Style="{StaticResource RowMeta}"
                            FontSize="10" VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                    <!-- One press to fetch what the server has, send what was done offline and find out
+                         whether there is a connection at all - the three things a sync already is,
+                         asked for on 2026-09-24 as a way of saying "now" at all. Beside the word that
+                         says where the phone stands, because that word is what it changes.
+
+                         Always here, unlike the avatar menu's Reconnect, which is the same command
+                         offered only while the phone looks offline: this is the one nobody had. -->
+                    <Grid Grid.Column="3" WidthRequest="44" HeightRequest="44" VerticalOptions="Center">
+                        <Path Data="{StaticResource RefreshIcon}" InputTransparent="True"
+                              Fill="{DynamicResource Accent}" HeightRequest="16" WidthRequest="16"
+                              Aspect="Uniform" HorizontalOptions="Center" VerticalOptions="Center" />
+                        <Button BackgroundColor="Transparent" BorderWidth="0" Padding="0"
+                                MinimumHeightRequest="0" MinimumWidthRequest="0"
+                                Command="{Binding RefreshCommand}"
+                                SemanticProperties.Description="{controls:Translate 'Refresh'}" />
+                    </Grid>
                     <Button Grid.Column="0" Grid.ColumnSpan="2" BackgroundColor="Transparent" BorderWidth="0"
                             Command="{Binding GoToDashboardCommand}"
                             SemanticProperties.Description="{controls:Translate 'Dashboard'}" />
