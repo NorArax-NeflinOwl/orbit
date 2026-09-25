@@ -619,6 +619,38 @@ public sealed partial class CalendarViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Puts an appointment away, or brings it back - the calendar's card offered only Delete until
+    /// 2026-09-25, which made it the one list in Orbit where the only way to clear something off the
+    /// screen was to destroy it. Everything else is put away rather than thrown away, and the event's
+    /// own screen could already do this: it was the card's menu that could not.
+    ///
+    /// Appointments only. A deadline is an entry on a task list, and putting away belongs to the list
+    /// it sits on rather than to the calendar it falls due on - which is why the page offers this on
+    /// one kind of row and not the other.
+    /// </summary>
+    [RelayCommand]
+    private async Task ArchiveListedAsync(CalendarListEntry? entry, CancellationToken cancellationToken)
+    {
+        if (entry?.Event is not { } calendarEvent)
+        {
+            return;
+        }
+
+        var outcome = await _events.ArchiveAsync(
+            calendarEvent.LocalId, !calendarEvent.IsArchived, cancellationToken);
+
+        if (outcome.WasRefused())
+        {
+            Message = outcome.Explain(RefusalMessage, _translations);
+            return;
+        }
+
+        Message = string.Empty;
+        await ShowStoredEventsAsync(cancellationToken);
+        await SynchroniseAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// A deadline has no row of its own to delete: it is one entry on a task list, and the list is
     /// what gets written back without it. Saved as the whole list because that is what the store's
     /// update takes - see LocalTaskListRepository.
@@ -754,8 +786,13 @@ public sealed partial class CalendarViewModel : ObservableObject
         // rather than half of it.
         var stored = held.Where(calendarEvent => Folders.Holds(placements[calendarEvent.LocalId])).ToList();
         _heldEvents = stored;
-        var deadlines = CalendarDeadline.From(
-            await _taskLists.GetAllAsync(cancellationToken), stored, _translations);
+
+        // And the deadlines only under the tab they belong on - see CalendarDeadlineTab, which says why
+        // that is Public alone. Every tab drew them until 2026-09-25, so the Archived tab showed a page
+        // of things that had not been archived at all.
+        var deadlines = CalendarDeadlineTab.ShowsDeadlines(Folders.Chosen)
+            ? CalendarDeadline.From(await _taskLists.GetAllAsync(cancellationToken), stored, _translations)
+            : [];
 
         _wholeMonth = CalendarMonth.Build(Month, SelectedDay, today, stored, deadlines);
         _wholeYear = CalendarYear.Build(Month.Year, today, stored, deadlines, _translations);

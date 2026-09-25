@@ -62,9 +62,14 @@ public partial class CalendarPage : ContentPage, ITitleMenu
 	public ScreenMenu Menu { get; } = new();
 
 	/// <summary>
-	/// What a card offers besides opening it, which on this list is one thing: taking it off the
-	/// calendar. No "Edit" entry, because on a phone pressing the card already opens what the browser's
-	/// Edit opens - see info/android-ui-parity.md.
+	/// What a card offers besides opening it. No "Edit" entry, because on a phone pressing the card
+	/// already opens what the browser's Edit opens - see info/android-ui-parity.md.
+	///
+	/// Putting away comes first, and only on an appointment: everything in Orbit is put away rather
+	/// than thrown away, and until 2026-09-25 this was the one list where the only way to clear a row
+	/// off the screen was to destroy it. A deadline is an entry on a task list - putting away belongs
+	/// to that list, not to the calendar it falls due on - so it is offered Delete alone, which there
+	/// means the entry coming off its list.
 	/// </summary>
 	private void ShowCardMenu(CalendarListEntry? entry)
 	{
@@ -73,9 +78,17 @@ public partial class CalendarPage : ContentPage, ITitleMenu
 			return;
 		}
 
-		Menu.Show(
-			[new ScreenMenuEntry(_translations["Delete"], () => _ = DeleteAsync(entry))],
-			placement: MenuPlacement.FromTheFoot);
+		List<ScreenMenuEntry> entries = [];
+		if (entry.IsEvent)
+		{
+			// The word says what pressing it does now, as the browser's own card says it.
+			entries.Add(new ScreenMenuEntry(
+				entry.IsArchived ? _translations["Put back"] : _translations["Archive"],
+				() => _ = _viewModel.ArchiveListedCommand.ExecuteAsync(entry)));
+		}
+
+		entries.Add(new ScreenMenuEntry(_translations["Delete"], () => _ = DeleteAsync(entry)));
+		Menu.Show(entries, placement: MenuPlacement.FromTheFoot);
 	}
 
 	/// <summary>

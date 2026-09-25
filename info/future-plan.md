@@ -2938,11 +2938,21 @@ a line needed a reading it did not state, the reading is marked as such.
 
 ### Added 2026-09-25, on the calendar
 
-- **The Archived folder shows task entries**, both in the list beside the calendar and in the calendar
-  itself. Whatever is put away should be under that tab and nowhere else, and what is *not* put away
-  should not be under it at all.
-- **There is no "Archive" on the calendar, only "Delete".** Everything in Orbit is put away rather than
-  thrown away; the calendar is the one screen that offers only the second.
+- ~~**The Archived folder shows task entries**, both in the list beside the calendar and in the calendar
+  itself.~~ Done the same day, on **both clients**, from one rule (`CalendarDeadlineTab`). A deadline is
+  an entry on a task list rather than an appointment: it has no folder of that page's - whatever folder
+  it has belongs to its list, in another scope - and nothing on the calendar can put one away, because
+  putting away belongs to the list it sits on. So it is drawn where anything unfiled and not put away
+  is drawn, which is Public, and nowhere else. Both clients drew every deadline under every tab, so a
+  folder somebody made for appointments showed them too.
+- ~~**There is no "Archive" on the calendar, only "Delete".**~~ Done the same day. It is the **phone**
+  that was missing it: the browser's calendar card has had Archive and Put back since the archive
+  existed, and the event's own screen on the phone could do it too - it was the card's three-dot menu
+  that offered Delete alone, which made the calendar the one list in Orbit where the only way to clear
+  something off the screen was to destroy it (`CalendarViewModel.ArchiveListedAsync`).
+
+  Offered on an appointment and not on a deadline, for the reason above: a deadline's Delete means the
+  entry coming off its list, and there is nothing on this page that could put one away.
 
 ### Added 2026-09-25, with a picture of the hole
 

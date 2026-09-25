@@ -1251,6 +1251,14 @@ page can never be filtered to a folder nobody can see. **The phone offers it in 
 while it is hidden, kept in the device preferences beside which folder each screen was left under
 (`IChosenFolderStore.ReadHiddenOnTheDashboard`) - and falls back the same way.
 
+**A deadline is on the calendar under Public alone** (2026-09-25, `CalendarDeadlineTab`, read by both
+clients). The calendar draws two kinds of thing: appointments, which have folders of that page's, and
+the deadlines of task entries, which do not — whatever folder such an entry has belongs to its list, in
+another scope, and nothing on the calendar can put one away, because putting away belongs to the list it
+sits on. So a deadline is drawn where anything unfiled and not put away is drawn and nowhere else. Both
+clients used to draw every deadline under every tab, which made the Archived tab a page of things that
+had not been archived at all.
+
 **A folder somebody made is none of the three** and holds whatever they put in it, private things
 included: filing something is not the same decision as sealing it. Only these are rows
 (`OP_FOLDERS`), and `GET/POST/PUT/DELETE /api/folders` is the whole of managing them. **Deleting a

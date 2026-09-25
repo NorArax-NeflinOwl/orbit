@@ -10,10 +10,14 @@ namespace Orbit.Mobile.Screens.Calendar;
 /// Already in the reader's language, and written in their calendar's culture rather than the phone's -
 /// reading an interface in Polish and being told "Monday, March 3" is only half a translation.
 /// </param>
+/// <param name="IsArchived">
+/// Whether its owner has put it away - what the card's menu reads to know whether it is offering to
+/// archive this appointment or to bring it back. See BuiltInFolder.Archived.
+/// </param>
 public sealed record CalendarEventRow(
     Guid LocalId, string Title, DateTimeOffset StartUtc, DateTimeOffset EndUtc, bool IsAllDay,
     bool HasUnsentChanges, OfflineEditRefusal Refusal, string When, string Status, bool IsCopy = false,
-    string? Colour = null)
+    string? Colour = null, bool IsArchived = false)
 {
     public static CalendarEventRow From(
         LocalCalendarEvent calendarEvent, bool hasUnsentChanges, INetworkStatus networkStatus,
@@ -27,7 +31,8 @@ public sealed record CalendarEventRow(
             hasUnsentChanges, refusal,
             Describe(details.StartUtc, details.EndUtc, details.IsAllDay, translations),
             OfflineEditExplanation.For(calendarEvent, refusal, hasUnsentChanges, translations),
-            IsCopy: calendarEvent.CopyOfLocalId is not null, Colour: details.Color)
+            IsCopy: calendarEvent.CopyOfLocalId is not null, Colour: details.Color,
+            IsArchived: calendarEvent.IsArchived)
         {
             Day = details.StartUtc.LocalDateTime.ToString("ddd d", translations.DisplayCulture),
             Time = details.IsAllDay
