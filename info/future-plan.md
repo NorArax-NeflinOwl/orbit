@@ -2914,8 +2914,25 @@ a line needed a reading it did not state, the reading is marked as such.
   records itself in `SyncState` the way the timer's runs do, which it never did: the corner stayed on
   whatever it last said while Reconnect ran, so pressing it looked like a press that never registered,
   and a screen the reader was looking at was never told anything had arrived.
-- **Make the app feel smoother** - a light animation on an action, and between screens, rather than
-  everything arriving at once.
+- ~~**Make the app feel smoother** - a light animation on an action, and between screens.~~ The
+  **screens** half is done 2026-09-25 (`AppNavigator.ArriveAt`): an arriving screen's content fades in
+  and rises 12 over 160ms instead of appearing. Three things decided there:
+
+  - **The page's content moves, never the page.** Every page paints Orbit's ground (the implicit `Page`
+    style), so fading the page would fade that ground too and show whatever the platform window is
+    painted with underneath - a flash of the wrong colour between every two screens, which is worse
+    than no animation.
+  - **A rise with the fade**, because a fade alone reads as a screen that was slow to draw rather than
+    as one arriving.
+  - **Nothing at all where the phone has been asked not to animate** (`Motion.IsWanted`, the switch the
+    waiting indicator already reads).
+
+  Walked on the emulator to the extent a still can: six arrivals, each settling with its content back
+  at full opacity and in place, so nothing is left half drawn. **The motion itself was not caught** -
+  `screencap` is slower than 160ms - so how it *reads* is one press for the user to judge.
+
+  **The "animation on an action" half is not done** and is not one thing: it could mean a card
+  appearing, a row leaving, a tick settling, a panel opening. Worth naming a few before building any.
 - **A tile opens the wrong folder.** Going from folder A through a card opens the list of what is in
   folder B - the folder that screen was last left on.
 - **The title panel should say which folder is being read.** Public need not be named, being the
