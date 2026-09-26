@@ -981,7 +981,7 @@ public sealed class NoteEditorTests : OrbitTestContext
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
 
         Assert.Equal(
-            ["Public", "Private", "Work"],
+            ["All", "Private", "Work"],
             cut.FindAll(".note-workspace-list-folder-name").Select(heading => heading.TextContent.Trim()));
     }
 
@@ -1003,7 +1003,7 @@ public sealed class NoteEditorTests : OrbitTestContext
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
 
         Assert.Equal(
-            ["Archived", "Public"],
+            ["Archived", "All"],
             cut.FindAll(".note-workspace-list-folder-name").Select(heading => heading.TextContent.Trim()));
     }
 
@@ -1080,7 +1080,7 @@ public sealed class NoteEditorTests : OrbitTestContext
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
 
         var publicHeading = cut.FindAll(".note-workspace-list-folder")
-            .First(heading => heading.TextContent.Contains("Public", StringComparison.Ordinal));
+            .First(heading => heading.TextContent.Contains("All", StringComparison.Ordinal));
 
         Assert.Null(publicHeading.QuerySelector(".overflow-menu-trigger"));
     }

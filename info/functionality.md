@@ -481,10 +481,14 @@ than one or more than twenty tags are refused, the tags are tidied as a list's o
 with the account. Readable on the server for the same reason the colours are, and with the same
 consequence: a filter made of a tag used only on private lists names that tag in the clear.
 
-**Made on the tasks page.** In the browser, "Create filter" stands in the header ahead of the folder button
-and opens `TagFilterDialog`: "And" at the top with a line saying what the filter will find, every tag on
-the account's lists as a checklist (whatever folder they are in), a box that adds a new word ticked, and
-Save and Cancel as icons at the foot. On the phone the same panel (`TagFilterForm`, `TagFilterSheet`) is
+**Made on the Setup page** since 2026-09-26 (asked for on 2026-09-24 - it used to be "Create filter" in the
+tasks page's own header). In the browser it is a section of `/setup` beside the folders: every filter the
+account has, each shown by the words it looks for and by **how many lists it finds** - so one that finds
+nothing says so where it was made rather than on the card it is chosen from - a Delete beside each, and
+"Create filter", which opens the same `TagFilterDialog`: "And" at the top with a line saying what the
+filter will find, every tag on the account's lists as a checklist (whatever folder they are in), a box
+that adds a new word ticked, and Save and Cancel as icons at the foot. The tags are still read off the
+lists; what moved is where the making happens. On the phone the same panel (`TagFilterForm`, `TagFilterSheet`) is
 "Create filter" under a "Dashboard" heading in the tasks screen's menu; making one needs a connection and
 says so without one, the way sharing does.
 
@@ -496,6 +500,29 @@ offered beside the chosen one. Which filter the card shows is kept on the device
 (`DashboardCardPreferences.TasksTagFilterId` in the browser, `ITaskTagFilterStore` on the phone); the
 filters themselves are the account's. The phone keeps a copy of them read again on every dashboard load
 (`TaskTagFilters.RefreshAsync`), so the menu works offline from what was last read.
+
+**And chosen for the whole dashboard** since 2026-09-26 (asked for on 2026-09-24 — "a filter of one's own
+on the dashboard, choosing what it draws"). It is on the page's own menu rather than a card's, and it
+narrows the **two cards whose things carry tags** — the notes and the task lists — leaving the rest of the
+page alone: an event, a shelf, a place and a contact carry no tags, so narrowing the page to "home or
+shopping" cannot mean anything about them without something being guessed at. The page says so on screen
+while one is chosen, with the way back out beside it.
+
+**The page's filter and the Tasks card's own are never both chosen**: choosing either clears the other
+(`Dashboard.ChoosePageFilterAsync`, `ChooseTagFilterAsync`). Two filters over one card is one question with
+two answers, which is the same reason the card's filter and its All/Pinned answer already stop each other.
+Under either, the card shows every list the filter finds whatever folder it is in, and the Notes card is
+drawn even where the open tab holds nothing — it is what the filter found that is being shown.
+
+**And chosen on the calendar** since 2026-09-26 (asked for on 2026-09-24). Its own menu gains "Your
+filters", and a chosen one **narrows the deadlines and leaves the appointments alone**: a filter is made
+of the tags on task lists, and an appointment is on no list and carries none, so narrowing a calendar to
+"home or shopping" is asking which of the work owed falls in this week. It narrows the grid and the list
+beside it together, the way a folder tab does (`Calendar.DeadlinesToShow`), and the page **says on screen
+which filter is narrowing it** with the way back out beside it — the menu it was chosen in is shut by
+then, and a calendar quietly missing half its rows is one that looks broken. Its own answer, kept on the
+device separately from the Tasks card's (`DashboardCardPreferences.CalendarTagFilterId`): what somebody
+wants of their week is not what they want of a card on the dashboard.
 
 Not in the export archive: a filter is a view onto lists rather than something written, and the archive
 carries what somebody wrote.
@@ -524,7 +551,7 @@ opened - its folder sits outside the sealed half, as a private note's does - and
 through a share never sees the owner's filing.
 
 **Only an empty folder can be deleted** (2026-09-20, `FolderTabs.StillHolds`). It used to delete a full
-one and put everything in it back under Public, which is a press that quietly rearranges a page's worth
+one and put everything in it back under All, which is a press that quietly rearranges a page's worth
 of things under a word that promised to remove one. A folder is one of the few things exempt from
 "deleted only from the archive" - there is no archive for a tab - but only while there is nothing in it
 to lose, which is how the exemption was worded. The entry stays in the menu and is disabled, saying to
@@ -541,11 +568,11 @@ nothing in it - the entry goes and nothing else changes."*
 the reader knows that already from its not being offered. The dashboard has pruned its tabs this way
 since 2026-09-18; the four pages that file things kept every tab whatever was in it, and now answer the
 same question - a built-in tab by what is under it, a folder somebody made by what is *filed* in it, so
-one holding nothing but archived things keeps its tab. Public always stays, and so does whatever is
+one holding nothing but archived things keeps its tab. All always stays, and so does whatever is
 open: taking the tab out from under the reader would leave them looking at a folder they could not see
 they were in.
 
-**Where that leaves Public on its own, the tabs go and the plus stays.** A row with one tab is a
+**Where that leaves All on its own, the tabs go and the plus stays.** A row with one tab is a
 control that can only be pressed to stay where you already are - but the row is also where a folder is
 made, and a reader with a single folder would otherwise have no way to ever make a second. So the tabs
 are what is left off, not the row.
@@ -711,14 +738,80 @@ is, and the first that applies wins:
    list is placed there by its folder and its privacy like anything else.
 4. **Private** - a sealed item nobody filed anywhere (see [Private notes and task
    lists](#private-notes-and-task-lists)).
-5. **Public** - everything else, and where a page opens.
+5. **All** - everything else, and where a page opens.
 
-**All four kinds are filed**: notes, task lists, calendar events and inventories. The events and the
-shelves gained it on 2026-09-15, which **reverses a decision of 2026-09-09** that an event would never
-be filed because it is found by when it happens. What was kept from that reasoning is where the tabs are
-*not*: a calendar tab narrows the grid and the list beside it together, and the dashboard draws no
-calendar tabs at all, because what it says about the calendar is what is on today and what is coming -
-which answers *when* rather than *which*.
+**"All" is the one tab wider than the list above, and was called Public until 2026-09-24.** The five
+answers above still say where a card *is*, one folder each (`FolderPlacement`); what a tab *shows* is the
+wider question, and All shows everything from every folder except what is sealed and what has been put
+away (`FolderKey.Holds`, read by both clients). So a note filed under "Work" is under Work **and** under
+All, and a finished list is under Finished **and** under All - being neither sealed nor put away. The old
+name said only "not private", and the tab behaved that way: filing something took it off the tab every
+page opens on, so the only way to see the lot was to have filed nothing. That is what the user asked to
+end ("Public becomes All", and "everything from every folder, on the dashboard" - the same change asked
+twice). Private and Archived are what All is defined against, and every other tab still means exactly
+itself: a folder somebody made holds what was filed into it and nothing else.
+
+Two things follow that are easy to read as faults. A tab's **count** is now what the tab shows rather
+than what is placed in it, so All counts nearly everything the page holds. And **filing something no
+longer makes it leave the screen it was filed from**, so a round of presses over several chosen cards
+says so by forgetting what was chosen (`PickedThings.Forget`) - before, the count emptied itself because
+the cards went away, and without this a press over five cards changed nothing a reader could see.
+
+**All five kinds are filed**: notes, task lists, calendar events, inventories and - since 2026-09-26 -
+places. The events and the shelves gained it on 2026-09-15, which **reverses a decision of 2026-09-09**
+that an event would never be filed because it is found by when it happens. What was kept from that
+reasoning is where the tabs are *not*: a calendar tab narrows the grid and the list beside it together,
+and the dashboard draws no calendar tabs at all, because what it says about the calendar is what is on
+today and what is coming - which answers *when* rather than *which*.
+
+**The map's folders** (`FolderScope.Places`, `FolderPage.Map`, `OP_P_FOLDERID`) are the last of the five,
+asked for with the Setup page. Three things about them are the map's own:
+
+- **The row narrows the panel and the pins together.** A folder tab is a way of looking at the map, and
+  a list narrowed beside a map that still draws everything would be two answers to one press
+  (`MapPage.PlacesUnderTheOpenTab`).
+- **There is no Private tab**, although a place can be sealed and nearly every one is (see
+  [Places](#the-map-and-the-location-behind-it) - sealed unless its owner says otherwise). A tab holding
+  nearly every place would answer "is this a place" rather than "is this private", and would have hidden
+  most of the map behind a second press the day folders arrived. So a sealed place is placed by its
+  folder like any other (`FolderPages.HasAPrivateTab`).
+- **There is no Archived tab either**: the map had a page of its own for the archive first, reached from
+  the page's menu, and the map never reads a place that is put away at all - so the tab would read zero
+  whatever the archive held.
+
+**Filing a sealed place needs no key.** The folder id is stored beside the ciphertext rather than inside
+it, like the archive flag: it names a folder of the owner's own, which the server already holds under
+their name, and says nothing about where the place is. The folder is chosen on the place's own form
+(`PlaceForm`) and sent as its own request afterwards (`PUT /api/places/{id}/folder`), because saving a
+place means sealing it again and filing one is not a change to what it says.
+
+### The Setup page
+
+**`/setup`** (2026-09-26, asked for on 2026-09-24, `Setup.razor`, reached from the avatar menu beside
+Options) is where the things a reader arranges Orbit *with* are made, rather than on whichever page
+happens to draw them. Two sections:
+
+- **The folders**, one card per kind - notes, task lists, calendar, inventories and the map, the map's
+  only for an account that may use it at all. Each folder shows its name, **how many things are filed
+  under it**, Rename in place, and Delete; a box at the foot of each card makes a new one, given the
+  scope of the card it was typed in. On the three kinds the dashboard draws tabs for, each folder also
+  carries **"Show on the dashboard"** - the one visibility a folder has, kept on the device (see *Hide on
+  the dashboard*). The calendar's and the map's folders have no such tick, the dashboard drawing no tabs
+  for either.
+- **The filters** - see *Made on the Setup page* above.
+
+**Why a page at all**, when every tab row already has a plus and a rename: a folder is made where it will
+be used, which is right while there is one kind of them and wrong once there are five. "Where do I rename
+the one I made last month" had five answers, three of them a menu on a tab. The tab rows keep their own
+plus and rename, because making a folder *while filing something into it* is a different act from tidying
+them all up.
+
+**It is the only page that can say whether a folder is empty**, having read all five kinds: Delete is
+greyed for a folder still holding something, and says to move what is in it somewhere else first - the
+rule the tab rows have followed since 2026-09-20, now with the count that explains it. A kind the page
+could not read costs that kind's counts and nothing else; the folders themselves are already in hand, and
+a page that refused to draw because the calendar was unreachable would be a page nobody could rename a
+note folder on.
 
 **Several cards can be chosen and acted on together** (2026-09-16, the browser's four list pages -
 `PickedThings`, `PickedThingsBar`). **Choosing is a mode**, entered by a "Select" press in the header
@@ -882,7 +975,7 @@ existing rows and nothing to repair**: every note and list that existed before t
 right one. There is still no way to be filed as private without being sealed. Giving a folder a page did
 need one - `FoldersBelongToOnePage` - and it does more than default the column: a folder that held notes
 is moved to the notes, and one that held both kinds becomes two folders with the notes moved into the
-copy, so nothing that was filed somewhere falls back to Public.
+copy, so nothing that was filed somewhere falls back to All.
 
 **An entry can wait for other entries of the same list** (2026-09-09, `OL_TASKS_STEPS`,
 `TaskItem.WaitsForTaskItemIds`, the rule in `TaskListSteps`): "hang the door" after "fit the hinges".
@@ -1199,7 +1292,7 @@ exist at all - the same reason the note's own settings are written that way.
 kind of thing - recipes are task lists, receipts are notes - so pressing its tab leaves that card
 standing and takes the rest of the page away: everything else on it is about something the folder cannot
 hold, and the page used to answer "show me this folder" with the whole dashboard and one card narrowed
-inside it. Public changes nothing, being what everything is in unless it was filed or sealed. The strip
+inside it. All changes nothing, being what everything is in unless it was filed or sealed. The strip
 of counts above the tabs stays whatever is open - it is about the day rather than about what is filed.
 
 **Private narrows it the same way** (2026-09-10). Private is about one thing too - what is sealed - and
@@ -1226,7 +1319,7 @@ was the same for all three, and is said for all three.
 **Which cards the dashboard draws is a choice per tab** (`DashboardCardPreferences.IsVisible`,
 2026-09-20, asked for). It was one answer for the whole page, so putting the Notes card away while
 reading one folder put it away everywhere. It is stored the way each card's *filter* already was - the
-card's key for Public, `key@tab` for the rest (`StoredKeyOf`) - so a card somebody hid before the change
+card's key for All, `key@tab` for the rest (`StoredKeyOf`) - so a card somebody hid before the change
 is still hidden where they hid it, on the tab the dashboard opens on. The menu's heading names the tab
 it is answering for, since the same menu now gives a different answer on each.
 
@@ -1242,16 +1335,16 @@ folders are still separate rows, and matching the spelling is what makes them on
 
 **And a folder can be taken off the dashboard**, from its own menu on the page it was made on ("Hide on
 the dashboard", `DashboardCardPreferences.IsFolderShown`). The dashboard borrows both pages' tabs, which
-is how a folder for recipes ends up between Public and Private on the page somebody opens to see what is
+is how a folder for recipes ends up between All and Private on the page somebody opens to see what is
 on their plate. It hides the tab there and nothing else - the folder is still on its own page with
 everything in it - and it is kept on the device, beside the cards that are put away the same way, since
-it says nothing about what the folders hold. A tab that goes while it is open falls back to Public, so a
+it says nothing about what the folders hold. A tab that goes while it is open falls back to All, so a
 page can never be filtered to a folder nobody can see. **The phone offers it in the same place since
 2026-09-10** - "Hide on the dashboard" in the folder menu of the page the folder was made on, marked
 while it is hidden, kept in the device preferences beside which folder each screen was left under
 (`IChosenFolderStore.ReadHiddenOnTheDashboard`) - and falls back the same way.
 
-**A deadline is on the calendar under Public alone** (2026-09-25, `CalendarDeadlineTab`, read by both
+**A deadline is on the calendar under All alone** (2026-09-25, `CalendarDeadlineTab`, read by both
 clients). The calendar draws two kinds of thing: appointments, which have folders of that page's, and
 the deadlines of task entries, which do not — whatever folder such an entry has belongs to its list, in
 another scope, and nothing on the calendar can put one away, because putting away belongs to the list it
@@ -1379,7 +1472,7 @@ at once, and narrowing by tag.
 had nothing to return to but the note it would open again, so the press is a plus instead
 (`EditorRail.OnAdd`, set by the note editor alone). What is written in the note being left is kept the
 way leaving the page keeps it, and the star in the column says it is waiting. A note started this way is
-**in Public**: this page has no folder tab, so the tab that would otherwise answer is whichever one the
+**in All**: this page has no folder tab, so the tab that would otherwise answer is whichever one the
 page of cards was last left on.
 
 **The folders live in that column** (2026-09-20, asked for). A **"+"** beside its heading makes one, and
@@ -2491,8 +2584,10 @@ list at once; what it belongs to is left alone, so a place brought back is on th
 followed since 2026-09-18 — see *Delete goes out of the app*.
 
 The archive is **a page of its own**, `/map/archive`, reached from the map's own menu beside "Show
-places already past": the map has no folder tabs, because a place is not filed the way the four kinds
-of card are, and an archive drawn among the pins would be the opposite of putting something away. Each
+places already past": an archive drawn among the pins would be the opposite of putting something away.
+It stayed a page when the map gained folder tabs on 2026-09-26, and the map draws no Archived tab for the
+same reason - one question with two answers is one too many, and the map never reads a place that is put
+away at all. Each
 row offers **Put back** and **Delete**, and Delete asks first and says it cannot be undone. Taking
 somebody else's shared place off this map stays where it was, on the place's own row: it destroys
 nothing — the owner keeps it — so it needs no archive first.
@@ -3988,6 +4083,21 @@ nothing whatever their count says - one with no minimum, which was left to the c
 marked to be looked at every round, where crossing off answers "have you looked"
 (`InventoryItem.BelongsOnTheRestockList`).
 
+**A row past its use-by date crosses the entry out rather than off** (2026-09-26, asked for on
+2026-09-24). Holding four of something is not the same as holding four of it that are any good, and until
+this the count alone settled it: a list asking for stock it already had, all of it months past its date,
+read as done. So an entry whose row has expired is **failed** — the cross beside the tick, finished with
+and not done (`TaskItem.GiveUp`, `IsFailed`) — and expiry beats holding enough, which is the whole point
+of it. Good all through the day it names: a date is stored as the start of that day, so it is the day
+being behind us that settles it (`InventoryItem.HasExpired`), not the moment it begins.
+
+The cross is the shelf's to take back, exactly as the tick is: putting a row in date ticks the entry off
+again, and letting the count drop reopens it as work. **Two things this deliberately does not do**, both
+written down in [Future Plan](future-plan.md#what-the-user-asked-for-on-2026-09-24): an expired row is not
+put on the restock list (expiry is no part of `BelongsOnTheRestockList`, and changing that would change
+what "covered" means), and the reader is told nothing about *why* the entry was crossed out — the state
+the shelf keeps about an entry is the server's own bookkeeping and no client is told it.
+
 **What the shelf crossed off, the shelf reopens** (2026-09-19). Counting a product back down past what
 the lists need puts that work in front of the reader again, the same way counting it up took it away -
 from either end: a save of the list, and a save of the shelf. **Only its own**: an entry crossed off
@@ -5423,7 +5533,7 @@ Each card that has something to filter by carries its own menu in its top right:
 pinned, or one priority. The count beside a card's title counts what the card is showing rather than
 what it holds, so a filtered card cannot look like one that lost something. A calendar event offers no
 "pinned" - it has a priority but nothing to pin it to. **Each folder tab keeps its own filter**
-(2026-09-11): "only what is pinned" is something wanted of one folder and not of every other. Public keeps
+(2026-09-11): "only what is pinned" is something wanted of one folder and not of every other. All keeps
 the card's bare key, so a filter chosen before tabs had their own still applies where it was chosen.
 
 Both live on the device (`DashboardCardPreferences`, localStorage), like the pins beside them: they

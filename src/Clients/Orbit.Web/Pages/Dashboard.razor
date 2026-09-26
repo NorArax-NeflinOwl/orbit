@@ -54,6 +54,24 @@
                     @T[part.Name]
                 </label>
             }
+
+            @* The page's own filter, asked for on 2026-09-24 - the Tasks card has had one of its own
+               since 2026-09-16, and this is the same kind of answer asked of the whole page. Made on the
+               Setup page, so only once there is one. See ChosenPageFilter, which says which cards it can
+               narrow and why the rest are left alone. *@
+            @if (_tagFilters.Count > 0)
+            {
+                <span class="overflow-menu-heading">@T["Your filters"]</span>
+                @foreach (var tagFilter in _tagFilters)
+                {
+                    var isChosen = ChosenPageFilter?.Id == tagFilter.Id;
+                    <button type="button" class="avatar-dropdown-item @(isChosen ? "chosen" : "")"
+                            @onclick="() => ChoosePageFilterAsync(isChosen ? null : tagFilter.Id)">
+                        <span class="card-filter-mark">@(isChosen ? "✓" : "")</span>
+                        @NameOf(tagFilter)
+                    </button>
+                }
+            }
         </OverflowMenu>
     </Actions>
 </PageHeader>
@@ -74,6 +92,19 @@ else if (_notes.Count == 0 && _taskLists.Count == 0 && _events.Count == 0 && _co
 }
 else
 {
+    @* A filter chosen for the whole page takes rows off two of its cards, and a page quietly missing
+       them is one that looks broken - the menu it was chosen in is shut by then. So the page says which
+       filter is narrowing it and offers the way back out beside it, the same line the calendar carries. *@
+    @if (ChosenPageFilter is { } narrowedBy)
+    {
+        <p class="info">
+            @T.Format("Only the notes and lists tagged \"{0}\". Everything else is all here.", NameOf(narrowedBy))
+            <button type="button" class="btn-secondary" @onclick="() => ChoosePageFilterAsync(null)">
+                @T["Show everything"]
+            </button>
+        </p>
+    }
+
     @if (CardPreferences.IsVisible("today", TheOpenTab))
     {
         @* The whole strip is the way to the calendar: it is a summary of a day, and the page that shows
@@ -115,7 +146,7 @@ else
        another page. See PrivatePinGate. *@
     <BehindThePin Applies="IsReadingWhatIsPrivate" OnGaveUp="LeaveThePrivateTab">
     <div class="card-grid">
-        @if (NotesUnderTheOpenTab.Count > 0 && ShowsCard("notes"))
+        @if (HasANotesCard && ShowsCard("notes"))
         {
             <ItemCard Name="@(T["Notes"])" OnNameSelected='() => NavigationManager.NavigateTo("/notes")'
                       ExtraClass="@(DashboardPins.IsPinned("notes") ? "item-card-pinned" : null)">
@@ -564,8 +595,14 @@ else
         [.. (_notes ?? [])
             .Where(note => IsUnder(TheOpenTab, note.FolderId, note.IsPrivate, note.IsArchived))];
 
-    private IReadOnlyList<NoteDto> NotesToShow =>
-        [.. NotesUnderTheOpenTab.Where(note => Matches("notes", note.IsPinned, note.Priority))];
+    /// <summary>
+    /// What the Notes card draws. Under the page's own filter, every note the filter finds - whatever
+    /// folder it is in, put away or not - for the reason the Tasks card's does the same: a filter finds
+    /// things by what they are about, which is not the question a folder tab answers. See ChosenPageFilter.
+    /// </summary>
+    private IReadOnlyList<NoteDto> NotesToShow => ChosenPageFilter is { } pageFilter
+        ? [.. (_notes ?? []).Where(note => RuleOf(pageFilter).Matches(note.AllTags))]
+        : [.. NotesUnderTheOpenTab.Where(note => Matches("notes", note.IsPinned, note.Priority))];
 
     /// <summary>
     /// A finished list is off this card unless it has been pinned. The dashboard is what is still on
@@ -589,11 +626,43 @@ else
     /// in, finished or not, put away or not: the filter is a way of finding lists by what they are about,
     /// which is a different question from the one a folder tab answers. See TaskTagFilter.
     /// </summary>
-    private IReadOnlyList<TaskDto> TaskListsToShow => ChosenTagFilter is { } tagFilter
-        ? [.. (_taskLists ?? []).Where(taskList =>
-            new Orbit.Core.Tasks.TagFilters.TaskTagFilter(tagFilter.Id, tagFilter.Tags, tagFilter.MatchesAll, tagFilter.CreatedAtUtc)
-                .Matches(taskList.AllTags))]
+    private IReadOnlyList<TaskDto> TaskListsToShow => (ChosenPageFilter ?? ChosenTagFilter) is { } tagFilter
+        ? [.. (_taskLists ?? []).Where(taskList => RuleOf(tagFilter).Matches(taskList.AllTags))]
         : [.. TaskListsUnderTheOpenTab.Where(taskList => Matches("tasks", taskList.IsPinned, taskList.Priority))];
+
+    /// <summary>The rule behind a filter as the server sent it - see TaskTagFilter, which is where it lives.</summary>
+    private static Orbit.Core.Tasks.TagFilters.TaskTagFilter RuleOf(TaskTagFilterDto filter)
+        => new(filter.Id, filter.Tags, filter.MatchesAll, filter.CreatedAtUtc);
+
+    /// <summary>
+    /// The filter chosen for the whole page, or null - asked for on 2026-09-24 ("a filter of one's own on
+    /// the dashboard, choosing what it draws"), and the page's own answer rather than a card's.
+    ///
+    /// <b>It narrows the two cards whose things carry tags</b> - the notes and the task lists - and leaves
+    /// the rest alone. That is not a shortcut: a filter is made of tags, and an event, a shelf, a place and
+    /// a contact carry none, so narrowing the page to "home or shopping" cannot mean anything about them
+    /// without something being guessed at. The page says as much on screen while one is chosen.
+    ///
+    /// <b>Never at the same time as the Tasks card's own</b> (see ChooseTagFilterAsync, which clears this,
+    /// and ChoosePageFilterAsync, which clears that): two filters over one card is one question with two
+    /// answers, which is the same reason the card's filter and its All/Pinned answer already stop each
+    /// other.
+    /// </summary>
+    private TaskTagFilterDto? ChosenPageFilter
+        => CardPreferences.DashboardTagFilterId is { } chosen
+            ? _tagFilters.FirstOrDefault(filter => filter.Id == chosen)
+            : null;
+
+    /// <summary>Chooses one for the whole page, or takes it off - and the card's own goes with it.</summary>
+    private async Task ChoosePageFilterAsync(Guid? filterId)
+    {
+        if (filterId is not null && CardPreferences.TasksTagFilterId is not null)
+        {
+            await CardPreferences.SetTasksTagFilterAsync(null);
+        }
+
+        await CardPreferences.SetDashboardTagFilterAsync(filterId);
+    }
 
     /// <summary>
     /// Whether a tab would narrow this page to anything at all - see FolderTabs.HoldsAnything, which
@@ -621,18 +690,33 @@ else
     /// page draws both kinds side by side, and there they are one tab - see FolderTabRow.On, which
     /// draws the first of them and leaves the rest to this. A folder its owner took off the dashboard
     /// counts for nothing here, so hiding one of two same-named folders still hides what is in it.
+    ///
+    /// The tab is asked whether it holds the card rather than compared to it, which is what puts
+    /// everything from every folder on this page: All holds what is filed anywhere, and what the user
+    /// asked for on 2026-09-24 - "everything from every folder, on the dashboard" - is that one tab
+    /// doing what its new name says. See FolderKey.Holds.
     /// </summary>
     private bool IsUnder(FolderKey tab, Guid? folderId, bool isPrivate, bool isArchived)
     {
         var placement = Folders.PlacementOn(FolderPage.Dashboard, folderId, isPrivate, isFinished: false, isArchived);
-        if (placement == tab)
+
+        // A folder kept off this page is off it altogether, All included. Asked first now rather than
+        // only of a same-named folder below: while the widest tab meant "filed nowhere", what was in a
+        // hidden folder was already off the page by being filed at all, and a tab that now gathers every
+        // folder would have brought it back and made "hide on the dashboard" do nothing. Its own page
+        // still draws the folder and everything in it - see FolderTabs.SetShownOnTheDashboardAsync.
+        if (placement.FolderId is { } kept && !CardPreferences.IsFolderShown(kept))
+        {
+            return false;
+        }
+
+        if (tab.Holds(placement))
         {
             return true;
         }
 
         return placement.FolderId is { } placed
             && tab.FolderId is { } drawn
-            && CardPreferences.IsFolderShown(placed)
             && Folders.FoldersCalledTheSameAs(drawn).Any(folder => folder.Id == placed);
     }
 
@@ -642,7 +726,16 @@ else
 
     /// <summary>Whether the Tasks card is on the page: something under the open tab, or a tag filter chosen over any list at all.</summary>
     private bool HasATasksCard
-        => TaskListsUnderTheOpenTab.Count > 0 || (ChosenTagFilter is not null && (_taskLists?.Count ?? 0) > 0);
+        => TaskListsUnderTheOpenTab.Count > 0
+            || ((ChosenTagFilter ?? ChosenPageFilter) is not null && (_taskLists?.Count ?? 0) > 0);
+
+    /// <summary>
+    /// The same question for the notes, and it only needs asking while a filter is chosen: a filter reads
+    /// every note the account has, so the card has to be drawn even where the open tab holds none - it is
+    /// what the filter found that is being shown, not what the tab holds.
+    /// </summary>
+    private bool HasANotesCard
+        => NotesUnderTheOpenTab.Count > 0 || (ChosenPageFilter is not null && (_notes?.Count ?? 0) > 0);
 
     /// <summary>
     /// The shelves under the open tab. Filed like everything else here since 2026-09-15: a folder
@@ -1267,6 +1360,9 @@ else
         if (filterId is not null)
         {
             await CardPreferences.SetFilterAsync("tasks", TheOpenTab, DashboardCardFilter.All);
+            // And the page's own goes, for the reason the All/Pinned answer above goes: this card would
+            // otherwise be narrowed twice over, and the reader would have pressed only one of them.
+            await CardPreferences.SetDashboardTagFilterAsync(null);
         }
 
         await CardPreferences.SetTasksTagFilterAsync(filterId);

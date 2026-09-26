@@ -27,7 +27,7 @@ public sealed class ScreenTitleWithFolderTests
     [Fact]
     public void And_the_ordinary_folder_is_left_unsaid()
     {
-        Assert.Equal("Notes", ScreenTitleWithFolder.Of("Notes", FolderKey.Default, "Public"));
+        Assert.Equal("Notes", ScreenTitleWithFolder.Of("Notes", FolderKey.Default, "All"));
     }
 
     /// <summary>The other built-in ones are said: none of them is where the screen opens.</summary>

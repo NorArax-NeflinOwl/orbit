@@ -9,6 +9,8 @@ using Orbit.Core.Inventories.MoveInventoryToFolder;
 using Orbit.Core.Notes;
 using Orbit.Core.Notes.MoveNoteToFolder;
 using Orbit.Core.Notifications;
+using Orbit.Core.Places;
+using Orbit.Core.Places.MovePlaceToFolder;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.MoveTaskListToFolder;
 using Xunit;
@@ -26,6 +28,7 @@ public sealed class MoveToFolderTests
     private readonly InMemoryTaskRepository _taskLists = new();
     private readonly InMemoryCalendarEventRepository _calendarEvents = new();
     private readonly InMemoryInventoryRepository _inventories = new();
+    private readonly InMemoryPlaceRepository _places = new();
     private static readonly Guid OwnerUserId = Guid.NewGuid();
 
     [Fact]
@@ -184,6 +187,64 @@ public sealed class MoveToFolderTests
         Assert.False(moved);
         Assert.Null(inventory.FolderId);
     }
+
+    /// <summary>
+    /// The fifth kind, since 2026-09-26 - see Place.FolderId. A place is sealed unless its owner says
+    /// otherwise, and this is the ordinary one for completeness; the sealed case is below, and it is the
+    /// one that matters here.
+    /// </summary>
+    [Fact]
+    public async Task A_place_is_filed_the_same_way()
+    {
+        var folder = await AFolderCalled("Holiday");
+        var place = Place.Create(OwnerUserId, "Bakery", string.Empty, Somewhere(), isPrivate: false);
+        await _places.AddAsync(place, CancellationToken.None);
+
+        var moved = await new MovePlaceToFolderCommandHandler(_places, _folders).HandleAsync(
+            new MovePlaceToFolderCommand(OwnerUserId, place.Id, folder.Id), CancellationToken.None);
+
+        Assert.True(moved);
+        Assert.Equal(folder.Id, place.FolderId);
+    }
+
+    /// <summary>
+    /// And a sealed place is filed without being opened, which is what makes folders worth having on the
+    /// map at all: most places are sealed, and the server holds no key. The folder sits outside the
+    /// sealed half, exactly as a private inventory's does.
+    /// </summary>
+    [Fact]
+    public async Task A_sealed_place_is_filed_without_opening_it()
+    {
+        var folder = await AFolderCalled("Holiday");
+        var place = Place.Create(
+            OwnerUserId, string.Empty, string.Empty, new EventLocation(null, 0, 0), isPrivate: true,
+            encryptedContent: new EncryptedPayload("c2VhbGVk", "bm9uY2U="));
+        await _places.AddAsync(place, CancellationToken.None);
+
+        var moved = await new MovePlaceToFolderCommandHandler(_places, _folders).HandleAsync(
+            new MovePlaceToFolderCommand(OwnerUserId, place.Id, folder.Id), CancellationToken.None);
+
+        Assert.True(moved);
+        Assert.Equal(folder.Id, place.FolderId);
+        Assert.True(place.IsPrivate);
+        Assert.Equal(string.Empty, place.Name);
+    }
+
+    [Fact]
+    public async Task A_place_that_is_not_this_readers_is_not_theirs_to_file()
+    {
+        var folder = await AFolderCalled("Holiday");
+        var place = Place.Create(Guid.NewGuid(), "Theirs", string.Empty, Somewhere(), isPrivate: false);
+        await _places.AddAsync(place, CancellationToken.None);
+
+        var moved = await new MovePlaceToFolderCommandHandler(_places, _folders).HandleAsync(
+            new MovePlaceToFolderCommand(OwnerUserId, place.Id, folder.Id), CancellationToken.None);
+
+        Assert.False(moved);
+        Assert.Null(place.FolderId);
+    }
+
+    private static EventLocation Somewhere() => new("A street", 52.23, 21.01);
 
     private static CalendarEventDetails Appointment()
         => new(

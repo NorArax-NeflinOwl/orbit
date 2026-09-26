@@ -12,6 +12,7 @@
 @inject CalendarApiClient CalendarApiClient
 @inject ChatApiClient ChatApiClient
 @inject TasksApiClient TasksApiClient
+@inject DashboardCardPreferences CardPreferences
 @inject PanelPreferences Panels
 @inject CalendarListOrder ListOrder
 @inject UsersApiClient UsersApiClient
@@ -72,6 +73,30 @@
                 <span class="card-filter-mark">@(ShowsEverythingInThisView ? "✓" : "")</span>
                 @T["Everything, including what is over"]
             </button>
+
+            @* The account's tag filters, asked for on 2026-09-24 ("filtering by those filters ... on the
+               calendar as well"). They are made on the Setup page and read every list the account has -
+               see TaskTagFilter - so only once there is one: a heading over nothing says less than
+               nothing.
+
+               A filter narrows the **deadlines** and leaves the appointments alone, and that is not a
+               shortcut: a filter is made of the tags on task lists, and an appointment is on no list and
+               carries no tags. Narrowing a calendar to "home or shopping" means asking which of the work
+               owed falls in this week, and an appointment answering that question would have to have been
+               guessed at. *@
+            @if (_tagFilters.Count > 0)
+            {
+                <span class="overflow-menu-heading">@T["Your filters"]</span>
+                @foreach (var tagFilter in _tagFilters)
+                {
+                    var isChosen = ChosenTagFilter?.Id == tagFilter.Id;
+                    <button type="button" class="avatar-dropdown-item @(isChosen ? "chosen" : "")"
+                            @onclick="() => ChooseTagFilterAsync(isChosen ? null : tagFilter.Id)">
+                        <span class="card-filter-mark">@(isChosen ? "✓" : "")</span>
+                        @NameOf(tagFilter)
+                    </button>
+                }
+            }
         </OverflowMenu>
     </Actions>
 </PageHeader>
@@ -89,6 +114,19 @@
 @if (_errorMessage is not null)
 {
     <p class="error">@_errorMessage</p>
+}
+
+@* A chosen filter takes deadlines off the whole calendar, and a page quietly missing half its rows is a
+   page that looks broken - the menu it was chosen in is shut by then. So the page says which filter it is
+   narrowed by and offers the way back out beside it. *@
+@if (ChosenTagFilter is { } narrowedBy)
+{
+    <p class="info">
+        @T.Format("Only the deadlines of lists tagged \"{0}\". Appointments are all here.", NameOf(narrowedBy))
+        <button type="button" class="btn-secondary" @onclick="() => ChooseTagFilterAsync(null)">
+            @T["Show everything"]
+        </button>
+    </p>
 }
 
 <div class="calendar-layout">
@@ -439,7 +477,7 @@
             }
 
             var listedEventIds = _listedEvents.Select(calendarEvent => calendarEvent.Id).ToHashSet();
-            return [.. (_dueTasks ?? [])
+            return [.. DeadlinesToShow
                 .Where(dueTask => DateOnly.FromDateTime(dueTask.DueDateUtc.LocalDateTime) is var due
                     && due >= from && due < toExclusive)
                 .Where(dueTask => dueTask.LinkedCalendarEventId is not { } eventId || !listedEventIds.Contains(eventId))
@@ -533,6 +571,12 @@
             // it loading.
             _hasGoogleExtras = await GoogleIntegrationAccess.IsAvailableAsync();
             _dueTasks = await LoadDueTasksAsync();
+            // Which filter this device left the calendar narrowed by lives beside the dashboard's own
+            // answers - see DashboardCardPreferences.CalendarTagFilterId - so the store has to be read
+            // before the page decides what to draw. The tab row reads the same store for the folders it
+            // keeps off the dashboard, and asks for it itself.
+            await CardPreferences.InitializeAsync();
+            await LoadTagFiltersAsync();
             await ResolveMissingGuestDisplayNamesAsync();
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
@@ -712,7 +756,9 @@
     /// </summary>
     private int CountIn(FolderKey folder)
         => (_events ?? []).Count(calendarEvent =>
-            Folders.PlacementOn(FolderPage.Calendar, calendarEvent.FolderId, isPrivate: false, isFinished: false, calendarEvent.IsArchived) == folder);
+            Folders.ShownUnder(
+                folder, FolderPage.Calendar, calendarEvent.FolderId, isPrivate: false, isFinished: false,
+                calendarEvent.IsArchived));
 
     /// <summary>Whether anything is still filed here - see FolderTabs.StillHolds, and Notes.StillHolds.</summary>
 /// <summary>
@@ -732,8 +778,81 @@
         => !TheOpenTabShowsDeadlines
             ? []
             : GridShowsWhatIsDone
-                ? _dueTasks ?? []
-                : [.. (_dueTasks ?? []).Where(dueTask => !dueTask.IsCompleted)];
+                ? DeadlinesToShow
+                : [.. DeadlinesToShow.Where(dueTask => !dueTask.IsCompleted)];
+
+    /// <summary>
+    /// The deadlines the page is drawing at all: every one of them, or - while one of the account's tag
+    /// filters is chosen - only those on a list that filter finds. Read by the grid and by the list
+    /// beside it, so a filter narrows the whole calendar the way a folder tab does.
+    ///
+    /// <b>Only the deadlines.</b> A filter is made of the tags on task lists (see TaskTagFilter), and an
+    /// appointment is on no list and carries no tags: narrowing a calendar to "home or shopping" is
+    /// asking which of the work owed falls in this week, and an appointment answering that would have had
+    /// to be guessed at. A filter whose lists have no deadlines therefore empties the calendar of
+    /// deadlines and leaves the appointments standing, which is why the page says on screen that it is
+    /// narrowed - see the notice above the grid.
+    ///
+    /// It reads every list the filter finds whatever folder it is in, finished or not, put away or not,
+    /// which is what a tag filter does everywhere: it finds lists by what they are about, and that is not
+    /// the question a folder tab answers.
+    /// </summary>
+    private IReadOnlyList<DueTaskDto> DeadlinesToShow
+    {
+        get
+        {
+            if (ChosenTagFilter is not { } chosen)
+            {
+                return _dueTasks ?? [];
+            }
+
+            var rule = new Orbit.Core.Tasks.TagFilters.TaskTagFilter(
+                chosen.Id, chosen.Tags, chosen.MatchesAll, chosen.CreatedAtUtc);
+            var found = _taskLists.Where(taskList => rule.Matches(taskList.AllTags))
+                .Select(taskList => taskList.Id)
+                .ToHashSet();
+            return [.. (_dueTasks ?? []).Where(dueTask => found.Contains(dueTask.TaskListId))];
+        }
+    }
+
+    /// <summary>The filters this account made, read on load - see Setup.razor, which is where they are made.</summary>
+    private IReadOnlyList<TaskTagFilterDto> _tagFilters = [];
+
+    /// <summary>
+    /// The one the calendar is narrowed by, or null. Kept on the device beside the dashboard's own answer
+    /// and separately from it - see DashboardCardPreferences.CalendarTagFilterId. A filter deleted
+    /// elsewhere reads as none rather than as an empty calendar.
+    /// </summary>
+    private TaskTagFilterDto? ChosenTagFilter
+        => CardPreferences.CalendarTagFilterId is { } chosen
+            ? _tagFilters.FirstOrDefault(filter => filter.Id == chosen)
+            : null;
+
+    /// <summary>What a filter is called: its own words, which is the only name one has - see TaskTagFilter.</summary>
+    private string NameOf(TaskTagFilterDto filter)
+        => new Orbit.Core.Tasks.TagFilters.TaskTagFilter(filter.Id, filter.Tags, filter.MatchesAll, filter.CreatedAtUtc)
+            .Describe(T["or"], T["and"]);
+
+    private async Task ChooseTagFilterAsync(Guid? filterId)
+        => await CardPreferences.SetCalendarTagFilterAsync(filterId);
+
+    /// <summary>
+    /// The filters, best-effort: a page whose deadlines cannot be narrowed is worth more than no calendar.
+    /// Nothing chosen then, since the chosen one is looked up among these.
+    /// </summary>
+    private async Task LoadTagFiltersAsync()
+    {
+        try
+        {
+            // A filter with no words is not one - the server refuses fewer than one tag - so anything
+            // arriving without any is left out rather than drawn as a nameless entry on the menu.
+            _tagFilters = [.. (await TasksApiClient.GetTagFiltersAsync()).Where(filter => filter.Tags is { Count: > 0 })];
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Could not read the account's tag filters for the calendar");
+        }
+    }
 
     /// <summary>
     /// Whether the tab that is open is one the deadlines belong on - see
@@ -1130,7 +1249,7 @@
             }
 
             _events = await CalendarApiClient.GetCalendarEventsAsync();
-            _picked.KeepOnly(ListedEventIds);
+            _picked.Forget();
         }
         finally
         {

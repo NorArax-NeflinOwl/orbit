@@ -1,6 +1,7 @@
 @using Orbit.Contracts.Calendar
 @using Orbit.Contracts.Places
 @using Orbit.Contracts.Tasks
+@using Orbit.Core.Folders
 @using Orbit.Web.Services
 @inject PlacesApiClient PlacesApiClient
 @inject ILogger<PlaceForm> Logger
@@ -132,6 +133,15 @@
             </div>
         }
 
+        @* Which tab on the map it will be found under - the map's folders, and nobody else's (see
+           FolderPage.Map). Only for a place this reader keeps: filing is the owner's own arrangement of
+           their own map, and the server refuses it for anybody else. *@
+        @if (CanWrite && Place is not { IsShared: true })
+        {
+            <FolderField Page="FolderPage.Map" Value="_folderId" ValueChanged="folderId => _folderId = folderId"
+                         Hint="@(T["A folder is somewhere else to find it: it is on the map either way."])" />
+        }
+
         @if (_error is { } error)
         {
             <p class="error">@error</p>
@@ -190,6 +200,14 @@
 
     /// <inheritdoc cref="Orbit.Core.Places.Place.IsPrivate"/>
     private bool _isPrivate = true;
+
+    /// <summary>
+    /// The folder this place is filed under, or null for none - see Orbit.Core.Places.Place.FolderId.
+    /// Kept beside the rest of the form and sent on its own afterwards, because filing is its own call
+    /// (see SaveAsync): a place is sealed on nearly every save, and filing one is not a change to what it
+    /// says.
+    /// </summary>
+    private Guid? _folderId;
     private readonly List<Guid> _taskListIds = [];
 
     private bool _isPickingOnTheMap;
@@ -226,6 +244,7 @@
             _colour = place.Colour;
             _priority = place.Priority;
             _isPrivate = place.IsPrivate;
+            _folderId = place.FolderId;
             _taskListIds.Clear();
             _taskListIds.AddRange(place.TaskListIds);
             return;
@@ -294,10 +313,21 @@
                     _error = T["That place is not here any more."];
                     return;
                 }
+
+                // Its own call, and only where the answer has changed - see _folderId. A place handed to
+                // this reader is never filed by them, which is why the field is not offered for one.
+                if (!place.IsShared && _folderId != place.FolderId)
+                {
+                    await PlacesApiClient.MoveToFolderAsync(place.Id, _folderId);
+                }
             }
             else
             {
-                await PlacesApiClient.CreatePlaceAsync(request);
+                var kept = await PlacesApiClient.CreatePlaceAsync(request);
+                if (_folderId is not null)
+                {
+                    await PlacesApiClient.MoveToFolderAsync(kept, _folderId);
+                }
             }
 
             await OnSaved.InvokeAsync();

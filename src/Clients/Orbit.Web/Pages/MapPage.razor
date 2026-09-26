@@ -8,6 +8,7 @@
 @using Orbit.Contracts.Places
 @using Orbit.Contracts.Tasks
 @using Orbit.Contracts.Users
+@using Orbit.Core.Folders
 @using Orbit.Core.Location
 @using Orbit.Core.Permissions
 @using Orbit.Web.Services
@@ -23,6 +24,7 @@
 @inject GoogleIntegrationAccess GoogleIntegrationAccess
 @inject IJSRuntime JSRuntime
 @inject ChosenPlace ChosenPlace
+@inject FolderState Folders
 @inject DevicePreferences DevicePreferences
 @inject ThemeService Theme
 @inject MapPinVisibility MapPins
@@ -265,6 +267,20 @@ else
                     </button>
                 </OverflowMenu>
             </div>
+            @* The map's own folders, since 2026-09-26 - the same row every other page made of cards is
+               read under, and it narrows the panel and the pins together (see PlacesUnderTheOpenTab),
+               because half a map answering one question is no answer.
+
+               Two of the built-in tabs are not here, and each for its own reason: a place is sealed
+               unless its owner says otherwise, so a Private tab would hold nearly every place, and the
+               archive has a page of its own reached from this page's menu. See FolderPages. *@
+            <FolderTabs Page="FolderPage.Map" CountIn="CountIn" StillHolds="StillHolds" HoldsAnything="HoldsAnything" />
+            @* A folder holding nothing says so, rather than leaving the heading over a gap: the reader
+               kept places, and where they have gone is a question the page should answer itself. *@
+            @if (!PlacesAsListed.Any())
+            {
+                <p class="empty-hint empty-list">@T["Nothing in this folder."]</p>
+            }
             @foreach (var (place, startsGroup) in PlacesAsListed)
             {
                 @* A place a task list's entry made sits under that list's name, the reader's own above
@@ -1289,6 +1305,12 @@ else
         // MainLayout owns the poll; this only listens, so a notification arriving while the page is
         // open marks the row it is about without anything being read again.
         NotificationFeed.Changed += OnNotificationsChanged;
+
+        // The map's own folders - see FolderPage.Map, added 2026-09-26. Read once for the visit like
+        // every other page's, and listened to so a tab pressed or a folder made redraws the panel and
+        // the pins together.
+        Folders.Changed += OnFoldersChanged;
+        await Folders.EnsureLoadedAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -1541,7 +1563,8 @@ else
     {
         get
         {
-            foreach (var place in _places.Where(place => !IsFromATask(place)))
+            var shown = PlacesUnderTheOpenTab;
+            foreach (var place in shown.Where(place => !IsFromATask(place)))
             {
                 yield return (place, null);
             }
@@ -1551,7 +1574,7 @@ else
                 yield break;
             }
 
-            var byList = _places
+            var byList = shown
                 .Where(IsFromATask)
                 .GroupBy(place => place.TaskListIds[0])
                 .OrderBy(group => TitleOfList(group.Key), StringComparer.CurrentCultureIgnoreCase);
@@ -1565,6 +1588,39 @@ else
             }
         }
     }
+
+    /// <summary>
+    /// The kept places under the folder tab that is open - what the panel lists and what the map draws,
+    /// which are the same set on purpose.
+    ///
+    /// <b>isPrivate is false whatever the place is</b>, exactly as the calendar passes it: this page
+    /// draws no Private tab, because a place is sealed unless its owner says otherwise and the tab would
+    /// hold nearly all of them (see FolderPages.HasAPrivateTab). So a sealed place is placed by its
+    /// folder like any other, instead of vanishing into a tab this page does not draw.
+    ///
+    /// <b>isArchived is false too</b>, and here because nothing archived was ever read: the page asks
+    /// for the places that are not put away (see LoadPlacesAsync), and the archive is a page of its own.
+    /// </summary>
+    private IReadOnlyList<PlaceDto> PlacesUnderTheOpenTab
+        => [.. _places.Where(place => Folders.ShowsUnderTheChosenTab(FolderPage.Map, place.FolderId, isPrivate: false))];
+
+    /// <summary>
+    /// How many places are under each tab, drawn on the tab itself. Every place this reader keeps rather
+    /// than only what the panel is showing: a tab reading zero because the places from tasks are hidden
+    /// would be answering a different question.
+    /// </summary>
+    private int CountIn(FolderKey folder)
+        => _places.Count(place => Folders.ShownUnder(folder, FolderPage.Map, place.FolderId, isPrivate: false));
+
+    /// <summary>Whether anything is still filed here, which is what decides whether the folder can be deleted.</summary>
+    private bool StillHolds(Guid folderId) => _places.Any(place => place.FolderId == folderId);
+
+    /// <summary>
+    /// Whether a tab is worth being on the row at all - see FolderTabs.HoldsAnything. Only folders
+    /// somebody made can go: All always stays, and there is no other built-in tab here.
+    /// </summary>
+    private bool HoldsAnything(FolderKey tab)
+        => tab.FolderId is { } folderId ? StillHolds(folderId) : CountIn(tab) > 0;
 
     /// <summary>A place a task list's Location entry made, rather than one kept by hand - see TaskEntryPlaces.</summary>
     private static bool IsFromATask(PlaceDto place) => place.SourceTaskItemId is not null && place.TaskListIds.Count > 0;
@@ -3010,6 +3066,12 @@ else
     /// </summary>
     private void OnNotificationsChanged() => InvokeAsync(StateHasChanged);
 
+    /// <summary>
+    /// A folder made, renamed or chosen. A redraw for the same reason as above: the places are the ones
+    /// already read, and what changed is which of them the panel and the map are showing.
+    /// </summary>
+    private void OnFoldersChanged() => InvokeAsync(StateHasChanged);
+
     private async Task ShowOrHidePastPlacesAsync()
     {
         _showsPastPlaces = !_showsPastPlaces;
@@ -3137,6 +3199,7 @@ else
     public async ValueTask DisposeAsync()
     {
         NotificationFeed.Changed -= OnNotificationsChanged;
+        Folders.Changed -= OnFoldersChanged;
         // Leaving the page ends live sharing's refresh loop - see _refreshTimer's comment.
         _refreshCancellation?.Cancel();
         _refreshTimer?.Dispose();

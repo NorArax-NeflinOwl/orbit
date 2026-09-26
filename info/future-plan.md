@@ -431,6 +431,13 @@ Documented in [Testing and Running Locally](testing-and-running-locally.md#what-
 as not covered by an automated test today, together with why. Most of what used to be listed here has
 since been closed; what is left is recorded below with the same honesty about why.
 
+- **The map page's folder tab row has no test** (added 2026-09-26). Everything behind it does:
+  `FolderKey.Holds` and `FolderPlacement` in `FolderPlacementTests`, the filing itself in
+  `MoveToFolderTests`, the place's column in the repository tests. What is not covered is the row on the
+  page, because `MapPage` is the one page bUnit cannot render - it builds its map through JS interop on
+  first render, and every other page's tests stop at the markup. Its four sibling pages' rows are covered,
+  and this one is the same component given a different `FolderPage`, which is why it was left rather than
+  worked around. A browser walk is the only thing that would catch a row drawn in the wrong place.
 - ~~**The `/api/auth/*` rate limiter's exact 429 behavior.**~~ Done. It needed no
   `WebApplicationFactory` in the end - what stood in the way was that the policies were written inline
   in `Program.cs`, reachable only by running the whole application. They now live in
@@ -2910,10 +2917,44 @@ a line needed a reading it did not state, the reading is marked as such.
 - **A search button beside the notifications bell.** It opens a search over everything the account
   holds: note names and their writing, task lists and their entries, events, places on the map, and
   inventories and what is on them.
-- **Everything from every folder, on the dashboard** - a way to see it all at once.
-- **A filter of one's own on the dashboard**, choosing what it draws. It works the way the task list's
-  tags do.
-- **Filtering by those filters and by folders on the calendar** as well.
+- ~~**Everything from every folder, on the dashboard** - a way to see it all at once.~~ Done 2026-09-26,
+  by the tab that page opens on becoming what its name says - see *"Public" becomes "All"* below, which
+  is the same change and settles what this one should do.
+- ~~**A filter of one's own on the dashboard**, choosing what it draws. It works the way the task list's
+  tags do.~~ Done 2026-09-26. On the page's own menu rather than a card's - the Tasks card has had one of
+  its own since 2026-09-16, and "of one's own" is what made this a second thing rather than a rename.
+
+  **It narrows the two cards whose things carry tags** - the notes and the task lists - and leaves the rest
+  of the page alone, for the reason the calendar's leaves the appointments alone: an event, a shelf, a
+  place and a contact carry no tags, and "home or shopping" cannot mean anything about them without being
+  guessed at. The page says so on screen while one is chosen.
+
+  **The page's and the card's are never both chosen**: choosing either clears the other, the same way the
+  card's filter and its All/Pinned answer already stop each other. Two narrowings of one card is one
+  question with two answers, and the reader pressed only one of them.
+
+  **Left for whoever wants it**: tags on the kinds that have none. That is the only way this filter could
+  reach the calendar card, the shelves or the places, and it is a decision about those kinds rather than
+  about the dashboard.
+- ~~**Filtering by those filters and by folders on the calendar** as well.~~ Done 2026-09-26, and the two
+  halves were not in the same state: **by folders** the calendar has done since 2026-09-15, tabs and all.
+  What was missing was the filters, and they are on the calendar's own menu now.
+
+  **A filter narrows the deadlines and leaves the appointments alone**, which is not a shortcut: a filter
+  is made of the tags on task lists (`TaskTagFilter`), and an appointment is on no list and carries no
+  tags. Narrowing a calendar to "home or shopping" is asking which of the work owed falls in this week; an
+  appointment answering that would have had to be guessed at. It narrows the grid and the list beside it
+  together, the way a tab does, and the page **says on screen** which filter is narrowing it with the way
+  out beside it - the menu is shut by then, and a calendar quietly missing half its rows looks broken.
+
+  Its own stored answer (`DashboardCardPreferences.CalendarTagFilterId`) rather than the Tasks card's: one
+  answer for both would move each time the other was chosen.
+
+  **Found doing it**: `CalendarTests`' task stub answered *every* read with the task lists, so the page
+  read a list as a filter with no words in it and threw where a real server could not have. The stub tells
+  the two addresses apart now - a double that answers something the server never would makes a correct page
+  look broken - and the page leaves out a filter that arrives with no tags rather than drawing a nameless
+  menu entry.
 - ~~**A gram is not half a gram.**~~ Done 2026-09-24 (`InventoryAmountStep`): a row measured in the
   small units moves by fifty, everything else by half, and the two buttons say the number rather than a
   half they no longer all move by. **Millilitres went in with milligrams** although only grams were
@@ -2923,18 +2964,102 @@ a line needed a reading it did not state, the reading is marked as such.
   the open half.
 - **Saving an inventory still does not finish the entries that asked for it.** A row whose stock has
   reached the minimum should tick the task entries standing for it.
-- **An expired inventory item should fail the entry that stands for it**, worked out and written
-  without anybody asking.
+
+  **Looked at on 2026-09-26 and the server half already does this**, and has since 2026-09-18/19:
+  `UpdateInventoryCommandHandler.SettleTheListsAgainstTheShelfAsync` runs on every save of a shelf, after
+  the amounts are written back, and `StockedEntryCompletionTests` covers it from that end
+  (`Counting_a_product_down_on_the_shelf_puts_the_work_back_on_the_list`). Nothing was found by reading
+  that would stop it, so this is **left open rather than ticked**: it needs a walk through the running app
+  to find what the report is about. Three things it could be, in the order worth checking:
+
+  - **A private list is skipped** - the handler asks only for lists that are not sealed, the server holding
+    nothing readable on one. An entry on a sealed list is never crossed off by a shelf, from either end.
+  - **The reader never re-reads the list.** The tick is written on the server; a tab left open on the list
+    shows what it last read.
+  - **The row answers nothing**, which two kinds do whatever their count says: one with no minimum, and
+    one marked to be looked at every round (`InventoryItem.BelongsOnTheRestockList`).
+- ~~**An expired inventory item should fail the entry that stands for it**, worked out and written
+  without anybody asking.~~ Done 2026-09-26. An entry whose row has passed its use-by date is **failed**
+  rather than crossed off (`TaskItem.GiveUp`, `InventoryItem.HasExpired`): holding four of something is not
+  holding four of it that are any good, and until this the count alone settled it. Expiry beats holding
+  enough, and the cross is the shelf's to take back - a row put back in date ticks the entry off again, a
+  count that drops reopens it as work, and a tick somebody gave by hand is left alone as always.
+
+  **Good all through the day it names**: an expiry date is stored as the start of that day (the browser
+  makes one out of a date box), so it is the day being behind us that settles it rather than the moment it
+  begins.
+
+  **Two halves deliberately not done**, either of which may turn out to be wanted:
+
+  - **An expired row is not put on the restock list.** Expiry is no part of
+    `InventoryItem.BelongsOnTheRestockList`, and it cannot simply be added there: `StockedEntryCompletion.Covers`
+    is written as "has a minimum and is not on the restock list", so an expired row would stop covering
+    *and* start being asked for, which is two decisions in one edit. As it stands the entry is crossed out
+    and nothing asks anybody to replace what went off.
+  - **The reader is not told why.** The entry shows a cross and nothing says the shelf gave up on it: what
+    the shelf keeps about an entry (`TaskItemStock`) is the server's own bookkeeping and no client is told
+    it. A reason would be a field on the entry, or a notification, and neither was asked for.
 - **A use-by date per piece.** Where a row holds more than one piece or package - other units count as
   one - the list should open into its pieces, each with its own date to edit.
-- **A Setup page**, and filters are made there rather than where they are now. It also holds the
-  folders: made, renamed and given a visibility per notes, tasks, events, inventories and the map.
+- ~~**A Setup page**, and filters are made there rather than where they are now. It also holds the
+  folders: made, renamed and given a visibility per notes, tasks, events, inventories and the map.~~ Done
+  2026-09-26 (`/setup`, `Setup.razor`, reached from the avatar menu beside Options), in three parts:
+
+  **The map first**, it being the one kind of thing with no folders at all - the page would have had
+  nothing to offer for it. A place carries a folder now (`OP_P_FOLDERID`, readable rather than sealed, so
+  a sealed place - which most are - can be filed without the server holding a key), filed from its own
+  form through `PUT /api/places/{id}/folder`, and the map draws the tab row every other page made of cards
+  draws. Two built-in tabs are deliberately missing there and `FolderPages` says why: **Private**, because
+  nearly every place is sealed and the tab would hold nearly all of them, and **Archived**, because the map
+  has had a page of its own for that since before it had folders.
+
+  **The phone does not file a place yet.** `FolderScope.Places` and the column are shared, so nothing has
+  to change for it to; what is missing is the phone's own half - `LocalPlace` has no folder, and
+  `FolderSynchronizer` pushes folders ahead of the four kinds that can be filed rather than five (see
+  `info/uml/flows.md`). The Setup page is the browser's, as this whole list's second half is.
+
+  **Then the page**: one card per kind, each folder with its name, how much is filed under it, Rename in
+  place and Delete. The count is the thing only this page can work out - it reads all five kinds, so it can
+  hold to the rule of 2026-09-20 that only an empty folder goes, and grey the button with a reason rather
+  than a refusal. A kind it cannot read costs that kind's counts and nothing else.
+
+  **Then the filters**, off the tasks page's header and into a section of their own, each shown by the words
+  it looks for and by how many lists it finds - so a filter that finds nothing says so where it was made.
+
+  **What "a visibility" turned out to be**: the one a folder has, which is whether its tab is drawn on the
+  dashboard (`DashboardCardPreferences.IsFolderShown`, kept on the device), offered on this page for the
+  three kinds the dashboard draws tabs for at all. The **wider reading is not built** - a folder visible
+  for several kinds at once, so that "Home" on the lists and "Home" on the shelves stop being two folders -
+  and it is a change to `FolderScope` rather than to a page: a folder would carry a set of kinds instead of
+  one. The dashboard also draws no tab for a places folder (it has a "Places you keep" card and asks no
+  folder question about it), which is the same decision seen from the other end.
 - ~~**Opening a private note says nothing about making a PIN.**~~ Done 2026-09-24: `BehindThePin` says
   it over whatever is sealed while the account has no PIN at all, with the link to Options. There
   rather than on the note's own page, because it is the one place that knows both halves - and a shelf
   and a task list are as private as a note is.
-- **"Public" becomes "All"**, and holds everything from every folder except what is private and what is
-  put away.
+- ~~**"Public" becomes "All"**, and holds everything from every folder except what is private and what is
+  put away.~~ Done 2026-09-26, on **both clients**, from one rule (`FolderKey.Holds`): a tab is now asked
+  whether it holds a card rather than compared to where the card is, and All answers yes to everything
+  placed anywhere but Private and Archived. The enum member was renamed with it
+  (`BuiltInFolder.Public` → `All`), which needed no migration - nothing about a card stores which built-in
+  folder it is in, that is worked out - and the only place the old word was written down is a phone's own
+  preferences, which read a word they do not know as the tab a screen opens on.
+
+  **This is also the whole of "everything from every folder, on the dashboard"**, which the note at the
+  end of this list already said was the same change asked twice. One exception is kept there: a folder
+  held off the dashboard (`FolderTabs.HideOnTheDashboard`) is off it under All too, or hiding one would
+  have stopped meaning anything.
+
+  **Two things followed, and both are the change rather than a fault.** A tab's **count** now counts what
+  the tab shows, so All reads nearly everything the page holds and Finished's lists are counted twice
+  over - once under each. And **filing something no longer takes it off the screen it was filed from**,
+  which is what a round of presses over several chosen cards used to be answered by: it now forgets what
+  was chosen itself (`PickedThings.Forget`), or five cards filed at once would have looked like a press
+  that never registered.
+
+  **What the editors' hints say changed with it.** "Without one it is in Public" was true of a tab that
+  meant "filed nowhere"; a folder is somewhere else to find something now, rather than the place it goes
+  instead of the default one, and the four hints say that.
 
 ### Added 2026-09-25, on the calendar
 

@@ -154,6 +154,19 @@ public sealed class PlacesApiClient
         return response.IsSuccessStatusCode;
     }
 
+    /// <summary>
+    /// Files one place under a folder, or under none. Its own call rather than a field on the save, for
+    /// the reason MoveToFolderRequest gives - and here that matters twice over, since saving a sealed
+    /// place means sealing it again, and filing one is not a change to what it says. False when the
+    /// server refused it: not this reader's place, or not this reader's folder.
+    /// </summary>
+    public async Task<bool> MoveToFolderAsync(Guid id, Guid? folderId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/places/{id}/folder", new MoveToFolderRequest(folderId), cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
     public async Task<bool> DeletePlaceAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.DeleteAsync($"api/places/{id}", cancellationToken);

@@ -30,16 +30,17 @@ public sealed class NoteFoldersTests
         await context.AddNoteAsync("Shopping");
         var screen = await context.OpenAsync();
 
-        Assert.Equal(FolderKey.Of(BuiltInFolder.Public), screen.Folders.Chosen);
+        Assert.Equal(FolderKey.Of(BuiltInFolder.All), screen.Folders.Chosen);
         Assert.Equal("Shopping", Assert.Single(screen.Notes).DisplayTitle);
     }
 
     /// <summary>
-    /// A note filed into a folder leaves the built-in one it was in. Both are tabs on the same row, so
-    /// a note is in exactly one of them - see FolderPlacement, which is the rule both clients read.
+    /// A note filed into a folder is under that folder and still under All, which is what All means since
+    /// 2026-09-24 - see FolderKey.Holds, the rule both clients read. Filing it used to take it off the
+    /// folder the screen opens on, so the only way to see everything was to have filed nothing.
     /// </summary>
     [Fact]
-    public async Task Filing_a_note_moves_it_out_of_the_folder_it_was_in()
+    public async Task A_filed_note_is_under_its_folder_and_still_under_All()
     {
         using var context = new ScreenContext();
         var note = await context.AddNoteAsync("Shopping");
@@ -49,9 +50,29 @@ public sealed class NoteFoldersTests
         await context.Notes.FileAsync(note.LocalId, work.LocalId);
         await screen.LoadCommand.ExecuteAsync(null);
 
-        Assert.Empty(screen.Notes);
+        Assert.Equal("Shopping", Assert.Single(screen.Notes).DisplayTitle);
 
         screen.ChooseFolderCommand.Execute(FolderKey.Of(work.LocalId));
+        Assert.Equal("Shopping", Assert.Single(screen.Notes).DisplayTitle);
+    }
+
+    /// <summary>
+    /// And a folder still narrows: what is filed somewhere else is not under it. The half of the rule
+    /// above that All widening could have quietly undone.
+    /// </summary>
+    [Fact]
+    public async Task A_folder_holds_only_what_was_filed_into_it()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping");
+        await context.AddNoteAsync("Recipes");
+        var screen = await context.OpenAsync();
+        var work = await context.Folders.CreateAsync("Work", FolderScope.Notes);
+
+        await context.Notes.FileAsync(note.LocalId, work.LocalId);
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.ChooseFolderCommand.Execute(FolderKey.Of(work.LocalId));
+
         Assert.Equal("Shopping", Assert.Single(screen.Notes).DisplayTitle);
     }
 
@@ -71,7 +92,7 @@ public sealed class NoteFoldersTests
 
         var choices = screen.FolderChoices.ToDictionary(choice => choice.Name, choice => choice.Count);
 
-        Assert.Equal(2, choices["Public"]);
+        Assert.Equal(2, choices["All"]);
         Assert.Equal(0, choices["Private"]);
         Assert.Equal(0, choices["Work"]);
         // A note has nothing to finish, so the notes screen has no Finished tab at all.
@@ -95,7 +116,7 @@ public sealed class NoteFoldersTests
         var screen = await context.OpenAsync();
 
         Assert.Equal(
-            ["Public"],
+            ["All"],
             screen.FolderChoices.Where(choice => choice.HasNews).Select(choice => choice.Name));
     }
 
@@ -197,7 +218,7 @@ public sealed class NoteFoldersTests
         await screen.DeleteFolderCommand.ExecuteAsync(null);
 
         // Back where anything unfiled already is, and the screen with it.
-        Assert.Equal(FolderKey.Of(BuiltInFolder.Public), screen.Folders.Chosen);
+        Assert.Equal(FolderKey.Of(BuiltInFolder.All), screen.Folders.Chosen);
         Assert.Equal("Shopping", Assert.Single(screen.Notes).DisplayTitle);
     }
 
@@ -255,7 +276,7 @@ public sealed class NoteFoldersTests
 
         Assert.False(screen.Folders.ChosenStillHolds);
         // And a built-in folder, which cannot be deleted at all, answers for nothing.
-        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(BuiltInFolder.Public));
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(BuiltInFolder.All));
         Assert.False(screen.Folders.ChosenStillHolds);
     }
 

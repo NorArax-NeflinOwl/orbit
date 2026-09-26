@@ -1,0 +1,402 @@
+@page "/setup"
+@attribute [Authorize]
+@implements IDisposable
+@using Orbit.Contracts.Calendar
+@using Orbit.Contracts.Folders
+@using Orbit.Contracts.Inventories
+@using Orbit.Contracts.Notes
+@using Orbit.Contracts.Places
+@using Orbit.Contracts.Tasks
+@using Orbit.Core.Folders
+@using Orbit.Core.Permissions
+@using Orbit.Web.Services
+@inject FolderState Folders
+@inject DashboardCardPreferences CardPreferences
+@inject NotesApiClient NotesApiClient
+@inject TasksApiClient TasksApiClient
+@inject CalendarApiClient CalendarApiClient
+@inject InventoryApiClient InventoryApiClient
+@inject PlacesApiClient PlacesApiClient
+@inject UserPermissionState Permissions
+@inject ILogger<Setup> Logger
+@inject Translations T
+
+<PageTitle>@T["Orbit — Setup"]</PageTitle>
+
+@* Where the things a reader arranges Orbit with are made, rather than on whichever page happens to
+   draw them: the folders of all five kinds side by side, and the filters that used to be made on the
+   task lists. Asked for on 2026-09-24.
+
+   Why one page rather than a control on each: a folder is made where it will be used, which is right
+   while there is one of them and wrong once there are five kinds of them - "where do I rename the one
+   I made last month" had five different answers, and three of them were a menu on a tab. The tab rows
+   keep their own plus and their own rename, because making one *while filing something* is a different
+   act from tidying them all up. *@
+<PageHeader>
+    <Title>@T["Setup"]</Title>
+    <Description>@T["Your folders and your filters, all in one place."]</Description>
+</PageHeader>
+
+<div class="options-page">
+    <div class="options-section">
+        <h2 class="options-heading">@T["Folders"]<FieldHint>@T["A folder is a tab on the page its things are read on. Three folders are always there and are not made here: All, Private and Archived."]</FieldHint></h2>
+
+        @foreach (var kind in Kinds)
+        {
+            <div class="options-card">
+                <div class="options-row">
+                    <h3 class="options-heading">@NameOf(kind)</h3>
+                </div>
+
+                @if (Folders.FoldersOn(kind).Count == 0)
+                {
+                    <p class="empty-hint">@T["No folders here yet."]</p>
+                }
+
+                @foreach (var folder in Folders.FoldersOn(kind))
+                {
+                    <div class="options-row">
+                        @if (_folderBeingRenamed == folder.Id)
+                        {
+                            @* Renaming in place, the way the tab row renames one: the name is the whole
+                               of a folder, so a form to change it would be a form with one field. *@
+                            <input value="@_name" @oninput="args => _name = args.Value?.ToString() ?? string.Empty"
+                                   @onkeydown="args => OnRenamingKeyDownAsync(args, folder.Id)"
+                                   aria-label="@(T["Folder name"])" />
+                            <button type="button" class="btn-secondary" disabled="@_isWorking"
+                                    @onclick="() => RenameAsync(folder.Id)">@T["Save"]</button>
+                            <button type="button" class="btn-secondary" @onclick="StopRenaming">@T["Cancel"]</button>
+                        }
+                        else
+                        {
+                            <span class="row-title">@folder.Name</span>
+                            @* What is in it, which is the answer the reader needs before they press
+                               Delete - and the one thing this page can say that a tab row cannot, since
+                               it reads all five kinds at once. *@
+                            <span class="card-count">@HowMuchIsIn(folder.Id)</span>
+                            @if (ShowsOnTheDashboard(kind))
+                            {
+                                @* The one visibility a folder has: whether its tab is drawn on the
+                                   dashboard. Kept on this device, like the cards it hides - see
+                                   DashboardCardPreferences.IsFolderShown. Only for the three kinds the
+                                   dashboard draws tabs for at all. *@
+                                <label class="options-row-inline">
+                                    <input type="checkbox" checked="@CardPreferences.IsFolderShown(folder.Id)"
+                                           @onchange="args => ShowOnTheDashboardAsync(folder.Id, args)" />
+                                    @T["Show on the dashboard"]
+                                </label>
+                            }
+                            <button type="button" class="btn-secondary" @onclick="() => StartRenaming(folder)">
+                                @T["Rename"]
+                            </button>
+                            @* Only an empty one can go, which is the rule the tab rows have followed
+                               since 2026-09-20 - and this page can check it for every kind, having read
+                               them all. A folder still holding something says what to do about it. *@
+                            <button type="button" class="btn-secondary danger" disabled="@(_isWorking || HowMuchIsIn(folder.Id) > 0)"
+                                    title="@(HowMuchIsIn(folder.Id) > 0 ? T["Move what is in it somewhere else first."] : T["There is nothing in it. The tab goes and nothing else changes."])"
+                                    @onclick="() => DeleteAsync(kind, folder.Id)">@T["Delete folder"]</button>
+                        }
+                    </div>
+                }
+
+                <div class="options-row">
+                    <input value="@(_newName.TryGetValue(kind, out var typed) ? typed : string.Empty)"
+                           @oninput="args => _newName[kind] = args.Value?.ToString() ?? string.Empty"
+                           @onkeydown="args => OnNamingKeyDownAsync(args, kind)"
+                           placeholder="@(T["Folder name"])" aria-label="@(T["Folder name"])" />
+                    <button type="button" class="btn-secondary" disabled="@(_isWorking || !CanMake(kind))"
+                            @onclick="() => CreateAsync(kind)">@T["New folder"]</button>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="options-section">
+        @* The filters for the dashboard's Tasks card, made here since 2026-09-24 rather than on the task
+           lists. They are made of tags, and the tags are still read off the lists - what moved is where
+           the making happens, not what it is made of. See TaskTagFilter. *@
+        <h2 class="options-heading">@T["Filters"]<FieldHint>@T["A filter finds task lists by the tags on them. Choose one from the Tasks card's menu on the dashboard."]</FieldHint></h2>
+        <div class="options-card">
+            @if (_tagFilters.Count == 0)
+            {
+                <p class="empty-hint">@T["No filters yet."]</p>
+            }
+
+            @foreach (var filter in _tagFilters)
+            {
+                <div class="options-row">
+                    <span class="row-title">@NameOf(filter)</span>
+                    <span class="card-count">@CountMatching(filter)</span>
+                    <button type="button" class="btn-secondary danger" disabled="@_isWorking"
+                            @onclick="() => DeleteFilterAsync(filter.Id)">@T["Delete"]</button>
+                </div>
+            }
+
+            <div class="options-row">
+                <button type="button" class="btn-secondary" @onclick="() => _isMakingATagFilter = true">
+                    @T["Create filter"]
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (_isMakingATagFilter)
+{
+    <TagFilterDialog KnownTags="@KnownListTags" OnSaved="TagFilterSavedAsync"
+                     OnClosed="() => _isMakingATagFilter = false" />
+}
+
+@code {
+    /// <summary>
+    /// The five kinds of thing that are filed, in the order the navigation reads them. Every page that
+    /// files something is here; the dashboard is not, having no folders of its own - it borrows the
+    /// others' (see FolderPages.MakesFoldersIn, which answers null there).
+    /// </summary>
+    private static readonly FolderPage[] EveryKind =
+    [
+        FolderPage.Notes, FolderPage.Tasks, FolderPage.Calendar, FolderPage.Inventories, FolderPage.Map
+    ];
+
+    /// <summary>The map's folders only where this account may use the map at all - see ApplicationPermission.Location.</summary>
+    private IEnumerable<FolderPage> Kinds
+        => EveryKind.Where(kind => kind != FolderPage.Map || Permissions.Has(ApplicationPermission.Location));
+
+    private IReadOnlyList<NoteDto> _notes = [];
+    private IReadOnlyList<TaskDto> _taskLists = [];
+    private IReadOnlyList<CalendarEventDto> _events = [];
+    private IReadOnlyList<InventoryDto> _inventories = [];
+    private IReadOnlyList<PlaceDto> _places = [];
+    private IReadOnlyList<TaskTagFilterDto> _tagFilters = [];
+
+    /// <summary>The folder whose name is being typed over, while one is.</summary>
+    private Guid? _folderBeingRenamed;
+    private string _name = string.Empty;
+
+    /// <summary>What is typed into each kind's "new folder" box - one per kind, since all five are open at once.</summary>
+    private readonly Dictionary<FolderPage, string> _newName = [];
+
+    private bool _isMakingATagFilter;
+    private bool _isWorking;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Folders.Changed += OnFoldersChanged;
+        await Permissions.EnsureLoadedAsync();
+        await Folders.EnsureLoadedAsync();
+        await ReadWhatIsFiledAsync();
+    }
+
+    /// <summary>
+    /// Everything that can be filed, read once. This page counts what is in each folder - which is what
+    /// says whether it can be deleted - and no page but this one has all five kinds in front of it.
+    ///
+    /// A failure on any one of them costs that kind's counts and nothing else: the folders are already
+    /// read, and a page that refused to draw because the calendar was unreachable would be a page nobody
+    /// could rename a note folder on.
+    /// </summary>
+    private async Task ReadWhatIsFiledAsync()
+    {
+        _notes = await SafelyAsync(NotesApiClient.GetNotesAsync, _notes, "notes");
+        _taskLists = await SafelyAsync(TasksApiClient.GetTaskListsAsync, _taskLists, "task lists");
+        _events = await SafelyAsync(CalendarApiClient.GetCalendarEventsAsync, _events, "events");
+        _inventories = await SafelyAsync(InventoryApiClient.GetInventoriesAsync, _inventories, "inventories");
+        _tagFilters = await SafelyAsync(TasksApiClient.GetTagFiltersAsync, _tagFilters, "filters");
+        if (Permissions.Has(ApplicationPermission.Location))
+        {
+            _places = await SafelyAsync(PlacesApiClient.GetPlacesAsync, _places, "places");
+        }
+    }
+
+    private async Task<IReadOnlyList<T>> SafelyAsync<T>(
+        Func<CancellationToken, Task<IReadOnlyList<T>>> read, IReadOnlyList<T> whenItFails, string what)
+    {
+        try
+        {
+            return await read(CancellationToken.None);
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Could not read the {What} to count what is in each folder", what);
+            return whenItFails;
+        }
+    }
+
+    /// <summary>
+    /// How many things are filed under this folder - counted by the id each thing carries rather than by
+    /// the tab it is drawn under, which is the same question "can this be deleted" asks: a folder holding
+    /// nothing but archived things still holds them (see FolderTabs.StillHolds).
+    /// </summary>
+    private int HowMuchIsIn(Guid folderId)
+        => _notes.Count(note => note.FolderId == folderId)
+            + _taskLists.Count(taskList => taskList.FolderId == folderId)
+            + _events.Count(calendarEvent => calendarEvent.FolderId == folderId)
+            + _inventories.Count(inventory => inventory.FolderId == folderId)
+            + _places.Count(place => place.FolderId == folderId);
+
+    /// <summary>
+    /// Whether a folder of this kind can be kept off the dashboard. Only the three kinds of card the
+    /// dashboard draws: it says nothing about the map, and what it says about the calendar is what is on
+    /// today rather than which folder something is in - see FolderPages.ScopesOn.
+    /// </summary>
+    private static bool ShowsOnTheDashboard(FolderPage kind)
+        => kind is FolderPage.Notes or FolderPage.Tasks or FolderPage.Inventories;
+
+    private string NameOf(FolderPage kind) => kind switch
+    {
+        FolderPage.Notes => T["Notes"],
+        FolderPage.Tasks => T["Tasks"],
+        FolderPage.Calendar => T["Calendar"],
+        FolderPage.Inventories => T["Inventory"],
+        _ => T["Map"]
+    };
+
+    private bool CanMake(FolderPage kind)
+        => _newName.TryGetValue(kind, out var typed) && typed.Trim().Length > 0;
+
+    private async Task CreateAsync(FolderPage kind)
+    {
+        if (!CanMake(kind) || _isWorking)
+        {
+            return;
+        }
+
+        _isWorking = true;
+        try
+        {
+            await Folders.CreateAsync(kind, _newName[kind].Trim());
+            _newName[kind] = string.Empty;
+        }
+        finally
+        {
+            _isWorking = false;
+        }
+    }
+
+    private void StartRenaming(FolderDto folder)
+    {
+        _folderBeingRenamed = folder.Id;
+        _name = folder.Name;
+    }
+
+    private void StopRenaming()
+    {
+        _folderBeingRenamed = null;
+        _name = string.Empty;
+    }
+
+    private async Task RenameAsync(Guid folderId)
+    {
+        if (_name.Trim().Length == 0 || _isWorking)
+        {
+            return;
+        }
+
+        _isWorking = true;
+        try
+        {
+            await Folders.RenameAsync(folderId, _name.Trim());
+            StopRenaming();
+        }
+        finally
+        {
+            _isWorking = false;
+        }
+    }
+
+    private async Task DeleteAsync(FolderPage kind, Guid folderId)
+    {
+        if (_isWorking || HowMuchIsIn(folderId) > 0)
+        {
+            return;
+        }
+
+        _isWorking = true;
+        try
+        {
+            await Folders.DeleteAsync(kind, folderId);
+        }
+        finally
+        {
+            _isWorking = false;
+        }
+    }
+
+    /// <summary>Enter saves the name being typed - the keyboard's own way out of a one-field form.</summary>
+    private async Task OnNamingKeyDownAsync(KeyboardEventArgs args, FolderPage kind)
+    {
+        if (args.Key == "Enter")
+        {
+            await CreateAsync(kind);
+        }
+    }
+
+    /// <inheritdoc cref="OnNamingKeyDownAsync"/>
+    private async Task OnRenamingKeyDownAsync(KeyboardEventArgs args, Guid folderId)
+    {
+        if (args.Key == "Enter")
+        {
+            await RenameAsync(folderId);
+        }
+        else if (args.Key == "Escape")
+        {
+            StopRenaming();
+        }
+    }
+
+    private async Task ShowOnTheDashboardAsync(Guid folderId, ChangeEventArgs args)
+        => await CardPreferences.SetFolderShownAsync(folderId, args.Value is true);
+
+    /// <summary>Every tag on this account's lists - what a filter can be made of, see TagFilterDialog.</summary>
+    private IReadOnlyList<string> KnownListTags
+        => Orbit.Core.Tags.TagNames.Tidy(
+            [.. _taskLists.SelectMany(taskList => taskList.AllTags).Order(StringComparer.CurrentCultureIgnoreCase)]);
+
+    /// <summary>What a filter is called: its own words, which is the only name one has - see TaskTagFilter.</summary>
+    private string NameOf(TaskTagFilterDto filter)
+        => new Orbit.Core.Tasks.TagFilters.TaskTagFilter(filter.Id, filter.Tags, filter.MatchesAll, filter.CreatedAtUtc)
+            .Describe(T["or"], T["and"]);
+
+    /// <summary>
+    /// How many lists it finds, so a filter that turns out to find nothing says so where it was made
+    /// rather than on the card it is chosen from.
+    /// </summary>
+    private int CountMatching(TaskTagFilterDto filter)
+    {
+        var rule = new Orbit.Core.Tasks.TagFilters.TaskTagFilter(
+            filter.Id, filter.Tags, filter.MatchesAll, filter.CreatedAtUtc);
+        return _taskLists.Count(taskList => rule.Matches(taskList.AllTags));
+    }
+
+    private async Task TagFilterSavedAsync(TaskTagFilterDto filter)
+    {
+        _isMakingATagFilter = false;
+        _tagFilters = [.. _tagFilters, filter];
+        await Task.CompletedTask;
+    }
+
+    private async Task DeleteFilterAsync(Guid filterId)
+    {
+        if (_isWorking)
+        {
+            return;
+        }
+
+        _isWorking = true;
+        try
+        {
+            if (await TasksApiClient.DeleteTagFilterAsync(filterId))
+            {
+                _tagFilters = [.. _tagFilters.Where(filter => filter.Id != filterId)];
+            }
+        }
+        finally
+        {
+            _isWorking = false;
+        }
+    }
+
+    private void OnFoldersChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Folders.Changed -= OnFoldersChanged;
+}

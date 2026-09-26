@@ -48,6 +48,16 @@ public sealed class DashboardCardPreferences(IJSRuntime jsRuntime)
         _tasksTagFilterId = storedFilters.TryGetValue(TasksTagFilterKey, out var storedTagFilter) && Guid.TryParse(storedTagFilter, out var id)
             ? id
             : null;
+        _calendarTagFilterId =
+            storedFilters.TryGetValue(CalendarTagFilterKey, out var storedCalendarFilter)
+                && Guid.TryParse(storedCalendarFilter, out var calendarFilterId)
+                ? calendarFilterId
+                : null;
+        _dashboardTagFilterId =
+            storedFilters.TryGetValue(DashboardTagFilterKey, out var storedDashboardFilter)
+                && Guid.TryParse(storedDashboardFilter, out var dashboardFilterId)
+                ? dashboardFilterId
+                : null;
     }
 
     /// <summary>
@@ -68,6 +78,51 @@ public sealed class DashboardCardPreferences(IJSRuntime jsRuntime)
 
     /// <summary>Where <see cref="TasksTagFilterId"/> is stored among the filters - not a card key any card has.</summary>
     private const string TasksTagFilterKey = "tasks#tag-filter";
+
+    /// <summary>
+    /// Which of the account's tag filters the calendar is narrowed by, or null for none - asked for on
+    /// 2026-09-24 ("filtering by those filters ... on the calendar as well"), and its own answer rather
+    /// than the Tasks card's: what somebody wants to see of their week is not what they want of the card
+    /// on the dashboard, and one answer for both would move each time the other was chosen.
+    ///
+    /// Here rather than in a store of the calendar's own for the reason the folder visibility above is
+    /// here: this is where a choice about one page on one device is kept, and a second store would be a
+    /// second place to look for the same kind of answer.
+    /// </summary>
+    public Guid? CalendarTagFilterId => _calendarTagFilterId;
+
+    public async Task SetCalendarTagFilterAsync(Guid? filterId)
+    {
+        _calendarTagFilterId = filterId;
+        await WriteFiltersAsync();
+    }
+
+    private Guid? _calendarTagFilterId;
+
+    /// <inheritdoc cref="TasksTagFilterKey"/>
+    private const string CalendarTagFilterKey = "calendar#tag-filter";
+
+    /// <summary>
+    /// Which of the account's tag filters the whole dashboard is narrowed by, or null for none - asked
+    /// for on 2026-09-24 ("a filter of one's own on the dashboard, choosing what it draws").
+    ///
+    /// The page's, not a card's: <see cref="TasksTagFilterId"/> narrows the Tasks card alone and this
+    /// narrows every card whose things carry tags. The two are never chosen at once - see Dashboard,
+    /// which clears one as the other is chosen, the way the card's filter and its All/Pinned answer
+    /// already stop each other: two narrowings of the same card is one question with two answers.
+    /// </summary>
+    public Guid? DashboardTagFilterId => _dashboardTagFilterId;
+
+    public async Task SetDashboardTagFilterAsync(Guid? filterId)
+    {
+        _dashboardTagFilterId = filterId;
+        await WriteFiltersAsync();
+    }
+
+    private Guid? _dashboardTagFilterId;
+
+    /// <inheritdoc cref="TasksTagFilterKey"/>
+    private const string DashboardTagFilterKey = "dashboard#tag-filter";
 
     /// <summary>
     /// Whether a card is drawn under the folder tab that is open. **One answer per tab** since
@@ -157,6 +212,16 @@ public sealed class DashboardCardPreferences(IJSRuntime jsRuntime)
         if (_tasksTagFilterId is { } tagFilterId)
         {
             stored[TasksTagFilterKey] = tagFilterId.ToString();
+        }
+
+        if (_calendarTagFilterId is { } calendarFilterId)
+        {
+            stored[CalendarTagFilterKey] = calendarFilterId.ToString();
+        }
+
+        if (_dashboardTagFilterId is { } dashboardFilterId)
+        {
+            stored[DashboardTagFilterKey] = dashboardFilterId.ToString();
         }
 
         await using var module = await ImportModuleAsync();

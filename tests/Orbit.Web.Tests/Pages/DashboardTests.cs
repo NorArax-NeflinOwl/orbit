@@ -1115,6 +1115,40 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.Equal(["home or shopping"], ticked);
     }
 
+    /// <summary>
+    /// The page's own filter, asked for on 2026-09-24: it narrows the two cards whose things carry tags -
+    /// the notes and the task lists - and leaves the rest of the page alone, tags being what a filter is
+    /// made of. The page says which filter is narrowing it, the menu being shut by then.
+    /// </summary>
+    [Fact]
+    public void A_filter_chosen_for_the_page_narrows_the_notes_and_the_lists_and_nothing_else()
+    {
+        var filter = new TaskTagFilterDto(Guid.NewGuid(), ["home"], MatchesAll: false, DateTimeOffset.UtcNow);
+        RegisterChatApiClient([]);
+        RegisterDashboardCardPreferences(new Dictionary<string, string> { ["dashboard#tag-filter"] = filter.Id.ToString() });
+        RegisterNotesApiClient(
+        [
+            Note("Paint colours", "Normal") with { Tags = ["home"] },
+            Note("Quarterly figures", "Normal") with { Tags = ["work"] }
+        ]);
+        RegisterTasksApiClient(
+        [
+            TaskList("Hall") with { Tags = ["Home"] },
+            TaskList("Quarterly report") with { Tags = ["work"] }
+        ],
+        [filter]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Equal(["Paint colours"], RowTitlesIn(cut, "Notes"));
+        Assert.Equal(["Hall"], RowTitlesIn(cut, "Tasks"));
+        Assert.Contains("Only the notes and lists tagged", cut.Markup);
+
+        cut.FindAll("button").First(button => button.TextContent.Trim() == "Show everything").Click();
+
+        Assert.Equal(["Paint colours", "Quarterly figures"], RowTitlesIn(cut, "Notes").Order());
+    }
+
     private static TaskDto TaskList(string title, params TaskItemDto[] items) => TaskList(title, "Normal", items);
 
     private static TaskDto TaskList(string title, string priority, params TaskItemDto[] items)

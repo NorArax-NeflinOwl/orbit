@@ -86,7 +86,7 @@ else
             @if (!_isShared)
             {
                 <FolderField Page="FolderPage.Inventories" Value="_folderId" ValueChanged="folderId => _folderId = folderId"
-                             Hint="@(T["Without one it is in Public, or in Private when it is sealed."])" />
+                             Hint="@(T["A folder is somewhere else to find it: it is in All either way, or in Private when it is sealed."])" />
             }
 
             <h2 class="options-heading">@T["Items"]</h2>

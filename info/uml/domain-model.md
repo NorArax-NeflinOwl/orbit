@@ -73,6 +73,8 @@ classDiagram
         +IReadOnlyList~Guid~ TaskListIds
         +Guid? SourceTaskItemId
         +bool IsArchived
+        +Guid? FolderId
+        +bool IsPrivate
         +bool IsShared
         +ShareAccessLevel AccessLevel
     }
@@ -269,17 +271,21 @@ classDiagram
 `Folder` is the one aggregate here that is never shared, locked or sealed: it is a place on its owner's
 own pages, so a note handed to somebody else sits in whichever folder each of them filed it under. A
 null `FolderId` is not "no folder" - it means one of the three that have no rows at all (`BuiltInFolder`:
-Public, Private, Finished), chosen from what the item already is. Each folder belongs to one page
-(`FolderScope`), so the four kinds that can be filed never share a tab: "Work" on the notes, on the task
-lists, on the calendar and on the inventories are four folders, not one seen four times.
+All, Private, Finished), chosen from what the item already is; `All` is the one the pages open on, and it
+is also the one tab that shows what *other* folders hold (`FolderKey.Holds`). Each folder belongs to one page
+(`FolderScope`), so the five kinds that can be filed never share a tab: "Work" on the notes, on the task
+lists, on the calendar, on the inventories and on the map are five folders, not one seen five times. The
+map is the newest of them (2026-09-26) and the last - every kind of thing Orbit keeps is filed now.
 
 `Note`, `TaskList`, `CalendarEvent` and `Inventory` each carry the `Shareable`, `Lockable` and
 `Sealable` facets above in full. They are left off this diagram only so the relationships stay
 readable.
 
-`Place` carries `Shareable` and neither of the other two. Nothing about a place is ever sealed - it is a
-name and a point, and there is no ciphertext for one - and it has no lock, because a place is small
-enough that its whole form is four lines and nobody holds it open.
+`Place` carries `Shareable` and `Sealable` but no lock, because a place is small enough that its whole
+form is four lines and nobody holds it open. It is the one kind **sealed unless its owner says
+otherwise** (since 2026-09-10), which is the opposite default from everything else here - see
+`Orbit.Core.Places.Place.IsPrivate`. Its `FolderId` and `IsArchived` stay readable on a sealed one: they
+say how its owner has arranged their own map, not where the place is.
 
 ## What `ChatMessage` does not have
 

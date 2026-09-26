@@ -1057,7 +1057,33 @@ public static class PolishTranslations
         ["To keep what is in here, ask them to share the folder with you in Orbit."] =
             "Żeby zachować to, co tu jest, poproś o udostępnienie folderu w Orbicie.",
         ["Folder name"] = "Nazwa folderu",
-        ["Public"] = "Publiczne",
+        // The page the folders and the filters are made on - see Orbit.Web's Setup.razor, asked for on
+        // 2026-09-24. "Ustawienia" is taken by Options, so this is the other word for the same idea:
+        // arranging Orbit rather than setting the account up.
+        ["Setup"] = "Organizacja",
+        ["Orbit — Setup"] = "Orbit — Organizacja",
+        ["Your folders and your filters, all in one place."] = "Twoje foldery i filtry w jednym miejscu.",
+        ["A folder is a tab on the page its things are read on. Three folders are always there and are not made here: All, Private and Archived."] =
+            "Folder to zakładka na stronie, na której czyta się to, co w nim jest. Trzy foldery są zawsze i nie robi się ich tutaj: Wszystkie, Prywatne i Zarchiwizowane.",
+        ["No folders here yet."] = "Nie ma tu jeszcze folderów.",
+        // "New folder" and "Rename" the Setup page shares with the tab row below, which asks the same two
+        // things of the same kind of thing.
+        ["Filters"] = "Filtry",
+        ["A filter finds task lists by the tags on them. Choose one from the Tasks card's menu on the dashboard."] =
+            "Filtr znajduje listy zadań po ich tagach. Wybierzesz go z menu karty Zadania na pulpicie.",
+        ["No filters yet."] = "Nie ma jeszcze filtrów.",
+        // Said over the calendar while one of those filters is chosen there - a filter is made of the tags
+        // on task lists, so it narrows the deadlines and leaves the appointments alone. See Calendar.razor.
+        ["Only the deadlines of lists tagged \"{0}\". Appointments are all here."] =
+            "Tylko terminy list z tagami \"{0}\". Spotkania są wszystkie.",
+        // And over the dashboard, where a filter narrows the two cards whose things carry tags - the notes
+        // and the task lists - and leaves the rest alone. See Dashboard.ChosenPageFilter.
+        ["Only the notes and lists tagged \"{0}\". Everything else is all here."] =
+            "Tylko notatki i listy z tagami \"{0}\". Reszta jest w całości.",
+        // The widest built-in folder is called "All" since 2026-09-24 and holds every folder's contents -
+        // see Orbit.Core.Folders.BuiltInFolder.All. It goes by the "All" entry already in this file,
+        // beside the ways a list can be arranged, rather than a second key saying the same word; the
+        // "Public" it replaced was dropped, nothing else having asked for that word.
         ["Finished"] = "Ukończone",
         // The fourth built-in folder - things put away rather than deleted, see
         // Orbit.Core.Folders.BuiltInFolder.Archived. The button that puts something there says "Archive"
@@ -1075,8 +1101,6 @@ public static class PolishTranslations
         // away, unlike the other built-in headings. See NoteWorkspaceList.
         ["Hide folder"] = "Ukryj folder",
         ["Show the archive"] = "Pokaż archiwum",
-        ["Nothing in it is deleted - everything goes back to Public, or to Private if it is sealed."] =
-            "Nic z niego nie zostanie usunięte - wszystko wróci do Publicznych, a rzeczy zaszyfrowane do Prywatnych.",
         // Since 2026-09-20 only an empty folder can go, so the question says what little is at stake and
         // a folder that still holds something says what to do about it.
         ["There is nothing in it. The tab goes and nothing else changes."] =
@@ -1103,13 +1127,21 @@ public static class PolishTranslations
             "Oznacza całą listę jako zrobioną, nawet jeśli są na niej otwarte pozycje, i przenosi ją do Ukończonych. Zaznacza się sama, gdy wszystkie pozycje zostaną odhaczone.",
         ["Ticked on its own because every entry is. Untick it to say the list itself is not done yet - it reads as \"not finished\" then."] =
             "Zaznaczone samo, bo wszystkie pozycje są odhaczone. Odznacz, aby powiedzieć, że sama lista nie jest jeszcze gotowa - dostanie wtedy status \"niezakończona\".",
-        ["Without one it is in Public, or in Private when it is sealed."] =
-            "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych.",
+        // Filing something no longer takes it off the folder the page opens on - All holds every folder's
+        // contents since 2026-09-24 - so these three say what a folder is now: somewhere else to find it,
+        // rather than the place it goes instead of the default one.
+        ["A folder is somewhere else to find it: it is in All either way, or in Private when it is sealed."] =
+            "Folder to drugie miejsce, w którym to znajdziesz - we Wszystkich jest tak czy inaczej, a jeśli jest zaszyfrowane - w Prywatnych.",
+        // A place is on the map whatever folder it is in, which is what its own hint says instead of
+        // naming a tab - see FolderPage.Map.
+        ["A folder is somewhere else to find it: it is on the map either way."] =
+            "Folder to drugie miejsce, w którym to znajdziesz - na mapie jest tak czy inaczej.",
         // An event is never sealed, so the calendar has no Private tab to send it to - see
         // FolderPages.HasAPrivateTab.
-        ["Without one it is in Public."] = "Bez folderu trafia do Publicznych.",
-        ["Without one it is in Public, or in Private when it is sealed - and it moves to Finished on its own once everything is ticked off. A list you file somewhere stays in that folder, finished or not."] =
-            "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych, i sama przechodzi do Ukończonych, gdy wszystkie pozycje zostaną odhaczone. Lista włożona do folderu zostaje w nim, ukończona czy nie.",
+        ["A folder is somewhere else to find it: it is in All either way."] =
+            "Folder to drugie miejsce, w którym to znajdziesz - we Wszystkich jest tak czy inaczej.",
+        ["A folder is somewhere else to find it: it is in All either way, or in Private when it is sealed - and it moves to Finished on its own once everything is ticked off. A list you file somewhere stays in that folder, finished or not."] =
+            "Folder to drugie miejsce, w którym to znajdziesz - we Wszystkich jest tak czy inaczej, a jeśli jest zaszyfrowane - w Prywatnych, i sama przechodzi do Ukończonych, gdy wszystkie pozycje zostaną odhaczone. Lista włożona do folderu zostaje w nim, ukończona czy nie.",
 
         // ---- The invitation page ----
         // Where a notification about something shared leads - see Orbit.Web's ShareInvitation.razor.

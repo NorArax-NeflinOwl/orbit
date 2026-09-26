@@ -61,6 +61,13 @@ public sealed class PlaceEntity
     /// </summary>
     public bool IsArchived { get; set; }
 
+    /// <summary>
+    /// The folder the owner filed it under - see <see cref="FolderEntity"/>. Null for one filed nowhere,
+    /// which is a built-in folder rather than none at all (Orbit.Core.Folders.BuiltInFolder). Readable
+    /// on a sealed place like the flag above - see Orbit.Core.Places.Place.FolderId.
+    /// </summary>
+    public Guid? FolderId { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }

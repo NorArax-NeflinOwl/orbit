@@ -41,9 +41,9 @@ public sealed class FolderPlacementTests
             FolderPlacement.Of(WorkFolderId, isPrivate: false, isFinished: false, Known, isArchived: false));
 
     [Fact]
-    public void Something_nobody_filed_is_in_Public()
+    public void Something_nobody_filed_is_in_All()
         => Assert.Equal(
-            FolderKey.Of(BuiltInFolder.Public),
+            FolderKey.Of(BuiltInFolder.All),
             FolderPlacement.Of(folderId: null, isPrivate: false, isFinished: false, Known));
 
     [Fact]
@@ -88,7 +88,7 @@ public sealed class FolderPlacementTests
     [Fact]
     public void A_finished_list_is_placed_like_any_other_where_there_is_no_Finished_tab()
         => Assert.Equal(
-            FolderKey.Of(BuiltInFolder.Public),
+            FolderKey.Of(BuiltInFolder.All),
             FolderPlacement.Of(folderId: null, isPrivate: false, isFinished: false, Known));
 
     /// <summary>
@@ -98,6 +98,45 @@ public sealed class FolderPlacementTests
     [Fact]
     public void Something_filed_under_a_folder_that_is_gone_falls_back_to_a_built_in_one()
         => Assert.Equal(
-            FolderKey.Of(BuiltInFolder.Public),
+            FolderKey.Of(BuiltInFolder.All),
             FolderPlacement.Of(Guid.NewGuid(), isPrivate: false, isFinished: false, Known));
+
+    /// <summary>
+    /// All is the one tab wider than the folder of its own name: everything from every folder except what
+    /// is sealed and what has been put away, which is the user's decision of 2026-09-24 and what makes
+    /// "show me the lot" possible at all. See FolderKey.Holds.
+    /// </summary>
+    [Theory]
+    [InlineData(BuiltInFolder.All)]
+    [InlineData(BuiltInFolder.Finished)]
+    public void All_holds_what_is_filed_anywhere_and_what_is_finished(BuiltInFolder placement)
+    {
+        Assert.True(FolderKey.Of(BuiltInFolder.All).Holds(FolderKey.Of(placement)));
+        Assert.True(FolderKey.Of(BuiltInFolder.All).Holds(FolderKey.Of(WorkFolderId)));
+    }
+
+    /// <summary>
+    /// And those are the two it is defined against: a sealed thing is behind the Private tab, and one put
+    /// away is in the archive, neither of which "everything you have" is meant to open.
+    /// </summary>
+    [Theory]
+    [InlineData(BuiltInFolder.Private)]
+    [InlineData(BuiltInFolder.Archived)]
+    public void All_holds_neither_what_is_sealed_nor_what_is_put_away(BuiltInFolder placement)
+        => Assert.False(FolderKey.Of(BuiltInFolder.All).Holds(FolderKey.Of(placement)));
+
+    /// <summary>
+    /// Every other tab means exactly itself. A folder somebody made is where they put something rather
+    /// than a way of gathering it, so widening All changed nothing about the rest of the row.
+    /// </summary>
+    [Fact]
+    public void Every_other_tab_holds_only_what_is_placed_in_it()
+    {
+        Assert.True(FolderKey.Of(WorkFolderId).Holds(FolderKey.Of(WorkFolderId)));
+        Assert.False(FolderKey.Of(WorkFolderId).Holds(FolderKey.Of(BuiltInFolder.All)));
+        Assert.False(FolderKey.Of(WorkFolderId).Holds(FolderKey.Of(Guid.NewGuid())));
+        Assert.False(FolderKey.Of(BuiltInFolder.Private).Holds(FolderKey.Of(WorkFolderId)));
+        Assert.False(FolderKey.Of(BuiltInFolder.Finished).Holds(FolderKey.Of(BuiltInFolder.All)));
+        Assert.True(FolderKey.Of(BuiltInFolder.Archived).Holds(FolderKey.Of(BuiltInFolder.Archived)));
+    }
 }

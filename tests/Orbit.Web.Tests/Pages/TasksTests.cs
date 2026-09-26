@@ -60,35 +60,17 @@ public sealed class TasksTests : OrbitTestContext
     }
 
     /// <summary>
-    /// "Create filter" offers the tags already on the lists as a checklist, a new word ticked as it is
-    /// added, and "And" to need every tag - and Save sends exactly that.
+    /// A filter for the dashboard's Tasks card used to be made here. It is made on the Setup page since
+    /// 2026-09-24 - see SetupTests, which is where that test went with it.
     /// </summary>
     [Fact]
-    public void A_filter_is_made_from_ticked_tags_a_new_one_and_the_and_switch()
+    public void A_filter_is_no_longer_made_on_this_page()
     {
-        RegisterTasksApiClient(
-        [
-            TaskList("Groceries") with { Tags = ["shopping"] },
-            TaskList("Hall") with { Tags = ["home", "Shopping"] }
-        ]);
+        RegisterTasksApiClient([TaskList("Groceries") with { Tags = ["shopping"] }]);
+
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        cut.FindAll("button").First(button => button.TextContent.Trim() == "Create filter").Click();
-        var offered = cut.FindAll(".tag-filter-list label").Select(label => label.TextContent.Trim());
-        Assert.Equal(["home", "shopping"], offered);
-
-        cut.FindAll(".tag-filter-list label").First(label => label.TextContent.Contains("home"))
-            .QuerySelector("input")!.Change(true);
-        cut.Find(".tag-filter-new input").Input("garden");
-        cut.FindAll(".tag-filter-new button").Single().Click();
-        cut.Find(".tag-filter-and").Click();
-        cut.Find(".dialog-footer button[aria-label='Save']").Click();
-
-        var body = Assert.IsType<CreateTaskTagFilterRequest>(_madeFilter);
-        Assert.Equal(["home", "garden"], body.Tags);
-        Assert.True(body.MatchesAll);
-        Assert.Empty(cut.FindAll(".tag-filter-dialog"));
-        Assert.Contains("home and garden", cut.Markup);
+        Assert.DoesNotContain(cut.FindAll("button"), button => button.TextContent.Trim() == "Create filter");
     }
 
     [Fact]
@@ -1092,18 +1074,24 @@ public sealed class TasksTests : OrbitTestContext
     private IReadOnlyList<TaskDto> _servedTaskLists = [];
 
     /// <summary>
-    /// A list with everything ticked off gathers under Finished on its own - see BuiltInFolder. It is
-    /// not on the tab the page opens on, which is what "automatically" has to mean.
+    /// A list with everything ticked off gathers under Finished on its own - see BuiltInFolder - and
+    /// Finished holds nothing else.
+    ///
+    /// It is under All as well, which it was not until 2026-09-24: All is everything the account holds
+    /// bar what is sealed and what has been put away, and a finished list is neither. So "gathers under
+    /// Finished" now means the Finished tab is only finished lists, rather than the finished lists being
+    /// off every other tab - see FolderKey.Holds.
     /// </summary>
     [Fact]
-    public void A_finished_list_is_read_under_Finished_rather_than_where_the_page_opens()
+    public void A_finished_list_is_read_under_Finished_and_under_All()
     {
         var finished = TaskList("Moving out") with { IsCompleted = true };
         RegisterTasksApiClient([finished, TaskList("Shopping")]);
         var folders = Services.GetRequiredService<FolderState>();
 
         var cut = RenderComponent<Web.Pages.Tasks>();
-        Assert.DoesNotContain("Moving out", CardTitles(cut));
+        Assert.Contains("Moving out", CardTitles(cut));
+        Assert.Contains("Shopping", CardTitles(cut));
 
         folders.Choose(FolderPage.Tasks, FolderKey.Of(BuiltInFolder.Finished));
         cut.Render();
@@ -1162,8 +1150,10 @@ public sealed class TasksTests : OrbitTestContext
 
         var cut = RenderComponent<Web.Pages.Tasks>();
 
+        // Two of the three: the folder open is All, which holds the finished list too and leaves out the
+        // sealed one - see FolderKey.Holds. The chip counts what the tab holds, not what the account does.
         var all = WordsOffered(cut, "Show").First(row => NameOf(row) == "All");
-        Assert.Equal("1", all.QuerySelector(".value-browser-count")!.TextContent.Trim());
+        Assert.Equal("2", all.QuerySelector(".value-browser-count")!.TextContent.Trim());
     }
 
     /// <summary>

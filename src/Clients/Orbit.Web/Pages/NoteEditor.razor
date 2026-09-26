@@ -308,7 +308,7 @@ else
                     @if (!_isShared)
                     {
                         <FolderField Page="FolderPage.Notes" Value="_formModel.FolderId" ValueChanged="folderId => _formModel.FolderId = folderId"
-                                     Hint="@(T["Without one it is in Public, or in Private when it is sealed."])" />
+                                     Hint="@(T["A folder is somewhere else to find it: it is in All either way, or in Private when it is sealed."])" />
                     }
 
                     @* Only the owner may turn this on: a note reached through a share belongs to someone

@@ -95,4 +95,15 @@ public sealed class PickedThings
         var onThePage = shown.ToHashSet();
         _picked.IntersectWith(onThePage);
     }
+
+    /// <summary>
+    /// Forgets everything chosen and stays in the mode - what a round of presses ends with.
+    ///
+    /// It used to end with <see cref="KeepOnly"/>, and the count emptied itself because what had just
+    /// been filed left the folder being read. Since 2026-09-24 it does not leave: the folder a page opens
+    /// on holds what is filed anywhere (see <see cref="FolderKey.Holds"/>), so filing five things from
+    /// there changed nothing a reader could see, and a bar still saying "5 chosen" was the only answer a
+    /// press got. The mode stays, because leaving it is the reader's own decision - see <see cref="Stop"/>.
+    /// </summary>
+    public void Forget() => _picked.Clear();
 }

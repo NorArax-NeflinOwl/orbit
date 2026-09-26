@@ -367,7 +367,7 @@
             }
 
             _notes = await NotesApiClient.GetNotesAsync();
-            _picked.KeepOnly(VisibleNotes.Select(note => note.Id));
+            _picked.Forget();
         }
         finally
         {
@@ -378,11 +378,12 @@
     /// <summary>
     /// How many notes are under each tab, drawn on the tab itself. There is no Finished tab here: a
     /// note has nothing to finish, so the tab could only ever have read zero - see
-    /// FolderPages.HasAFinishedTab.
+    /// FolderPages.HasAFinishedTab. Asked of the tab rather than compared to it, so All counts what is
+    /// filed in every folder as well - see FolderKey.Holds.
     /// </summary>
     private int CountIn(FolderKey folder)
         => (_notes ?? []).Count(note =>
-            Folders.PlacementOn(FolderPage.Notes, note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived) == folder);
+            Folders.ShownUnder(folder, FolderPage.Notes, note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived));
 
     /// <summary>
     /// Whether anything is still filed here, which is what decides whether the folder can be deleted -
@@ -409,7 +410,7 @@
     private bool HasNewsIn(FolderKey folder)
         => (_notes ?? []).Any(note =>
             NotificationFeedState.HasNewsAbout($"/notes/{note.Id}")
-            && Folders.PlacementOn(FolderPage.Notes, note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived) == folder);
+            && Folders.ShownUnder(folder, FolderPage.Notes, note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived));
 
     /// <summary>
     /// The same question asked of the tabs the phone folds away: is what the reader has not seen under
@@ -420,8 +421,8 @@
     private bool NewsIsInAFolderThatIsNotOpen
         => (_notes ?? []).Any(note =>
             NotificationFeedState.HasNewsAbout($"/notes/{note.Id}")
-            && Folders.PlacementOn(FolderPage.Notes, note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived)
-                != Folders.ChosenOn(FolderPage.Notes));
+            && !Folders.ShowsUnderTheChosenTab(
+                FolderPage.Notes, note.FolderId, note.IsPrivate, isFinished: false, note.IsArchived));
 
     /// <summary>
     /// Pinned notes first, and the rest in the order the API sent them - most recently updated first.

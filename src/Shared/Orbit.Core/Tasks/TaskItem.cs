@@ -432,6 +432,25 @@ public sealed class TaskItem
     }
 
     /// <summary>
+    /// Crosses an entry <em>out</em>: finished with, and not done - see <see cref="IsFailed"/>. The
+    /// counterpart of <see cref="Complete"/> for where something other than the reader establishes that
+    /// the work will not be done. What does that today is a shelf row whose use-by date has passed: the
+    /// thing the entry asked for is there and is no good, which is neither "still to do" nor "done".
+    ///
+    /// No time is stamped, a cross not being a completion, and a linked entry and one done by ways are
+    /// left alone for the reasons <see cref="Complete"/> leaves them.
+    /// </summary>
+    public void GiveUp()
+    {
+        if (!IsALinkToOtherLists && !HasAlternatives)
+        {
+            IsCompleted = false;
+            IsFailed = true;
+            CompletedAtUtc = null;
+        }
+    }
+
+    /// <summary>
     /// Settles when this entry was done, for a save that may or may not have said. A time that was sent
     /// is taken at its word: it can be edited, and the reader may be correcting it. None sent keeps the
     /// one already recorded for an entry that was already done - which is what a client written before

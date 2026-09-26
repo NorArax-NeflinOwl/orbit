@@ -102,6 +102,23 @@ public sealed class Place
     /// </summary>
     public bool IsArchived { get; private set; }
 
+    /// <summary>
+    /// The folder its owner filed it under, or null for one filed nowhere - which is a built-in folder
+    /// rather than none at all (see Orbit.Core.Folders.BuiltInFolder). Added 2026-09-26: the map is the
+    /// fifth and last kind of thing that can be filed, and the one the Setup page asked for that had no
+    /// folders at all.
+    ///
+    /// Readable even on a sealed place, like <see cref="IsArchived"/> and <see cref="TaskListIds"/>: it
+    /// names a folder of the owner's own, which the server already holds under their name, and says
+    /// nothing about where the place is. That is what lets a sealed place - which most places are - be
+    /// filed and found again under a tab at all.
+    ///
+    /// The owner's, and only theirs, exactly as the archive flag is: a folder is where somebody keeps
+    /// their own things, so a place handed to a second person sits in whichever folder each of them put
+    /// it in - see <see cref="MoveToFolder"/>.
+    /// </summary>
+    public Guid? FolderId { get; private set; }
+
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
@@ -189,12 +206,13 @@ public sealed class Place
         ItemPriority priority, IReadOnlyList<Guid>? taskListIds,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         bool isPrivate = false, EncryptedPayload? encryptedContent = null, Guid? sourceTaskItemId = null,
-        bool isArchived = false)
+        bool isArchived = false, Guid? folderId = null)
         => new(
             id, userId, name, description, where, colour, priority, taskListIds, createdAtUtc, updatedAtUtc,
             isPrivate, encryptedContent, sourceTaskItemId)
         {
-            IsArchived = isArchived
+            IsArchived = isArchived,
+            FolderId = folderId
         };
 
     /// <summary>
@@ -245,6 +263,24 @@ public sealed class Place
         }
 
         IsArchived = isArchived;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Files this place under a folder, or under none - which leaves it where anything unfiled already
+    /// is. Its own step rather than part of <see cref="Update"/>, for the reason <see cref="Archive"/>
+    /// gives and the four kinds filed before this one give: an update replaces the whole place, so null
+    /// there would have to mean "leave it alone" and there would be no way left to say "take it out of
+    /// the folder" - see Orbit.Core.Calendar.CalendarEvent.MoveToFolder.
+    /// </summary>
+    public void MoveToFolder(Guid? folderId)
+    {
+        if (FolderId == folderId)
+        {
+            return;
+        }
+
+        FolderId = folderId;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 

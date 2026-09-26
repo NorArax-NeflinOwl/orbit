@@ -142,11 +142,23 @@ public sealed class FolderState
 
     /// <summary>
     /// Whether a card belongs under the tab open on this page - the question every page made of cards
-    /// asks of every card it holds. See FolderPlacement for the rule itself.
+    /// asks of every card it holds. See FolderPlacement for where a card is, and FolderKey.Holds for
+    /// the tab that is wider than that: All shows what is filed in every folder, not only what is
+    /// filed nowhere.
     /// </summary>
     public bool ShowsUnderTheChosenTab(
         FolderPage page, Guid? folderId, bool isPrivate, bool isFinished = false, bool isArchived = false)
-        => PlacementOn(page, folderId, isPrivate, isFinished, isArchived) == ChosenOn(page);
+        => ShownUnder(ChosenOn(page), page, folderId, isPrivate, isFinished, isArchived);
+
+    /// <summary>
+    /// The same question asked of a tab that is not the open one - what the count and the unread mark on
+    /// each tab are worked out from. Here rather than on each page so the row and the page it is over
+    /// cannot read All two different ways.
+    /// </summary>
+    public bool ShownUnder(
+        FolderKey tab, FolderPage page, Guid? folderId, bool isPrivate, bool isFinished = false,
+        bool isArchived = false)
+        => tab.Holds(PlacementOn(page, folderId, isPrivate, isFinished, isArchived));
 
     /// <summary>
     /// Which of this page's tabs a card is under. The page is asked rather than told whether the card is

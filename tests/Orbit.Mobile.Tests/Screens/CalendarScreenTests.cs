@@ -807,7 +807,8 @@ public sealed class CalendarScreenTests
         await context.Events.FileAsync(dentist, week.LocalId);
         await screen.LoadCommand.ExecuteAsync(null);
 
-        Assert.DoesNotContain(screen.Listed, entry => entry.Name == "Dentist");
+        // All holds both, the filed one included - see FolderKey.Holds, the rule of 2026-09-24.
+        Assert.Contains(screen.Listed, entry => entry.Name == "Dentist");
         Assert.Contains(screen.Listed, entry => entry.Name == "Haircut");
 
         screen.ChooseFolderCommand.Execute(FolderKey.Of(week.LocalId));
@@ -832,7 +833,7 @@ public sealed class CalendarScreenTests
         await context.Events.FileAsync(dentist, week.LocalId);
         await screen.LoadCommand.ExecuteAsync(null);
 
-        Assert.Equal(["Public", "Archived", "Someday", "This week"], screen.FolderChoices.Select(choice => choice.Name));
+        Assert.Equal(["All", "Archived", "Someday", "This week"], screen.FolderChoices.Select(choice => choice.Name));
         Assert.Equal(1, screen.FolderChoices.Single(choice => choice.Name == "This week").Count);
         Assert.Equal(0, screen.FolderChoices.Single(choice => choice.Name == "Someday").Count);
     }
