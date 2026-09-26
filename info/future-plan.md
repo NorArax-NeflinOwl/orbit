@@ -431,6 +431,13 @@ Documented in [Testing and Running Locally](testing-and-running-locally.md#what-
 as not covered by an automated test today, together with why. Most of what used to be listed here has
 since been closed; what is left is recorded below with the same honesty about why.
 
+- **The map page's folder tab row has no test** (added 2026-09-26). Everything behind it does:
+  `FolderKey.Holds` and `FolderPlacement` in `FolderPlacementTests`, the filing itself in
+  `MoveToFolderTests`, the place's column in the repository tests. What is not covered is the row on the
+  page, because `MapPage` is the one page bUnit cannot render - it builds its map through JS interop on
+  first render, and every other page's tests stop at the markup. Its four sibling pages' rows are covered,
+  and this one is the same component given a different `FolderPage`, which is why it was left rather than
+  worked around. A browser walk is the only thing that would catch a row drawn in the wrong place.
 - ~~**The `/api/auth/*` rate limiter's exact 429 behavior.**~~ Done. It needed no
   `WebApplicationFactory` in the end - what stood in the way was that the policies were written inline
   in `Program.cs`, reachable only by running the whole application. They now live in
