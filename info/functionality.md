@@ -501,6 +501,19 @@ offered beside the chosen one. Which filter the card shows is kept on the device
 filters themselves are the account's. The phone keeps a copy of them read again on every dashboard load
 (`TaskTagFilters.RefreshAsync`), so the menu works offline from what was last read.
 
+**And chosen for the whole dashboard** since 2026-09-26 (asked for on 2026-09-24 — "a filter of one's own
+on the dashboard, choosing what it draws"). It is on the page's own menu rather than a card's, and it
+narrows the **two cards whose things carry tags** — the notes and the task lists — leaving the rest of the
+page alone: an event, a shelf, a place and a contact carry no tags, so narrowing the page to "home or
+shopping" cannot mean anything about them without something being guessed at. The page says so on screen
+while one is chosen, with the way back out beside it.
+
+**The page's filter and the Tasks card's own are never both chosen**: choosing either clears the other
+(`Dashboard.ChoosePageFilterAsync`, `ChooseTagFilterAsync`). Two filters over one card is one question with
+two answers, which is the same reason the card's filter and its All/Pinned answer already stop each other.
+Under either, the card shows every list the filter finds whatever folder it is in, and the Notes card is
+drawn even where the open tab holds nothing — it is what the filter found that is being shown.
+
 **And chosen on the calendar** since 2026-09-26 (asked for on 2026-09-24). Its own menu gains "Your
 filters", and a chosen one **narrows the deadlines and leaves the appointments alone**: a filter is made
 of the tags on task lists, and an appointment is on no list and carries none, so narrowing a calendar to

@@ -53,6 +53,11 @@ public sealed class DashboardCardPreferences(IJSRuntime jsRuntime)
                 && Guid.TryParse(storedCalendarFilter, out var calendarFilterId)
                 ? calendarFilterId
                 : null;
+        _dashboardTagFilterId =
+            storedFilters.TryGetValue(DashboardTagFilterKey, out var storedDashboardFilter)
+                && Guid.TryParse(storedDashboardFilter, out var dashboardFilterId)
+                ? dashboardFilterId
+                : null;
     }
 
     /// <summary>
@@ -96,6 +101,28 @@ public sealed class DashboardCardPreferences(IJSRuntime jsRuntime)
 
     /// <inheritdoc cref="TasksTagFilterKey"/>
     private const string CalendarTagFilterKey = "calendar#tag-filter";
+
+    /// <summary>
+    /// Which of the account's tag filters the whole dashboard is narrowed by, or null for none - asked
+    /// for on 2026-09-24 ("a filter of one's own on the dashboard, choosing what it draws").
+    ///
+    /// The page's, not a card's: <see cref="TasksTagFilterId"/> narrows the Tasks card alone and this
+    /// narrows every card whose things carry tags. The two are never chosen at once - see Dashboard,
+    /// which clears one as the other is chosen, the way the card's filter and its All/Pinned answer
+    /// already stop each other: two narrowings of the same card is one question with two answers.
+    /// </summary>
+    public Guid? DashboardTagFilterId => _dashboardTagFilterId;
+
+    public async Task SetDashboardTagFilterAsync(Guid? filterId)
+    {
+        _dashboardTagFilterId = filterId;
+        await WriteFiltersAsync();
+    }
+
+    private Guid? _dashboardTagFilterId;
+
+    /// <inheritdoc cref="TasksTagFilterKey"/>
+    private const string DashboardTagFilterKey = "dashboard#tag-filter";
 
     /// <summary>
     /// Whether a card is drawn under the folder tab that is open. **One answer per tab** since
@@ -190,6 +217,11 @@ public sealed class DashboardCardPreferences(IJSRuntime jsRuntime)
         if (_calendarTagFilterId is { } calendarFilterId)
         {
             stored[CalendarTagFilterKey] = calendarFilterId.ToString();
+        }
+
+        if (_dashboardTagFilterId is { } dashboardFilterId)
+        {
+            stored[DashboardTagFilterKey] = dashboardFilterId.ToString();
         }
 
         await using var module = await ImportModuleAsync();

@@ -2913,8 +2913,22 @@ a line needed a reading it did not state, the reading is marked as such.
 - ~~**Everything from every folder, on the dashboard** - a way to see it all at once.~~ Done 2026-09-26,
   by the tab that page opens on becoming what its name says - see *"Public" becomes "All"* below, which
   is the same change and settles what this one should do.
-- **A filter of one's own on the dashboard**, choosing what it draws. It works the way the task list's
-  tags do.
+- ~~**A filter of one's own on the dashboard**, choosing what it draws. It works the way the task list's
+  tags do.~~ Done 2026-09-26. On the page's own menu rather than a card's - the Tasks card has had one of
+  its own since 2026-09-16, and "of one's own" is what made this a second thing rather than a rename.
+
+  **It narrows the two cards whose things carry tags** - the notes and the task lists - and leaves the rest
+  of the page alone, for the reason the calendar's leaves the appointments alone: an event, a shelf, a
+  place and a contact carry no tags, and "home or shopping" cannot mean anything about them without being
+  guessed at. The page says so on screen while one is chosen.
+
+  **The page's and the card's are never both chosen**: choosing either clears the other, the same way the
+  card's filter and its All/Pinned answer already stop each other. Two narrowings of one card is one
+  question with two answers, and the reader pressed only one of them.
+
+  **Left for whoever wants it**: tags on the kinds that have none. That is the only way this filter could
+  reach the calendar card, the shelves or the places, and it is a decision about those kinds rather than
+  about the dashboard.
 - ~~**Filtering by those filters and by folders on the calendar** as well.~~ Done 2026-09-26, and the two
   halves were not in the same state: **by folders** the calendar has done since 2026-09-15, tabs and all.
   What was missing was the filters, and they are on the calendar's own menu now.

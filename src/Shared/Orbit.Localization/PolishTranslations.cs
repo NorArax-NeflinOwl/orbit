@@ -1076,6 +1076,10 @@ public static class PolishTranslations
         // on task lists, so it narrows the deadlines and leaves the appointments alone. See Calendar.razor.
         ["Only the deadlines of lists tagged \"{0}\". Appointments are all here."] =
             "Tylko terminy list z tagami \"{0}\". Spotkania są wszystkie.",
+        // And over the dashboard, where a filter narrows the two cards whose things carry tags - the notes
+        // and the task lists - and leaves the rest alone. See Dashboard.ChosenPageFilter.
+        ["Only the notes and lists tagged \"{0}\". Everything else is all here."] =
+            "Tylko notatki i listy z tagami \"{0}\". Reszta jest w całości.",
         // The widest built-in folder is called "All" since 2026-09-24 and holds every folder's contents -
         // see Orbit.Core.Folders.BuiltInFolder.All. It goes by the "All" entry already in this file,
         // beside the ways a list can be arranged, rather than a second key saying the same word; the
