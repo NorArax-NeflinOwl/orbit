@@ -104,7 +104,7 @@ public sealed class PhoneToolbarTests : OrbitTestContext
     {
         var cut = RenderToolbarWithItsHeader(FolderPage.Notes);
 
-        Assert.Equal("Public", cut.Find(".phone-toolbar-trigger").TextContent.Trim());
+        Assert.Equal("All", cut.Find(".phone-toolbar-trigger").TextContent.Trim());
     }
 
     /// <summary>

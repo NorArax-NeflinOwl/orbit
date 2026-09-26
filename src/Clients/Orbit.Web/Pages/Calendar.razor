@@ -712,7 +712,9 @@
     /// </summary>
     private int CountIn(FolderKey folder)
         => (_events ?? []).Count(calendarEvent =>
-            Folders.PlacementOn(FolderPage.Calendar, calendarEvent.FolderId, isPrivate: false, isFinished: false, calendarEvent.IsArchived) == folder);
+            Folders.ShownUnder(
+                folder, FolderPage.Calendar, calendarEvent.FolderId, isPrivate: false, isFinished: false,
+                calendarEvent.IsArchived));
 
     /// <summary>Whether anything is still filed here - see FolderTabs.StillHolds, and Notes.StillHolds.</summary>
 /// <summary>
@@ -1130,7 +1132,7 @@
             }
 
             _events = await CalendarApiClient.GetCalendarEventsAsync();
-            _picked.KeepOnly(ListedEventIds);
+            _picked.Forget();
         }
         finally
         {

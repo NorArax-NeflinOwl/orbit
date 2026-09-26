@@ -253,8 +253,9 @@ public sealed partial class PickingSeveral : ObservableObject
 
     /// <summary>
     /// One local write per chosen thing of this reader's own, in order, a refusal stopping nothing - the
-    /// browser's OnePressEach. The screen is read again once, at the end, which is also what forgets
-    /// anything that has left the folder being read.
+    /// browser's OnePressEach. The screen is read again once, at the end, and what was chosen is
+    /// forgotten there - see PickedThings.Forget, which says why the round has to say so itself now that
+    /// filing no longer takes anything off the screen it was filed from.
     /// </summary>
     private async Task WriteEachAsync(
         Func<PickableThing, CancellationToken, Task<LocalWriteOutcome>> write, CancellationToken cancellationToken)
@@ -292,6 +293,7 @@ public sealed partial class PickingSeveral : ObservableObject
             }
 
             Message = string.Join(" ", said);
+            _picked.Forget();
             await _actions.Redraw(cancellationToken);
         }
         finally

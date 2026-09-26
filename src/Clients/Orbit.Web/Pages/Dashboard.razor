@@ -621,18 +621,33 @@ else
     /// page draws both kinds side by side, and there they are one tab - see FolderTabRow.On, which
     /// draws the first of them and leaves the rest to this. A folder its owner took off the dashboard
     /// counts for nothing here, so hiding one of two same-named folders still hides what is in it.
+    ///
+    /// The tab is asked whether it holds the card rather than compared to it, which is what puts
+    /// everything from every folder on this page: All holds what is filed anywhere, and what the user
+    /// asked for on 2026-09-24 - "everything from every folder, on the dashboard" - is that one tab
+    /// doing what its new name says. See FolderKey.Holds.
     /// </summary>
     private bool IsUnder(FolderKey tab, Guid? folderId, bool isPrivate, bool isArchived)
     {
         var placement = Folders.PlacementOn(FolderPage.Dashboard, folderId, isPrivate, isFinished: false, isArchived);
-        if (placement == tab)
+
+        // A folder kept off this page is off it altogether, All included. Asked first now rather than
+        // only of a same-named folder below: while the widest tab meant "filed nowhere", what was in a
+        // hidden folder was already off the page by being filed at all, and a tab that now gathers every
+        // folder would have brought it back and made "hide on the dashboard" do nothing. Its own page
+        // still draws the folder and everything in it - see FolderTabs.SetShownOnTheDashboardAsync.
+        if (placement.FolderId is { } kept && !CardPreferences.IsFolderShown(kept))
+        {
+            return false;
+        }
+
+        if (tab.Holds(placement))
         {
             return true;
         }
 
         return placement.FolderId is { } placed
             && tab.FolderId is { } drawn
-            && CardPreferences.IsFolderShown(placed)
             && Folders.FoldersCalledTheSameAs(drawn).Any(folder => folder.Id == placed);
     }
 

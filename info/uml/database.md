@@ -179,11 +179,13 @@ carries one `IsPinned`, and which row it came from depends on who asked.
 
 **`OP_FOLDERS` holds only the folders somebody made**, each on exactly one page (`OP_F_SCOPE` -
 `Orbit.Core.Folders.FolderScope`, `Notes`, `Tasks`, `Calendar` or `Inventories`). Four more exist
-without a row of their own - Archived, Public, Private and Finished
-(`Orbit.Core.Folders.BuiltInFolder`) - and which of them something is in is decided from what it
-already is, first match winning: anything its owner put away is in Archived whatever else is true of it,
-something filed under one of this page's folders is in that folder finished or not, an unfiled finished
-list is in Finished, an unfiled sealed one in Private, everything else unfiled in Public.
+without a row of their own - Archived, All, Private and Finished
+(`Orbit.Core.Folders.BuiltInFolder`, where `All` was `Public` until 2026-09-24) - and which of them
+something is in is decided from what it already is, first match winning: anything its owner put away is
+in Archived whatever else is true of it, something filed under one of this page's folders is in that
+folder finished or not, an unfiled finished list is in Finished, an unfiled sealed one in Private,
+everything else unfiled in All. That is where a row *is*; the **All tab also shows** everything placed
+anywhere but Private and Archived (`FolderKey.Holds`), which is stored nowhere either.
 
 **Only Archived is stored**, one boolean on each of the four kinds
 (`OP_N_ISARCHIVED`/`OP_T_ISARCHIVED`/`OP_E_ISARCHIVED`/`OP_I_ISARCHIVED`, added 2026-09-15, false for

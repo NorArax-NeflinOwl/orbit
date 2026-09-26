@@ -1092,18 +1092,24 @@ public sealed class TasksTests : OrbitTestContext
     private IReadOnlyList<TaskDto> _servedTaskLists = [];
 
     /// <summary>
-    /// A list with everything ticked off gathers under Finished on its own - see BuiltInFolder. It is
-    /// not on the tab the page opens on, which is what "automatically" has to mean.
+    /// A list with everything ticked off gathers under Finished on its own - see BuiltInFolder - and
+    /// Finished holds nothing else.
+    ///
+    /// It is under All as well, which it was not until 2026-09-24: All is everything the account holds
+    /// bar what is sealed and what has been put away, and a finished list is neither. So "gathers under
+    /// Finished" now means the Finished tab is only finished lists, rather than the finished lists being
+    /// off every other tab - see FolderKey.Holds.
     /// </summary>
     [Fact]
-    public void A_finished_list_is_read_under_Finished_rather_than_where_the_page_opens()
+    public void A_finished_list_is_read_under_Finished_and_under_All()
     {
         var finished = TaskList("Moving out") with { IsCompleted = true };
         RegisterTasksApiClient([finished, TaskList("Shopping")]);
         var folders = Services.GetRequiredService<FolderState>();
 
         var cut = RenderComponent<Web.Pages.Tasks>();
-        Assert.DoesNotContain("Moving out", CardTitles(cut));
+        Assert.Contains("Moving out", CardTitles(cut));
+        Assert.Contains("Shopping", CardTitles(cut));
 
         folders.Choose(FolderPage.Tasks, FolderKey.Of(BuiltInFolder.Finished));
         cut.Render();
@@ -1162,8 +1168,10 @@ public sealed class TasksTests : OrbitTestContext
 
         var cut = RenderComponent<Web.Pages.Tasks>();
 
+        // Two of the three: the folder open is All, which holds the finished list too and leaves out the
+        // sealed one - see FolderKey.Holds. The chip counts what the tab holds, not what the account does.
         var all = WordsOffered(cut, "Show").First(row => NameOf(row) == "All");
-        Assert.Equal("1", all.QuerySelector(".value-browser-count")!.TextContent.Trim());
+        Assert.Equal("2", all.QuerySelector(".value-browser-count")!.TextContent.Trim());
     }
 
     /// <summary>

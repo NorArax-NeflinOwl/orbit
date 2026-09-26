@@ -16,7 +16,9 @@ public static class BuiltInFolderNames
         BuiltInFolder.Private => translations["Private"],
         BuiltInFolder.Finished => translations["Finished"],
         BuiltInFolder.Archived => translations["Archived"],
-        _ => translations["Public"]
+        // "All" since 2026-09-24, and the word is the change: the tab holds every folder's contents now,
+        // where "Public" said only that a thing had not been sealed. See BuiltInFolder.All.
+        _ => translations["All"]
     };
 
     /// <summary>The name of whichever folder is open on this page - a built-in one, or one somebody made.</summary>

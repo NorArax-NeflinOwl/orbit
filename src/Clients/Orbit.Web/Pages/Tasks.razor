@@ -654,7 +654,7 @@
             }
 
             _taskLists = await TasksApiClient.GetTaskListsAsync();
-            _picked.KeepOnly(VisibleTaskLists.Select(taskList => taskList.Id));
+            _picked.Forget();
         }
         finally
         {
@@ -693,10 +693,12 @@
     private bool InTheOpenFolder(TaskDto taskList)
         => Folders.ShowsUnderTheChosenTab(FolderPage.Tasks, taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted, taskList.IsArchived);
 
-    /// <summary>How many lists are under each tab, drawn on the tab itself.</summary>
+    /// <summary>
+    /// How many lists are under each tab, drawn on the tab itself. Asked of the tab rather than compared
+    /// to it: All counts what is filed and what is finished too - see FolderKey.Holds.
+    /// </summary>
     private int CountIn(FolderKey folder)
-        => (_taskLists ?? []).Count(taskList =>
-            Folders.PlacementOn(FolderPage.Tasks, taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted, taskList.IsArchived) == folder);
+        => (_taskLists ?? []).Count(taskList => folder.Holds(PlacementOf(taskList)));
 
     /// <summary>Whether anything is still filed here - see FolderTabs.StillHolds, and Notes.StillHolds.</summary>
 /// <summary>
@@ -722,12 +724,12 @@
     /// FolderTabs.HasNewsIn.
     /// </summary>
     private bool HasNewsIn(FolderKey folder)
-        => (_taskLists ?? []).Any(taskList => UnreadCountFor(taskList) > 0 && PlacementOf(taskList) == folder);
+        => (_taskLists ?? []).Any(taskList => UnreadCountFor(taskList) > 0 && folder.Holds(PlacementOf(taskList)));
 
     /// <summary>The same question asked of the tabs a phone folds away - see PhoneToolbar.HasNews.</summary>
     private bool NewsIsInAFolderThatIsNotOpen
         => (_taskLists ?? []).Any(taskList =>
-            UnreadCountFor(taskList) > 0 && PlacementOf(taskList) != Folders.ChosenOn(FolderPage.Tasks));
+            UnreadCountFor(taskList) > 0 && !Folders.ChosenOn(FolderPage.Tasks).Holds(PlacementOf(taskList)));
 
     /// <summary>
     /// A status chip matches the status the list is in; "Shared" matches where it came from and "Group"

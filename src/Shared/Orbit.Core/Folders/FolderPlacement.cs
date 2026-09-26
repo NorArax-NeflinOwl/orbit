@@ -17,8 +17,13 @@ namespace Orbit.Core.Folders;
 ///   <item>anything filed under a folder that still exists is in that folder, finished or not;</item>
 ///   <item>a task list with everything ticked off is in <b>Finished</b>;</item>
 ///   <item>a sealed item is in <b>Private</b>;</item>
-///   <item>everything else is in <b>Public</b>.</item>
+///   <item>everything else is in <b>All</b>.</item>
 /// </list>
+///
+/// This says where a card <em>is</em>, which is one folder and one only. Which tabs it is <em>drawn</em>
+/// under is the wider question, and since 2026-09-24 the two differ for one tab: All holds everything
+/// this answers except Private and Archived - see <see cref="FolderKey.Holds"/>, which every page asks
+/// rather than comparing this answer to the open tab for equality.
 ///
 /// Archiving beats filing, and filing beats finishing. The second used to be the other way round: a list
 /// somebody put in "Renovation" left that tab the moment its last entry was ticked off, which reads as
@@ -72,6 +77,6 @@ public static class FolderPlacement
             return FolderKey.Of(BuiltInFolder.Finished);
         }
 
-        return FolderKey.Of(isPrivate ? BuiltInFolder.Private : BuiltInFolder.Public);
+        return FolderKey.Of(isPrivate ? BuiltInFolder.Private : BuiltInFolder.All);
     }
 }

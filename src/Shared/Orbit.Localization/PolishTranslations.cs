@@ -1057,7 +1057,10 @@ public static class PolishTranslations
         ["To keep what is in here, ask them to share the folder with you in Orbit."] =
             "Żeby zachować to, co tu jest, poproś o udostępnienie folderu w Orbicie.",
         ["Folder name"] = "Nazwa folderu",
-        ["Public"] = "Publiczne",
+        // The widest built-in folder is called "All" since 2026-09-24 and holds every folder's contents -
+        // see Orbit.Core.Folders.BuiltInFolder.All. It goes by the "All" entry already in this file,
+        // beside the ways a list can be arranged, rather than a second key saying the same word; the
+        // "Public" it replaced was dropped, nothing else having asked for that word.
         ["Finished"] = "Ukończone",
         // The fourth built-in folder - things put away rather than deleted, see
         // Orbit.Core.Folders.BuiltInFolder.Archived. The button that puts something there says "Archive"
@@ -1075,8 +1078,6 @@ public static class PolishTranslations
         // away, unlike the other built-in headings. See NoteWorkspaceList.
         ["Hide folder"] = "Ukryj folder",
         ["Show the archive"] = "Pokaż archiwum",
-        ["Nothing in it is deleted - everything goes back to Public, or to Private if it is sealed."] =
-            "Nic z niego nie zostanie usunięte - wszystko wróci do Publicznych, a rzeczy zaszyfrowane do Prywatnych.",
         // Since 2026-09-20 only an empty folder can go, so the question says what little is at stake and
         // a folder that still holds something says what to do about it.
         ["There is nothing in it. The tab goes and nothing else changes."] =
@@ -1103,13 +1104,17 @@ public static class PolishTranslations
             "Oznacza całą listę jako zrobioną, nawet jeśli są na niej otwarte pozycje, i przenosi ją do Ukończonych. Zaznacza się sama, gdy wszystkie pozycje zostaną odhaczone.",
         ["Ticked on its own because every entry is. Untick it to say the list itself is not done yet - it reads as \"not finished\" then."] =
             "Zaznaczone samo, bo wszystkie pozycje są odhaczone. Odznacz, aby powiedzieć, że sama lista nie jest jeszcze gotowa - dostanie wtedy status \"niezakończona\".",
-        ["Without one it is in Public, or in Private when it is sealed."] =
-            "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych.",
+        // Filing something no longer takes it off the folder the page opens on - All holds every folder's
+        // contents since 2026-09-24 - so these three say what a folder is now: somewhere else to find it,
+        // rather than the place it goes instead of the default one.
+        ["A folder is somewhere else to find it: it is in All either way, or in Private when it is sealed."] =
+            "Folder to drugie miejsce, w którym to znajdziesz - we Wszystkich jest tak czy inaczej, a jeśli jest zaszyfrowane - w Prywatnych.",
         // An event is never sealed, so the calendar has no Private tab to send it to - see
         // FolderPages.HasAPrivateTab.
-        ["Without one it is in Public."] = "Bez folderu trafia do Publicznych.",
-        ["Without one it is in Public, or in Private when it is sealed - and it moves to Finished on its own once everything is ticked off. A list you file somewhere stays in that folder, finished or not."] =
-            "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych, i sama przechodzi do Ukończonych, gdy wszystkie pozycje zostaną odhaczone. Lista włożona do folderu zostaje w nim, ukończona czy nie.",
+        ["A folder is somewhere else to find it: it is in All either way."] =
+            "Folder to drugie miejsce, w którym to znajdziesz - we Wszystkich jest tak czy inaczej.",
+        ["A folder is somewhere else to find it: it is in All either way, or in Private when it is sealed - and it moves to Finished on its own once everything is ticked off. A list you file somewhere stays in that folder, finished or not."] =
+            "Folder to drugie miejsce, w którym to znajdziesz - we Wszystkich jest tak czy inaczej, a jeśli jest zaszyfrowane - w Prywatnych, i sama przechodzi do Ukończonych, gdy wszystkie pozycje zostaną odhaczone. Lista włożona do folderu zostaje w nim, ukończona czy nie.",
 
         // ---- The invitation page ----
         // Where a notification about something shared leads - see Orbit.Web's ShareInvitation.razor.

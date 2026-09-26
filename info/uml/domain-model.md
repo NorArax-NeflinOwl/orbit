@@ -269,7 +269,8 @@ classDiagram
 `Folder` is the one aggregate here that is never shared, locked or sealed: it is a place on its owner's
 own pages, so a note handed to somebody else sits in whichever folder each of them filed it under. A
 null `FolderId` is not "no folder" - it means one of the three that have no rows at all (`BuiltInFolder`:
-Public, Private, Finished), chosen from what the item already is. Each folder belongs to one page
+All, Private, Finished), chosen from what the item already is; `All` is the one the pages open on, and it
+is also the one tab that shows what *other* folders hold (`FolderKey.Holds`). Each folder belongs to one page
 (`FolderScope`), so the four kinds that can be filed never share a tab: "Work" on the notes, on the task
 lists, on the calendar and on the inventories are four folders, not one seen four times.
 

@@ -91,8 +91,9 @@ public sealed class InventoriesTests : OrbitTestContext
     }
 
     /// <summary>
-    /// A shelf filed under a folder is only on the page while that tab is open - the notes' and the
-    /// lists' rule, reached from the inventories since 2026-09-15.
+    /// A folder tab is only what was filed into it - the notes' and the lists' rule, reached from the
+    /// inventories since 2026-09-15. The tab the page opens on is the other half: All holds the filed
+    /// shelf as well since 2026-09-24, see FolderKey.Holds.
     /// </summary>
     [Fact]
     public void Only_the_shelves_under_the_open_tab_are_drawn()
@@ -105,9 +106,9 @@ public sealed class InventoriesTests : OrbitTestContext
 
         var cut = RenderComponent<Web.Pages.Inventories>();
 
-        // Public is where a page opens, so the filed one is not on it.
+        // All is where a page opens, and it holds both.
         Assert.Contains("Garage", cut.Markup);
-        Assert.DoesNotContain("Pantry", cut.Markup);
+        Assert.Contains("Pantry", cut.Markup);
 
         cut.FindAll(".folder-tab").Single(tab => tab.TextContent.Contains("Kitchen")).Click();
 

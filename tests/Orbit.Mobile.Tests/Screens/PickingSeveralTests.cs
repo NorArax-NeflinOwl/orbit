@@ -50,11 +50,12 @@ public sealed class PickingSeveralTests
     }
 
     /// <summary>
-    /// Filed together, and what has left the folder being read stops counting - the bar counting notes
-    /// nobody can see would act on them with the next press.
+    /// Filed together, and every one of them arrives in the folder. Nothing leaves the screen doing it:
+    /// All holds what is filed anywhere since 2026-09-24 - see FolderKey.Holds - so the bar's count is
+    /// cleared by the filing itself rather than by rows going away.
     /// </summary>
     [Fact]
-    public async Task Filing_the_chosen_notes_moves_every_one_and_forgets_what_left_the_screen()
+    public async Task Filing_the_chosen_notes_moves_every_one()
     {
         using var context = new NotesContext();
         await context.AddNoteAsync("Receipts");
@@ -68,12 +69,40 @@ public sealed class PickingSeveralTests
         screen.OpenCommand.Execute(screen.Notes.Single(row => row.Title == "Invoices"));
         await screen.Picking.FileCommand.ExecuteAsync(work.LocalId);
 
-        Assert.Equal(["Recipes"], screen.Notes.Select(row => row.Title));
+        Assert.Equal(["Invoices", "Receipts", "Recipes"], screen.Notes.Select(row => row.Title).Order());
         Assert.False(screen.Picking.HasAny);
         Assert.True(screen.Picking.IsPicking);
 
         screen.ChooseFolderCommand.Execute(FolderKey.Of(work.LocalId));
         Assert.Equal(["Invoices", "Receipts"], screen.Notes.Select(row => row.Title).Order());
+    }
+
+    /// <summary>
+    /// And what has left the folder being read stops counting - the bar counting notes nobody can see
+    /// would act on them with the next press. Read from a folder somebody made rather than from All,
+    /// which nothing leaves by being filed (see the test above).
+    /// </summary>
+    [Fact]
+    public async Task Filing_forgets_what_left_the_folder_being_read()
+    {
+        using var context = new NotesContext();
+        var receipts = await context.AddNoteAsync("Receipts");
+        var invoices = await context.AddNoteAsync("Invoices");
+        var screen = await context.OpenAsync();
+        var work = await context.Folders.CreateAsync("Work", FolderScope.Notes);
+        var home = await context.Folders.CreateAsync("Home", FolderScope.Notes);
+        await context.Notes.FileAsync(receipts.LocalId, work.LocalId);
+        await context.Notes.FileAsync(invoices.LocalId, work.LocalId);
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.ChooseFolderCommand.Execute(FolderKey.Of(work.LocalId));
+
+        screen.ToggleChoosingCommand.Execute(null);
+        screen.OpenCommand.Execute(screen.Notes.Single(row => row.Title == "Receipts"));
+        await screen.Picking.FileCommand.ExecuteAsync(home.LocalId);
+
+        Assert.Equal(["Invoices"], screen.Notes.Select(row => row.Title));
+        Assert.False(screen.Picking.HasAny);
+        Assert.True(screen.Picking.IsPicking);
     }
 
     /// <summary>One button, named for what it will do: Put back once everything chosen is away.</summary>

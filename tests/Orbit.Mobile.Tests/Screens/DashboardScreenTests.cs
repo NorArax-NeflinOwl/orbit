@@ -734,7 +734,7 @@ public sealed class DashboardScreenTests
 
         Assert.DoesNotContain(screen.FolderChoices, choice => choice.Name == "Receipts");
         // And the note is where it would be if the folder were not there, rather than off the page.
-        Assert.Equal(1, screen.FolderChoices.Single(choice => choice.Name == "Public").Count);
+        Assert.Equal(1, screen.FolderChoices.Single(choice => choice.Name == "All").Count);
     }
 
     /// <summary>
@@ -754,7 +754,7 @@ public sealed class DashboardScreenTests
         context.ChosenFolders.WriteHiddenOnTheDashboard(new HashSet<Guid> { receipts.LocalId });
         await screen.LoadCommand.ExecuteAsync(null);
 
-        Assert.Equal(FolderKey.Of(BuiltInFolder.Public), screen.Folders.Chosen);
+        Assert.Equal(FolderKey.Of(BuiltInFolder.All), screen.Folders.Chosen);
     }
 
     /// <summary>
@@ -775,7 +775,7 @@ public sealed class DashboardScreenTests
         Assert.DoesNotContain(screen.Cards, card => card.Kind is DashboardCardKind.Notes);
 
         var choices = screen.FolderChoices.ToDictionary(choice => choice.Name, choice => choice.Count);
-        Assert.Equal(0, choices["Public"]);
+        Assert.Equal(0, choices["All"]);
         Assert.Equal(1, choices["Private"]);
         // The dashboard has no Finished tab: a finished list is placed by its folder and its privacy
         // like anything else there - see FolderPages.HasAFinishedTab.

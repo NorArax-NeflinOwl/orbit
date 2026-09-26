@@ -2910,7 +2910,9 @@ a line needed a reading it did not state, the reading is marked as such.
 - **A search button beside the notifications bell.** It opens a search over everything the account
   holds: note names and their writing, task lists and their entries, events, places on the map, and
   inventories and what is on them.
-- **Everything from every folder, on the dashboard** - a way to see it all at once.
+- ~~**Everything from every folder, on the dashboard** - a way to see it all at once.~~ Done 2026-09-26,
+  by the tab that page opens on becoming what its name says - see *"Public" becomes "All"* below, which
+  is the same change and settles what this one should do.
 - **A filter of one's own on the dashboard**, choosing what it draws. It works the way the task list's
   tags do.
 - **Filtering by those filters and by folders on the calendar** as well.
@@ -2933,8 +2935,29 @@ a line needed a reading it did not state, the reading is marked as such.
   it over whatever is sealed while the account has no PIN at all, with the link to Options. There
   rather than on the note's own page, because it is the one place that knows both halves - and a shelf
   and a task list are as private as a note is.
-- **"Public" becomes "All"**, and holds everything from every folder except what is private and what is
-  put away.
+- ~~**"Public" becomes "All"**, and holds everything from every folder except what is private and what is
+  put away.~~ Done 2026-09-26, on **both clients**, from one rule (`FolderKey.Holds`): a tab is now asked
+  whether it holds a card rather than compared to where the card is, and All answers yes to everything
+  placed anywhere but Private and Archived. The enum member was renamed with it
+  (`BuiltInFolder.Public` → `All`), which needed no migration - nothing about a card stores which built-in
+  folder it is in, that is worked out - and the only place the old word was written down is a phone's own
+  preferences, which read a word they do not know as the tab a screen opens on.
+
+  **This is also the whole of "everything from every folder, on the dashboard"**, which the note at the
+  end of this list already said was the same change asked twice. One exception is kept there: a folder
+  held off the dashboard (`FolderTabs.HideOnTheDashboard`) is off it under All too, or hiding one would
+  have stopped meaning anything.
+
+  **Two things followed, and both are the change rather than a fault.** A tab's **count** now counts what
+  the tab shows, so All reads nearly everything the page holds and Finished's lists are counted twice
+  over - once under each. And **filing something no longer takes it off the screen it was filed from**,
+  which is what a round of presses over several chosen cards used to be answered by: it now forgets what
+  was chosen itself (`PickedThings.Forget`), or five cards filed at once would have looked like a press
+  that never registered.
+
+  **What the editors' hints say changed with it.** "Without one it is in Public" was true of a tab that
+  meant "filed nowhere"; a folder is somewhere else to find something now, rather than the place it goes
+  instead of the default one, and the four hints say that.
 
 ### Added 2026-09-25, on the calendar
 

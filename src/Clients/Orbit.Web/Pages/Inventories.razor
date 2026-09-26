@@ -503,7 +503,7 @@
             }
 
             _inventories = await InventoryApiClient.GetInventoriesAsync();
-            _picked.KeepOnly(ArrangedInventories.Select(inventory => inventory.Id));
+            _picked.Forget();
         }
         finally
         {
@@ -513,11 +513,11 @@
 
     /// <summary>
     /// How many shelves are under each tab, drawn on the tab itself. There is no Finished tab here - a
-    /// shelf is never done with - see FolderPages.HasAFinishedTab.
+    /// shelf is never done with - see FolderPages.HasAFinishedTab. Asked of the tab rather than compared
+    /// to it, so All counts what is filed in every folder as well - see FolderKey.Holds.
     /// </summary>
     private int CountIn(FolderKey folder)
-        => (_inventories ?? []).Count(inventory =>
-            Folders.PlacementOn(FolderPage.Inventories, inventory.FolderId, inventory.IsPrivate, isFinished: false, inventory.IsArchived) == folder);
+        => (_inventories ?? []).Count(inventory => folder.Holds(PlacementOf(inventory)));
 
     /// <summary>Whether anything is still filed here - see FolderTabs.StillHolds, and Notes.StillHolds.</summary>
 /// <summary>
@@ -542,12 +542,12 @@
     /// somebody following a notification can see which folder holds it. See FolderTabs.HasNewsIn.
     /// </summary>
     private bool HasNewsIn(FolderKey folder)
-        => (_inventories ?? []).Any(inventory => HasNewsAbout(inventory) && PlacementOf(inventory) == folder);
+        => (_inventories ?? []).Any(inventory => HasNewsAbout(inventory) && folder.Holds(PlacementOf(inventory)));
 
     /// <summary>The same question asked of the tabs a phone folds away - see PhoneToolbar.HasNews.</summary>
     private bool NewsIsInAFolderThatIsNotOpen
         => (_inventories ?? []).Any(inventory =>
-            HasNewsAbout(inventory) && PlacementOf(inventory) != Folders.ChosenOn(FolderPage.Inventories));
+            HasNewsAbout(inventory) && !Folders.ChosenOn(FolderPage.Inventories).Holds(PlacementOf(inventory)));
 
     /// <summary>Whether the reader is standing in the Private tab - what the PIN is asked for.</summary>
     private bool IsReadingWhatIsPrivate

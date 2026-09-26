@@ -36,7 +36,7 @@ public sealed class FolderTabsTests : OrbitTestContext
 
         var cut = RenderTabs(FolderPage.Tasks);
 
-        Assert.Equal(["Public", "Private", "Finished", "Archived"], TabNames(cut));
+        Assert.Equal(["All", "Private", "Finished", "Archived"], TabNames(cut));
     }
 
     /// <summary>
@@ -48,8 +48,8 @@ public sealed class FolderTabsTests : OrbitTestContext
     {
         RegisterFolders([]);
 
-        Assert.Equal(["Public", "Private", "Archived"], TabNames(RenderTabs(FolderPage.Notes)));
-        Assert.Equal(["Public", "Private"], TabNames(RenderTabs(FolderPage.Dashboard)));
+        Assert.Equal(["All", "Private", "Archived"], TabNames(RenderTabs(FolderPage.Notes)));
+        Assert.Equal(["All", "Private"], TabNames(RenderTabs(FolderPage.Dashboard)));
     }
 
     /// <summary>
@@ -90,8 +90,8 @@ public sealed class FolderTabsTests : OrbitTestContext
     {
         RegisterFolders([]);
 
-        Assert.Equal(["Public", "Archived"], TabNames(RenderTabs(FolderPage.Calendar)));
-        Assert.Equal(["Public", "Private", "Archived"], TabNames(RenderTabs(FolderPage.Inventories)));
+        Assert.Equal(["All", "Archived"], TabNames(RenderTabs(FolderPage.Calendar)));
+        Assert.Equal(["All", "Private", "Archived"], TabNames(RenderTabs(FolderPage.Inventories)));
     }
 
     [Fact]
@@ -99,11 +99,11 @@ public sealed class FolderTabsTests : OrbitTestContext
     {
         RegisterFolders([AFolderCalled("This week", FolderScope.Calendar), AnotherFolderCalled("Kitchen", FolderScope.Inventories)]);
 
-        Assert.Equal(["Public", "Archived", "This week"], TabNames(RenderTabs(FolderPage.Calendar)));
-        Assert.Equal(["Public", "Private", "Archived", "Kitchen"], TabNames(RenderTabs(FolderPage.Inventories)));
+        Assert.Equal(["All", "Archived", "This week"], TabNames(RenderTabs(FolderPage.Calendar)));
+        Assert.Equal(["All", "Private", "Archived", "Kitchen"], TabNames(RenderTabs(FolderPage.Inventories)));
         // The dashboard draws the shelves' tabs beside the notes' and the lists', but not the
         // calendar's - see FolderPages.ScopesOn.
-        Assert.Equal(["Public", "Private", "Kitchen"], TabNames(RenderTabs(FolderPage.Dashboard)));
+        Assert.Equal(["All", "Private", "Kitchen"], TabNames(RenderTabs(FolderPage.Dashboard)));
     }
 
     [Fact]
@@ -113,7 +113,7 @@ public sealed class FolderTabsTests : OrbitTestContext
 
         var cut = RenderTabs(FolderPage.Tasks);
 
-        Assert.Equal(["Public", "Private", "Finished", "Archived", "Work"], TabNames(cut));
+        Assert.Equal(["All", "Private", "Finished", "Archived", "Work"], TabNames(cut));
     }
 
     /// <summary>A folder belongs to one page, so the other page does not draw it - see FolderScope.</summary>
@@ -122,8 +122,8 @@ public sealed class FolderTabsTests : OrbitTestContext
     {
         RegisterFolders([AFolderCalled("Work", FolderScope.Notes)]);
 
-        Assert.Equal(["Public", "Private", "Archived", "Work"], TabNames(RenderTabs(FolderPage.Notes)));
-        Assert.Equal(["Public", "Private", "Finished", "Archived"], TabNames(RenderTabs(FolderPage.Tasks)));
+        Assert.Equal(["All", "Private", "Archived", "Work"], TabNames(RenderTabs(FolderPage.Notes)));
+        Assert.Equal(["All", "Private", "Finished", "Archived"], TabNames(RenderTabs(FolderPage.Tasks)));
     }
 
     /// <summary>The dashboard shows both kinds of card, so it is read under both pages' tabs.</summary>
@@ -134,18 +134,18 @@ public sealed class FolderTabsTests : OrbitTestContext
 
         var cut = RenderTabs(FolderPage.Dashboard);
 
-        Assert.Equal(["Public", "Private", "Work", "Renovation"], TabNames(cut));
+        Assert.Equal(["All", "Private", "Work", "Renovation"], TabNames(cut));
     }
 
     /// <summary>Public until somebody presses another - see FolderKey.Default.</summary>
     [Fact]
-    public void The_page_opens_on_Public()
+    public void The_page_opens_on_All()
     {
         RegisterFolders([]);
 
         var cut = RenderTabs(FolderPage.Tasks);
 
-        Assert.Equal("Public", cut.Find(".folder-tab.on").TextContent.Trim());
+        Assert.Equal("All", cut.Find(".folder-tab.on").TextContent.Trim());
     }
 
     /// <summary>
@@ -363,7 +363,7 @@ public sealed class FolderTabsTests : OrbitTestContext
             // Something under Archived and nothing under Private, so one of the two goes.
             .Add(tabs => tabs.HoldsAnything, tab => tab == FolderKey.Of(BuiltInFolder.Archived)));
 
-        Assert.Equal(["Public", "Archived"], TabNames(cut));
+        Assert.Equal(["All", "Archived"], TabNames(cut));
     }
 
     /// <summary>

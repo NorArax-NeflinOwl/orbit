@@ -293,7 +293,8 @@ public sealed class CalendarTests : OrbitTestContext
 
     /// <summary>
     /// A tab narrows the grid and the list beside it together, so the whole calendar is what is in one
-    /// folder rather than half of it.
+    /// folder rather than half of it. Only a folder somebody made narrows anything now - the tab the
+    /// page opens on holds the lot, which is what All means since 2026-09-24.
     /// </summary>
     [Fact]
     public void Only_the_events_under_the_open_tab_are_on_the_calendar()
@@ -308,9 +309,9 @@ public sealed class CalendarTests : OrbitTestContext
 
         var cut = RenderComponent<Calendar>();
 
-        // Public is where a page opens, so the filed one is not on it.
+        // All is where a page opens, and it holds both since 2026-09-24 - see FolderKey.Holds.
         Assert.Contains("Haircut", cut.Markup);
-        Assert.DoesNotContain("Dentist", cut.Markup);
+        Assert.Contains("Dentist", cut.Markup);
 
         cut.FindAll(".folder-tab").Single(tab => tab.TextContent.Contains("This week")).Click();
 

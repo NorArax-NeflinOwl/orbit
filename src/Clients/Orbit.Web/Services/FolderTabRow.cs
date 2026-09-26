@@ -20,10 +20,10 @@ public static class FolderTabRow
         FolderPage page, FolderState folders, DashboardCardPreferences cardPreferences,
         Func<FolderKey, bool>? holdsAnything)
     {
-        // The built-in ones first, in the order somebody reads them - what is still open, what is
-        // sealed, what is finished, what has been put away. Not all of them are on every page: see
+        // The built-in ones first, in the order somebody reads them - the lot, what is sealed, what is
+        // finished, what has been put away. Not all of them are on every page: see
         // FolderPages.HasAFinishedTab, HasAPrivateTab and HasAnArchivedTab for which and why.
-        var builtIn = new List<FolderKey> { FolderKey.Of(BuiltInFolder.Public) };
+        var builtIn = new List<FolderKey> { FolderKey.Of(BuiltInFolder.All) };
         if (page.HasAPrivateTab())
         {
             builtIn.Add(FolderKey.Of(BuiltInFolder.Private));
@@ -66,9 +66,9 @@ public static class FolderTabRow
 
     /// <summary>
     /// Whether the row is worth having at all. One tab left means there is nowhere else to go, and a
-    /// lone "Public" above the page is a control that can only be pressed to stay where you already
-    /// are. Only where the page prunes its tabs - everywhere else the row is also where a folder is
-    /// made, so it stays however few tabs are in it.
+    /// lone "All" above the page is a control that can only be pressed to stay where you already are.
+    /// Only where the page prunes its tabs - everywhere else the row is also where a folder is made, so
+    /// it stays however few tabs are in it.
     /// </summary>
     public static bool IsWorthDrawing(
         FolderPage page, FolderState folders, DashboardCardPreferences cardPreferences,
@@ -76,15 +76,15 @@ public static class FolderTabRow
         => holdsAnything is null || On(page, folders, cardPreferences, holdsAnything).Count > 1;
 
     /// <summary>
-    /// Public always stays: it is where everything unfiled is, and a page with no tab at all is a page
-    /// nothing can be chosen on. So does whatever is open, empty or not - taking the tab out from under
-    /// the reader would leave them looking at a folder they could not see they were in, with no way
-    /// back to anywhere else.
+    /// All always stays: it is where everything the page holds is, and a page with no tab at all is a
+    /// page nothing can be chosen on. So does whatever is open, empty or not - taking the tab out from
+    /// under the reader would leave them looking at a folder they could not see they were in, with no
+    /// way back to anywhere else.
     /// </summary>
     private static bool IsWorthATab(
         FolderKey tab, FolderPage page, FolderState folders, Func<FolderKey, bool>? holdsAnything)
         => holdsAnything is null
-            || tab == FolderKey.Of(BuiltInFolder.Public)
+            || tab == FolderKey.Of(BuiltInFolder.All)
             || tab == folders.ChosenOn(page)
             || holdsAnything(tab);
 }

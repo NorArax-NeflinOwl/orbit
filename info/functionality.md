@@ -524,7 +524,7 @@ opened - its folder sits outside the sealed half, as a private note's does - and
 through a share never sees the owner's filing.
 
 **Only an empty folder can be deleted** (2026-09-20, `FolderTabs.StillHolds`). It used to delete a full
-one and put everything in it back under Public, which is a press that quietly rearranges a page's worth
+one and put everything in it back under All, which is a press that quietly rearranges a page's worth
 of things under a word that promised to remove one. A folder is one of the few things exempt from
 "deleted only from the archive" - there is no archive for a tab - but only while there is nothing in it
 to lose, which is how the exemption was worded. The entry stays in the menu and is disabled, saying to
@@ -541,11 +541,11 @@ nothing in it - the entry goes and nothing else changes."*
 the reader knows that already from its not being offered. The dashboard has pruned its tabs this way
 since 2026-09-18; the four pages that file things kept every tab whatever was in it, and now answer the
 same question - a built-in tab by what is under it, a folder somebody made by what is *filed* in it, so
-one holding nothing but archived things keeps its tab. Public always stays, and so does whatever is
+one holding nothing but archived things keeps its tab. All always stays, and so does whatever is
 open: taking the tab out from under the reader would leave them looking at a folder they could not see
 they were in.
 
-**Where that leaves Public on its own, the tabs go and the plus stays.** A row with one tab is a
+**Where that leaves All on its own, the tabs go and the plus stays.** A row with one tab is a
 control that can only be pressed to stay where you already are - but the row is also where a folder is
 made, and a reader with a single folder would otherwise have no way to ever make a second. So the tabs
 are what is left off, not the row.
@@ -711,7 +711,24 @@ is, and the first that applies wins:
    list is placed there by its folder and its privacy like anything else.
 4. **Private** - a sealed item nobody filed anywhere (see [Private notes and task
    lists](#private-notes-and-task-lists)).
-5. **Public** - everything else, and where a page opens.
+5. **All** - everything else, and where a page opens.
+
+**"All" is the one tab wider than the list above, and was called Public until 2026-09-24.** The five
+answers above still say where a card *is*, one folder each (`FolderPlacement`); what a tab *shows* is the
+wider question, and All shows everything from every folder except what is sealed and what has been put
+away (`FolderKey.Holds`, read by both clients). So a note filed under "Work" is under Work **and** under
+All, and a finished list is under Finished **and** under All - being neither sealed nor put away. The old
+name said only "not private", and the tab behaved that way: filing something took it off the tab every
+page opens on, so the only way to see the lot was to have filed nothing. That is what the user asked to
+end ("Public becomes All", and "everything from every folder, on the dashboard" - the same change asked
+twice). Private and Archived are what All is defined against, and every other tab still means exactly
+itself: a folder somebody made holds what was filed into it and nothing else.
+
+Two things follow that are easy to read as faults. A tab's **count** is now what the tab shows rather
+than what is placed in it, so All counts nearly everything the page holds. And **filing something no
+longer makes it leave the screen it was filed from**, so a round of presses over several chosen cards
+says so by forgetting what was chosen (`PickedThings.Forget`) - before, the count emptied itself because
+the cards went away, and without this a press over five cards changed nothing a reader could see.
 
 **All four kinds are filed**: notes, task lists, calendar events and inventories. The events and the
 shelves gained it on 2026-09-15, which **reverses a decision of 2026-09-09** that an event would never
@@ -882,7 +899,7 @@ existing rows and nothing to repair**: every note and list that existed before t
 right one. There is still no way to be filed as private without being sealed. Giving a folder a page did
 need one - `FoldersBelongToOnePage` - and it does more than default the column: a folder that held notes
 is moved to the notes, and one that held both kinds becomes two folders with the notes moved into the
-copy, so nothing that was filed somewhere falls back to Public.
+copy, so nothing that was filed somewhere falls back to All.
 
 **An entry can wait for other entries of the same list** (2026-09-09, `OL_TASKS_STEPS`,
 `TaskItem.WaitsForTaskItemIds`, the rule in `TaskListSteps`): "hang the door" after "fit the hinges".
@@ -1199,7 +1216,7 @@ exist at all - the same reason the note's own settings are written that way.
 kind of thing - recipes are task lists, receipts are notes - so pressing its tab leaves that card
 standing and takes the rest of the page away: everything else on it is about something the folder cannot
 hold, and the page used to answer "show me this folder" with the whole dashboard and one card narrowed
-inside it. Public changes nothing, being what everything is in unless it was filed or sealed. The strip
+inside it. All changes nothing, being what everything is in unless it was filed or sealed. The strip
 of counts above the tabs stays whatever is open - it is about the day rather than about what is filed.
 
 **Private narrows it the same way** (2026-09-10). Private is about one thing too - what is sealed - and
@@ -1226,7 +1243,7 @@ was the same for all three, and is said for all three.
 **Which cards the dashboard draws is a choice per tab** (`DashboardCardPreferences.IsVisible`,
 2026-09-20, asked for). It was one answer for the whole page, so putting the Notes card away while
 reading one folder put it away everywhere. It is stored the way each card's *filter* already was - the
-card's key for Public, `key@tab` for the rest (`StoredKeyOf`) - so a card somebody hid before the change
+card's key for All, `key@tab` for the rest (`StoredKeyOf`) - so a card somebody hid before the change
 is still hidden where they hid it, on the tab the dashboard opens on. The menu's heading names the tab
 it is answering for, since the same menu now gives a different answer on each.
 
@@ -1242,16 +1259,16 @@ folders are still separate rows, and matching the spelling is what makes them on
 
 **And a folder can be taken off the dashboard**, from its own menu on the page it was made on ("Hide on
 the dashboard", `DashboardCardPreferences.IsFolderShown`). The dashboard borrows both pages' tabs, which
-is how a folder for recipes ends up between Public and Private on the page somebody opens to see what is
+is how a folder for recipes ends up between All and Private on the page somebody opens to see what is
 on their plate. It hides the tab there and nothing else - the folder is still on its own page with
 everything in it - and it is kept on the device, beside the cards that are put away the same way, since
-it says nothing about what the folders hold. A tab that goes while it is open falls back to Public, so a
+it says nothing about what the folders hold. A tab that goes while it is open falls back to All, so a
 page can never be filtered to a folder nobody can see. **The phone offers it in the same place since
 2026-09-10** - "Hide on the dashboard" in the folder menu of the page the folder was made on, marked
 while it is hidden, kept in the device preferences beside which folder each screen was left under
 (`IChosenFolderStore.ReadHiddenOnTheDashboard`) - and falls back the same way.
 
-**A deadline is on the calendar under Public alone** (2026-09-25, `CalendarDeadlineTab`, read by both
+**A deadline is on the calendar under All alone** (2026-09-25, `CalendarDeadlineTab`, read by both
 clients). The calendar draws two kinds of thing: appointments, which have folders of that page's, and
 the deadlines of task entries, which do not — whatever folder such an entry has belongs to its list, in
 another scope, and nothing on the calendar can put one away, because putting away belongs to the list it
@@ -1379,7 +1396,7 @@ at once, and narrowing by tag.
 had nothing to return to but the note it would open again, so the press is a plus instead
 (`EditorRail.OnAdd`, set by the note editor alone). What is written in the note being left is kept the
 way leaving the page keeps it, and the star in the column says it is waiting. A note started this way is
-**in Public**: this page has no folder tab, so the tab that would otherwise answer is whichever one the
+**in All**: this page has no folder tab, so the tab that would otherwise answer is whichever one the
 page of cards was last left on.
 
 **The folders live in that column** (2026-09-20, asked for). A **"+"** beside its heading makes one, and
@@ -5423,7 +5440,7 @@ Each card that has something to filter by carries its own menu in its top right:
 pinned, or one priority. The count beside a card's title counts what the card is showing rather than
 what it holds, so a filtered card cannot look like one that lost something. A calendar event offers no
 "pinned" - it has a priority but nothing to pin it to. **Each folder tab keeps its own filter**
-(2026-09-11): "only what is pinned" is something wanted of one folder and not of every other. Public keeps
+(2026-09-11): "only what is pinned" is something wanted of one folder and not of every other. All keeps
 the card's bare key, so a filter chosen before tabs had their own still applies where it was chosen.
 
 Both live on the device (`DashboardCardPreferences`, localStorage), like the pins beside them: they

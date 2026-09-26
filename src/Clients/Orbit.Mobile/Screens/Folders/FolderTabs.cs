@@ -121,8 +121,13 @@ public sealed class FolderTabs
             folderId, isPrivate, isFinished && Page.HasAFinishedTab(), [.. _made.Select(folder => folder.LocalId)],
             isArchived);
 
-    /// <summary>Whether a row in <paramref name="where"/> belongs on the screen as it is being read.</summary>
-    public bool Holds(FolderKey where) => where == Chosen;
+    /// <summary>
+    /// Whether a row in <paramref name="where"/> belongs on the screen as it is being read. Not an
+    /// equality since 2026-09-24: the widest folder is <b>All</b> now and holds what is filed in every
+    /// folder, not only what is filed nowhere - see <see cref="FolderKey.Holds"/>, the one rule both
+    /// clients read, so a note cannot be under a menu entry here and off the same tab in the browser.
+    /// </summary>
+    public bool Holds(FolderKey where) => Chosen.Holds(where);
 
     /// <summary>
     /// Narrows another screen to the folder this one is being read under, before somebody is taken
@@ -247,7 +252,9 @@ public sealed class FolderTabs
         var counts = rows.GroupBy(row => row.Where).ToDictionary(group => group.Key, group => group.Count());
         _news = rows.Where(row => row.HasNews).Select(row => row.Where).ToHashSet();
 
-        List<FolderChoice> choices = [Choice(FolderKey.Of(BuiltInFolder.Public), _translations["Public"], counts)];
+        // "All" since 2026-09-24, and the entry is wider than its old name as well as differently named:
+        // it gathers what is filed in every folder - see BuiltInFolder.All and FolderKey.Holds.
+        List<FolderChoice> choices = [Choice(FolderKey.Of(BuiltInFolder.All), _translations["All"], counts)];
 
         // Gated the way the browser's row gates it, which this did not do: an event cannot be sealed at
         // all, so the calendar's menu offered a tab that could only ever read zero - see
@@ -281,8 +288,15 @@ public sealed class FolderTabs
     /// </summary>
     private IReadOnlySet<FolderKey> _news = new HashSet<FolderKey>();
 
+    /// <summary>
+    /// One entry, with how many rows are under it. Summed over every folder the entry holds rather than
+    /// looked up by its own key: All holds them all bar the sealed and the put-away, so a count of what
+    /// is filed nowhere would say a smaller number than the screen goes on to draw. See FolderKey.Holds.
+    /// </summary>
     private FolderChoice Choice(FolderKey key, string name, IReadOnlyDictionary<FolderKey, int> counts)
-        => new(key, name, counts.TryGetValue(key, out var count) ? count : 0, key == Chosen, _news.Contains(key));
+        => new(
+            key, name, counts.Where(under => key.Holds(under.Key)).Sum(under => under.Value), key == Chosen,
+            _news.Any(key.Holds));
 }
 
 /// <summary>
