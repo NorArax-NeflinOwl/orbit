@@ -2964,8 +2964,41 @@ a line needed a reading it did not state, the reading is marked as such.
   the open half.
 - **Saving an inventory still does not finish the entries that asked for it.** A row whose stock has
   reached the minimum should tick the task entries standing for it.
-- **An expired inventory item should fail the entry that stands for it**, worked out and written
-  without anybody asking.
+
+  **Looked at on 2026-09-26 and the server half already does this**, and has since 2026-09-18/19:
+  `UpdateInventoryCommandHandler.SettleTheListsAgainstTheShelfAsync` runs on every save of a shelf, after
+  the amounts are written back, and `StockedEntryCompletionTests` covers it from that end
+  (`Counting_a_product_down_on_the_shelf_puts_the_work_back_on_the_list`). Nothing was found by reading
+  that would stop it, so this is **left open rather than ticked**: it needs a walk through the running app
+  to find what the report is about. Three things it could be, in the order worth checking:
+
+  - **A private list is skipped** - the handler asks only for lists that are not sealed, the server holding
+    nothing readable on one. An entry on a sealed list is never crossed off by a shelf, from either end.
+  - **The reader never re-reads the list.** The tick is written on the server; a tab left open on the list
+    shows what it last read.
+  - **The row answers nothing**, which two kinds do whatever their count says: one with no minimum, and
+    one marked to be looked at every round (`InventoryItem.BelongsOnTheRestockList`).
+- ~~**An expired inventory item should fail the entry that stands for it**, worked out and written
+  without anybody asking.~~ Done 2026-09-26. An entry whose row has passed its use-by date is **failed**
+  rather than crossed off (`TaskItem.GiveUp`, `InventoryItem.HasExpired`): holding four of something is not
+  holding four of it that are any good, and until this the count alone settled it. Expiry beats holding
+  enough, and the cross is the shelf's to take back - a row put back in date ticks the entry off again, a
+  count that drops reopens it as work, and a tick somebody gave by hand is left alone as always.
+
+  **Good all through the day it names**: an expiry date is stored as the start of that day (the browser
+  makes one out of a date box), so it is the day being behind us that settles it rather than the moment it
+  begins.
+
+  **Two halves deliberately not done**, either of which may turn out to be wanted:
+
+  - **An expired row is not put on the restock list.** Expiry is no part of
+    `InventoryItem.BelongsOnTheRestockList`, and it cannot simply be added there: `StockedEntryCompletion.Covers`
+    is written as "has a minimum and is not on the restock list", so an expired row would stop covering
+    *and* start being asked for, which is two decisions in one edit. As it stands the entry is crossed out
+    and nothing asks anybody to replace what went off.
+  - **The reader is not told why.** The entry shows a cross and nothing says the shelf gave up on it: what
+    the shelf keeps about an entry (`TaskItemStock`) is the server's own bookkeeping and no client is told
+    it. A reason would be a field on the entry, or a notification, and neither was asked for.
 - **A use-by date per piece.** Where a row holds more than one piece or package - other units count as
   one - the list should open into its pieces, each with its own date to edit.
 - ~~**A Setup page**, and filters are made there rather than where they are now. It also holds the

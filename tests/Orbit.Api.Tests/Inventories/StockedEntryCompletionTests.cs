@@ -21,15 +21,23 @@ public sealed class StockedEntryCompletionTests
 
     /// <summary>A row on a shelf of this reader's, with the two numbers that decide everything here.</summary>
     private async Task<InventoryItem> AShelfItemAsync(
-        decimal quantity, decimal? minimumQuantity, bool isCheckedRegularly = false)
+        decimal quantity, decimal? minimumQuantity, bool isCheckedRegularly = false,
+        DateTimeOffset? expiryDate = null)
     {
         var inventoryId = _context.AddInventory(_userId);
         var item = InventoryItem.Create(
             inventoryId, "Zupka Buldog", "Food", ["Dry goods"], quantity, minimumQuantity,
-            InventoryUnit.Piece, expiryDate: null, NotificationChannel.None, position: 0, isCheckedRegularly);
+            InventoryUnit.Piece, expiryDate, NotificationChannel.None, position: 0, isCheckedRegularly);
         await _context.InventoryItemRepository.AddAsync(item, CancellationToken.None);
         return item;
     }
+
+    /// <summary>
+    /// The start of a day some way behind us, which is how a use-by date is stored - see
+    /// InventoryItem.HasExpired, and the browser's ToExpiryOffset, which makes one out of a date box.
+    /// </summary>
+    private static DateTimeOffset UseByDaysAgo(int days)
+        => new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero).AddDays(-days);
 
     /// <summary>An entry standing for a row on a shelf - what generating a storage from a list leaves behind.</summary>
     private static TaskItem StandingFor(InventoryItem shelfItem, bool isCompleted = false)
@@ -108,6 +116,86 @@ public sealed class StockedEntryCompletionTests
         Assert.False(await CrossOffAsync(entry));
 
         Assert.True(entry.IsCompleted);
+    }
+
+    /// <summary>
+    /// Holding four of something is not the same as holding four of it that are any good. A row past its
+    /// use-by date crosses the entry <em>out</em> - finished with, and not done - where until 2026-09-24
+    /// the count alone crossed it off. See StockedEntryCompletion, and InventoryItem.HasExpired.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_row_past_its_date_crosses_the_entry_out_rather_than_off()
+    {
+        var entry = StandingFor(await AShelfItemAsync(quantity: 4, minimumQuantity: 2, expiryDate: UseByDaysAgo(3)));
+
+        Assert.True(await CrossOffAsync(entry));
+
+        Assert.True(entry.IsFailed);
+        Assert.False(entry.IsCompleted);
+        Assert.True(entry.IsResolved);
+    }
+
+    /// <summary>
+    /// Good all through the day it names. A date is stored as the start of that day, so comparing the
+    /// stored moment against now would call a thing marked "use by today" expired at one minute past
+    /// midnight - see InventoryItem.HasExpired.
+    /// </summary>
+    [Fact]
+    public async Task A_row_whose_date_is_today_is_still_good()
+    {
+        var entry = StandingFor(await AShelfItemAsync(quantity: 4, minimumQuantity: 2, expiryDate: UseByDaysAgo(0)));
+
+        Assert.True(await CrossOffAsync(entry));
+
+        Assert.True(entry.IsCompleted);
+        Assert.False(entry.IsFailed);
+    }
+
+    /// <summary>
+    /// The cross is the shelf's to take back, the way the tick is: putting a row in date ticks the entry
+    /// off again, and letting the count drop reopens it as work rather than leaving it crossed out.
+    /// </summary>
+    [Fact]
+    public async Task The_cross_goes_when_the_row_is_replaced_and_the_entry_reopens_when_the_count_drops()
+    {
+        var shelfItem = await AShelfItemAsync(quantity: 4, minimumQuantity: 2, expiryDate: UseByDaysAgo(3));
+        var entry = StandingFor(shelfItem);
+        Assert.True(await CrossOffAsync(entry));
+        Assert.True(entry.IsFailed);
+
+        // A fresh one on the shelf, in date.
+        shelfItem.Update(
+            shelfItem.Name, shelfItem.ProductType, shelfItem.Categories, quantity: 4, minimumQuantity: 2,
+            shelfItem.Unit, expiryDate: null, shelfItem.ExpiryNotificationChannel, shelfItem.IsCheckedRegularly);
+        await _context.InventoryItemRepository.UpdateAsync(shelfItem, CancellationToken.None);
+
+        Assert.True(await CrossOffAsync(entry));
+        Assert.True(entry.IsCompleted);
+        Assert.False(entry.IsFailed);
+
+        shelfItem.MoveStockBy(-4);
+        await _context.InventoryItemRepository.UpdateAsync(shelfItem, CancellationToken.None);
+
+        Assert.True(await CrossOffAsync(entry));
+        Assert.False(entry.IsResolved);
+    }
+
+    /// <summary>
+    /// A tick somebody put there by hand is still theirs. The shelf crosses out what it settled itself,
+    /// and nothing else - the same rule that keeps it from unticking a restock errand somebody has been
+    /// out and done.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_somebody_ticked_themselves_is_not_crossed_out_by_a_date()
+    {
+        var shelfItem = await AShelfItemAsync(quantity: 4, minimumQuantity: 2, expiryDate: UseByDaysAgo(3));
+        var entry = StandingFor(shelfItem, isCompleted: true);
+        entry.RecordStock(TaskItemStock.Stocked);
+
+        Assert.False(await CrossOffAsync(entry));
+
+        Assert.True(entry.IsCompleted);
+        Assert.False(entry.IsFailed);
     }
 
     /// <summary>An entry that names something and points at nothing has no shelf to answer for it.</summary>

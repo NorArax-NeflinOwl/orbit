@@ -22,6 +22,14 @@ namespace Orbit.Core.Inventories;
 /// the question: one with no minimum at all - the "leave the minimum empty to have it counted instead"
 /// case - and one marked to be looked at every round, where crossing off answers "have you looked". See
 /// <see cref="InventoryItem.BelongsOnTheRestockList"/>.
+///
+/// <b>A row whose use-by date has passed crosses the entry out rather than off</b> - asked for on
+/// 2026-09-24, and written without anybody having to say why. Holding four of something is not the same
+/// as holding four of it that are any good, and until this the shelf answered the entry yes on the count
+/// alone: a list asking for stock it already had, all of it months past its date, read as done. A cross
+/// (<see cref="TaskItem.IsFailed"/>) says what is true of it - finished with, and not done - and it is
+/// the shelf's to take back, so replacing the row ticks the entry off again and letting the count drop
+/// reopens it.
 /// </summary>
 public sealed class StockedEntryCompletion
 {
@@ -65,18 +73,47 @@ public sealed class StockedEntryCompletion
             return false;
         }
 
-        var covered = await CoveredShelfItemIdsAsync(ownerUserId, cancellationToken);
+        var (covered, expired) = await WhatTheShelvesSayAsync(ownerUserId, cancellationToken);
         var moved = false;
         foreach (var entry in standingForAShelf)
         {
-            var isCovered = covered.Contains(entry.LinkedInventoryItemId!.Value);
-            if (isCovered && !entry.IsResolved)
+            var shelfItemId = entry.LinkedInventoryItemId!.Value;
+            // Expiry beats holding enough, and that is the point of it: a row can hold four of something
+            // and hold nothing worth having. See InventoryItem.HasExpired.
+            var hasExpired = expired.Contains(shelfItemId);
+            var isCovered = !hasExpired && covered.Contains(shelfItemId);
+
+            // Whose answer this entry is carrying. The shelf may change its own mind as often as the
+            // count moves; somebody's own tick is theirs, and an entry that put its minimum on the shelf
+            // (Stocked) is answering a different question again.
+            var isTheShelfs = entry.Stock == TaskItemStock.CrossedOffByTheShelf;
+            if (!isTheShelfs && entry.IsResolved)
+            {
+                continue;
+            }
+
+            if (hasExpired)
+            {
+                if (!entry.IsFailed)
+                {
+                    entry.GiveUp();
+                    // Asked rather than assumed, the way the tick below is: a linked entry is answered by
+                    // the lists it stands for, and nothing here overrules them.
+                    if (entry.IsFailed && entry.Stock != TaskItemStock.Stocked)
+                    {
+                        entry.RecordStock(TaskItemStock.CrossedOffByTheShelf);
+                        moved = true;
+                    }
+                }
+
+                continue;
+            }
+
+            if (isCovered)
             {
                 entry.Complete();
-                // Asked rather than assumed: an entry standing for other lists is completed by them -
-                // see TaskItem.Complete. Marked as the shelf's doing only where it actually took, and
-                // only where nothing of the entry's own is on the shelf - a ticked entry that put its
-                // minimum there keeps saying so.
+                // Marked as the shelf's doing only where it actually took, and only where nothing of the
+                // entry's own is on the shelf - a ticked entry that put its minimum there keeps saying so.
                 if (entry.IsCompleted && entry.Stock == TaskItemStock.None)
                 {
                     entry.RecordStock(TaskItemStock.CrossedOffByTheShelf);
@@ -86,10 +123,10 @@ public sealed class StockedEntryCompletion
                 continue;
             }
 
-            // And back again: what the shelf crossed off, the shelf reopens once it no longer holds
-            // enough. Nothing else is touched - see the note at the top of this class about whose tick
-            // is whose.
-            if (!isCovered && entry.Stock == TaskItemStock.CrossedOffByTheShelf)
+            // And back again: what the shelf settled, the shelf unsettles once it no longer holds enough -
+            // or once the row that had expired has been replaced by one that has not. Nothing else is
+            // touched - see the note at the top of this class about whose tick is whose.
+            if (isTheShelfs)
             {
                 entry.Reopen();
                 entry.RecordStock(TaskItemStock.None);
@@ -101,13 +138,23 @@ public sealed class StockedEntryCompletion
     }
 
     /// <summary>
-    /// Every one of this reader's shelf rows that is asking for nothing, by id. All of their storages
-    /// rather than the one this list is measured against: an entry can be moved to another list, and the
-    /// row it points at then sits on a shelf that list has never been measured against.
+    /// Every one of this reader's shelf rows that is asking for nothing, and every one whose use-by date
+    /// has passed - by id, in one pass, because both answers come from the same rows and reading them
+    /// twice would double what a save costs.
+    ///
+    /// All of their storages rather than the one this list is measured against: an entry can be moved to
+    /// another list, and the row it points at then sits on a shelf that list has never been measured
+    /// against.
+    ///
+    /// A row can be in both sets - it holds enough of something that has gone off - and the caller reads
+    /// expiry first, which is what makes "there are four and none of them any good" answer the entry
+    /// honestly.
     /// </summary>
-    private async Task<HashSet<Guid>> CoveredShelfItemIdsAsync(Guid ownerUserId, CancellationToken cancellationToken)
+    private async Task<(HashSet<Guid> Covered, HashSet<Guid> Expired)> WhatTheShelvesSayAsync(
+        Guid ownerUserId, CancellationToken cancellationToken)
     {
         var covered = new HashSet<Guid>();
+        var expired = new HashSet<Guid>();
         foreach (var inventory in
             await _inventoryRepository.GetAllAsync(ownerUserId, updatedSinceUtc: null, cancellationToken))
         {
@@ -117,9 +164,14 @@ public sealed class StockedEntryCompletion
                 {
                     covered.Add(shelfItem.Id);
                 }
+
+                if (shelfItem.HasExpired)
+                {
+                    expired.Add(shelfItem.Id);
+                }
             }
         }
 
-        return covered;
+        return (covered, expired);
     }
 }

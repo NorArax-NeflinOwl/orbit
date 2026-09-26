@@ -97,6 +97,20 @@ public sealed class InventoryItem
     /// </summary>
     public bool BelongsOnTheRestockList => IsBelowMinimum || IsCheckedRegularly;
 
+    /// <summary>
+    /// Whether the use-by date on this row is behind us. Separate from <see cref="BelongsOnTheRestockList"/>
+    /// on purpose: a row can hold four of something and still hold nothing worth having, and the two are
+    /// answers to different questions - "should the list be asking for this" against "is what is here any
+    /// good". What reads it is StockedEntryCompletion, which crosses the entry standing for this row
+    /// <em>out</em> rather than off (asked for on 2026-09-24).
+    ///
+    /// <b>Good all through the day it names.</b> An expiry date is stored as the start of the day somebody
+    /// typed - the browser makes one out of a date box (InventoryEditor.ToExpiryOffset) - so a row marked
+    /// "use by the 26th" would read as expired at one minute past midnight on the 26th if the stored
+    /// moment were compared against now. It is the whole of that day being behind us that settles it.
+    /// </summary>
+    public bool HasExpired => ExpiryDate is { } useBy && useBy.AddDays(1) <= DateTimeOffset.UtcNow;
+
     private InventoryItem(
         Guid id, Guid inventoryId, string name, string productType, IReadOnlyList<string>? categories, decimal quantity,
         decimal? minimumQuantity,

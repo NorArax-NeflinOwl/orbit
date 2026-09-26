@@ -4083,6 +4083,21 @@ nothing whatever their count says - one with no minimum, which was left to the c
 marked to be looked at every round, where crossing off answers "have you looked"
 (`InventoryItem.BelongsOnTheRestockList`).
 
+**A row past its use-by date crosses the entry out rather than off** (2026-09-26, asked for on
+2026-09-24). Holding four of something is not the same as holding four of it that are any good, and until
+this the count alone settled it: a list asking for stock it already had, all of it months past its date,
+read as done. So an entry whose row has expired is **failed** — the cross beside the tick, finished with
+and not done (`TaskItem.GiveUp`, `IsFailed`) — and expiry beats holding enough, which is the whole point
+of it. Good all through the day it names: a date is stored as the start of that day, so it is the day
+being behind us that settles it (`InventoryItem.HasExpired`), not the moment it begins.
+
+The cross is the shelf's to take back, exactly as the tick is: putting a row in date ticks the entry off
+again, and letting the count drop reopens it as work. **Two things this deliberately does not do**, both
+written down in [Future Plan](future-plan.md#what-the-user-asked-for-on-2026-09-24): an expired row is not
+put on the restock list (expiry is no part of `BelongsOnTheRestockList`, and changing that would change
+what "covered" means), and the reader is told nothing about *why* the entry was crossed out — the state
+the shelf keeps about an entry is the server's own bookkeeping and no client is told it.
+
 **What the shelf crossed off, the shelf reopens** (2026-09-19). Counting a product back down past what
 the lists need puts that work in front of the reader again, the same way counting it up took it away -
 from either end: a save of the list, and a save of the shelf. **Only its own**: an entry crossed off
