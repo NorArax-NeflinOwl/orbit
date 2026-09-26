@@ -35,7 +35,12 @@
                  and twenty entries, and on a 2400px phone the last of them sat below the bottom edge
                  with nothing saying so (reported 2026-09-24). The cap that makes this scroll rather
                  than grow is set in the code-behind, from the height the overlay actually has. -->
-            <ScrollView x:Name="Entries" VerticalScrollBarVisibility="Default">
+            <!-- Start, not the Fill a ScrollView takes by default: filling makes the panel as tall as
+                 its cap rather than as tall as what is in it, so a menu of four entries was drawn as a
+                 box down the whole screen with the entries at the top of it. Seen on a device the day
+                 the note's tools became a menu of four; the menus that were already scrolled were long
+                 enough to hide it. -->
+            <ScrollView x:Name="Entries" VerticalOptions="Start" VerticalScrollBarVisibility="Default">
             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Groups}" Spacing="0">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="screens:ScreenMenuGroup">

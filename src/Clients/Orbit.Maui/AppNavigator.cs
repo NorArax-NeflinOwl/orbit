@@ -181,7 +181,7 @@ public sealed class AppNavigator : IScreenNavigator
 
 			var page = _services.GetRequiredService<TPage>();
 			prepare?.Invoke(page);
-			window.Page = page;
+			ArriveAt(window, page);
 
 			// Resolved here rather than taken in the constructor because ScreenHistory needs this class:
 			// asking for it up front is a cycle the container cannot build. Everything else this method
@@ -194,4 +194,55 @@ public sealed class AppNavigator : IScreenNavigator
 			// this is the one place mobile changes screens.
 			_services.GetRequiredService<NavigationBarViewModel>().CloseMenu();
 		});
+
+	/// <summary>
+	/// Puts the arriving screen on the window, and lets it settle rather than appear - asked for on
+	/// 2026-09-24, as "everything is at once; a light animation between screens".
+	///
+	/// The page's own <b>content</b> is what moves, never the page: every page paints Orbit's ground
+	/// (the implicit Page style in Styles.xaml), so fading the page itself would fade that ground too
+	/// and show whatever the platform window is painted with underneath - a flash of the wrong colour
+	/// between every two screens, which is worse than no animation at all. Fading the content leaves
+	/// the ground solid and moves only what is drawn on it.
+	///
+	/// A short rise with it, because a fade alone reads as a screen that was slow to draw rather than
+	/// as one arriving. 12 and 160ms: far enough to be a movement, short enough that somebody moving
+	/// quickly between screens never waits for it.
+	///
+	/// Nothing at all where the phone has been asked not to animate - see <see cref="Controls.Motion"/>,
+	/// which is the same switch Orbit's waiting indicator reads.
+	/// </summary>
+	private static void ArriveAt(Window window, Page page)
+	{
+		if (!Controls.Motion.IsWanted || page is not ContentPage { Content: { } content })
+		{
+			window.Page = page;
+			return;
+		}
+
+		content.Opacity = 0;
+		content.TranslationY = 12;
+		window.Page = page;
+		_ = SettleAsync(content);
+	}
+
+	/// <summary>
+	/// Whatever happens - another screen arriving over this one mid-flight, the page leaving the window
+	/// - the content must not be left half drawn or off its place, which is why both are put back in a
+	/// finally rather than at the end of the animation.
+	/// </summary>
+	private static async Task SettleAsync(View content)
+	{
+		try
+		{
+			await Task.WhenAll(
+				content.FadeToAsync(1, 160, Easing.CubicOut),
+				content.TranslateToAsync(0, 0, 160, Easing.CubicOut));
+		}
+		finally
+		{
+			content.Opacity = 1;
+			content.TranslationY = 0;
+		}
+	}
 }

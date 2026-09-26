@@ -129,7 +129,10 @@ flowchart LR
 because Orbit draws its own bar and a second set of platform chrome would have to be fought rather than
 used. What there *is* is a history: every navigation tells `ScreenHistory` how it arrived (a root
 clears, a drawer destination resets to the dashboard and itself, anything else pushes), and Android's
-own gesture pops it. This replaced `UpNavigation`, which answered back from a fixed map of parents -
+own gesture pops it. **The arriving page's content fades in and rises 12 over 160ms** since 2026-09-25
+(`ArriveAt`), which is the whole of the phone's screen transition; its *content*, because the page
+paints Orbit's ground and fading that would show the platform window through it. Nothing moves where
+the phone has been asked not to animate. This replaced `UpNavigation`, which answered back from a fixed map of parents -
 right while every editing screen had a rail saying "Back to notes", and wrong once that rail was taken
 away.
 

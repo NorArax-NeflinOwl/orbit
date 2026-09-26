@@ -768,7 +768,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 - ~~**The phone's separator tool is out of sight, with nothing to say it is there**~~ Done the same day,
   the first of the three ways out, as the user chose: the row's trailing edge fades into the page while
   there are tools past it, and stops fading once the row is scrolled to its end (`ToolRowFade`,
-  `NoteDetailPage.ShowWhatIsPastTheEdge`). Seen on the emulator both ways. As noticed: (2026-09-21, seen on
+  `NoteDetailPage.ShowWhatIsPastTheEdge`). Seen on the emulator both ways. **Overtaken on 2026-09-25**:
+  the row is four tools now and the separator is in the menu under the corner button, so on an ordinary
+  phone there is nothing past the edge to fade. The fade is kept for the width or the translation where
+  there still is. As noticed: (2026-09-21, seen on
   a Pixel 7 emulator at 1080 px). The note screen's tool row scrolls sideways and stops short of Save;
   its XAML comment counts on the last tool being cut off at the edge, which "says there is more to
   swipe to". On this width it is not: the row ends on the table tool drawn whole, and the separator sits
@@ -2865,8 +2868,17 @@ a line needed a reading it did not state, the reading is marked as such.
   is about 18 and the row is 44, so what answers it is the furniture's height rather than a count of
   lines. (Not to be confused with the keyboard inset, which is a different thing and was walked on
   2026-09-24 on a short note - see the entry above.)
-- **Too many icons in the note's formatting row.** The table goes under the tick-box button, which
-  becomes a menu for formatting and for putting elements in; the rest of the row moves in there too.
+- ~~**Too many icons in the note's formatting row.**~~ Done 2026-09-25
+  (`NoteDetailPage.ShowTheWritingTools`). Seven became four and a menu. What stayed in the row is what
+  somebody presses again and again while writing a line - undo, redo and the two indents - and what
+  moved under the corner button is what they reach for once: the tick box, the text style, the table
+  and the separator, in two groups (**This line**, **Put in**).
+
+  Two decisions worth knowing: the corner button is drawn as the "⋯" every other menu in the app is
+  opened by rather than keeping the tick box's own drawing, because a tick box that opens a menu is a
+  lie about what the press does; and it **stays washed in the accent while a checklist is being
+  written**, so the one tool that is a mode still says on the screen that it is on, which is what moving
+  it into a shut menu would otherwise have cost.
 - ~~**Checking for an update does not find the newest version.**~~ The app's half is fixed (2026-09-24):
   the Update screen **asked nobody**. It read the verdict startup happened to obtain
   (`RememberedDecisionAsync`), so a release published while the app was running - or one published while
@@ -2881,7 +2893,15 @@ a line needed a reading it did not state, the reading is marked as such.
   sets that env var; see `.github/workflows/android-release.yml`). And a **development build points at
   a local API**, where `appsettings.json` leaves `LatestVersion` empty on purpose, so an update is never
   offered there whatever is released - which is the likeliest reading of a phone that finds nothing.
-- **The title menu cannot be scrolled**, so a long one is cut off at the foot of the screen.
+- ~~**The title menu cannot be scrolled**, so a long one is cut off at the foot of the screen.~~ Done
+  2026-09-24: the panel's groups are in a `ScrollView` capped at the height the overlay actually has -
+  not the display's, since the bar, the ad strip and the system insets are all outside it.
+
+  **And a defect of its own found on a device the next day**: a `ScrollView` fills by default, so the
+  panel became as tall as its *cap* rather than as tall as what was in it, and a menu of four entries
+  was drawn as a box down the whole screen with the entries at the top. `VerticalOptions="Start"` makes
+  it wrap its content again. Seen both ways on the emulator. The scroll itself is not walked - it needs
+  a menu longer than the screen, and the notes' own (five groups, twenty entries) fits.
 - ~~**Still no Refresh** beside the account's name or on the navigation panel.~~ Done 2026-09-24: it is
   in the drawer's head, beside the word that says where the phone stands, because that word is what it
   changes. One press is all three things asked for, which is what a sync already is - it fetches what
@@ -2894,8 +2914,25 @@ a line needed a reading it did not state, the reading is marked as such.
   records itself in `SyncState` the way the timer's runs do, which it never did: the corner stayed on
   whatever it last said while Reconnect ran, so pressing it looked like a press that never registered,
   and a screen the reader was looking at was never told anything had arrived.
-- **Make the app feel smoother** - a light animation on an action, and between screens, rather than
-  everything arriving at once.
+- ~~**Make the app feel smoother** - a light animation on an action, and between screens.~~ The
+  **screens** half is done 2026-09-25 (`AppNavigator.ArriveAt`): an arriving screen's content fades in
+  and rises 12 over 160ms instead of appearing. Three things decided there:
+
+  - **The page's content moves, never the page.** Every page paints Orbit's ground (the implicit `Page`
+    style), so fading the page would fade that ground too and show whatever the platform window is
+    painted with underneath - a flash of the wrong colour between every two screens, which is worse
+    than no animation.
+  - **A rise with the fade**, because a fade alone reads as a screen that was slow to draw rather than
+    as one arriving.
+  - **Nothing at all where the phone has been asked not to animate** (`Motion.IsWanted`, the switch the
+    waiting indicator already reads).
+
+  Walked on the emulator to the extent a still can: six arrivals, each settling with its content back
+  at full opacity and in place, so nothing is left half drawn. **The motion itself was not caught** -
+  `screencap` is slower than 160ms - so how it *reads* is one press for the user to judge.
+
+  **The "animation on an action" half is not done** and is not one thing: it could mean a card
+  appearing, a row leaving, a tick settling, a panel opening. Worth naming a few before building any.
 - **A tile opens the wrong folder.** Going from folder A through a card opens the list of what is in
   folder B - the folder that screen was last left on.
 - **The title panel should say which folder is being read.** Public need not be named, being the

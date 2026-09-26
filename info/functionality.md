@@ -1794,7 +1794,16 @@ of a second one being made. Nothing is written until Save; leaving asks first wh
 be lost. Where it follows the browser's editor, it uses the same rules from `Orbit.Core/Notes` - the note
 is handed to them as a `SurfaceState` whose line 0 is the name:
 
-- **Undo and redo are two buttons beside the tick-box button** over the note's foot (a phone has no
+- **The tools are a row of four and a menu** (2026-09-25). The row over the note's foot carried seven
+  icons and was reported as too many, so what stayed in it is what somebody presses again and again
+  while writing a line - undo, redo and the two indents - and what moved into the menu is what they
+  reach for once: the tick box, the text style, a table and a separator. The way in is the button in the
+  bottom-left corner, which used to be the tick box itself and is now drawn as the "⋯" every other menu
+  in the app is opened by (`NoteDetailPage.ShowTheWritingTools`). Two groups, because it answers two
+  questions: **This line** (what it is) and **Put in** (what goes in the note beside the writing). The
+  tick box keeps its mark there and is first, being the one tool that is a *mode* - and the button that
+  opens the menu stays washed in the accent while that mode is on, so it still says so on the screen.
+- **Undo and redo are two buttons beside that one** over the note's foot (a phone has no
   Ctrl+Z), 44 across like it (`IconButton.TouchSize`; other icon buttons stay 30), dimmed while there is
   nothing to undo or redo (`CanUndo`/`CanRedo`), absent on a note that cannot be changed. The history is `NoteSurfaceHistory`, so steps are the browser's: characters typed one
   after another on one line join until a second's pause, a space, another line or another kind of edit;
@@ -1845,9 +1854,9 @@ is handed to them as a `SurfaceState` whose line 0 is the name:
   first line here as in the browser, so the words go into the name and the caret with them. Each press is
   one step of the history. Two things are the phone's own: the new line keeps the indentation of the one
   it came from (`keepsIndentation`, and `NoteSurfaceEdits.IndentationOf`, which the paste and the typed
-  `[]` read too), and the tick-box button in the corner still puts a box on every line it starts - it now
-  follows the line the caret is in, so the empty box that ended a list turns it off instead of boxing the
-  next line anyway.
+  `[]` read too), and the tick box (in the menu under the corner button since 2026-09-25) still puts one
+  on every line it starts - it follows the line the caret is in, so the empty box that ended a list turns
+  it off instead of boxing the next line anyway.
 - **Enter puts the caret at the start of the new line's words**, after the indentation it takes from the
   line above (`AddLineAfter` raises `CaretPlaced`; the page used to focus the new field without a column).
   Not while a note is being read in, so the line an empty note is given does not open the keyboard. A join
