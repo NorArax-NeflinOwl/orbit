@@ -1072,6 +1072,10 @@ public static class PolishTranslations
         ["A filter finds task lists by the tags on them. Choose one from the Tasks card's menu on the dashboard."] =
             "Filtr znajduje listy zadań po ich tagach. Wybierzesz go z menu karty Zadania na pulpicie.",
         ["No filters yet."] = "Nie ma jeszcze filtrów.",
+        // Said over the calendar while one of those filters is chosen there - a filter is made of the tags
+        // on task lists, so it narrows the deadlines and leaves the appointments alone. See Calendar.razor.
+        ["Only the deadlines of lists tagged \"{0}\". Appointments are all here."] =
+            "Tylko terminy list z tagami \"{0}\". Spotkania są wszystkie.",
         // The widest built-in folder is called "All" since 2026-09-24 and holds every folder's contents -
         // see Orbit.Core.Folders.BuiltInFolder.All. It goes by the "All" entry already in this file,
         // beside the ways a list can be arranged, rather than a second key saying the same word; the

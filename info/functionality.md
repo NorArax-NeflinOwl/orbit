@@ -501,6 +501,16 @@ offered beside the chosen one. Which filter the card shows is kept on the device
 filters themselves are the account's. The phone keeps a copy of them read again on every dashboard load
 (`TaskTagFilters.RefreshAsync`), so the menu works offline from what was last read.
 
+**And chosen on the calendar** since 2026-09-26 (asked for on 2026-09-24). Its own menu gains "Your
+filters", and a chosen one **narrows the deadlines and leaves the appointments alone**: a filter is made
+of the tags on task lists, and an appointment is on no list and carries none, so narrowing a calendar to
+"home or shopping" is asking which of the work owed falls in this week. It narrows the grid and the list
+beside it together, the way a folder tab does (`Calendar.DeadlinesToShow`), and the page **says on screen
+which filter is narrowing it** with the way back out beside it — the menu it was chosen in is shut by
+then, and a calendar quietly missing half its rows is one that looks broken. Its own answer, kept on the
+device separately from the Tasks card's (`DashboardCardPreferences.CalendarTagFilterId`): what somebody
+wants of their week is not what they want of a card on the dashboard.
+
 Not in the export archive: a filter is a view onto lists rather than something written, and the archive
 carries what somebody wrote.
 

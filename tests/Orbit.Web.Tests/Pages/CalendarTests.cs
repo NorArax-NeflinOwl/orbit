@@ -344,6 +344,41 @@ public sealed class CalendarTests : OrbitTestContext
         Assert.DoesNotContain("Send the", cut.Markup);
     }
 
+    /// <summary>
+    /// A chosen tag filter narrows the deadlines and leaves the appointments alone (asked for on
+    /// 2026-09-24). Not a shortcut: a filter is made of the tags on task lists, and an appointment is on
+    /// no list and carries none - see Calendar.DeadlinesToShow. And the page says on screen that it is
+    /// narrowed, the menu it was chosen in being shut by then.
+    /// </summary>
+    [Fact]
+    public void A_chosen_filter_narrows_the_deadlines_and_leaves_the_appointments()
+    {
+        var todayMorning = DateTime.SpecifyKind(DateTime.Today.AddHours(9), DateTimeKind.Local);
+        RegisterCalendarApiClient([CreateTimedEvent(todayMorning, todayMorning.AddHours(1), "Dentist")]);
+        var home = CreateTaskListWithDueItem(todayMorning, "Fix the shelf") with { Tags = ["home"] };
+        var work = CreateTaskListWithDueItem(todayMorning, "Send the report") with { Tags = ["work"] };
+        var filter = new TaskTagFilterDto(Guid.NewGuid(), ["home"], MatchesAll: false, DateTimeOffset.UtcNow);
+        RegisterTasksApiClient([home, work], [filter]);
+
+        var cut = RenderComponent<Calendar>();
+        Assert.Contains("Send the report", cut.Markup);
+
+        cut.Find(".overflow-menu-trigger").Click();
+        cut.FindAll(".overflow-menu-dropdown .avatar-dropdown-item")
+            .First(option => option.TextContent.Contains("home"))
+            .Click();
+
+        Assert.Contains("Fix the shelf", cut.Markup);
+        Assert.DoesNotContain("Send the report", cut.Markup);
+        // The appointment is untouched, and the page says which filter is narrowing it.
+        Assert.Contains("Dentist", cut.Markup);
+        Assert.Contains("Only the deadlines of lists tagged", cut.Markup);
+
+        cut.FindAll("button").First(button => button.TextContent.Trim() == "Show everything").Click();
+
+        Assert.Contains("Send the report", cut.Markup);
+    }
+
     /// <summary>The calendar draws no Private tab - an event is never sealed, see FolderPages.HasAPrivateTab.</summary>
     [Fact]
     public void The_calendar_offers_no_Private_tab()
@@ -478,9 +513,20 @@ public sealed class CalendarTests : OrbitTestContext
         Services.AddSingleton(new CalendarApiClient(httpClient));
     }
 
-    private void RegisterTasksApiClient(IReadOnlyList<TaskDto> taskLists)
+    /// <param name="tagFilters">
+    /// The filters the account made, which the calendar has read since 2026-09-26 to offer narrowing its
+    /// deadlines by them. Told apart from the lists by the address asked for: this stub answered every
+    /// read with the task lists, and the page then read a list as a filter with no words in it - a fake
+    /// answering something the server never would.
+    /// </param>
+    private void RegisterTasksApiClient(
+        IReadOnlyList<TaskDto> taskLists, IReadOnlyList<TaskTagFilterDto>? tagFilters = null)
     {
-        var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(taskLists))) { BaseAddress = new Uri("https://example.test/") };
+        var handler = new StubHttpMessageHandler(request =>
+            request.RequestUri!.AbsolutePath.Contains("/api/task-filters", StringComparison.Ordinal)
+                ? JsonResponse(tagFilters ?? [])
+                : JsonResponse(taskLists));
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
         Services.AddSingleton(new TasksApiClient(httpClient));
     }
 

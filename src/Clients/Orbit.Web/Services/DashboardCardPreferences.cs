@@ -48,6 +48,11 @@ public sealed class DashboardCardPreferences(IJSRuntime jsRuntime)
         _tasksTagFilterId = storedFilters.TryGetValue(TasksTagFilterKey, out var storedTagFilter) && Guid.TryParse(storedTagFilter, out var id)
             ? id
             : null;
+        _calendarTagFilterId =
+            storedFilters.TryGetValue(CalendarTagFilterKey, out var storedCalendarFilter)
+                && Guid.TryParse(storedCalendarFilter, out var calendarFilterId)
+                ? calendarFilterId
+                : null;
     }
 
     /// <summary>
@@ -68,6 +73,29 @@ public sealed class DashboardCardPreferences(IJSRuntime jsRuntime)
 
     /// <summary>Where <see cref="TasksTagFilterId"/> is stored among the filters - not a card key any card has.</summary>
     private const string TasksTagFilterKey = "tasks#tag-filter";
+
+    /// <summary>
+    /// Which of the account's tag filters the calendar is narrowed by, or null for none - asked for on
+    /// 2026-09-24 ("filtering by those filters ... on the calendar as well"), and its own answer rather
+    /// than the Tasks card's: what somebody wants to see of their week is not what they want of the card
+    /// on the dashboard, and one answer for both would move each time the other was chosen.
+    ///
+    /// Here rather than in a store of the calendar's own for the reason the folder visibility above is
+    /// here: this is where a choice about one page on one device is kept, and a second store would be a
+    /// second place to look for the same kind of answer.
+    /// </summary>
+    public Guid? CalendarTagFilterId => _calendarTagFilterId;
+
+    public async Task SetCalendarTagFilterAsync(Guid? filterId)
+    {
+        _calendarTagFilterId = filterId;
+        await WriteFiltersAsync();
+    }
+
+    private Guid? _calendarTagFilterId;
+
+    /// <inheritdoc cref="TasksTagFilterKey"/>
+    private const string CalendarTagFilterKey = "calendar#tag-filter";
 
     /// <summary>
     /// Whether a card is drawn under the folder tab that is open. **One answer per tab** since
@@ -157,6 +185,11 @@ public sealed class DashboardCardPreferences(IJSRuntime jsRuntime)
         if (_tasksTagFilterId is { } tagFilterId)
         {
             stored[TasksTagFilterKey] = tagFilterId.ToString();
+        }
+
+        if (_calendarTagFilterId is { } calendarFilterId)
+        {
+            stored[CalendarTagFilterKey] = calendarFilterId.ToString();
         }
 
         await using var module = await ImportModuleAsync();

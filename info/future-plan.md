@@ -2915,7 +2915,25 @@ a line needed a reading it did not state, the reading is marked as such.
   is the same change and settles what this one should do.
 - **A filter of one's own on the dashboard**, choosing what it draws. It works the way the task list's
   tags do.
-- **Filtering by those filters and by folders on the calendar** as well.
+- ~~**Filtering by those filters and by folders on the calendar** as well.~~ Done 2026-09-26, and the two
+  halves were not in the same state: **by folders** the calendar has done since 2026-09-15, tabs and all.
+  What was missing was the filters, and they are on the calendar's own menu now.
+
+  **A filter narrows the deadlines and leaves the appointments alone**, which is not a shortcut: a filter
+  is made of the tags on task lists (`TaskTagFilter`), and an appointment is on no list and carries no
+  tags. Narrowing a calendar to "home or shopping" is asking which of the work owed falls in this week; an
+  appointment answering that would have had to be guessed at. It narrows the grid and the list beside it
+  together, the way a tab does, and the page **says on screen** which filter is narrowing it with the way
+  out beside it - the menu is shut by then, and a calendar quietly missing half its rows looks broken.
+
+  Its own stored answer (`DashboardCardPreferences.CalendarTagFilterId`) rather than the Tasks card's: one
+  answer for both would move each time the other was chosen.
+
+  **Found doing it**: `CalendarTests`' task stub answered *every* read with the task lists, so the page
+  read a list as a filter with no words in it and threw where a real server could not have. The stub tells
+  the two addresses apart now - a double that answers something the server never would makes a correct page
+  look broken - and the page leaves out a filter that arrives with no tags rather than drawing a nameless
+  menu entry.
 - ~~**A gram is not half a gram.**~~ Done 2026-09-24 (`InventoryAmountStep`): a row measured in the
   small units moves by fifty, everything else by half, and the two buttons say the number rather than a
   half they no longer all move by. **Millilitres went in with milligrams** although only grams were
