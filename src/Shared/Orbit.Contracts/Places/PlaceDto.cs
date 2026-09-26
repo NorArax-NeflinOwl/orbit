@@ -47,6 +47,11 @@ namespace Orbit.Contracts.Places;
 /// Whether its owner has put it away - see Orbit.Core.Places.Place.IsArchived. Readable on a sealed
 /// place, like the two above: it says whether its owner is still using it, not where it is.
 /// </param>
+/// <param name="FolderId">
+/// The folder its owner filed it under, or null for one filed nowhere - which is a built-in folder
+/// rather than none at all (Orbit.Core.Folders.BuiltInFolder). Null for anybody reading it through a
+/// share, like a note's: a folder is where its owner keeps their own things.
+/// </param>
 public sealed record PlaceDto(
     Guid Id,
     string Name,
@@ -65,4 +70,5 @@ public sealed record PlaceDto(
     bool IsPrivate = false,
     EncryptedContentDto? EncryptedContent = null,
     Guid? SourceTaskItemId = null,
-    bool IsArchived = false);
+    bool IsArchived = false,
+    Guid? FolderId = null);

@@ -19,7 +19,10 @@ public enum FolderPage
     Calendar,
 
     /// <summary>The inventories, whose shelves are filed the same way.</summary>
-    Inventories
+    Inventories,
+
+    /// <summary>The map, whose places are filed the same way - added 2026-09-26.</summary>
+    Map
 }
 
 /// <summary>
@@ -43,6 +46,7 @@ public static class FolderPages
         FolderPage.Tasks => [FolderScope.Tasks],
         FolderPage.Calendar => [FolderScope.Calendar],
         FolderPage.Inventories => [FolderScope.Inventories],
+        FolderPage.Map => [FolderScope.Places],
         _ => [FolderScope.Notes, FolderScope.Tasks, FolderScope.Inventories]
     };
 
@@ -73,11 +77,25 @@ public static class FolderPages
     public static bool HasAFinishedTab(this FolderPage page) => page == FolderPage.Tasks;
 
     /// <summary>
-    /// Whether sealed things gather under a tab of their own here. Everywhere but the calendar: an event
-    /// cannot be sealed at all - it is one of the four kinds Orbit does not offer that for - so the tab
-    /// there could only ever read zero, which is the same reason the notes have no Finished tab.
+    /// Whether sealed things gather under a tab of their own here. Everywhere but the calendar and the
+    /// map, which answer no from opposite ends:
+    ///
+    /// <list type="bullet">
+    ///   <item>an <b>event</b> cannot be sealed at all - it is one of the kinds Orbit does not offer that
+    ///     for - so the tab could only ever read zero, which is the same reason the notes have no
+    ///     Finished tab;</item>
+    ///   <item>a <b>place</b> is sealed unless its owner says otherwise (see Orbit.Core.Places.Place),
+    ///     so the tab would hold nearly every place and All nearly none. It would be answering "is this
+    ///     a place" rather than "is this private", and it would have hidden most of the map behind a
+    ///     second tab the day folders arrived there.</item>
+    /// </list>
+    ///
+    /// A page without the tab passes isPrivate false to FolderPlacement, the way the calendar already
+    /// did: a sealed place is then placed by its folder like any other, rather than under a tab this
+    /// page does not draw.
     /// </summary>
-    public static bool HasAPrivateTab(this FolderPage page) => page != FolderPage.Calendar;
+    public static bool HasAPrivateTab(this FolderPage page)
+        => page is not (FolderPage.Calendar or FolderPage.Map);
 
     /// <summary>
     /// Whether things put away gather under a tab of their own here. Everywhere but the dashboard,
@@ -85,10 +103,16 @@ public static class FolderPages
     /// that, and a tab offering to fill the whole dashboard with them is a way of ending up there by
     /// accident (asked for on 2026-09-18).
     ///
+    /// And not on the map either, which had a page of its own for the archive before it had folders
+    /// (MapArchive, and the map's own menu is where it is reached from). A tab would be a second answer
+    /// to the same question, and the map never reads an archived place at all - so the tab would read
+    /// zero whatever was in the archive.
+    ///
     /// Unlike the Finished tab, dropping this one does <em>not</em> change where anything is placed -
     /// see FolderPlacement, which still answers Archived for something put away. So an archived note is
     /// in a folder the dashboard draws no tab for, and is simply not on the dashboard, which is the
     /// point: it is still in the archive, and its own page is still where it is found again.
     /// </summary>
-    public static bool HasAnArchivedTab(this FolderPage page) => page != FolderPage.Dashboard;
+    public static bool HasAnArchivedTab(this FolderPage page)
+        => page is not (FolderPage.Dashboard or FolderPage.Map);
 }

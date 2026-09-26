@@ -730,12 +730,33 @@ longer makes it leave the screen it was filed from**, so a round of presses over
 says so by forgetting what was chosen (`PickedThings.Forget`) - before, the count emptied itself because
 the cards went away, and without this a press over five cards changed nothing a reader could see.
 
-**All four kinds are filed**: notes, task lists, calendar events and inventories. The events and the
-shelves gained it on 2026-09-15, which **reverses a decision of 2026-09-09** that an event would never
-be filed because it is found by when it happens. What was kept from that reasoning is where the tabs are
-*not*: a calendar tab narrows the grid and the list beside it together, and the dashboard draws no
-calendar tabs at all, because what it says about the calendar is what is on today and what is coming -
-which answers *when* rather than *which*.
+**All five kinds are filed**: notes, task lists, calendar events, inventories and - since 2026-09-26 -
+places. The events and the shelves gained it on 2026-09-15, which **reverses a decision of 2026-09-09**
+that an event would never be filed because it is found by when it happens. What was kept from that
+reasoning is where the tabs are *not*: a calendar tab narrows the grid and the list beside it together,
+and the dashboard draws no calendar tabs at all, because what it says about the calendar is what is on
+today and what is coming - which answers *when* rather than *which*.
+
+**The map's folders** (`FolderScope.Places`, `FolderPage.Map`, `OP_P_FOLDERID`) are the last of the five,
+asked for with the Setup page. Three things about them are the map's own:
+
+- **The row narrows the panel and the pins together.** A folder tab is a way of looking at the map, and
+  a list narrowed beside a map that still draws everything would be two answers to one press
+  (`MapPage.PlacesUnderTheOpenTab`).
+- **There is no Private tab**, although a place can be sealed and nearly every one is (see
+  [Places](#the-map-and-the-location-behind-it) - sealed unless its owner says otherwise). A tab holding
+  nearly every place would answer "is this a place" rather than "is this private", and would have hidden
+  most of the map behind a second press the day folders arrived. So a sealed place is placed by its
+  folder like any other (`FolderPages.HasAPrivateTab`).
+- **There is no Archived tab either**: the map had a page of its own for the archive first, reached from
+  the page's menu, and the map never reads a place that is put away at all - so the tab would read zero
+  whatever the archive held.
+
+**Filing a sealed place needs no key.** The folder id is stored beside the ciphertext rather than inside
+it, like the archive flag: it names a folder of the owner's own, which the server already holds under
+their name, and says nothing about where the place is. The folder is chosen on the place's own form
+(`PlaceForm`) and sent as its own request afterwards (`PUT /api/places/{id}/folder`), because saving a
+place means sealing it again and filing one is not a change to what it says.
 
 **Several cards can be chosen and acted on together** (2026-09-16, the browser's four list pages -
 `PickedThings`, `PickedThingsBar`). **Choosing is a mode**, entered by a "Select" press in the header
@@ -2508,8 +2529,10 @@ list at once; what it belongs to is left alone, so a place brought back is on th
 followed since 2026-09-18 — see *Delete goes out of the app*.
 
 The archive is **a page of its own**, `/map/archive`, reached from the map's own menu beside "Show
-places already past": the map has no folder tabs, because a place is not filed the way the four kinds
-of card are, and an archive drawn among the pins would be the opposite of putting something away. Each
+places already past": an archive drawn among the pins would be the opposite of putting something away.
+It stayed a page when the map gained folder tabs on 2026-09-26, and the map draws no Archived tab for the
+same reason - one question with two answers is one too many, and the map never reads a place that is put
+away at all. Each
 row offers **Put back** and **Delete**, and Delete asks first and says it cannot be undone. Taking
 somebody else's shared place off this map stays where it was, on the place's own row: it destroys
 nothing — the owner keeps it — so it needs no archive first.

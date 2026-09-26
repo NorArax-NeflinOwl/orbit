@@ -1109,6 +1109,10 @@ public static class PolishTranslations
         // rather than the place it goes instead of the default one.
         ["A folder is somewhere else to find it: it is in All either way, or in Private when it is sealed."] =
             "Folder to drugie miejsce, w którym to znajdziesz - we Wszystkich jest tak czy inaczej, a jeśli jest zaszyfrowane - w Prywatnych.",
+        // A place is on the map whatever folder it is in, which is what its own hint says instead of
+        // naming a tab - see FolderPage.Map.
+        ["A folder is somewhere else to find it: it is on the map either way."] =
+            "Folder to drugie miejsce, w którym to znajdziesz - na mapie jest tak czy inaczej.",
         // An event is never sealed, so the calendar has no Private tab to send it to - see
         // FolderPages.HasAPrivateTab.
         ["A folder is somewhere else to find it: it is in All either way."] =

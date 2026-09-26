@@ -2931,6 +2931,18 @@ a line needed a reading it did not state, the reading is marked as such.
   one - the list should open into its pieces, each with its own date to edit.
 - **A Setup page**, and filters are made there rather than where they are now. It also holds the
   folders: made, renamed and given a visibility per notes, tasks, events, inventories and the map.
+
+  **The map's half is done, 2026-09-26** - it was the one kind of thing with no folders at all, so the
+  page had nothing to offer for it. A place carries a folder now (`OP_P_FOLDERID`, readable rather than
+  sealed, so a sealed place - which most are - can be filed without the server holding a key), filed from
+  its own form through `PUT /api/places/{id}/folder`, and the map draws the tab row every other page made
+  of cards draws. Two built-in tabs are deliberately missing there and `FolderPages` says why: **Private**,
+  because nearly every place is sealed and the tab would hold nearly all of them, and **Archived**,
+  because the map has had a page of its own for that since before it had folders.
+
+  **Still open**: the page itself, the filters moving onto it, and the per-kind visibility. The dashboard
+  draws no tab for a places folder either - it has a "Places you keep" card and no folder question about
+  it - which is a decision for whoever builds the page.
 - ~~**Opening a private note says nothing about making a PIN.**~~ Done 2026-09-24: `BehindThePin` says
   it over whatever is sealed while the account has no PIN at all, with the link to Options. There
   rather than on the note's own page, because it is the one place that knows both halves - and a shelf

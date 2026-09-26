@@ -16,6 +16,7 @@ using Orbit.Core.Places.DuplicatePlace;
 using Orbit.Core.Places.GetPlaceById;
 using Orbit.Core.Places.GetPlaceShareStatus;
 using Orbit.Core.Places.GetPlaces;
+using Orbit.Core.Places.MovePlaceToFolder;
 using Orbit.Core.Places.SharePlace;
 using Orbit.Core.Places.UpdatePlace;
 using Orbit.Contracts.Sharing;
@@ -151,6 +152,18 @@ public static class PlaceEndpoints
             return archived ? Results.NoContent() : Results.NotFound();
         });
 
+        // Filing one under a folder, or under none - see MovePlaceToFolderCommand. Its own endpoint for
+        // the reason the archive above is one, and NotFound covers both refusals it can give: not the
+        // caller's place, and not the caller's folder. The same shape the calendar's filing takes.
+        places.MapPut("/{id:guid}/folder", async (
+            Guid id, MoveToFolderRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var filed = await dispatcher.SendAsync(
+                new MovePlaceToFolderCommand(GetUserId(user), id, request.FolderId), cancellationToken);
+            return filed ? Results.NoContent() : Results.NotFound();
+        });
+
         places.MapDelete("/{id:guid}", async (
             Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
@@ -184,7 +197,11 @@ public static class PlaceEndpoints
             // told null for every place makes a second one on every save and never tidies an old one
             // away. It was stored and never sent. Found on 2026-09-19.
             place.SourceTaskItemId,
-            place.IsArchived);
+            place.IsArchived,
+            // Never the owner's filing: a folder is where they keep their own things, and the recipient
+            // of a shared place files it on their own map or nowhere - the same rule the calendar's
+            // events travel under.
+            place.IsShared ? null : place.FolderId);
 
     private static EventLocation ToDomain(EventLocationDto where)
         => new(where.Address, where.Latitude, where.Longitude);

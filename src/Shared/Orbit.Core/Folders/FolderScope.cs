@@ -26,5 +26,15 @@ public enum FolderScope
     Calendar,
 
     /// <summary>A tab on the inventories, holding shelves.</summary>
-    Inventories
+    Inventories,
+
+    /// <summary>
+    /// A tab on the map, holding places - added 2026-09-26, the fifth and last kind that can be filed,
+    /// asked for with the Setup page ("folders per notes, tasks, events, inventories and the map").
+    ///
+    /// Named for the thing rather than the page, unlike the four above: the page is the map, and what is
+    /// filed into a folder is a place. A tab called "Holiday" holds places, and a map is only where they
+    /// are drawn.
+    /// </summary>
+    Places
 }

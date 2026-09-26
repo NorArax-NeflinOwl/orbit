@@ -190,11 +190,15 @@ anywhere but Private and Archived (`FolderKey.Holds`), which is stored nowhere e
 **Only Archived is stored**, one boolean on each of the four kinds
 (`OP_N_ISARCHIVED`/`OP_T_ISARCHIVED`/`OP_E_ISARCHIVED`/`OP_I_ISARCHIVED`, added 2026-09-15, false for
 everything already there), because nothing else about a row could say it. A place carries the same
-column (`OP_P_ISARCHIVED`, added 2026-09-19) without being filed in folders at all: the map has no
-tabs, and its archive is a page of its own. Nothing about the other three
+column (`OP_P_ISARCHIVED`, added 2026-09-19) and its archive is still a page of its own rather than a
+tab. Nothing about the other three
 is, which is why folders arrived without a backfill and why
-`OP_N_FOLDERID`/`OP_T_FOLDERID`/`OP_E_FOLDERID`/`OP_I_FOLDERID` are nullable rather than defaulted - and
-why the two scopes added on 2026-09-15 needed no migration of their own, the scope being stored by name.
+`OP_N_FOLDERID`/`OP_T_FOLDERID`/`OP_E_FOLDERID`/`OP_I_FOLDERID`/`OP_P_FOLDERID` are nullable rather than
+defaulted - and why the scopes added on 2026-09-15 and 2026-09-26 needed no migration of their own, the
+scope being stored by name. **A place has been filed since 2026-09-26** (`OP_P_FOLDERID`,
+`PlacesAreFiledInFolders`), the fifth and last kind: the column is readable rather than sealed, like the
+archive flag beside it, so a sealed place - which most are - can be filed and found under a tab without
+the server holding a key.
 The folder column and the archived column are independent: putting something away leaves its folder id
 alone, so bringing it back puts it under the tab it was under. There is no foreign-key cascade either: `FolderRepository.DeleteAsync`
 empties the folder first (all four columns back to null) and then removes the row, so deleting a tab can
@@ -330,6 +334,7 @@ erDiagram
         text OP_P_PRIORITY "ItemPriority by name"
         uuid OP_P_SOURCETASKITEMID "the Location entry that made it, or null - readable, no FK"
         boolean OP_P_ISARCHIVED "put away by its owner - readable even when sealed"
+        uuid OP_P_FOLDERID "the folder its owner filed it under, or null - readable even when sealed"
     }
     OL_PLACES_TASKS {
         uuid OL_PT_PLACEID PK

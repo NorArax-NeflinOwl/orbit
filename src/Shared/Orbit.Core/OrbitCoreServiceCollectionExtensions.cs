@@ -95,6 +95,7 @@ using Orbit.Core.Places.DuplicatePlace;
 using Orbit.Core.Places.GetPlaceById;
 using Orbit.Core.Places.GetPlaceShareStatus;
 using Orbit.Core.Places.GetPlaces;
+using Orbit.Core.Places.MovePlaceToFolder;
 using Orbit.Core.Places.SharePlace;
 using Orbit.Core.Places.UpdatePlace;
 using Orbit.Core.Notes.ReleaseNoteLock;
@@ -240,6 +241,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<UpdatePlaceCommand, bool>, UpdatePlaceCommandHandler>();
         services.AddScoped<IRequestHandler<DeletePlaceCommand, bool>, DeletePlaceCommandHandler>();
         services.AddScoped<IRequestHandler<ArchivePlaceCommand, bool>, ArchivePlaceCommandHandler>();
+        services.AddScoped<IRequestHandler<MovePlaceToFolderCommand, bool>, MovePlaceToFolderCommandHandler>();
         services.AddScoped<IRequestHandler<DuplicatePlaceCommand, Guid?>, DuplicatePlaceCommandHandler>();
         services.AddScoped<IRequestHandler<GetPlacesQuery, IReadOnlyList<Place>>, GetPlacesQueryHandler>();
         services.AddScoped<IRequestHandler<GetPlaceByIdQuery, Place?>, GetPlaceByIdQueryHandler>();
