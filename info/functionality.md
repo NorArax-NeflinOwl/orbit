@@ -481,10 +481,14 @@ than one or more than twenty tags are refused, the tags are tidied as a list's o
 with the account. Readable on the server for the same reason the colours are, and with the same
 consequence: a filter made of a tag used only on private lists names that tag in the clear.
 
-**Made on the tasks page.** In the browser, "Create filter" stands in the header ahead of the folder button
-and opens `TagFilterDialog`: "And" at the top with a line saying what the filter will find, every tag on
-the account's lists as a checklist (whatever folder they are in), a box that adds a new word ticked, and
-Save and Cancel as icons at the foot. On the phone the same panel (`TagFilterForm`, `TagFilterSheet`) is
+**Made on the Setup page** since 2026-09-26 (asked for on 2026-09-24 - it used to be "Create filter" in the
+tasks page's own header). In the browser it is a section of `/setup` beside the folders: every filter the
+account has, each shown by the words it looks for and by **how many lists it finds** - so one that finds
+nothing says so where it was made rather than on the card it is chosen from - a Delete beside each, and
+"Create filter", which opens the same `TagFilterDialog`: "And" at the top with a line saying what the
+filter will find, every tag on the account's lists as a checklist (whatever folder they are in), a box
+that adds a new word ticked, and Save and Cancel as icons at the foot. The tags are still read off the
+lists; what moved is where the making happens. On the phone the same panel (`TagFilterForm`, `TagFilterSheet`) is
 "Create filter" under a "Dashboard" heading in the tasks screen's menu; making one needs a connection and
 says so without one, the way sharing does.
 
@@ -757,6 +761,34 @@ it, like the archive flag: it names a folder of the owner's own, which the serve
 their name, and says nothing about where the place is. The folder is chosen on the place's own form
 (`PlaceForm`) and sent as its own request afterwards (`PUT /api/places/{id}/folder`), because saving a
 place means sealing it again and filing one is not a change to what it says.
+
+### The Setup page
+
+**`/setup`** (2026-09-26, asked for on 2026-09-24, `Setup.razor`, reached from the avatar menu beside
+Options) is where the things a reader arranges Orbit *with* are made, rather than on whichever page
+happens to draw them. Two sections:
+
+- **The folders**, one card per kind - notes, task lists, calendar, inventories and the map, the map's
+  only for an account that may use it at all. Each folder shows its name, **how many things are filed
+  under it**, Rename in place, and Delete; a box at the foot of each card makes a new one, given the
+  scope of the card it was typed in. On the three kinds the dashboard draws tabs for, each folder also
+  carries **"Show on the dashboard"** - the one visibility a folder has, kept on the device (see *Hide on
+  the dashboard*). The calendar's and the map's folders have no such tick, the dashboard drawing no tabs
+  for either.
+- **The filters** - see *Made on the Setup page* above.
+
+**Why a page at all**, when every tab row already has a plus and a rename: a folder is made where it will
+be used, which is right while there is one kind of them and wrong once there are five. "Where do I rename
+the one I made last month" had five answers, three of them a menu on a tab. The tab rows keep their own
+plus and rename, because making a folder *while filing something into it* is a different act from tidying
+them all up.
+
+**It is the only page that can say whether a folder is empty**, having read all five kinds: Delete is
+greyed for a folder still holding something, and says to move what is in it somewhere else first - the
+rule the tab rows have followed since 2026-09-20, now with the count that explains it. A kind the page
+could not read costs that kind's counts and nothing else; the folders themselves are already in hand, and
+a page that refused to draw because the calendar was unreachable would be a page nobody could rename a
+note folder on.
 
 **Several cards can be chosen and acted on together** (2026-09-16, the browser's four list pages -
 `PickedThings`, `PickedThingsBar`). **Choosing is a mode**, entered by a "Select" press in the header

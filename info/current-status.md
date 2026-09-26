@@ -58,13 +58,15 @@ it names.
 
 Each area also has its own page: `/notes`, `/tasks`, `/calendar`, `/inventory` (inventories and their
 contents), `/contacts` (user search and existing conversations), `/map` (the one location you've
-recorded for yourself), and `/options`. Notes, task lists, calendar events, and inventories can each be
-shared with another user through an offer/accept flow carried over encrypted chat, or marked private
-so they can't be shared at all.
+recorded for yourself, and the places you keep), `/setup` and `/options`. Notes, task lists, calendar
+events, and inventories can each be shared with another user through an offer/accept flow carried over
+encrypted chat, or marked private so they can't be shared at all.
 
-`/options` covers the account itself — display name, username, email address and its verification,
-password, connecting or disconnecting Google, and deleting the account outright — alongside the theme
-picker and notification preferences.
+`/setup` is where the folders of all five kinds — notes, task lists, calendar, inventories and the map —
+are made, renamed, deleted and kept off the dashboard, alongside the tag filters for the dashboard's
+Tasks card. `/options` covers the account itself — display name, username, email address and its
+verification, password, connecting or disconnecting Google, and deleting the account outright — alongside
+the theme picker and notification preferences.
 
 Notifications arrive three ways: browser push (even while Orbit is closed), an in-app feed with an
 unread badge, and a short banner while the app is open. All three are configurable per account, and

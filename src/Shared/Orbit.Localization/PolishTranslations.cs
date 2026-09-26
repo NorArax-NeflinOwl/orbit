@@ -1057,6 +1057,21 @@ public static class PolishTranslations
         ["To keep what is in here, ask them to share the folder with you in Orbit."] =
             "Żeby zachować to, co tu jest, poproś o udostępnienie folderu w Orbicie.",
         ["Folder name"] = "Nazwa folderu",
+        // The page the folders and the filters are made on - see Orbit.Web's Setup.razor, asked for on
+        // 2026-09-24. "Ustawienia" is taken by Options, so this is the other word for the same idea:
+        // arranging Orbit rather than setting the account up.
+        ["Setup"] = "Organizacja",
+        ["Orbit — Setup"] = "Orbit — Organizacja",
+        ["Your folders and your filters, all in one place."] = "Twoje foldery i filtry w jednym miejscu.",
+        ["A folder is a tab on the page its things are read on. Three folders are always there and are not made here: All, Private and Archived."] =
+            "Folder to zakładka na stronie, na której czyta się to, co w nim jest. Trzy foldery są zawsze i nie robi się ich tutaj: Wszystkie, Prywatne i Zarchiwizowane.",
+        ["No folders here yet."] = "Nie ma tu jeszcze folderów.",
+        // "New folder" and "Rename" the Setup page shares with the tab row below, which asks the same two
+        // things of the same kind of thing.
+        ["Filters"] = "Filtry",
+        ["A filter finds task lists by the tags on them. Choose one from the Tasks card's menu on the dashboard."] =
+            "Filtr znajduje listy zadań po ich tagach. Wybierzesz go z menu karty Zadania na pulpicie.",
+        ["No filters yet."] = "Nie ma jeszcze filtrów.",
         // The widest built-in folder is called "All" since 2026-09-24 and holds every folder's contents -
         // see Orbit.Core.Folders.BuiltInFolder.All. It goes by the "All" entry already in this file,
         // beside the ways a list can be arranged, rather than a second key saying the same word; the

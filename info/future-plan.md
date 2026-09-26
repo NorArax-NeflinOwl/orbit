@@ -2929,20 +2929,38 @@ a line needed a reading it did not state, the reading is marked as such.
   without anybody asking.
 - **A use-by date per piece.** Where a row holds more than one piece or package - other units count as
   one - the list should open into its pieces, each with its own date to edit.
-- **A Setup page**, and filters are made there rather than where they are now. It also holds the
-  folders: made, renamed and given a visibility per notes, tasks, events, inventories and the map.
+- ~~**A Setup page**, and filters are made there rather than where they are now. It also holds the
+  folders: made, renamed and given a visibility per notes, tasks, events, inventories and the map.~~ Done
+  2026-09-26 (`/setup`, `Setup.razor`, reached from the avatar menu beside Options), in three parts:
 
-  **The map's half is done, 2026-09-26** - it was the one kind of thing with no folders at all, so the
-  page had nothing to offer for it. A place carries a folder now (`OP_P_FOLDERID`, readable rather than
-  sealed, so a sealed place - which most are - can be filed without the server holding a key), filed from
-  its own form through `PUT /api/places/{id}/folder`, and the map draws the tab row every other page made
-  of cards draws. Two built-in tabs are deliberately missing there and `FolderPages` says why: **Private**,
-  because nearly every place is sealed and the tab would hold nearly all of them, and **Archived**,
-  because the map has had a page of its own for that since before it had folders.
+  **The map first**, it being the one kind of thing with no folders at all - the page would have had
+  nothing to offer for it. A place carries a folder now (`OP_P_FOLDERID`, readable rather than sealed, so
+  a sealed place - which most are - can be filed without the server holding a key), filed from its own
+  form through `PUT /api/places/{id}/folder`, and the map draws the tab row every other page made of cards
+  draws. Two built-in tabs are deliberately missing there and `FolderPages` says why: **Private**, because
+  nearly every place is sealed and the tab would hold nearly all of them, and **Archived**, because the map
+  has had a page of its own for that since before it had folders.
 
-  **Still open**: the page itself, the filters moving onto it, and the per-kind visibility. The dashboard
-  draws no tab for a places folder either - it has a "Places you keep" card and no folder question about
-  it - which is a decision for whoever builds the page.
+  **The phone does not file a place yet.** `FolderScope.Places` and the column are shared, so nothing has
+  to change for it to; what is missing is the phone's own half - `LocalPlace` has no folder, and
+  `FolderSynchronizer` pushes folders ahead of the four kinds that can be filed rather than five (see
+  `info/uml/flows.md`). The Setup page is the browser's, as this whole list's second half is.
+
+  **Then the page**: one card per kind, each folder with its name, how much is filed under it, Rename in
+  place and Delete. The count is the thing only this page can work out - it reads all five kinds, so it can
+  hold to the rule of 2026-09-20 that only an empty folder goes, and grey the button with a reason rather
+  than a refusal. A kind it cannot read costs that kind's counts and nothing else.
+
+  **Then the filters**, off the tasks page's header and into a section of their own, each shown by the words
+  it looks for and by how many lists it finds - so a filter that finds nothing says so where it was made.
+
+  **What "a visibility" turned out to be**: the one a folder has, which is whether its tab is drawn on the
+  dashboard (`DashboardCardPreferences.IsFolderShown`, kept on the device), offered on this page for the
+  three kinds the dashboard draws tabs for at all. The **wider reading is not built** - a folder visible
+  for several kinds at once, so that "Home" on the lists and "Home" on the shelves stop being two folders -
+  and it is a change to `FolderScope` rather than to a page: a folder would carry a set of kinds instead of
+  one. The dashboard also draws no tab for a places folder (it has a "Places you keep" card and asks no
+  folder question about it), which is the same decision seen from the other end.
 - ~~**Opening a private note says nothing about making a PIN.**~~ Done 2026-09-24: `BehindThePin` says
   it over whatever is sealed while the account has no PIN at all, with the link to Options. There
   rather than on the note's own page, because it is the one place that knows both halves - and a shelf

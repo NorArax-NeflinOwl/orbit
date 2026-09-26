@@ -204,6 +204,15 @@
                                     </a>
                                 }
                             }
+                            @* Where the folders and the filters are made - see Setup.razor. Beside
+                               Options rather than among the sections above it: it is about how Orbit is
+                               arranged rather than about one kind of thing. *@
+                            <a class="avatar-dropdown-item" href="/setup">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20"
+                                     fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"
+                                     stroke-linejoin="round" aria-hidden="true"><path d="M3 6h9" /><path d="M15 6h2" /><circle cx="13.5" cy="6" r="1.6" /><path d="M3 14h5" /><path d="M11 14h6" /><circle cx="9.5" cy="14" r="1.6" /></svg>
+                                @T["Setup"]
+                            </a>
                             <a class="avatar-dropdown-item" href="/options">
                                 <GearIcon Size="16" />
                                 @T["Options"]
